@@ -1,0 +1,435 @@
+<!doctype html>
+<meta charset="utf-8">
+<body style="margin:0;background:#888">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+// Sticker renderer: each sticker is a little scene (sloths, her, a branch),
+// rendered once on a transparent background; post.py adds the white outline.
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "./fur.js";
+
+async function glb(url) {
+  const txt = (await (await fetch(url)).text()).trim();
+  const bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
+  return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
+}
+const [girl, sloth, beard] = await Promise.all([glb("models/ponytail.txt"), glb("models/sloth.txt"), glb("models/bearded.txt")]);
+const SIZE = +new URLSearchParams(location.search).get("size") || 1024;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(SIZE, SIZE);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.append(renderer.domElement);
+const BRANCH = { y: 0.10, z0: 0.0, z1: 0.20 };
+const toThree = ([x, y, z]) => new THREE.Vector3(x, z, -y);
+const V = () => new THREE.Vector3();
+const rad = THREE.MathUtils.degToRad;
+
+// Animated stickers: ANIM = { T: seconds into the loop, L: loop length }. Every
+// clip in a scene plays a whole number of its loops in L, so the sticker loops
+// without a jump; with ANIM null a scene is posed still at its own times.
+let ANIM = null;
+const used = [];
+function clipTime(clip, t) {
+  used.push(clip.duration);
+  if (!ANIM || !ANIM.L) return t;
+  const n = Math.max(1, Math.round(ANIM.L / clip.duration));
+  return t + ANIM.T * n * clip.duration / ANIM.L;
+}
+const phase = () => (ANIM && ANIM.L ? ANIM.T / ANIM.L : 0);   // 0..1 round the loop
+function bonesOf(o) { const b = {}; o.traverse((n) => { if (n.isBone) b[n.name] = n; }); return (k) => b[k.replace(".", "")]; }
+function makeSloth(clip, t = 0) {
+  const s = clone(sloth.scene);
+  s.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
+  furify(s);
+  const mixer = new THREE.AnimationMixer(s);
+  const ca = sloth.animations.find((a) => a.name === clip);
+  mixer.clipAction(ca).play();
+  mixer.setTime(clipTime(ca, t));
+  return { s, B: bonesOf(s) };
+}
+function makeGirl(clip, t = 0, face = "happy", who = girl) {
+  const girl = who;
+  const g = clone(girl.scene);
+  g.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
+  const mixer = new THREE.AnimationMixer(g);
+  const c = (n) => girl.animations.find((a) => a.name === n);
+  mixer.clipAction(c(clip)).play();
+  if (face) { const f = mixer.clipAction(c(face)); f.play(); }
+  mixer.setTime(clipTime(c(clip), t));
+  g.updateMatrixWorld(true);
+  return { g, B: bonesOf(g) };
+}
+function hangOn(obj, p0, p1, belly = new THREE.Vector3(0, 1, 0), along = 0.5) {
+  const dir = p1.clone().sub(p0).normalize();
+  const up = belly.clone();
+  up.sub(dir.clone().multiplyScalar(dir.dot(up))).normalize();
+  const zl = up.clone().negate(), yl = dir, xl = new THREE.Vector3().crossVectors(yl, zl);
+  const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
+  const local = new THREE.Vector3(0, (BRANCH.z0 + BRANCH.z1) / 2, -BRANCH.y).applyMatrix4(rot);
+  obj.quaternion.setFromRotationMatrix(rot);
+  obj.position.copy(p0.clone().lerp(p1, along).sub(local));
+}
+function branch(scene, p0, p1, r = 0.028) {
+  const d = p1.clone().sub(p0);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.1, d.length(), 8), new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.9, flatShading: true }));
+  m.position.copy(p0.clone().lerp(p1, 0.5));
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  scene.add(m);
+  // two leaves at the ends
+  for (const [p, s] of [[p0, 1], [p1, -1]]) {
+    for (const a of [0.5, -0.4]) {
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshStandardMaterial({ color: 0x5f9a4a, flatShading: true }));
+      leaf.scale.set(1, 0.25, 0.5);
+      leaf.position.copy(p).add(new THREE.Vector3(s * 0.03, 0.03 + a * 0.04, a * 0.06));
+      leaf.rotation.set(a, s * 0.5, s * 0.4);
+      scene.add(leaf);
+    }
+  }
+}
+// turn a bone about a world axis by deg (after the clip has posed it)
+function turn(bone, axis, deg) {
+  bone.updateMatrixWorld(true);
+  const wq = bone.getWorldQuaternion(new THREE.Quaternion());
+  const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...axis).normalize(), rad(deg));
+  const pq = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  bone.quaternion.copy(pq.invert().multiply(q.multiply(wq)));
+  bone.updateMatrixWorld(true);
+}
+
+// a puffy 3D heart, centred, `h` tall, facing -Z (the camera side), its point down
+function heart(h, color = 0xff5f8f) {
+  const sh = new THREE.Shape(), s = 0.5;
+  sh.moveTo(0, -s * 0.9);
+  sh.bezierCurveTo(s * 1.25, -s * 0.15, s * 0.75, s * 0.95, 0, s * 0.38);
+  sh.bezierCurveTo(-s * 0.75, s * 0.95, -s * 1.25, -s * 0.15, 0, -s * 0.9);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 0.12, bevelEnabled: true, bevelThickness: 0.14, bevelSize: 0.1, bevelSegments: 4, curveSegments: 14 });
+  g.center(); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, roughness: 0.45, emissive: color, emissiveIntensity: 0.12 }));
+  m.scale.setScalar(h / 1.45);
+  const o = new THREE.Group(); o.add(m); o.userData.h = h;
+  // a soft highlight on the upper left lobe
+  const hl = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }));
+  hl.scale.set(1.3, 0.7, 0.3); hl.position.set(0.24, 0.2, -0.19); hl.rotation.z = -0.6; m.add(hl);
+  return o;
+}
+const beat = () => { const u = (phase() * 2) % 1; return 1 + 0.09 * Math.exp(-((u - 0.1) ** 2) / 0.002) + 0.06 * Math.exp(-((u - 0.28) ** 2) / 0.002); };   // lub-dub, twice a loop
+// little hearts that float up round the loop (k of them), within a w x h box at p
+function floaters(sc, p, w, hgt, k = 4, size = 0.05) {
+  for (let j = 0; j < k; j++) {
+    const u = (phase() * 2 + j / k) % 1;
+    const f = heart(size * (0.7 + 0.6 * ((j * 7) % 3) / 2), [0xff5f8f, 0xff9cc0, 0xff7aa8][j % 3]);
+    f.position.set(p.x + w * (((j * 37) % 10) / 10 - 0.5) + 0.02 * Math.sin(u * 6.28 + j), p.y + hgt * u, p.z);
+    f.rotation.z = 0.3 * Math.sin(u * 6.28 + j);
+    const fade = Math.min(1, u / 0.15, (1 - u) / 0.25);
+    f.scale.setScalar(Math.max(0.01, fade));
+    sc.add(f);
+  }
+}
+// turn `bone` so its child lies toward the world point `target`
+function aim(bone, child, target) {
+  bone.updateMatrixWorld(true);
+  const bp = bone.getWorldPosition(V()), cp = child.getWorldPosition(V());
+  const q = new THREE.Quaternion().setFromUnitVectors(cp.sub(bp).normalize(), target.clone().sub(bp).normalize());
+  const wq = bone.getWorldQuaternion(new THREE.Quaternion()), pq = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  bone.quaternion.copy(pq.invert().multiply(q.multiply(wq)));
+  bone.updateMatrixWorld(true);
+}
+// a sloth holds something in front of its chest: both arms reach round it
+function armsRound(a, centre, halfW) {
+  for (const [side, sx] of [["L", -1], ["R", 1]]) {
+    const ua = a.B(`upper_arm.${side}`), fa = a.B(`forearm.${side}`);
+    ua.updateMatrixWorld(true);
+    const sp = ua.getWorldPosition(V());
+    const out = Math.sign(sp.x - centre.x) || sx;
+    aim(ua, fa, new THREE.Vector3(centre.x + out * halfW * 1.15, sp.y - 0.02, centre.z - 0.02));
+    fa.updateMatrixWorld(true);
+    // forearm round the front, the paw on the heart's face
+    const fp = fa.getWorldPosition(V());
+    const tip = new THREE.Vector3(centre.x + out * halfW * 0.35, fp.y - 0.03, centre.z - 0.09);
+    const len = 0.1;
+    const cur = fa.localToWorld(new THREE.Vector3(0, len, 0));
+    const q = new THREE.Quaternion().setFromUnitVectors(cur.sub(fp).normalize(), tip.sub(fp).normalize());
+    const wq = fa.getWorldQuaternion(new THREE.Quaternion()), pq = fa.parent.getWorldQuaternion(new THREE.Quaternion());
+    fa.quaternion.copy(pq.invert().multiply(q.multiply(wq)));
+    fa.updateMatrixWorld(true);
+  }
+}
+// two-bone reach: upper -> fore -> hand to `target`, elbow toward the `pole` direction
+function reach(upper, fore, hand, target, pole) {
+  upper.updateMatrixWorld(true);
+  const S0 = upper.getWorldPosition(V()), E0 = fore.getWorldPosition(V()), H0 = hand.getWorldPosition(V());
+  const L1 = S0.distanceTo(E0), L2 = E0.distanceTo(H0);
+  const d0 = target.clone().sub(S0); let d = Math.min(d0.length(), (L1 + L2) * 0.999); const n = d0.normalize();
+  const a = (L1 * L1 - L2 * L2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+  const pp = pole.clone().sub(n.clone().multiplyScalar(pole.dot(n))).normalize();
+  aim(upper, fore, S0.clone().add(n.clone().multiplyScalar(a)).add(pp.multiplyScalar(h)));
+  aim(fore, hand, S0.clone().add(n.multiplyScalar(d)));
+}
+const S = {
+  family(sc) {   // happy family: her and him swing the baby between them, one two three wheee
+    const K = window.__k?.fam ?? {};
+    const sw = Math.sin((ANIM ? phase() : (K.ph ?? 0.09)) * Math.PI * 4) * (K.amp ?? 0.8);   // two swings a loop
+    const her = makeGirl("idle", 0.4, "happy"); her.g.position.x = K.x ?? 0.42; her.g.rotation.y = rad(K.yaw ?? -12); sc.add(her.g);
+    const him = makeGirl("idle", 1.3, "happy", beard); him.g.position.x = -(K.x ?? 0.42); him.g.rotation.y = rad(K.yaw ? -K.yaw : 12); sc.add(him.g);
+    sc.updateMatrixWorld(true);
+    // the inner arms swing the baby: hands on an arc under the shoulders
+    const hands = [];
+    for (const [p, side, sx] of [[her, "L", -1], [him, "R", 1]]) {
+      const sh = p.B(`upper_arm.${side}`).getWorldPosition(V());
+      const arm = K.arm ?? 0.5;
+      const hp = sh.clone().add(new THREE.Vector3(sx * (K.in ?? 0.16), -Math.cos(sw * 0.7) * arm, -Math.sin(sw * 0.7) * arm));
+      reach(p.B(`upper_arm.${side}`), p.B(`forearm.${side}`), p.B(`hand.${side}`), hp, new THREE.Vector3(-sx, -0.3, 1));
+      for (const f of [`fingers.${side}`, `index.${side}`]) { const b = p.B(f); if (b) { b.rotation.z += sx * 1.0; } }
+      p.g.updateMatrixWorld(true);
+      hands.push(p.B(`hand.${side}`).localToWorld(new THREE.Vector3(0, 0.06, 0)));
+      // both look at the baby
+      turn(p.B("head"), [1, 0, 0], K.look ?? 18);
+      turn(p.B("head"), [0, 1, 0], sx * (K.turn ?? -25));
+    }
+    const mid = hands[0].clone().lerp(hands[1], 0.5);
+    const piv = new THREE.Group(); piv.position.copy(mid); sc.add(piv);
+    piv.rotation.x = -sw * (sw > 0 ? 1 : 0.55) * (K.over ?? 1.35);   // the baby swings further than the arms
+    const a = makeSloth("idle", 0.5); a.s.scale.setScalar(K.ss ?? 1.7); a.s.position.set(0, -(K.drop ?? 0.4), 0); piv.add(a.s); sc.updateMatrixWorld(true);
+    for (const [side, h] of [["L", hands[0]], ["R", hands[1]]]) {
+      const ua = a.B(`upper_arm.${side}`), fa = a.B(`forearm.${side}`);
+      const sp = ua.getWorldPosition(V());
+      const hand = Math.sign(sp.x) === Math.sign(h.x) ? h : hands[1 - (side === "L" ? 0 : 1)];
+      const tip = new THREE.Object3D(); tip.position.set(0, 0.085, 0); fa.add(tip);
+      reach(ua, fa, tip, hand, new THREE.Vector3(Math.sign(sp.x), 0, 1));
+    }
+    turn(a.B("head"), [1, 0, 0], K.shead ?? 30);
+    floaters(sc, new THREE.Vector3(0, 1.72, -0.05), 0.55, 0.25, 5, 0.075);
+    return { cam: K.cam ?? [0.9, 1.1, -2.8], at: [0, 1.0, 0], cutY: K.cutY ?? 0.36 };
+  },
+  hang(sc) {   // hang in there
+    const p0 = new THREE.Vector3(-0.32, 0.4, 0), p1 = new THREE.Vector3(0.32, 0.4, 0);
+    branch(sc, p0, p1);
+    const a = makeSloth("cling", 0.6); hangOn(a.s, p0, p1); sc.add(a.s); a.s.updateMatrixWorld(true);
+    turn(a.B("head"), [1, 0, 0], -95);
+    return { cam: [0.35, 0.05, -0.85], at: [0, 0.3, 0] };
+  },
+  sleep(sc) {  // five more minutes
+    const p0 = new THREE.Vector3(-0.32, 0.4, 0), p1 = new THREE.Vector3(0.32, 0.4, 0);
+    branch(sc, p0, p1);
+    const a = makeSloth("cling", 2.0); hangOn(a.s, p0, p1); sc.add(a.s); a.s.updateMatrixWorld(true);
+    turn(a.B("head"), [1, 0, 0], window.__k?.sleep ?? 35);
+    return { cam: [0.25, 0.2, -0.9], at: [0, 0.3, 0], zzz: true };
+  },
+  wave(sc) {   // hi
+    const a = makeSloth("idle", 0.5); sc.add(a.s); a.s.updateMatrixWorld(true);
+    const k = window.__k?.wave ?? [0, 0, 1, 120];
+    turn(a.B("upper_arm.R"), k.slice(0, 3), k[3] + 22 * Math.sin(phase() * Math.PI * 4));   // waves twice a loop
+    turn(a.B("head"), [0, 0, 1], -12);
+    return { cam: [0.1, 0.3, -0.9], at: [0, 0.16, 0] };
+  },
+  king(sc) {   // titanic alone, on a branch tip
+    const a = makeSloth("titanic", 0.3); sc.add(a.s);
+    a.s.rotation.y = rad(-15);
+    return { cam: [0.3, 0.3, -0.9], at: [0, 0.16, 0] };
+  },
+  crawl(sc) {  // on my way
+    const a = makeSloth("walk", 0.9); sc.add(a.s); a.s.rotation.y = rad(-70);
+    return { cam: [0.2, 0.35, -0.8], at: [0, 0.07, 0], speed: true };
+  },
+  hug(sc) {
+    const h = makeGirl("hug", 1.6); sc.add(h.g);
+    const a = makeSloth("idle", 0.2);
+    a.s.position.copy(toThree([0, 0.20, 1.12]));
+    sc.add(a.s); a.s.updateMatrixWorld(true); h.B("chest").attach(a.s);
+    return { cam: [0.6, 1.3, -1.5], at: [0, 1.15, 0], cutY: 0.95 };
+  },
+  plane(sc) {
+    const h = makeGirl("play_airplane", 0.8); sc.add(h.g);
+    const a = makeSloth("idle", 0.2);
+    a.s.position.copy(toThree([0.0, 0.10, 1.64])); sc.add(a.s); a.s.updateMatrixWorld(true); h.B("hand.R").attach(a.s);
+    return { cam: [0.6, 1.3, -2.0], at: [0, 1.45, 0], cutY: 1.0 };
+  },
+  leg(sc) {    // monday: clinging to her leg
+    const h = makeGirl("idle", 0.5, null); sc.add(h.g);
+    const a = makeSloth("cling", 1.0);
+    hangOn(a.s, h.B("foot.L").getWorldPosition(V()), h.B("shin.L").getWorldPosition(V()), toThree([0.4, -1.0, 0]).normalize());
+    sc.add(a.s);
+    return { cam: [0.9, 0.45, -0.9], at: [0, 0.4, 0], cutAbove: 0.6 };   // her legs, cut across below her fingertips: the sloth big on her shin
+  },
+  swing(sc) {  // teamwork
+    const h = makeGirl("play", 0.4); sc.add(h.g);
+    for (const s of ["R", "L"]) {
+      const a = makeSloth("cling", s === "R" ? 0 : 1.7);
+      hangOn(a.s, h.B(`forearm.${s}`).getWorldPosition(V()), h.B(`hand.${s}`).getWorldPosition(V()));
+      sc.add(a.s);
+    }
+    return { cam: [0.4, 1.25, -2.7], at: [0, 1.0, 0] };
+  },
+  knees(sc) {
+    const h = makeGirl("play_knees", 0.5); sc.add(h.g);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.45, 0.46), new THREE.MeshStandardMaterial({ color: 0x5a6470, roughness: 0.8 }));
+    seat.position.set(0, 0.225, 0.13); sc.add(seat);
+    for (const [bn, p, y] of [["thigh.R", [0.12, 0.30, 0.55], -14], ["thigh.L", [-0.12, 0.30, 0.55], 14]]) {
+      const a = makeSloth("idle", bn.endsWith("R") ? 0 : 1.5);
+      a.s.position.copy(toThree(p)); a.s.rotation.y = rad(y); sc.add(a.s); a.s.updateMatrixWorld(true); h.B(bn).attach(a.s);
+    }
+    return { cam: [1.0, 1.1, -1.6], at: [0, 0.75, 0] };
+  },
+  titanic(sc) {
+    const h = makeGirl("play_titanic", 0.5); sc.add(h.g);
+    const a = makeSloth("titanic", 0.5);
+    a.s.position.copy(toThree([0.0, 0.31, 1.22])); sc.add(a.s); a.s.updateMatrixWorld(true); h.B("hand.R").attach(a.s);
+    return { cam: [0.7, 1.35, -1.9], at: [0, 1.2, 0], cutY: 1.0 };
+  },
+  slow(sc) {   // brb: hand over hand
+    const p0 = new THREE.Vector3(-0.4, 0.4, 0), p1 = new THREE.Vector3(0.4, 0.4, 0);
+    branch(sc, p0, p1);
+    const a = makeSloth("hang_walk", 1.5); hangOn(a.s, p0, p1, undefined, 0.45); sc.add(a.s); a.s.updateMatrixWorld(true); turn(a.B("head"), [1, 0, 0], -80);
+    return { cam: [0.2, 0.05, -1.0], at: [0, 0.3, 0] };
+  },
+  love(sc) {   // hugs a big heart
+    const a = makeSloth("idle", 0.5); sc.add(a.s); a.s.updateMatrixWorld(true);
+    const hp = a.B("body").getWorldPosition(V()).add(new THREE.Vector3(0, 0.05, -0.13));
+    const h = heart(0.24); h.position.copy(hp); h.scale.setScalar(beat()); sc.add(h);
+    armsRound(a, hp, 0.12);
+    turn(a.B("head"), [0, 0, 1], 14);
+    floaters(sc, new THREE.Vector3(0.0, 0.36, -0.05), 0.3, 0.12, 3, 0.04);
+    return { cam: [0.15, 0.32, -0.9], at: [0, 0.2, 0] };
+  },
+  balloon(sc) {   // floats away under a heart balloon
+    const g = new THREE.Group(); sc.add(g);
+    g.rotation.z = 0.07 * Math.sin(phase() * Math.PI * 2); g.position.y = 0.015 * Math.sin(phase() * Math.PI * 4);
+    const h = heart(0.3); h.position.set(0, 0.78, 0); h.scale.setScalar(1 + (beat() - 1) * 0.4); g.add(h);
+    const str = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.32, 4), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    str.position.set(0, 0.5, 0); g.add(str);
+    const p0 = new THREE.Vector3(-0.11, 0.34, 0), p1 = new THREE.Vector3(0.11, 0.34, 0);
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.26, 8), new THREE.MeshStandardMaterial({ color: 0xffc2d8, roughness: 0.6 }));
+    stick.rotation.z = Math.PI / 2; stick.position.set(0, 0.34, 0); g.add(stick);
+    const a = makeSloth("cling", 0.6); hangOn(a.s, p0, p1); g.add(a.s); g.updateMatrixWorld(true);
+    turn(a.B("head"), [1, 0, 0], -95);
+    return { cam: [0.2, 0.25, -1.1], at: [0, 0.45, 0] };
+  },
+  peek(sc) {   // peeks over a heart
+    const a = makeSloth("idle", 1.0); sc.add(a.s); a.s.position.z = 0.08;
+    const peek = Math.sin(phase() * Math.PI * 2) * 0.012;
+    a.s.position.y = peek; a.s.updateMatrixWorld(true);
+    const h = heart(0.27); h.position.set(0, 0.105, -0.08); h.scale.setScalar(beat()); sc.add(h);
+    for (const side of ["L", "R"]) {   // paws over the top of the heart
+      const ua = a.B(`upper_arm.${side}`), sp = ua.getWorldPosition(V());
+      aim(ua, a.B(`forearm.${side}`), new THREE.Vector3(Math.sign(sp.x) * 0.075, 0.25, -0.1));
+    }
+    turn(a.B("head"), [0, 0, 1], 16 * Math.sin(phase() * Math.PI * 2));
+    return { cam: [0.0, 0.3, -0.95], at: [0, 0.22, 0] };
+  },
+  smitten(sc) {   // heart eyes
+    const a = makeSloth("idle", 1.4); sc.add(a.s); a.s.updateMatrixWorld(true);
+    turn(a.B("head"), [0, 0, 1], -10 + 8 * Math.sin(phase() * Math.PI * 2));
+    const hd = a.B("head");
+    for (const sx of [1, -1]) {
+      const e = heart(0.064, 0xff3d7f);
+      e.position.copy(hd.localToWorld(new THREE.Vector3(...(window.__k?.eye ?? [0.032, 0.06, -0.075])).multiply(new THREE.Vector3(sx, 1, 1))));
+      e.quaternion.copy(hd.getWorldQuaternion(new THREE.Quaternion()));
+      e.scale.setScalar(beat() * 1.1); sc.add(e);
+    }
+    floaters(sc, new THREE.Vector3(0.0, 0.36, 0.0), 0.3, 0.12, 4, 0.04);
+    return { cam: [0.1, 0.32, -0.85], at: [0, 0.2, 0] };
+  },
+  lots(sc) {   // two sloths cheek to cheek under a heart
+    for (const [x, yaw, t, tilt] of [[0.1, 25, 0.0, 14], [-0.1, -25, 1.2, -14]]) {
+      const a = makeSloth("idle", t); a.s.position.x = x; a.s.rotation.y = rad(yaw); sc.add(a.s); a.s.updateMatrixWorld(true);
+      turn(a.B("head"), [0, 0, 1], tilt + 4 * Math.sin(phase() * Math.PI * 2));
+    }
+    const h = heart(0.2); h.position.set(0, 0.46, 0.02); h.scale.setScalar(beat()); sc.add(h);
+    return { cam: [0.0, 0.3, -1.05], at: [0, 0.22, 0] };
+  },
+  duo(sc) {    // besties: two side by side under one branch
+    const p0 = new THREE.Vector3(-0.45, 0.4, 0), p1 = new THREE.Vector3(0.45, 0.4, 0);
+    branch(sc, p0, p1);
+    for (const [t, along, tw] of [[0, 0.32, 30], [1.7, 0.68, -30]]) { const a = makeSloth("cling", t); hangOn(a.s, p0, p1, undefined, along); sc.add(a.s); a.s.updateMatrixWorld(true); turn(a.B("head"), [1, 0, 0], -95); turn(a.B("head"), [0, 0, 1], tw); }
+    return { cam: [0.0, 0.05, -1.25], at: [0, 0.3, 0] };
+  },
+};
+
+// Frame the camera on what is drawn: keep the sticker's view direction and
+// pull back until every part (above cutY, where a bust shot is cut) sits
+// inside the frame with a margin, so no head or paw is clipped by the edge.
+function fit(sc, cam, at, cutY, cutAbove = Infinity) { fitPts(pointsOf(sc, cutY, cutAbove), cam, at); }
+function pointsOf(sc, cutY, cutAbove = Infinity) {
+  const pts = [];
+  sc.traverse((o) => {
+    if (!o.isMesh || o.userData.fur || o.material?.isShadowMaterial) return;
+    const b = new THREE.Box3().setFromObject(o, true);
+    if (b.isEmpty()) return;
+    for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z])
+      pts.push(new THREE.Vector3(x, Math.min(cutAbove, cutY === undefined ? y : Math.max(y, cutY)), z));
+  });
+  return pts;
+}
+function fitPts(pts, cam, at) {
+  const dir = cam.position.clone().sub(at).normalize();
+  let d = cam.position.distanceTo(at);
+  for (let k = 0; k < 6; k++) {
+    // aim at the middle of what is drawn, then set the distance
+    cam.position.copy(at).addScaledVector(dir, d); cam.lookAt(at); cam.updateMatrixWorld(true);
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const p of pts) { const q = p.clone().project(cam); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, ext = Math.max(x1 - x0, y1 - y0) / 2;
+    const c = new THREE.Vector3(cx, cy, new THREE.Vector3().copy(at).project(cam).z).unproject(cam);
+    at = c; d *= ext / 0.82;
+  }
+  cam.position.copy(at).addScaledVector(dir, d); cam.lookAt(at); cam.updateMatrixWorld(true);
+}
+function build(name) {
+  const sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xfff4e6, 0x6b5e48, 1.7));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.0); sun.position.set(1, 3, -3); sc.add(sun);
+  const opt = S[name](sc);
+  sc.updateMatrixWorld(true);
+  return { sc, opt };
+}
+window.render = (name) => {
+  ANIM = null;
+  const { sc, opt } = build(name);
+  const cam = new THREE.PerspectiveCamera(opt.fov ?? 30, 1, 0.02, 60);
+  cam.position.set(...opt.cam);
+  fit(sc, cam, new THREE.Vector3(...opt.at), opt.cutY, opt.cutAbove);
+  renderer.render(sc, cam);
+  cuts(sc, cam, opt);
+  return { url: renderer.domElement.toDataURL("image/png"), opt };
+};
+// An animated sticker: n frames round one loop, all framed by one camera that
+// takes in every frame, so nothing is clipped at any point of the loop.
+window.renderAnim = (name, fps = 12, maxL = 6) => {
+  used.length = 0; ANIM = { T: 0, L: 0 }; build(name);
+  const L = Math.min(maxL, Math.max(1.5, used[0]));
+  const n = Math.round(L * fps), scenes = [];
+  const pts = [];
+  for (let k = 0; k < n; k++) {
+    ANIM = { T: (k / n) * L, L };
+    const b = build(name); scenes.push(b);
+    pts.push(...pointsOf(b.sc, b.opt.cutY, b.opt.cutAbove));
+  }
+  const opt = scenes[0].opt;
+  const cam = new THREE.PerspectiveCamera(opt.fov ?? 30, 1, 0.02, 60);
+  cam.position.set(...opt.cam);
+  fitPts(pts, cam, new THREE.Vector3(...opt.at));
+  cuts(scenes[0].sc, cam, opt);
+  const urls = scenes.map(({ sc }) => { renderer.render(sc, cam); return renderer.domElement.toDataURL("image/png"); });
+  ANIM = null;
+  return { urls, opt: { ...opt, fps, loop: L, frames: n } };
+};
+function cuts(sc, cam, opt) {
+  // where the bust cut falls in the image (pixels from the top), for stk_post.py
+  if (opt.cutY !== undefined) {
+    const q = new THREE.Vector3(0, opt.cutY, 0); let lo = 1;
+    sc.traverse((o) => { if (o.isMesh) { const b = new THREE.Box3().setFromObject(o, true); if (!b.isEmpty()) lo = Math.max(-1, Math.min(lo, new THREE.Vector3((b.min.x + b.max.x) / 2, opt.cutY, (b.min.z + b.max.z) / 2).project(cam).y)); } });
+    opt.cutPx = Math.round((1 - (lo + 1) / 2) * SIZE);
+  }
+  // and where a legs shot is cut at the top (the highest the hip line falls on screen)
+  if (opt.cutAbove !== undefined) {
+    let hi = -1;
+    sc.traverse((o) => { if (o.isMesh) { const bx = new THREE.Box3().setFromObject(o, true); if (!bx.isEmpty()) hi = Math.min(1, Math.max(hi, new THREE.Vector3((bx.min.x + bx.max.x) / 2, opt.cutAbove, (bx.min.z + bx.max.z) / 2).project(cam).y)); } });
+    opt.cutTopPx = Math.round((1 - (hi + 1) / 2) * SIZE);
+  }
+}
+window.__names = Object.keys(S);
+window.__ready = true;
+</script>

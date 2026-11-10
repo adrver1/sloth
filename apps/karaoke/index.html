@@ -1,0 +1,1401 @@
+<meta charset="utf-8">
+<title>Sloth Karaoke</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: full-screen 3D stage; a title chip and buttons on top, the karaoke lyrics in a pill at the bottom, a start card and an encore card over the middle */
+:root {
+  --ink: #4a2f3d; --muted: #8a6878; --card: rgb(255 249 246 / .92); --pink: #ff6fa6; --pink-2: #ffc2d8; --lilac: #b79cff; --line: #f3d5e1;
+  --sung: #ff5f9e; --unsung: #6b4a5b; --pill: rgb(255 250 247 / .9);
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Nunito Sans", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --ink: #fbe9f1; --muted: #d9b5c6; --card: rgb(52 32 52 / .92); --line: #5d3f5c; --unsung: #f3dbe6; --pill: rgb(48 30 50 / .88); color-scheme: dark } }
+:root[data-theme="dark"] { --ink: #fbe9f1; --muted: #d9b5c6; --card: rgb(52 32 52 / .92); --line: #5d3f5c; --unsung: #f3dbe6; --pill: rgb(48 30 50 / .88); color-scheme: dark }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { background: #2b2350; color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; -webkit-tap-highlight-color: transparent; }
+canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+.top { position: fixed; top: max(12px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
+  display: flex; gap: 8px; align-items: center; pointer-events: none; }
+.chip { pointer-events: auto; font: 600 15px var(--display); color: var(--ink); background: var(--card); border: 2px solid var(--line); border-radius: 999px; padding: 6px 14px;
+  display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgb(40 10 40 / .18); }
+.title { margin-right: auto; }
+.title b { color: var(--pink); font-weight: 700; }
+button.chip { cursor: pointer; }
+button.chip[aria-pressed="false"] { opacity: .65; }
+button:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; }
+.lyrics { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(18px, env(safe-area-inset-bottom)); width: min(760px, calc(100% - 32px));
+  background: var(--pill); border: 2px solid var(--line); border-radius: 24px; padding: 9px 16px 8px; text-align: center; box-shadow: 0 8px 26px rgb(40 10 40 / .25);
+  transition: opacity .3s; }
+.lyrics.off { opacity: 0; }
+.now { font: 700 clamp(21px, 4.6vw, 32px)/1.2 var(--display); min-height: 1.2em; letter-spacing: .01em; text-wrap: balance; }
+.now .w { display: inline-block; margin: 0 .16em; white-space: nowrap; }
+.now .s { background: linear-gradient(90deg, var(--sung) var(--p, 0%), var(--unsung) var(--p, 0%)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  display: inline-block; transition: transform .12s; }
+.now .s.on { transform: translateY(-3px) scale(1.06); }
+.next { font: 500 clamp(14px, 3.4vw, 19px)/1.3 var(--display); color: var(--muted); min-height: 1.3em; margin-top: 4px; }
+.now .solo { color: var(--pink); animation: bop .5s ease-in-out infinite alternate; }
+@keyframes bop { to { transform: translateY(-4px) rotate(-2deg); } }
+@media (prefers-reduced-motion: reduce) { .now .solo { animation: none; } }
+.count { font: 700 clamp(24px, 6vw, 40px)/1.2 var(--display); color: var(--pink); letter-spacing: .3em; }
+.card { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 32px)); background: var(--card); border: 2px solid var(--line);
+  border-radius: 28px; padding: 22px 22px 20px; text-align: center; box-shadow: 0 16px 40px rgb(30 10 40 / .35); }
+.card h1 { font: 700 clamp(30px, 8vw, 42px)/1.05 var(--display); margin: 0 0 4px; color: var(--pink); }
+.card h1 span { color: var(--ink); }
+.card p { margin: 6px 0 0; color: var(--muted); }
+.card .song { font: 600 17px var(--display); color: var(--ink); margin-top: 10px; }
+.go { margin-top: 16px; font: 700 20px var(--display); color: #fff; background: linear-gradient(180deg, #ff86b4, #ff5f9e); border: 0; border-radius: 999px; padding: 12px 30px;
+  cursor: pointer; box-shadow: 0 5px 0 #d94a83, 0 10px 20px rgb(255 95 158 / .35); }
+.go:active { transform: translateY(3px); box-shadow: 0 2px 0 #d94a83; }
+.songs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+@media (max-width: 420px) { .pick { font-size: 14px; padding: 9px 4px; } .pick small { font-size: 11px; } }
+.pick { font: 600 16px/1.2 var(--display); color: var(--ink); background: transparent; border: 2px solid var(--line); border-radius: 18px; padding: 10px 8px; cursor: pointer; }
+.pick small { display: block; font: 400 12px var(--body); color: var(--muted); margin-top: 3px; }
+.pick[aria-pressed="true"] { border-color: var(--pink); background: rgb(255 111 166 / .12); }
+.go.alt { background: transparent; color: var(--pink); box-shadow: inset 0 0 0 2px var(--pink); margin-left: 6px; }
+.go.alt:active { box-shadow: inset 0 0 0 2px var(--pink); }
+.card small { display: block; margin-top: 12px; color: var(--muted); font-size: 13px; }
+@media (max-width: 520px) { .chip { font-size: 13px; padding: 5px 11px; } .title .long { display: none; } }
+</style>
+<canvas id="c" aria-label="A cute karaoke stage: the ponytail engineer sings, baby sloths dance or play in a band, and one hangs from the branch above"></canvas>
+<div class="top">
+  <span class="chip title">🦥 <b>Sloth</b><span class="long">&nbsp;Karaoke</span></span>
+  <button class="chip" id="guide" type="button" aria-pressed="true" title="The melody that sings along with you">🎵 Guide tune</button>
+  <button class="chip" id="pause" type="button" hidden aria-label="Pause">⏸</button>
+</div>
+<div class="lyrics off" id="lyrics" aria-live="off"><div class="now" id="now"></div><div class="next" id="next"></div></div>
+<div class="card" id="start">
+  <h1>Sloth <span>Karaoke</span></h1>
+  <p>Pick a song. She sings, the baby sloths do the rest.</p>
+  <div class="songs" role="group" aria-label="Song">
+    <button class="pick" type="button" data-song="party" aria-pressed="true">🥳 Party Paws<small>the sloth band plays</small></button>
+    <button class="pick" type="button" data-song="aussie" aria-pressed="false">🦘 G’day, Slow Day<small>holiday down under</small></button>
+    <button class="pick" type="button" data-song="slow" aria-pressed="false">🎤 Slow, Slow<small>a sleepy slow dance</small></button>
+  </div>
+  <div class="song">Tonight: “<span id="tonight">Party Paws</span>”</div>
+  <button class="go" id="go" type="button">Start the show</button>
+  <small id="loadmsg">Warming up the band…</small>
+</div>
+<div class="card" id="end" hidden>
+  <h1>Bravo! 💖</h1>
+  <p>The sloths want one more.</p>
+  <button class="go" id="again" type="button">Encore!</button>
+  <button class="go alt" id="other" type="button">Other song</button>
+  <small>Tap the stage any time to cheer.</small>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "./fur.js";
+
+const $ = (id) => document.getElementById(id);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const STILL = location.search.includes("still");
+
+// ---------------------------------------------------------------- the songs
+// Two original little songs. Each line is two bars of 4/4: syllables (hyphens
+// join a word), melody notes and their lengths in beats, and the two chords.
+// A line starting with "*" is an instrumental solo for that band member.
+const V1 = [
+  ["Hang-ing on a branch all day", "E4 E4 G4 A4 G4 E4 D4", ".5 .5 1 1 1 1 3", ["C", "Am"]],
+  ["dream-ing in a slow, slow way", "E4 E4 G4 A4 C5 A4 G4", ".5 .5 1 1 1 1 3", ["C", "G"]],
+  ["one more yawn and one more stretch", "F4 F4 A4 G4 F4 E4 D4", "1 .5 1.5 1 .5 1 2.5", ["F", "C"]],
+  ["five more min-utes, not yet!", "E4 E4 G4 E4 D4 C4", "1 1 1 1 1 3", ["G", "C"]],
+];
+const V2 = [
+  ["Swing-ing from her arms so high", "E4 E4 G4 A4 G4 E4 D4", ".5 .5 1 1 1 1 3", ["C", "Am"]],
+  ["wheee, up high in-to the sky", "E4 E4 G4 A4 C5 A4 G4", ".5 .5 1 1 1 1 3", ["C", "G"]],
+  ["crawl-ing slow-ly to the floor", "F4 F4 A4 G4 F4 E4 D4", "1 .5 1.5 1 .5 1 2.5", ["F", "C"]],
+  ["nap time now, then one song more!", "E4 E4 G4 E4 D4 D4 C4", "1 1 1 1 1 1 2", ["G", "C"]],
+];
+const CHORUS = [
+  ["Slow-ly, slow-ly, here we go", "G4 E4 G4 E4 A4 G4 E4", "1 1 1 1 1 1 2", ["C", "Am"]],
+  ["hold on tight and don't let go", "F4 F4 A4 G4 F4 E4 D4", "1 1 1 1 1 1 2", ["F", "G"]],
+  ["lit-tle claws and slee-py eyes", "E4 E4 G4 A4 C5 B4 A4", "1 1 1 1 1 1 2", ["C", "Am"]],
+  ["hugs are bet-ter when they're slow", "G4 A4 G4 E4 D4 D4 C4", "1 1 1 1 1 1 2", ["F", "C"]],
+];
+// "Party Paws": the sloth band plays, she sings, everyone gets a solo
+const P1 = [
+  ["Tap, tap on the lit-tle drum", "G4 G4 E4 G4 A4 G4 E4", "1 1 .5 .5 1 1 3", ["C", "F"]],
+  ["strum, strum, here the gui-tars come", "A4 A4 F4 A4 C5 A4 G4", "1 1 .5 .5 1 1 3", ["F", "C"]],
+  ["ting! goes the tri-an-gle", "C5 B4 A4 G4 A4 B4", "2 1 1 1 1 2", ["Am", "G"]],
+  ["keys go plink-y, one, two, three!", "E4 G4 A4 G4 C5 D5 C5", "1 1 1 1 1 1 2", ["F", "G"]],
+];
+const P2 = [
+  ["Bal-loons up and lights go round", "G4 G4 E4 G4 A4 G4 E4", "1 1 .5 .5 1 1 3", ["C", "F"]],
+  ["tin-y claws, the big-gest sound", "A4 A4 F4 A4 C5 A4 G4", "1 1 .5 .5 1 1 3", ["F", "C"]],
+  ["one more snack, one more cheer", "C5 B4 A4 G4 A4 B4", "2 1 1 1 1 2", ["Am", "G"]],
+  ["best friends all to-geth-er here!", "E4 G4 A4 G4 C5 D5 C5", "1 1 1 1 1 1 2", ["F", "G"]],
+];
+const PCH = [
+  ["Par-ty paws up in the air", "C5 C5 A4 G4 A4 G4 E4", "1 .5 1.5 1 1 1 2", ["C", "Am"]],
+  ["fluf-fy fur and mess-y hair", "D4 E4 F4 E4 F4 G4 A4", "1 .5 1.5 1 1 1 2", ["F", "G"]],
+  ["wig-gle, jig-gle, wave hel-lo", "C5 A4 C5 A4 G4 A4 C5", "1 1 1 1 1 1 2", ["C", "Am"]],
+  ["sloth-y par-ty, here we go!", "D5 C5 A4 G4 E4 D4 C4", "1 1 1 1 1 1 2", ["G", "C"]],
+];
+// "G’day, Slow Day": the sloths on holiday down under, with a kookaburra and four new friends in the crowd
+const A1 = [
+  ["G'day, mate, we're on hol-i-day", "C4 E4 G4 G4 A4 G4 E4", "1 .5 .5 1 1 1 3", ["C", "F"]],
+  ["sun-nies on, we're here to stay", "F4 F4 A4 G4 F4 E4 D4", "1 .5 .5 1 1 1 3", ["F", "G"]],
+  ["ar-vo naps in gum-tree shade", "E4 E4 G4 A4 C5 A4 G4", "1 .5 .5 1 1 1 3", ["Am", "F"]],
+  ["wat-tle blooms and lem-on-ade", "F4 E4 D4 E4 G4 E4 C4", "1 .5 .5 1 1 1 3", ["G", "C"]],
+];
+const A2 = [
+  ["Plat-y-pus, a fun-ny face", "C4 E4 G4 G4 A4 G4 E4", "1 .5 .5 1 1 1 3", ["C", "F"]],
+  ["wom-bat wad-dles round the place", "F4 F4 A4 G4 F4 E4 D4", "1 .5 .5 1 1 1 3", ["F", "G"]],
+  ["ech-id-na, all spikes and smiles", "E4 E4 G4 A4 C5 A4 G4", "1 .5 .5 1 1 1 3", ["Am", "F"]],
+  ["best mates here for miles and miles", "F4 E4 D4 E4 G4 E4 C4", "1 .5 .5 1 1 1 3", ["G", "C"]],
+];
+const ACH = [
+  ["No wor-ries, sloth-y mate", "C5 A4 G4 A4 G4 E4", "2 1 1 1 1 2", ["C", "Am"]],
+  ["slow and stead-y, life is great", "D4 E4 F4 A4 G4 F4 E4", "1 1 1 1 1 1 2", ["F", "C"]],
+  ["hop a-long like wal-la-bies", "C5 C5 A4 G4 A4 C5 D5", "1 .5 .5 1 1 1 3", ["F", "G"]],
+  ["sing-ing in the sun-set breeze", "E5 D5 C5 A4 G4 A4 C5", "1 1 1 1 1 1 2", ["G", "C"]],
+];
+const ACHANT = [["Sloth-y, sloth-y, sloth-y! Oi! Oi! Oi!", "G4 E4 G4 E4 G4 E4 C5 C5 C5", ".5 .5 .5 .5 .5 .5 1 1 3", ["C", "C"]]];
+const SOLOS = [["*drums", "", "", ["C", "F"]], ["*guitar", "", "", ["C", "G"]], ["*triangle", "", "", ["Am", "F"]], ["*keys", "", "", ["F", "G"]]];
+const SOLO_LABEL = { drums: "🥁 Drum solo!", guitar: "🎸 Guitar solo!", triangle: "🔺 Triangle solo!", keys: "🎹 Keys solo!" };
+const SONGS = {
+  slow: { title: "Slow, Slow", bpm: 96, sections: [["verse", V1], ["chorus", CHORUS], ["verse", V2], ["chorus", CHORUS], ["chorus", CHORUS]], build: buildSlow },
+  aussie: { title: "G’day, Slow Day", bpm: 104, sections: [["verse", A1], ["chorus", ACH], ["verse", A2], ["chorus", ACH], ["chorus", ACH], ["chant", ACHANT]], build: buildAussie },
+  party: { title: "Party Paws", bpm: 120, sections: [["verse", P1], ["chorus", PCH], ["verse", P2], ["chorus", PCH], ["solo", SOLOS], ["chorus", PCH]], build: buildParty },
+};
+const INTRO = 8;
+const NOTE = (s) => { const m = /^([A-G])(#?)(\d)$/.exec(s); return 12 * (+m[3] + 1) + { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] ? 1 : 0); };
+const CH = { C: [60, 64, 67], Am: [57, 60, 64], F: [57, 60, 65], G: [55, 59, 62] };
+const ROOT = { C: 36, Am: 45, F: 41, G: 43 };
+let SONG_ID = "", BPM = 96, SPB = 60 / BPM, SONG_END = 0;
+const lines = [], bars = [], events = [], hits = {}, kookas = [], ois = [];   // hits[who][arm]: when each paw strikes, for the band's animation
+function loadSong(id) {
+  const S = SONGS[id]; SONG_ID = id; BPM = S.bpm; SPB = 60 / BPM;
+  lines.length = bars.length = events.length = kookas.length = ois.length = 0; for (const k in hits) delete hits[k];
+  let beat0 = INTRO;
+  bars.push({ at: 0, ch: "C", sec: "intro" }, { at: 4, ch: "G", sec: "intro", second: true });
+  for (const [sec, ls] of S.sections) for (const [text, notes, durs, chords] of ls) {
+    if (text[0] === "*") {
+      const solo = text.slice(1);
+      lines.push({ at: beat0, end: beat0 + 8, sec, solo, words: [], syl: [] });
+      bars.push({ at: beat0, ch: chords[0], sec, solo }, { at: beat0 + 4, ch: chords[1], sec, solo, second: true });
+      beat0 += 8; continue;
+    }
+    const words = text.split(" ").map((w) => w.split("-"));
+    const ns = notes.split(" ").map(NOTE), ds = durs.split(" ").map(Number);
+    const syl = []; let t = beat0, k = 0;
+    words.forEach((parts, wi) => parts.forEach((p) => { syl.push({ text: p, word: wi, at: t, dur: ds[k], note: ns[k] }); t += ds[k]; k++; }));
+    if (k !== ns.length || Math.abs(t - beat0 - 8) > 1e-6) console.warn("song line does not add up", text, k, ns.length, t - beat0);
+    lines.push({ at: beat0, end: beat0 + 8, sec, words, syl });
+    bars.push({ at: beat0, ch: chords[0], sec }, { at: beat0 + 4, ch: chords[1], sec, second: true });
+    beat0 += 8;
+  }
+  SONG_END = beat0 + 4;   // a last held chord
+  bars.push({ at: beat0, ch: "C", sec: "outro" });
+  bars.forEach((b, i) => { const n = bars[i + 1], p = bars[i - 1]; b.last = !n || n.sec !== b.sec || n.solo !== b.solo; b.first = !p || p.sec !== b.sec || p.solo !== b.solo; });
+  S.build();
+  for (const l of lines) for (const s of l.syl) if (!/^Oi/.test(s.text)) events.push({ at: s.at, k: "lead", n: s.note, dur: s.dur, sec: l.sec });
+  events.sort((a, b) => a.at - b.at);
+  for (const w in hits) for (const a in hits[w]) hits[w][a].sort((x, y) => x.at - y.at);
+}
+
+// ---------------------------------------------------------------- the band (WebAudio, all synthesised)
+let ac, master, leadBus, t0 = 0, playing = false, ended = false, guideOn = true, schedIdx = 0;
+function buildSlow() {
+  for (const b of bars) {
+    const chorus = b.sec === "chorus", out = b.sec === "outro";
+    for (let i = 0; i < (out ? 1 : 4); i++) {
+      const at = b.at + i;
+      if (i === 0 || i === 2) events.push({ at, k: "kick" });
+      if (!out && (i === 1 || i === 3)) events.push({ at, k: "clap" });
+      if (!out) { events.push({ at, k: "shaker" }); events.push({ at: at + 0.5, k: "shaker" }); }
+      if (i === 0 || i === 2) events.push({ at, k: "bass", n: ROOT[b.ch] + (i === 2 && b.ch !== "Am" ? 7 : 0) });
+      if (!out) events.push({ at: at + 0.5, k: "uke", ch: CH[b.ch] });
+    }
+    if (out) { events.push({ at: b.at, k: "uke", ch: CH.C, long: true }); events.push({ at: b.at, k: "bass", n: 36, long: true }); }
+    if (chorus) events.push({ at: b.at, k: "sparkle", n: CH[b.ch][2] + 12 });
+  }
+}
+function buildAussie() {
+  const E = (at, k, o = {}) => events.push({ at, k, ...o });
+  const STRUM = [[0, 1], [1, 1], [1.5, -1], [2.5, -1], [3, 1], [3.5, -1]];
+  E(0.5, "kooka"); kookas.push(0.5);
+  bars.forEach((br, bi) => {
+    const { at, ch, sec, first, last } = br, C = CH[ch], R = ROOT[ch];
+    if (sec === "outro") { E(at, "didge", { end: true }); E(at, "strum", { ch: C, long: true, dir: 1 }); E(at, "bass", { n: 36, long: true }); E(at, "ting", { long: true, big: true }); E(at + 0.6, "kooka"); kookas.push(at + 0.6); return; }
+    const intro = sec === "intro", chorus = sec === "chorus" || sec === "chant";
+    if (!(intro && at === 0)) for (const d of [0, 2]) E(at + d, "kick");
+    if (!intro || at === 4) for (const d of [1, 3]) E(at + d, "clap");
+    for (let d = 0; d < 4; d += 0.5) E(at + d, "shaker");
+    for (const [d, n] of [[0, R], [1.5, R + 7], [2, R + 12], [3, R + 7]]) E(at + d, "bass", { n });
+    for (const [d, dir] of STRUM) E(at + d, "strum", { ch: C, dir, soft: true });
+    if (chorus) { for (const d of [0.5, 1.5, 2.5, 3.5]) E(at + d, "keys", { ch: C }); E(at, "sparkle", { n: C[2] + 12 }); }
+    if (chorus && first) E(at, "ting");
+    if (!(intro && at === 0)) E(at, "didge", { big: chorus, toot: chorus && (ch === "C" || ch === "Am") });
+    if (sec === "chorus" && last) { E(at + 2.2, "kooka"); kookas.push(at + 2.2); }
+  });
+  for (const l of lines) if (l.sec === "chant") for (const s of l.syl) if (/^Oi/.test(s.text)) { E(s.at, "oi"); ois.push(s.at); }
+}
+// white key (0..14, C3..C5) a note lands on, for the keyboard sloth's paws
+const keyOf = (n) => { while (n < 48) n += 12; while (n > 72) n -= 12; return Math.floor(n / 12) * 7 + [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6][n % 12] - 28; };
+function buildParty() {
+  const H = (who, arm, at, o) => (((hits[who] ??= {})[arm] ??= [])).push({ at, ...o });
+  const E = (at, k, o = {}) => { events.push({ at, k, ...o }); if (o.who) H(o.who, o.arm || "R", at, o); };
+  const STRUM = [[0, 1], [1, 1], [1.5, -1], [2.5, -1], [3, 1], [3.5, -1]];
+  for (const br of bars) {
+    const { at, ch, sec, solo, last, first, second } = br, C = CH[ch], R = ROOT[ch];
+    if (sec === "outro") {
+      E(at, "kick", { who: "drums", arm: "K" }); E(at, "crash", { who: "drums", arm: "R", d: "crash" }); E(at, "x", { who: "drums", arm: "L", d: "snare" });
+      E(at, "strum", { ch: C, long: true, who: "guitar", dir: 1 });
+      E(at, "keys", { ch: C, long: true, who: "keys", arm: "R", key: keyOf(64) }); E(at, "kbass", { n: 36, long: true, who: "keys", arm: "L", key: keyOf(48) });
+      E(at, "ting", { long: true, big: true, who: "triangle" }); E(at + 0.5, "sparkle", { n: 84 });
+      continue;
+    }
+    const intro = sec === "intro", chorus = sec === "chorus";
+    // keys: bass in the left paw, toy-piano chords on the off-beats in the right
+    if (solo !== "drums" && solo !== "triangle") for (const i of [0, 2]) { const n = R + (i === 2 && ch !== "Am" ? 7 : 0); E(at + i, "kbass", { n, who: "keys", arm: "L", key: keyOf(n + 12) }); }
+    if (!solo) for (const i of [0.5, 1.5, 2.5, 3.5]) E(at + i, "keys", { ch: C, who: "keys", arm: "R", key: keyOf(C[1]) + (i === 1.5 || i === 3.5 ? 1 : 0) });
+    if (solo === "keys") {
+      const up = [C[0], C[1], C[2], C[0] + 12, C[1] + 12, C[2] + 12, C[0] + 24, C[2] + 12];
+      const run = second ? [...up].reverse().concat(up) : up.concat([...up].reverse());
+      run.forEach((n, i) => E(at + i * 0.25, "plink", { n, who: "keys", arm: "R", key: keyOf(n) }));
+    }
+    // drums
+    if (intro) {
+      if (second) for (let i = 0; i < 4; i++) { E(at + i, "click", { who: "drums", arm: "L", d: "click" }); H("drums", "R", at + i, { d: "click" }); }
+    } else if (solo === "drums") {
+      const pat = second
+        ? [[0, "tom", "R"], [0.25, "tom", "L"], [0.5, "snare", "R"], [0.75, "snare", "L"], [1, "tom", "R"], [1.5, "tom", "L"], [1.75, "snare", "R"], [2, "snare", "L"], [2.25, "snare", "R"], [2.5, "tom", "L"], [2.75, "tom", "R"], [3, "snare", "L"], [3.25, "tom", "R"], [3.5, "snare", "L"], [3.75, "tom", "R"]]
+        : [[0, "crash", "R"], [1, "snare", "L"], [1.5, "tom", "R"], [2, "snare", "L"], [2.5, "snare", "L"], [2.75, "tom", "R"], [3, "snare", "L"], [3.25, "tom", "R"], [3.5, "snare", "L"], [3.75, "tom", "R"]];
+      for (const [d, k, arm] of pat) E(at + d, k, { who: "drums", arm, d: k });
+      for (const d of second ? [0, 1, 2, 3] : [0, 0.75, 2, 3]) E(at + d, "kick", { who: "drums", arm: "K" });
+    } else if (solo === "triangle") {
+      E(at, "kick", { who: "drums", arm: "K", soft: true });
+    } else {
+      const fill = last;
+      for (const d of chorus ? [0, 1, 2, 3] : [0, 2, 2.5]) E(at + d, "kick", { who: "drums", arm: "K" });
+      for (const d of [1, 3]) if (!(fill && d === 3)) { E(at + d, "snare", { who: "drums", arm: "L", d: "snare" }); if (chorus) E(at + d, "clap"); }
+      for (let d = 0; d < 4; d += 0.5) {
+        if (fill && d >= 3) continue;
+        if (d === 0 && first) E(at, "crash", { who: "drums", arm: "R", d: "crash" });
+        else E(at + d, "hat", { who: "drums", arm: "R", d: "hat", open: chorus && d % 1 === 0.5 });
+      }
+      if (fill) [[3, "snare", "L"], [3.25, "tom", "R"], [3.5, "snare", "L"], [3.75, "tom", "R"]].forEach(([d, k, arm]) => E(at + d, k, { who: "drums", arm, d: k }));
+    }
+    // guitar
+    if (solo === "guitar") {
+      const riff = second ? [[0, 72, 0.5], [0.5, 76, 0.5], [1, 79, 0.5], [1.5, 81, 0.5], [2, 84, 2]] : [[0, 72], [0.5, 74], [1, 76], [1.5, 79], [2, 81], [2.5, 79], [3, 76], [3.5, 74]];
+      riff.forEach(([d, n, dur = 0.5], i) => E(at + d, "pick", { n, dur, vib: dur > 1, who: "guitar", dir: i % 2 ? -1 : 1 }));
+    } else if (intro) {
+      if (second) for (const [d, dir] of [[0, 1], [2, 1]]) E(at + d, "strum", { ch: C, dir, who: "guitar" });
+    } else if (!solo || solo === "keys") {
+      for (const [d, dir] of chorus ? [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((d) => [d, d % 1 ? -1 : 1]) : STRUM) E(at + d, "strum", { ch: C, dir, who: "guitar", soft: solo === "keys" });
+    }
+    // triangle
+    const ting = solo === "triangle"
+      ? (second ? [[0, 0], [0.5, 0], [1, 0], [1.25, 0], [1.5, 0], [1.75, 0], [2, 2]] : [[0, 1], [1, 1], [2, 1], [2.5, 1], [3, 1]])
+      : solo ? [[0, 1]] : chorus ? [[0, 1], [2, 1], [3.5, 1]] : intro && !second ? [[0, 1], [2, 1]] : [[0, 1]];
+    for (const [d, v] of ting) E(at + d, "ting", { who: "triangle", soft: v === 0, big: v === 2, long: v === 2 });
+    if (chorus) E(at, "sparkle", { n: C[2] + 12 });
+    if (first && (chorus || solo)) E(at, "pop");
+  }
+}
+const hz = (n) => 440 * 2 ** ((n - 69) / 12);
+let noiseBuf;
+function audioInit() {
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
+  master = ac.createGain(); master.gain.value = 0.8; master.connect(comp); comp.connect(ac.destination);
+  leadBus = ac.createGain(); leadBus.gain.value = 1; leadBus.connect(master);
+  noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+}
+function env(g, t, a, peak, dec, sus = 0.0001) {
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(Math.max(sus, 0.0001), t + a + dec);
+}
+function osc(type, f, t, len, gain, dest = master) {
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; o.connect(g); g.connect(dest);
+  o.start(t); o.stop(t + len + 0.05); return { o, g };
+}
+function noise(t, len, gain, type, f, q = 1) {
+  const s = ac.createBufferSource(); s.buffer = noiseBuf; const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  const g = ac.createGain(); s.connect(fl); fl.connect(g); g.connect(master); env(g, t, 0.003, gain, len); s.start(t); s.stop(t + len + 0.05);
+}
+function play(e, t) {
+  switch (e.k) {
+    case "kick": { const { o, g } = osc("sine", 140, t, 0.3, 0); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.18); env(g, t, 0.004, e.soft ? 0.3 : 0.55, 0.26); break; }
+    case "clap": noise(t, 0.13, 0.22, "bandpass", 1600, 0.8); noise(t + 0.012, 0.1, 0.12, "bandpass", 2200, 0.8); break;
+    case "shaker": noise(t, 0.045, 0.035, "highpass", 7000); break;
+    case "bass": { const len = e.long ? 2.4 : 0.5; const { g } = osc("triangle", hz(e.n), t, len, 0); env(g, t, 0.01, 0.32, len); break; }
+    case "uke": e.ch.forEach((n, i) => { const tt = t + i * 0.018, len = e.long ? 2.4 : 0.32; const { o, g } = osc("triangle", hz(n), tt, len, 0);
+      const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 2400; o.disconnect(); o.connect(f); f.connect(g); env(g, tt, 0.005, 0.07, len); }); break;
+    case "sparkle": [0, 0.25, 0.5].forEach((d, i) => { const { g } = osc("sine", hz(e.n + [0, 7, 12][i]), t + d * SPB, 0.6, 0); env(g, t + d * SPB, 0.004, 0.05, 0.55); }); break;
+    case "lead": {
+      const len = e.dur * SPB * 0.92;
+      const o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+      o.type = "sine"; o2.type = "triangle"; o.frequency.value = o2.frequency.value = hz(e.n + (e.sec === "chorus" ? 0 : 0));
+      lfo.frequency.value = 5.5; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(hz(e.n) * 0.012, t + Math.min(0.35, len));
+      lfo.connect(lg); lg.connect(o.frequency); lg.connect(o2.frequency);
+      const g2 = ac.createGain(); g2.gain.value = 0.45; o2.connect(g2); g2.connect(g); o.connect(g); g.connect(leadBus);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.03); g.gain.setValueAtTime(0.16, t + Math.max(0.04, len - 0.08)); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      [o, o2, lfo].forEach((x) => { x.start(t); x.stop(t + len + 0.05); });
+      break;
+    }
+    // down under
+    case "kooka": for (let i = 0; i < 13; i++) {   // a kookaburra's laugh: a run of bright hoots that rises, peaks and tumbles down
+      const tt = t + i * 0.15 + (i > 3 ? 0.05 : 0), u = i / 12, f = 650 + 1100 * Math.sin(Math.PI * Math.min(1, u * 1.3)) + Math.random() * 120;
+      const o = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain();
+      o.type = "square"; o.frequency.setValueAtTime(f * 0.85, tt); o.frequency.linearRampToValueAtTime(f * 1.25, tt + 0.05); o.frequency.linearRampToValueAtTime(f * 0.8, tt + 0.12);
+      bp.type = "bandpass"; bp.frequency.value = f * 1.6; bp.Q.value = 3; o.connect(bp); bp.connect(g); g.connect(master);
+      env(g, tt, 0.008, 0.07 * (0.6 + 0.4 * Math.sin(Math.PI * u)), 0.12); o.start(tt); o.stop(tt + 0.16);
+    } break;
+    case "oi": { noise(t, 0.2, 0.18, "bandpass", 900, 1.2); const { o, g } = osc("sawtooth", 230, t, 0.2, 0); o.frequency.exponentialRampToValueAtTime(170, t + 0.18);
+      const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1400; o.disconnect(); o.connect(f); f.connect(g); env(g, t, 0.01, 0.16, 0.18); break; }
+    // the party band
+    case "snare": { noise(t, 0.16, 0.2, "bandpass", 1900, 0.7); const { o, g } = osc("triangle", 220, t, 0.12, 0); o.frequency.exponentialRampToValueAtTime(140, t + 0.1); env(g, t, 0.003, 0.2, 0.1); break; }
+    case "hat": noise(t, e.open ? 0.14 : 0.04, e.open ? 0.04 : 0.05, "highpass", 8000); break;
+    case "tom": { const { o, g } = osc("sine", 220, t, 0.35, 0); o.frequency.exponentialRampToValueAtTime(115, t + 0.25); env(g, t, 0.004, 0.42, 0.3); break; }
+    case "crash": noise(t, 1.1, 0.08, "highpass", 5000); noise(t, 0.35, 0.05, "bandpass", 3200, 0.5); break;
+    case "click": noise(t, 0.035, 0.22, "bandpass", 3400, 3); break;
+    case "strum": case "pick": {
+      const ns = e.k === "pick" ? [e.n] : (e.dir < 0 ? [...e.ch, e.ch[0] + 12].reverse() : [...e.ch, e.ch[0] + 12]);
+      const len = e.k === "pick" ? Math.max(0.25, e.dur * SPB) : e.long ? 2.2 : 0.42;
+      ns.forEach((n, i) => {
+        const tt = t + i * 0.013, o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+        o.type = "sawtooth"; o.frequency.value = hz(n);
+        if (e.vib) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = 6; lg.gain.setValueAtTime(0, tt); lg.gain.linearRampToValueAtTime(hz(n) * 0.015, tt + 0.4); l.connect(lg); lg.connect(o.frequency); l.start(tt); l.stop(tt + len + 0.05); }
+        f.type = "lowpass"; f.frequency.setValueAtTime(3200, tt); f.frequency.exponentialRampToValueAtTime(900, tt + len); f.Q.value = 2;
+        o.connect(f); f.connect(g); g.connect(master);
+        env(g, tt, 0.004, (e.k === "pick" ? 0.07 : 0.035) * (e.soft ? 0.6 : 1), len); o.start(tt); o.stop(tt + len + 0.05);
+      });
+      break;
+    }
+    case "keys": case "plink": (e.k === "plink" ? [e.n] : e.ch).forEach((n, i) => {   // a toy piano: a sine with a bell-like tine on top
+      const len = e.long ? 2.4 : e.k === "plink" ? 0.3 : 0.38, tt = t + i * 0.006;
+      const { g } = osc("sine", hz(n + 12), tt, len, 0); env(g, tt, 0.003, e.k === "plink" ? 0.08 : 0.05, len);
+      const { g: g2 } = osc("sine", hz(n + 12) * 4.02, tt, 0.15, 0); env(g2, tt, 0.002, 0.015, 0.12);
+    }); break;
+    case "kbass": { const len = e.long ? 2.2 : 0.36, { o, g } = osc("square", hz(e.n), t, len, 0);
+      const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 650; o.disconnect(); o.connect(f); f.connect(g); env(g, t, 0.006, 0.13, len); break; }
+    case "didge": {   // a drone on low C: two buzzy saws through a mouth-shaped filter that wobbles in a breathy rhythm, with a toot on top
+      const len = e.end ? 2.4 : 4 * SPB + 0.04, f0 = hz(36), g = ac.createGain(), lp = ac.createBiquadFilter(), bp = ac.createBiquadFilter(), mix = ac.createGain();
+      lp.type = "lowpass"; lp.frequency.value = 700; bp.type = "bandpass"; bp.Q.value = 5; mix.gain.value = 0.9;
+      lp.connect(g); bp.connect(g); g.connect(master);
+      for (const det of [0, 0.6]) { const o = ac.createOscillator(); o.type = "sawtooth"; o.frequency.value = f0 + det; o.connect(lp); o.connect(bp); o.start(t); o.stop(t + len + 0.1); }
+      const peak = e.big ? 0.026 : 0.018;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.04);
+      // the wobble: the formant opens and shuts on a sixteenth-note pattern, like "wa-da-wa-wa-da"
+      const pat = e.end ? [1, 0, 0, 0] : [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0];
+      pat.forEach((v, i) => {
+        const tt = t + i * SPB / 4;
+        bp.frequency.setTargetAtTime(v ? 1150 : 420, tt, 0.025);
+        g.gain.setTargetAtTime(peak * (v ? 1 : 0.7), tt, 0.03);
+      });
+      g.gain.setTargetAtTime(0.0001, t + len - (e.end ? 1.6 : 0.03), e.end ? 0.4 : 0.02);
+      if (e.toot) { const tt = t + 3.5 * SPB, { o, g: g2 } = osc("sawtooth", hz(52), tt, 0.3, 0, lp); o.frequency.setValueAtTime(hz(51), tt); o.frequency.exponentialRampToValueAtTime(hz(52), tt + 0.06); env(g2, tt, 0.02, 0.15, 0.25); }
+      break;
+    }
+    case "ting": [1, 2.76, 5.4].forEach((m, i) => {   // a little triangle: three bright inharmonic partials
+      const len = e.long ? 2.6 : 1.1, k = e.soft ? 0.45 : e.big ? 1.5 : 1;
+      const { g } = osc("sine", 1450 * m, t, len, 0); env(g, t, 0.002, [0.045, 0.022, 0.01][i] * k, len * (1 - i * 0.25));
+    }); break;
+    case "pop": { const { o, g } = osc("sine", 380, t, 0.18, 0); o.frequency.exponentialRampToValueAtTime(1500, t + 0.12); env(g, t, 0.005, 0.12, 0.15); noise(t, 0.05, 0.08, "bandpass", 2500, 1); break; }
+    case "chime": [0, 4, 7, 12].forEach((d, i) => { const { g } = osc("sine", hz(84 + d), t + i * 0.05, 0.5, 0); env(g, t + i * 0.05, 0.004, 0.06, 0.45); }); break;
+  }
+}
+function schedule() {
+  if (!playing) return;
+  const now = ac.currentTime, ahead = now + 0.25;
+  while (schedIdx < events.length) {
+    const e = events[schedIdx], t = t0 + e.at * SPB;
+    if (t > ahead) break;
+    if (t >= now - 0.02) play(e, Math.max(t, now));
+    schedIdx++;
+  }
+}
+setInterval(schedule, 50);
+const songBeat = () => (playing || ac?.state === "suspended") && ac ? (ac.currentTime - t0) / SPB : (ended ? SONG_END : -1);
+
+// ---------------------------------------------------------------- lyrics on screen
+const nowEl = $("now"), nextEl = $("next"), lyr = $("lyrics");
+let shownLine = -2, sylEls = [];
+function lineHtml(l) {
+  return l.words.map((parts, wi) => `<span class="w">${parts.map((p, pi) => `<span class="s" data-w="${wi}" data-i="${pi}">${p}</span>`).join("")}</span>`).join(" ");
+}
+function lineText(l) { if (l.solo) return SOLO_LABEL[l.solo]; return l.words.map((p) => p.join("")).join(" "); }
+function updateLyrics(b) {
+  if (b < 0 || b > SONG_END) { lyr.classList.add("off"); return; }
+  lyr.classList.remove("off");
+  let idx = lines.findIndex((l) => b < l.end - 0.6);
+  if (idx === -1) idx = lines.length;
+  if (b < INTRO - 4) idx = -1;
+  if (idx !== shownLine) {
+    shownLine = idx;
+    if (idx === -1) { nowEl.innerHTML = ""; nextEl.textContent = ""; sylEls = []; }
+    else if (idx >= lines.length) { nowEl.innerHTML = `<span class="w">💖</span>`; nextEl.textContent = ""; sylEls = []; }
+    else if (lines[idx].solo) { nowEl.innerHTML = `<span class="w solo">${SOLO_LABEL[lines[idx].solo]}</span>`; nextEl.textContent = lines[idx + 1] ? lineText(lines[idx + 1]) : ""; sylEls = []; }
+    else { nowEl.innerHTML = lineHtml(lines[idx]); nextEl.textContent = lines[idx + 1] ? lineText(lines[idx + 1]) : ""; sylEls = [...nowEl.querySelectorAll(".s")]; }
+  }
+  if (idx === -1) {
+    if (b >= INTRO - 4 && b < INTRO) nowEl.innerHTML = `<span class="count">${"●".repeat(Math.min(4, Math.floor(b - (INTRO - 4)) + 1))}</span>`;
+    else if (b < INTRO - 4) nowEl.innerHTML = "";
+    nextEl.textContent = lineText(lines[0]);
+    shownLine = -1.5;   // redraw the count every frame
+    return;
+  }
+  if (idx < lines.length) lines[idx].syl.forEach((s, i) => {
+    const p = Math.max(0, Math.min(1, (b - s.at) / Math.min(s.dur, 1.2)));
+    const el = sylEls[i]; if (!el) return;
+    el.style.setProperty("--p", `${(p * 100).toFixed(1)}%`);
+    el.classList.toggle("on", b >= s.at && b < s.at + s.dur);
+  });
+}
+function singing(b) {   // 0..1 how open her mouth is now, and which section
+  for (const l of lines) {
+    if (b < l.at || b >= l.end) continue;
+    for (const s of l.syl) if (b >= s.at && b < s.at + s.dur) {
+      const u = (b - s.at) / s.dur, x = (b - s.at) * SPB;
+      return { open: Math.min(1, x / 0.06) * (0.55 + 0.45 * Math.exp(-x * 3)) * (u > 0.9 ? (1 - u) * 10 : 1), sec: l.sec };
+    }
+    return { open: 0, sec: l.sec, solo: l.solo };
+  }
+  return { open: 0, sec: b < INTRO ? "intro" : "outro" };
+}
+
+// ---------------------------------------------------------------- the stage
+const canvas = $("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
+
+function canvasTex(w, h, draw) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// sky: a soft lilac-to-peach night
+scene.background = canvasTex(4, 256, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, "#3a2f6e"); gr.addColorStop(0.45, "#7a5aa8"); gr.addColorStop(0.78, "#e79ab8"); gr.addColorStop(1, "#ffd3b8");
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+scene.fog = new THREE.Fog(0x6b4f93, 9, 22);
+scene.add(new THREE.HemisphereLight(0xffe8f4, 0x6a4b80, 1.5));
+const key = new THREE.DirectionalLight(0xfff1e6, 1.6);
+key.position.set(-1.5, 4, -4); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+Object.assign(key.shadow.camera, { left: -3, right: 3, top: 3.5, bottom: -1, near: 0.5, far: 12 }); key.shadow.bias = -0.0008;
+scene.add(key);
+
+const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0, flatShading: true, ...o });
+// stage: a round pink platform with a cream scalloped trim
+const STAGE_Y = 0.28;
+const stage = new THREE.Mesh(new THREE.CylinderGeometry(2.25, 2.35, STAGE_Y, 28), mat(0xffb3cf));
+stage.position.y = STAGE_Y / 2; stage.receiveShadow = stage.castShadow = true; scene.add(stage);
+const top = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.02, 28), mat(0xffd9e6));
+top.position.y = STAGE_Y + 0.01; top.receiveShadow = true; scene.add(top);
+const bulbs = [];
+const BULB_COLS = [0xfff3a8, 0xffb6d5, 0xbfe8ff, 0xd9c6ff];
+for (let i = 0; i < 28; i++) {
+  const a = (i / 28) * Math.PI * 2;
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: BULB_COLS[i % 4], emissiveIntensity: 1.2, flatShading: true }));
+  b.position.set(Math.sin(a) * 2.3, STAGE_Y * 0.55, Math.cos(a) * 2.3); scene.add(b); bulbs.push(b);
+}
+// a meadow round the stage
+const ground = new THREE.Mesh(new THREE.CircleGeometry(16, 40), mat(0x8fbf7a));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+// spot pools on the stage floor that drift with the beat
+const pools = [0xff8fbf, 0x9fe3ff, 0xfff09a].map((c) => {
+  const m = new THREE.Mesh(new THREE.CircleGeometry(0.55, 32), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.y = STAGE_Y + 0.025; scene.add(m); return m;
+});
+// the branch over the stage, on two posts, with leaves
+const wood = mat(0x8a5a3a), leafM = mat(0x7cc46a);
+const BRANCH_Y = 2.55, BRANCH_Z = 0.55;
+const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 4.6, 8), wood);
+branch.rotation.z = Math.PI / 2; branch.position.set(0, BRANCH_Y, BRANCH_Z); branch.castShadow = true; scene.add(branch);
+for (const x of [-2.15, 2.15]) {
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, BRANCH_Y, 8), wood);
+  post.position.set(x, BRANCH_Y / 2, BRANCH_Z); post.castShadow = true; scene.add(post);
+}
+for (let i = 0; i < 14; i++) {
+  const l = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), leafM);
+  l.scale.set(1, 0.35, 0.6); l.position.set(-2.1 + i * 0.32 + Math.sin(i * 7) * 0.05, BRANCH_Y + 0.06 * Math.sin(i * 3), BRANCH_Z + 0.06 * Math.cos(i * 5));
+  l.rotation.set(Math.sin(i) * 0.6, i, Math.cos(i * 2) * 0.5); scene.add(l);
+}
+// heart fairy lights hanging in a garland from the branch
+function heartShape(s) {
+  const p = new THREE.Shape(); p.moveTo(0, -s * 0.9);
+  p.bezierCurveTo(s * 1.2, -s * 0.1, s * 0.7, s * 0.9, 0, s * 0.35);
+  p.bezierCurveTo(-s * 0.7, s * 0.9, -s * 1.2, -s * 0.1, 0, -s * 0.9); return p;
+}
+const heartGeo = new THREE.ShapeGeometry(heartShape(0.07));
+const garland = [];
+for (let i = 0; i < 17; i++) {
+  const x = -2.0 + i * 0.25, sag = 0.28 * (1 - ((x / 2.0) ** 2));
+  const h = new THREE.Mesh(heartGeo, new THREE.MeshBasicMaterial({ color: BULB_COLS[(i + 1) % 4], side: THREE.DoubleSide }));
+  h.position.set(x, BRANCH_Y - 0.08 - sag, BRANCH_Z - 0.05); scene.add(h); garland.push(h);
+}
+// a sleepy crescent moon and stars
+const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(256, 256, (g) => {
+  g.fillStyle = "#fff4c2"; g.beginPath(); g.arc(128, 128, 100, 0, Math.PI * 2); g.fill();
+  g.globalCompositeOperation = "destination-out"; g.beginPath(); g.arc(178, 98, 92, 0, Math.PI * 2); g.fill(); g.globalCompositeOperation = "source-over";
+  g.strokeStyle = "#6b4a5b"; g.lineWidth = 6; g.lineCap = "round";
+  g.beginPath(); g.arc(78, 120, 12, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();   // closed sleepy eye
+  g.fillStyle = "#ffb3c7"; g.beginPath(); g.arc(70, 150, 12, 0, Math.PI * 2); g.fill();   // blush
+}), fog: false }));
+moon.scale.set(1.6, 1.6, 1); moon.position.set(-3.8, 4.6, 6); scene.add(moon);
+const starTex = canvasTex(64, 64, (g) => {
+  g.fillStyle = "#fff8d6"; g.beginPath();
+  for (let i = 0; i < 10; i++) { const r = i % 2 ? 11 : 28, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(32 + r * Math.cos(a), 32 + r * Math.sin(a)); }
+  g.closePath(); g.fill();
+});
+const stars = [];
+for (let i = 0; i < 26; i++) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, transparent: true, fog: false, depthWrite: false }));
+  const a = (i / 26) * Math.PI - Math.PI / 2 + Math.sin(i * 9) * 0.1;
+  s.position.set(Math.sin(a) * 7.5 + Math.sin(i * 5) * 0.8, 3.2 + Math.abs(Math.cos(i * 2.3)) * 3.2, 7 + Math.cos(i * 3) * 1.5);
+  s.userData.k = 0.12 + 0.12 * Math.abs(Math.sin(i * 4.1)); s.userData.ph = i; scene.add(s); stars.push(s);
+}
+// balloons tied to the stage edge
+const balloons = [];
+[[-2.0, 0xffa3c4, -0.9], [-1.7, 0xc9b2ff, -1.25], [1.75, 0xa8e2ff, -1.2], [2.05, 0xfff0a0, -0.8]].forEach(([x, c, z], i) => {
+  const g = new THREE.Group(); g.position.set(x, STAGE_Y, z);
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), new THREE.MeshStandardMaterial({ color: c, roughness: 0.35, flatShading: true }));
+  b.scale.set(1, 1.18, 1); b.position.y = 1.35 + (i % 2) * 0.25; b.castShadow = true; g.add(b);
+  const knot = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.06, 6), b.material); knot.position.y = b.position.y - 0.25; knot.rotation.x = Math.PI; g.add(knot);
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, b.position.y - 0.25, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  str.position.y = (b.position.y - 0.25) / 2; g.add(str);
+  g.userData.ph = i * 1.7; scene.add(g); balloons.push(g);
+});
+// two speakers, their woofers pump on the kick
+const woofers = [];
+for (const x of [-1.6, 1.6]) {
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.62, 0.36), mat(0x5b4a7a));
+  box.position.set(x, STAGE_Y + 0.31, 0.15); box.castShadow = true; scene.add(box);
+  for (const [y, r] of [[0.08, 0.13], [-0.18, 0.07]]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.04, 16), mat(0xffc2d8));
+    w.rotation.x = Math.PI / 2; w.position.set(x, STAGE_Y + 0.31 + y, -0.04); scene.add(w);
+    if (r > 0.1) woofers.push(w);
+  }
+}
+
+// ---------------------------------------------------------------- floating hearts, notes and sparkles
+const sprTex = { heart: canvasTex(64, 64, (g) => { g.font = "52px serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("💗", 32, 36); }),
+  note: canvasTex(64, 64, (g) => { g.font = "bold 50px sans-serif"; g.fillStyle = "#c7a8ff"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("♪", 32, 34); }),
+  star: starTex };
+const parts = [];
+function puff(kind, pos, n = 1, spread = 0.25) {
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sprTex[kind], transparent: true, depthWrite: false }));
+    s.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * spread, Math.random() * 0.1, (Math.random() - 0.5) * spread * 0.4));
+    s.userData = { v: new THREE.Vector3((Math.random() - 0.5) * 0.35, 0.55 + Math.random() * 0.4, -0.05), life: 0, max: 1.6 + Math.random() * 0.8, sz: 0.13 + Math.random() * 0.08, ph: Math.random() * 6 };
+    scene.add(s); parts.push(s);
+  }
+}
+
+const CONF = ["#ff6fa6", "#ffd166", "#8fe3ff", "#b79cff", "#a8e6cf"].map((c, i) => canvasTex(32, 32, (g) => { g.fillStyle = c; if (i % 2) { g.beginPath(); g.arc(16, 16, 9, 0, Math.PI * 2); g.fill(); } else g.fillRect(6, 11, 20, 10); }));
+function confetti(n) {
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: CONF[i % CONF.length], transparent: true, depthWrite: false }));
+    s.position.set((Math.random() - 0.5) * 3.6, 2.6 + Math.random() * 1.2, -0.3 + (Math.random() - 0.5) * 1.6);
+    s.userData = { v: new THREE.Vector3((Math.random() - 0.5) * 0.2, -0.55 - Math.random() * 0.35, 0), life: 0, max: 3.6 + Math.random() * 1.2, sz: 0.05 + Math.random() * 0.03, ph: Math.random() * 6, spin: (Math.random() - 0.5) * 8 };
+    scene.add(s); parts.push(s);
+  }
+}
+// ---------------------------------------------------------------- the cast
+async function glb(url) {
+  const txt = (await (await fetch(url)).text()).trim();
+  const bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
+  return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
+}
+const [HER, SLOTH] = await Promise.all([glb("models/her.txt"), glb("models/sloth.txt")]);
+const bonesOf = (o) => { const b = {}; o.traverse((n) => { if (n.isBone) b[n.name] = n; }); return (k) => b[k.replace(".", "")]; };
+const shadow = (o) => o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
+
+// her, centre stage, facing the audience (characters face -Z; the camera looks along +Z)
+const her = { o: clone(HER.scene) };
+shadow(her.o); her.o.position.set(0, STAGE_Y, 0.15); scene.add(her.o);
+her.B = bonesOf(her.o);
+her.mixer = new THREE.AnimationMixer(her.o);
+const hclip = (n) => HER.animations.find((a) => a.name === n);
+her.idle = her.mixer.clipAction(hclip("idle")); her.idle.play();
+const happy = her.mixer.clipAction(hclip("happy")); happy.play(); happy.time = 1.5; happy.timeScale = 0;
+her.blink = her.mixer.clipAction(hclip("blink")); her.blink.setLoop(THREE.LoopOnce); her.nextBlink = 1.5;
+// the mic: a pink handle and a silver grille, placed each frame from her hand up to her mouth
+const mic = new THREE.Group();
+const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.012, 0.15, 8), mat(0xff7fb0, { roughness: 0.4 }));
+handle.position.y = 0.075; mic.add(handle);
+const grille = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), mat(0xe8e6f2, { metalness: 0.6, roughness: 0.35 }));
+grille.position.y = 0.17; mic.add(grille);
+mic.traverse((m) => m.isMesh && (m.castShadow = true)); scene.add(mic);
+
+// the sloths: two dancing at the front, one hanging from the branch
+const SL = 1.7;
+const sloths = [];
+function makeSloth(clipName, pos, yaw) {
+  const o = clone(SLOTH.scene); o.scale.setScalar(SL); shadow(o); furify(o);
+  const g = new THREE.Group(); g.add(o); g.position.copy(pos); g.rotation.y = yaw; scene.add(g);
+  const mixer = new THREE.AnimationMixer(o);
+  const act = mixer.clipAction(SLOTH.animations.find((a) => a.name === clipName)); act.play(); act.time = Math.random() * 2;
+  const s = { o, g, mixer, B: bonesOf(o), base: pos.clone(), hop: 0, vy: 0, clipName };
+  sloths.push(s); return s;
+}
+const s1 = makeSloth("idle", new THREE.Vector3(0.7, STAGE_Y, -0.5), -0.35);
+const s2 = makeSloth("idle", new THREE.Vector3(-0.7, STAGE_Y, -0.5), 0.35);
+const s3 = makeSloth("cling", new THREE.Vector3(), 0);
+// glow sticks for the chorus, held at each front sloth's paws
+const glow = [];
+for (const s of [s1, s2]) for (const side of ["L", "R"]) {
+  const fa = s.B(`forearm.${side}`);
+  const st = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.11, 6), new THREE.MeshBasicMaterial({ color: side === "L" ? 0xff7fd0 : 0x8ff0ff }));
+  st.position.set(0, 0.075, 0); fa.add(st); st.visible = false; glow.push(st);
+}
+// hang s3 under the branch (sloth_rig.CLING_BRANCH, the middle of its grip)
+{
+  const BR = { y: 0.10, z0: 0.0, z1: 0.20 };
+  const p0 = new THREE.Vector3(-1.3, BRANCH_Y - 0.05, BRANCH_Z), p1 = new THREE.Vector3(-0.4, BRANCH_Y - 0.05, BRANCH_Z);
+  const dir = p1.clone().sub(p0).normalize(), up = new THREE.Vector3(0, 1, 0);
+  const zl = up.clone().negate(), yl = dir, xl = new THREE.Vector3().crossVectors(yl, zl);
+  const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
+  s3.o.quaternion.setFromRotationMatrix(rot);
+  // the pivot of the swing is on the branch, so the sloth swings like a pendulum
+  s3.g.position.copy(p0.clone().lerp(p1, 0.5));
+  s3.o.position.copy(new THREE.Vector3(0, (BR.z0 + BR.z1) / 2 * SL, -BR.y * SL).applyMatrix4(rot).negate());
+  s3.headTurn = true;
+}
+
+// ---------------------------------------------------------------- the party band (song 2): four sloths in party hats
+const party = new THREE.Group(); scene.add(party);   // risers, bunting and the like, only in the party song
+const PAW = 0.085;   // forearm bone to the paw tip, in the sloth's own (unscaled) units
+const pmat = (color, o = {}) => mat(color, { flatShading: false, roughness: 0.55, ...o });
+const metal = (color) => pmat(color, { metalness: 0.65, roughness: 0.3 });
+function cyl(r, h, m, seg = 18, r2 = r) { const x = new THREE.Mesh(new THREE.CylinderGeometry(r, r2, h, seg), m); x.castShadow = true; return x; }
+function box(w, h, d, m) { const x = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); x.castShadow = true; return x; }
+function heartMesh(s, color, depth = 0.006) {
+  const g = new THREE.ExtrudeGeometry(heartShape(s), { depth, bevelEnabled: true, bevelThickness: depth * 0.6, bevelSize: s * 0.18, bevelSegments: 2, curveSegments: 10 });
+  g.center(); return new THREE.Mesh(g, pmat(color, { roughness: 0.4 }));
+}
+// a party hat: a striped cone with a pompom, for each band sloth and for her
+const hatTex = canvasTex(128, 128, (g, w, h) => {
+  g.fillStyle = "#fff6fa"; g.fillRect(0, 0, w, h);
+  g.fillStyle = "#ffffff"; for (let i = -4; i < 8; i++) { g.save(); g.translate(i * 32, 0); g.transform(1, 0, 0.5, 1, 0, 0); g.fillRect(0, 0, 14, h); g.restore(); }
+  for (let i = 0; i < 18; i++) { g.fillStyle = ["#ffd166", "#8fe3ff", "#c9a8ff"][i % 3]; g.beginPath(); g.arc((i * 47) % w, (i * 71) % h, 5, 0, Math.PI * 2); g.fill(); }
+});
+function partyHat(color, pom, s = 1) {
+  const g = new THREE.Group();
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.11 * s, 18), pmat(color, { map: hatTex })); cone.position.y = 0.055 * s; cone.castShadow = true; g.add(cone);
+  const p = new THREE.Mesh(new THREE.SphereGeometry(0.017 * s, 12, 10), pmat(pom, { roughness: 0.9 })); p.position.y = 0.115 * s; g.add(p);
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.044 * s, 0.006 * s, 6, 20), pmat(pom)); band.rotation.x = Math.PI / 2; band.position.y = 0.004 * s; g.add(band);
+  return g;
+}
+// cupcake risers for the two sloths at the back
+function riser(x, z, h, col) {
+  const g = new THREE.Group(); g.position.set(x, STAGE_Y, z);
+  const base = cyl(0.3, h, pmat(col), 24, 0.26); base.position.y = h / 2; base.receiveShadow = true; g.add(base);
+  for (let i = 0; i < 24; i++) {   // the paper-case ridges
+    const r = box(0.012, h * 0.96, 0.012, pmat(col, { color: new THREE.Color(col).multiplyScalar(0.9) }));
+    const a = (i / 24) * Math.PI * 2; r.position.set(Math.sin(a) * 0.283, h / 2, Math.cos(a) * 0.283); r.rotation.y = a; g.add(r);
+  }
+  const icing = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.035, 8, 28), pmat(0xfff6ee)); icing.rotation.x = Math.PI / 2; icing.position.y = h; icing.receiveShadow = true; g.add(icing);
+  const topD = cyl(0.27, 0.02, pmat(0xfff6ee), 28); topD.position.y = h + 0.005; topD.receiveShadow = true; g.add(topD);
+  for (let i = 0; i < 16; i++) {
+    const sp = box(0.022, 0.007, 0.007, pmat([0xff6fa6, 0x8fe3ff, 0xffd166, 0xb79cff][i % 4]));
+    const a = i * 2.4, r = 0.268; sp.position.set(Math.sin(a) * r, h + 0.03, Math.cos(a) * r); sp.rotation.set(0.4, a * 3, 0.3); g.add(sp);
+  }
+  party.add(g); return h + 0.015;
+}
+const BAND = {};
+function bandSloth(role, x, z, yaw, h, hatCol, pomCol) {
+  const s = makeSloth("idle", new THREE.Vector3(x, STAGE_Y + h, z), yaw); s.role = role; BAND[role] = s;
+  for (const side of ["L", "R"]) { const t = new THREE.Object3D(); t.position.set(0, PAW, 0); s.B(`forearm.${side}`).add(t); s["tip" + side] = t; }
+  const hat = partyHat(hatCol, pomCol); hat.scale.setScalar(1 / SL); hat.position.set(0.0, 0.118, 0.012); hat.rotation.set(-0.15, 0, role === "drums" || role === "triangle" ? -0.3 : 0.3);
+  s.B("head").add(hat);
+  return s;
+}
+const lift = (v, y) => v.clone().setY(v.y + y);
+// drums: a toy kit (kick with a heart, snare, tom, hi-hat, crash), sticks in both paws
+{
+  const s = bandSloth("drums", 0.6, 0.78, -0.25, riser(0.6, 0.78, 0.16, 0xffc2d8), 0x8fe3ff, 0xffd166);
+  const k = new THREE.Group(); s.g.add(k); s.kit = k;
+  const shell = pmat(0xa8e6cf), head = pmat(0xfffaf2, { roughness: 0.8 }), chrome = metal(0xe6e2f0), gold = metal(0xffd166);
+  const kick = cyl(0.1, 0.12, shell, 24); kick.rotation.x = Math.PI / 2; kick.position.set(0, 0.1, -0.21); k.add(kick);
+  const kf = cyl(0.096, 0.004, head, 24); kf.rotation.x = Math.PI / 2; kf.position.set(0, 0.1, -0.272); k.add(kf);
+  const kh = heartMesh(0.04, 0xff6fa6, 0.004); kh.position.set(0, 0.1, -0.277); kh.rotation.y = Math.PI; k.add(kh); s.kickFace = [kf, kh];
+  const drum = (r, h, x, y, z, tilt, m) => {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.x = tilt;
+    const sh = cyl(r, h, m, 20); g.add(sh); const top = cyl(r * 0.97, 0.004, head, 20); top.position.y = h / 2; g.add(top);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.004, 5, 20), chrome); rim.rotation.x = Math.PI / 2; rim.position.y = h / 2; g.add(rim);
+    k.add(g); return g;
+  };
+  const snare = drum(0.055, 0.035, -0.115, 0.15, -0.14, 0.3, pmat(0xffb3cf));
+  const leg = cyl(0.004, 0.15, chrome, 6); leg.position.set(-0.115, 0.075, -0.14); k.add(leg);
+  const tom = drum(0.048, 0.05, 0.035, 0.205, -0.19, 0.45, pmat(0xc9b2ff));
+  const hat1 = cyl(0.05, 0.004, gold, 20, 0.05); hat1.position.set(0.14, 0.205, -0.1); k.add(hat1);
+  const hat2 = hat1.clone(); hat2.position.y = 0.196; k.add(hat2);
+  const hs = cyl(0.004, 0.2, chrome, 6); hs.position.set(0.14, 0.1, -0.1); k.add(hs);
+  const crash = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.012, 22), gold); crash.castShadow = true; crash.position.set(0.12, 0.3, -0.2); crash.rotation.x = 0.35; k.add(crash);
+  const cs = cyl(0.004, 0.3, chrome, 6); cs.position.set(0.12, 0.15, -0.2); k.add(cs);
+  const stool = cyl(0.07, 0.03, pmat(0xffd166), 16); stool.position.set(0, 0.0, 0); k.add(stool);
+  s.cymbals = { crash, hat: hat1 };
+  s.drums = { snare, tom };
+  // stick tips: the end of each stick, which is what lands on the drums
+  for (const side of ["L", "R"]) {
+    const fa = s.B(`forearm.${side}`), st = cyl(0.0035, 0.07, pmat(0xffe3b0), 6);
+    st.position.set(0, PAW + 0.032, 0); fa.add(st);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.006, 6, 5), st.material); ball.position.y = 0.035; st.add(ball);
+    s["tip" + side].position.y = PAW + 0.068;
+  }
+  const hitPt = (o, dy = 0.01) => { o.updateMatrix(); return new THREE.Vector3(0, dy + (o.geometry?.parameters?.height || 0.04) / 2, 0.012).applyMatrix4(o.matrix); };
+  s.pts = { snare: hitPt(snare), tom: hitPt(tom), hat: hat1.position.clone().add(new THREE.Vector3(-0.02, 0.012, -0.0)), crash: crash.position.clone().add(new THREE.Vector3(-0.03, 0.01, 0.04)),
+    click: new THREE.Vector3(0, 0.36, -0.12), restL: new THREE.Vector3(-0.08, 0.24, -0.12), restR: new THREE.Vector3(0.08, 0.24, -0.12) };
+}
+// keys: a lemon toy keyboard on a little stand
+{
+  const s = bandSloth("keys", -0.6, 0.78, 0.25, riser(-0.6, 0.78, 0.16, 0xc9b2ff), 0xffb3cf, 0x8fe3ff);
+  const k = new THREE.Group(); s.g.add(k);
+  const KY = 0.13, KZ = -0.17, W = 0.38;
+  const body = box(W, 0.035, 0.11, pmat(0xfff0a0)); body.position.set(0, KY, KZ); k.add(body);
+  const front = box(W * 0.98, 0.026, 0.004, pmat(0xff8fbf)); front.position.set(0, KY, KZ - 0.056); k.add(front);
+  const fh = heartMesh(0.011, 0xffffff, 0.003); fh.position.set(0, KY, KZ - 0.06); fh.rotation.y = Math.PI; k.add(fh);
+  for (const x of [-0.13, 0.13]) { const sp = cyl(0.012, 0.004, pmat(0x8a6aa8), 12); sp.rotation.x = Math.PI / 2; sp.position.set(x, KY, KZ - 0.059); k.add(sp); }
+  for (const x of [-0.12, 0.12]) for (const a of [-0.5, 0.5]) { const l = box(0.008, 0.16, 0.008, metal(0xe6e2f0)); l.position.set(x, KY / 2 - 0.005, KZ); l.rotation.x = a; k.add(l); }
+  s.keyMeshes = []; const KW = 0.0235, x0 = -7 * KW;
+  for (let i = 0; i < 15; i++) {
+    const m = box(KW * 0.9, 0.012, 0.062, pmat(0xffffff, { roughness: 0.35 })); m.position.set(x0 + i * KW, KY + 0.022, KZ + 0.02); m.userData.y = m.position.y; k.add(m); s.keyMeshes.push(m);
+    if (i < 14 && [0, 1, 3, 4, 5].includes(i % 7)) { const b = box(KW * 0.55, 0.012, 0.036, pmat(0x6b4a5b)); b.position.set(x0 + (i + 0.5) * KW, KY + 0.03, KZ + 0.004); k.add(b); }
+  }
+  s.keyPt = (i) => new THREE.Vector3(x0 + i * KW, KY + 0.034, KZ + 0.035);
+  s.pts = { restL: s.keyPt(3).setY(KY + 0.08), restR: s.keyPt(10).setY(KY + 0.08) };
+}
+// guitar: a lilac ukulele-sized guitar with a heart sound hole
+{
+  const s = bandSloth("guitar", 0.98, -0.45, -0.4, 0, 0xffd166, 0xff6fa6);
+  const gt = new THREE.Group(); s.g.add(gt); s.guitar = gt;
+  const lil = pmat(0xc9a8ff), mint = pmat(0xa8e6cf);
+  const b1 = cyl(0.07, 0.034, lil, 24); b1.rotation.x = Math.PI / 2; b1.position.set(0.025, 0, 0); gt.add(b1);
+  const b2 = cyl(0.054, 0.034, lil, 24); b2.rotation.x = Math.PI / 2; b2.position.set(-0.055, 0, 0); gt.add(b2);
+  const hole = heartMesh(0.019, 0x6b4a5b, 0.002); hole.position.set(-0.03, 0, -0.019); hole.rotation.set(0, Math.PI, Math.PI / 2); gt.add(hole);
+  const bridge = box(0.01, 0.04, 0.008, pmat(0xff8fbf)); bridge.position.set(0.055, 0, -0.019); gt.add(bridge);
+  const neck = box(0.19, 0.024, 0.014, mint); neck.position.set(-0.19, 0, -0.006); gt.add(neck);
+  const headM = box(0.05, 0.042, 0.016, pmat(0xff8fbf)); headM.position.set(-0.305, 0, -0.006); gt.add(headM);
+  for (const y of [-0.014, 0.014]) for (const x of [-0.29, -0.315]) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.006, 6, 5), pmat(0xfff6ee)); p.position.set(x, y * 1.4, -0.006); gt.add(p); }
+  for (const y of [-0.0075, -0.0025, 0.0025, 0.0075]) { const st = box(0.34, 0.0012, 0.0012, pmat(0xffffff)); st.position.set(-0.115, y, -0.02); gt.add(st); }
+  s.strumPt = new THREE.Vector3(-0.01, 0, -0.035);
+  s.fretPt = (x) => new THREE.Vector3(x, 0, -0.03);
+}
+// triangle: a golden triangle on a string in one paw, a silver beater in the other
+{
+  const s = bandSloth("triangle", -0.98, -0.45, 0.4, 0, 0xc9a8ff, 0xffd166);
+  const tri = new THREE.Group(); s.g.add(tri); s.tri = tri;
+  const gold = metal(0xffd166), side = 0.1;
+  const P = [0, 1, 2].map((i) => new THREE.Vector3(Math.sin(i * 2.094) * side * 0.577, -side * 0.577 * 0.5 - Math.cos(i * 2.094) * side * 0.577 + side * 0.2, 0));
+  // drawn from the top corner; the bottom-right corner is left open, like a real one
+  for (let i = 0; i < 3; i++) {
+    const a = P[i], b = P[(i + 1) % 3], len = a.distanceTo(b) - (i === 1 ? 0.012 : 0);
+    const bar = cyl(0.0045, len, gold, 8); const mid = a.clone().lerp(b, 0.5 - (i === 1 ? 0.04 : 0));
+    bar.position.copy(mid); bar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); tri.add(bar);
+  }
+  const str = cyl(0.0012, 0.035, pmat(0xff8fbf), 4); str.position.set(0, P[0].y + 0.017, 0); tri.add(str);
+  tri.userData.top = P[0].y + 0.035; s.triHit = P[1].clone().lerp(P[2], 0.5).add(new THREE.Vector3(0, 0, -0.012));
+  const fa = s.B("forearm.R"), bt = cyl(0.0025, 0.07, metal(0xe6e2f0), 6); bt.position.set(0, PAW + 0.03, 0); fa.add(bt);
+  s.tipR.position.y = PAW + 0.065;
+}
+// pastel bunting under the branch
+const bunting = new THREE.Group(); party.add(bunting);
+for (let i = 0; i < 19; i++) {
+  const x = -2.05 + i * 0.228, sag = 0.42 * (1 - ((x / 2.1) ** 2));
+  const sh = new THREE.Shape(); sh.moveTo(-0.07, 0); sh.lineTo(0.07, 0); sh.lineTo(0, -0.13); sh.closePath();
+  const f = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshStandardMaterial({ color: [0xffb3cf, 0xfff0a0, 0xa8e6cf, 0xc9b2ff, 0x8fe3ff][i % 5], side: THREE.DoubleSide, roughness: 0.8 }));
+  f.position.set(x, BRANCH_Y - 0.1 - sag, BRANCH_Z - 0.18); f.rotation.x = 0.1; bunting.add(f);
+}
+// her hat
+const herHat = partyHat(0xff8fbf, 0xffd166, 1.6); herHat.position.set(0.0, 0.245, 0.01); herHat.rotation.z = 0.25; her.B("head").add(herHat);
+function useSong(id) {
+  loadSong(id);
+  const p = id === "party", o = id === "aussie";
+  party.visible = p; herHat.visible = p; garland.forEach((h) => (h.visible = !p));
+  for (const s of [s1, s2]) s.g.visible = !p;
+  oz.visible = o; ozWear.forEach((w) => (w.visible = o)); akubra.visible = o; moon.visible = !o;
+  scene.background = o ? skyOz : skyNight; scene.fog.color.set(o ? 0xb06a6a : fogNight); ground.material.color.set(o ? 0xc8693e : groundGreen);
+  for (const s of Object.values(BAND)) s.g.visible = p;
+  document.querySelectorAll(".pick").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.song === id)));
+  $("tonight").textContent = SONGS[id].title;
+}
+
+// ---------------------------------------------------------------- down under (song 3): outback sunset, gum trees, a kookaburra and four new friends
+const oz = new THREE.Group(); scene.add(oz); oz.visible = false;
+const blob = (r, s, color, p, parent, o = {}) => {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mat(color, { flatShading: false, roughness: 0.85, ...o }));
+  m.scale.set(...s); m.position.set(...p); m.castShadow = true; parent.add(m); return m;
+};
+function eyes(parent, x, y, z, r = 0.012) {   // shiny black eyes with a white glint, and pink cheeks
+  for (const sx of [-1, 1]) {
+    blob(r, [1, 1, 1], 0x1d120c, [sx * x, y, z], parent, { roughness: 0.25 });
+    blob(r * 0.35, [1, 1, 1], 0xffffff, [sx * x + r * 0.35, y + r * 0.4, z - r * 0.8], parent, { emissive: 0xffffff, emissiveIntensity: 0.6 });
+    blob(r * 1.1, [1, 0.6, 0.4], 0xffa3b8, [sx * (x + r * 1.2), y - r * 1.8, z + r * 0.4], parent, { roughness: 1 });
+  }
+}
+// the sky, ground and fog for each look
+const skyNight = scene.background, fogNight = scene.fog.color.clone(), groundGreen = ground.material.color.clone();
+const skyOz = canvasTex(4, 256, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, "#2f3a7a"); gr.addColorStop(0.38, "#8a5aa0"); gr.addColorStop(0.66, "#ff8a6a"); gr.addColorStop(0.86, "#ffc078"); gr.addColorStop(1, "#ffe0a0");
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+// a big sleepy sun in sunnies
+const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(256, 256, (g) => {
+  const gr = g.createRadialGradient(128, 128, 60, 128, 128, 126); gr.addColorStop(0, "rgba(255,214,120,.9)"); gr.addColorStop(1, "rgba(255,170,90,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  g.fillStyle = "#ffd36b"; g.beginPath(); g.arc(128, 128, 78, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#3b2a3a"; for (const x of [98, 158]) { g.beginPath(); g.ellipse(x, 116, 24, 17, 0, 0, Math.PI * 2); g.fill(); }
+  g.fillRect(118, 110, 20, 5); g.fillStyle = "rgba(255,255,255,.5)"; for (const x of [90, 150]) { g.beginPath(); g.ellipse(x, 110, 7, 4, -0.4, 0, Math.PI * 2); g.fill(); }
+  g.strokeStyle = "#a8552e"; g.lineWidth = 6; g.lineCap = "round"; g.beginPath(); g.arc(128, 150, 20, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
+  g.fillStyle = "#ff9f8a"; for (const x of [78, 178]) { g.beginPath(); g.arc(x, 150, 11, 0, Math.PI * 2); g.fill(); }
+}), fog: false }));
+sun.scale.set(2.3, 2.3, 1); sun.position.set(-3.6, 3.0, 7); oz.add(sun);
+// a big red rock on the horizon, with soft ridges
+{
+  const rock = new THREE.Group(); rock.position.set(2.6, 0, 13); oz.add(rock);
+  const rm = mat(0xd0603a, { fog: false, flatShading: false, roughness: 0.95 });
+  const main = new THREE.Mesh(new THREE.SphereGeometry(1, 26, 12, 0, Math.PI * 2, 0, Math.PI / 2), rm); main.scale.set(4.6, 1.5, 1.8); rock.add(main);
+  for (let i = 0; i < 9; i++) { const r = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xb74e2e, { fog: false, flatShading: false })); r.scale.set(0.18, 1.35 - Math.abs(i - 4) * 0.12, 0.3); r.position.set(-3.2 + i * 0.8, 0, -1.55 + Math.abs(i - 4) * 0.12); rock.add(r); }
+}
+// gum trees: pale trunks and droopy grey-green leaves
+function gumTree(x, z, s) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); oz.add(g);
+  const bark = mat(0xece4d8, { flatShading: false }), leaf = mat(0x8fae7e, { flatShading: true });
+  const trunk = cyl(0.11, 2.2, bark, 9, 0.16); trunk.position.y = 1.1; g.add(trunk);
+  for (const [a, h, l] of [[0.7, 1.7, 0.9], [-0.8, 1.9, 0.8], [0.2, 2.15, 0.7]]) {
+    const br = cyl(0.04, l, bark, 6, 0.06); br.position.set(Math.sin(a) * l * 0.4, h + l * 0.3, 0); br.rotation.z = -a; g.add(br);
+    for (let i = 0; i < 9; i++) {
+      const lf = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), leaf); lf.scale.set(1.5, 0.75, 0.9);
+      lf.position.set(Math.sin(a) * l * 0.85 + Math.sin(i * 2.3) * 0.3, h + l * 0.6 + Math.cos(i * 1.7) * 0.18, Math.cos(i * 3.1) * 0.25); lf.castShadow = true; g.add(lf);
+    }
+  }
+  return g;
+}
+gumTree(3.3, 2.6, 1.15); gumTree(-3.5, 3.4, 1.3); gumTree(4.6, 6.5, 1.4);
+// spinifex tufts on the red dirt
+for (let i = 0; i < 26; i++) {
+  const a = i * 2.39, r = 2.7 + (i % 5) * 0.9, tuft = new THREE.Group(); tuft.position.set(Math.sin(a) * r, 0, Math.cos(a) * r + 1.5);
+  for (let k = 0; k < 6; k++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.22, 4), mat(0xb8b85a)); c.position.y = 0.09; c.rotation.set(Math.sin(k * 2) * 0.6, k, Math.cos(k * 3) * 0.6); tuft.add(c); }
+  oz.add(tuft);
+}
+// surfboards leaning on the speakers
+for (const [x, col, st] of [[1.92, 0xff9fbf, 0xfff0a0], [-1.92, 0x9fdcff, 0xffb3cf]]) {
+  const b = new THREE.Group(); b.position.set(x, STAGE_Y + 0.42, 0.2); b.rotation.z = -Math.sign(x) * 0.22; oz.add(b);
+  const board = blob(0.1, [1, 4.6, 0.18], col, [0, 0, 0], b, { roughness: 0.45 });
+  blob(0.1, [0.25, 4.3, 0.2], st, [0, 0, -0.002], b, { roughness: 0.45 });
+  const fin = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.06, 3), mat(0xffffff)); fin.position.set(0, -0.36, 0.02); b.add(fin);
+}
+// a kookaburra on the branch: laughs in the intro and after each chorus
+const kooka = new THREE.Group(); const KOOKA_Y = BRANCH_Y + 0.055; kooka.position.set(-0.62, KOOKA_Y, BRANCH_Z); kooka.rotation.y = 0.35; kooka.scale.setScalar(0.9); oz.add(kooka);
+{
+  const body = blob(0.075, [1, 1.2, 0.95], 0xf3ece0, [0, 0.06, 0], kooka);
+  for (const sx of [-1, 1]) { const w = blob(0.06, [0.45, 1.1, 1.05], 0x7a5a3e, [sx * 0.062, 0.06, 0.012], kooka); w.rotation.z = sx * 0.2; blob(0.022, [0.4, 0.8, 1], 0x6fb4d8, [sx * 0.075, 0.08, -0.02], kooka); }
+  const tail = blob(0.05, [0.6, 1.5, 0.35], 0x9a6a3e, [0, -0.02, 0.07], kooka); tail.rotation.x = 0.6;
+  const head = new THREE.Group(); head.position.set(0, 0.16, -0.01); kooka.add(head); kooka.userData.head = head;
+  blob(0.062, [1, 0.95, 1.05], 0xf3ece0, [0, 0, 0], head);
+  blob(0.04, [1.1, 0.5, 1], 0x8a6a4a, [0, 0.04, 0.01], head);
+  for (const sx of [-1, 1]) blob(0.022, [0.4, 0.45, 1.6], 0x5a3e2a, [sx * 0.045, 0.005, -0.005], head);
+  eyes(head, 0.042, 0.012, -0.04, 0.009);
+  const up = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.085, 6), mat(0x3a3330)); up.rotation.x = -Math.PI / 2; up.position.set(0, -0.004, -0.095); head.add(up);
+  const lo = new THREE.Group(); lo.position.set(0, -0.016, -0.05); head.add(lo); kooka.userData.jaw = lo;
+  const lb = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.075, 6), mat(0xe8d6b0)); lb.rotation.x = -Math.PI / 2; lb.position.set(0, 0, -0.04); lo.add(lb);
+  kooka.traverse((m) => m.isMesh && (m.castShadow = true));
+}
+// sunnies and cork hats for the sloths, an outback hat for her
+const ozWear = [];
+for (const s of [s1, s2, s3]) {
+  const w = new THREE.Group(); s.B("head").add(w); ozWear.push(w);
+  // heart sunnies, in the sloth's own units
+  for (const sx of [-1, 1]) {
+    // one piece: a pink heart frame with a hole, and a dark lens cut from the same hole, sharing one centre
+    const so = 0.0235, si = 0.0165, mid = (s) => new THREE.Vector2(0, (-0.9 + 0.72) / 2 * s);   // heart's bbox centre
+    const shift = (sh, d) => new THREE.Shape(sh.getPoints(24).map((v) => v.sub(d)));
+    const outer = shift(heartShape(so), mid(so)), inner = shift(heartShape(si), mid(si));
+    const ring = new THREE.Shape(outer.getPoints()); ring.holes.push(new THREE.Path(inner.getPoints().reverse()));
+    const rimG = new THREE.ExtrudeGeometry(ring, { depth: 0.006, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.0012, bevelSegments: 2 });
+    rimG.translate(0, 0, -0.003);
+    const rim = new THREE.Mesh(rimG, pmat(0xff7fb0, { roughness: 0.4 }));
+    const lens = new THREE.Mesh(new THREE.ShapeGeometry(inner), mat(0x3b2a3a, { roughness: 0.2, metalness: 0.3, flatShading: false, side: THREE.DoubleSide }));
+    const g = new THREE.Group(); g.add(rim, lens); g.position.set(sx * 0.033, 0.062, -0.088); g.rotation.y = Math.PI; w.add(g);
+  }
+  const br = box(0.03, 0.0065, 0.005, pmat(0xff7fb0)); br.position.set(0, 0.066, -0.088); w.add(br);
+  // the cork hat, in world size
+  const hat = new THREE.Group(); hat.scale.setScalar(1.25 / SL); hat.position.set(0, 0.14, 0.008); hat.rotation.x = -0.12; w.add(hat);
+  const straw = pmat(0xe0c08a, { roughness: 0.9 });
+  const brim = cyl(0.135, 0.009, straw, 26); hat.add(brim);
+  const crown = cyl(0.066, 0.055, straw, 18, 0.074); crown.position.y = 0.03; hat.add(crown);
+  const band = cyl(0.075, 0.014, pmat(0x8a5a3a), 18); band.position.y = 0.011; hat.add(band);
+  w.userData.corks = [];
+  for (const a of [0, 0.5, -0.5, 1.05, -1.05, 1.6, -1.6, 2.15, -2.15, 2.65, -2.65]) {   // round the brim edge, leaving the face clear
+    const c = new THREE.Group(); c.position.set(Math.sin(a) * 0.128, -0.003, Math.cos(a) * 0.128); hat.add(c);
+    const str = cyl(0.0015, 0.04, pmat(0x6b4a3a), 4); str.position.y = -0.02; c.add(str);
+    const cork = cyl(0.0095, 0.024, pmat(0xc9905a), 8, 0.011); cork.position.y = -0.05; c.add(cork);
+    w.userData.corks.push(c);
+  }
+}
+const akubra = new THREE.Group(); akubra.position.set(0, 0.218, 0.012); akubra.rotation.set(-0.08, 0, 0.06); her.B("head").add(akubra);
+{
+  const felt = pmat(0x9a6440, { roughness: 0.9 });
+  const brim = cyl(0.19, 0.012, felt, 26); brim.scale.z = 0.92; akubra.add(brim);
+  const crown = cyl(0.095, 0.1, felt, 20, 0.11); crown.position.y = 0.055; akubra.add(crown);
+  const dent = cyl(0.06, 0.02, pmat(0x8a5634), 16); dent.position.y = 0.1; akubra.add(dent);
+  const band = cyl(0.112, 0.022, pmat(0x5a3a26), 20); band.position.y = 0.014; akubra.add(band);
+  const fl = heartMesh(0.018, 0xffd166, 0.004); fl.position.set(0.1, 0.02, -0.04); fl.rotation.y = 2.3; akubra.add(fl);
+}
+// a didgeridoo for the left sloth: a long gum-wood tube, mouth end at its snout, bell end on the stage, painted with dots and hearts
+const didge = new THREE.Group(); oz.add(didge);
+const DIDGE_LEN = 0.56;
+{
+  const tex = canvasTex(64, 512, (g, w, h) => {
+    g.fillStyle = "#b8643a"; g.fillRect(0, 0, w, h);
+    const band = (y, c) => { g.fillStyle = c; g.fillRect(0, y, w, 10); };
+    for (const y of [40, 150, 300, 440]) { band(y, "#f3e2c0"); band(y + 14, "#3b2a2a"); }
+    const dot = (x, y, r, c) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); };
+    for (let y = 70; y < 140; y += 9) for (let x = 4; x < w; x += 10) dot(x + (y % 18 ? 5 : 0), y, 2.4, "#ffd166");
+    for (let y = 180; y < 290; y += 9) for (let x = 4; x < w; x += 10) dot(x + (y % 18 ? 5 : 0), y, 2.4, y % 27 ? "#f3e2c0" : "#ff9fc4");
+    for (let y = 330; y < 430; y += 9) for (let x = 4; x < w; x += 10) dot(x + (y % 18 ? 5 : 0), y, 2.4, "#ffd166");
+    // a little pink heart in each panel, painted on in dots
+    for (const cy of [105, 235, 380]) for (let a = 0; a < Math.PI * 2; a += 0.35) {
+      const hx = 16 * Math.sin(a) ** 3, hy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a));
+      dot(32 + hx * 1.1, cy + hy * 1.1, 2.6, "#ff7fb0");
+    }
+  });
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.034, DIDGE_LEN, 16, 1, true), pmat(0xffffff, { map: tex, side: THREE.DoubleSide, roughness: 0.75 }));
+  tube.position.y = DIDGE_LEN / 2; tube.castShadow = true; didge.add(tube);   // y=0 is the mouthpiece, +y runs down to the bell
+  tube.rotation.x = Math.PI;   // narrow end at the mouthpiece
+  const wax = cyl(0.021, 0.012, pmat(0x3b2a2a, { roughness: 0.5 }), 14); wax.position.y = 0.004; didge.add(wax);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(0.034, 0.005, 6, 18), pmat(0x8a4a2a)); lip.rotation.x = Math.PI / 2; lip.position.y = DIDGE_LEN; didge.add(lip);
+  const inside = new THREE.Mesh(new THREE.CircleGeometry(0.031, 16), pmat(0x2a1a1a)); inside.rotation.x = -Math.PI / 2; inside.position.y = DIDGE_LEN - 0.02; didge.add(inside);
+}
+// the paws that hold it, as tips on the forearms like the band's
+for (const side of ["L", "R"]) { const t = new THREE.Object3D(); t.position.set(0, PAW, 0); s2.B(`forearm.${side}`).add(t); s2["tip" + side] = t; }
+// sound waves puffing out of the bell on the beat
+const didgeRings = [0, 1, 2].map(() => { const r = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 6, 24), new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0 })); didge.add(r); r.rotation.x = Math.PI / 2; return r; });
+// the new audience, on the front of the stage, turned in toward her so you see their faces in profile
+const crowd = [];
+function critter(kind, x, z, build) {
+  const g = new THREE.Group(); g.position.set(x, STAGE_Y + 0.012, z);
+  const toHer = new THREE.Vector2(-x, 0.15 - z).normalize(), toCam = new THREE.Vector2(-x, -4.7 - z).normalize();
+  const f = toHer.multiplyScalar(0.35).add(toCam.multiplyScalar(0.65)).normalize();
+  g.userData.yaw = Math.atan2(-f.x, -f.y); g.userData.camYaw = Math.atan2(-toCam.x, -toCam.y); g.rotation.y = g.userData.yaw;
+  const body = new THREE.Group(); g.add(body);
+  const parts = build(body) || {};
+  oz.add(g); const c = { kind, g, body, ...parts, hop: 0, vy: 0, base: g.position.clone(), ph: crowd.length * 1.7 }; crowd.push(c); return c;
+}
+critter("platypus", 0.5, -1.28, (b) => {
+  blob(0.1, [1, 0.55, 1.5], 0x8b5a3c, [0, 0.06, 0], b);
+  const head = new THREE.Group(); head.position.set(0, 0.075, -0.13); b.add(head);
+  blob(0.072, [1, 0.85, 1], 0x8b5a3c, [0, 0, 0], head);
+  blob(0.055, [1.25, 0.32, 1.45], 0x4a5670, [0, -0.012, -0.09], head, { roughness: 0.5 });
+  for (const sx of [-1, 1]) blob(0.006, [1, 1, 1], 0x2a3040, [sx * 0.018, -0.004, -0.15], head);
+  eyes(head, 0.036, 0.028, -0.05, 0.011);
+  const tail = new THREE.Group(); tail.position.set(0, 0.04, 0.13); b.add(tail);
+  blob(0.07, [1, 0.25, 1.35], 0x6e4630, [0, 0, 0.07], tail);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) blob(0.03, [1.3, 0.35, 1], 0x4a5670, [sx * 0.085, 0.01, sz * 0.07], b);
+  return { head, tail };
+});
+critter("wallaby", 1.08, -1.0, (b) => {
+  blob(0.12, [1, 1.35, 0.95], 0xa88c72, [0, 0.17, 0], b);
+  blob(0.085, [0.95, 1.25, 0.55], 0xead8c0, [0, 0.16, -0.075], b);
+  for (const sx of [-1, 1]) { blob(0.05, [0.6, 0.35, 1.9], 0x8a6e56, [sx * 0.065, 0.022, -0.05], b); const arm = blob(0.03, [0.55, 1.2, 0.55], 0x9a7e64, [sx * 0.06, 0.235, -0.09], b); arm.rotation.x = 0.6; }
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.34, 8), mat(0x9a7e64, { flatShading: false })); tail.position.set(0, 0.05, 0.2); tail.rotation.x = -1.35; tail.castShadow = true; b.add(tail);
+  const head = new THREE.Group(); head.position.set(0, 0.37, -0.02); b.add(head);
+  blob(0.075, [1, 0.95, 1.05], 0xa88c72, [0, 0, 0], head);
+  blob(0.045, [0.95, 0.85, 1.25], 0xb89c82, [0, -0.02, -0.07], head);
+  blob(0.016, [1.2, 0.8, 0.8], 0x2a1d18, [0, -0.008, -0.123], head, { roughness: 0.3 });
+  for (const sx of [-1, 1]) { const e = blob(0.034, [0.5, 1.6, 0.28], 0xa88c72, [sx * 0.042, 0.095, 0.01], head); e.rotation.z = -sx * 0.25; const ei = blob(0.022, [0.4, 1.3, 0.2], 0xffb3c4, [sx * 0.043, 0.095, 0.0], head); ei.rotation.z = -sx * 0.25; }
+  eyes(head, 0.033, 0.018, -0.058, 0.013);
+  return { head };
+});
+critter("echidna", -0.5, -1.28, (b) => {
+  blob(0.11, [1.1, 0.72, 1.3], 0x5a4535, [0, 0.075, 0], b);
+  const spikes = new THREE.Group(); b.add(spikes);
+  for (let i = 0; i < 46; i++) {   // quills over the back, pointing out of the body
+    const u = (i + 0.5) / 46, th = Math.acos(1 - u * 0.95), ph = i * 2.399;
+    const n = new THREE.Vector3(Math.sin(th) * Math.cos(ph) * 1.1, Math.cos(th) * 0.72, Math.sin(th) * Math.sin(ph) * 1.3).normalize();
+    if (n.z < -0.55) continue;
+    const q = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.07, 5), mat(i % 3 ? 0xf1e4c6 : 0xc9a87a)); q.position.set(n.x * 0.105, 0.075 + n.y * 0.075, n.z * 0.13);
+    q.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n); spikes.add(q);
+  }
+  const head = new THREE.Group(); head.position.set(0, 0.07, -0.13); b.add(head);
+  blob(0.055, [1, 0.9, 1.05], 0x8a6a52, [0, 0, 0], head);
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.11, 8), mat(0x3a2c25, { flatShading: false })); snout.rotation.x = -Math.PI / 2 - 0.15; snout.position.set(0, -0.01, -0.1); head.add(snout);
+  eyes(head, 0.028, 0.018, -0.042, 0.01);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) blob(0.022, [1, 0.5, 1.2], 0x3a2c25, [sx * 0.08, 0.012, sz * 0.07], b);
+  return { head, spikes };
+});
+critter("wombat", -1.08, -1.0, (b) => {
+  // a low, round barrel of a wombat: broad flat head, wide square nose, little ears, short strong legs with claws
+  const fur = 0x8c7259, dark = 0x5e4a3a;
+  blob(0.15, [1.05, 0.8, 1.3], fur, [0, 0.13, 0.03], b);
+  blob(0.13, [1.0, 0.82, 0.85], fur, [0, 0.135, 0.12], b);   // round rump
+  blob(0.115, [0.9, 0.55, 1.2], 0xa88c70, [0, 0.085, -0.02], b);   // paler belly
+  blob(0.02, [1, 0.8, 1], dark, [0, 0.12, 0.25], b);   // a tiny stub of a tail
+  const head = new THREE.Group(); head.position.set(0, 0.165, -0.19); head.scale.setScalar(1.18); b.add(head);
+  blob(0.1, [1.22, 0.88, 0.95], fur, [0, 0, 0], head);
+  blob(0.062, [1.35, 0.78, 0.85], 0xb0947a, [0, -0.028, -0.07], head);   // muzzle
+  blob(0.03, [1.75, 1.05, 0.7], 0x2e2420, [0, -0.012, -0.118], head, { roughness: 0.3 });   // the big square nose
+  for (const sx of [-1, 1]) blob(0.007, [1, 0.8, 0.6], 0x120c0a, [sx * 0.02, -0.02, -0.136], head);
+  blob(0.022, [1.6, 0.5, 0.5], 0x8a5a4a, [0, -0.055, -0.1], head);   // a little smile
+  for (const sx of [-1, 1]) {
+    const ear = blob(0.03, [0.85, 1.05, 0.38], fur, [sx * 0.08, 0.075, 0.015], head); ear.rotation.z = -sx * 0.35;
+    const inner = blob(0.019, [0.8, 0.95, 0.3], 0xf0a8b4, [sx * 0.08, 0.072, 0.004], head); inner.rotation.z = -sx * 0.35;
+  }
+  eyes(head, 0.055, 0.03, -0.074, 0.013);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    blob(0.045, [0.85, 0.7, 1.1], dark, [sx * 0.105, 0.03, sz * 0.12 - 0.02], b);
+    for (let k = -1; k <= 1; k++) { const cl = new THREE.Mesh(new THREE.ConeGeometry(0.006, 0.022, 5), mat(0xf1e4c6)); cl.rotation.x = -Math.PI / 2; cl.position.set(sx * 0.105 + k * 0.016, 0.01, sz * 0.12 - 0.065); b.add(cl); }
+  }
+  return { head };
+});
+crowd.forEach((c) => c.g.traverse((m) => m.isMesh && (m.castShadow = true)));
+function poseOz(b, sing, dt, t) {
+  const groove = playing ? 1 : 0.35, ph = b * Math.PI, chorus = sing.sec === "chorus" || sing.sec === "chant";
+  // the sun sinks a touch as the song goes on, the corks swing
+  ozWear.forEach((w, i) => w.userData.corks.forEach((c, k) => { c.rotation.x = Math.sin(t * 3 + k + i) * 0.25 + Math.sin(ph) * 0.2 * groove; c.rotation.z = Math.cos(t * 2.4 + k * 1.3) * 0.2; }));
+  // the kookaburra laughs: head back, beak flapping
+  let laugh = 0; for (const k of kookas) if (b >= k && b < k + 3.6) laugh = Math.min(1, (b - k) * 4, (k + 3.6 - b) * 3);
+  kooka.userData.head.rotation.x = -0.55 * laugh + Math.sin(t * 1.3) * 0.05;
+  kooka.userData.jaw.rotation.x = laugh * (0.25 + 0.25 * Math.abs(Math.sin(t * 21)));
+  kooka.position.y = KOOKA_Y + laugh * 0.012 * Math.abs(Math.sin(t * 21));
+  // "Oi!": everyone jumps
+  let oi = 0; for (const o of ois) if (b >= o && b < o + 0.9) oi = Math.sin(Math.PI * (b - o) / 0.9);
+  for (const c of crowd) {
+    c.vy -= 9.8 * dt; c.hop = Math.max(0, c.hop + c.vy * dt); if (c.hop === 0) c.vy = 0;
+    const bounce = c.kind === "wallaby" ? (chorus ? Math.abs(Math.sin(ph)) * 0.11 : Math.abs(Math.sin(ph)) * 0.015) : Math.abs(Math.sin(ph + c.ph)) * (chorus ? 0.03 : 0.012);
+    c.g.position.y = c.base.y + c.hop + (bounce * groove) + oi * 0.16;
+    c.body.scale.set(1 + Math.sin(ph * 2) * 0.03 * groove, 1 - Math.sin(ph * 2) * 0.03 * groove, 1);
+    // they turn to look at you when the chorus comes round
+    c.look = THREE.MathUtils.damp(c.look || 0, chorus || c.hop > 0 ? 1 : 0, 3, dt);
+    c.g.rotation.y = THREE.MathUtils.lerp(c.g.userData.yaw, c.g.userData.camYaw, c.look * 0.7);
+    if (c.head) c.head.rotation.z = Math.sin(ph + c.ph) * 0.15 * groove;
+    if (c.tail) c.tail.rotation.y = Math.sin(t * 7) * 0.35;
+    if (c.spikes) c.spikes.scale.setScalar(1 + Math.abs(Math.sin(ph)) * 0.08 * groove);
+  }
+  poseDidge(b, sing, groove);
+}
+// the left sloth leans in and blows: head down to the mouthpiece, the tube running down to the stage, both paws on it
+function poseDidge(b, sing, groove) {
+  const s = s2, B = s.B, blow = b >= INTRO - 4 && b < SONG_END ? 1 : 0;
+  rotLocal(B("head"), X, -0.1);
+  B("head").updateWorldMatrix(true, false);
+  const mouth = B("head").localToWorld(new THREE.Vector3(0, 0.03, -0.1));
+  const floor = s.g.localToWorld(new THREE.Vector3(0.06, 0.035, -0.5)); floor.y = STAGE_Y + 0.035;
+  const dir = floor.clone().sub(mouth); const len = dir.length(); dir.normalize();
+  didge.position.copy(mouth); didge.quaternion.setFromUnitVectors(Y, dir);
+  didge.scale.set(1, len / DIDGE_LEN, 1);
+  // a little puff in the cheeks on each beat
+  const pulse = blow * Math.exp(-((b % 1) * 5)) * groove;
+  B("head").scale.set(1 + pulse * 0.04, 1, 1 + pulse * 0.03);
+  for (const [side, k, pole] of [["L", 0.3, new THREE.Vector3(-1, -0.4, 0)], ["R", 0.48, new THREE.Vector3(1, -0.4, 0)]]) {
+    const at = mouth.clone().lerp(floor, k).add(new THREE.Vector3(side === "L" ? -0.024 : 0.024, 0, 0).applyQuaternion(s.g.quaternion));
+    reach(B(`upper_arm.${side}`), B(`forearm.${side}`), s["tip" + side], at, pole.applyQuaternion(s.g.quaternion));
+  }
+  didgeRings.forEach((r, i) => {
+    const age = ((b + i / 3) % 1);
+    r.position.y = DIDGE_LEN + age * 0.25; r.scale.setScalar(1 + age * 1.6);
+    r.material.opacity = blow * groove * (1 - age) * 0.7;
+  });
+}
+
+// ---------------------------------------------------------------- posing on top of the clips
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
+// turn `bone` so its child `child` lies toward the world point `target`
+function aim(bone, child, target) {
+  bone.updateWorldMatrix(true, true);
+  const bp = bone.getWorldPosition(_a), cp = child.getWorldPosition(_b);
+  const cur = cp.sub(bp).normalize(), des = _c.copy(target).sub(bp).normalize();
+  _q.setFromUnitVectors(cur, des);
+  bone.getWorldQuaternion(_q2); bone.parent.getWorldQuaternion(_q3);
+  bone.quaternion.copy(_q3.invert().multiply(_q.multiply(_q2)));
+  bone.updateWorldMatrix(false, true);
+}
+// two-bone reach: shoulder -> elbow -> hand to `target`, elbow toward `pole`
+function reach(upper, fore, hand, target, pole) {
+  upper.updateWorldMatrix(true, true);
+  const S = upper.getWorldPosition(new THREE.Vector3()), E0 = fore.getWorldPosition(new THREE.Vector3()), H0 = hand.getWorldPosition(new THREE.Vector3());
+  const L1 = S.distanceTo(E0), L2 = E0.distanceTo(H0);
+  const T = target.clone(), d0 = T.clone().sub(S); let d = d0.length();
+  d = Math.min(d, (L1 + L2) * 0.999); const n = d0.normalize();
+  const a = (L1 * L1 - L2 * L2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+  const p = pole.clone().sub(n.clone().multiplyScalar(pole.dot(n))).normalize();
+  const E = S.clone().add(n.clone().multiplyScalar(a)).add(p.multiplyScalar(h));
+  aim(upper, fore, E); aim(fore, hand, S.clone().add(n.multiplyScalar(d)));
+}
+const fwd = new THREE.Vector3(0, 0, -1);
+function rotLocal(bone, axis, ang) { _q.setFromAxisAngle(axis, ang); bone.quaternion.multiply(_q); }
+function rotWorld(bone, axis, ang) {
+  bone.updateWorldMatrix(true, false);
+  _q.setFromAxisAngle(axis, ang); bone.getWorldQuaternion(_q2); bone.parent.getWorldQuaternion(_q3);
+  bone.quaternion.copy(_q3.invert().multiply(_q.multiply(_q2)));
+}
+const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
+
+function poseHer(b, sing, dt) {
+  const B = her.B, beatPh = b * Math.PI;
+  // in a solo she turns to the soloist and presents them
+  her.o.rotation.y = THREE.MathUtils.damp(her.o.rotation.y, sing.solo && BAND[sing.solo] ? -Math.sign(BAND[sing.solo].base.x) * 0.55 : 0, 3, dt);
+  const fwdH = fwd.clone().applyQuaternion(her.o.quaternion);
+  const groove = playing ? 1 : 0.3;
+  // sway the hips and spine on the beat
+  rotLocal(B("spine"), Z, Math.sin(beatPh) * 0.05 * groove);
+  rotLocal(B("chest"), Z, Math.sin(beatPh) * 0.04 * groove);
+  B("hips").position.y += Math.abs(Math.sin(beatPh)) * 0.012 * groove;
+  rotLocal(B("head"), Z, Math.sin(beatPh + 0.6) * 0.07 * groove);
+  rotLocal(B("head"), X, -0.06 - sing.open * 0.05);
+  // the mic in her right hand, just under her chin
+  her.o.updateWorldMatrix(true, true);
+  const jaw = B("jaw").getWorldPosition(new THREE.Vector3());
+  const mouth = jaw.clone().add(fwdH.clone().multiplyScalar(0.07)).add(new THREE.Vector3(0, -0.015, 0));
+  const handT = mouth.clone().add(new THREE.Vector3(0.0, -0.17, 0).addScaledVector(fwdH, 0.07));
+  const outR = Math.sign(B("upper_arm.R").getWorldPosition(new THREE.Vector3()).x - her.o.position.x);
+  reach(B("upper_arm.R"), B("forearm.R"), B("hand.R"), handT, new THREE.Vector3(outR, -1.6, 0.6));
+  for (const f of ["fingers.R", "index.R"]) rotLocal(B(f), Z, 1.2);   // fingers round the mic
+
+  const hp = B("hand.R").getWorldPosition(new THREE.Vector3());
+  mic.position.copy(hp);
+  mic.quaternion.setFromUnitVectors(Y, mouth.clone().sub(hp).normalize());
+  // her left arm waves overhead in the chorus, rests on her hip otherwise
+  const sh = B("upper_arm.L").getWorldPosition(new THREE.Vector3());
+  her.wave = THREE.MathUtils.damp(her.wave || 0, (sing.sec === "chorus" || sing.sec === "solo" || sing.sec === "chant") ? 1 : 0, 4, dt);
+  {
+    const side = Math.sign(sh.x - her.o.position.x);
+    const up = sh.clone().add(new THREE.Vector3(side * (0.28 + 0.12 * Math.sin(b * Math.PI / 2)), 0.5, -0.12));
+    const hip = B("hips").getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(side * 0.19, 0.06, -0.04));   // hand on her hip
+    reach(B("upper_arm.L"), B("forearm.L"), B("hand.L"), hip.lerp(up, her.wave), new THREE.Vector3(side, her.wave > 0.5 ? -0.6 : 0.2, her.wave > 0.5 ? 0.3 : 1));
+  }
+  // sing: open the jaw with the melody
+  rotLocal(B("jaw"), X, sing.open * 0.28);
+}
+// the band: each paw follows its hit list, landing on the hit point at each hit and lifting in between
+function track(list, b) {
+  let lo = 0, hi = list.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (list[m].at <= b) lo = m + 1; else hi = m; }
+  return { prev: list[lo - 1], next: list[lo] };
+}
+function strike(list, b, pointOf, restPt, up = 0.06, rt = 0.2) {
+  if (!list || !list.length) return restPt.clone();
+  const { prev, next } = track(list, b);
+  const since = prev ? b - prev.at : 99, until = next ? next.at - b : 99;
+  const A = prev && since < 1.6 ? pointOf(prev) : restPt, B2 = next && until < 1.1 ? pointOf(next) : restPt;
+  const u = THREE.MathUtils.smoothstep(Math.min(since, 9) / (Math.min(since, 9) + Math.min(until, 9)), 0.15, 0.85);
+  return A.clone().lerp(B2, u).add(_c.set(0, up * Math.min(1, since / rt, until / rt), 0));
+}
+const since = (list, b) => { if (!list) return 99; const { prev } = track(list, b); return prev ? b - prev.at : 99; };
+function armTo(s, side, pLocal, pole) {
+  const w = s.g.localToWorld(pLocal.clone());
+  const pw = pole.clone().applyQuaternion(s.g.quaternion);
+  reach(s.B(`upper_arm.${side}`), s.B(`forearm.${side}`), s["tip" + side], w, pw);
+}
+function poseBand(s, b, sing, dt) {
+  const B = s.B, H = hits[s.role] || {}, g = playing ? 1 : 0.4, ph = b * Math.PI;
+  const solo = sing.solo === s.role;
+  // everyone bobs their head on the beat; the soloist bounces
+  rotLocal(B("head"), Z, Math.sin(ph + s.base.x) * 0.16 * g);
+  rotLocal(B("body"), Z, Math.sin(ph + s.base.x) * 0.05 * g);
+  s.vy -= 9.8 * dt; s.hop = Math.max(0, s.hop + s.vy * dt); if (s.hop === 0) s.vy = 0;
+  s.o.position.y = s.hop + (solo && playing ? Math.abs(Math.sin(ph)) * 0.035 : 0);
+  s.o.updateWorldMatrix(true, true);
+  const bodyL = s.g.worldToLocal(B("body").getWorldPosition(new THREE.Vector3()));
+  if (s.role === "drums") {
+    const P = s.pts;
+    for (const side of ["L", "R"]) armTo(s, side, strike(H[side], b, (h) => P[h.d], P["rest" + side], 0.07, 0.18), new THREE.Vector3(side === "R" ? 1 : -1, -0.8, 0.4));
+    const kk = Math.exp(-since(H.K, b) * 8);
+    s.kickFace.forEach((m) => m.scale.set(1 + kk * 0.08, 1, 1 + kk * 0.08));
+    s.o.position.y += kk * 0.006;
+    s.cymbals.crash.rotation.z = Math.sin(b * 20) * 0.12 * Math.exp(-sinceD(H.R, b, "crash") * 2.5);
+    s.cymbals.hat.position.y = 0.205 - 0.006 * Math.exp(-sinceD(H.R, b, "hat") * 12);
+    for (const d of ["snare", "tom"]) s.drums[d].scale.setScalar(1 + 0.04 * Math.exp(-Math.min(sinceD(H.L, b, d), sinceD(H.R, b, d)) * 14));
+  } else if (s.role === "keys") {
+    for (const side of ["L", "R"]) armTo(s, side, strike(H[side], b, (h) => s.keyPt(h.key), s.pts["rest" + side], 0.035, 0.15), new THREE.Vector3(side === "R" ? 1 : -1, -0.6, 0.6));
+    s.keyMeshes.forEach((m) => (m.position.y = m.userData.y));
+    for (const side of ["L", "R"]) { const l = H[side]; if (!l) continue; const { prev } = track(l, b); if (prev && b - prev.at < 0.22) s.keyMeshes[prev.key].position.y = s.keyMeshes[prev.key].userData.y - 0.006; }
+  } else if (s.role === "guitar") {
+    // the guitar sits on the belly, neck up to the sloth's left
+    s.guitar.position.copy(bodyL).add(_a.set(0.035, 0.075, -0.115));
+    s.guitar.rotation.set(0, 0, -0.5 + Math.sin(ph) * 0.04 * g);
+    s.guitar.updateMatrixWorld(true);
+    const l = H.R; let y = 0;
+    if (l) {
+      const { prev } = track(l, b);
+      if (prev) { const a = prev.k === "pick" ? 0.012 : 0.03, e = THREE.MathUtils.smoothstep(b - prev.at, 0, 0.16); y = prev.dir > 0 ? a - 2 * a * e : -a + 2 * a * e; }
+    }
+    const strumW = s.guitar.localToWorld(s.strumPt.clone().add(_b.set(0, y, 0)));
+    const lp = l && track(l, b).prev, fx = lp?.k === "pick" ? -0.14 - (lp.n - 72) * 0.007 : -0.17 + (lp && lp.ch ? (lp.ch[0] - 57) * 0.004 : 0);
+    const fretW = s.guitar.localToWorld(s.fretPt(fx));
+    reach(B("upper_arm.R"), B("forearm.R"), s.tipR, strumW, new THREE.Vector3(1, -0.6, 0.5).applyQuaternion(s.g.quaternion));
+    reach(B("upper_arm.L"), B("forearm.L"), s.tipL, fretW, new THREE.Vector3(-1, -0.9, 0.2).applyQuaternion(s.g.quaternion));
+  } else if (s.role === "triangle") {
+    // held up in the left paw, struck with the beater in the right; it swings and shivers after each ting
+    armTo(s, "L", lift(bodyL, 0.2).add(_a.set(-0.1, 0, -0.19)), new THREE.Vector3(-1, -0.6, 0.4));
+    const tipW = s.tipL.getWorldPosition(new THREE.Vector3());
+    s.tri.position.copy(s.g.worldToLocal(tipW)).add(_a.set(0, -s.tri.userData.top, 0));
+    const st = since(H.R, b), ring = Math.exp(-st * 2.2);
+    s.tri.rotation.set(Math.sin(b * 3) * 0.08 * g, 0, Math.sin(st * 30) * 0.12 * ring);
+    s.tri.updateMatrixWorld(true);
+    const hit = s.g.worldToLocal(s.tri.localToWorld(s.triHit.clone()));
+    armTo(s, "R", strike(H.R, b, () => hit, hit.clone().add(_a.set(0.05, 0.03, -0.03)), 0.0, 0.12).add(_b.set(0.03 * Math.min(1, st / 0.15), 0, 0)), new THREE.Vector3(1, -0.7, 0.5));
+  }
+}
+const sinceD = (list, b, d) => {   // beats since this list last hit drum d
+  if (!list) return 99; const { prev } = track(list, b); if (!prev) return 99;
+  let lo = list.indexOf(prev);
+  for (let i = lo; i >= 0 && i > lo - 12; i--) if (list[i].d === d) return b - list[i].at;
+  return 99;
+};
+const HEAD_DROP = [0.09, 0.06];   // world metres down and toward the camera, for the hanging sloth's head
+function poseSloth(s, b, i, sing, dt) {
+  if (!s.g.visible) return;
+  if (s.role) return poseBand(s, b, sing, dt);
+  const B = s.B, ph = b * Math.PI + i * 1.3, chorus = sing.sec === "chorus" || sing.sec === "chant";
+  if (s.clipName === "cling") {
+    s.g.rotation.x = Math.sin(b * Math.PI / 2) * 0.16 * (playing ? 1 : 0.4);   // a lazy swing on the beat
+    // turns its head right round to the audience (sloths can), upright like a sitting sloth's, with a little tilt
+    const ref = s1.B("head").getWorldQuaternion(new THREE.Quaternion()).premultiply(s1.g.quaternion.clone().invert());
+    ref.premultiply(_q.setFromAxisAngle(Z, Math.sin(ph) * 0.2));
+    const head = B("head"); head.updateWorldMatrix(true, false);
+    head.quaternion.copy(head.parent.getWorldQuaternion(_q2).invert().multiply(ref));
+    // and drops its head below the arms, a little toward the audience, so the front arm doesn't cut through its face
+    const dropW = head.getWorldPosition(new THREE.Vector3()).add(_a.set(0, -HEAD_DROP[0], -HEAD_DROP[1]));
+    head.position.copy(head.parent.worldToLocal(dropW));
+
+    return;
+  }
+  rotLocal(B("head"), Z, Math.sin(ph) * 0.18 * (playing ? 1 : 0.4));
+  rotLocal(B("body"), Z, Math.sin(ph) * 0.07 * (playing ? 1 : 0.3));
+  s.arms = THREE.MathUtils.damp(s.arms || 0, chorus ? 1 : 0, 5, dt);
+  if (s.arms > 0.01 && !(s === s2 && SONG_ID === "aussie")) for (const side of ["L", "R"]) {
+    // arms up and out in a V, swaying with the beat, forearms straightened
+    const ua = B(`upper_arm.${side}`), fa = B(`forearm.${side}`);
+    ua.updateWorldMatrix(true, true);
+    const sp = ua.getWorldPosition(new THREE.Vector3()), cur = fa.getWorldPosition(new THREE.Vector3());
+    const out = sp.clone().sub(B("body").getWorldPosition(new THREE.Vector3())); out.y = 0; out.normalize();
+    const wave = Math.sin(b * Math.PI + (side === "L" ? 0 : Math.PI)) * 0.3;
+    const dir = out.multiplyScalar(0.55 + wave).add(new THREE.Vector3(0, 1, 0)).add(fwd.clone().multiplyScalar(0.25)).normalize();
+    aim(ua, fa, cur.lerp(sp.clone().addScaledVector(dir, sp.distanceTo(cur)), s.arms));
+    fa.quaternion.slerp(_q3.identity(), s.arms * 0.85);
+  }
+  glow.forEach((g, k) => { if ((k >> 1) === i) g.visible = s.arms > 0.5 && SONG_ID === "slow"; });
+  // a little hop when cheered, and a bounce on the beat in the chorus
+  s.vy -= 9.8 * dt; s.hop = Math.max(0, s.hop + s.vy * dt); if (s.hop === 0) s.vy = 0;
+  s.g.position.y = s.base.y + s.hop + (chorus && playing ? Math.abs(Math.sin(b * Math.PI)) * 0.03 : 0);
+}
+
+// ---------------------------------------------------------------- camera and resize
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h;
+  const portrait = w / h < 0.8;
+  camera.fov = portrait ? 44 : 38; camera.userData.z = portrait ? -6.9 : -4.7; camera.userData.ty = portrait ? 1.15 : 1.05; camera.userData.y = portrait ? 1.3 : 1.25;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+// ---------------------------------------------------------------- controls
+function start() {
+  if (!ac) audioInit();
+  ac.resume();
+  playing = true; ended = false; schedIdx = 0; shownLine = -2;
+  t0 = ac.currentTime + 0.25;
+  $("start").hidden = true; $("end").hidden = true; $("pause").hidden = false; $("pause").textContent = "⏸"; $("pause").setAttribute("aria-label", "Pause");
+}
+$("go").onclick = start; $("again").onclick = start;
+document.querySelectorAll(".pick").forEach((b) => (b.onclick = () => useSong(b.dataset.song)));
+$("other").onclick = () => { const order = ["party", "aussie", "slow"]; useSong(order[(order.indexOf(SONG_ID) + 1) % order.length]); start(); };
+useSong((/song=(\w+)/.exec(location.search) || [])[1] in SONGS ? /song=(\w+)/.exec(location.search)[1] : "party");
+$("guide").onclick = (e) => {
+  guideOn = !guideOn; e.currentTarget.setAttribute("aria-pressed", String(guideOn));
+  if (leadBus) leadBus.gain.setTargetAtTime(guideOn ? 1 : 0, ac.currentTime, 0.05);
+};
+$("pause").onclick = (e) => {
+  if (!ac || ended) return;
+  if (ac.state === "running") { ac.suspend(); playing = false; e.currentTarget.textContent = "▶"; e.currentTarget.setAttribute("aria-label", "Play"); }
+  else { ac.resume(); playing = true; e.currentTarget.textContent = "⏸"; e.currentTarget.setAttribute("aria-label", "Pause"); }
+};
+canvas.addEventListener("pointerdown", () => {
+  if (SONG_ID === "aussie") { const c = crowd[Math.floor(Math.random() * crowd.length)]; if (c.hop === 0) c.vy = 1.5; puff("heart", c.g.position.clone().add(new THREE.Vector3(0, 0.45, 0)), 4, 0.3); }
+  const pool = SONG_ID === "party" ? Object.values(BAND) : [s1, s2], s = pool[Math.floor(Math.random() * pool.length)];
+  if (s.hop === 0) s.vy = 1.6;
+  puff("heart", s.g.position.clone().add(new THREE.Vector3(0, 0.5 + s.hop, -0.1)), 5, 0.35);
+  if (ac && playing) play({ k: "chime" }, ac.currentTime);
+});
+$("loadmsg").textContent = "Sing along, or switch the guide tune off and sing it yourself. Tap the stage to cheer.";
+
+// ---------------------------------------------------------------- the loop
+const clock = new THREE.Timer();
+let lastBeatInt = -1, lastLine = -1;
+const restQ = new Map();
+function rest(o) { o.traverse((n) => { if (n.isBone) { if (!restQ.has(n)) restQ.set(n, [n.quaternion.clone(), n.position.clone()]); else { const [q, p] = restQ.get(n); n.quaternion.copy(q); n.position.copy(p); } } }); }
+function frame() {
+  clock.update();
+  const dt = STILL ? 1 / 30 : Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsed();
+  let b = songBeat();
+  if (STILL && window.__beat !== undefined) b = window.__beat;
+  if (playing && b >= SONG_END) {
+    playing = false; ended = true; $("end").hidden = false; $("pause").hidden = true;
+    for (const s of SONG_ID === "party" ? Object.values(BAND) : [s1, s2]) s.vy = 2.2;
+    if (SONG_ID === "aussie") crowd.forEach((c) => (c.vy = 2.0));
+    puff("heart", new THREE.Vector3(0, 2.0, -0.2), 14, 1.6);
+  }
+  const vb = b >= 0 ? b : t * (BPM / 60) * 0.5;   // idle groove before the show
+  const sing = b >= 0 ? singing(b) : { open: 0, sec: "intro" };
+  updateLyrics(b);
+
+  // clips, then the poses on top (restore every bone first so the extra turns never pile up)
+  rest(her.o); sloths.forEach((s) => rest(s.o));
+  her.nextBlink -= dt; if (her.nextBlink <= 0) { her.blink.reset().play(); her.nextBlink = 2 + Math.random() * 3; }
+  her.mixer.update(dt);
+  sloths.forEach((s) => s.mixer.update(dt));
+  poseHer(vb, sing, dt);
+  sloths.forEach((s, i) => poseSloth(s, vb, i, sing, dt));
+  if (SONG_ID === "aussie") poseOz(vb, sing, dt, t);
+
+  // beat-driven decor
+  const bi = Math.floor(vb), frac = vb - bi;
+  const kick = playing ? Math.exp(-frac * 6) * (bi % 2 === 0 ? 1 : 0.4) : 0;
+  woofers.forEach((w) => w.scale.set(1 + kick * 0.25, 1, 1 + kick * 0.25));
+  bulbs.forEach((m, i) => { m.material.emissiveIntensity = 0.5 + ((i + bi) % 4 === 0 ? 1.6 : 0.3) * (playing ? 1 : 0.6); });
+  garland.forEach((h, i) => { h.rotation.z = Math.sin(t * 1.4 + i) * 0.15; h.scale.setScalar(1 + ((i + bi) % 3 === 0 ? 0.25 * kick : 0)); });
+  pools.forEach((p, i) => { const a = vb * Math.PI / 4 + i * 2.1; p.position.x = Math.sin(a) * 1.1; p.position.z = Math.cos(a * 0.7) * 0.5 - 0.1; p.position.y = STAGE_Y + 0.025; });
+  if (sing.solo && BAND[sing.solo]) { const s = BAND[sing.solo]; pools[0].position.set(s.base.x, s.base.y + 0.03, s.base.z); }
+  stars.forEach((s) => s.scale.setScalar(s.userData.k * (0.75 + 0.25 * Math.sin(t * 2 + s.userData.ph))));
+  balloons.forEach((g) => { g.rotation.z = Math.sin(t * 0.9 + g.userData.ph) * 0.07; g.rotation.x = Math.cos(t * 0.7 + g.userData.ph) * 0.05; });
+  if (playing && bi !== lastBeatInt) {
+    lastBeatInt = bi;
+    if (sing.sec === "chorus" && bi % 2 === 0) puff("note", her.o.position.clone().add(new THREE.Vector3(0.25, 1.9, -0.2)), 1, 0.2);
+    if (sing.sec === "chorus" && bi % 4 === 2) puff("star", new THREE.Vector3((Math.random() - 0.5) * 3, 0.6, -0.6), 1, 0.4);
+  }
+  const li = lines.findIndex((l) => b >= l.at && b < l.end);
+  if (playing && li !== lastLine) {
+    lastLine = li; if (li >= 0) puff("heart", new THREE.Vector3(0, 1.95, -0.2), 2, 0.4);
+    const L = lines[li];
+    if (SONG_ID === "party" && L && (L.sec === "solo" || (L.sec === "chorus" && lines[li - 1]?.sec !== "chorus"))) confetti(L.sec === "solo" ? 14 : 40);
+  }
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const s = parts[i], u = s.userData; u.life += dt;
+    s.position.addScaledVector(u.v, dt); s.position.x += Math.sin(u.life * 3 + u.ph) * 0.003; if (u.spin) s.material.rotation += u.spin * dt;
+    const k = u.life / u.max; s.material.opacity = k < 0.15 ? k / 0.15 : 1 - Math.max(0, (k - 0.6) / 0.4);
+    s.scale.setScalar(u.sz * (0.6 + Math.min(1, k * 4) * 0.4));
+    if (u.life > u.max) { scene.remove(s); s.material.dispose(); parts.splice(i, 1); }
+  }
+  // the camera drifts a little
+  const drift = reduce ? 0 : 1;
+  camera.position.set(Math.sin(t * 0.13) * 0.35 * drift, camera.userData.y + Math.sin(t * 0.21) * 0.05 * drift, camera.userData.z);
+  camera.lookAt(0, camera.userData.ty + (SONG_ID === "aussie" ? 0.12 : 0), 0.2);
+  if (window.__cam) { camera.position.set(...window.__cam.slice(0, 3)); camera.lookAt(...window.__cam.slice(3)); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+window.__ready = true;
+window.__dbg = { lines, SONG_END, start, sloths, her, THREE };
+</script>

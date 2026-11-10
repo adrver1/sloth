@@ -1,0 +1,67 @@
+<title>Sloth Babies Stickers</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: a chat-wallpaper sheet of stickers, tap one to see it big on a "sent" bubble */
+:root {
+  --bg: #efe7dc; --paper: #f8f3ec; --ink: #3f2e22; --muted: #7a6656; --bark: #6b4a2f; --leaf: #5f9a4a; --line: #ddd0c0;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Nunito Sans", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1d1915; --paper: #27221d; --ink: #f1e6d8; --muted: #b5a291; --bark: #c49a6c; --leaf: #8cc276; --line: #3a322a; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #1d1915; --paper: #27221d; --ink: #f1e6d8; --muted: #b5a291; --bark: #c49a6c; --leaf: #8cc276; --line: #3a322a; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(28px, 6vw, 40px); line-height: 1.1; margin: 0 0 6px; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 62ch; margin: 0 0 22px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.st { background: none; border: 0; padding: 6px; border-radius: 14px; cursor: pointer; display: grid; place-items: center; transition: transform .15s; }
+.st img { width: 100%; max-width: 200px; aspect-ratio: 1; display: block; }
+.st:hover { transform: rotate(-3deg) scale(1.04); }
+.st:focus-visible { outline: 3px solid var(--leaf); outline-offset: 2px; }
+.how { margin-top: 30px; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; max-width: 640px; }
+.how h2 { font-family: var(--display); font-weight: 600; font-size: 20px; margin: 0 0 8px; }
+.how ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.how small { display: block; color: var(--muted); margin-top: 10px; }
+code { font-size: 13px; background: var(--bg); padding: 1px 5px; border-radius: 5px; }
+dialog { border: 0; border-radius: 20px; background: var(--paper); color: var(--ink); padding: 18px; max-width: min(420px, 92vw); }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog img { width: 100%; max-width: 360px; display: block; margin: 0 auto; }
+dialog p { margin: 8px 0 0; text-align: center; color: var(--muted); font-size: 14px; }
+dialog button { margin: 12px auto 0; display: block; font: 600 15px var(--display); background: var(--bark); color: var(--paper); border: 0; border-radius: 999px; padding: 8px 22px; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .st { transition: none; } .st:hover { transform: none; } }
+</style>
+<div class="wrap">
+  <h1>Sloth babies stickers</h1>
+  <p class="lede">13 stickers with the two baby sloths and the ponytail engineer, rendered from the same 3D models and clips as the game. Each one is a 512×512 WebP with a transparent background and a white outline, ready for WhatsApp. Tap a sticker to see it big.</p>
+  <div class="grid" id="grid"></div>
+  <section class="how">
+    <h2>Adding them to WhatsApp</h2>
+    <ol>
+      <li>Open a sticker big and long-press it to save it to your photos. The zip of all 13 is also in the project files, <code>sloth-stickers/sloth-stickers.zip</code>.</li>
+      <li>In any chat, open the sticker tray and tap <b>Create</b>, then pick the saved image. WhatsApp keeps the transparent background.</li>
+      <li>For a whole pack in one go, a sticker maker app can import all 13 together. Use <code>tray.png</code> as the pack icon.</li>
+    </ol>
+    <small>Captions are in English. Norwegian versions or captionless ones are a quick re-render.</small>
+  </section>
+</div>
+<dialog id="big"><img id="bigimg" alt=""><p id="bigcap"></p><button id="close" type="button">Close</button></dialog>
+<script>
+const S = [["01_wave", "Hiii!"], ["02_hang", "Hang in there!"], ["03_hug", "Hugs!"], ["04_sleep", "5 more minutes…"],
+  ["05_crawl", "On my way!"], ["06_king", "Ta-daa!"], ["07_duo", "Besties"], ["08_leg", "Don't go to work"],
+  ["09_swing", "Teamwork!"], ["10_plane", "Wheee!"], ["11_titanic", "King of the world!"], ["12_knees", "Bounce bounce"], ["13_slow", "Brb"]];
+const grid = document.getElementById("grid"), big = document.getElementById("big");
+for (const [f, cap] of S) {
+  const b = document.createElement("button");
+  b.className = "st"; b.type = "button"; b.setAttribute("aria-label", cap);
+  b.innerHTML = `<img src="s/${f}.webp" alt="${cap}" loading="lazy">`;
+  b.onclick = () => { document.getElementById("bigimg").src = `s/${f}.webp`; document.getElementById("bigimg").alt = cap;
+    document.getElementById("bigcap").textContent = `${f}.webp · long-press to save`; big.showModal(); };
+  grid.append(b);
+}
+document.getElementById("close").onclick = () => big.close();
+big.addEventListener("click", (e) => { if (e.target === big) big.close(); });
+</script>

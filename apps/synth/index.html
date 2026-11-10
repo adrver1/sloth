@@ -1,0 +1,697 @@
+<meta charset="utf-8">
+<title>Sloth Synth</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: a header with the synth sloth and the transport, then the rack: a grid of plush modules
+   (2 columns on a phone, up to 6 on a desk) with the patch cables drawn over it in one SVG layer.
+   One look for both themes: a dusky jungle night with pastel plush panels. */
+:root {
+  --night: #29233f; --night-2: #3a3156; --leafdark: #24403a; --ink: #3b2a24; --ink-soft: #6d5649;
+  --fur: #8a6a4f; --cream: #f6ead6; --paper: #fff8ee;
+  --moss: #bcdcab; --peach: #f7c9a8; --lilac: #d2bff2; --sky: #acd8ea; --rose: #f5b8cb; --honey: #f3dc94;
+  --j-audio: #f2c65a; --j-cv: #7fd3b0; --j-trig: #ff86ad; --hole: #2a1d18;
+  --hint: #d9cdea; --muted: #b7a9cf;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Nunito Sans", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--night); color: var(--hint); font-family: var(--body); font-size: 15px; line-height: 1.45; -webkit-tap-highlight-color: transparent; }
+body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1;
+  background: radial-gradient(900px 500px at 85% -10%, rgb(255 214 140 / .16), transparent 60%), radial-gradient(700px 600px at -10% 110%, rgb(98 160 120 / .25), transparent 60%), linear-gradient(180deg, var(--night-2), var(--night) 60%); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 18px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-bottom: 10px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; min-width: 0; }
+.brand svg { width: 64px; height: 64px; flex: none; }
+h1 { font: 700 clamp(28px, 6vw, 40px)/1 var(--display); color: var(--cream); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+h1 b { color: var(--honey); font-weight: 700; }
+.sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: 600 15px var(--display); color: var(--ink); background: var(--cream); border: 0; border-radius: 999px; padding: 8px 15px; cursor: pointer;
+  box-shadow: 0 3px 0 rgb(0 0 0 / .25); display: inline-flex; align-items: center; gap: 6px; }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgb(0 0 0 / .25); }
+.btn.play { background: var(--honey); font-size: 16px; padding: 9px 18px; }
+.btn.ghost { background: transparent; color: var(--cream); box-shadow: inset 0 0 0 2px rgb(246 234 214 / .35); }
+.btn[aria-pressed="true"] { background: var(--lilac); }
+button:focus-visible, .knob:focus-visible, .jack:focus-visible { outline: 3px solid var(--honey); outline-offset: 2px; }
+.hint { margin: 0 0 14px; color: var(--muted); font-size: 14px; max-width: 75ch; }
+.hint b { color: var(--cream); font-weight: 600; }
+
+.rack { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); grid-auto-flow: row dense; gap: 12px;
+  padding: 14px; border-radius: 26px; background: linear-gradient(180deg, #4a3a2c, #3b2e24); box-shadow: inset 0 2px 0 rgb(255 255 255 / .08), 0 18px 40px rgb(0 0 0 / .35); }
+.rack::before { content: ""; position: absolute; inset: 6px; border-radius: 20px; pointer-events: none;
+  background: repeating-linear-gradient(100deg, rgb(255 255 255 / .025) 0 3px, transparent 3px 11px); }
+#cables { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 5; transition: opacity .25s; }
+.peek #cables { opacity: .22; }
+
+.mod { position: relative; min-width: 0; border-radius: 20px; padding: 10px 10px 12px; color: var(--ink); background: var(--c);
+  box-shadow: inset 0 -4px 0 rgb(0 0 0 / .1), 0 4px 0 rgb(0 0 0 / .22); display: flex; flex-direction: column; gap: 8px; }
+.mod::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: .5; mix-blend-mode: multiply; background-image: var(--fur); }
+.mod.span2 { grid-column: span 2; }
+.mod.wide { grid-column: 1 / -1; }
+@media (min-width: 720px) { .mod.wide { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; column-gap: 22px; padding: 12px 18px; }
+  .mod.wide .jacks { margin-top: 0; padding-top: 0; } .mod.wide .scope canvas { height: 72px; } }
+.mod header { display: flex; align-items: center; gap: 8px; position: relative; }
+.mod header svg { width: 38px; height: 38px; flex: none; }
+.mod h2 { font: 600 17px/1.05 var(--display); margin: 0; }
+.mod header small { display: block; font: 600 11px var(--body); color: var(--ink-soft); letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+.leafscrew { position: absolute; width: 9px; height: 9px; border-radius: 0 70% 0 70%; background: #6aa56a; box-shadow: inset 1px 1px 0 rgb(255 255 255 / .35); }
+.leafscrew.a { top: 7px; right: 8px; } .leafscrew.b { bottom: 7px; right: 8px; transform: rotate(90deg); }
+.knobs { display: flex; flex-wrap: wrap; gap: 4px 2px; justify-content: space-around; position: relative; }
+.kw { display: flex; flex-direction: column; align-items: center; width: 50px; }
+.knob { width: 46px; height: 46px; touch-action: none; cursor: ns-resize; border-radius: 50%; }
+.knob svg { width: 100%; height: 100%; display: block; }
+.kl { font: 600 11px/1.2 var(--body); color: var(--ink-soft); text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; min-height: 1.2em; }
+.kw.live .kl { color: var(--ink); }
+.steps { gap: 4px 0; } .steps .kw { width: 37px; } .steps .knob { width: 33px; height: 33px; }
+.leds { display: flex; justify-content: space-around; padding: 0 4px; }
+.led { width: 12px; height: 8px; border-radius: 0 80% 0 80%; background: rgb(59 42 36 / .2); transition: background .08s, transform .08s; }
+.led.on { background: #3f9a5a; transform: scale(1.35); box-shadow: 0 0 8px #8ee08f; }
+.led.off { opacity: .35; }
+.modes { display: flex; gap: 4px; justify-content: center; position: relative; flex-wrap: wrap; }
+.mode { font: 600 12px var(--body); color: var(--ink); background: rgb(255 255 255 / .45); border: 0; border-radius: 999px; padding: 3px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.mode svg { width: 22px; height: 12px; }
+.poke { font: 600 13px var(--display); color: var(--ink); background: rgb(255 255 255 / .55); border: 0; border-radius: 999px; padding: 4px 12px; cursor: pointer; align-self: center; position: relative; }
+.jacks { display: flex; flex-wrap: wrap; gap: 6px 4px; justify-content: space-around; margin-top: auto; padding-top: 4px; position: relative; }
+.jw { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 44px; }
+.jw.out .jack { background: var(--ink); border-radius: 12px; }
+.jack { width: 34px; height: 34px; padding: 0; border: 0; background: transparent; touch-action: none; cursor: grab; border-radius: 50%; display: grid; place-items: center; }
+.jack svg { width: 30px; height: 30px; display: block; }
+.jack.mini { width: 24px; height: 24px; margin-top: 1px; } .jack.mini svg { width: 20px; height: 20px; }
+.steps .kl { margin-top: 1px; }
+.jack.hot { box-shadow: 0 0 0 3px #fff, 0 0 14px 4px var(--honey); }
+.jack.sel { animation: sel 0.8s ease-in-out infinite alternate; }
+@keyframes sel { to { box-shadow: 0 0 0 3px var(--honey), 0 0 16px 6px rgb(243 220 148 / .7); } }
+.jl { font: 700 10px/1.1 var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
+.jw.out .jl { color: var(--ink); }
+.scope { position: relative; display: flex; align-items: center; gap: 8px; background: rgb(42 29 24 / .88); border-radius: 14px; padding: 6px 8px; }
+.scope canvas { flex: 1; min-width: 0; height: 64px; display: block; }
+.scope svg { width: 52px; height: 52px; flex: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; color: var(--muted); font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 4px var(--hole); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--cream); color: var(--ink);
+  font: 600 14px var(--display); border-radius: 999px; padding: 8px 16px; box-shadow: 0 8px 22px rgb(0 0 0 / .35); opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 20; }
+.toast.on { opacity: 1; }
+@media (max-width: 400px) { .rack { padding: 10px; gap: 10px; } .kw { width: 46px; } .knob { width: 42px; height: 42px; } }
+@media (prefers-reduced-motion: reduce) { .jack.sel { animation: none; box-shadow: 0 0 0 3px var(--honey); } #cables { transition: none; } }
+</style>
+
+<div class="wrap" id="app">
+  <div class="top">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" aria-hidden="true" id="brandface"></svg>
+      <div><h1>Sloth <b>Synth</b></h1><p class="sub">A modular rack for slow, dreamy atmospheres. Patched by the baby sloth from the band.</p></div>
+    </div>
+    <div class="tools">
+      <button class="btn play" id="play" type="button">▶ Wake the synth</button>
+      <button class="btn" id="shake" type="button" title="Nudge every knob a little">Shake the branch</button>
+      <button class="btn ghost" id="peek" type="button" aria-pressed="false" title="Fade the cables so you can reach the knobs">Peek under cables</button>
+      <button class="btn ghost" id="starter" type="button">Starter patch</button>
+      <button class="btn ghost" id="clear" type="button">Unplug all</button>
+    </div>
+  </div>
+  <p class="hint"><b>Patch:</b> drag from one jack to another, or tap one jack and then the other. <b>Unplug:</b> grab the plug on an input and drop it anywhere off a jack. <b>Knobs:</b> drag up or down, double-tap to reset. Every knob has a small jack under it: plug a CV or an oscillator in and it turns the knob for you.</p>
+  <div class="rack" id="rack"><svg id="cables" aria-hidden="true"></svg></div>
+  <div class="legend" aria-label="Jack colours">
+    <span><i style="background:var(--j-audio)"></i>Audio, a sound</span>
+    <span><i style="background:var(--j-cv)"></i>CV, a slow control voltage</span>
+    <span><i style="background:var(--j-trig)"></i>Trigger, a tap (heart jacks)</span>
+    <span>Audio and CV jacks plug into each other freely; triggers only into triggers.</span>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// ---------------------------------------------------------------- little drawings
+const FURBG = `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><filter id="f"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="4"/><feColorMatrix values="0 0 0 0 .55  0 0 0 0 .45  0 0 0 0 .35  0 0 0 .55 0"/></filter><rect width="120" height="120" filter="url(#f)"/></svg>')}")`;
+document.documentElement.style.setProperty("--fur", FURBG);
+// a baby sloth face: mood = open | sleepy | happy | wink | sing ; acc = an accessory beside it
+function face(mood = "open", acc = "", vb = 40) {
+  const eye = (x, flip) => {
+    if (mood === "sleepy" || (mood === "wink" && flip)) return `<path d="M${x - 2.2} 22.2q2.2 1.6 4.4 0" stroke="#1d120c" stroke-width="1.3" fill="none" stroke-linecap="round"/>`;
+    if (mood === "happy") return `<path d="M${x - 2.2} 22.8q2.2 -2.2 4.4 0" stroke="#1d120c" stroke-width="1.3" fill="none" stroke-linecap="round"/>`;
+    return `<circle cx="${x}" cy="22" r="1.7" fill="#1d120c"/><circle cx="${x + 0.6}" cy="21.4" r=".55" fill="#fff"/>`;
+  };
+  const mouth = mood === "sing" ? `<ellipse class="mouth" cx="20" cy="29.4" rx="1.6" ry="1.4" fill="#5a2a2a"/>` : `<path d="M17.4 28.6q2.6 2.2 5.2 0" stroke="#3a2418" stroke-width="1.2" fill="none" stroke-linecap="round"/>`;
+  const A = {
+    phones: `<path d="M5 20a15 15 0 0 1 30 0" stroke="#ff86ad" stroke-width="2.6" fill="none"/><rect x="2" y="18" width="6" height="9" rx="3" fill="#ff86ad"/><rect x="32" y="18" width="6" height="9" rx="3" fill="#ff86ad"/>`,
+    moon: `<path d="M33 3a6 6 0 1 0 5 8a5 5 0 0 1 -5 -8z" fill="#ffe7a3"/>`,
+    leaf: `<path d="M30 4c6 0 8 3 8 3s-2 6 -8 6c-3 0 -4 -2 -4 -3s1 -6 4 -6z" fill="#6fbf73"/><path d="M27 12l8 -6" stroke="#3f7d48" stroke-width=".8"/>`,
+    drop: `<path d="M34 2c2 3.2 3.4 5 3.4 6.6a3.4 3.4 0 0 1 -6.8 0c0 -1.6 1.4 -3.4 3.4 -6.6z" fill="#8fd0ff"/>`,
+    heart: `<path d="M34 12c-4 -3 -6 -5 -6 -7a3 3 0 0 1 6 -.8a3 3 0 0 1 6 .8c0 2 -2 4 -6 7z" fill="#ff6f9e"/>`,
+    zzz: `<text x="29" y="10" font-family="Fredoka, sans-serif" font-weight="700" font-size="9" fill="#6d5649">z</text><text x="34" y="6" font-family="Fredoka, sans-serif" font-weight="700" font-size="6" fill="#6d5649">z</text>`,
+    star: `<path d="M34 1l1.6 3.6 3.9.4-2.9 2.6.9 3.8-3.5-2-3.4 2 .8-3.8-2.9-2.6 3.9-.4z" fill="#ffd166"/>`,
+    cloud: `<path d="M28 11a3 3 0 0 1 1-5.8a4 4 0 0 1 7.6 1a2.6 2.6 0 0 1 0 4.8z" fill="#fff"/>`,
+    echo: `<path d="M31 4q3 4 0 8M34 2q4.5 6 0 12" stroke="#6d5649" stroke-width="1.3" fill="none" stroke-linecap="round"/>`,
+    glasses: `<circle cx="13.5" cy="22" r="4.4" stroke="#3b2a24" stroke-width="1.2" fill="rgb(255 255 255 / .2)"/><circle cx="26.5" cy="22" r="4.4" stroke="#3b2a24" stroke-width="1.2" fill="rgb(255 255 255 / .2)"/><path d="M17.9 22h4.2" stroke="#3b2a24" stroke-width="1.2"/>`,
+    filter: `<path d="M28 3h10l-4 5v4l-2 1v-5z" fill="#fff" stroke="#6d5649" stroke-width=".8"/>`,
+  };
+  const s = 40 / vb;
+  return `<g transform="scale(${1 / s})">
+    <path d="M9 10q3 -5 6 -1q3 -5 5 0q3 -5 6 0q3 -4 5 1" fill="#7a5c43"/>
+    <circle cx="20" cy="21" r="16" fill="#8a6a4f"/>
+    <ellipse cx="20" cy="23.4" rx="12.4" ry="9.6" fill="#f1dcc0"/>
+    <ellipse cx="13.4" cy="22.2" rx="4.8" ry="3.1" transform="rotate(-22 13.4 22.2)" fill="#4a3122"/>
+    <ellipse cx="26.6" cy="22.2" rx="4.8" ry="3.1" transform="rotate(22 26.6 22.2)" fill="#4a3122"/>
+    ${eye(13.6, false)}${eye(26.4, true)}
+    <ellipse cx="20" cy="26" rx="2.1" ry="1.4" fill="#3a2418"/>
+    <circle cx="10" cy="27" r="1.8" fill="#ffb3c4" opacity=".75"/><circle cx="30" cy="27" r="1.8" fill="#ffb3c4" opacity=".75"/>
+    ${mouth}${(acc && A[acc]) || ""}</g>`;
+}
+document.getElementById("brandface").innerHTML = face("sing", "phones");
+const WAVES = {
+  sine: "M1 6q2.5 -8 5 0t5 0t5 0t5 0", triangle: "M1 9l3 -6l5 6l5 -6l5 6l2 -3", sawtooth: "M1 9l5 -6v6l5 -6v6l5 -6v6l4 -5", square: "M1 9v-6h5v6h5v-6h5v6h5",
+  lowpass: "M1 4h11q3 0 5 5l3 1", bandpass: "M1 10q6 0 8 -6q2 -2 4 0q2 6 8 6", highpass: "M1 10l3 -1q2 -5 5 -5h12",
+};
+const waveIcon = (k) => `<svg viewBox="0 0 22 12" aria-hidden="true"><path d="${WAVES[k]}" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+const MODE_NAME = { sine: "sine", triangle: "tri", sawtooth: "saw", square: "square", lowpass: "low", bandpass: "band", highpass: "high" };
+
+// ---------------------------------------------------------------- the modules
+// knob: [key, label, min, max, default, curve ("lin" | "exp" | "int"), format]
+const hz = (v) => (v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + "k" : v >= 10 ? Math.round(v) : v.toFixed(2)) + (v >= 1 ? " Hz" : " Hz");
+const sec = (v) => (v < 1 ? Math.round(v * 1000) + " ms" : v.toFixed(1) + " s");
+const pct = (v) => Math.round(v * 100) + "%";
+const NOTE = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+const PENTA = (d) => [0, 2, 4, 7, 9][d % 5] + 12 * Math.floor(d / 5);
+const noteName = (semi) => NOTE[((semi % 12) + 12) % 12] + (4 + Math.floor(semi / 12));
+const DEFS = [
+  { id: "seq", title: "Branch Steps", what: "sequencer", c: "--moss", face: ["open", "glasses"], span: 2,
+    knobs: [["rate", "speed", 6, 160, 42, "exp", (v) => Math.round(v) + " bpm"], ["slow", "slowness", 0, 1.5, 0.35, "lin", sec], ["chance", "chance", 0, 1, 0.85, "lin", pct], ["len", "steps", 1, 8, 8, "int", (v) => v + " steps"]],
+    steps: [0, 4, 2, 7, 5, 3, 9, 4], ins: [["shift", "shift", "cv"]], outs: [["pitch", "pitch", "cv"], ["gate", "tap", "trig"]] },
+  { id: "oscA", title: "Sleepy Osc", what: "oscillator A", c: "--honey", face: ["sleepy", "star"],
+    knobs: [["tune", "tune", -24, 24, 0, "int", (v) => (v > 0 ? "+" : "") + v + " st"], ["fine", "drift", -50, 50, 0, "lin", (v) => (v > 0 ? "+" : "") + Math.round(v) + " ct"]],
+    modes: ["triangle", "sine", "sawtooth", "square"], ins: [["pitch", "pitch", "cv"]], outs: [["out", "out", "audio"]] },
+  { id: "oscB", title: "Dozy Osc", what: "oscillator B", c: "--peach", face: ["wink", "star"],
+    knobs: [["tune", "tune", -24, 24, -12, "int", (v) => (v > 0 ? "+" : "") + v + " st"], ["fine", "drift", -50, 50, 9, "lin", (v) => (v > 0 ? "+" : "") + Math.round(v) + " ct"]],
+    modes: ["sawtooth", "triangle", "sine", "square"], mode: "sawtooth", ins: [["pitch", "pitch", "cv"]], outs: [["out", "out", "audio"]] },
+  { id: "lfo", title: "Moon Sway", what: "LFO", c: "--sky", face: ["sleepy", "moon"],
+    knobs: [["rate", "rate", 0.02, 6, 0.09, "exp", hz], ["depth", "depth", 0, 1, 0.55, "lin", pct]],
+    modes: ["sine", "triangle", "square"], outs: [["out", "sway", "cv"]] },
+  { id: "rain", title: "Drizzle", what: "random taps", c: "--lilac", face: ["happy", "drop"],
+    knobs: [["dens", "drops", 0.05, 4, 0.35, "exp", (v) => v.toFixed(2) + "/s"], ["glide", "glide", 0, 2, 0.6, "lin", sec]],
+    led: true, outs: [["drop", "drop", "trig"], ["rand", "random", "cv"]] },
+  { id: "noise", title: "Rustle", what: "noise", c: "--moss", face: ["sleepy", "leaf"],
+    knobs: [["tone", "tone", 150, 12000, 900, "exp", hz]], outs: [["out", "out", "audio"]] },
+  { id: "filt", title: "Fuzzy Filter", what: "filter", c: "--rose", face: ["open", "filter"],
+    nomod: ["cut"], knobs: [["cut", "cutoff", 60, 9000, 650, "exp", hz], ["res", "fuzz", 0.4, 18, 5, "exp", (v) => v.toFixed(1)]],
+    modes: ["lowpass", "bandpass", "highpass"], ins: [["in", "in", "audio"], ["in2", "in 2", "audio"], ["cut", "cutoff", "cv"]], outs: [["out", "out", "audio"]] },
+  { id: "env", title: "Yawn", what: "envelope", c: "--honey", face: ["sleepy", "zzz"],
+    knobs: [["att", "rise", 0.005, 4, 0.5, "exp", sec], ["rel", "fall", 0.05, 8, 2.6, "exp", sec]],
+    poke: true, led: true, ins: [["trig", "tap", "trig"]], outs: [["out", "out", "cv"]] },
+  { id: "vca", title: "Hug", what: "amplifier", c: "--peach", face: ["happy", "heart"],
+    nomod: ["lvl"], knobs: [["lvl", "open", 0, 1, 0, "lin", pct]], ins: [["in", "in", "audio"], ["cv", "squeeze", "cv"]], outs: [["out", "out", "audio"]] },
+  { id: "dly", title: "Echo Hollow", what: "delay", c: "--sky", face: ["open", "echo"],
+    knobs: [["time", "time", 0.05, 1.6, 0.62, "exp", sec], ["fb", "repeats", 0, 0.92, 0.55, "lin", pct], ["mix", "mix", 0, 1, 0.38, "lin", pct]],
+    ins: [["in", "in", "audio"]], outs: [["out", "out", "audio"]] },
+  { id: "rvb", title: "Dream Cave", what: "reverb", c: "--lilac", face: ["sleepy", "cloud"],
+    knobs: [["size", "size", 0.6, 9, 5, "exp", sec], ["mix", "mix", 0, 1, 0.55, "lin", pct]],
+    ins: [["in", "in", "audio"]], outs: [["out", "out", "audio"]] },
+  { id: "spk", title: "Nap Speaker", what: "output", c: "--rose", face: ["sing", "phones"], wide: true, scope: true,
+    knobs: [["vol", "volume", 0, 1, 0.7, "lin", pct], ["l1", "in 1", 0, 1, 0.85, "lin", pct], ["l2", "in 2", 0, 1, 0.14, "lin", pct]],
+    ins: [["in1", "in 1", "audio"], ["in2", "in 2", "audio"]] },
+];
+const STARTER = [["seq.pitch", "oscA.pitch"], ["seq.pitch", "oscB.pitch"], ["oscA.out", "filt.in"], ["oscB.out", "filt.in2"], ["lfo.out", "filt.cut"],
+  ["filt.out", "vca.in"], ["seq.gate", "env.trig"], ["env.out", "vca.cv"], ["vca.out", "dly.in"], ["dly.out", "rvb.in"], ["rvb.out", "spk.in1"], ["noise.out", "spk.in2"], ["rain.rand", "oscB.~fine"]];
+
+// ---------------------------------------------------------------- state
+const mods = {};          // id -> { def, v: {knob: value}, mode, el, api }
+let cables = [];          // { id, from: "m.p", to: "m.p", type, color, born }
+let cableId = 0;
+const COLORS = ["#ff86ad", "#f2c65a", "#7fd3b0", "#a98bf0", "#7cc7f2", "#ffa36c", "#f7f0e4"];
+let colorIx = 0;
+const jackInfo = (key) => { const [m, p] = key.split("."); const d = mods[m].def; const i = (d.ins || []).concat(d.modIns || []).find((x) => x[0] === p); const o = (d.outs || []).find((x) => x[0] === p);
+  return i ? { m, p, dir: "in", type: i[2] } : { m, p, dir: "out", type: o[2] }; };
+
+// ---------------------------------------------------------------- the sound (WebAudio)
+let ac = null, analyser = null;
+const G = (v = 1) => { const g = ac.createGain(); g.gain.value = v; return g; };
+const cvIn = (param, scale) => { const g = G(scale); g.connect(param); return g; };
+const smooth = (param, v, tc = 0.03) => param.setTargetAtTime(v, ac.currentTime, tc);
+// reading a CV: a tiny analyser on the jack, its latest sample
+const tapCV = (node) => { const a = ac.createAnalyser(); a.fftSize = 32; node.connect(a); a.buf = new Float32Array(32); return a; };
+const read = (a) => { a.getFloatTimeDomainData(a.buf); const v = a.buf[31]; return Number.isFinite(v) ? Math.max(-2, Math.min(2, v)) : 0; };
+const plugged = new Set();   // jacks with a cable in them
+// a knob's value with its CV added: one unit of CV turns it half way round
+function val(m, k) {
+  const kd = m.kd[k], key = `${m.def.id}.~${k}`;
+  if (!kd || !ac || !m.taps?.[k] || !plugged.has(key)) return m.v[k];
+  return map(kd, Math.max(0, Math.min(1, unmap(kd, m.v[k]) + read(m.taps[k]) * 0.5)));
+}
+const BASE = 261.63;   // C4: pitch CV 0 and tune 0 on both oscillators
+const builders = {
+  seq(m) {
+    const cs = ac.createConstantSource(); cs.offset.value = 0; cs.start(); const out = G(1); cs.connect(out);
+    m.next = ac.currentTime + 0.1; m.step = 0;
+    const shift = G(1), sa = tapCV(shift);
+    return { outs: { pitch: out }, ins: { shift }, set() {},
+      tick() {
+        const v = m.v;
+        while (m.next < ac.currentTime + 0.15) {
+          const len = val(m, "len"), i = m.step % len, t = m.next;
+          const sh = plugged.has("seq.shift") ? Math.round(read(sa) * 5) : 0;   // shift moves every step up or down the scale
+          const deg = Math.max(0, Math.min(14, val(m, "s" + i) + sh));
+          if (Math.random() < val(m, "chance")) { cs.offset.setTargetAtTime(PENTA(deg) / 12, t, Math.max(0.003, val(m, "slow") / 3)); fire("seq.gate", t); }
+          at(t, () => m.leds.forEach((l, k) => { l.classList.toggle("on", k === i); l.classList.toggle("off", k >= len); }));
+          m.step = (i + 1) % len; m.next += 60 / val(m, "rate");
+        }
+      } };
+  },
+  oscA: osc, oscB: osc,
+  lfo(m) {
+    const o = ac.createOscillator(); o.type = m.mode; o.frequency.value = m.v.rate; const d = G(m.v.depth); o.connect(d); o.start();
+    return { outs: { out: d }, ins: {}, mods: { rate: [o.detune, 2400], depth: [d.gain, 0.5] }, set(k, v) { if (k === "rate") smooth(o.frequency, v, 0.05); if (k === "depth") smooth(d.gain, v); if (k === "mode") o.type = v; } };
+  },
+  rain(m) {
+    const cs = ac.createConstantSource(); cs.offset.value = 0; cs.start(); const out = G(1); cs.connect(out);
+    m.next = ac.currentTime + 0.5;
+    return { outs: { rand: out }, ins: {}, set() {},
+      tick() {
+        while (m.next < ac.currentTime + 0.15) {
+          const t = m.next;
+          cs.offset.setTargetAtTime(Math.random() * 2 - 1, t, Math.max(0.003, val(m, "glide") / 3));
+          fire("rain.drop", t); blink(m, t);
+          m.next += -Math.log(1 - Math.random() * 0.98) / val(m, "dens");
+        }
+      } };
+  },
+  noise(m) {
+    const b = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = b.getChannelData(0);
+    let last = 0; for (let i = 0; i < d.length; i++) { last = 0.97 * last + 0.03 * (Math.random() * 2 - 1); d[i] = (Math.random() * 2 - 1) * 0.5 + last * 3; }
+    const s = ac.createBufferSource(); s.buffer = b; s.loop = true; const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = m.v.tone;
+    const out = G(0.45); s.connect(f); f.connect(out); s.start();
+    return { outs: { out }, ins: {}, mods: { tone: [f.detune, 2400] }, set(k, v) { if (k === "tone") smooth(f.frequency, v); } };
+  },
+  filt(m) {
+    const f = ac.createBiquadFilter(); f.type = m.mode; f.frequency.value = m.v.cut; f.Q.value = m.v.res;
+    const a = G(1), b = G(1); a.connect(f); b.connect(f); const out = G(1); f.connect(out);
+    return { outs: { out }, ins: { in: a, in2: b, cut: cvIn(f.detune, 2400) }, mods: { res: [f.Q, 6] },
+      set(k, v) { if (k === "cut") smooth(f.frequency, v); if (k === "res") smooth(f.Q, v); if (k === "mode") f.type = v; } };
+  },
+  env(m) {
+    const cs = ac.createConstantSource(); cs.offset.value = 0; cs.start(); const out = G(1); cs.connect(out);
+    const go = (t) => { const o = cs.offset, att = val(m, "att"); o.cancelScheduledValues(t); o.setTargetAtTime(1, t, att / 3); o.setTargetAtTime(0, t + att, val(m, "rel") / 3); blink(m, t); };
+    m.poke = () => go(ac.currentTime + 0.01);
+    return { outs: { out }, ins: {}, set() {}, trig(p, t) { go(t); } };
+  },
+  vca(m) {
+    const g = G(m.v.lvl), a = G(1); a.connect(g);
+    return { outs: { out: g }, ins: { in: a, cv: cvIn(g.gain, 1) }, set(k, v) { if (k === "lvl") smooth(g.gain, v); } };
+  },
+  dly(m) {
+    const a = G(1), d = ac.createDelay(2), fb = G(m.v.fb), lp = ac.createBiquadFilter(), dry = G(1 - m.v.mix * 0.6), wet = G(m.v.mix), out = G(1);
+    lp.type = "lowpass"; lp.frequency.value = 3200; d.delayTime.value = m.v.time;
+    a.connect(dry); dry.connect(out); a.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(wet); wet.connect(out);
+    return { outs: { out }, ins: { in: a }, mods: { time: [d.delayTime, 0.4], fb: [fb.gain, 0.2] },
+      set(k, v) { if (k === "time") smooth(d.delayTime, v, 0.15); if (k === "fb") smooth(fb.gain, v); if (k === "mix") { smooth(wet.gain, v); smooth(dry.gain, 1 - v * 0.6); } } };
+  },
+  rvb(m) {
+    const a = G(1), cv = ac.createConvolver(), dry = G(1 - m.v.mix * 0.7), wet = G(m.v.mix * 1.6), out = G(1);
+    const ir = (s) => { const n = Math.floor(ac.sampleRate * Math.min(s, 9)), b = ac.createBuffer(2, n, ac.sampleRate);
+      for (let c = 0; c < 2; c++) { const x = b.getChannelData(c); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.6 + (Math.random() * 2 - 1) * 0.4; x[i] = lp * (1 - i / n) ** 2.6; } } return b; };
+    cv.buffer = ir(m.v.size); a.connect(dry); dry.connect(out); a.connect(cv); cv.connect(wet); wet.connect(out);
+    let tm = null, want = m.v.size;
+    return { outs: { out }, ins: { in: a },
+      set(k, v) { if (k === "mix") { smooth(wet.gain, v * 1.6); smooth(dry.gain, 1 - v * 0.7); } if (k === "size") { want = v; if (!tm) tm = setTimeout(() => { cv.buffer = ir(want); tm = null; }, 300); } } };
+  },
+  spk(m) {
+    const a = G(m.v.l1), b = G(m.v.l2), sum = G(m.v.vol * 0.8), comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.ratio.value = 6; comp.attack.value = 0.01;
+    analyser = ac.createAnalyser(); analyser.fftSize = 1024;
+    a.connect(sum); b.connect(sum); sum.connect(comp); comp.connect(analyser); analyser.connect(ac.destination);
+    return { outs: {}, ins: { in1: a, in2: b }, mods: { vol: [sum.gain, 0.4], l1: [a.gain, 0.5], l2: [b.gain, 0.5] },
+      set(k, v) { if (k === "vol") smooth(sum.gain, v * 0.8); if (k === "l1") smooth(a.gain, v); if (k === "l2") smooth(b.gain, v); } };
+  },
+};
+function osc(m) {
+  const o = ac.createOscillator(); o.type = m.mode; o.frequency.value = BASE * 2 ** (m.v.tune / 12); o.detune.value = m.v.fine;
+  const out = G(0.32); o.connect(out); o.start();
+  return { outs: { out }, ins: { pitch: cvIn(o.detune, 1200) }, mods: { tune: [o.detune, 2400], fine: [o.detune, 50] },
+    set(k, v) { if (k === "tune") smooth(o.frequency, BASE * 2 ** (v / 12), 0.02); if (k === "fine") smooth(o.detune, v); if (k === "mode") o.type = v; } };
+}
+// run fn when the audio clock reaches t
+function at(t, fn) { setTimeout(fn, Math.max(0, (t - ac.currentTime) * 1000)); }
+function blink(m, t) { if (m.led) at(t, () => { m.led.classList.add("on"); setTimeout(() => m.led.classList.remove("on"), 140); }); }
+// a trigger out: tap every module plugged into it, and flash its cables
+function fire(from, t) {
+  for (const c of cables) if (c.from === from) {
+    const to = jackInfo(c.to); mods[to.m].api?.trig?.(to.p, t);
+    at(t, () => { c.flash = performance.now(); });
+  }
+}
+function connectAudio(c) {
+  if (!ac || c.type === "trig") return;
+  const f = jackInfo(c.from), t = jackInfo(c.to);
+  try { mods[f.m].api.outs[f.p].connect(mods[t.m].api.ins[t.p]); } catch (e) { console.warn(e); }
+}
+function disconnectAudio(c) {
+  if (!ac || c.type === "trig") return;
+  const f = jackInfo(c.from), t = jackInfo(c.to);
+  try { mods[f.m].api.outs[f.p].disconnect(mods[t.m].api.ins[t.p]); } catch (e) { /* already apart */ }
+}
+function wake() {
+  if (!ac) {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    for (const id in mods) {
+      const m = mods[id]; m.api = builders[id](m); m.taps = {};
+      for (const [p] of m.def.modIns) {   // every knob's CV jack: tapped so the page can read it, and wired straight to the sound where it can be
+        const k = p.slice(1), mi = G(1); m.taps[k] = tapCV(mi); m.api.ins[p] = mi;
+        const spec = m.api.mods?.[k]; if (spec) { const sg = G(spec[1]); mi.connect(sg); sg.connect(spec[0]); }
+      }
+    }
+    cables.forEach(connectAudio);
+    setInterval(() => {
+      if (ac.state !== "running") return;
+      for (const id in mods) {
+        const m = mods[id]; m.api.tick?.();
+        for (const [p] of m.def.modIns) {   // knobs without a direct sound wire follow their CV here
+          const k = p.slice(1); if (m.api.mods?.[k]) continue;
+          if (plugged.has(`${id}.${p}`)) { const e = val(m, k); if (m.last[k] === undefined || Math.abs(e - m.last[k]) > 1e-4) { m.api.set(k, e); m.last[k] = e; } }
+          else if (m.last[k] !== undefined) { m.api.set(k, m.v[k]); delete m.last[k]; }
+        }
+      }
+    }, 40);
+  }
+  if (ac.state !== "running") ac.resume();
+  setPlay(true);
+}
+function setPlay(on) { const b = document.getElementById("play"); b.textContent = on ? "⏸ Let it nap" : "▶ Wake the synth"; b.dataset.on = on ? "1" : ""; }
+document.getElementById("play").onclick = () => {
+  if (ac && ac.state === "running") { ac.suspend(); setPlay(false); } else wake();
+};
+// soft plug and unplug blips, so the cables feel physical
+function blip(up) {
+  if (!ac || ac.state !== "running") return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.setValueAtTime(up ? 520 : 760, t); o.frequency.exponentialRampToValueAtTime(up ? 980 : 300, t + 0.08);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.15);
+}
+
+// ---------------------------------------------------------------- building the rack
+const rack = document.getElementById("rack"), svg = document.getElementById("cables");
+const NS = "http://www.w3.org/2000/svg";
+const map = (k, n) => { const [, , a, b, , curve] = k; if (curve === "exp") return a * (b / a) ** n; const v = a + (b - a) * n; return curve === "int" ? Math.round(v) : v; };
+const unmap = (k, v) => { const [, , a, b, , curve] = k; return curve === "exp" ? Math.log(v / a) / Math.log(b / a) : (v - a) / (b - a); };
+function knobSvg(n, small) {
+  const a0 = 135, a = a0 + 270 * n, r = 19, cx = 24, cy = 24, P = (deg, rr) => [cx + rr * Math.cos(deg * Math.PI / 180), cy + rr * Math.sin(deg * Math.PI / 180)];
+  const arc = (from, to) => { const [x0, y0] = P(from, r), [x1, y1] = P(to, r); return `M${x0} ${y0}A${r} ${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x1} ${y1}`; };
+  const [px, py] = P(a, 9.5), [qx, qy] = P(a, 3);
+  return `<svg viewBox="0 0 48 48" aria-hidden="true">
+    <path d="${arc(a0, a0 + 270)}" stroke="rgb(59 42 36 / .18)" stroke-width="4" fill="none" stroke-linecap="round"/>
+    ${n > 0.004 ? `<path d="${arc(a0, a)}" stroke="#3b2a24" stroke-width="4" fill="none" stroke-linecap="round"/>` : ""}
+    <circle cx="24" cy="25.5" r="13.5" fill="rgb(0 0 0 / .18)"/>
+    <circle cx="24" cy="24" r="13.5" fill="#8a6a4f"/>
+    <circle cx="24" cy="24" r="10.5" fill="#f1dcc0"/>
+    <path d="M${qx} ${qy}L${px} ${py}" stroke="#4a3122" stroke-width="3.4" stroke-linecap="round"/>
+    <circle cx="${px}" cy="${py}" r="2.1" fill="#4a3122"/><circle class="md" r="3.4" fill="#fff" stroke="#3b2a24" stroke-width="1.6" visibility="hidden"/></svg>`;
+}
+function jackSvg(type) {
+  const ring = `var(--j-${type})`;
+  if (type === "trig") return `<svg viewBox="0 0 30 30" aria-hidden="true"><path d="M15 27c-8 -6 -12 -10 -12 -15a6 6 0 0 1 12 -2a6 6 0 0 1 12 2c0 5 -4 9 -12 15z" fill="${ring}"/><circle cx="15" cy="14.5" r="5.2" fill="var(--hole)"/><circle cx="15" cy="14.5" r="2" fill="#000"/></svg>`;
+  return `<svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="12.5" fill="${ring}"/><circle cx="15" cy="15" r="12.5" fill="none" stroke="rgb(0 0 0 / .25)" stroke-width="1"/><circle cx="15" cy="15" r="6.4" fill="var(--hole)"/><circle cx="15" cy="15" r="2.6" fill="#000"/></svg>`;
+}
+function build() {
+  for (const d of DEFS) {
+    const m = { def: d, v: {}, mode: d.mode || (d.modes && d.modes[0]), leds: [], kd: {}, kel: {}, last: {} };
+    d.modIns = d.knobs.filter((k) => !(d.nomod || []).includes(k[0])).map((k) => ["~" + k[0], k[1] + " CV", "cv"]);
+    for (const k of d.knobs) m.kd[k[0]] = k;
+    mods[d.id] = m;
+    for (const k of d.knobs) m.v[k[0]] = k[4];
+    if (d.steps) d.steps.forEach((s, i) => (m.v["s" + i] = s));
+    const el = document.createElement("section"); m.el = el;
+    el.className = "mod" + (d.span ? " span2" : "") + (d.wide ? " wide" : ""); el.style.setProperty("--c", `var(${d.c})`); el.setAttribute("aria-label", `${d.title}, ${d.what}`);
+    el.innerHTML = `<span class="leafscrew a"></span><span class="leafscrew b"></span>
+      <header><svg viewBox="0 0 40 40" aria-hidden="true">${face(...d.face)}</svg><div><h2>${d.title}</h2><small>${d.what}</small></div></header>`;
+    const kn = document.createElement("div"); kn.className = "knobs"; el.append(kn);
+    for (const k of d.knobs) kn.append(knob(m, k));
+    if (d.steps) {
+      const st = document.createElement("div"); st.className = "knobs steps"; el.append(st);
+      d.steps.forEach((_, i) => { const k = ["s" + i, "", 0, 10, d.steps[i], "int", (v) => noteName(PENTA(v))]; m.kd[k[0]] = k; st.append(knob(m, k, true)); });
+      const leds = document.createElement("div"); leds.className = "leds"; el.append(leds);
+      for (let i = 0; i < 8; i++) { const l = document.createElement("span"); l.className = "led"; leds.append(l); m.leds.push(l); }
+    }
+    if (d.scope) {
+      const sc = document.createElement("div"); sc.className = "scope";
+      sc.innerHTML = `<svg viewBox="0 0 40 40" aria-hidden="true">${face("sing", "")}</svg><canvas width="300" height="64" aria-label="What the speaker is playing"></canvas>`;
+      el.append(sc); m.canvas = sc.querySelector("canvas"); m.mouth = sc.querySelector(".mouth");
+    }
+    if (d.modes) {
+      const md = document.createElement("div"); md.className = "modes"; el.append(md);
+      const b = document.createElement("button"); b.type = "button"; b.className = "mode";
+      const show = () => { b.innerHTML = `${waveIcon(m.mode)}${MODE_NAME[m.mode]}`; b.setAttribute("aria-label", `${d.title} shape: ${MODE_NAME[m.mode]}. Tap to change`); };
+      b.onclick = () => { m.mode = d.modes[(d.modes.indexOf(m.mode) + 1) % d.modes.length]; show(); m.api?.set("mode", m.mode); save(); };
+      show(); md.append(b); m.modeBtn = show;
+    }
+    if (d.poke || d.led) {
+      const row = document.createElement("div"); row.className = "modes";
+      if (d.led) { const l = document.createElement("span"); l.className = "led"; l.style.alignSelf = "center"; row.append(l); m.led = l; }
+      if (d.poke) { const b = document.createElement("button"); b.type = "button"; b.className = "poke"; b.textContent = "Poke"; b.onclick = () => { wake(); m.poke?.(); }; row.append(b); }
+      el.append(row);
+    }
+    const jk = document.createElement("div"); jk.className = "jacks"; el.append(jk);
+    for (const [p, label, type] of d.ins || []) jk.append(jack(d.id, p, label, type, "in"));
+    for (const [p, label, type] of d.outs || []) jk.append(jack(d.id, p, label, type, "out"));
+    rack.append(el);
+  }
+}
+function knob(m, k, small) {
+  const w = document.createElement("div"); w.className = "kw";
+  const el = document.createElement("div"); el.className = "knob"; el.tabIndex = 0; el.setAttribute("role", "slider");
+  const lab = document.createElement("div"); lab.className = "kl";
+  const title = k[1] || "step";
+  el.setAttribute("aria-label", `${m.def.title} ${title}`); el.setAttribute("aria-valuemin", k[2]); el.setAttribute("aria-valuemax", k[3]);
+  const draw = (live) => {
+    const v = m.v[k[0]]; el.innerHTML = knobSvg(Math.max(0, Math.min(1, unmap(k, v))), small);
+    el.setAttribute("aria-valuenow", v); el.setAttribute("aria-valuetext", k[6](v));
+    lab.textContent = live || small ? k[6](v) : k[1]; w.classList.toggle("live", !!live);
+  };
+  const setN = (n) => {
+    n = Math.max(0, Math.min(1, n)); const v = map(k, n); if (v === m.v[k[0]]) return;
+    m.v[k[0]] = v; m.api?.set(k[0], v); draw(true); saveSoon();
+  };
+  let drag = null, lastTap = 0;
+  el.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); el.setPointerCapture(e.pointerId); el.focus({ preventScroll: true });
+    const now = performance.now();
+    if (now - lastTap < 320) { setN(unmap(k, k[4])); lastTap = 0; return; }
+    lastTap = now; drag = { y: e.clientY, n: unmap(k, m.v[k[0]]) }; draw(true);
+  });
+  el.addEventListener("pointermove", (e) => { if (!drag) return; setN(drag.n + (drag.y - e.clientY) / (e.shiftKey ? 600 : 160)); });
+  const end = () => { drag = null; draw(false); };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end); el.addEventListener("blur", () => draw(false));
+  el.addEventListener("wheel", (e) => { e.preventDefault(); setN(unmap(k, m.v[k[0]]) - Math.sign(e.deltaY) * (k[5] === "int" ? 1 / (k[3] - k[2]) : 0.02)); }, { passive: false });
+  el.addEventListener("keydown", (e) => {
+    const step = k[5] === "int" ? 1 / (k[3] - k[2]) : e.shiftKey ? 0.1 : 0.02;
+    if (["ArrowUp", "ArrowRight"].includes(e.key)) { setN(unmap(k, m.v[k[0]]) + step); e.preventDefault(); }
+    if (["ArrowDown", "ArrowLeft"].includes(e.key)) { setN(unmap(k, m.v[k[0]]) - step); e.preventDefault(); }
+  });
+  m.redraw = m.redraw || []; m.redraw.push(() => draw(false));
+  m.kel[k[0]] = el;
+  draw(false); w.append(el, lab);
+  if (!small && !(m.def.nomod || []).includes(k[0])) {   // the knob's own CV jack
+    const b = document.createElement("button"); b.type = "button"; b.className = "jack mini"; b.dataset.key = `${m.def.id}.~${k[0]}`; b.innerHTML = jackSvg("cv");
+    b.setAttribute("aria-label", `${m.def.title} ${k[1]} CV input`); jackEls[b.dataset.key] = b; w.append(b);
+  }
+  return w;
+}
+const jackEls = {};
+function jack(m, p, label, type, dir) {
+  const w = document.createElement("div"); w.className = "jw " + dir;
+  const b = document.createElement("button"); b.type = "button"; b.className = "jack"; b.dataset.key = `${m}.${p}`; b.innerHTML = jackSvg(type);
+  b.setAttribute("aria-label", `${mods[m].def.title} ${dir === "in" ? "input" : "output"} ${label}, ${type}`);
+  const l = document.createElement("span"); l.className = "jl"; l.textContent = label;
+  w.append(b, l); jackEls[`${m}.${p}`] = b; return w;
+}
+
+// ---------------------------------------------------------------- cables
+const pos = {};   // jack centre in rack coordinates
+function measure() {
+  const r = rack.getBoundingClientRect();
+  for (const k in jackEls) { const b = jackEls[k].getBoundingClientRect(); pos[k] = [b.left + b.width / 2 - r.left, b.top + b.height / 2 - r.top]; }
+}
+function cablePath([x0, y0], [x1, y1], wob = 0) {
+  const d = Math.hypot(x1 - x0, y1 - y0), sag = (Math.min(170, d * 0.42 + 26)) * (1 + wob);
+  return `M${x0} ${y0}C${x0 + (x1 - x0) * 0.15} ${y0 + sag} ${x1 - (x1 - x0) * 0.15} ${y1 + sag} ${x1} ${y1}`;
+}
+function cableEl(color) {
+  const g = document.createElementNS(NS, "g");
+  g.innerHTML = `<path class="sh" fill="none" stroke="rgb(0 0 0 / .3)" stroke-width="9" stroke-linecap="round" transform="translate(0 3)"/>
+    <path class="main" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"/>
+    <path class="hi" fill="none" stroke="rgb(255 255 255 / .38)" stroke-width="2" stroke-linecap="round" transform="translate(-1 -1.5)"/>
+    <circle class="e0" r="8.5" fill="${color}" stroke="rgb(0 0 0 / .3)" stroke-width="1.5"/><circle class="e1" r="8.5" fill="${color}" stroke="rgb(0 0 0 / .3)" stroke-width="1.5"/>
+    <circle class="h0" r="3" fill="rgb(255 255 255 / .5)"/><circle class="h1" r="3" fill="rgb(255 255 255 / .5)"/>`;
+  svg.append(g); return g;
+}
+function drawCable(g, a, b, wob, flash) {
+  const d = cablePath(a, b, wob);
+  for (const c of g.querySelectorAll("path")) c.setAttribute("d", d);
+  for (const [i, p] of [[0, a], [1, b]]) { g.querySelector(".e" + i).setAttribute("cx", p[0]); g.querySelector(".e" + i).setAttribute("cy", p[1]); g.querySelector(".h" + i).setAttribute("cx", p[0] - 2); g.querySelector(".h" + i).setAttribute("cy", p[1] - 2); }
+  g.querySelector(".main").setAttribute("stroke-width", flash ? 7 + 3 * flash : 7);
+  g.style.filter = flash > 0.05 ? `brightness(${1 + flash * 0.7})` : "";
+}
+function addCable(from, to, color, quiet) {
+  const t = jackInfo(to);
+  if (t.dir === "in") for (const c of cables.filter((c) => c.to === to)) removeCable(c, true);
+  const c = { id: ++cableId, from, to, type: jackInfo(from).type === "trig" ? "trig" : "sig", color: color || COLORS[colorIx++ % COLORS.length], born: performance.now() };
+  c.g = cableEl(c.color); cables.push(c); connectAudio(c); refreshJacks();
+  if (!quiet) { blip(true); save(); }
+  return c;
+}
+function removeCable(c, quiet) {
+  disconnectAudio(c); c.g.remove(); cables = cables.filter((x) => x !== c); refreshJacks();
+  if (!quiet) { blip(false); save(); }
+}
+function refreshJacks() {
+  plugged.clear(); for (const c of cables) { plugged.add(c.from); plugged.add(c.to); }
+  for (const k in jackEls) jackEls[k].dataset.plugged = cables.some((c) => c.from === k || c.to === k) ? "1" : "";
+}
+// compatible: one in, one out, not on the same module, and triggers only with triggers
+function fits(a, b) {
+  if (!a || !b || a === b) return false;
+  const A = jackInfo(a), B = jackInfo(b);
+  return A.dir !== B.dir && A.m !== B.m && (A.type === "trig") === (B.type === "trig");
+}
+
+// dragging and tapping
+let drag = null, selected = null;
+const rackPt = (e) => { const r = rack.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+const jackAt = (e) => document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".jack")?.dataset.key;
+rack.addEventListener("pointerdown", (e) => {
+  const j = e.target.closest(".jack"); if (!j) return;
+  e.preventDefault(); wake(); measure();
+  j.setPointerCapture(e.pointerId);
+  const key = j.dataset.key, info = jackInfo(key);
+  const lifted = info.dir === "in" ? cables.find((c) => c.to === key) : null;
+  drag = { key, x: e.clientX, y: e.clientY, moved: false, lifted, fixed: lifted ? lifted.from : key, temp: null, hot: null };
+});
+rack.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 7) return;
+  if (!drag.moved) {
+    drag.moved = true; clearSel();
+    if (drag.lifted) { disconnectAudio(drag.lifted); drag.temp = drag.lifted; cables = cables.filter((c) => c !== drag.lifted); refreshJacks(); blip(false); }
+    else drag.temp = { g: cableEl(COLORS[colorIx % COLORS.length]), color: COLORS[colorIx % COLORS.length] };
+  }
+  drag.pt = rackPt(e);
+  const k = jackAt(e), ok = fits(drag.fixed, k) ? k : null;
+  if (drag.hot !== ok) { if (drag.hot) jackEls[drag.hot].classList.remove("hot"); if (ok) jackEls[ok].classList.add("hot"); drag.hot = ok; }
+});
+const endDrag = (e) => {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.hot) jackEls[d.hot].classList.remove("hot");
+  if (!d.moved) { tap(d.key); return; }
+  const target = d.hot;
+  d.temp.g.remove();
+  if (target) {
+    const fi = jackInfo(d.fixed);
+    const [from, to] = fi.dir === "out" ? [d.fixed, target] : [target, d.fixed];
+    addCable(from, to, d.temp.color);
+    if (!d.lifted) colorIx++;
+  } else if (d.lifted) { toast("Unplugged"); save(); }
+};
+rack.addEventListener("pointerup", endDrag); rack.addEventListener("pointercancel", endDrag);
+function clearSel() { if (selected) jackEls[selected].classList.remove("sel"); selected = null; }
+function tap(key) {
+  if (selected === key) { clearSel(); return; }
+  if (selected && fits(selected, key)) {
+    const s = jackInfo(selected); const [from, to] = s.dir === "out" ? [selected, key] : [key, selected];
+    clearSel(); addCable(from, to); return;
+  }
+  clearSel(); selected = key; jackEls[key].classList.add("sel");
+  const info = jackInfo(key);
+  toast(info.dir === "out" ? "Now tap an input to plug in" : cables.some((c) => c.to === key) ? "Tap another output to replug, or press Delete to unplug" : "Now tap an output to plug in");
+}
+rack.addEventListener("keydown", (e) => {
+  const j = e.target.closest?.(".jack"); if (!j) return;
+  if (e.key === "Delete" || e.key === "Backspace") { const c = cables.find((c) => c.to === j.dataset.key || c.from === j.dataset.key); if (c) { removeCable(c); toast("Unplugged"); } }
+});
+document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".jack") && selected) clearSel(); });
+
+// ---------------------------------------------------------------- the loop: cables wobble and flash, the speaker sloth sings
+const scopeBuf = new Uint8Array(1024);
+function loop(now) {
+  for (const c of cables) {
+    const age = (now - c.born) / 1000, wob = age < 1.4 ? 0.28 * Math.exp(-age * 4) * Math.sin(age * 16) : 0;
+    const fl = c.flash ? Math.max(0, 1 - (now - c.flash) / 220) : 0;
+    if (pos[c.from] && pos[c.to]) drawCable(c.g, pos[c.from], pos[c.to], wob, fl);
+  }
+  if (drag && drag.moved && drag.pt && pos[drag.fixed]) {
+    const fi = jackInfo(drag.fixed);
+    fi.dir === "out" ? drawCable(drag.temp.g, pos[drag.fixed], drag.pt, -0.35) : drawCable(drag.temp.g, drag.pt, pos[drag.fixed], -0.35);
+  }
+  for (const id in mods) {   // a white dot on each modulated knob shows where its CV has turned it
+    const m = mods[id];
+    for (const [p] of m.def.modIns) {
+      const k = p.slice(1), dot = m.kel[k]?.querySelector(".md"); if (!dot) continue;
+      if (ac && ac.state === "running" && plugged.has(`${id}.${p}`) && m.taps?.[k]) {
+        const n = Math.max(0, Math.min(1, unmap(m.kd[k], m.v[k]) + read(m.taps[k]) * 0.5)), a = (135 + 270 * n) * Math.PI / 180;
+        dot.setAttribute("cx", 24 + 19 * Math.cos(a)); dot.setAttribute("cy", 24 + 19 * Math.sin(a)); dot.setAttribute("visibility", "visible");
+      } else dot.setAttribute("visibility", "hidden");
+    }
+  }
+  const sp = mods.spk, cv = sp.canvas, g = cv.getContext("2d");
+  const W = cv.width = cv.clientWidth * devicePixelRatio, H = cv.height = cv.clientHeight * devicePixelRatio;
+  g.clearRect(0, 0, W, H);
+  g.strokeStyle = "rgb(246 234 214 / .12)"; g.lineWidth = 1; g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
+  let rms = 0;
+  if (analyser && ac.state === "running") {
+    analyser.getByteTimeDomainData(scopeBuf);
+    g.strokeStyle = "#f5b8cb"; g.lineWidth = 2.2 * devicePixelRatio; g.lineJoin = "round"; g.beginPath();
+    for (let i = 0; i < 512; i++) { const v = (scopeBuf[i] - 128) / 128; rms += v * v; const x = (i / 511) * W, y = H / 2 - v * H * 0.45; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke(); rms = Math.sqrt(rms / 512);
+  }
+  if (sp.mouth) sp.mouth.setAttribute("ry", (1.2 + Math.min(1, rms * 5) * 2.6).toFixed(2));
+  requestAnimationFrame(loop);
+}
+
+// ---------------------------------------------------------------- patches, shaking, saving
+function loadPatch(p) {
+  for (const c of [...cables]) removeCable(c, true);
+  for (const id in mods) {
+    const m = mods[id], d = m.def;
+    if (p && p.v && p.v[id]) Object.assign(m.v, p.v[id]); else { for (const k of d.knobs) m.v[k[0]] = k[4]; if (d.steps) d.steps.forEach((s, i) => (m.v["s" + i] = s)); }
+    m.mode = (p && p.mode && p.mode[id]) || d.mode || (d.modes && d.modes[0]);
+    m.redraw?.forEach((f) => f()); m.modeBtn?.();
+    if (m.api) { for (const k in m.v) m.api.set(k, m.v[k]); if (m.mode) m.api.set("mode", m.mode); }
+  }
+  colorIx = 0;
+  for (const [a, b] of (p && p.cables) || STARTER) if (mods[a.split(".")[0]] && mods[b.split(".")[0]]) addCable(a, b, null, true);
+  requestAnimationFrame(measure);
+}
+let saveT;
+function save() {
+  try { localStorage.setItem("sloth-synth", JSON.stringify({ v: Object.fromEntries(Object.entries(mods).map(([id, m]) => [id, m.v])), mode: Object.fromEntries(Object.entries(mods).map(([id, m]) => [id, m.mode])), cables: cables.map((c) => [c.from, c.to]) })); } catch (e) { /* storage off */ }
+}
+function saveSoon() { clearTimeout(saveT); saveT = setTimeout(save, 400); }
+document.getElementById("starter").onclick = () => { loadPatch(null); save(); toast("Starter patch plugged in"); };
+document.getElementById("clear").onclick = () => { for (const c of [...cables]) removeCable(c, true); save(); toast("All cables unplugged"); };
+document.getElementById("peek").onclick = (e) => { const on = document.body.classList.toggle("peek"); e.currentTarget.setAttribute("aria-pressed", String(on)); };
+document.getElementById("shake").onclick = () => {
+  for (const id in mods) {
+    const m = mods[id];
+    for (const k of m.def.knobs) {
+      if (id === "spk" || (id === "vca" && k[0] === "lvl")) continue;   // never blast the volume
+      const n = Math.max(0, Math.min(1, unmap(k, m.v[k[0]]) + (Math.random() - 0.5) * 0.3)); m.v[k[0]] = map(k, n); m.api?.set(k[0], m.v[k[0]]);
+    }
+    if (id === "seq") for (let i = 0; i < 8; i++) if (Math.random() < 0.4) m.v["s" + i] = Math.floor(Math.random() * 11);
+    m.redraw?.forEach((f) => f());
+  }
+  save(); toast("The branch shook, the knobs moved");
+};
+let toastT;
+function toast(s) { const t = document.getElementById("toast"); t.textContent = s; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 1800); }
+
+build();
+let saved = null; try { saved = JSON.parse(localStorage.getItem("sloth-synth") || "null"); } catch (e) { saved = null; }
+loadPatch(saved);
+new ResizeObserver(measure).observe(rack);
+addEventListener("resize", measure);
+document.fonts?.ready?.then(measure);
+measure();
+requestAnimationFrame(loop);
+window.__synth = { mods, cables: () => cables, wake, addCable, measure };
+</script>

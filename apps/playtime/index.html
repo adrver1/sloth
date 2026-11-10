@@ -1,0 +1,330 @@
+<title>Sloth Playtime</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: a short header, then three live stages side by side (stacked on a phone), each with its letter, name and one line */
+:root {
+  --bg: #f3f1ea;
+  --card: #fbfaf6;
+  --fg: #2d2a24;
+  --muted: #6e6858;
+  --accent: #7a5a3a;      /* sloth fur brown */
+  --line: #ddd7c8;
+  --stage-top: #e9e4d6;
+  --stage-bot: #d8d0bb;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1d1b17; --card: #26231e; --fg: #ece6d8; --muted: #a79f8c; --accent: #d2a979;
+  --line: #3a352c; --stage-top: #2f2b24; --stage-bot: #3b362c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #1d1b17; --card: #26231e; --fg: #ece6d8; --muted: #a79f8c; --accent: #d2a979;
+  --line: #3a352c; --stage-top: #2f2b24; --stage-bot: #3b362c; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px; }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 18px; }
+header { display: grid; gap: 6px; max-width: 68ch; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 1.7rem; line-height: 1.15; margin: 0; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); }
+.grid { display: grid; align-items: start; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.opt { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; min-width: 0; }
+.stage { position: relative; aspect-ratio: 4 / 5; max-width: 100%;
+  background: linear-gradient(var(--stage-top), var(--stage-bot)); touch-action: none; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.badge { position: absolute; top: 10px; left: 10px; font-family: var(--display); font-weight: 600; font-size: 1.1rem;
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--card); }
+.rec { position: absolute; top: 14px; right: 10px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+  font-weight: 600; color: var(--accent); background: var(--card); border: 1px solid var(--line); border-radius: 99px; padding: 2px 9px; }
+.txt { padding: 12px 14px 14px; display: grid; gap: 4px; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 1.15rem; margin: 0; }
+.txt p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+.status { font-size: 0.8rem; color: var(--muted); }
+.bar, .clips { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; color: var(--muted); font-size: 0.85rem; }
+.bar button, .clips button { font: inherit; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 99px;
+  padding: 5px 14px; cursor: pointer; }
+.clips { display: flex; gap: 6px; flex-wrap: wrap; }
+.clips button.on { background: var(--accent); color: var(--card); border-color: var(--accent); }
+.bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Playtime with two sloth babies</h1>
+    <p>Four play clips for the ponytail engineer and two plush sloths, which now have their own small skeleton (body, head and two bones in each limb) so they can sit, crawl, cling, and walk hanging under a branch. Drag a stage to turn it.</p>
+  </header>
+  <div class="bar">
+    <button id="speed" type="button">Speed 1&times;</button>
+    <span id="load">Loading models…</span>
+  </div>
+  <div class="grid">
+    <section class="opt"><div class="stage" id="s-swing"><span class="badge">A</span></div>
+      <div class="txt"><h2>Sloth swing</h2><p>Her live play clip. Each sloth hangs back-down under a forearm with all four paws round it, swaying and looking about while she seesaws them.</p></div></section>
+    <section class="opt"><div class="stage" id="s-titanic"><span class="badge">B</span><span class="rec">New</span></div>
+      <div class="txt"><h2>Titanic</h2><p>She holds one sloth up in front of her by the waist while it does the ship's-bow pose: arms flung out, chin up into the wind. She sways it gently while the other clings to her leg, waiting its turn.</p></div></section>
+    <section class="opt"><div class="stage" id="s-airplane"><span class="badge">C</span></div>
+      <div class="txt"><h2>Airplane</h2><p>Flies one sloth overhead in swoops from side to side while the other clings to her leg, waiting its turn.</p></div></section>
+    <section class="opt"><div class="stage" id="s-knees"><span class="badge">D</span></div>
+      <div class="txt"><h2>Knee bounce</h2><p>Sitting down, a sloth on each knee. She bounces them in turn and pats the bounced one on the head.</p></div></section>
+    <section class="opt"><div class="stage" id="s-walk"><span class="badge">E</span></div>
+      <div class="txt"><h2>Crawling about</h2><p>The crawl, now after real sloths: they can't stand on their legs, so the belly stays down, the long arms reach out and haul, and the legs splay and push, one paw at a time. Old look on the left, real limbs on the right, at about 3 cm a second.</p></div></section>
+    <section class="opt"><div class="stage" id="s-rig"><span class="badge">F</span></div>
+      <div class="txt"><h2>Up close</h2><p>One sloth with its bones drawn on top. <b>Real limbs</b> is now the live look in every clip: arms much longer than the legs and three hooked claws on every paw. <b>Old look</b> is the first plush, kept.</p>
+        <div class="clips" id="looks"><button type="button" data-l="plush">Old look</button><button type="button" data-l="real" class="on">Real limbs</button></div>
+        <div class="clips" id="clips"><button type="button" data-c="idle">Sit</button><button type="button" data-c="walk" class="on">Crawl</button><button type="button" data-c="cling">Cling</button><button type="button" data-c="hang_walk">Hang walk</button><button type="button" id="bones" class="on">Bones</button></div></div></section>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "./fur.js";
+
+// sloth_rig.py: the branch lies along the sloth's +Z at y = 0.115, z 0..0.20
+const BRANCH = { y: 0.10, z0: 0.0, z1: 0.20 };
+const WALK_SPEED = 0.0267;   // m/s, sloth_rig.WALK_SPEED
+const HANG_SPEED = 0.0151;   // m/s, sloth_rig.HANG_SPEED
+const STILL = location.search.includes("still");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let speed = 1;
+const speeds = [1, 2, 0.5];
+document.getElementById("speed").onclick = (e) => {
+  speed = speeds[(speeds.indexOf(speed) + 1) % speeds.length];
+  e.currentTarget.textContent = `Speed ${speed}×`;
+};
+
+async function glb(url) {
+  const txt = (await (await fetch(url)).text()).trim();
+  const bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
+  return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
+}
+const [girl, slothOld, sloth] = await Promise.all([glb("models/ponytail.txt"), glb("models/sloth_plush.txt"), glb("models/sloth.txt")]);
+document.getElementById("load").textContent = "Clips loop. Her face uses the happy expression with blinks.";
+
+function stage(id, cam, target) {
+  const host = document.getElementById(id);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  host.prepend(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xfff4e6, 0x6b5e48, 1.6));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+  sun.position.set(2, 4, -3);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  Object.assign(sun.shadow.camera, { left: -1.5, right: 1.5, top: 2.5, bottom: -0.5 });
+  scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(1.3, 48), new THREE.ShadowMaterial({ opacity: 0.22 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+  const camera = new THREE.PerspectiveCamera(36, 0.8, 0.02, 30);
+  camera.position.set(...cam);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(...target);
+  controls.enablePan = false;
+  controls.enableZoom = false;
+  controls.update();
+  const st = { host, renderer, scene, camera, mixers: [], tick: [] };
+  stages.push(st);
+  return st;
+}
+const shadows = (o) => o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
+function makeSloth(clipName, src = sloth) {
+  const s = clone(src.scene);
+  shadows(s);
+  furify(s);
+  const mixer = new THREE.AnimationMixer(s);
+  const actions = Object.fromEntries(src.animations.map((a) => [a.name, mixer.clipAction(a)]));
+  actions[clipName].play();
+  return { s, mixer, actions };
+}
+function makeGirl(clipName) {
+  const g = clone(girl.scene);
+  shadows(g);
+  const mixer = new THREE.AnimationMixer(g);
+  const clip = (n) => girl.animations.find((a) => a.name === n);
+  mixer.clipAction(clip(clipName)).play();
+  const happy = mixer.clipAction(clip("happy"));
+  happy.play(); happy.time = 1.5; happy.timeScale = 0;
+  const blink = mixer.clipAction(clip("blink"));
+  blink.setLoop(THREE.LoopOnce);
+  let next = 1.5;
+  return { g, mixer, tick: (dt) => { next -= dt; if (next <= 0) { blink.reset().play(); next = 2 + Math.random() * 3; } } };
+}
+const stages = [];
+// Hang a sloth (its cling clip) under the branch p0 -> p1, halfway along
+// belly: which way its belly faces the branch (world up when it hangs
+// under one; toward her leg when it clings to her shin)
+function hangOn(obj, p0, p1, belly = new THREE.Vector3(0, 1, 0)) {
+  const dir = p1.clone().sub(p0).normalize();
+  const up = belly.clone();
+  up.sub(dir.clone().multiplyScalar(dir.dot(up))).normalize();
+  // sloth axes in three.js: its +Z (Blender, head end) is three +Y, its +Y (belly) is three -Z
+  const zl = up.clone().negate(), yl = dir, xl = new THREE.Vector3().crossVectors(yl, zl);
+  const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
+  const local = new THREE.Vector3(0, (BRANCH.z0 + BRANCH.z1) / 2, -BRANCH.y).applyMatrix4(rot);
+  obj.quaternion.setFromRotationMatrix(rot);
+  obj.position.copy(p0.clone().lerp(p1, 0.5).sub(local));
+}
+
+// Her play clips with two sloths each (anims.PLAY_HOLD): "cling" hangs a
+// sloth halfway along an arm bone; otherwise (bone, bottom, yaw) seats it
+const HOLD = {
+  swing: [["cling", "forearm.R"], ["cling", "forearm.L"]],
+  titanic: [["hand.R", [0.0, 0.31, 1.22], 0, "titanic"], ["leg", "shin.L", [0.4, -1.0, 0.0]]],
+  airplane: [["hand.R", [0.0, 0.10, 1.64], 0], ["leg", "shin.R", [-0.4, -1.0, 0.0]]],
+  knees: [["thigh.R", [0.12, 0.30, 0.55], -14], ["thigh.L", [-0.12, 0.30, 0.55], 14]],
+};
+const toThree = ([x, y, z]) => new THREE.Vector3(x, z, -y);
+const HS = 1.0;   // her height over the rig's (anims.PLAY_HOLD is in rig units; she is 1.75 m like the rig)
+function playStage(id, style, cam, target) {
+  const st = stage(id, cam, target);
+  if (style === "knees") {
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.45, 0.46), new THREE.MeshStandardMaterial({ color: 0x5a6470, roughness: 0.8 }));
+    seat.position.set(0, 0.225, 0.13);
+    seat.castShadow = seat.receiveShadow = true;
+    st.scene.add(seat);
+  }
+  const her = makeGirl(style === "swing" ? "play" : "play_" + style);
+  st.scene.add(her.g);
+  st.mixers.push(her.mixer); st.tick.push(her.tick);
+  her.mixer.update(0);
+  her.g.updateMatrixWorld(true);
+  // her bones, looked up before any sloth (which has bones of the same names) is parented to her
+  const bones = {};
+  her.g.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+  const B = (n) => bones[n.replace(".", "")];
+  HOLD[style].forEach((h, i) => {
+    let sl, bone;
+    if (h[0] === "leg") {   // the one waiting its turn clings to her shin, head up
+      bone = B(h[1]);
+      const foot = B(h[1].replace("shin.", "foot."));
+      sl = makeSloth("cling");
+      hangOn(sl.s, foot.getWorldPosition(new THREE.Vector3()), bone.getWorldPosition(new THREE.Vector3()),
+             toThree(h[2]).normalize());
+    } else if (h[0] === "cling") {
+      bone = B(h[1]);
+      const hand = B(h[1].replace("forearm.", "hand."));
+      sl = makeSloth("cling");
+      hangOn(sl.s, bone.getWorldPosition(new THREE.Vector3()), hand.getWorldPosition(new THREE.Vector3()));
+    } else {
+      bone = h[0] === "floor" ? null : B(h[0]);
+      sl = makeSloth(h[3] || "idle");
+      sl.s.position.copy(toThree(h[1]).multiplyScalar(HS));   // rig units -> her 1.70 m
+      sl.s.rotation.y = THREE.MathUtils.degToRad(h[2]);
+    }
+    sl.mixer.setTime(i ? 1.7 : 0);
+    st.scene.add(sl.s);
+    sl.s.updateMatrixWorld(true);
+    if (bone) bone.attach(sl.s);
+    st.mixers.push(sl.mixer);
+  });
+}
+playStage("s-swing", "swing", [0.9, 1.3, -2.1], [0, 1.08, 0]);
+playStage("s-titanic", "titanic", [0.8, 1.35, -2.75], [0, 0.95, 0]);
+playStage("s-airplane", "airplane", [1.7, 1.4, -2.9], [0, 0.95, 0]);
+playStage("s-knees", "knees", [1.4, 1.2, -1.9], [0, 0.7, 0]);
+
+// B: two sloths crawling round her feet
+{
+  const st = stage("s-walk", [1.7, 1.3, -2.5], [0, 0.65, 0]);
+  const her = makeGirl("idle");
+  st.scene.add(her.g);
+  st.mixers.push(her.mixer); st.tick.push(her.tick);
+  const R = 0.42;
+  for (const start of [0, Math.PI]) {
+    const sl = makeSloth("walk", start ? sloth : slothOld);
+    sl.mixer.setTime(start ? 0.9 : 0);
+    st.scene.add(sl.s);
+    st.mixers.push(sl.mixer);
+    let a = start + 0.6;
+    st.tick.push((dt) => {
+      a += (WALK_SPEED * dt) / R;
+      sl.s.position.set(R * Math.sin(a), 0, R * Math.cos(a));
+      // facing along the circle: its forward is three -Z
+      sl.s.rotation.y = a + Math.PI / 2 + Math.PI;
+    });
+  }
+}
+
+// C: the skeleton up close
+const rig = (() => {
+  const st = stage("s-rig", [0.55, 0.38, -0.75], [0, 0.15, 0]);
+  const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.9, 8), new THREE.MeshStandardMaterial({ color: 0x6b4a2e, roughness: 0.9 }));
+  stick.rotation.z = Math.PI / 2;
+  stick.position.y = 0.34;
+  stick.castShadow = true;
+  st.scene.add(stick);
+  const r = { st, stick, look: "real", clip: "walk", bones: true, sl: null, helper: null, x: 0 };
+  r.build = () => {
+    if (r.sl) { st.scene.remove(r.sl.s, r.helper); st.mixers.splice(st.mixers.indexOf(r.sl.mixer), 1); }
+    r.sl = makeSloth(r.clip, r.look === "real" ? sloth : slothOld);
+    r.helper = new THREE.SkeletonHelper(r.sl.s);
+    r.helper.material.depthTest = false;
+    r.helper.visible = r.bones;
+    st.scene.add(r.sl.s, r.helper);
+    st.mixers.push(r.sl.mixer);
+    r.x = STILL ? 0 : -0.12;
+    r.place();
+  };
+  r.place = () => {
+    const hang = r.clip === "cling" || r.clip === "hang_walk";
+    stick.visible = hang;
+    if (hang) hangOn(r.sl.s, new THREE.Vector3(r.x - 0.3, 0.34, 0), new THREE.Vector3(r.x + 0.3, 0.34, 0));
+    else { r.sl.s.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r.clip === "walk" ? -Math.PI / 2 : 0); r.sl.s.position.set(r.clip === "walk" ? r.x : 0, 0, 0); }
+  };
+  st.tick.push((dt) => {
+    const v = r.clip === "walk" ? WALK_SPEED : r.clip === "hang_walk" ? HANG_SPEED : 0;
+    if (!v || STILL) return;
+    r.x += v * dt;
+    if (r.x > 0.14) r.x = -0.14;
+    r.place();
+  });
+  r.build();
+  return r;
+})();
+const setOn = (sel, attr, val) => document.querySelectorAll(sel).forEach((o) => o.classList.toggle("on", o.dataset[attr] === val));
+document.querySelectorAll("#clips button[data-c]").forEach((b) => b.onclick = () => { rig.clip = b.dataset.c; setOn("#clips button[data-c]", "c", rig.clip); rig.build(); });
+document.querySelectorAll("#looks button[data-l]").forEach((b) => b.onclick = () => { rig.look = b.dataset.l; setOn("#looks button[data-l]", "l", rig.look); rig.build(); });
+document.getElementById("bones").onclick = (e) => {
+  rig.bones = !rig.bones;
+  rig.helper.visible = rig.bones;
+  e.currentTarget.classList.toggle("on", rig.bones);
+};
+
+const clock = new THREE.Timer();
+function frame() {
+  clock.update();
+  const dt = Math.min(clock.getDelta(), 0.05) * (reduce ? 0.5 : speed);
+  for (const st of stages) {
+    const w = st.host.clientWidth, h = st.host.clientHeight;
+    if (st.renderer.domElement.width !== Math.round(w * st.renderer.getPixelRatio())) {
+      st.renderer.setSize(w, h, false);
+      st.camera.aspect = w / h;
+      st.camera.updateProjectionMatrix();
+    }
+    for (const m of st.mixers) m.update(dt);
+    for (const t of st.tick) t(dt);
+    st.renderer.render(st.scene, st.camera);
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+window.__stages = stages;
+window.__ready = true;
+</script>

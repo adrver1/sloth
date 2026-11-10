@@ -1,0 +1,13 @@
+{
+  "name": "sloth",
+  "private": true,
+  "type": "module",
+  "description": "Baby sloth character, karaoke, synth, stickers and games",
+  "scripts": {
+    "serve": "npx http-server -p 8765 -c-1 ."
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0",
+    "three": "0.186.1"
+  }
+}
