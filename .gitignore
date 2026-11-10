@@ -1,0 +1,9 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+stickers/renderer/raw/
+stickers/renderer/anim_raw/
+stickers/renderer/out/
+stickers/renderer/out_flat/
+stickers/renderer/anim_out/

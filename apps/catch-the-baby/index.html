@@ -1,0 +1,595 @@
+<meta charset="utf-8">
+<title>Catch the Baby</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+<style>
+/* Layout: one full-screen jungle scene; a soft HUD on top and a card for start and nap time.
+   Single look on purpose (a storybook day), so no dark variant. */
+:root {
+  --sky: #cdeefa; --cream: #fff8ee; --ink: #4a3426; --soft: #8a6a55; --pink: #ff7fa8; --leaf: #6dbb5a; --bark: #8a5a3b;
+  --display: "Fredoka", "Trebuchet MS", "Comic Sans MS", system-ui, sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--sky); color: var(--ink); font-family: var(--display); overflow: hidden; touch-action: none;
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#game { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+.hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; pointer-events: none;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.pill { background: rgb(255 248 238 / .88); border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 22px; display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 3px 0 rgb(138 90 59 / .18); font-variant-numeric: tabular-nums; }
+.pill .ico { width: 30px; height: 30px; }
+#hearts { color: var(--pink); letter-spacing: 2px; }
+#hearts .lost { color: #e6d6cc; }
+#mute { pointer-events: auto; border: 0; cursor: pointer; font: inherit; font-size: 18px; color: var(--ink); }
+.right { display: flex; gap: 8px; align-items: center; }
+.card { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.card > div { pointer-events: auto; background: rgb(255 248 238 / .94); border-radius: 28px; padding: 22px 26px 24px; max-width: 360px; width: 100%; text-align: center;
+  box-shadow: 0 6px 0 rgb(138 90 59 / .2), 0 18px 40px rgb(74 52 38 / .18); }
+.card h1 { margin: 0; font-weight: 700; font-size: 38px; line-height: 1.05; color: var(--ink); text-wrap: balance; }
+.card h1 span { color: var(--pink); }
+.card p { margin: 10px 0 0; font-family: var(--display); font-weight: 500; color: var(--soft); font-size: 17px; line-height: 1.35; }
+.card .big { font-size: 56px; font-weight: 700; color: var(--pink); margin: 6px 0 0; line-height: 1; }
+.card button { margin-top: 18px; font: 700 22px var(--display); color: #fff; background: var(--pink); border: 0; border-radius: 999px; padding: 12px 34px; cursor: pointer;
+  box-shadow: 0 5px 0 #d95c86; transition: transform .1s; }
+.card button:active { transform: translateY(3px); box-shadow: 0 2px 0 #d95c86; }
+.card button:focus-visible, #mute:focus-visible { outline: 3px solid var(--leaf); outline-offset: 3px; }
+.card small { display: block; margin-top: 12px; color: var(--soft); font-size: 14px; font-weight: 500; }
+#pop { position: fixed; left: 0; top: 0; pointer-events: none; font-weight: 700; font-size: 30px; color: var(--pink);
+  -webkit-text-stroke: 5px #fff; paint-order: stroke fill; }
+.popper { position: fixed; pointer-events: none; font-weight: 700; font-size: 30px; color: var(--pink); -webkit-text-stroke: 6px #fff; paint-order: stroke fill;
+  transform: translate(-50%, -50%); animation: up 1s ease-out forwards; }
+.popper.gold { color: #f2a900; font-size: 38px; }
+.popper.aww { color: var(--soft); font-size: 26px; }
+@keyframes up { from { opacity: 1; transform: translate(-50%, -50%) scale(.6); } 20% { transform: translate(-50%, -70%) scale(1.15); } to { opacity: 0; transform: translate(-50%, -160%) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .popper { animation-duration: 1.4s; } }
+#loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 22px; color: var(--soft); }
+</style>
+<canvas id="game" aria-label="Catch the baby sloths: move her left and right"></canvas>
+<div id="loading">Waking the babies…</div>
+<div class="hud" id="hud" hidden>
+  <div class="pill"><svg class="ico" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="21" r="17" fill="#9b7a5c"/><ellipse cx="20" cy="24" rx="13" ry="10" fill="#f3e2c8"/><ellipse cx="13.5" cy="23" rx="5" ry="3.6" transform="rotate(-20 13.5 23)" fill="#4a3426"/><ellipse cx="26.5" cy="23" rx="5" ry="3.6" transform="rotate(20 26.5 23)" fill="#4a3426"/><circle cx="14.5" cy="22.5" r="1.4" fill="#fff"/><circle cx="25.5" cy="22.5" r="1.4" fill="#fff"/><ellipse cx="20" cy="27.5" rx="2.4" ry="1.7" fill="#4a3426"/></svg><span id="score">0</span></div>
+  <div class="right"><div class="pill" id="hearts" aria-label="lives">♥♥♥</div><button class="pill" id="mute" type="button" aria-label="Sound on or off">🔊</button></div>
+</div>
+<div class="card" id="start" hidden><div>
+  <h1>Catch the <span>Baby!</span></h1>
+  <p>The baby sloths are letting go of the branch, one leaf at a time. Run over and catch them in a hug before they land.</p>
+  <button id="go" type="button">Let's play</button>
+  <small id="hint">Drag anywhere, or use ← →</small>
+</div></div>
+<div class="card" id="over" hidden><div>
+  <h1>Nap <span>time!</span></h1>
+  <p>You caught</p>
+  <div class="big" id="final">0</div>
+  <p id="overline">babies</p>
+  <button id="again" type="button">Play again</button>
+  <small id="best"></small>
+</div></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "./fur.js";
+
+const $ = (id) => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const lerp = THREE.MathUtils.lerp;
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+// ---------------------------------------------------------------- models
+async function glb(url) {
+  const txt = (await (await fetch(url)).text()).trim();
+  const bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
+  return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
+}
+const [HER, SLOTH] = await Promise.all([glb("models/her.txt"), glb("models/sloth.txt")]);
+
+// ---------------------------------------------------------------- renderer + world
+const canvas = $("game");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
+scene.add(new THREE.HemisphereLight(0xfff6ea, 0x8fbf74, 1.9));
+const sun = new THREE.DirectionalLight(0xfff1dc, 1.9);
+sun.position.set(-3, 8, -5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 8, bottom: -2, near: 1, far: 30 });
+sun.shadow.radius = 4;
+scene.add(sun, sun.target);
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true, ...o });
+
+// sky: a big gradient card far behind
+function gradientTex(stops, w = 4, h = 256) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, h);
+  stops.forEach(([t, col]) => gr.addColorStop(t, col));
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const sky = new THREE.Mesh(new THREE.PlaneGeometry(90, 50), new THREE.MeshBasicMaterial({ map: gradientTex([[0, "#9fdcf5"], [0.55, "#d4f0f7"], [1, "#fde7d6"]]) }));
+sky.position.set(0, 8, 30); sky.rotation.y = Math.PI; scene.add(sky);
+
+// ground, hills, flowers
+const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 40), mat(0x9fd67f));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+for (const [x, z, r, c] of [[-9, 18, 9, 0x8cc970], [6, 22, 11, 0x7fbf68], [16, 16, 7, 0x96cf7a], [-18, 24, 10, 0x86c56c], [0, 26, 8, 0xa5d98a]]) {
+  const h = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(c)); h.scale.y = 0.45; h.position.set(x, 0, z); scene.add(h);
+}
+const flowers = new THREE.Group(); scene.add(flowers);
+const petal = new THREE.SphereGeometry(0.05, 6, 4), stemG = new THREE.CylinderGeometry(0.008, 0.008, 0.16, 4);
+for (let i = 0; i < 70; i++) {
+  const f = new THREE.Group(), col = [0xff9ec0, 0xffd66e, 0xffffff, 0xc9a7ff][i % 4];
+  const st = new THREE.Mesh(stemG, mat(0x5aa64a)); st.position.y = 0.08; f.add(st);
+  for (let k = 0; k < 5; k++) { const p = new THREE.Mesh(petal, mat(col)); const a = k * 1.2566; p.position.set(Math.cos(a) * 0.05, 0.17, Math.sin(a) * 0.05); p.scale.y = 0.5; f.add(p); }
+  const ctr = new THREE.Mesh(petal, mat(0xffc53d)); ctr.position.y = 0.18; ctr.scale.setScalar(0.6); f.add(ctr);
+  f.position.set(rand(-7, 7), 0, rand(-2.5, 7)); f.scale.setScalar(rand(0.8, 1.4)); flowers.add(f);
+}
+// clouds
+const clouds = [];
+for (let i = 0; i < 6; i++) {
+  const c = new THREE.Group();
+  for (let k = 0; k < 4; k++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(0.6, 1.0), 1), mat(0xffffff, { roughness: 1 })); b.position.set(k * 0.8 - 1.2, rand(-0.1, 0.3), rand(-0.2, 0.2)); c.add(b); }
+  c.position.set(rand(-12, 12), rand(6, 10), rand(14, 22)); c.userData.v = rand(0.15, 0.35); scene.add(c); clouds.push(c);
+}
+
+// the tree: two trunks and one long branch with leaf clumps
+const tree = new THREE.Group(); scene.add(tree);
+const leafMats = [mat(0x6dbb5a), mat(0x7fca63), mat(0x5ea94f)];
+function clump(x, y, z, r) {
+  const g = new THREE.Group();
+  for (let k = 0; k < 4; k++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r * rand(0.6, 1), 0), leafMats[k % 3]); m.position.set(rand(-r, r) * 0.7, rand(-r, r) * 0.4, rand(-r, r) * 0.5); m.castShadow = true; g.add(m); }
+  g.position.set(x, y, z); tree.add(g); return g;
+}
+
+// ---------------------------------------------------------------- layout (fits any screen)
+const L = { halfW: 2.2, branchY: 3.6, top: 4.2 };
+function layout() {
+  const w = innerWidth, h = innerHeight, aspect = w / h;
+  renderer.setSize(w, h, false);
+  camera.aspect = aspect;
+  L.halfW = aspect < 0.8 ? 1.05 : aspect < 1.2 ? 1.6 : 2.0;
+  const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const D = Math.max(2.05 / tan, (L.halfW + 0.3) / (tan * aspect));
+  const halfH = D * tan;
+  // the branch sits under the score bar; on a tall phone the spare height goes to grass in front
+  L.branchY = Math.min(2 * halfH - 0.25 - 0.85, 4.3);
+  L.top = L.branchY + 0.85;
+  const cy = L.top - halfH;
+  camera.position.set(0, cy, -D);
+  camera.lookAt(0, cy, 0);
+  camera.updateProjectionMatrix();
+  buildTree();
+  placeHangers();
+  basket.position.set(L.halfW - 0.05, 0, 0.55);
+}
+let branch;
+function buildTree() {
+  tree.clear();
+  const bx = L.halfW + 0.55, by = L.branchY;
+  for (const s of [-1, 1]) {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, by + 0.6, 7), mat(0x8a5a3b)); t.position.set(s * bx, (by + 0.6) / 2, 0.35); t.castShadow = true; tree.add(t);
+    clump(s * bx, by + 0.75, 0.3, 0.9); clump(s * (bx - 0.4), by + 0.45, 0.1, 0.6);
+  }
+  branch = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 2 * bx, 7), mat(0x95633f));
+  branch.rotation.z = Math.PI / 2; branch.position.set(0, by, 0); branch.castShadow = true; tree.add(branch);
+  for (let x = -bx + 0.5; x < bx - 0.4; x += 0.8) clump(x + rand(-0.15, 0.15), by + 0.34, rand(0.15, 0.35), rand(0.24, 0.34));
+  sun.target.position.set(0, 1, 0);
+}
+
+// ---------------------------------------------------------------- sloths
+const SL = 1.75;                               // sloth scale (cuter, bigger than life)
+const BR = { y: 0.10 * SL, z: 0.10 * SL };     // cling clip: the branch in sloth space (sloth_rig.CLING_BRANCH (0.10, 0, 0.20), its middle)
+class Baby {
+  constructor(gold = false) {
+    this.o = clone(SLOTH.scene);
+    this.o.scale.setScalar(SL);
+    this.o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
+    furify(this.o);
+    this.mixer = new THREE.AnimationMixer(this.o);
+    this.acts = Object.fromEntries(SLOTH.animations.map((a) => [a.name, this.mixer.clipAction(a)]));
+    this.cur = null;
+    this.gold = gold;
+    this.root = new THREE.Group(); this.root.add(this.o); scene.add(this.root);
+    if (gold) this.crown();
+  }
+  crown() {
+    const head = this.o.getObjectByName("head"), c = new THREE.Group();
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * Math.PI * 2, f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.016, 0), mat([0xff7fa8, 0xffd66e, 0xffffff][k % 3], { emissive: 0x332200 }));
+      f.position.set(Math.cos(a) * 0.058, 0, Math.sin(a) * 0.052); c.add(f);
+    }
+    c.position.set(0, 0.105, 0.0); c.rotation.x = -0.25; head.add(c);
+  }
+  play(name, fade = 0.25, t) {
+    const a = this.acts[name];
+    if (this.cur === a) return;
+    a.reset(); if (t !== undefined) a.time = t; a.play();
+    if (this.cur) this.cur.crossFadeTo(a, fade, false);
+    this.cur = a;
+  }
+  dispose() { scene.remove(this.root); this.root.traverse((m) => m.isMesh && !m.isSkinnedMesh && m.material.dispose?.()); }
+}
+// hang a sloth under the branch at x, head toward dir (page hangOn: back down, belly up to the bark)
+function hangAt(b, x, dir = 1) {
+  b.root.position.set(0, 0, 0); b.root.rotation.set(0, 0, 0); b.root.scale.setScalar(1);
+  const yl = new THREE.Vector3(dir, 0, 0), zl = new THREE.Vector3(0, -1, 0), xl = new THREE.Vector3().crossVectors(yl, zl);
+  const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
+  b.o.quaternion.setFromRotationMatrix(rot);
+  const local = new THREE.Vector3(0, BR.z, -BR.y).applyMatrix4(rot);
+  b.o.position.set(x, L.branchY, -0.02).sub(local);
+  b.base = b.o.position.clone();
+}
+
+// ---------------------------------------------------------------- her
+const her = { o: clone(HER.scene), x: 0, v: 0, target: 0, holding: null };
+her.o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
+scene.add(her.o);
+her.mixer = new THREE.AnimationMixer(her.o);
+const clip = (n) => HER.animations.find((a) => a.name === n);
+const ARM = /^(upper_arm|forearm|hand|index|fingers|thumb)[LR]?\./;   // arms and finger joints
+const sub = (c, keep, name) => new THREE.AnimationClip(name, c.duration, c.tracks.filter((t) => keep(t.name) && !t.name.startsWith("root.")));
+const A = {
+  idle: her.mixer.clipAction(sub(clip("idle"), (n) => !ARM.test(n), "idleB")),
+  walk: her.mixer.clipAction(sub(clip("walk"), (n) => !ARM.test(n), "walkB")),
+  ready: her.mixer.clipAction(sub(clip("play"), (n) => ARM.test(n), "readyA")),
+  hug: her.mixer.clipAction(sub(clip("hug"), (n) => ARM.test(n), "hugA")),
+  happy: her.mixer.clipAction(clip("happy")),
+  sad: her.mixer.clipAction(clip("surprised")),
+  blink: her.mixer.clipAction(clip("blink")),
+};
+for (const k of ["idle", "walk", "ready", "hug", "happy", "sad"]) A[k].play();
+A.happy.timeScale = 0; A.happy.time = 1.5; A.sad.timeScale = 0; A.sad.time = 0.6;
+A.blink.setLoop(THREE.LoopOnce);
+const W = { walk: 0, hug: 0, sad: 0 };
+let blinkIn = 2;
+// the arms' hold: where a hugged baby sits, in chest space (anims.HUG_HOLD, posed once)
+const hold = new THREE.Object3D();
+{
+  const m = new THREE.AnimationMixer(her.o);
+  m.clipAction(clip("hug")).play(); m.setTime(1.6);
+  her.o.updateMatrixWorld(true);
+  hold.position.set(0, 1.12, -0.24);   // anims.HUG_HOLD
+  scene.add(hold); hold.updateMatrixWorld(true);
+  her.o.getObjectByName("chest").attach(hold);
+  m.stopAllAction(); m.uncacheRoot(her.o);
+}
+
+// ---------------------------------------------------------------- basket of caught babies (right side)
+const basket = new THREE.Group(); scene.add(basket);
+{
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.32, 0.26, 10, 1, true), mat(0xc98b4f, { side: THREE.DoubleSide }));
+  body.position.y = 0.13; body.castShadow = true; basket.add(body);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.04, 5, 14), mat(0xb07640)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.26; basket.add(rim);
+  const pillow = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.3, 0.1, 10), mat(0xffc2d6)); pillow.position.y = 0.12; basket.add(pillow);
+  for (const [x, z] of [[-0.3, 0.1], [0.28, -0.05]]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.018, 4, 8), mat(0xff7fa8)); h.position.set(x, 0.27, z); basket.add(h); }
+}
+const napping = [];
+
+// ---------------------------------------------------------------- particles (hearts, sparkles, oof stars)
+function spriteTex(draw) { const c = document.createElement("canvas"); c.width = c.height = 64; draw(c.getContext("2d")); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+const heartTex = spriteTex((g) => { g.fillStyle = "#ff7fa8"; g.strokeStyle = "#fff"; g.lineWidth = 6; g.beginPath(); g.moveTo(32, 54); g.bezierCurveTo(4, 34, 6, 10, 22, 10); g.bezierCurveTo(28, 10, 32, 16, 32, 20); g.bezierCurveTo(32, 16, 36, 10, 42, 10); g.bezierCurveTo(58, 10, 60, 34, 32, 54); g.closePath(); g.stroke(); g.fill(); });
+const starTex = spriteTex((g) => { g.fillStyle = "#ffd23f"; g.strokeStyle = "#fff"; g.lineWidth = 5; g.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 11 : 26, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } g.closePath(); g.stroke(); g.fill(); });
+const parts = [];
+function burst(pos, tex, n, spread = 1.2, size = 0.22) {
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.position.copy(pos); s.scale.setScalar(size * rand(0.7, 1.2)); scene.add(s);
+    parts.push({ s, v: new THREE.Vector3(rand(-spread, spread), rand(1.2, 2.6), rand(-0.3, 0.1)), life: rand(0.8, 1.3), t: 0 });
+  }
+}
+function popText(pos, text, cls = "") {
+  const p = pos.clone().project(camera);
+  const el = document.createElement("div"); el.className = "popper " + cls; el.textContent = text;
+  el.style.left = `${(p.x + 1) / 2 * innerWidth}px`; el.style.top = `${(1 - p.y) / 2 * innerHeight}px`;
+  document.body.append(el); setTimeout(() => el.remove(), 1500);
+}
+
+// ---------------------------------------------------------------- leaf parachute
+function parachute() {
+  const g = new THREE.Group();
+  const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 4, 0, Math.PI * 2, 0, Math.PI / 2.3), mat(0x7fca63, { side: THREE.DoubleSide }));
+  leaf.scale.set(1, 0.45, 0.7); g.add(leaf);
+  const rib = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.02, 0.02), mat(0x4f9a40)); rib.position.y = 0.13; g.add(rib);
+  const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.12, 4), mat(0x4f9a40)); stalk.position.y = 0.21; g.add(stalk);
+  const lm = new THREE.LineBasicMaterial({ color: 0x6e8f5a });
+  for (const s of [-1, 1]) g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(s * 0.3, 0.02, 0), new THREE.Vector3(s * 0.2, -0.42, 0)]), lm));
+  return g;
+}
+
+// ---------------------------------------------------------------- audio (cute blips)
+let ac = null, muted = store.get("catch-baby-muted") === "1";
+const muteBtn = $("mute");
+const setMuteIcon = () => { muteBtn.textContent = muted ? "🔈" : "🔊"; muteBtn.setAttribute("aria-pressed", String(muted)); };
+setMuteIcon();
+muteBtn.onclick = (e) => { e.stopPropagation(); muted = !muted; store.set("catch-baby-muted", muted ? "1" : "0"); setMuteIcon(); };
+function tone(f0, f1, dur, type = "sine", vol = 0.18, delay = 0) {
+  if (muted) return;
+  try {
+    ac ??= new (window.AudioContext || window.webkitAudioContext)();
+    const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  } catch {}
+}
+const sfx = {
+  catch: (gold) => { tone(660, 990, 0.12, "triangle"); tone(990, 1320, 0.16, "triangle", 0.16, 0.09); if (gold) tone(1320, 1760, 0.25, "triangle", 0.14, 0.2); },
+  drop: () => tone(900, 520, 0.35, "sine", 0.08),
+  oof: () => { tone(420, 300, 0.18, "sine", 0.16); tone(330, 220, 0.3, "sine", 0.14, 0.15); },
+  over: () => [523, 440, 392, 330].forEach((f, i) => tone(f, f * 0.98, 0.3, "triangle", 0.14, i * 0.18)),
+  wiggle: () => tone(500, 560, 0.08, "square", 0.03),
+};
+
+// ---------------------------------------------------------------- game state
+const G = { state: "title", score: 0, lives: 3, t: 0, next: 1.2, caught: 0, dropped: 0, best: +(store.get("catch-baby-best") || 0) };
+const hangers = [];   // babies hanging on the branch: {b, x, dir, wiggle}
+const falling = [];   // {b, x, y, v, chute, sway}
+const landed = [];    // {b, t, dir}
+function slotsX() {
+  const n = L.halfW < 1.6 ? 4 : L.halfW < 2 ? 5 : 6, out = [];
+  for (let i = 0; i < n; i++) out.push(-L.halfW * 0.85 + (i / (n - 1)) * L.halfW * 1.7);
+  return out;
+}
+function placeHangers() {
+  const xs = slotsX();
+  while (hangers.length > xs.length) hangers.pop().b.dispose();
+  xs.forEach((x, i) => {
+    let h = hangers[i];
+    if (!h) { h = { b: new Baby(), x, dir: i % 2 ? 1 : -1, wiggle: 0, grow: 1 }; h.b.play("cling", 0, rand(0, 4)); hangers[i] = h; }
+    h.x = x; hangAt(h.b, x, h.dir);
+  });
+}
+function refill(h) {
+  h.b = new Baby(Math.random() < 0.12); h.b.play("cling", 0, rand(0, 4)); hangAt(h.b, h.x, h.dir);
+  h.grow = 0; h.b.o.scale.setScalar(0.001); h.wiggle = 0;
+}
+function difficulty() {
+  const k = Math.min(1, G.caught / 40);
+  return { gap: lerp(2.3, 0.75, k), fall: lerp(0.32, 0.62, k), wig: lerp(1.0, 0.55, k) };
+}
+function pickDrop() {
+  const free = hangers.filter((h) => h.grow >= 1 && h.wiggle === 0);
+  if (!free.length) return;
+  const h = free[Math.floor(Math.random() * free.length)];
+  h.wiggle = 0.0001;
+}
+function letGo(h) {
+  const b = h.b;
+  b.o.position.set(0, 0, 0); b.o.quaternion.identity();
+  b.root.position.set(h.x, L.branchY - 0.45, -0.15);
+  b.play("titanic", 0.3, 0);
+  const chute = parachute(); chute.position.set(0, 0.62, 0); b.root.add(chute);
+  falling.push({ b, x: h.x, y: L.branchY - 0.45, chute, sway: rand(0, 6), gold: b.gold });
+  sfx.drop();
+  refill(h);
+}
+function reset() {
+  for (const f of falling) f.b.dispose(); falling.length = 0;
+  for (const l of landed) l.b.dispose(); landed.length = 0;
+  for (const n of napping) n.dispose(); napping.length = 0;
+  if (her.holding) { her.holding.dispose(); her.holding = null; }
+  Object.assign(G, { score: 0, lives: 3, t: 0, next: 1.0, caught: 0, dropped: 0 });
+  her.x = her.target = 0; her.v = 0;
+  hud();
+}
+function hud() {
+  $("score").textContent = G.score;
+  $("hearts").innerHTML = [0, 1, 2].map((i) => `<span class="${i < G.lives ? "" : "lost"}">♥</span>`).join("");
+}
+function napInBasket(b) {
+  // the baby hops from her arms to the basket and settles in for a nap
+  const from = new THREE.Vector3(); b.o.getWorldPosition(from);
+  scene.attach(b.o); b.root.removeFromParent();
+  b.root = new THREE.Group(); scene.add(b.root); b.root.add(b.o);
+  const i = napping.length % 5;
+  const to = basket.position.clone().add(new THREE.Vector3([-0.18, 0.16, 0, -0.1, 0.12][i], 0.18 + Math.floor(napping.length / 5) * 0.12, [0.05, 0.08, -0.08, -0.12, -0.1][i]));
+  b.hop = { from, to, t: 0 };
+  b.play("idle", 0.2);
+  napping.push(b);
+  if (napping.length > 10) { const old = napping.shift(); old.dispose(); }
+}
+function caught(f) {
+  const pts = f.gold ? 3 : 1;
+  G.score += pts; G.caught += 1;
+  f.b.root.remove(f.chute);
+  const p = new THREE.Vector3(); f.b.o.getWorldPosition(p); p.y += 0.3;
+  burst(p, heartTex, f.gold ? 12 : 7);
+  if (f.gold) burst(p, starTex, 8, 1.5, 0.18);
+  popText(p.clone().add(new THREE.Vector3(0, 0.4, 0)), f.gold ? "+3 ✿" : ["+1", "Got you!", "+1", "Aww!", "+1"][G.caught % 5], f.gold ? "gold" : "");
+  sfx.catch(f.gold);
+  if (her.holding) napInBasket(her.holding);
+  // into her arms, facing out, sitting in the hug
+  f.b.root.removeFromParent();
+  f.b.root = new THREE.Group(); f.b.root.add(f.b.o);
+  f.b.o.position.set(0, 0, 0); f.b.o.quaternion.identity(); f.b.o.scale.setScalar(SL);
+  hold.add(f.b.root);
+  f.b.root.position.set(0, -0.14, -0.02);
+  f.b.root.scale.setScalar(0.7);
+  f.b.play("idle", 0.15, rand(0, 2));
+  her.holding = f.b;
+  hud();
+}
+function missed(f) {
+  G.lives -= 1; G.dropped += 1;
+  f.b.root.remove(f.chute);
+  f.b.root.position.y = 0;
+  f.b.play("idle", 0.15);
+  const p = f.b.root.position.clone().add(new THREE.Vector3(0, 0.55, 0));
+  popText(p, ["Oof!", "Aww…", "Oopsie!"][G.dropped % 3], "aww");
+  sfx.oof();
+  W.sad = 1;
+  landed.push({ b: f.b, t: 0, dir: f.b.root.position.x < her.x ? -1 : 1, stars: [] });
+  for (let k = 0; k < 3; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, transparent: true, depthWrite: false })); s.scale.setScalar(0.13); scene.add(s); landed.at(-1).stars.push(s); }
+  hud();
+  if (G.lives <= 0) gameOver();
+}
+function gameOver() {
+  G.state = "over";
+  G.best = Math.max(G.best, G.score); store.set("catch-baby-best", String(G.best));
+  $("final").textContent = G.score;
+  $("overline").textContent = G.score === 1 ? "baby" : "babies";
+  $("best").textContent = G.score === 0 ? "The babies forgive you. One more go?" : G.score >= G.best ? "A new best! The babies are very proud." : `Best: ${G.best}`;
+  sfx.over();
+  setTimeout(() => { $("over").hidden = false; $("again").focus(); }, 900);
+}
+function start() {
+  reset();
+  $("start").hidden = true; $("over").hidden = true;
+  G.state = "play";
+}
+$("go").onclick = start; $("again").onclick = start;
+
+// ---------------------------------------------------------------- input
+const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), ndc = new THREE.Vector2(), hit = new THREE.Vector3();
+function aim(e) {
+  ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  if (ray.ray.intersectPlane(plane, hit)) her.target = THREE.MathUtils.clamp(hit.x, -L.halfW, L.halfW);
+}
+let dragging = false;
+canvas.addEventListener("pointerdown", (e) => { dragging = true; aim(e); canvas.setPointerCapture?.(e.pointerId); });
+canvas.addEventListener("pointermove", (e) => { if (dragging || e.pointerType === "mouse") aim(e); });
+addEventListener("pointerup", () => { dragging = false; });
+const keys = new Set();
+addEventListener("keydown", (e) => {
+  if (["ArrowLeft", "ArrowRight", "a", "d", "A", "D"].includes(e.key)) { keys.add(e.key.toLowerCase()); e.preventDefault(); }
+  if ((e.key === " " || e.key === "Enter") && G.state !== "play" && document.activeElement?.tagName !== "BUTTON") start();
+});
+addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+// screen left/right: the camera looks along +z, so screen right is world -x
+const screenRight = () => { const v = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion); return Math.sign(v.x) || 1; };
+document.addEventListener("visibilitychange", () => { last = performance.now(); });
+
+// ---------------------------------------------------------------- loop
+let last = performance.now();
+const tmp = new THREE.Vector3();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (document.hidden) return;
+  G.t += dt;
+
+  // her: move toward the target, turn a little toward where she runs
+  if (keys.size) {
+    const d = (keys.has("arrowright") || keys.has("d") ? 1 : 0) - (keys.has("arrowleft") || keys.has("a") ? 1 : 0);
+    her.target = THREE.MathUtils.clamp(her.x + d * screenRight() * 0.6, -L.halfW, L.halfW);
+  }
+  const dx = her.target - her.x, maxV = 3.4;
+  const want = Math.abs(dx) < 0.02 ? 0 : THREE.MathUtils.clamp(dx * 9, -maxV, maxV);
+  her.v = lerp(her.v, want, Math.min(1, dt * 14));
+  her.x = THREE.MathUtils.clamp(her.x + her.v * dt, -L.halfW, L.halfW);
+  her.o.position.x = her.x;
+  const face = THREE.MathUtils.clamp(-her.v / maxV, -1, 1) * 0.9;
+  her.o.rotation.y = lerp(her.o.rotation.y, face, Math.min(1, dt * 10));
+  const sp = Math.min(1, Math.abs(her.v) / 1.2);
+  W.walk = lerp(W.walk, sp, Math.min(1, dt * 10));
+  W.hug = lerp(W.hug, her.holding ? 1 : 0, Math.min(1, dt * 12));
+  W.sad = Math.max(0, W.sad - dt * 0.9);
+  A.walk.setEffectiveWeight(W.walk); A.idle.setEffectiveWeight(1 - W.walk);
+  A.walk.timeScale = 0.8 + 0.7 * sp;
+  A.hug.setEffectiveWeight(W.hug); A.ready.setEffectiveWeight(1 - W.hug);
+  A.sad.setEffectiveWeight(W.sad); A.happy.setEffectiveWeight(1 - W.sad);
+  blinkIn -= dt; if (blinkIn <= 0) { A.blink.reset().play(); blinkIn = rand(2, 5); }
+  her.mixer.update(dt);
+
+  // hangers: grow in, wiggle, let go
+  const diff = difficulty();
+  for (const h of hangers) {
+    h.b.mixer.update(dt);
+    if (h.grow < 1) { h.grow = Math.min(1, h.grow + dt * 2.2); const s = 1 - Math.pow(1 - h.grow, 3) + Math.sin(h.grow * Math.PI) * 0.15; h.b.o.scale.setScalar(SL * Math.max(0.001, s)); }
+    if (h.wiggle > 0) {
+      h.wiggle += dt;
+      const k = h.wiggle / diff.wig;
+      h.b.o.position.x = h.b.base.x + Math.sin(h.wiggle * 38) * 0.035 * Math.min(1, k * 2);
+      if (Math.floor(h.wiggle * 8) !== Math.floor((h.wiggle - dt) * 8)) sfx.wiggle();
+      if (k >= 1) letGo(h);
+    }
+  }
+  if (G.state === "play") {
+    G.next -= dt;
+    if (G.next <= 0) { pickDrop(); G.next = diff.gap * rand(0.8, 1.2); }
+  } else if (G.state === "title") {
+    G.next -= dt;
+    if (G.next <= 0) { pickDrop(); G.next = 3.2; }
+  }
+
+  // falling babies
+  const chest = new THREE.Vector3(); hold.getWorldPosition(chest);
+  for (let i = falling.length - 1; i >= 0; i--) {
+    const f = falling[i];
+    f.b.mixer.update(dt);
+    f.sway += dt;
+    const fallH = L.branchY - 0.45;
+    f.y -= fallH * diff.fall * (f.gold ? 1.15 : 1) * dt * (G.state === "play" ? 1 : 0.8);
+    const swayX = Math.sin(f.sway * 2.2) * 0.12;
+    f.b.root.position.set(f.x + swayX, f.y, -0.15);
+    f.b.root.rotation.z = Math.sin(f.sway * 2.2 + 0.6) * 0.18;
+    f.chute.rotation.z = Math.sin(f.sway * 2.2 + 1.2) * 0.12;
+    if (G.state === "play" && Math.abs(f.b.root.position.x - her.x) < 0.48 && f.y < chest.y + 0.25 && f.y > chest.y - 0.5) {
+      falling.splice(i, 1); caught(f); continue;
+    }
+    if (f.y <= 0.02) {
+      falling.splice(i, 1);
+      if (G.state === "play") missed(f);
+      else { f.b.dispose(); }
+    }
+  }
+  // landed babies: dizzy stars, then crawl off slowly
+  for (let i = landed.length - 1; i >= 0; i--) {
+    const l = landed[i];
+    l.t += dt; l.b.mixer.update(dt);
+    const head = tmp; l.b.o.getWorldPosition(head); head.y += 0.42;
+    l.stars.forEach((s, k) => { const a = l.t * 4 + k * 2.1; s.position.set(head.x + Math.cos(a) * 0.17, head.y + Math.sin(a * 2) * 0.03, head.z + Math.sin(a) * 0.17); s.visible = l.t < 1.6; });
+    if (l.t > 1.6) {
+      l.b.play("walk", 0.3);
+      l.b.root.rotation.y = lerp(l.b.root.rotation.y, -l.dir * Math.PI / 2, Math.min(1, dt * 5));
+      l.b.root.position.x += l.dir * 0.32 * dt;
+    }
+    if (Math.abs(l.b.root.position.x) > L.halfW + 1.2) { l.stars.forEach((s) => scene.remove(s)); l.b.dispose(); landed.splice(i, 1); }
+  }
+  // the held baby and the nappers
+  if (her.holding) her.holding.mixer.update(dt);
+  for (const n of napping) {
+    n.mixer.update(dt * 0.5);
+    if (n.hop) {
+      n.hop.t = Math.min(1, n.hop.t + dt * 1.8);
+      const t = n.hop.t;
+      n.root.position.lerpVectors(n.hop.from, n.hop.to, t); n.root.position.y += Math.sin(t * Math.PI) * 0.9;
+      n.o.position.set(0, 0, 0);
+      n.root.scale.setScalar(0.85);
+      n.root.rotation.y = Math.PI + Math.sin(t * Math.PI) * 0.6;
+      if (t >= 1) n.hop = null;
+    }
+  }
+  // particles + clouds + flowers
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]; p.t += dt;
+    p.v.y -= 2.2 * dt; p.s.position.addScaledVector(p.v, dt);
+    p.s.material.opacity = 1 - p.t / p.life;
+    if (p.t > p.life) { scene.remove(p.s); p.s.material.dispose(); parts.splice(i, 1); }
+  }
+  for (const c of clouds) { c.position.x += c.userData.v * dt; if (c.position.x > 16) c.position.x = -16; }
+  renderer.render(scene, camera);
+}
+
+// ---------------------------------------------------------------- go
+addEventListener("resize", layout);
+layout();
+hud();
+$("loading").remove();
+$("hud").hidden = false;
+$("start").hidden = false;
+if (G.best) $("hint").textContent = `Drag anywhere, or use ← →. Best: ${G.best}`;
+requestAnimationFrame((t) => { last = t; frame(t); });
+window.__game = G; window.__her = her; window.__start = start; window.__falling = falling;
+window.__ready = true;
+</script>

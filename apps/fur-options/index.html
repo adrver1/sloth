@@ -1,0 +1,264 @@
+<meta charset="utf-8">
+<title>Sloth Fur Options</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: short header, three live stages side by side (stacked on a phone), each with letter, name, cost line */
+:root {
+  --bg: #f3f1ea; --card: #fbfaf6; --fg: #2d2a24; --muted: #6e6858; --accent: #7a5a3a; --line: #ddd7c8;
+  --stage-top: #e9e4d6; --stage-bot: #d8d0bb;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1d1b17; --card: #26231e; --fg: #ece6d8; --muted: #a79f8c; --accent: #d2a979; --line: #3a352c; --stage-top: #2f2b24; --stage-bot: #3b362c; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #1d1b17; --card: #26231e; --fg: #ece6d8; --muted: #a79f8c; --accent: #d2a979; --line: #3a352c; --stage-top: #2f2b24; --stage-bot: #3b362c; color-scheme: dark }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 32px; }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: grid; gap: 6px; max-width: 70ch; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 1.7rem; line-height: 1.15; margin: 0; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: .85rem; }
+.bar button { font: inherit; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 99px; padding: 5px 14px; cursor: pointer; }
+.bar button.on { background: var(--accent); color: var(--card); border-color: var(--accent); }
+.bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.opt { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; min-width: 0; }
+.stage { position: relative; aspect-ratio: 4 / 5; max-width: 100%; background: linear-gradient(var(--stage-top), var(--stage-bot)); touch-action: none; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.badge { position: absolute; top: 10px; left: 10px; font-family: var(--display); font-weight: 600; font-size: 1.1rem; width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--accent); color: var(--card); }
+.rec { position: absolute; top: 14px; right: 10px; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--accent);
+  background: var(--card); border: 1px solid var(--line); border-radius: 99px; padding: 2px 9px; }
+.txt { padding: 12px 14px 14px; display: grid; gap: 4px; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 1.15rem; margin: 0; }
+.txt p { margin: 0; color: var(--muted); font-size: .92rem; }
+.cost { font-size: .8rem; color: var(--fg); }
+</style>
+<div class="wrap">
+  <header>
+    <h1>Cuddly fur for the sloth babies</h1>
+    <p>The fuzzy fur, now with all layers merged into one extra draw, at 4, 3 and 2 layers. Painted (A) and velvet (C) stay below for reference. The line under each stage counts what the sloth costs to draw. Drag a stage to turn it.</p>
+  </header>
+  <div class="bar" id="bar">
+    <button type="button" data-v="sit" class="on">Sitting</button><button type="button" data-v="face">Face close-up</button><button type="button" data-v="cling">Clinging</button><button type="button" data-v="side">Side of the face</button><button type="button" data-v="top">From above</button><button type="button" data-v="flat">Today's look</button>
+  </div>
+  <div class="grid">
+    <section class="opt"><div class="stage" id="s-f"><span class="badge">F</span></div>
+      <div class="txt"><h2>Fuzzy fur, 4 layers</h2><p>The fuzzy fur with 4 layers merged into one mesh. Looks the same as 10 layers at normal size.</p>
+      <p class="cost live"></p></div></section>
+    <section class="opt"><div class="stage" id="s-g"><span class="badge">G</span><span class="rec">Recommended</span></div>
+      <div class="txt"><h2>Fuzzy fur, 3 layers</h2><p>3 layers merged into one mesh. The fluff gets a touch thinner at the very edge.</p>
+      <p class="cost live"></p></div></section>
+    <section class="opt"><div class="stage" id="s-h"><span class="badge">H</span></div>
+      <div class="txt"><h2>Fuzzy fur, 2 layers</h2><p>2 layers merged into one mesh. Cheapest fuzz; up close the edge can look more like a fringe than fluff.</p>
+      <p class="cost live"></p></div></section>
+    <section class="opt"><div class="stage" id="s-a"><span class="badge">A</span></div>
+      <div class="txt"><h2>Painted fur</h2><p>Soft strands painted into the colour, with darker streaks running down the body and lighter tips. The silhouette stays the clean low-poly shape.</p>
+      <p class="cost">Cost: nothing extra, one draw. Fits the rest of the cast.</p><p class="cost live"></p></div></section>
+    <section class="opt"><div class="stage" id="s-c"><span class="badge">C</span></div>
+      <div class="txt"><h2>Velvet plush</h2><p>A soft velvet sheen with rounded shading and a faint fur grain: it reads like a brushed plush toy, but the facets are smoothed away.</p>
+      <p class="cost">Cost: nothing extra, one draw. Softer than the flat-shaded cast.</p><p class="cost live"></p></div></section>
+  </div>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "./fur.js";
+
+const STILL = location.search.includes("still");
+async function glb(url) {
+  const txt = (await (await fetch(url)).text()).trim();
+  const bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
+  return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
+}
+const SLOTH = await glb("models/sloth.txt");
+
+// ---- fur mask per vertex: the palette colour under each vertex's UV is one of the fur swatches
+let palette;
+SLOTH.scene.traverse((o) => { if (o.isMesh) palette = o.material.map.image; });
+const pc = document.createElement("canvas"); pc.width = palette.width; pc.height = palette.height;
+const pg = pc.getContext("2d", { willReadFrequently: true }); pg.drawImage(palette, 0, 0);
+const FUR = [[0x8f, 0x7c, 0x62], [0x6a, 0x58, 0x44]];
+function prepare(geo) {
+  if (geo.userData.ready) return;
+  const uv = geo.attributes.uv, pos = geo.attributes.position, n = pos.count;
+  const mask = new Float32Array(n), smooth = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const x = Math.min(pc.width - 1, Math.floor(uv.getX(i) * pc.width)), y = Math.min(pc.height - 1, Math.floor(uv.getY(i) * pc.height));
+    const d = pg.getImageData(x, y, 1, 1).data;
+    mask[i] = FUR.some((c) => Math.abs(c[0] - d[0]) + Math.abs(c[1] - d[1]) + Math.abs(c[2] - d[2]) < 40) ? 1 : 0;
+  }
+  // smooth normals: average the flat normals of every vertex at the same spot
+  const key = (i) => `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
+  const acc = new Map(), nr = geo.attributes.normal;
+  for (let i = 0; i < n; i++) { const k = key(i); const a = acc.get(k) || [0, 0, 0]; a[0] += nr.getX(i); a[1] += nr.getY(i); a[2] += nr.getZ(i); acc.set(k, a); }
+  for (let i = 0; i < n; i++) { const a = acc.get(key(i)); const l = Math.hypot(...a) || 1; smooth.set([a[0] / l, a[1] / l, a[2] / l], i * 3); }
+  geo.setAttribute("furMask", new THREE.BufferAttribute(mask, 1));
+  geo.setAttribute("furNormal", new THREE.BufferAttribute(smooth, 3));
+  geo.userData.ready = true;
+}
+
+// ---- shared shader bits: value noise for the strands, in the model's own space (fur sticks to the body as it moves)
+const NOISE = `
+float h3(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+// strands: stretched along the model's up axis (the body's length), so they run down the fur
+float strands(vec3 p, float s){ vec3 q = p * vec3(s, s * 0.22, s); return 0.6 * vn(q) + 0.4 * vn(q * 2.3 + 7.1); }
+`;
+// vert: "declarations@@normal code@@position code"
+function patch(mat, frag, vert = "@@@@") {
+  const [decl, nrm, pos] = vert.split("@@");
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl)
+      .replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\n" + nrm)
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFur = furMask; vObj = position;\n" + pos);
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + (mat.userData.uniforms || ""))
+      .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag);
+    Object.assign(sh.uniforms, mat.userData.u || {});
+  };
+  mat.customProgramCacheKey = () => frag + vert;
+  return mat;
+}
+
+// A: painted strands, flat shading kept
+function lookA(o) {
+  o.traverse((m) => {
+    if (!m.isMesh) return; prepare(m.geometry);
+    m.material = patch(m.material.clone(), `
+      if (vFur > 0.5) {
+        float s = strands(vObj, 95.0);
+        float streak = vn(vObj * vec3(18.0, 3.5, 18.0));
+        diffuseColor.rgb *= 0.78 + 0.42 * s;                  // strands
+        diffuseColor.rgb *= 0.86 + 0.22 * streak;             // darker streaks down the body
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.18, 1.12, 1.02), smoothstep(0.72, 0.95, s)); // light tips
+      }`);
+  });
+}
+// B: shell fur, layers pushed out along smoothed normals, strands cut out of each
+const FUR_LEN = 0.0075;
+function lookB(o, SHELLS = 10) {
+  lookA(o);   // the painted base underneath
+  const meshes = []; o.traverse((m) => m.isSkinnedMesh && meshes.push(m));
+  for (const m of meshes) {
+    for (let k = 1; k <= SHELLS; k++) {
+      const t = k / SHELLS;
+      const mat = new THREE.MeshStandardMaterial({ map: m.material.map, roughness: 1, metalness: 0, flatShading: false, transparent: false, alphaTest: 0.5 });
+      mat.userData.u = { uT: { value: t }, uLen: { value: FUR_LEN } };
+      mat.userData.uniforms = "uniform float uT;\n";
+      patch(mat, `
+        if (vFur < 0.5) discard;
+        float s = strands(vObj, 260.0);
+        float clump = vn(vObj * 60.0);
+        if (s * (0.7 + 0.5 * clump) < uT * 0.92 + 0.08) discard;
+        diffuseColor.rgb *= 0.72 + 0.5 * uT + 0.18 * s;        // dark at the roots, lighter at the tips
+      `, `uniform float uT; uniform float uLen;@@objectNormal = furNormal;@@
+        transformed += normalize(furNormal) * uLen * uT * furMask;
+        transformed.y -= uLen * 0.5 * uT * uT * furMask;   // a little droop`);
+      const sh = new THREE.SkinnedMesh(m.geometry, mat);
+      sh.bind(m.skeleton, m.bindMatrix);
+      sh.frustumCulled = false;
+      sh.renderOrder = k;
+      m.parent.add(sh);
+    }
+  }
+}
+// C: velvet plush: smoothed normals, sheen, faint grain
+function lookC(o) {
+  o.traverse((m) => {
+    if (!m.isMesh) return; prepare(m.geometry);
+    const old = m.material;
+    const mat = new THREE.MeshPhysicalMaterial({ map: old.map, roughness: 0.95, metalness: 0, sheen: 1, sheenRoughness: 0.45, sheenColor: new THREE.Color(0xfff1dc), flatShading: false });
+    patch(mat, `
+      if (vFur > 0.5) { float s = strands(vObj, 140.0); diffuseColor.rgb *= 0.88 + 0.22 * s; }`,
+      `@@objectNormal = furNormal;@@`);
+    m.material = mat;
+  });
+}
+// today's flat look, for comparison
+const looks = { a: lookA, c: lookC, f: (o) => furify(o, { shells: 4 }), g: (o) => furify(o, { shells: 3 }), h: (o) => furify(o, { shells: 2 }) };
+
+const BR = { y: 0.10, z: 0.10 };
+function hangOn(obj, x0, x1, y) {
+  const yl = new THREE.Vector3(1, 0, 0), zl = new THREE.Vector3(0, -1, 0), xl = new THREE.Vector3().crossVectors(yl, zl);
+  const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
+  obj.quaternion.setFromRotationMatrix(rot);
+  obj.position.set((x0 + x1) / 2, y, 0).sub(new THREE.Vector3(0, BR.z, -BR.y).applyMatrix4(rot));
+}
+const VIEWS = {
+  sit: { clip: "idle", cam: [0.32, 0.3, -0.62], at: [0, 0.15, 0] },
+  face: { clip: "idle", cam: [0.07, 0.25, -0.33], at: [0, 0.23, 0] },
+  cling: { clip: "cling", cam: [0.35, 0.1, -0.7], at: [0, 0.3, 0] },
+  side: { clip: "idle", cam: [0.34, 0.26, -0.08], at: [0, 0.22, 0] },
+  top: { clip: "idle", cam: [0.04, 0.48, -0.16], at: [0, 0.24, -0.04] },
+};
+const stages = [];
+let view = "sit", flat = false;
+function build(st) {
+  if (st.sl) { st.scene.remove(st.sl); st.branch.visible = false; }
+  const v = VIEWS[view];
+  const s = clone(SLOTH.scene);
+  s.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
+  if (!flat) looks[st.key](s);
+  const mixer = new THREE.AnimationMixer(s);
+  mixer.clipAction(SLOTH.animations.find((a) => a.name === v.clip)).play();
+  mixer.setTime(0.8);
+  if (view === "cling") { hangOn(s, -0.3, 0.3, 0.42); st.branch.visible = true; }
+  st.scene.add(s);
+  st.sl = s; st.mixer = mixer;
+  let draws = 0, tris = 0;
+  s.traverse((m) => { if (m.isMesh) { draws++; const g = m.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+  st.host.parentElement.querySelector(".live").textContent = `This sloth: ${draws} draw${draws > 1 ? "s" : ""}, ${Math.round(tris).toLocaleString("en")} triangles.`;
+  st.camera.position.set(...v.cam); st.controls.target.set(...v.at); st.controls.update();
+}
+function stage(id, key) {
+  const host = document.getElementById(id);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  host.prepend(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xfff4e6, 0x6b5e48, 1.6));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.0); sun.position.set(1.5, 3, -2.5); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+  Object.assign(sun.shadow.camera, { left: -0.6, right: 0.6, top: 0.8, bottom: -0.2 }); scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(1.0, 40), new THREE.ShadowMaterial({ opacity: 0.2 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 10), new THREE.MeshStandardMaterial({ color: 0x6b4a2e, roughness: 0.9 }));
+  branch.rotation.z = Math.PI / 2; branch.position.y = 0.42; branch.visible = false; scene.add(branch);
+  const camera = new THREE.PerspectiveCamera(32, 0.8, 0.01, 20);
+  const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableZoom = false;
+  const st = { host, renderer, scene, camera, controls, key, branch };
+  stages.push(st); build(st);
+}
+stage("s-f", "f"); stage("s-g", "g"); stage("s-h", "h"); stage("s-a", "a"); stage("s-c", "c");
+document.querySelectorAll("#bar button").forEach((b) => b.onclick = () => {
+  if (b.dataset.v === "flat") { flat = !flat; b.classList.toggle("on", flat); }
+  else { view = b.dataset.v; document.querySelectorAll("#bar button[data-v]:not([data-v=flat])").forEach((x) => x.classList.toggle("on", x === b)); }
+  stages.forEach(build);
+});
+const clock = new THREE.Timer();
+function frame() {
+  clock.update();
+  const dt = STILL ? 0 : Math.min(clock.getDelta(), 0.05);
+  for (const st of stages) {
+    const w = st.host.clientWidth, h = st.host.clientHeight;
+    if (st.renderer.domElement.width !== Math.round(w * st.renderer.getPixelRatio())) { st.renderer.setSize(w, h, false); st.camera.aspect = w / h; st.camera.updateProjectionMatrix(); }
+    st.mixer.update(dt);
+    st.renderer.render(st.scene, st.camera);
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+window.__ready = true;
+</script>
