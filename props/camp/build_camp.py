@@ -462,11 +462,11 @@ def wall_tent():
         zs = (Z0, Z0 + 0.13, Z0 + E)
         quad_grid(lambda u, v, s=s: (s * (W + 0.05 * (1 - v)), Y0 - D + 2 * D * u, zs[round(v * 2)]), 6, 2,
                   lambda i, j: "hem" if j == 0 else "canvas", flip=s < 0)
-    # back gable (faces +Y) and the front (faces -Y): left half shut, right half with its flap folded back
+    # back gable (faces +Y) and the front (both flare at the foot like the side walls, so the corners close) (faces -Y): left half shut, right half with its flap folded back
     yb, yf = Y0 + D, Y0 - D
-    face([(W, yb, Z0), (-W, yb, Z0), (-W, yb, Z0 + E), (0, yb, Z0 + H), (W, yb, Z0 + E)], "canvas2")
-    face([(-W, yf, Z0), (0, yf, Z0), (0, yf, Z0 + H), (-W, yf, Z0 + E)], "canvas2")
-    face([(0.45, yf, Z0), (W, yf, Z0), (W, yf, Z0 + E), (0, yf, Z0 + H), (0, yf, Z0 + 1.3)], "canvas2")
+    face([(W + 0.05, yb, Z0), (-W - 0.05, yb, Z0), (-W, yb, Z0 + E), (0, yb, Z0 + H), (W, yb, Z0 + E)], "canvas2")
+    face([(-W - 0.05, yf, Z0), (0, yf, Z0), (0, yf, Z0 + H), (-W, yf, Z0 + E)], "canvas2")
+    face([(0.45, yf, Z0), (W + 0.05, yf, Z0), (W, yf, Z0 + E), (0, yf, Z0 + H), (0, yf, Z0 + 1.3)], "canvas2")
     face([(0, yf + 0.25, Z0), (0.45, yf + 0.25, Z0), (0, yf + 0.25, Z0 + 1.3)], "inside")          # the dark doorway
     face([(0.45, yf - 0.02, Z0), (0.8, yf - 0.03, Z0 + 0.28), (0, yf - 0.02, Z0 + 1.3)], "hem")      # folded flap, its dusty inside out
     face([(0, yf - 0.012, Z0 + 1.3), (-0.02, yf - 0.012, Z0 + 1.3), (-0.02, yf - 0.012, Z0 + 0.02), (0, yf - 0.012, Z0 + 0.02)], "rope")  # door seam
