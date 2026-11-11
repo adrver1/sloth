@@ -210,7 +210,8 @@ def body(M, style):
     zc = R                                                    # wheel centre height
     yf, yr = -WB / 2 - 0.03, WB / 2 - 0.03
     p = []
-    G = {"DoorP": [], "DoorD": [], "BackDoor": []}      # parts that move with each door (passenger door on +X, the camp side)
+    G = {"DoorP": [], "DoorD": [], "BackDoor": [], "Glass": [], "GlassP": [], "GlassD": [], "GlassB": []}   # parts that move with each door
+    # (passenger door on +X, the camp side); the glass is kept apart so the page can draw it see-through
     # lower body: hood and sides up to the beltline, with the wheel arches cut out
     lower = prism([(FRONT, SILL), (REAR, SILL), (REAR, BELT), (-0.42, BELT), (FRONT + 0.06, BELT - 0.05), (FRONT, BELT - 0.12)], W, M["paint"])
     for y in (yf, yr):
@@ -232,6 +233,17 @@ def body(M, style):
         r = make(); apply_all(r)
         G[name].append(piece(shell, r))
         cut(shell, r)
+    # window openings, so the glass can be see-through: the windscreen and rear side windows in the body, the front side
+    # windows in the doors, the back window in the back door (cut after the doors, which keeps the booleans clean).
+    # Their reveals take the inside colour.
+    zt_, zb_ = ROOF - 0.07, BELT + 0.06
+    w0, w1 = Vector((0, -0.42, BELT)), Vector((0, -0.16, ROOF)); wu = (w1 - w0).normalized(); wn = Vector((0, -wu.z, wu.y)) * 0.01
+    wa, wb = w0 + wu * 0.1 + wn, w1 - wu * 0.09 + wn
+    cut(shell, panel((-0.6, wa.y, wa.z), (0.6, wa.y, wa.z), (0.58, wb.y, wb.z), (-0.58, wb.y, wb.z), M["inside"], t=0.24))
+    for sx, door in ((-1, "DoorD"), (1, "DoorP")):
+        cut(G[door][0], prism([(-0.21, zb_ + 0.03), (0.49, zb_ + 0.03), (0.49, zt_ - 0.03), (-0.05, zt_ - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
+        cut(shell, prism([(0.71, zb_ + 0.03), (1.45, zb_ + 0.03), (1.45, zt_ - 0.03), (0.71, zt_ - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
+    cut(G["BackDoor"][0], box((0.92, 0.3, zt_ - zb_ - 0.1), at=(0, REAR, (zb_ + zt_) / 2 + 0.02), m=M["inside"]))
     p.append(shell)
     # inside: floor, two front seats (driver on -X, so the passenger seat is on the camp side), dashboard and wheel, and the
     # rear seats folded flat into a cargo deck
@@ -256,18 +268,18 @@ def body(M, style):
     s0 = Vector((0, -0.42, BELT)); s1 = Vector((0, -0.16, ROOF)); up = (s1 - s0).normalized()
     nrm = Vector((0, -up.z, up.y)) * 0.01
     a = s0 + up * 0.07 + nrm; b = s1 - up * 0.06 + nrm
-    p.append(panel((-0.64, a.y, a.z), (0.64, a.y, a.z), (0.62, b.y, b.z), (-0.62, b.y, b.z), g))
+    G["Glass"].append(panel((-0.64, a.y, a.z), (0.64, a.y, a.z), (0.62, b.y, b.z), (-0.62, b.y, b.z), g))
     for s in (-1, 1):
         def wx(z):  # side of the tapered cabin at height z
             return s * ((W - 0.04) / 2 * (1 - 0.07 * (z - BELT) / (ROOF - BELT)) + 0.008)
         door = G["DoorP" if s > 0 else "DoorD"]
-        door.append(panel((wx(zb), -0.24, zb), (wx(zb), 0.52, zb), (wx(zt), 0.52, zt), (wx(zt), -0.07, zt), g))
-        p.append(panel((wx(zb), 0.68, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), 0.68, zt), g))
+        G["GlassP" if s > 0 else "GlassD"].append(panel((wx(zb), -0.24, zb), (wx(zb), 0.52, zb), (wx(zt), 0.52, zt), (wx(zt), -0.07, zt), g))
+        G["Glass"].append(panel((wx(zb), 0.68, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), 0.68, zt), g))
         door.append(box((0.03, 0.14, 0.03), at=(s * (W / 2 + 0.012), 0.45, BELT - 0.12), m=M["trim"], bevel=0.008))   # handle
         # mirror on a stalk
         p.append(rod((s * (W / 2 - 0.05), -0.36, BELT + 0.03), (s * (W / 2 + 0.12), -0.4, BELT + 0.13), 0.014, M["trim"]))
         p.append(box((0.07, 0.05, 0.13), at=(s * (W / 2 + 0.15), -0.4, BELT + 0.16), m=M["trim"], bevel=0.015))
-    G["BackDoor"].append(panel((-0.5, REAR + 0.004, zb + 0.04), (0.5, REAR + 0.004, zb + 0.04), (0.48, REAR + 0.002, zt - 0.02), (-0.48, REAR + 0.002, zt - 0.02), g))
+    G["GlassB"].append(panel((-0.5, REAR + 0.004, zb + 0.04), (0.5, REAR + 0.004, zb + 0.04), (0.48, REAR + 0.002, zt - 0.02), (-0.48, REAR + 0.002, zt - 0.02), g))
     # roof gutters
     for s in (-1, 1):
         p.append(rod((s * 0.73, -0.12, ROOF - 0.03), (s * 0.73, REAR - 0.05, ROOF - 0.03), 0.012, top, verts=6))
@@ -335,11 +347,19 @@ def finish(p, G):
     """Join the body and each door; put each door's origin on its hinge."""
     out = {"Jeep": join(p, "Jeep")}
     for name, parts in G.items():
+        if name.startswith("Glass"):
+            continue
         o = join(parts, name)
         (hx, hy), _ = HINGES[name]
         bpy.context.scene.cursor.location = (hx, hy, 0)
         bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.context.view_layer.objects.active = o
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+        out[name] = o
+    for name, door in (("Glass", None), ("GlassP", "DoorP"), ("GlassD", "DoorD"), ("GlassB", "BackDoor")):
+        o = join(G[name], name)
+        if door:                                                       # rides on its door
+            o.parent = out[door]
+            o.matrix_parent_inverse = out[door].matrix_world.inverted()
         out[name] = o
     return out
 
@@ -562,6 +582,7 @@ def build(style, samples, do_preview, preview_samples):
                               export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
     tris = sum(len(pl.vertices) - 2 for o in objs.values() for pl in o.data.polygons)
     print(f"{style}: {tris} triangles, {os.path.getsize(path) // 1024} KB -> {path}")
+    print("  per object: " + ", ".join(f"{n} {sum(len(pl.vertices) - 2 for pl in o.data.polygons)}" for n, o in objs.items()))
     for e in EMPTIES:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
     return preview(style, objs, preview_samples) if do_preview else []
