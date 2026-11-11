@@ -196,6 +196,26 @@ seed = 3000 + Number(qs.get("seed") || 7);
 const A0 = -0.75, d0 = V(Math.cos(A0), 0, Math.sin(A0)), t0 = V(-d0.z, 0, d0.x);
 const HERO = [d0.clone().multiplyScalar(RC + 0.4), V(Math.cos(A0 + 2.4), 0, Math.sin(A0 + 2.4)).multiplyScalar(RC + 0.6)];
 const nearPath = () => false;
+// the jeep's track: the jeep is parked at JEEP_AT along the clearing edge (facing JEEP_TAN) and came in on a muddy track
+// cut through the forest wall behind it. trackDist() thins trunks, leaves and ferns off the track (scaled to zero, so the
+// seeded layout of everything else stays the same).
+const JEEP_AT = V(-2.2, 0, -6.4), JEEP_OUT = JEEP_AT.clone().normalize();
+const JEEP_TAN = (() => { const t = V(-JEEP_OUT.z, 0, JEEP_OUT.x); return V(t.z, 0, -t.x).dot(JEEP_OUT) > 0 ? t.negate() : t; })();   // its right side faces the fire
+const track = JEEP === "none" ? null : (() => {
+  const P = (b, o) => JEEP_AT.clone().addScaledVector(JEEP_TAN, b).addScaledVector(JEEP_OUT, o);
+  const curve = new THREE.CatmullRomCurve3([P(1.2, 0), P(-1.5, 0), P(-3.6, 0.5), P(-4.9, 2.4), P(-5.6, 5.5), P(-5.4, 10), P(-4.2, 16), P(-3, 24)]);
+  const pts = curve.getSpacedPoints(90);
+  return { curve, pts };
+})();
+function trackDist(x, z) {
+  if (!track) return 1e9;
+  let best = 1e9; const p = track.pts;
+  for (let i = 1; i < p.length; i++) {
+    const ax = p[i - 1].x, az = p[i - 1].z, dx = p[i].x - ax, dz = p[i].z - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
+  }
+  return best;
+}
 
 // ---------------------------------------------------------------- clearing floor
 const grass = canvasTex(256, 256, (g, w, h) => {
@@ -205,6 +225,46 @@ const grass = canvasTex(256, 256, (g, w, h) => {
 grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(6, 6);
 const clearing = new THREE.Mesh(new THREE.CircleGeometry(RC + 0.8, 48), new THREE.MeshLambertMaterial({ map: grass }));
 clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(clearing);
+
+// ---------------------------------------------------------------- the jeep's track: a dirt road out through the forest, and muddy tyre ruts up to its wheels
+if (track) {
+  const Q = (a, b) => a + Math.random() * (b - a);   // texture noise only: leaves the seeded layout alone
+  const ribbon = (width, y, tex, alpha, tile) => {
+    const n = 140, pos = [], uv = [], col = [], idx = [], L = track.curve.getLength();
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, p = track.curve.getPointAt(t), d = track.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), a = alpha(p, t * L);
+      for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * width / 2); pos.push(q.x, y, q.z); uv.push((k + 1) / 2, (t * L) / tile); col.push(1, 1, 1, a); }
+      if (i) { const b = (i - 1) * 2; idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
+    tex.wrapT = THREE.RepeatWrapping;
+    const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }));
+    mesh.renderOrder = 1; scene.add(mesh);
+  };
+  const mud = LOOK === "low" ? ["#9a7a52", "#7d6040", "#5c4530"] : ["#8a6c4a", "#6b5038", "#4a3626"];
+  const dirt = canvasTex(128, 512, (g, w, h) => {
+    g.fillStyle = mud[0]; g.fillRect(0, 0, w, h);
+    if (LOOK !== "low") for (let i = 0; i < 900; i++) { g.fillStyle = mud[1 + (i % 2)]; g.globalAlpha = Q(0.15, 0.45); g.beginPath(); g.ellipse(Q(0, w), Q(0, h), Q(1, 5), Q(1, 3), Q(0, 3), 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+    for (let i = 0; i < 26; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.lineWidth = 2; const x = Q(0, w) < w / 2 ? Q(0, 16) : Q(w - 16, w), y = Q(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Q(-2, 2), y - Q(4, 9)); g.stroke(); }   // grass tufts at the verges
+    const e = g.createLinearGradient(0, 0, w, 0); e.addColorStop(0, "rgba(0,0,0,0)"); e.addColorStop(0.18, "rgba(0,0,0,1)"); e.addColorStop(0.82, "rgba(0,0,0,1)"); e.addColorStop(1, "rgba(0,0,0,0)");
+    g.globalCompositeOperation = "destination-in"; g.fillStyle = e; g.fillRect(0, 0, w, h);
+  });
+  const ruts = canvasTex(128, 256, (g, w, h) => {
+    for (const cx of [w * 0.14, w * 0.86]) {
+      const b = g.createLinearGradient(cx - 14, 0, cx + 14, 0); b.addColorStop(0, "rgba(60,42,28,0)"); b.addColorStop(0.25, "rgba(60,42,28,.85)"); b.addColorStop(0.75, "rgba(60,42,28,.85)"); b.addColorStop(1, "rgba(60,42,28,0)");
+      g.fillStyle = b; g.fillRect(cx - 14, 0, 28, h);
+      g.strokeStyle = "rgba(30,20,12,.7)"; g.lineWidth = 3;                    // tread chevrons
+      for (let y = 0; y < h; y += 16) { g.beginPath(); g.moveTo(cx - 9, y + 6); g.lineTo(cx, y); g.lineTo(cx + 9, y + 6); g.stroke(); }
+      g.fillStyle = "rgba(150,135,110,.35)";                                   // wet shine in a few spots
+      for (let k = 0; k < 3; k++) { g.beginPath(); g.ellipse(cx + Q(-3, 3), Q(0, h), 5, Q(10, 22), 0, 0, 7); g.fill(); }
+    }
+  });
+  // the dirt fades out as the track meets the clearing; the ruts run on to the jeep's front wheels
+  ribbon(2.7, 0.015, dirt, (p) => sstep(RC - 3, RC + 0.5, Math.hypot(p.x, p.z)), 3.2);
+  ribbon(1.62, 0.02, ruts, (p, l) => sstep(0, 0.6, l) * (0.7 + 0.25 * sstep(RC - 4, RC, Math.hypot(p.x, p.z))), 1.6);
+}
 
 // ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
 const branchCurves = [], TOP = 15;
@@ -255,7 +315,7 @@ const wall = [];
     wall.push([x, z, R(0.6, 1.4)]);
   }
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
-  wall.forEach(([x, z, s], i) => { m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6)), V(s, R(0.8, 1.1), s)); im.setMatrixAt(i, m); });
+  wall.forEach(([x, z, s], i) => { const keep = trackDist(x, z) > 2.2 ? 1 : 0; m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6)), V(s * keep, R(0.8, 1.1) * keep, s * keep)); im.setMatrixAt(i, m); });
   scene.add(im);
 }
 let leafGeo, leafM, perClump, leafScale;
@@ -287,7 +347,8 @@ const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump)
     const u = V(R(-1, 1), R(-0.5, 0.8), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()));
     e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
     const s = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33);
-    m.compose(V(x + u.x, y + u.y, z + u.z), q, V(s, s, s)); leaves.setMatrixAt(i, m);
+    const k0 = y + u.y < 4.5 && trackDist(x + u.x, z + u.z) < 1.9 ? 0 : s;   // keep the track open at eye height
+    m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); leaves.setMatrixAt(i, m);
     leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
 }
@@ -310,7 +371,7 @@ scene.add(leaves);
   const spots = [];
   for (let i = 0; i < 2000 && spots.length < Math.round(260 * D.ferns); i++) { const a = R(0, 6.28), r = RC - 0.6 + Math.pow(rnd(), 1.6) * 12, x = Math.cos(a) * r, z = Math.sin(a) * r; if (!nearPath(x, z, 0.2, 1.1)) spots.push([x, z]); }
   const im = new THREE.InstancedMesh(g, mat, spots.length), m = new THREE.Matrix4(), c = new THREE.Color();
-  spots.forEach(([x, z], i) => { const s = R(0.7, 1.5); m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6.28)), V(s, s, s)); im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
+  spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 ? 0 : 1); m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6.28)), V(s, s, s)); im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
   scene.add(im);
 }
 
@@ -401,11 +462,10 @@ if (PROPS !== "code") {
   lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
 }
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
-// between the hammock and the first big tree, along the edge, its right side (the camper's ladder) toward the fire
+// between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge,
+// its right side (the camper's ladder) toward the fire
 if (JEEP !== "none") {
-  const J = await glb(`models/jeep_${JEEP}.txt`), at = V(-2.2, 0, -6.4), out = at.clone().normalize();
-  let tan = V(-out.z, 0, out.x);
-  if (V(tan.z, 0, -tan.x).dot(out) > 0) tan.negate();     // local +X (the right side) must face the middle
+  const J = await glb(`models/jeep_${JEEP}.txt`), at = JEEP_AT, out = JEEP_OUT, tan = JEEP_TAN;
   const jeep = J.scene.getObjectByName("Jeep");
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
   jeep.traverse((m) => { if (m.isMesh) m.material = jm; });
