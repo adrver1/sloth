@@ -595,11 +595,26 @@ def picked():
     M = {k: bpy.data.materials[f"ju_{k}"] for k in ("bamboo", "node", "rope", "kettle")}
     out["Fire"] = join([out["Fire"], *tripod_kettle(M)], "Fire")
     out["Hammock"]["coarse"] = True       # Adriaen 2026-11-11: the densified cloth was ~7k triangles
-    for k in ("Tent", "Table", "Seat"):    # and the 0.13 m split made these 12k, 12k and 3.6k (Adriaen: slim them)
-        out[k]["ao_edge"] = 0.5
     for k, o in out.items():
         o.name = k                       # the jungle hammock was made while the rustic one held the name
     return out
+
+
+# triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): after the AO bake, a collapse
+# decimate keeps the baked vertex colours and the silhouette; the densify only gave the bake room to vary
+BUDGET = {"picked": {"Tent": 1800, "Table": 1400, "Seat": 500, "Lantern": 200}}
+
+
+def lean(objs, budget):
+    for name, n in budget.items():
+        o = objs.get(name)
+        tris = sum(len(p.vertices) - 2 for p in o.data.polygons) if o else 0
+        if not tris or tris <= n:
+            continue
+        bpy.context.view_layer.objects.active = o
+        d = o.modifiers.new("lean", "DECIMATE")
+        d.decimate_type = "COLLAPSE"; d.ratio = n / tris; d.use_collapse_triangulate = True
+        bpy.ops.object.modifier_apply(modifier=d.name)
 
 
 def build(style, samples):
@@ -609,6 +624,7 @@ def build(style, samples):
         apply_all(o)
         o.location = (0, 0, 0)
     bake(list(objs.values()), samples)
+    lean(objs, BUDGET.get(style, {}))
     path = os.path.join(HERE, f"camp_{style}.glb")
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs.values():
