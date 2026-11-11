@@ -99,15 +99,15 @@ def tripod(M):
     for i in range(3):                                             # bamboo legs, with a slim ring at each node
         a = i / 3 * 2 * math.pi + 0.3
         foot = Vector((math.cos(a) * 0.75, math.sin(a) * 0.75, 0))
-        p.append(rod(foot, TOP, 0.03, M["bamboo"], verts=8))
+        p.append(rod(foot, TOP, 0.03, M["bamboo"], verts=6))
         for k in (1, 2, 3):
             q = foot.lerp(TOP, k / 4)
-            n = cyl(0.034, 0.014, at=q, m=M["node"], verts=8)
+            n = cyl(0.034, 0.014, at=q, m=M["node"], verts=6)
             n.rotation_mode = "QUATERNION"
             n.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(TOP - foot)
             p.append(n)
     for i in range(3):                                             # a lashing where the legs cross
-        p.append(torus(0.045, 0.01, at=(0, 0, TOP.z - 0.05 - i * 0.025), m=M["rope"], major=10, minor=4))
+        p.append(torus(0.045, 0.01, at=(0, 0, TOP.z - 0.05 - i * 0.025), m=M["rope"], major=8, minor=3))
     return join(p, "Tripod")
 
 
