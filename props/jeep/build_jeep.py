@@ -605,8 +605,6 @@ def expedition():
     for k in range(4):
         p.append(box((0.63, 0.02, 0.035), at=(0.25, 0.85 - 0.28, z + 0.06 + k * 0.08), m=M["rack"]))
     p.append(box((0.03, 0.57, 0.31), at=(0.25, 0.85, z + 0.17), m=M["strap"]))
-    p.append(torus(0.2, 0.05, at=(-0.25, 0.2, z + 0.07), m=M["rope"], major=12, minor=3))
-    p.append(torus(0.12, 0.05, at=(-0.25, 0.2, z + 0.09), m=M["rope"], major=10, minor=3))
     # a shovel on the rear door
     # (blade clear above the bumper, beside the spare)
     G["BackDoor"].append(rod((0.52, REAR + 0.04, 0.88), (0.52, REAR + 0.04, 1.52), 0.016, M["crate"], verts=6))
