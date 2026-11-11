@@ -599,7 +599,10 @@ const SLOTH = await glb("models/sloth.txt");
 // ---------------------------------------------------------------- the camp props from Blender (props/camp/build_camp.py): baked soft shadows in vertex colours
 const uNight = { value: 0 }, uFlick = { value: 1 };
 if (PROPS !== "code") {
-  const P = await glb(`models/camp_${PROPS}.txt`), { tentAt, hA, hB, tb } = window.__camp;
+  // the picked set's light in one shared texture (props/camp/bake_camp_lightmap.py), ?lm=4k|2k|1k|off; off = the vertex-colour bake
+  const LM = PROPS === "picked" && ["4k", "2k", "1k"].includes(qs.get("lm") ?? "4k") ? (qs.get("lm") ?? "4k") : null;
+  const [P, lmTex] = await Promise.all([glb(`models/camp_${PROPS}${LM ? "_lm" : ""}.txt`),
+    LM ? new THREE.TextureLoader().loadAsync(`models/camp_picked_lm_${LM}.png`) : null]), { tentAt, hA, hB, tb } = window.__camp;
   const lam = new THREE.MeshLambertMaterial({ vertexColors: true });
   // the picked set also carries a night bake (COLOR_1, props/camp/bake_camp_night.py): fire, lantern and moon light,
   // shown unlit and faded in as you rest, so the props need no extra real-time lights at night
@@ -609,7 +612,30 @@ if (PROPS !== "code") {
     sh.vertexShader = "attribute vec3 color_1;\nvarying vec3 vNight;\n" + sh.vertexShader.replace("#include <color_vertex>", "#include <color_vertex>\nvNight = color_1;");
     sh.fragmentShader = "uniform float uNight, uFlick;\nvarying vec3 vNight;\n" + sh.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, vNight * uFlick, uNight);\n#include <opaque_fragment>");
   };
-  P.scene.traverse((m) => { if (m.isMesh) m.material = m.geometry.attributes.color_1 ? lamN : lam; });
+  // light map: RGB = night light / 4 (sRGB), A = day AO; COLOR_0 = flat base colour, alpha 0 where it glows at night.
+  // Day: base x AO, lit live as before. Night: toned like the lived props' COLOR_1, unlit, faded in with uNight.
+  // The lightMap slot (intensity 0) only gives us the sampler and its UV; it adds no light.
+  let lamL = null;
+  if (lmTex) {
+    lmTex.flipY = false; lmTex.colorSpace = THREE.SRGBColorSpace; lmTex.channel = 0; lmTex.anisotropy = 4;
+    lamL = new THREE.MeshLambertMaterial({ vertexColors: true, lightMap: lmTex, lightMapIntensity: 0 });
+    lamL.onBeforeCompile = (sh) => {
+      sh.uniforms.uNight = uNight; sh.uniforms.uFlick = uFlick;
+      sh.fragmentShader = "uniform float uNight, uFlick;\n" + sh.fragmentShader
+        .replace("#include <color_fragment>", `#include <color_fragment>
+  vec3 baseC = diffuseColor.rgb; vec4 lmT = texture2D(lightMap, vLightMapUv);
+  #ifdef USE_COLOR_ALPHA
+  float glowK = 1.0 - vColor.a;
+  #else
+  float glowK = 0.0;
+  #endif
+  diffuseColor.rgb *= 0.32 + 0.68 * lmT.a;`)
+        .replace("#include <opaque_fragment>", `vec3 nightC = mix(1.0 - exp(-6.4 * baseC * lmT.rgb), min(baseC * 1.15, vec3(1.0)), glowK);
+  outgoingLight = mix(outgoingLight, nightC * uFlick, uNight);
+#include <opaque_fragment>`);
+    };
+  }
+  P.scene.traverse((m) => { if (m.isMesh) m.material = lamL && m.geometry.attributes.uv ? lamL : m.geometry.attributes.color_1 ? lamN : lam; });
   // a night-baked set holds each copy on its own (Seat_0, Lantern_3 ...), since each is lit where it stands
   const put = (n, x, z, yaw, y = 0, i = 0) => { const o = (P.scene.getObjectByName(`${n}_${i}`) ?? P.scene.getObjectByName(n)).clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
   put("Fire", 0, 0, 0);
