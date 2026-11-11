@@ -597,17 +597,27 @@ async function glb(url) {
 }
 const SLOTH = await glb("models/sloth.txt");
 // ---------------------------------------------------------------- the camp props from Blender (props/camp/build_camp.py): baked soft shadows in vertex colours
+const uNight = { value: 0 }, uFlick = { value: 1 };
 if (PROPS !== "code") {
   const P = await glb(`models/camp_${PROPS}.txt`), { tentAt, hA, hB, tb } = window.__camp;
   const lam = new THREE.MeshLambertMaterial({ vertexColors: true });
-  P.scene.traverse((m) => { if (m.isMesh) m.material = lam; });
-  const put = (n, x, z, yaw, y = 0) => { const o = P.scene.getObjectByName(n).clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
+  // the picked set also carries a night bake (COLOR_1, props/camp/bake_camp_night.py): fire, lantern and moon light,
+  // shown unlit and faded in as you rest, so the props need no extra real-time lights at night
+  const lamN = lam.clone();
+  lamN.onBeforeCompile = (sh) => {
+    sh.uniforms.uNight = uNight; sh.uniforms.uFlick = uFlick;
+    sh.vertexShader = "attribute vec3 color_1;\nvarying vec3 vNight;\n" + sh.vertexShader.replace("#include <color_vertex>", "#include <color_vertex>\nvNight = color_1;");
+    sh.fragmentShader = "uniform float uNight, uFlick;\nvarying vec3 vNight;\n" + sh.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, vNight * uFlick, uNight);\n#include <opaque_fragment>");
+  };
+  P.scene.traverse((m) => { if (m.isMesh) m.material = m.geometry.attributes.color_1 ? lamN : lam; });
+  // a night-baked set holds each copy on its own (Seat_0, Lantern_3 ...), since each is lit where it stands
+  const put = (n, x, z, yaw, y = 0, i = 0) => { const o = (P.scene.getObjectByName(`${n}_${i}`) ?? P.scene.getObjectByName(n)).clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
   put("Fire", 0, 0, 0);
-  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; put("Seat", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2); }
+  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; put("Seat", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2, 0, i); }
   put("Tent", tentAt.x, tentAt.z, Math.atan2(-tentAt.x, -tentAt.z));
   const hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA); put("Hammock", hm.x, hm.z, -Math.atan2(hd.z, hd.x));
   put("Table", tb.x, tb.z, 0.6);
-  lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
+  lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02, i); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
 }
 // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
 // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
@@ -621,6 +631,18 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
   const side = V(Math.cos(wy), 0, -Math.sin(wy));                     // the pile's local +X (where the stump stands) in the world
   blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
   const a = A0 + Math.PI; put("SeatThings", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2);
+}
+// ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,
+// between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, about 110 triangles).
+// The gap on the line at hang (window.__laundry) is kept free for a sloth to hang from. Shown with the lived-in props.
+if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
+  const LD = await glb("models/laundry.txt"), A = V(1.3, 0, 4.3), B = V(4.0, 0, 3.0), mid = A.clone().lerp(B, 0.5), yaw = Math.atan2(-(B.z - A.z), B.x - A.x);
+  LD.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true }); });
+  const o = LD.scene; o.position.copy(mid); o.rotation.y = yaw; scene.add(o);
+  const dir = B.clone().sub(A).normalize(), L = 3.0, t = 0.42;   // the line is 3 m post to post (A, B are where it's tied, roughly)
+  blockers.push([mid.clone().addScaledVector(dir, -L / 2), 0.25], [mid.clone().addScaledVector(dir, L / 2), 0.25]);
+  window.__laundry = { a: mid.clone().addScaledVector(dir, -L / 2).setY(1.62), b: mid.clone().addScaledVector(dir, L / 2).setY(1.62), sag: 0.13,
+    hang: mid.clone().addScaledVector(dir, -L / 2 + L * t).setY(1.62 - 0.13 * 4 * t * (1 - t)), dir };
 }
 // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
 // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
@@ -659,6 +681,22 @@ if (PROPS === "picked" && qs.get("fire") !== "old") {
     card.rotation.y = k * Math.PI / 3; card.renderOrder = 3; scene.add(card); FIRE_CARDS.push(card);   // the activities flare these
   }
 }
+// light pools on the ground at night: one painted quad (2 triangles) under the fire and the lantern string, faded in as you rest
+const pools = (() => {
+  const pts = [[0, 0, 3.4, 0.9, "255,140,60"], ...lanternGlow.map((p) => [p.x, p.z, 1.4, 0.4, "255,200,120"])];
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const [x, z, r] of pts) { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); z0 = Math.min(z0, z - r); z1 = Math.max(z1, z + r); }
+  const S = Math.max(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const tex = canvasTex(256, 256, (g, w) => {
+    for (const [x, z, r, k, c] of pts) {
+      const u = (x - cx + S / 2) / S * w, v = (z - cz + S / 2) / S * w, gr = g.createRadialGradient(u, v, 0, u, v, r / S * w);
+      gr.addColorStop(0, `rgba(${c},${k})`); gr.addColorStop(0.45, `rgba(${c},${k * 0.4})`); gr.addColorStop(1, `rgba(${c},0)`);
+      g.globalCompositeOperation = "lighter"; g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    }
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); return m;
+})();
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
 // between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge, its
 // passenger side (local +X, the camper's ladder) toward the fire. Its three doors open and close when you tap them:
@@ -670,7 +708,8 @@ if (JEEP !== "none") {
   const J = await glb(`models/jeep_${JEEP}.txt`), at = JEEP_AT, out = JEEP_OUT, tan = JEEP_TAN;
   const jeep = J.scene;
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
-  jeep.traverse((m) => { if (m.isMesh) m.material = jm; });
+  const glassM = new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false });   // see-through, a little tinted
+  jeep.traverse((m) => { if (m.isMesh) { m.material = m.name.startsWith("Glass") ? glassM : jm; if (m.name.startsWith("Glass")) m.renderOrder = 2; } });
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
   for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
   if (JEEP === "camper") blockers.push([at.clone().addScaledVector(out, -2.3), 0.4]);   // the ladder foot
@@ -727,7 +766,8 @@ for (const c of branchCurves.filter((c) => c.low)) {
 // Adriaen 2026-11-11: the camp spots stay empty until a sloth is befriended. Then that same sloth (flower crown and all)
 // lowers itself from its branch on a vine and crawls slowly over the ground to the next free spot, in this order:
 // the hammock (climbs its post and the rope into it, naps on its back, eyes shut, zzz; the hammock sways gently all the time), then the log seat right of the
-// gap (sits and slowly reaches for the kettle), then the jeep's passenger seat (in through the open door, curls up asleep). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
+// gap (sits and slowly reaches for the kettle), then the jeep's driver seat (in through the open door, plays at driving),
+// then the laundry line (climbs the end post, goes hand over hand along the line, brushing the towel aside, to the gap and hangs there). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
 // Befriending belongs to the camp activities: it fires window event "sloth-befriended" with detail.id = index into sloths.
 // ?campsloths=0 turns the spots off; window.__campFast speeds the trips up for checks.
 let hammockSway = null, campStep = () => {};
@@ -785,8 +825,41 @@ if (qs.get("campsloths") !== "0") {
   if (J?.node) {
     J.node.updateMatrixWorld(true);
     const sillL = J.node.worldToLocal(J.sill.clone()), seatL = J.node.worldToLocal(J.seat.clone());
-    spots.push({ name: "jeep", parent: J.node, at: seatL.clone().add(V(0, -0.01, 0.04)), yaw: Math.PI, clip: "curl", scale: 1.7, asleep: true, car: true, ignore: 2.2,
+    // left-hand drive since 2026-11-11: the wheel (empty WheelHub) is in front of this seat, so it sits up behind it and plays
+    // at driving (clip drive). The clip's paws circle a rim 0.062 across, 0.11 up and 0.10 ahead of the sloth (x its scale),
+    // so at scale 2.4 they hold the 0.16 rim of the jeep's wheel; it sits where that puts the hub, no lower than the cushion.
+    const hubN = J.node.getObjectByName("WheelHub"), hub = hubN ? J.node.worldToLocal(hubN.getWorldPosition(V())) : V(0.36, 1.15, 0.05), dsc = 2.4;
+    const drv = V(hub.x, Math.max(seatL.y, hub.y - 0.11 * dsc), hub.z - 0.10 * dsc);
+    spots.push({ name: "jeep", parent: J.node, at: drv, yaw: Math.PI, clip: "drive", scale: dsc, car: true, ignore: 2.2,
       sill: sillL, door: J.node.localToWorld(sillL.clone().add(V(0.5, 0, 0))).setY(0) });
+  }
+  // the laundry line (thread "lived-in props", window.__laundry): it crawls round to the outer side of post a, climbs it
+  // facing along the line, swings under the line and goes hand over hand along the sag to the gap at hang, then hangs there
+  // as on its old branch (cling). The towel and socks swing aside round the line as it brushes past them (vertex shader).
+  const LL = window.__laundry;
+  if (LL) {
+    const sc = 1.7;
+    spots.push({ name: "line", parent: scene, clip: "cling", scale: sc, line: true, climb: true, ignore: 0.6,
+      door: LL.a.clone().setY(0).addScaledVector(LL.dir, -0.1 * sc), climbYaw: Math.atan2(-LL.dir.x, -LL.dir.z), top: LL.a.y - 0.2 * sc,
+      t: Math.max(0, Math.min(1, LL.hang.clone().sub(LL.a).dot(LL.dir) / LL.a.distanceTo(LL.b))) });
+    const cloth = scene.getObjectByName("LaundryCloth");
+    if (cloth?.material) {
+      const L = LL.a.distanceTo(LL.b), u = { uX: { value: 0 }, uPush: { value: 0 }, uTime }, mat = cloth.material;   // uTime: the breeze (props thread)
+      mat.onBeforeCompile = (sh) => {
+        Object.assign(sh.uniforms, u);
+        sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uX, uPush, uTime;").replace("#include <begin_vertex>", `#include <begin_vertex>
+          float lt = transformed.x / ${L.toFixed(3)} + 0.5, ly = ${LL.a.y.toFixed(3)} - ${LL.sag.toFixed(3)} * 4.0 * lt * (1.0 - lt);
+          float sw = -1.1 * uPush * (1.0 - smoothstep(0.2, 0.45, abs(transformed.x - uX)));
+          vec2 q = transformed.yz - vec2(ly, 0.0);
+          // a gentle breeze: slow gusts roll along the line, and the cloth bends a little more toward its hem (props thread)
+          float gust = 0.55 + 0.45 * sin(uTime * 0.37 + 1.3) * sin(uTime * 0.23);
+          sw += gust * (0.16 * sin(uTime * 1.6 - transformed.x * 1.8) + 0.06 * sin(uTime * 3.7 - transformed.x * 5.0)) * (1.0 + 2.5 * max(0.0, -q.x));
+          float cs = cos(sw), sn = sin(sw);
+          transformed.yz = vec2(ly, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
+      };
+      mat.needsUpdate = true;
+      LL.brush = (p, on, dt) => { u.uX.value = cloth.worldToLocal(p.clone()).x; u.uPush.value += ((on ? 1 : 0) - u.uPush.value) * Math.min(1, dt * 2); };
+    }
   }
   const UP = V(0, 1, 0), q0 = new THREE.Quaternion(), tmp = V();
   // the hammock route, in the swing's frame (x along the span, the knots on the pivot line): up the -x post to its rope knot
@@ -800,6 +873,13 @@ if (qs.get("campsloths") !== "0") {
     m4.makeBasis(xl, yl, zl);
     return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: KNOT.clone().addScaledVector(ROPE, u).sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
   }
+  function linePose(s, t) {                           // hanging back-down under the laundry line at fraction t from a, its head toward b
+    const L = LL.a.distanceTo(LL.b), y = (k) => LL.a.y - LL.sag * 4 * k * (1 - k);
+    const at = LL.a.clone().addScaledVector(LL.dir, L * t).setY(y(t)), tan = LL.dir.clone().setY((y(t + 0.01) - y(t)) / (0.01 * L)).normalize();
+    const yl = tan.clone().setY(tan.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
+    m4.makeBasis(xl, yl, zl);
+    return { at, q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
+  }
   function play(s, name, fade, timeScale = 1) {
     const next = s.mixer.clipAction(clipOf(name)); if (s.act === next) return;
     next.reset(); next.timeScale = timeScale; next.play();
@@ -807,7 +887,7 @@ if (qs.get("campsloths") !== "0") {
     s.act = next;
   }
   addEventListener("sloth-befriended", (e) => {
-    const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);   // hammock, then the log seat, then the jeep
+    const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);   // hammock, then the log seat, then the jeep, then the line
     if (!s || s.trip || !spot) return;
     spot.who = s; s.sc = SL;
     s.act = s.mixer.existingAction(clipOf("cling"));
@@ -878,15 +958,19 @@ if (qs.get("campsloths") !== "0") {
           }
         } else if (T.phase === "climb") {             // up the post hand over hand, about 15 s, until its arms reach the rope knot
           if (T.t < sd + 1e-6) play(s, "hang_walk", 1.2, 2.5);
-          let dy = climbYaw - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+          let dy = (spot.climbYaw ?? climbYaw) - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
           T.yaw += dy * Math.min(1, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
-          const top = PIV - 0.2 * s.sc;
+          const top = spot.top ?? PIV - 0.2 * s.sc;
           s.o.position.y = Math.min(top, s.o.position.y + 0.015 * 2.5 * s.sc * sd * Math.min(1, T.t / 1.5));
           if (s.o.position.y >= top) { T.phase = "turn"; T.t = 0; spot.parent.attach(s.o); T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); }
-        } else if (T.phase === "turn") {              // about 3 s: swings round from the post to hang under the rope
-          const k = Math.min(1, T.t / 3), e = k * k * (3 - 2 * k), R0 = ropePose(s, 0.1);
+        } else if (T.phase === "turn") {              // about 3 s: swings round from the post to hang under the rope (or the line)
+          const k = Math.min(1, T.t / 3), e = k * k * (3 - 2 * k), R0 = spot.line ? linePose(s, 0.05) : ropePose(s, 0.1);
           s.o.position.lerpVectors(T.from, R0.p, e); s.o.quaternion.slerpQuaternions(T.q, R0.q, e);
-          if (k >= 1) { T.phase = "rope"; T.t = 0; T.u = 0.1; }
+          if (k >= 1) { T.phase = spot.line ? "line" : "rope"; T.t = 0; T.u = spot.line ? 0.05 : 0.1; }
+        } else if (T.phase === "line") {              // hand over hand along the line to the gap, about 0.06 m/s
+          T.u = Math.min(spot.t, T.u + 0.015 * 2.5 * s.sc * sd / LL.a.distanceTo(LL.b)); const P = linePose(s, T.u);
+          s.o.position.copy(P.p); s.o.quaternion.copy(P.q); LL.brush?.(P.at, true, sd);
+          if (T.u >= spot.t) { T.phase = "home"; spot.home = true; play(s, "cling", 3, 0.6); }
         } else if (T.phase === "rope") {              // down the rope to the sling's end, about 6 s
           T.u = Math.min(ROPE_L - 0.05, T.u + 0.015 * 2.5 * s.sc * sd); const R1 = ropePose(s, T.u);
           s.o.position.copy(R1.p); s.o.quaternion.copy(R1.q);
@@ -903,6 +987,7 @@ if (qs.get("campsloths") !== "0") {
           if (k >= 1) { T.phase = "home"; spot.home = true; }
         }
       }
+      if (spot.line && T?.phase === "home") LL.brush?.(s.o.position, false, dt);   // the towel swings back
       // the hit sphere and the point hearts and words fly to follow the sloth
       s.o.getWorldPosition(s.box.position).y += 0.25 * s.sc / SL; s.p.copy(s.box.position);
     }
@@ -1045,7 +1130,7 @@ function feed(s) {
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
 // wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
-const groundLife = createGround({ scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, trackDist, trackPts: track ? track.pts : [] });
+const groundLife = createGround({ scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [] });
 window.__ground = groundLife;
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
 window.__atmo = atmo;
@@ -1093,6 +1178,7 @@ renderer.setAnimationLoop(() => {
   flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
   fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
   acts.update(dt, uTime.value);
+  uNight.value = dusk; uFlick.value = 0.92 + 0.08 * fl; pools.visible = dusk > 0; pools.material.opacity = dusk * (0.9 + 0.1 * fl);
   lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
@@ -1120,3 +1206,5 @@ window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
 window.__scene = scene;
 window.__ready = true;
 </script>
+
+
