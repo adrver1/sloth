@@ -11,9 +11,9 @@ The adventure jeep for the Canopy Camp game (apps/canopy-prototype/camp.html): a
     .venv/bin/python props/jeep/build_jeep.py --style camper --samples 64 --no-preview
 
 Each style is one GLB (props/jeep/jeep_<style>.glb) standing on z = 0 with its front toward -Y (three.js +Z): the body
-Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (passenger, +X, the camp side), DoorD (driver)
+Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive, the name is kept from when it was the passenger door), DoorD (the other front door)
 and BackDoor (with the spare), each with its origin on its hinge so the page swings it about the vertical; plus empties
-SeatP (passenger cushion top), DoorSill (bottom of the passenger door opening) and Boot (middle of the cargo deck). It is the same convention and the same baked light as props/camp/build_camp.py, whose helpers it reuses:
+SeatP (driver cushion top, at the wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back) and Boot (middle of the cargo deck). It is the same convention and the same baked light as props/camp/build_camp.py, whose helpers it reuses:
 Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
 Previews go to props/jeep/preview_<style>.png and preview_all.png.
 """
@@ -164,30 +164,83 @@ def panel(a, b, c, d, m, t=0.012):
     return o
 
 
+VIEWS = []    # --views: only these preview stills (all when empty)
+TYRE = "at"   # tread option (--tyre): "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders, "road" smooth with painted grooves
+
+
+def lathe(prof, n, at, axis_x, M, name="lathe"):
+    """A surface of revolution about the axle. prof is [(radius, offset along the axle, material key of the band that
+    starts here)]; n segments round. One object, one material per band, so grooves and stripes cost no extra triangles."""
+    keys = []
+    for _, _, k in prof:
+        if k not in keys:
+            keys.append(k)
+    verts, faces, fm = [], [], []
+    for r, off, _ in prof:
+        for i in range(n):
+            a = (i + 0.5) / n * 2 * math.pi
+            c, sn = math.cos(a) * r, math.sin(a) * r
+            verts.append((at[0] + off, at[1] + c, at[2] + sn) if axis_x else (at[0] + c, at[1] + off, at[2] + sn))
+    for j in range(len(prof) - 1):
+        for i in range(n):
+            i2 = (i + 1) % n
+            faces.append((j * n + i, j * n + i2, (j + 1) * n + i2, (j + 1) * n + i)); fm.append(keys.index(prof[j][2]))
+    me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces); me.update()
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
+    for k in keys:
+        me.materials.append(M[k])
+    for pl, k in zip(me.polygons, fm):
+        pl.material_index, pl.use_smooth = k, True
+    outward(o)
+    return o
+
+
 def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
-    """Tyre with tread blocks, a rim and a hub, on an axle along X (or along Y for the spare)."""
-    rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
-    p = [soften(cyl(R * 0.93, Wt, at=(x, y, 0), rot=rot, m=M["tyre"], verts=16), 0.05 * R / 0.36, seg=1)]
-    nb = 16                                                       # low lugs, one per tyre face: reads as tread, not as paddles
-    for i in range(nb):
-        a = (i + 0.5) / nb * 2 * math.pi
-        if axis_x:
-            at = (x, y + math.cos(a) * R * 0.95, math.sin(a) * R * 0.95)
-            b = _box((Wt * 0.86, R * (0.24 if chunky else 0.2), R * 0.07), at=at, rot=(a - math.pi / 2, 0, 0), m=M["tyre"])
-        else:
-            at = (x + math.cos(a) * R * 0.95, y, math.sin(a) * R * 0.95)
-            b = _box((R * (0.24 if chunky else 0.2), Wt * 0.86, R * 0.07), at=at, rot=(0, -a + math.pi / 2, 0), m=M["tyre"])
-        p.append(b)
-    rr = R * 0.58
-    if axis_x:
-        side = math.copysign(1, x) if x else 1
-        p.append(cyl(rr, Wt + 0.012, at=(x, y, 0), rot=rot, m=M["rim"], verts=12))
-        p.append(cyl(rr * 0.35, 0.03, at=(x + side * (Wt / 2 + 0.01), y, 0), rot=rot, m=M["hub"], verts=6))
-        for k in range(5):
-            a = k / 5 * 2 * math.pi
-            p.append(cyl(rr * 0.13, 0.02, at=(x + side * (Wt / 2 + 0.008), y + math.cos(a) * rr * 0.66, math.sin(a) * rr * 0.66), rot=rot, m=M["hub"], verts=4))
+    """A tyre with a rounded shoulder and tread (style TYRE), a dished steel rim with a hub and five nuts, on an axle along X
+    (or along Y for the spare). The silhouette gets the segments; the tread pattern is low blocks or painted bands."""
+    if "groove" not in M:
+        M["groove"] = mat(M["tyre"].name + "_groove", tuple(c * 0.45 for c in M["tyre"]["base"]))
+    at, h, rr = (x, y, 0), Wt / 2, R * 0.6
+    side = (math.copysign(1, x) if x else 1) if axis_x else 1          # the outer face: away from the car (+Y for the spare)
+    t, g = "tyre", "groove"
+    core = R * (0.95 if TYRE != "road" else 1.0)
+    # the tyre's cross-section, inner bead to outer bead: bulging sidewalls, rounded shoulders, a flat tread band
+    if TYRE == "road":
+        prof = [(rr, -h, t), (R * 0.86, -h - 0.012, t), (R * 0.97, -h * 0.9, t), (R, -h * 0.7, g), (R, -h * 0.58, t), (R, -h * 0.12, g),
+                (R, h * 0.0, t), (R, h * 0.12, t), (R, h * 0.58, g), (R, h * 0.7, t), (R * 0.97, h * 0.9, t), (R * 0.86, h + 0.012, t), (rr, h, t)]
+        prof = [pp for k, pp in enumerate(prof) if k != 6]
     else:
-        p.append(cyl(rr, Wt + 0.012, at=(x, y, 0), rot=rot, m=M["rim"], verts=12))
+        prof = [(rr, -h, t), (R * 0.84, -h - 0.014, t), (core * 0.97, -h * 0.9, t), (core, -h * 0.74, g), (core, h * 0.74, t),
+                (core * 0.97, h * 0.9, t), (R * 0.84, h + 0.014, t), (rr, h, t)]
+    prof = [(r, o * side, k) for r, o, k in prof]
+    p = [lathe(prof, 24 if TYRE != "mt" else 20, at, axis_x, M, "tyre")]
+    if TYRE in ("at", "mt"):
+        nb = 20 if TYRE == "at" else 14
+        for i in range(nb):
+            a = (i + 0.5) / nb * 2 * math.pi
+            lane = 1 if i % 2 else -1
+            if TYRE == "at":    # staggered blocks, half the tread wide, alternating left and right of the centre
+                w_, off, ln, ht = Wt * 0.36, lane * Wt * 0.18, 2 * math.pi * R / nb * 0.8, R * 0.05
+            else:               # big lugs, nearly the full tread wide, alternating which shoulder they reach
+                w_, off, ln, ht = Wt * 0.5, lane * Wt * 0.12, 2 * math.pi * R / nb * 0.6, R * 0.07
+            rc = core + ht * 0.1        # sunk into the tread band, so only the top shows
+            if axis_x:
+                b = box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=M[t], bevel=0.012)
+            else:
+                b = box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=M[t], bevel=0.012)
+            p.append(b)
+    # the rim: a lip, a dished face and a raised centre, then a hub and five nuts; a flat cap closes the inner side
+    rim = [(rr, h * 1.02, "rim"), (rr * 0.93, h * 0.98, "rim"), (rr * 0.88, h * 0.55, "rim"), (rr * 0.5, h * 0.55, "rim"), (rr * 0.42, h * 0.75, "hub")]
+    p.append(lathe([(r, o * side, k) for r, o, k in rim], 16, at, axis_x, M, "rim"))
+    hub_at = (x + side * h * 0.75, y, 0) if axis_x else (x, y + side * h * 0.75, 0)
+    rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
+    p.append(cyl(rr * 0.42, 0.04, at=hub_at, rot=rot, m=M["hub"], verts=8))
+    p.append(cyl(rr * 0.9, 0.01, at=(x - side * h * 0.98, y, 0) if axis_x else (x, y - side * h * 0.98, 0), rot=rot, m=M["under"], verts=8))
+    for k in range(5):
+        a = k / 5 * 2 * math.pi
+        c, sn = math.cos(a) * rr * 0.28, math.sin(a) * rr * 0.28
+        nut_at = (hub_at[0] + side * 0.022, y + c, sn) if axis_x else (x + c, hub_at[1] + side * 0.022, sn)
+        p.append(cyl(rr * 0.06, 0.02, at=nut_at, rot=rot, m=M["trim"], verts=4))
     return p
 
 
@@ -245,7 +298,7 @@ def body(M, style):
         cut(shell, prism([(0.71, zb_ + 0.03), (1.45, zb_ + 0.03), (1.45, zt_ - 0.03), (0.71, zt_ - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
     cut(G["BackDoor"][0], box((0.92, 0.3, zt_ - zb_ - 0.1), at=(0, REAR, (zb_ + zt_) / 2 + 0.02), m=M["inside"]))
     p.append(shell)
-    # inside: floor, two front seats (driver on -X, so the passenger seat is on the camp side), dashboard and wheel, and the
+    # inside: floor, two front seats (driver on +X, the camp side, so a sloth in that seat sits at the wheel), dashboard and wheel, and the
     # rear seats folded flat into a cargo deck
     fab, ins = M["seat"], M["inside"]
     p.append(box((W - 0.12, REAR + 0.33, 0.04), at=(0, (REAR - 0.37) / 2, SILL + 0.1), m=ins))
@@ -255,12 +308,12 @@ def body(M, style):
         p.append(box((0.42, 0.11, 0.5), at=(x, 0.46, SILL + 0.64), rot=(-0.18, 0, 0), m=fab, bevel=0.04))
         p.append(box((0.24, 0.08, 0.13), at=(x, 0.52, SILL + 0.97), rot=(-0.18, 0, 0), m=fab, bevel=0.03))
     p.append(box((W - 0.14, 0.24, 0.2), at=(0, -0.26, BELT - 0.03), m=ins, bevel=0.04))
-    p.append(rod((-0.36, -0.2, BELT - 0.02), (-0.36, -0.05, BELT + 0.09), 0.02, M["trim"], verts=6))
-    p.append(torus(0.16, 0.018, at=(-0.36, -0.05, BELT + 0.09), rot=(math.pi / 2 - 0.45, 0, 0), m=M["trim"], major=20, minor=6))
+    p.append(rod((0.36, -0.2, BELT - 0.02), (0.36, -0.05, BELT + 0.09), 0.02, M["trim"], verts=6))
+    p.append(torus(0.16, 0.018, at=(0.36, -0.05, BELT + 0.09), rot=(math.pi / 2 + 0.45, 0, 0), m=M["trim"], major=20, minor=6))
     p.append(box((W - 0.16, 0.92, 0.05), at=(0, 1.06, SILL + 0.3), m=fab, bevel=0.015))     # the folded rear seats: a flat deck
     p.append(box((W - 0.16, 0.06, 0.2), at=(0, 0.62, SILL + 0.2), m=ins))
-    # handy points for the page: the passenger seat cushion, the passenger door sill, the middle of the cargo deck
-    for name, at in (("SeatP", (0.36, 0.18, SILL + 0.41)), ("DoorSill", (W / 2, 0.13, SILL + 0.11)), ("Boot", (0, 1.06, SILL + 0.33))):
+    # handy points for the page: the driver's (SeatP, name kept) seat cushion, the steering wheel centre, the passenger door sill, the middle of the cargo deck
+    for name, at in (("SeatP", (0.36, 0.18, SILL + 0.41)), ("DoorSill", (W / 2, 0.13, SILL + 0.11)), ("Boot", (0, 1.06, SILL + 0.33)), ("WheelHub", (0.36, -0.05, BELT + 0.09))):
         e = bpy.data.objects.new(name, None); e.location = at; bpy.context.collection.objects.link(e); EMPTIES.append(e)
     # glass: windscreen, side windows split by the B pillar, the rear door window
     g, wt = M["glass"], W / 2 * 0.93 + 0.004
@@ -409,7 +462,7 @@ def toy():
 
 def expedition():
     M = mats("ex", paint=(0.36, 0.39, 0.25), paint2=(0.36, 0.39, 0.25), bar=(0.36, 0.39, 0.25), bumper=(0.12, 0.12, 0.12), flare=(0.1, 0.1, 0.1),
-             rim=(0.16, 0.16, 0.17), rack=(0.09, 0.09, 0.09), can=(0.6, 0.12, 0.08), can2=(0.3, 0.33, 0.2), crate=(0.62, 0.48, 0.32),
+             rim=(0.6, 0.52, 0.38), rack=(0.09, 0.09, 0.09), can=(0.6, 0.12, 0.08), can2=(0.3, 0.33, 0.2), crate=(0.62, 0.48, 0.32),
              strap=(0.82, 0.5, 0.12), rope=(0.7, 0.62, 0.45))
     p, R, G = body(M, "expedition")
     # steel bumper with a winch and a pair of tow hooks
@@ -497,16 +550,27 @@ def camper():
 
 
 # ------------------------------------------------------------------ mud, export, preview
+def mud_mask(o):
+    """Before the bake replaces the materials: how much mud each face takes. Wheels get only a splash, so the tread,
+    the grooves and the rim still read apart."""
+    me = o.data
+    a = me.attributes.new("mudf", "FLOAT", "FACE")
+    for poly in me.polygons:
+        mn = me.materials[poly.material_index].name if me.materials else ""
+        a.data[poly.index].value = 0.25 if mn.endswith(("_rim", "_hub", "_trim")) else 0.45 if "_tyre" in mn else 1.0
+
+
 def mud(o, rgb=(0.36, 0.27, 0.18)):
     """Muddy sills: blend the baked colour toward mud below a wavy line, strongest near the wheels."""
     me = o.data
     col = me.color_attributes["Col"]
     m = Vector(rgb)
     for poly in me.polygons:
+        f = me.attributes["mudf"].data[poly.index].value if "mudf" in me.attributes else 1.0
         for li in poly.loop_indices:
             v = o.matrix_world @ me.vertices[me.loops[li].vertex_index].co
             line = 0.66 + 0.06 * math.sin(v.y * 7.3) + 0.04 * math.sin(v.y * 17 + v.x * 3)
-            k = max(0.0, min(1.0, (line - v.z) / 0.18)) * 0.8
+            k = max(0.0, min(1.0, (line - v.z) / 0.18)) * 0.8 * f
             if k > 0:
                 c = Vector(col.data[li].color[:3])
                 col.data[li].color = (*c.lerp(m * (0.6 + 0.4 * c.length), k), 1)
@@ -540,8 +604,11 @@ def preview(style, objs, samples):
     outs = []
     views = [("front", (-4.6, -5.6, 2.3), (0, 0, 0.95), False), ("back", (4.2, 5.8, 2.4), (0, 0, 0.95), False),
              ("detail", (2.6, -3.0, 1.9), (0.45, -0.75, 1.05), False),                  # close on the bonnet, wipers and snorkel
-             ("open", (4.6, 3.4, 2.5), (0.2, 0.4, 0.9), True), ("door", (3.4, -0.9, 1.6), (0.5, 0.25, 0.95), True)]
+             ("open", (4.6, 3.4, 2.5), (0.2, 0.4, 0.9), True), ("door", (3.4, -0.9, 1.6), (0.5, 0.25, 0.95), True),
+             ("wheel", (2.5, -2.4, 0.75), (0.75, -1.1, 0.42), False)]
     for tag, pos, aim, opened in views:
+        if VIEWS and tag not in VIEWS:
+            continue
         doors(objs, opened)
         cam.location = pos
         d = Vector(aim) - Vector(pos)
@@ -569,6 +636,9 @@ def build(style, samples, do_preview, preview_samples):
     # bake with the doors open, so the cabin and the inner door faces get daylight (bake() must not apply the open rotation)
     build_camp.densify = lambda o, *a, **k: None
     doors(objs, True)
+    if style == "expedition":
+        for o in objs.values():
+            mud_mask(o)
     bake(list(objs.values()), samples)
     doors(objs, False)
     if style == "expedition":
@@ -594,6 +664,10 @@ if __name__ == "__main__":
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--preview-samples", type=int, default=48)
     ap.add_argument("--no-preview", action="store_true")
+    ap.add_argument("--views", default="")
+    ap.add_argument("--tyre", default=TYRE, choices=["at", "mt", "road"])
     a = ap.parse_args()
+    TYRE = a.tyre
+    VIEWS = a.views.split(",") if a.views else []
     for s in (STYLES if a.style == "all" else [a.style]):
         build(s, a.samples, not a.no_preview, a.preview_samples)
