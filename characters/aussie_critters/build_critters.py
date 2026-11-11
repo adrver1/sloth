@@ -140,7 +140,7 @@ def platypus():
     m.hull(pts, BILL, "head")
     for sx in (-1, 1):
         ell(m, (sx * 0.013, 0.281, 0.0765), (0.005, 0.007, 0.003), "charcoal", "head", nu=6, nv=3)
-    face(m, hc, hr, (0.5, 0.66, 0.42), 0.019, (0.7, 0.55, -0.08), 0.016)
+    face(m, hc, hr, (0.5, 0.66, 0.42), 0.0135, (0.7, 0.55, -0.08), 0.015)
     # four short legs on webbed paddles, splayed out like a swimmer's
     for s, tag in ((1, "R"), (-1, "L")):
         for key, a, b, fwd in ((f"arm.{tag}", (s * 0.06, 0.07, 0.045), (s * 0.105, 0.1, 0.012), (s * 0.35, 1, 0)),
@@ -199,7 +199,7 @@ def wallaby():
     ell(m, (0, 0.088, 0.288), (0.038, 0.045, 0.032), MUZZLE, "head")
     ell(m, (0, 0.131, 0.298), (0.014, 0.008, 0.009), "sloth_mask", "head", nu=8, nv=4)
     smile(m, (0, 0.088, 0.288), (0.038, 0.045, 0.032), (0, 1, -0.55), 0.35, 0.18)
-    face(m, hc, hr, (0.48, 0.76, 0.26), 0.0195, (0.62, 0.58, -0.24), 0.015)
+    face(m, hc, hr, (0.46, 0.78, 0.26), 0.0138, (0.6, 0.6, -0.22), 0.014)
     for s, tag in ((1, "R"), (-1, "L")):
         ear(m, (s * 0.032, 0.02, 0.35), (s * 0.068, 0.0, 0.46), 0.022, 0.009, FUR, "blush", f"ear.{tag}", DARK)
         # little forepaws held in front of the chest
@@ -272,9 +272,9 @@ def echidna():
     pipe(m, [(0, 0.155, 0.064), (0, 0.19, 0.052), (0, 0.222, 0.04), (0, 0.242, 0.032)],
          [0.017, 0.013, 0.009, 0.006], SNOUT, "head")
     ell(m, (0, 0.243, 0.032), (0.0065, 0.005, 0.0055), "sloth_mask", "head", nu=6, nv=3)
-    face(m, hc, hr, (0.48, 0.74, 0.4), 0.0165, (0.66, 0.56, -0.1), 0.014)
+    face(m, hc, hr, (0.48, 0.74, 0.4), 0.0118, (0.66, 0.56, -0.1), 0.013)
     # the quills: two-tone spines, cream with dark tips, swept back over the dome
-    n_q = 120
+    n_q = 110
     for i in range(n_q):
         u = (i + 0.5) / n_q
         th = math.acos(1 - 2 * u)
@@ -283,8 +283,14 @@ def echidna():
         if d.z < 0.05 or d.y > 0.45:
             continue
         p, n = surf(bc, br, d)
-        a = (n + Vector((0, -0.55, 0.15))).normalized()
-        L = 0.05 + 0.01 * math.sin(i * 1.7)
+        # lying back along the body, tips lifting only a little off the fur
+        # (Adriaen 2026-11-11: an echidna's quills don't stick up)
+        back = Vector((0, -1, 0))
+        back = (back - n * back.dot(n))
+        if back.length < 1e-3:
+            back = Vector((d.x, d.y, 0))
+        a = (back.normalized() + n * 0.3).normalized()
+        L = 0.036 + 0.006 * math.sin(i * 1.7)
         side = a.cross(Z if abs(a.z) < 0.9 else X).normalized()
         up = a.cross(side)
         w = 0.0075
@@ -331,39 +337,46 @@ def echidna():
     return m, bones, {"idle": (4.0, idle), "bop": (1.0, bop), "cheer": (1.0, cheer)}, ()
 
 
+def WOMBAT_LEGS(s, tag):   # short, thick legs: (bone, top, paw)
+    return ((f"arm.{tag}", (s * 0.092, 0.058, 0.058), (s * 0.104, 0.072, 0.014)),
+            (f"leg.{tag}", (s * 0.096, -0.072, 0.058), (s * 0.106, -0.072, 0.014)))
+
+
 def wombat():
     m = base.Mesh()
     FUR, PALE, DARK, NOSE = "hair_fade", "stubble", "hair_fade_dark", "sloth_mask"
-    ell(m, (0, -0.02, 0.118), (0.128, 0.165, 0.108), FUR, "body")
-    ell(m, (0, 0.02, 0.082), (0.1, 0.13, 0.07), PALE, "body")
-    ell(m, (0, -0.185, 0.12), (0.016, 0.012, 0.014), DARK, "body", nu=6, nv=3)   # stub of a tail
-    hc, hr = (0, 0.168, 0.155), (0.112, 0.09, 0.094)
+    # a short, stocky barrel low on the ground (Adriaen 2026-11-11: shorter, stockier)
+    ell(m, (0, -0.012, 0.1), (0.138, 0.128, 0.096), FUR, "body")
+    ell(m, (0, 0.015, 0.066), (0.11, 0.1, 0.058), PALE, "body")
+    ell(m, (0, -0.138, 0.1), (0.016, 0.012, 0.014), DARK, "body", nu=6, nv=3)   # stub of a tail
+    HY, HZ = -0.04, -0.024   # the head sits further back and lower than on the long first build
+    hc, hr = (0, 0.168 + HY, 0.155 + HZ), (0.112, 0.09, 0.094)
     ell(m, hc, hr, FUR, "head")
-    mc, mr = (0, 0.225, 0.124), (0.07, 0.048, 0.05)
+    mc, mr = (0, 0.225 + HY, 0.124 + HZ), (0.07, 0.048, 0.05)
     ell(m, mc, mr, PALE, "head")
     # the big square nose: a rounded block
     nose = []
     for sx in (-1, 1):
         for sz in (-1, 1):
             for k, (dx, dy, dz) in enumerate(((0.038, 0.0, 0.022), (0.03, 0.016, 0.017), (0.034, 0.008, 0.026))):
-                nose.append(Vector((sx * dx, 0.262 + dy, 0.138 + sz * dz)))
+                nose.append(Vector((sx * dx, 0.262 + HY + dy, 0.138 + HZ + sz * dz)))
     m.hull(nose, NOSE, "head")
     for sx in (-1, 1):
-        ell(m, (sx * 0.015, 0.279, 0.133), (0.007, 0.003, 0.005), "black", "head", nu=6, nv=3)
+        ell(m, (sx * 0.015, 0.279 + HY, 0.133 + HZ), (0.007, 0.003, 0.005), "black", "head", nu=6, nv=3)
     smile(m, mc, mr, (0, 1, -0.95), 0.28, 0.12)
-    face(m, hc, hr, (0.5, 0.76, 0.26), 0.021, (0.72, 0.55, -0.22), 0.018)
+    face(m, hc, hr, (0.5, 0.76, 0.26), 0.0145, (0.72, 0.55, -0.22), 0.017)
     for s, tag in ((1, "R"), (-1, "L")):
-        ear(m, (s * 0.06, 0.15, 0.215), (s * 0.085, 0.145, 0.262), 0.024, 0.01, FUR, "blush", f"ear.{tag}")
-        for key, a, b in ((f"arm.{tag}", (s * 0.085, 0.09, 0.075), (s * 0.1, 0.11, 0.016)),
-                          (f"leg.{tag}", (s * 0.09, -0.11, 0.075), (s * 0.1, -0.11, 0.016))):
-            pipe(m, [a, b], [0.034, 0.028], DARK, key, n=7)
+        ear(m, (s * 0.06, 0.15 + HY, 0.215 + HZ), (s * 0.085, 0.145 + HY, 0.262 + HZ), 0.024, 0.01, FUR, "blush",
+            f"ear.{tag}")
+        for key, a, b in WOMBAT_LEGS(s, tag):
+            pipe(m, [a, b], [0.037, 0.032], DARK, key, n=7)
             claws(m, Vector(b) + Vector((0, 0.022, -0.004)), Y, 0.011, 0.016, key)
-    bones = {"body": ((0, -0.12, 0.115), (0, 0.08, 0.12), None),
-             "head": ((0, 0.1, 0.13), (0, 0.26, 0.14), "body")}
+    bones = {"body": ((0, -0.1, 0.1), (0, 0.06, 0.1), None),
+             "head": ((0, 0.1 + HY, 0.13 + HZ), (0, 0.26 + HY, 0.14 + HZ), "body")}
     for s, tag in ((1, "R"), (-1, "L")):
-        bones[f"ear.{tag}"] = ((s * 0.06, 0.15, 0.21), (s * 0.085, 0.145, 0.262), "head")
-        bones[f"arm.{tag}"] = ((s * 0.085, 0.09, 0.075), (s * 0.1, 0.11, 0.016), "body")
-        bones[f"leg.{tag}"] = ((s * 0.09, -0.11, 0.075), (s * 0.1, -0.11, 0.016), "body")
+        bones[f"ear.{tag}"] = ((s * 0.06, 0.15 + HY, 0.21 + HZ), (s * 0.085, 0.145 + HY, 0.262 + HZ), "head")
+        for key, a, b in WOMBAT_LEGS(s, tag):
+            bones[key] = (a, b, "body")
 
     def ears(p, a):
         for s, tag in ((1, "R"), (-1, "L")):
