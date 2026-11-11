@@ -347,6 +347,44 @@ def headlight(x, y, z, r, M, ring="chrome"):
 
 
 # ------------------------------------------------------------------ the shared body
+def hood_map(M):
+    """A folded paper map and a compass lying on the bonnet: flat quads with the map painted in coloured strips
+    (three folded panels in two paper shades, a river, a forest, a red route), and a squat 8-sided compass."""
+    def hz(y):      # bonnet top: falls 0.05 from the windscreen to the front
+        return BELT - 0.05 * (-0.42 - y) / (-0.42 - FRONT - 0.06) + 0.004
+    cx, cy, a = -0.2, -0.86, 0.22
+    def P(u, v, h=0.0):
+        x, y = cx + u * math.cos(a) - v * math.sin(a), cy + u * math.sin(a) + v * math.cos(a)
+        return (x, y, hz(y) + h)
+    up = (cx, cy, BELT + 2)
+    paper = (mat("map_paper", (0.93, 0.88, 0.72)), mat("map_paper2", (0.84, 0.79, 0.63)))
+    q = []
+    for k in range(3):                      # three panels, the fold shows as a change of shade
+        u0 = -0.21 + k * 0.14
+        q.append(quad([P(u0, -0.15), P(u0 + 0.14, -0.15), P(u0 + 0.14, 0.15), P(u0, 0.15)], paper[k % 2], up))
+    def strip(pts, w, m, h):                # a thin band along a polyline, one quad per leg
+        for (u0, v0), (u1, v1) in zip(pts, pts[1:]):
+            du, dv = u1 - u0, v1 - v0; L = math.hypot(du, dv); nu, nv = -dv / L * w / 2, du / L * w / 2
+            q.append(quad([P(u0 - nu, v0 - nv, h), P(u1 - nu, v1 - nv, h), P(u1 + nu, v1 + nv, h), P(u0 + nu, v0 + nv, h)], m, up))
+    q.append(quad([P(-0.17, 0.02, 0.002), P(-0.05, 0.0, 0.002), P(-0.03, 0.12, 0.002), P(-0.16, 0.13, 0.002)], mat("map_forest", (0.45, 0.62, 0.36)), up))
+    strip([(-0.21, -0.08), (-0.02, -0.03), (0.21, -0.11)], 0.018, mat("map_river", (0.36, 0.58, 0.78)), 0.003)
+    strip([(-0.12, -0.12), (0.03, 0.05), (0.15, 0.09)], 0.008, mat("map_route", (0.82, 0.22, 0.18)), 0.004)
+    PROP_AT["Map"] = P(0, 0)
+    # the compass, beside the map
+    k = (0.16, -1.02)
+    z = hz(k[1])
+    PROP_AT["Compass"] = (k[0], k[1], z)
+    m, q = q, []
+    q.append(cyl(0.045, 0.016, at=(k[0], k[1], z + 0.008), m=mat("compass_brass", (0.72, 0.56, 0.26)), verts=8, smooth=False))
+    q.append(quad([(k[0] - 0.034, k[1] - 0.034, z + 0.0165), (k[0] + 0.034, k[1] - 0.034, z + 0.0165), (k[0] + 0.034, k[1] + 0.034, z + 0.0165), (k[0] - 0.034, k[1] + 0.034, z + 0.0165)], mat("compass_face", (0.95, 0.94, 0.9)), (k[0], k[1], z + 1)))
+    n = (0.012, -0.03)                       # the needle: a red diamond pointing roughly forward
+    q.append(quad([(k[0] + n[0], k[1] + n[1], z + 0.018), (k[0] + 0.008, k[1], z + 0.018), (k[0] - n[0], k[1] - n[1], z + 0.018), (k[0] - 0.008, k[1], z + 0.018)], mat("compass_needle", (0.85, 0.15, 0.12)), (k[0], k[1], z + 1)))
+    return m, q
+
+
+PROP_AT = {}   # loose props: origin at the middle of the bottom, so the page can lift them off the bonnet
+
+
 def body(M, style):
     toy = style == "toy"
     R = 0.43 if toy else 0.37
@@ -455,6 +493,7 @@ def body(M, style):
         p.append(bl)
         p.append(box((0.03, 0.02, 0.03), at=tuple(on_glass(x + 0.36, 0.11, 0.024)), rot=(tilt, 0, 0), m=M["trim"]))   # the clip joining them
     # front: a recessed grille with three bars, round headlights, indicators, bumper
+    G["Map"], G["Compass"] = hood_map(M)   # loose props on the bonnet, their own nodes so the page can move them
     grille_z = (0.7, 0.95)
     p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"], bevel=0.02))
     for k in range(3):                                   # three horizontal bars (its own face, no maker's grille)
@@ -510,8 +549,11 @@ def finish(p, G):
         if name.startswith("Glass"):
             continue
         o = join(parts, name)
-        (hx, hy), _ = HINGES[name]
-        bpy.context.scene.cursor.location = (hx, hy, 0)
+        if name in PROP_AT:
+            bpy.context.scene.cursor.location = PROP_AT[name]
+        else:
+            (hx, hy), _ = HINGES[name]
+            bpy.context.scene.cursor.location = (hx, hy, 0)
         bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.context.view_layer.objects.active = o
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
         out[name] = o
