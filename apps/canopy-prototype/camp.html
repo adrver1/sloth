@@ -41,7 +41,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 <div id="toast"></div>
 <div class="bar">
   <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
-  <button id="props">Props</button><button id="jeep">Jeep</button><button id="fire">Fire</button><button id="kettle">Kettle</button><button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
+  <button id="props">Props</button><button id="jeep">Jeep</button><button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
@@ -566,31 +566,23 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
   blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
   const a = A0 + Math.PI; put("SeatThings", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2);
 }
-// ---------------------------------------------------------------- the campfire and kettle options (props/lived/build_fire.py), to pick from (2026-11-11).
-// Fire and Kettle buttons (kept per viewer) swap the old fire for a new layout (teepee, cabin, star) under the same bamboo
-// tripod, with a new kettle (classic, pot, billy) whose steam point stays where atmosphere.js puffs steam. The flames are
-// three crossed cards with an animated flame shader instead of the old glow blobs; the embers are unlit so they glow.
-const FIRES = ["old", "teepee", "cabin", "star"], KETTLES = ["classic", "pot", "billy"];
-const FIRE = FIRES.includes(store.get("canopy-fire")) ? store.get("canopy-fire") : "teepee";
-const KETTLE = KETTLES.includes(store.get("canopy-kettle")) ? store.get("canopy-kettle") : "classic";
-$("fire").textContent = "Fire: " + FIRE[0].toUpperCase() + FIRE.slice(1);
-$("kettle").textContent = "Kettle: " + KETTLE[0].toUpperCase() + KETTLE.slice(1);
-$("fire").onclick = () => { store.set("canopy-fire", FIRES[(FIRES.indexOf(FIRE) + 1) % FIRES.length]); location.reload(); };
-$("kettle").onclick = () => { store.set("canopy-kettle", KETTLES[(KETTLES.indexOf(KETTLE) + 1) % KETTLES.length]); location.reload(); };
-$("kettle").hidden = FIRE === "old" || PROPS !== "picked";
-$("fire").hidden = PROPS !== "picked";
-if (FIRE !== "old" && PROPS === "picked") {
+// ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
+// a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
+// textured quad per link). The flames are three crossed cards with an animated flame shader instead of the old glow blobs;
+// the embers are unlit so they glow. Our camp only; the other prop sets keep their old fire. ?fire=old shows the old one.
+if (PROPS === "picked" && qs.get("fire") !== "old") {
   const F = await glb("models/fire.txt"), fm = new THREE.MeshLambertMaterial({ vertexColors: true }), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
   const old = scene.getObjectByName("Fire"); if (old) old.visible = false;
   flames.forEach((f) => (f.visible = false));
-  fireLight.position.y = 0.4;                                    // inside the new fire, below the kettle (it hangs higher now)
-  for (const n of ["Ring", "Tripod", `Fire_${FIRE}`, `Embers_${FIRE}`, `Kettle_${KETTLE}`]) {
+  fireLight.position.y = 0.4;                                    // inside the fire, below the pot (it hangs higher than the old kettle)
+  for (const n of ["Ring", "Tripod", "Fire", "Embers", "Pot", "Chain"]) {
     const o = F.scene.getObjectByName(n); if (!o) continue;
-    o.traverse((m) => { if (m.isMesh) m.material = n.startsWith("Embers") ? glow : fm; });
+    o.traverse((m) => { if (!m.isMesh) return;
+      m.material = n === "Embers" ? glow : n === "Chain" ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : fm; });
     scene.add(o);
   }
-  var KETTLE_SPOUT = V(0.2, 0.97, 0);                           // the new kettles hang higher; atmosphere.js puffs steam here
-  const H = { teepee: 0.8, cabin: 0.74, star: 0.66 }[FIRE], flameMat = (ph) => new THREE.ShaderMaterial({
+  var SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };              // the soup's surface; atmosphere.js lets steam rise off all of it
+  const H = 0.8, flameMat = (ph) => new THREE.ShaderMaterial({
     uniforms: { uTime, uPh: { value: ph } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
     fragmentShader: `uniform float uTime, uPh; varying vec2 vUv;
@@ -937,7 +929,7 @@ function feed(s) {
 
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
-const atmo = createAtmosphere({ scene, camera, fx: D.fx, spout: typeof KETTLE_SPOUT !== "undefined" ? KETTLE_SPOUT : PROPS === "picked" || PROPS === "jungle" ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
+const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
 window.__atmo = atmo;
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
 const hemiL = scene.children.find((o) => o.isHemisphereLight);
