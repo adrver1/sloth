@@ -386,7 +386,8 @@ const wall = [];
     wall.push([x, z, R(0.6, 1.4)]);
   }
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
-  wall.forEach(([x, z, s], i) => { const keep = trackDist(x, z) > 2.2 ? 1 : 0; m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6)), V(s * keep, R(0.8, 1.1) * keep, s * keep)); im.setMatrixAt(i, m); });
+  wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1); w[3] = keep ? 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
+    m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), ry), V(s * keep, sy * keep, s * keep)); im.setMatrixAt(i, m); });
   scene.add(im);
 }
 let leafGeo, leafM, perClump, leafScale;
@@ -407,9 +408,9 @@ if (LOOK === "moss") {
   leafGeo = new THREE.IcosahedronGeometry(0.5, 1); leafM = new THREE.MeshToonMaterial({ gradientMap: grad }); leafM.onBeforeCompile = leafMat({}, 0.03).onBeforeCompile; perClump = Math.round(8 * D.leaves); leafScale = [0.6, 1.1];
 } else { leafGeo = new THREE.IcosahedronGeometry(0.5, 0); leafM = leafMat({}, 0.02); perClump = Math.round(5 * D.leaves); leafScale = [0.6, 1.1]; }
 const clumps = [];
-for (const [x, z, s] of wall) for (let k = 0; k < 2; k++) { const y = 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s]); }
+for (const [x, z, s] of wall) for (let k = 0; k < 2; k++) { const y = 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s, x, z, s]); }
 for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); clumps.push([p.x, p.y + (c.low ? 1.2 : 0.9), p.z, R(0.6, 0.9)]); }
-for (const h of HERO) for (let k = 0; k < 18; k++) { const a = R(0, 6.28), r = R(0, 4.5); clumps.push([h.x + Math.cos(a) * r, TOP + R(-2, 1.5), h.z + Math.sin(a) * r, R(1.3, 1.9)]); }   // the big trees' crowns
+for (const h of HERO) for (let k = 0; k < 18; k++) { const a = R(0, 6.28), r = R(0, 4.5); clumps.push([h.x + Math.cos(a) * r, TOP + R(-2, 1.5), h.z + Math.sin(a) * r, R(1.3, 1.9), h.x, h.z, 0]); }   // the big trees' crowns
 for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = Math.cos(a) * r, z = Math.sin(a) * r; clumps.push([x, R(0.4, 2.8), z, R(0.7, 1.2)]); }   // a thick leafy edge at eye height all round the clearing
 const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump);
 {
@@ -424,6 +425,58 @@ const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump)
   }
 }
 scene.add(leaves);
+// crowns on branches: a forked limb from the trunk into every leaf clump, and a spreading crown of limbs, twigs and leaves on
+// top of each forest tree, so the treetops are wood and leaves, not floating leaves (one draw for the wood, one for the new
+// leaves; their own random stream, so the seeded layout stays the same). Twigs scale with the detail level.
+{
+  let s4 = 777; const Q = (a, b) => { s4 = (s4 * 16807) % 2147483647; return a + (s4 / 2147483647) * (b - a); };
+  const geos = [], tops = [], twigs = D.fx > 1 ? 2 : D.fx ? 1 : 0, seg = 3;
+  const limb = (p0, p1, r0, r1, fork) => {
+    const rad = !S.flat && Math.hypot(p0.x, p0.z) < RC + 6 ? 4 : 3;   // round near the clearing, three-sided out in the mist
+    if (Math.hypot(p0.x, p0.z) > RC + 10) fork = Math.min(fork, 1);
+    const d = p1.clone().sub(p0), mid = p0.clone().lerp(p1, 0.5).add(V(Q(-0.2, 0.2), d.length() * Q(0.08, 0.18), Q(-0.2, 0.2)));
+    const c = new THREE.CatmullRomCurve3([p0, mid, p1]); geos.push(bake(tube(c, r0, r1, seg, rad), 0, 18));
+    for (let i = 0; i < fork; i++) {                                    // twigs off the outer half, splaying up and sideways
+      const q = c.getPointAt(Q(0.5, 0.8)), side = V(-d.z, 0, d.x).normalize().multiplyScalar(i % 2 ? 1 : -1), L = d.length() * Q(0.35, 0.55);
+      const e = q.clone().addScaledVector(d.clone().normalize(), L * 0.5).addScaledVector(side, L * 0.7).add(V(0, L * 0.5, 0));
+      geos.push(bake(tube(new THREE.CatmullRomCurve3([q, q.clone().lerp(e, 0.5).add(V(0, L * 0.12, 0)), e]), r1 * 0.9, r1 * 0.35, seg, rad), 0, 18));
+      tops.push([e.x, e.y + 0.3, e.z, L * 0.6 + 0.5, 0.3]);
+    }
+  };
+  for (const [cx, cy, cz, r, tx, tz, ts] of clumps) {
+    if (tx === undefined) continue;
+    if (ts) {                                                           // a forest tree's side clump: one limb up and out from the trunk
+      const top = wall.find((w) => w[0] === tx && w[1] === tz)?.[3]; if (!top) continue;
+      const y0 = Math.min(cy - Q(1.5, 2.5), top - 1.5), p1 = V(cx, cy - r * 0.25, cz);
+      limb(V(tx, y0, tz).addScaledVector(p1.clone().setY(y0).sub(V(tx, y0, tz)).normalize(), 0.2 * ts), p1, 0.2 * ts, 0.07 * ts, 0);
+    } else {                                                            // a big tree's crown clump: limbs from the top of the trunk
+      const p1 = V(cx, cy - 0.4, cz), dir = p1.clone().setY(0).sub(V(tx, 0, tz)).normalize();
+      limb(V(tx, TOP - 3.2, tz).addScaledVector(dir, 0.4), p1, 0.32, 0.1, twigs);
+    }
+  }
+  for (const [x, z, s, top] of wall) {                                 // the crown on top of each forest tree
+    if (!top) continue;
+    const n = Math.round(Q(3, 5)), a0 = Q(0, 6.28);
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (i / n) * 6.28 + Q(-0.3, 0.3), out = Q(1.6, 3.2) * s, y0 = top * Q(0.78, 0.9);
+      const p1 = V(x + Math.cos(a) * out, top + Q(0.3, 1.8) * s, z + Math.sin(a) * out);
+      limb(V(x + Math.cos(a) * 0.2 * s, y0, z + Math.sin(a) * 0.2 * s), p1, 0.2 * s, 0.07 * s, twigs);
+      tops.push([p1.x, p1.y + 0.3, p1.z, Q(1.2, 1.8) * s]);
+    }
+    tops.push([x, top + 0.4, z, 1.3 * s]);                              // covers the cut top of the trunk
+  }
+  scene.add(new THREE.Mesh(merge(geos), barkMat));
+  // fewer leaves per crown for the big ball leaves of the other looks
+  const per = (f) => Math.max(1, Math.round(perClump * (f || 0.5) * (LOOK === "moss" ? 1 : 0.45))), lm = new THREE.InstancedMesh(leafGeo, leafM, tops.reduce((n, t) => n + per(t[4]), 0)), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+  for (const [x, y, z, r, f] of tops) for (let k = 0; k < per(f); k++) {
+    const u = V(Q(-1, 1), Q(-0.4, 0.8), Q(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q(0, 1)));
+    e.set(Q(0, 6.28), Q(0, 6.28), Q(0, 6.28)); q.setFromEuler(e);
+    const sc = Q(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33);
+    m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); lm.setMatrixAt(i, m);
+    lm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
+  }
+  scene.add(lm);
+}
 // bushes along both verges of the jeep's track, so the walk out feels like a lane through the jungle
 // (their own random stream, so the seeded layout of everything else stays the same)
 if (track) {
