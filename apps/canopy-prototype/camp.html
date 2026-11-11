@@ -682,7 +682,8 @@ if (JEEP !== "none") {
   const J = await glb(`models/jeep_${JEEP}.txt`), at = JEEP_AT, out = JEEP_OUT, tan = JEEP_TAN;
   const jeep = J.scene;
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
-  jeep.traverse((m) => { if (m.isMesh) m.material = jm; });
+  const glassM = new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false });   // see-through, a little tinted
+  jeep.traverse((m) => { if (m.isMesh) { m.material = m.name.startsWith("Glass") ? glassM : jm; if (m.name.startsWith("Glass")) m.renderOrder = 2; } });
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
   for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
   if (JEEP === "camper") blockers.push([at.clone().addScaledVector(out, -2.3), 0.4]);   // the ladder foot
@@ -1169,3 +1170,4 @@ window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
 window.__scene = scene;
 window.__ready = true;
 </script>
+
