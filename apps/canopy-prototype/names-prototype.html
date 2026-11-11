@@ -25,15 +25,52 @@ const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
 const ground = new THREE.Mesh(new THREE.CircleGeometry(20, 48).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x9cc27f })); scene.add(ground);
 const lam = (c) => new THREE.MeshLambertMaterial({ color: c });
 // each sloth: name, trait, favourite, and how to dress it (accessories hang off the head bone)
+// head bone frame (measured from the skinned mesh): head spans y 0.02..0.137, x ±0.078, z -0.092 (face) .. 0.049 (back);
+// the neck is at y 0..0.015 (half width 0.045, z -0.04..0.033). Accessories hang off the head bone, the cape off the body bone.
+const tex = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+const leafTex = (col, vein, banana) => tex(256, 128, (g, w, h) => {
+  g.fillStyle = col; g.beginPath(); g.moveTo(4, h / 2);
+  if (banana) { g.lineTo(18, 10); for (let x = 18; x <= w - 18; x += 12) g.lineTo(x + 6, 6 + (x % 24 ? 4 : 0)); g.lineTo(w - 6, h / 2); for (let x = w - 18; x >= 18; x -= 12) g.lineTo(x, h - 6 - (x % 24 ? 4 : 0)); }
+  else g.bezierCurveTo(w * 0.3, -h * 0.15, w * 0.8, h * 0.05, w - 4, h / 2), g.bezierCurveTo(w * 0.8, h * 0.95, w * 0.3, h * 1.15, 4, h / 2);
+  g.closePath(); g.fill(); g.strokeStyle = vein; g.lineWidth = 5; g.beginPath(); g.moveTo(4, h / 2); g.lineTo(w - 6, h / 2); g.stroke(); g.lineWidth = 2.5;
+  for (let x = 30; x < w - 20; x += banana ? 10 : 34) for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(x, h / 2); g.lineTo(x + (banana ? 4 : 26), h / 2 + sg * h * 0.42); g.stroke(); }
+});
+const texMat = (t, o = {}) => new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide, ...o });
+function bentPlane(w, l, sw, sl, bend) { const g = new THREE.PlaneGeometry(l, w, sl, sw), p = g.attributes.position; for (let i = 0; i < p.count; i++) bend(p, i); g.computeVertexNormals(); return g; }
+function hibiscus(sz) { const f = new THREE.Group(), pm = lam(0xff4f86); for (let k = 0; k < 5; k++) { const p = new THREE.Mesh(new THREE.SphereGeometry(sz, 10, 6).scale(1, 0.25, 1.5), pm); p.position.set(0, 0, sz * 1.1); p.rotation.x = -0.35; const r = new THREE.Group(); r.rotation.y = k / 5 * 6.28; r.add(p); f.add(r); }
+  const st = new THREE.Mesh(new THREE.CylinderGeometry(sz * 0.12, sz * 0.12, sz * 1.6, 5), lam(0xffd23f)); st.position.y = sz * 0.7; f.add(st); return f; }
 const CAST = [
-  { name: "Hibi", trait: "pink flower", fav: "🌺 hibiscus", dress(h) { const f = new THREE.Group(); for (let k = 0; k < 5; k++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6).scale(1, 0.4, 1.6), lam(0xff5f8f)); p.position.set(0, 0, 0.03); const r = new THREE.Group(); r.rotation.y = k / 5 * 6.28; r.add(p); f.add(r); } f.add(new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), lam(0xffe06a))); f.position.set(0.085, 0.09, 0.02); f.rotation.set(0.3, 0, -0.9); h.add(f); } },
-  { name: "Mango", trait: "orange bandana", fav: "🥭 mango", dress(h) { const b = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.02, 8, 20), lam(0xff8a2a)); b.rotation.x = Math.PI / 2; b.scale.set(1.15, 1, 1); b.position.set(0, -0.05, 0); h.add(b); const k = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.07, 3), lam(0xff8a2a)); k.position.set(0, -0.08, 0.07); k.rotation.x = Math.PI; h.add(k); } },
-  { name: "Figgy", trait: "leaf hat", fav: "🟣 fig", dress(h) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 6, 0, 6.28, 0, 1.0).scale(1, 0.55, 1.2), lam(0x4f9a3c)); l.position.set(0, 0.07, -0.005); l.rotation.set(-0.2, 0, 0.12); h.add(l); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.06), lam(0x6b4a2a)); s.position.set(0, 0.135, -0.01); h.add(s); } },
-  { name: "Bandit", trait: "dark eye patches", fav: "🍌 banana", dress(h) { for (const x of [-1, 1]) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8).scale(1.45, 0.85, 0.35), lam(0x3a2a20)); p.position.set(x * 0.047, 0.048, -0.072); p.rotation.z = x * 0.3; p.scale.multiplyScalar(1.15); h.add(p); } } },
+  { name: "Hibi", trait: "flower by the ear", fav: "🌺 hibiscus", dress(h) { const f = hibiscus(0.016); f.position.set(0.066, 0.108, -0.006); f.rotation.set(0.2, 0, -1.1); h.add(f); } },
+  { name: "Mango", trait: "orange bandana", fav: "🥭 mango", dress(h) {
+    const t = tex(128, 64, (g, w, hh) => { g.fillStyle = "#ff8a1f"; g.fillRect(0, 0, w, hh); g.fillStyle = "#fff4dc"; for (let y = 4; y < hh; y += 12) for (let x = (y % 24 ? 0 : 6); x < w; x += 12) { g.beginPath(); g.arc(x, y, 2.2, 0, 7); g.fill(); } });
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1); const m = new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide });
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.088, 24, 12, 0, 6.28, 0, 1.3), m); cap.scale.set(0.95, 1.0, 1.1); cap.position.set(0, 0.058, -0.01); cap.rotation.x = 0.12; h.add(cap);
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), m); knot.position.set(0, 0.085, 0.062); h.add(knot);
+    for (const sg of [-1, 1]) { const tl = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.05, 4).scale(1, 1, 0.3), m); tl.position.set(sg * 0.013, 0.062, 0.07); tl.rotation.set(-0.5, 0, sg * 0.5 + Math.PI); h.add(tl); } } },
+  { name: "Figgy", trait: "leaf hat", fav: "🟣 fig", dress(h) {
+    const C = new THREE.Vector3(0, 0.066, -0.02), RR = 0.088;
+    const g = bentPlane(0.12, 0.2, 8, 14, (p, i) => { const u = p.getX(i) + 0.02, v = p.getY(i), r = Math.hypot(u, v) || 1e-6, a = r / RR;
+      p.setXYZ(i, C.x + RR * Math.sin(a) * v / r, C.y + RR * Math.cos(a) * 0.95, C.z + RR * Math.sin(a) * -u / r); });
+    const leaf = new THREE.Mesh(g, texMat(leafTex("#4caf3c", "#2f7a26"))); const hat = new THREE.Group(); hat.add(leaf); hat.rotation.set(-0.12, 0.9, 0.3); hat.position.set(0, 0.005, 0); h.add(hat);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.005, 0.03, 5), lam(0x5a3f22)); stem.position.set(0, RR * 0.95 + C.y + 0.012, C.z + 0.01); stem.rotation.x = 0.4; hat.add(stem); } },
+  { name: "Bandit", trait: "banana-leaf cape", fav: "🍌 banana", dress(h, o) {
+    const b = h.parent, hp = h.position;
+    const g = bentPlane(0.15, 0.13, 8, 8, (p, i) => { const x = p.getX(i), y = p.getY(i), a = y / 0.09; p.setXYZ(i, Math.sin(a) * 0.095 * (1 + 0.6 * (0.065 - x)), x - 0.065, Math.cos(a) * 0.085 * (1 + 1.2 * (0.065 - x)) - 0.018); });
+    const t = tex(128, 128, (g, w, hh) => { g.fillStyle = "#7cc44a"; g.fillRect(14, 0, w - 14, hh); g.strokeStyle = "#4f8f2c"; g.lineWidth = 4; g.beginPath(); g.moveTo(14, hh / 2); g.lineTo(w, hh / 2); g.stroke(); g.lineWidth = 1.6;
+      for (let y = -hh; y < hh * 2; y += 7) { g.beginPath(); g.moveTo(w, y); g.lineTo(14, y + (y < hh / 2 ? -50 : 50) * 0); g.stroke(); }
+      g.fillStyle = "#7cc44a"; for (let y = 0; y < hh; y += 16) { g.beginPath(); g.moveTo(14, y); g.lineTo(0, y + 5); g.lineTo(14, y + 12); g.fill(); } }), cape = new THREE.Mesh(g, texMat(t)); cape.position.copy(hp).add(new THREE.Vector3(0, 0.012, 0.0)); b.add(cape);
+    const tie = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.01, 6, 18), lam(0x3f7f24)); tie.rotation.x = Math.PI / 2; tie.scale.set(1, 0.85, 1); tie.position.copy(hp).add(new THREE.Vector3(0, 0.012, 0)); b.add(tie);
+    const k = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), lam(0x3f7f24)); k.position.copy(hp).add(new THREE.Vector3(0, 0.006, -0.052)); b.add(k); } },
   { name: "Pip", trait: "the smallest", fav: "🌺 hibiscus", scale: 0.72 },
-  { name: "Hazel", trait: "darker fur", fav: "🟣 fig", tint: 0xa08670 },
-  { name: "Sunny", trait: "yellow scarf", fav: "🥭 mango", dress(h, o) { const b = o.getObjectByName("body"); const s = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.026, 8, 20), lam(0xffd23f)); s.rotation.x = Math.PI / 2; s.position.copy(h.position).add(new THREE.Vector3(0, -0.075, 0)); h.parent.add(s); const t = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.11, 0.015), lam(0xffd23f)); t.position.copy(h.position).add(new THREE.Vector3(0.04, -0.13, -0.085)); t.rotation.z = 0.25; h.parent.add(t); } },
+  { name: "Hazel", trait: "blue bow", fav: "🟣 fig", dress(h) { const m = lam(0x5aa7e8), bow = new THREE.Group();
+    for (const sg of [-1, 1]) { const l = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.04, 8).scale(1, 1, 0.45), m); l.rotation.z = sg * Math.PI / 2; l.position.x = sg * 0.019; bow.add(l); }
+    bow.add(new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 6), m)); bow.position.set(-0.04, 0.128, -0.01); bow.rotation.set(0.1, 0.2, 0.5); h.add(bow); } },
+  { name: "Sunny", trait: "yellow scarf", fav: "🥭 mango", dress(h) { const m = lam(0xffcf33);
+    const s = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.017, 8, 24), m); s.rotation.x = Math.PI / 2; s.scale.set(1.08, 0.9, 1); s.position.set(0, 0.012, -0.006); h.add(s);
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.06, 0.01), m); t.position.set(0.024, -0.02, -0.058); t.rotation.set(0.25, 0, 0.18); h.add(t);
+    const t2 = t.clone(); t2.position.set(0.04, -0.012, -0.05); t2.rotation.set(0.25, 0, 0.45); t2.scale.y = 0.8; h.add(t2); } },
 ];
+const Q = new URLSearchParams(location.search), TURN = +(Q.get("turn") || 0), NEAR = Q.has("near");
 const SL = 2.4, GAP = 0.62, items = [];
 CAST.forEach((c, i) => {
   const o = clone(G.scene); o.traverse(m => { if (m.isMesh) { m.frustumCulled = false; m.material = m.material.clone(); if (c.tint) m.material.color.setHex(c.tint); } });
@@ -46,11 +83,12 @@ CAST.forEach((c, i) => {
 function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); cam.aspect = a;
   const ph = a < 1;   // phone: two rows (four behind, three in front), seen from a bit higher so the rows separate
   for (const it of items) { const back = ph && it.i < 4, n = ph ? (back ? 4 : 3) : 7, k = ph ? (back ? it.i : it.i - 4) : it.i;
-    it.o.position.set((k - (n - 1) / 2) * GAP, 0, back ? -2.4 : 0); it.o.rotation.y = Math.PI + (k - (n - 1) / 2) * 0.06; }
-  cam.fov = ph ? 44 : 30; if (ph) { cam.position.set(0, 3.4, 5.6); cam.lookAt(0, 0.2, -1.1); } else { cam.position.set(0, 0.85, 5.2); cam.lookAt(0, 0.3, 0); } cam.updateProjectionMatrix(); }
+    it.o.position.set((k - (n - 1) / 2) * GAP, 0, back ? -2.4 : 0); it.o.rotation.y = Math.PI + TURN + (k - (n - 1) / 2) * 0.06; }
+  cam.fov = ph ? 44 : 30; if (ph) { cam.position.set(0, 3.4, 5.6); cam.lookAt(0, 0.2, -1.1); } else { cam.position.set(0, 0.85, NEAR ? 3.0 : 5.2); cam.lookAt(0, 0.3, 0); } cam.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
 const v = new THREE.Vector3(), clock = new THREE.Clock();
 renderer.setAnimationLoop(() => { const dt = clock.getDelta(); for (const it of items) { it.mx.update(dt); v.copy(it.o.position); v.y = -0.02; v.project(cam);
   it.el.style.left = ((v.x + 1) / 2 * innerWidth) + "px"; it.el.style.top = ((1 - v.y) / 2 * innerHeight + 6) + "px"; }
   renderer.render(scene, cam); window.__ready = true; });
+window.__G = G; window.__THREE = THREE;
 </script>
