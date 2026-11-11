@@ -51,6 +51,19 @@ def densify(o, area=0.01, edge=0.08, rounds=2):
 build_camp.densify = densify       # bake() calls it
 
 
+PARTS = []          # piece names; each face carries its piece's index in the "part" attribute, for the triangle breakdown
+
+
+def mark(p, start, name):
+    """Tag the faces of p[start:] as one named piece, and return where the next piece starts."""
+    PARTS.append(name)
+    for o in p[start:]:
+        a = o.data.attributes.get("part") or o.data.attributes.new("part", "INT", "FACE")
+        for k in range(len(o.data.polygons)):
+            a.data[k].value = len(PARTS) - 1
+    return len(p)
+
+
 def materials():
     return {k: mat(f"lv_{k}", c) for k, c in dict(
         bark=(0.3, 0.21, 0.14), bark2=(0.24, 0.17, 0.11), wood=(0.68, 0.52, 0.36), endgrain=(0.78, 0.62, 0.42), chip=(0.82, 0.68, 0.48),
@@ -132,9 +145,11 @@ def wood_pile(M):
             p.append(split_log(rng.uniform(0.44, 0.48), r, kind, M, at=(x, rng.uniform(-0.015, 0.015), z + 0.065),
                                yaw=math.pi / 2 + rng.uniform(-0.04, 0.04), roll=roll))
         z += 0.115
+    k0 = mark(p, 0, "Log stack")
     # two posts at the ends keep the stack from rolling
     for s in (-1, 1):
         p.append(rough_up(rod((s * 0.52, 0, -0.02), (s * 0.54, 0.02, 0.55), 0.035, M["bark2"], verts=8), 0.004, 12))
+    k0 = mark(p, k0, "End posts")
     # the chopping stump beside it, with the hatchet left in, and a half-split log waiting on the ground
     sx, sy = 1.0, -0.15
     stump = rough_up(cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=16, r2=None), 0.01, 10)
@@ -145,14 +160,18 @@ def wood_pile(M):
     for k in range(4):                              # roots flaring into the ground
         a = k / 4 * 2 * math.pi + 0.4
         p.append(rod((sx + math.cos(a) * 0.17, sy + math.sin(a) * 0.17, 0.05), (sx + math.cos(a) * 0.27, sy + math.sin(a) * 0.27, -0.03), 0.045, M["bark"], verts=8))
+    k0 = mark(p, k0, "Chopping stump")
     p.append(hatchet(M, (sx + 0.03, sy - 0.02, 0.45), yaw=-0.5, lean=0.85))
+    k0 = mark(p, k0, "Hatchet")
     p.append(split_log(0.4, 0.09, "half", M, at=(sx + 0.38, sy - 0.28, 0.035), yaw=1.1, roll=math.pi / 2 + 0.1))
     p.append(split_log(0.44, 0.085, "quarter", M, at=(0.2, -0.45, 0.05), yaw=0.3, roll=2.2))
     p.append(split_log(0.46, 0.06, "whole", M, at=(-0.35, -0.42, 0.06), yaw=-0.2))
+    k0 = mark(p, k0, "Loose logs")
     for k in range(14):                             # chips round the stump
         a, d = rng.uniform(0, 2 * math.pi), rng.uniform(0.3, 0.6)
         p.append(box((rng.uniform(0.03, 0.06), rng.uniform(0.015, 0.03), 0.006), at=(sx + math.cos(a) * d, sy + math.sin(a) * d, 0.004),
                      rot=(rng.uniform(-0.2, 0.2), rng.uniform(-0.2, 0.2), rng.uniform(0, 3.14)), m=M["chip" if k % 3 else "wood"]))
+    mark(p, k0, "Wood chips")
     return join(p, "WoodPile")
 
 
@@ -190,6 +209,7 @@ def seat_things(M):
     p.append(torus(0.042, 0.004, at=(mx, my, z + 0.085), m=M["rim"], major=16, minor=4))
     h = torus(0.026, 0.006, at=(mx + 0.048, my, z + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=12, minor=5)
     p.append(h)
+    k0 = mark(p, 0, "Enamel mug")
     # the book: a cover a little bigger than the pages, open face up, a ribbon hanging off the end
     bx, by, yaw = 0.18, -0.02, 0.25
     book = [box((0.31, 0.21, 0.008), at=(0, 0, 0.004), m=M["cover"]),
@@ -203,10 +223,11 @@ def seat_things(M):
     b.rotation_euler = (0, 0, yaw)
     b.location = (bx, by, z)
     p.append(b)
+    mark(p, k0, "Open book")
     return join(p, "SeatThings")
 
 
-def build(samples):
+def build(samples, parts_out=None):
     reset()
     M = materials()
     objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M)}
@@ -223,10 +244,37 @@ def build(samples):
                               export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
     for k, o in objs.items():
         print(f"  {k}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
+        part = o.data.attributes["part"]
+        tris = {}
+        for pl in o.data.polygons:
+            n = PARTS[part.data[pl.index].value]
+            tris[n] = tris.get(n, 0) + len(pl.vertices) - 2
+        for n, t in tris.items():
+            print(f"    {n}: {t}")
+    if parts_out:                             # each piece as its own object, for a triangle-breakdown picture (not used by the page)
+        split = []
+        for o in objs.values():
+            for i, n in enumerate(PARTS):
+                if not any(o.data.attributes["part"].data[pl.index].value == i for pl in o.data.polygons):
+                    continue
+                c = o.copy(); c.data = o.data.copy(); bpy.context.collection.objects.link(c)
+                bm = bmesh.new(); bm.from_mesh(c.data)
+                lay = bm.faces.layers.int.get("part")
+                bmesh.ops.delete(bm, geom=[f for f in bm.faces if f[lay] != i], context="FACES")
+                bm.to_mesh(c.data); bm.free()
+                c.name = n
+                split.append(c)
+        bpy.ops.object.select_all(action="DESELECT")
+        for c in split:
+            c.select_set(True)
+        bpy.ops.export_scene.gltf(filepath=parts_out, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
+                                  export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
     print(f"lived: {os.path.getsize(path) // 1024} KB -> {path}")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--samples", type=int, default=32)
-    build(ap.parse_args().samples)
+    ap.add_argument("--parts", help="also write each piece as its own object to this GLB, for a triangle breakdown")
+    a = ap.parse_args()
+    build(a.samples, a.parts)
