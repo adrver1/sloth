@@ -41,7 +41,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 <div id="toast"></div>
 <div class="bar">
   <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
-  <button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
+  <button id="props">Props</button><button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
@@ -64,7 +64,11 @@ const DETAIL = LEVELS.includes(qs.get("detail")) ? qs.get("detail") : LEVELS.inc
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
             medium: { leaves: 1, ferns: 1, fx: 1, shells: 3, pr: 1.75, aa: LOOK !== "moss" },
             high: { leaves: 1.6, ferns: 1.7, fx: 1.5, shells: 4, pr: 2, aa: true } }[DETAIL];
+const PROPSETS = ["storybook", "rustic", "jungle", "code"], PNAME = { storybook: "Storybook", rustic: "Rustic", jungle: "Jungle", code: "Old shapes" };
+const PROPS = PROPSETS.includes(qs.get("props")) ? qs.get("props") : PROPSETS.includes(store.get("canopy-props")) ? store.get("canopy-props") : "storybook";
 $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
+$("props").textContent = "Props: " + PNAME[PROPS];
+$("props").onclick = () => { store.set("canopy-props", PROPSETS[(PROPSETS.indexOf(PROPS) + 1) % PROPSETS.length]); location.reload(); };
 $("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
 // seeded random, so all three looks grow the same tree and hide sloths in the same spots
@@ -309,19 +313,20 @@ scene.add(leaves);
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
 const camp = [], lanternGlow = [];
 {
+  const CODE = PROPS === "code";   // the first rough shapes, kept to compare; otherwise the Blender props load below
   const stone = 0x9a9488, log = S.bark[0], canvasC = 0xf3e6c8, flap = 0xe3a6a0;
-  for (let i = 0; i < 9; i++) { const a = (i / 9) * 6.28; camp.push(flatCol(new THREE.IcosahedronGeometry(0.17, 0).scale(1, 0.7, 1).translate(Math.cos(a) * 0.62, 0.08, Math.sin(a) * 0.62), stone, R(0.8, 1.1))); }
-  for (let i = 0; i < 4; i++) { const g = new THREE.CylinderGeometry(0.06, 0.07, 0.8, 6).rotateZ(Math.PI / 2 - 0.35).rotateY(i * 1.57).translate(0, 0.22, 0); camp.push(flatCol(g, log, 0.8)); }
+  for (let i = 0; i < 9; i++) { const a = (i / 9) * 6.28; CODE && camp.push(flatCol(new THREE.IcosahedronGeometry(0.17, 0).scale(1, 0.7, 1).translate(Math.cos(a) * 0.62, 0.08, Math.sin(a) * 0.62), stone, R(0.8, 1.1))); }
+  for (let i = 0; i < 4; i++) { const g = new THREE.CylinderGeometry(0.06, 0.07, 0.8, 6).rotateZ(Math.PI / 2 - 0.35).rotateY(i * 1.57).translate(0, 0.22, 0); CODE && camp.push(flatCol(g, log, 0.8)); }
   // three log seats round the fire, the gap faces the gate
-  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15, g = new THREE.CylinderGeometry(0.22, 0.24, 1.5, 9).rotateZ(Math.PI / 2).rotateY(-a + Math.PI / 2).translate(Math.cos(a) * 2.1, 0.22, Math.sin(a) * 2.1); camp.push(flatCol(g, log)); }
+  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15, g = new THREE.CylinderGeometry(0.22, 0.24, 1.5, 9).rotateZ(Math.PI / 2).rotateY(-a + Math.PI / 2).translate(Math.cos(a) * 2.1, 0.22, Math.sin(a) * 2.1); CODE && camp.push(flatCol(g, log)); }
   // tent: a triangular prism
   const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4), tentA = Math.atan2(-tentAt.z, -tentAt.x);
   const tent = new THREE.CylinderGeometry(1.25, 1.25, 2.4, 3, 1).rotateX(Math.PI / 2).rotateZ(Math.PI / 2 + Math.PI / 6 * 0 + Math.PI).scale(1, 1.05, 1);
-  tent.rotateZ(Math.PI); tent.translate(0, 0.62, 0); tent.rotateY(-tentA + Math.PI / 2); tent.translate(tentAt.x, 0, tentAt.z); camp.push(flatCol(tent, canvasC));
-  const door = new THREE.CircleGeometry(0.55, 3).rotateZ(Math.PI / 2).translate(0, 0.5, 1.22).rotateY(-tentA + Math.PI / 2).translate(tentAt.x, 0, tentAt.z); camp.push(flatCol(door, flap));
+  tent.rotateZ(Math.PI); tent.translate(0, 0.62, 0); tent.rotateY(-tentA + Math.PI / 2); tent.translate(tentAt.x, 0, tentAt.z); CODE && camp.push(flatCol(tent, canvasC));
+  const door = new THREE.CircleGeometry(0.55, 3).rotateZ(Math.PI / 2).translate(0, 0.5, 1.22).rotateY(-tentA + Math.PI / 2).translate(tentAt.x, 0, tentAt.z); CODE && camp.push(flatCol(door, flap));
   // hammock between two posts
   const hA = d0.clone().multiplyScalar(-1.5).addScaledVector(t0, -4.6), hB = hA.clone().addScaledVector(d0, -2.6).addScaledVector(t0, -1.2);
-  for (const h of [hA, hB]) camp.push(flatCol(new THREE.CylinderGeometry(0.07, 0.09, 2.6, 6).translate(h.x, 1.3, h.z), log, 0.85));
+  for (const h of [hA, hB]) CODE && camp.push(flatCol(new THREE.CylinderGeometry(0.07, 0.09, 2.6, 6).translate(h.x, 1.3, h.z), log, 0.85));
   {
     const n = 16, m = 5, pos = [], hx = hB.clone().sub(hA), len = hx.length(); hx.normalize(); const hz = V(-hx.z, 0, hx.x);
     for (let i = 0; i <= n; i++) for (let j = 0; j <= m; j++) { const u = i / n, v = j / m - 0.5, w = Math.sin(Math.PI * u);
@@ -329,14 +334,14 @@ const camp = [], lanternGlow = [];
     const idx = []; for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) { const a = i * (m + 1) + j; idx.push(a, a + 1, a + m + 1, a + 1, a + m + 2, a + m + 1); }
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
     const g2 = g.clone(); g2.setIndex(idx.slice().reverse());           // both sides
-    camp.push(flatCol(g, 0xe9a0b8), flatCol(g2, 0xe9a0b8, 0.85));
-    camp.push(flatCol(new THREE.SphereGeometry(0.2, 8, 6).scale(1.4, 0.6, 1).translate(hA.x + hx.x * 0.6, 1.0, hA.z + hx.z * 0.6), 0xfff6e6));   // pillow
+    CODE && camp.push(flatCol(g, 0xe9a0b8), flatCol(g2, 0xe9a0b8, 0.85));
+    CODE && camp.push(flatCol(new THREE.SphereGeometry(0.2, 8, 6).scale(1.4, 0.6, 1).translate(hA.x + hx.x * 0.6, 1.0, hA.z + hx.z * 0.6), 0xfff6e6));   // pillow
   }
   // snack table: a stump with a plank top, a leaf bowl and hibiscus flowers
   const tb = d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.2);
-  camp.push(flatCol(new THREE.CylinderGeometry(0.35, 0.42, 0.62, 9).translate(tb.x, 0.31, tb.z), log), flatCol(new THREE.CylinderGeometry(0.62, 0.62, 0.07, 12).translate(tb.x, 0.65, tb.z), plankCol));
-  camp.push(flatCol(new THREE.SphereGeometry(0.22, 10, 6, 0, 6.28, Math.PI / 2, Math.PI / 2).translate(tb.x + 0.15, 0.85, tb.z), S.leaf[0]));
-  for (let i = 0; i < 5; i++) camp.push(flatCol(new THREE.IcosahedronGeometry(0.07, 0).translate(tb.x - 0.2 + R(-0.2, 0.2), 0.72, tb.z + R(-0.3, 0.3)), [0xff6f91, 0xff9eb5, 0xffd66e][i % 3]));
+  CODE && camp.push(flatCol(new THREE.CylinderGeometry(0.35, 0.42, 0.62, 9).translate(tb.x, 0.31, tb.z), log), flatCol(new THREE.CylinderGeometry(0.62, 0.62, 0.07, 12).translate(tb.x, 0.65, tb.z), plankCol));
+  CODE && camp.push(flatCol(new THREE.SphereGeometry(0.22, 10, 6, 0, 6.28, Math.PI / 2, Math.PI / 2).translate(tb.x + 0.15, 0.85, tb.z), S.leaf[0]));
+  for (let i = 0; i < 5; i++) CODE && camp.push(flatCol(new THREE.IcosahedronGeometry(0.07, 0).translate(tb.x - 0.2 + R(-0.2, 0.2), 0.72, tb.z + R(-0.3, 0.3)), [0xff6f91, 0xff9eb5, 0xffd66e][i % 3]));
   // lantern string from the tent ridge across to the hammock post
   const l0 = tentAt.clone().setY(2.6), l1 = hA.clone().setY(2.5);
   for (let i = 1; i < 9; i++) { const t = i / 9, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45; lanternGlow.push(p); }
@@ -378,6 +383,19 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 const SLOTH = await glb("models/sloth.txt");
+// ---------------------------------------------------------------- the camp props from Blender (props/camp/build_camp.py): baked soft shadows in vertex colours
+if (PROPS !== "code") {
+  const P = await glb(`models/camp_${PROPS}.txt`), { tentAt, hA, hB, tb } = window.__camp;
+  const lam = new THREE.MeshLambertMaterial({ vertexColors: true });
+  P.scene.traverse((m) => { if (m.isMesh) m.material = lam; });
+  const put = (n, x, z, yaw, y = 0) => { const o = P.scene.getObjectByName(n).clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
+  put("Fire", 0, 0, 0);
+  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; put("Seat", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2); }
+  put("Tent", tentAt.x, tentAt.z, Math.atan2(-tentAt.x, -tentAt.z));
+  const hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA); put("Hammock", hm.x, hm.z, -Math.atan2(hd.z, hd.x));
+  put("Table", tb.x, tb.z, 0.6);
+  lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
+}
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
 const sloths = [], hit = [];
 let tinted = false;
@@ -520,6 +538,7 @@ $("rest").onclick = () => { duskTo = duskTo ? 0 : 1; $("rest").textContent = dus
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
 camera.far = 80;
+if (qs.has("pos")) { const [x, z] = qs.get("pos").split(",").map(Number); me.pos.set(x, 0, z); }
 if (qs.has("yaw")) me.yaw = +qs.get("yaw"); if (qs.has("pitch")) me.pitch = +qs.get("pitch");
 const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
 window.__stats = {};
