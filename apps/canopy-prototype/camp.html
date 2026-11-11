@@ -647,6 +647,7 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
   const side = V(Math.cos(wy), 0, -Math.sin(wy));                     // the pile's local +X (where the stump stands) in the world
   blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
   const a = A0 + Math.PI; put("SeatThings", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2);
+  if (PROPS === "picked") { const t = window.__camp.tentAt, ty = Math.atan2(-t.x, -t.z); put("TentSide", t.x, t.z, ty); put("MatRoll", t.x, t.z, ty); }   // wellies and the rolled mat on the planks by the door (tent frame)
   for (let i = 0; i < 3; i++) { const b = A0 + Math.PI + (i - 1) * 1.15; put("SeatTop", Math.cos(b) * 2.1, Math.sin(b) * 2.1, -b + Math.PI / 2); }   // the sawn top on each seat
 }
 // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,

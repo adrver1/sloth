@@ -72,6 +72,7 @@ def materials():
     return {k: mat(f"lv_{k}", c) for k, c in dict(
         bark=(0.3, 0.21, 0.14), bark2=(0.24, 0.17, 0.11), wood=(0.68, 0.52, 0.36), endgrain=(0.78, 0.62, 0.42), chip=(0.82, 0.68, 0.48),
         handle=(0.62, 0.45, 0.28), steel=(0.32, 0.33, 0.35), edge=(0.7, 0.71, 0.72),
+        rubber=(0.2, 0.36, 0.2), mud=(0.3, 0.21, 0.13), inside=(0.08, 0.08, 0.07),
         enamel=(0.97, 0.96, 0.92), rim=(0.16, 0.24, 0.45), cover=(0.5, 0.16, 0.13), page=(0.93, 0.9, 0.8), ink=(0.55, 0.52, 0.46), ribbon=(0.85, 0.7, 0.2)).items()}
 
 
@@ -466,13 +467,110 @@ def seat_top():
     return o
 
 
+# the tent side (props/camp/build_camp.py wall_tent, in the tent's own frame: x across, door toward -y, front wall at
+# y -0.95, loose planks before it with their tops at z 0.03). The doorway (|x| < 0.45) stays clear: you walk in there.
+PLANK = 0.03
+BOOT = [(-0.08, 0), (0.16, 0), (0.195, 0.035), (0.17, 0.08), (0.06, 0.105), (0.045, 0.3), (-0.075, 0.3), (-0.095, 0.06)]
+
+
+def boot(M, at, yaw, roll=0.0):
+    """A green welly: its side outline extruded 9 cm wide (about 30 triangles), cut at 7 cm so the bottom is mud,
+    the shaft top dark inside."""
+    bm = bmesh.new()
+    a = [bm.verts.new((x, -0.045, z)) for x, z in BOOT]
+    b = [bm.verts.new((x, 0.045, z)) for x, z in BOOT]
+    bm.faces.new(a[::-1])
+    bm.faces.new(b)
+    n = len(BOOT)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((a[i], a[j], b[j], b[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, 0.07), plane_no=(0, 0, 1))
+    me = bpy.data.meshes.new("boot")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("boot", me)
+    bpy.context.collection.objects.link(o)
+    for k in ("rubber", "mud", "inside"):
+        me.materials.append(M[k])
+    for pl in me.polygons:
+        c = pl.center
+        pl.material_index = 2 if pl.normal.z > 0.9 and c.z > 0.25 else 1 if c.z < 0.07 else 0
+    o.rotation_euler = (roll, 0, yaw)
+    o.scale = (1.25, 1.25, 1.25)                                 # grown-up size next to the tent door
+    o.location = at
+    return o
+
+
+def tent_side(M):
+    """A pair of muddy wellies kicked off on the planks right of the door, one fallen over."""
+    p = [boot(M, (0.8, -1.15, PLANK), 1.75), boot(M, (1.08, -1.28, PLANK + 0.056), 2.1, roll=math.pi / 2)]
+    mark(p, 0, "Wellies")
+    return join(p, "TentSide")
+
+
+def mat_roll(path):
+    """A rolled foam sleeping mat lying on the planks left of the door: an 8-sided prism (28 triangles) with the
+    straps painted on its side and the rolled spiral painted on its ends (mat_roll.png)."""
+    from PIL import Image, ImageDraw
+    k = 4
+    im = Image.new("RGB", (128 * k, 64 * k), (64, 128, 176))
+    d = ImageDraw.Draw(im)
+    for x in range(0, 64 * k, 6 * k):                         # the foam's ridges along the roll (left half: the side)
+        d.line((x, 0, x, 64 * k), fill=(52, 110, 156), width=2 * k)
+    for y in (12, 46):                                         # two straps round it
+        d.rectangle((0, y * k, 64 * k, (y + 6) * k), fill=(48, 44, 40))
+        d.rectangle((0, (y + 1) * k, 64 * k, (y + 2) * k), fill=(80, 74, 66))
+    d.rectangle((64 * k, 0, 128 * k, 64 * k), fill=(40, 90, 130))   # the end: the rolled layers as a spiral
+    cx, cy = 96 * k, 32 * k
+    pts = []
+    for i in range(400):
+        t = i / 400 * 5 * 2 * math.pi
+        r = (2 + 28 * i / 400) * k
+        pts.append((cx + r * math.cos(t), cy + r * math.sin(t)))
+    d.line(pts, fill=(92, 156, 204), width=3 * k)
+    im.resize((128, 64), Image.LANCZOS).save(path)
+    L, r, sides = 0.6, 0.075, 8
+    x0, y0 = -0.95, -1.2
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    ang = [2 * math.pi * (i + 0.5) / sides for i in range(sides)]
+    ends = [[bm.verts.new((x0 + s * L / 2, y0 + r * math.cos(t), PLANK + r * math.cos(math.pi / sides) + r * math.sin(t))) for t in ang] for s in (-1, 1)]
+    for i in range(sides):
+        j = (i + 1) % sides
+        f = bm.faces.new((ends[0][i], ends[1][i], ends[1][j], ends[0][j]))
+        for lp, (u, v) in zip(f.loops, ((i / sides, 0), (i / sides, 1), ((i + 1) / sides, 1), ((i + 1) / sides, 0))):
+            lp[uv].uv = (u * 0.5, v)                           # the side half of the image, straps across v
+    for s, ring in ((-1, ends[0][::-1]), (1, ends[1])):
+        f = bm.faces.new(ring)
+        for lp in f.loops:
+            t = ang[(ends[0] if s < 0 else ends[1]).index(lp.vert)]
+            lp[uv].uv = (0.75 + 0.235 * math.cos(t) * s, 0.5 + 0.47 * math.sin(t))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
+    me = bpy.data.meshes.new("MatRoll")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("MatRoll", me)
+    bpy.context.collection.objects.link(o)
+    m = bpy.data.materials.new("MatRoll")
+    m.use_nodes = True
+    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
+    tx.image = bpy.data.images.load(path)
+    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    me.materials.append(m)
+    return o
+
+
 def build(samples, parts_out=None):
     reset()
     M = materials()
     stack = wood_stack(M, max(samples, 48))
     loose = loose_logs()
     top = seat_top()
-    objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M)}
+    roll = mat_roll(os.path.join(HERE, "mat_roll.png"))
+    objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M), "TentSide": tent_side(M)}
     for k, o in objs.items():
         apply_all(o)
         o.location = (0, 0, 0)
@@ -483,13 +581,14 @@ def build(samples, parts_out=None):
             o.data.uv_layers.remove(o.data.uv_layers[0])
     path = os.path.join(HERE, "lived.glb")
     bpy.ops.object.select_all(action="DESELECT")
-    for o in [*objs.values(), stack, loose, top]:
+    for o in [*objs.values(), stack, loose, top, roll]:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
                               export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
                               export_image_format="JPEG")
     print(f"  WoodStack: {sum(len(pl.vertices) - 2 for pl in stack.data.polygons)} triangles")
     print(f"  LooseLogs: {sum(len(pl.vertices) - 2 for pl in loose.data.polygons)} triangles")
+    print(f"  MatRoll: {sum(len(pl.vertices) - 2 for pl in roll.data.polygons)} triangles")
     print(f"  SeatTop: {sum(len(pl.vertices) - 2 for pl in top.data.polygons)} triangles (x3 seats on the page)")
     for k, o in objs.items():
         print(f"  {k}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
