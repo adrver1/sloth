@@ -739,7 +739,8 @@ for (const c of branchCurves.filter((c) => c.low)) {
 // Adriaen 2026-11-11: the camp spots stay empty until a sloth is befriended. Then that same sloth (flower crown and all)
 // lowers itself from its branch on a vine and crawls slowly over the ground to the next free spot, in this order:
 // the hammock (climbs its post and the rope into it, naps on its back, eyes shut, zzz; the hammock sways gently all the time), then the log seat right of the
-// gap (sits and slowly reaches for the kettle), then the jeep's passenger seat (in through the open door, curls up asleep). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
+// gap (sits and slowly reaches for the kettle), then the jeep's passenger seat (in through the open door, curls up asleep),
+// then the laundry line (climbs the end post, goes hand over hand along the line, brushing the towel aside, to the gap and hangs there). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
 // Befriending belongs to the camp activities: it fires window event "sloth-befriended" with detail.id = index into sloths.
 // ?campsloths=0 turns the spots off; window.__campFast speeds the trips up for checks.
 let hammockSway = null, campStep = () => {};
@@ -800,6 +801,30 @@ if (qs.get("campsloths") !== "0") {
     spots.push({ name: "jeep", parent: J.node, at: seatL.clone().add(V(0, -0.01, 0.04)), yaw: Math.PI, clip: "curl", scale: 1.7, asleep: true, car: true, ignore: 2.2,
       sill: sillL, door: J.node.localToWorld(sillL.clone().add(V(0.5, 0, 0))).setY(0) });
   }
+  // the laundry line (thread "lived-in props", window.__laundry): it crawls round to the outer side of post a, climbs it
+  // facing along the line, swings under the line and goes hand over hand along the sag to the gap at hang, then hangs there
+  // as on its old branch (cling). The towel and socks swing aside round the line as it brushes past them (vertex shader).
+  const LL = window.__laundry;
+  if (LL) {
+    const sc = 1.7;
+    spots.push({ name: "line", parent: scene, clip: "cling", scale: sc, line: true, climb: true, ignore: 0.6,
+      door: LL.a.clone().setY(0).addScaledVector(LL.dir, -0.1 * sc), climbYaw: Math.atan2(-LL.dir.x, -LL.dir.z), top: LL.a.y - 0.2 * sc,
+      t: Math.max(0, Math.min(1, LL.hang.clone().sub(LL.a).dot(LL.dir) / LL.a.distanceTo(LL.b))) });
+    const cloth = scene.getObjectByName("LaundryCloth");
+    if (cloth?.material) {
+      const L = LL.a.distanceTo(LL.b), u = { uX: { value: 0 }, uPush: { value: 0 } }, mat = cloth.material;
+      mat.onBeforeCompile = (sh) => {
+        Object.assign(sh.uniforms, u);
+        sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uX, uPush;").replace("#include <begin_vertex>", `#include <begin_vertex>
+          float lt = transformed.x / ${L.toFixed(3)} + 0.5, ly = ${LL.a.y.toFixed(3)} - ${LL.sag.toFixed(3)} * 4.0 * lt * (1.0 - lt);
+          float sw = -1.1 * uPush * (1.0 - smoothstep(0.2, 0.45, abs(transformed.x - uX)));
+          vec2 q = transformed.yz - vec2(ly, 0.0); float cs = cos(sw), sn = sin(sw);
+          transformed.yz = vec2(ly, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
+      };
+      mat.needsUpdate = true;
+      LL.brush = (p, on, dt) => { u.uX.value = cloth.worldToLocal(p.clone()).x; u.uPush.value += ((on ? 1 : 0) - u.uPush.value) * Math.min(1, dt * 2); };
+    }
+  }
   const UP = V(0, 1, 0), q0 = new THREE.Quaternion(), tmp = V();
   // the hammock route, in the swing's frame (x along the span, the knots on the pivot line): up the -x post to its rope knot
   // (x -1.43, y 0), then hand over hand down the rope to the sling's end (x -1.03, y -0.40), hanging back-down under it
@@ -812,6 +837,13 @@ if (qs.get("campsloths") !== "0") {
     m4.makeBasis(xl, yl, zl);
     return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: KNOT.clone().addScaledVector(ROPE, u).sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
   }
+  function linePose(s, t) {                           // hanging back-down under the laundry line at fraction t from a, its head toward b
+    const L = LL.a.distanceTo(LL.b), y = (k) => LL.a.y - LL.sag * 4 * k * (1 - k);
+    const at = LL.a.clone().addScaledVector(LL.dir, L * t).setY(y(t)), tan = LL.dir.clone().setY((y(t + 0.01) - y(t)) / (0.01 * L)).normalize();
+    const yl = tan.clone().setY(tan.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
+    m4.makeBasis(xl, yl, zl);
+    return { at, q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
+  }
   function play(s, name, fade, timeScale = 1) {
     const next = s.mixer.clipAction(clipOf(name)); if (s.act === next) return;
     next.reset(); next.timeScale = timeScale; next.play();
@@ -819,7 +851,7 @@ if (qs.get("campsloths") !== "0") {
     s.act = next;
   }
   addEventListener("sloth-befriended", (e) => {
-    const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);   // hammock, then the log seat, then the jeep
+    const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);   // hammock, then the log seat, then the jeep, then the line
     if (!s || s.trip || !spot) return;
     spot.who = s; s.sc = SL;
     s.act = s.mixer.existingAction(clipOf("cling"));
@@ -890,15 +922,19 @@ if (qs.get("campsloths") !== "0") {
           }
         } else if (T.phase === "climb") {             // up the post hand over hand, about 15 s, until its arms reach the rope knot
           if (T.t < sd + 1e-6) play(s, "hang_walk", 1.2, 2.5);
-          let dy = climbYaw - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+          let dy = (spot.climbYaw ?? climbYaw) - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
           T.yaw += dy * Math.min(1, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
-          const top = PIV - 0.2 * s.sc;
+          const top = spot.top ?? PIV - 0.2 * s.sc;
           s.o.position.y = Math.min(top, s.o.position.y + 0.015 * 2.5 * s.sc * sd * Math.min(1, T.t / 1.5));
           if (s.o.position.y >= top) { T.phase = "turn"; T.t = 0; spot.parent.attach(s.o); T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); }
-        } else if (T.phase === "turn") {              // about 3 s: swings round from the post to hang under the rope
-          const k = Math.min(1, T.t / 3), e = k * k * (3 - 2 * k), R0 = ropePose(s, 0.1);
+        } else if (T.phase === "turn") {              // about 3 s: swings round from the post to hang under the rope (or the line)
+          const k = Math.min(1, T.t / 3), e = k * k * (3 - 2 * k), R0 = spot.line ? linePose(s, 0.05) : ropePose(s, 0.1);
           s.o.position.lerpVectors(T.from, R0.p, e); s.o.quaternion.slerpQuaternions(T.q, R0.q, e);
-          if (k >= 1) { T.phase = "rope"; T.t = 0; T.u = 0.1; }
+          if (k >= 1) { T.phase = spot.line ? "line" : "rope"; T.t = 0; T.u = spot.line ? 0.05 : 0.1; }
+        } else if (T.phase === "line") {              // hand over hand along the line to the gap, about 0.06 m/s
+          T.u = Math.min(spot.t, T.u + 0.015 * 2.5 * s.sc * sd / LL.a.distanceTo(LL.b)); const P = linePose(s, T.u);
+          s.o.position.copy(P.p); s.o.quaternion.copy(P.q); LL.brush?.(P.at, true, sd);
+          if (T.u >= spot.t) { T.phase = "home"; spot.home = true; play(s, "cling", 3, 0.6); }
         } else if (T.phase === "rope") {              // down the rope to the sling's end, about 6 s
           T.u = Math.min(ROPE_L - 0.05, T.u + 0.015 * 2.5 * s.sc * sd); const R1 = ropePose(s, T.u);
           s.o.position.copy(R1.p); s.o.quaternion.copy(R1.q);
@@ -915,6 +951,7 @@ if (qs.get("campsloths") !== "0") {
           if (k >= 1) { T.phase = "home"; spot.home = true; }
         }
       }
+      if (spot.line && T?.phase === "home") LL.brush?.(s.o.position, false, dt);   // the towel swings back
       // the hit sphere and the point hearts and words fly to follow the sloth
       s.o.getWorldPosition(s.box.position).y += 0.25 * s.sc / SL; s.p.copy(s.box.position);
     }
