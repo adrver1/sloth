@@ -413,32 +413,21 @@ def seat_things(M):
 
 
 def seat_top_texture(path):
-    """The sawn top of the half-log seat (1.48 x 0.46 m): pale wood with grain running along the log, a couple of
-    knots with the grain bending round them, a drying crack, and the sawn edges a little darker and worn."""
+    """The sawn top of the half-log seat (1.48 x 0.46 m): pale wood with grain running along the log (no knots,
+    Adriaen), a drying crack, and the sawn edges a little darker and worn."""
     from PIL import Image, ImageDraw, ImageFilter
     r = random.Random(5)
     k, W, H = 2, 1024, 320
     im = Image.new("RGB", (W * k, H * k), (206, 168, 120))
     d = ImageDraw.Draw(im)
-    knots = [(0.27, 0.62, 18), (0.71, 0.3, 13)]
-    for i in range(46):                                       # grain lines along the log, wavy and bending round knots
+    for i in range(46):                                       # grain lines along the log, gently wavy
         y0, col = r.uniform(0, H), r.choice([(186, 146, 100), (176, 136, 92), (222, 188, 142), (194, 154, 108)])
         ph, amp, w = r.uniform(0, 6.3), r.uniform(1, 4), r.choice([1, 1, 2, 2, 3])
         pts = []
         for x in range(0, W + 8, 8):
             y = y0 + amp * math.sin(x / r.uniform(60, 140) + ph)
-            for kx, ky, kr in knots:
-                dx, dy = x - kx * W, y - ky * H
-                dd = math.hypot(dx, dy)
-                if dd < kr * 4:
-                    y += (1 if dy >= 0 else -1) * kr * 1.6 * (1 - dd / (kr * 4)) ** 2
             pts.append((x * k, y * k))
         d.line(pts, fill=col, width=w * k)
-    for kx, ky, kr in knots:                                  # knots: dark ringed ovals
-        cx, cy = kx * W * k, ky * H * k
-        for j, c in enumerate([(120, 84, 52), (150, 108, 70), (104, 70, 42)]):
-            rr = kr * k * (1 - j * 0.3)
-            d.ellipse((cx - rr * 1.5, cy - rr, cx + rr * 1.5, cy + rr), fill=c)
     pts = [(W * 0.52 * k, H * 0.5 * k)]                         # a drying crack from one sawn end
     x, y = W * 0.52, H * 0.5
     while x < W:
