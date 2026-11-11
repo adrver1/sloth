@@ -481,6 +481,19 @@ if (PROPS !== "code") {
   put("Table", tb.x, tb.z, 0.6);
   lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
 }
+// ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile with a hatchet in its
+// chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
+// rustic seats (Our camp, Rustic); ?lived=0 hides them to compare.
+if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
+  const L = await glb("models/lived.txt"), lm = new THREE.MeshLambertMaterial({ vertexColors: true });
+  L.scene.traverse((m) => { if (m.isMesh) m.material = lm; });
+  const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
+  const wp = V(-0.55, 0, -3.15), wy = Math.atan2(-wp.x, -wp.z);
+  put("WoodPile", wp.x, wp.z, wy);
+  const side = V(Math.cos(wy), 0, -Math.sin(wy));                     // the pile's local +X (where the stump stands) in the world
+  blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
+  const a = A0 + Math.PI; put("SeatThings", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2);
+}
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
 // between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge,
 // its right side (the camper's ladder) toward the fire
