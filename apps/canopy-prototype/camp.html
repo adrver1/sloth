@@ -50,7 +50,11 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { furify } from "./fur.js";
 import { createAtmosphere } from "./atmosphere.js";
+<<<<<<< HEAD
 import { createActivities } from "./activities.js";
+=======
+import { createGround } from "./ground.js";
+>>>>>>> origin/claude/project-thread-0gu16b
 
 const qs = new URLSearchParams(location.search);
 const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
@@ -203,13 +207,6 @@ const domeTex = canvasTex(1024, 1024, (g, w, h) => {
       const b = g.createRadialGradient(px, py, 0, px, py, rr); b.addColorStop(0, col + ".75)"); b.addColorStop(0.6, col + ".45)"); b.addColorStop(1, col + "0)");
       g.fillStyle = b; g.fillRect(px - rr, py - rr, rr * 2, rr * 2);
     }
-  }
-  const leafC = new THREE.Color(S.fog[0]).lerp(new THREE.Color(S.leaf[2]), 0.55);   // leaves overhanging the rim, misted like the backdrop
-  for (let i = 0; i < 260; i++) {
-    const a = R(0, 6.28), r = R(0.8, 1.02) * c, x = c + Math.cos(a) * r, y = c + Math.sin(a) * r;
-    g.fillStyle = leafC.clone().multiplyScalar(R(0.85, 1.1)).getStyle(); g.beginPath();
-    if (LOOK === "low") { g.moveTo(x, y - 18); g.lineTo(x + 16, y + 12); g.lineTo(x - 16, y + 12); } else g.ellipse(x, y, R(8, 16), R(20, 34), a + R(-0.6, 0.6), 0, 7);
-    g.fill();
   }
 });
 const domeGeo = new THREE.SphereGeometry(30, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
@@ -418,9 +415,10 @@ const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump)
 {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
   for (const [x, y, z, r] of clumps) for (let k = 0; k < perClump; k++) {
-    const u = V(R(-1, 1), R(-0.5, 0.8), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()));
+    const tight = LOOK === "moss" && y > 4 ? 0.6 : 1;                  // up in the crowns: leaves packed close and bigger, so they overlap into a mass
+    const u = V(R(-1, 1), R(-0.5, 0.8) * (tight < 1 ? 0.7 : 1), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()) * tight);
     e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
-    const s = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33);
+    const s = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 / tight : r * 0.9) * Math.pow(D.leaves, -0.33);
     const k0 = y + u.y < 4.5 && trackDist(x + u.x, z + u.z) < 1.9 ? 0 : s;   // keep the track open at eye height
     m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); leaves.setMatrixAt(i, m);
     leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
@@ -457,7 +455,7 @@ scene.add(leaves);
     if (ts) {                                                           // a forest tree's side clump: one limb up and out from the trunk
       const top = wall.find((w) => w[0] === tx && w[1] === tz)?.[3]; if (!top) continue;
       const y0 = Math.min(cy - Q(1.5, 2.5), top - 1.5), p1 = V(cx, cy - r * 0.25, cz);
-      limb(V(tx, y0, tz).addScaledVector(p1.clone().setY(y0).sub(V(tx, y0, tz)).normalize(), 0.2 * ts), p1, 0.2 * ts, 0.07 * ts, 0);
+      limb(V(tx, y0, tz).addScaledVector(p1.clone().setY(y0).sub(V(tx, y0, tz)).normalize(), 0.2 * ts), p1, 0.2 * ts, 0.07 * ts, twigs + 1);
     } else {                                                            // a big tree's crown clump: limbs from the top of the trunk
       const p1 = V(cx, cy - 0.4, cz), dir = p1.clone().setY(0).sub(V(tx, 0, tz)).normalize();
       limb(V(tx, TOP - 3.2, tz).addScaledVector(dir, 0.4), p1, 0.32, 0.1, twigs);
@@ -469,7 +467,7 @@ scene.add(leaves);
     for (let i = 0; i < n; i++) {
       const a = a0 + (i / n) * 6.28 + Q(-0.3, 0.3), out = Q(1.6, 3.2) * s, y0 = top * Q(0.78, 0.9);
       const p1 = V(x + Math.cos(a) * out, top + Q(0.3, 1.8) * s, z + Math.sin(a) * out);
-      limb(V(x + Math.cos(a) * 0.2 * s, y0, z + Math.sin(a) * 0.2 * s), p1, 0.2 * s, 0.07 * s, twigs);
+      limb(V(x + Math.cos(a) * 0.2 * s, y0, z + Math.sin(a) * 0.2 * s), p1, 0.2 * s, 0.07 * s, twigs + 1);
       tops.push([p1.x, p1.y + 0.3, p1.z, Q(1.2, 1.8) * s]);
     }
     tops.push([x, top + 0.4, z, 1.3 * s]);                              // covers the cut top of the trunk
@@ -478,9 +476,9 @@ scene.add(leaves);
   // fewer leaves per crown for the big ball leaves of the other looks
   const per = (f) => LOOK === "moss" ? Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)) : f ? 0 : 1, lm = new THREE.InstancedMesh(leafGeo, leafM, tops.reduce((n, t) => n + per(t[4]), 0)), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
   for (const [x, y, z, r, f] of tops) for (let k = 0; k < per(f); k++) {
-    const u = V(Q(-1, 1), Q(-0.4, 0.8), Q(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q(0, 1)));
+    const u = V(Q(-1, 1), Q(-0.3, 0.6), Q(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q(0, 1)) * (LOOK === "moss" ? 0.65 : 1));
     e.set(Q(0, 6.28), Q(0, 6.28), Q(0, 6.28)); q.setFromEuler(e);
-    const sc = Q(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33);
+    const sc = Q(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1.5 : r * 0.9) * Math.pow(D.leaves, -0.33);
     m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); lm.setMatrixAt(i, m);
     lm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
@@ -665,16 +663,46 @@ if (PROPS === "picked" && qs.get("fire") !== "old") {
   }
 }
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
-// between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge,
-// its right side (the camper's ladder) toward the fire
+// between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge, its
+// passenger side (local +X, the camper's ladder) toward the fire. Its three doors open and close when you tap them:
+// DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
+// uses window.__jeep: open/close/isOpen("P" | "D" | "B"), seat (passenger cushion top), sill (passenger door sill),
+// cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions.
+let jeepStep = () => {}, jeepTap = () => false;
 if (JEEP !== "none") {
   const J = await glb(`models/jeep_${JEEP}.txt`), at = JEEP_AT, out = JEEP_OUT, tan = JEEP_TAN;
-  const jeep = J.scene.getObjectByName("Jeep");
+  const jeep = J.scene;
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
   jeep.traverse((m) => { if (m.isMesh) m.material = jm; });
-  jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep);
+  jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
   for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
   if (JEEP === "camper") blockers.push([at.clone().addScaledVector(out, -2.3), 0.4]);   // the ladder foot
+  const D3 = { P: ["DoorP", -1.2], D: ["DoorD", 1.2], B: ["BackDoor", 1.75] }, doors = {};   // how far each swings (rad), as in build_jeep.py
+  for (const [k, [n, open]] of Object.entries(D3)) { const o = jeep.getObjectByName(n); if (o) doors[k] = { o, open, cur: 0, want: 0 }; }
+  const world = (n) => jeep.getObjectByName(n)?.getWorldPosition(V()) ?? at.clone();
+  const local = (x, y, z) => jeep.localToWorld(V(x, y, z));
+  const boot = jeep.getObjectByName("Boot")?.position ?? V(0, 0.78, -1.06);
+  jeepStep = (dt) => {
+    for (const d of Object.values(doors)) {
+      if (d.cur === d.want) continue;
+      const step = dt * 1.8; d.cur += Math.max(-step, Math.min(step, d.want - d.cur));
+      const k = d.cur / d.open, e = k * k * (3 - 2 * k);                // ease in and out
+      d.o.rotation.y = d.open * e;
+    }
+  };
+  const meshes = []; for (const d of Object.values(doors)) d.o.traverse((m) => { if (m.isMesh) { m.userData.door = d; meshes.push(m); } });
+  jeepTap = (x, y) => {
+    const h = pickAt(x, y, meshes); if (!h) return false;
+    if (h.distance > 6) { toast("Get a bit closer"); return true; }
+    const d = h.object.userData.door; d.want = d.want ? 0 : d.open; return true;
+  };
+  window.__jeep = {
+    node: jeep,
+    open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
+    isOpen: (w = "B") => !!doors[w] && Math.abs(doors[w].cur) > Math.abs(doors[w].open) * 0.8,
+    seat: world("SeatP"), sill: world("DoorSill"), cargo: world("Boot"),
+    cargoSlots: [[-0.3, -0.75], [0.3, -0.75], [-0.3, -1.3], [0.3, -1.3]].map(([x, z]) => local(x, boot.y, z)),
+  };
 }
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
 const sloths = [], hit = [];
@@ -702,7 +730,7 @@ for (const c of branchCurves.filter((c) => c.low)) {
 // Adriaen 2026-11-11: the camp spots stay empty until a sloth is befriended. Then that same sloth (flower crown and all)
 // lowers itself from its branch on a vine and crawls slowly over the ground to the next free spot, in this order:
 // the hammock (climbs its post and the rope into it, naps on its back, eyes shut, zzz; the hammock sways gently all the time), then the log seat right of the
-// gap (sits and slowly reaches for the kettle). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
+// gap (sits and slowly reaches for the kettle), then the jeep's passenger seat (in through the open door, curls up asleep). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
 // Befriending belongs to the camp activities: it fires window event "sloth-befriended" with detail.id = index into sloths.
 // ?campsloths=0 turns the spots off; window.__campFast speeds the trips up for checks.
 let hammockSway = null, campStep = () => {};
@@ -753,6 +781,16 @@ if (qs.get("campsloths") !== "0") {
       door: hA.clone().setY(0).addScaledVector(inward, 0.1 * 2.2), climb: true },   // the foot of the -x post, fire side: climbs it, then the rope
     { name: "seat", parent: seat, at: V(0, 0, 0), yaw: 0, clip: "reach", scale: 1.9, door: at.clone().setY(0).addScaledVector(at.clone().setY(0).normalize(), -0.6) },
   ];
+  // the jeep (thread "jeep"): it waits outside the passenger door, which opens for it (window.__jeep), clambers onto the
+  // sill and onto the passenger seat, and curls up asleep there facing forward. In the jeep's frame: +Z ahead, passenger
+  // side +X, cushion top (0.36, 0.86, -0.18), sill (0.8, 0.56, -0.13).
+  const J = window.__jeep;
+  if (J?.node) {
+    J.node.updateMatrixWorld(true);
+    const sillL = J.node.worldToLocal(J.sill.clone()), seatL = J.node.worldToLocal(J.seat.clone());
+    spots.push({ name: "jeep", parent: J.node, at: seatL.clone().add(V(0, -0.01, 0.04)), yaw: Math.PI, clip: "curl", scale: 1.7, asleep: true, car: true, ignore: 2.2,
+      sill: sillL, door: J.node.localToWorld(sillL.clone().add(V(0.5, 0, 0))).setY(0) });
+  }
   const UP = V(0, 1, 0), q0 = new THREE.Quaternion(), tmp = V();
   // the hammock route, in the swing's frame (x along the span, the knots on the pivot line): up the -x post to its rope knot
   // (x -1.43, y 0), then hand over hand down the rope to the sling's end (x -1.03, y -0.40), hanging back-down under it
@@ -772,7 +810,7 @@ if (qs.get("campsloths") !== "0") {
     s.act = next;
   }
   addEventListener("sloth-befriended", (e) => {
-    const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);
+    const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);   // hammock, then the log seat, then the jeep
     if (!s || s.trip || !spot) return;
     spot.who = s; s.sc = SL;
     s.act = s.mixer.existingAction(clipOf("cling"));
@@ -784,11 +822,11 @@ if (qs.get("campsloths") !== "0") {
     play(s, "hang_walk", 1.2, 1.4);
   });
   // steer round the fire, tent, posts, seats, table and trees (the blockers you walk round), sliding along them
-  function steer(pos, door) {
+  function steer(pos, door, ignore = 1.3) {
     const want = door.clone().sub(pos).setY(0), d = want.length(); want.divideScalar(Math.max(d, 1e-4));
     const out = want.clone();
     for (const [c, r] of blockers) {
-      if (c.distanceTo(door) < 1.3) continue;                          // what it is crawling up to
+      if (c.distanceTo(door) < ignore) continue;                          // what it is crawling up to
       tmp.set(pos.x - c.x, 0, pos.z - c.z); const k = tmp.length(), reach = r + 0.55;
       if (k > reach || k < 1e-4) continue;
       tmp.divideScalar(k); const w = (reach - k) / reach * 3;
@@ -813,16 +851,32 @@ if (qs.get("campsloths") !== "0") {
           T.vine.material.opacity = 1 - sstep(0.85, 1, k); T.vine.material.transparent = true;
           if (k >= 1) { T.phase = "crawl"; T.t = 0; T.yaw = face; scene.remove(T.vine); play(s, "walk", 1.5, 2.2); }
         } else if (T.phase === "crawl") {             // a slow belly crawl, about 0.15 m/s
-          const pos = s.o.position, dir = steer(pos, spot.door), v = 0.027 * 2.2 * s.sc;
+          const pos = s.o.position, dir = steer(pos, spot.door, spot.ignore), v = 0.027 * 2.2 * s.sc;
           const want = Math.atan2(-dir.x, -dir.z); let dy = want - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
           T.yaw += dy * Math.min(1, sd * 1.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
           pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v * sd);
           s.sc += (spot.scale - s.sc) * Math.min(1, sd * 0.05); s.o.scale.setScalar(s.sc);
           if (pos.distanceTo(spot.door) < 0.12 + v * sd && spot.climb) { T.phase = "climb"; T.t = 0; pos.copy(spot.door); }
+          else if (pos.distanceTo(spot.door) < 0.12 + v * sd && spot.car) { T.phase = "door"; T.t = 0; pos.copy(spot.door); window.__jeep.open("P"); }
           else if (pos.distanceTo(spot.door) < 0.12 + v * sd) {
             T.phase = "settle"; T.t = 0; spot.parent.attach(s.o);
             T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); T.sc0 = s.sc;
             play(s, spot.clip, 2.5);
+            if (spot.asleep) shutEyes(s.o);
+          }
+        } else if (T.phase === "door") {              // waits, facing the door, until it has swung open
+          const sill = spot.parent.localToWorld(spot.sill.clone()), want = Math.atan2(-(sill.x - s.o.position.x), -(sill.z - s.o.position.z));
+          let dy = want - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+          T.yaw += dy * Math.min(1, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+          if (!window.__jeep.isOpen("P")) window.__jeep.open("P");
+          else if (T.t > 2) { T.phase = "clamber"; T.t = 0; T.from = s.o.position.clone(); T.to = sill; play(s, "hang_walk", 1, 2); }
+        } else if (T.phase === "clamber") {           // about 4 s: hauls itself up onto the door sill
+          const k = Math.min(1, T.t / 4), e = k * k * (3 - 2 * k);
+          s.o.position.lerpVectors(T.from, T.to, e); s.o.position.y += Math.sin(Math.PI * k) * 0.1;
+          s.o.quaternion.setFromAxisAngle(UP, T.yaw).multiply(q0.setFromAxisAngle(V(1, 0, 0), -0.5 * Math.sin(Math.PI * k)));
+          if (k >= 1) {
+            T.phase = "settle"; T.t = 0; spot.parent.attach(s.o); T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); T.sc0 = s.sc;
+            play(s, spot.clip, 3);
             if (spot.asleep) shutEyes(s.o);
           }
         } else if (T.phase === "climb") {             // up the post hand over hand, about 15 s, until its arms reach the rope knot
@@ -974,9 +1028,13 @@ const lookEnd = (e) => {
 $("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
 addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.deltaY * 0.02, -20, 6); resize(); }, { passive: true });
 function tap(x, y) {
+<<<<<<< HEAD
   const h = pickAt(x, y, hit), a = acts.pick(ray);            // camp activities (activities.js) win when they are nearer than a sloth
   if (a && (!h || a.distance < h.distance)) { acts.tap(a); return; }
   if (!h) return;
+=======
+  const h = pickAt(x, y, hit); if (!h) { jeepTap(x, y); return; }
+>>>>>>> origin/claude/project-thread-0gu16b
   if (h.distance < 7) boop(h.object.userData.s); else toast("Get a bit closer");
 }
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
@@ -993,6 +1051,9 @@ function feed(s) {
 
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
+// wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
+const groundLife = createGround({ scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, trackDist, trackPts: track ? track.pts : [] });
+window.__ground = groundLife;
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
 window.__atmo = atmo;
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
@@ -1028,6 +1089,7 @@ renderer.setAnimationLoop(() => {
     if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
   }
   campStep(dt);
+  jeepStep(dt);
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
     if (f.fly) { const e = Math.min(1, f.t / f.life), k = e * e * (3 - 2 * e); f.s.position.lerpVectors(f.fly.from, f.fly.to, k); f.s.position.y += Math.sin(k * Math.PI) * 0.4; }
@@ -1065,4 +1127,3 @@ window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
 window.__scene = scene;
 window.__ready = true;
 </script>
-

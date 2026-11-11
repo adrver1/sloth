@@ -30,7 +30,7 @@ import build_lived  # noqa: E402  (shared helpers; its light densify is replaced
 import build_camp  # noqa: E402
 from build_camp import (apply_all, bake, bamboo, box, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
 
-build_camp.densify = apply_all          # no face splitting for the AO bake: the fire and pot are small enough that the plain faces shade fine
+build_camp.densify = lambda o, *_: apply_all(o)   # no face splitting for the AO bake: the fire and pot are small enough that the plain faces shade fine
 
 rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
@@ -87,13 +87,13 @@ def ring(M):
         big = sr.random() < 0.3
         r = sr.uniform(0.15, 0.2) if big else sr.uniform(0.08, 0.14)
         stones.append((a, r))
-        a += r * sr.uniform(1.5, 3.0) / 0.62
+        a += r * sr.uniform(1.7, 2.6) / 0.62
     for i, (a, r) in enumerate(stones):
-        d = 0.6 + 0.08 * math.sin(2 * a + w1) + 0.05 * math.sin(3 * a + w2) + sr.uniform(-0.09, 0.09)
+        d = 0.6 + 0.045 * math.sin(2 * a + w1) + 0.03 * math.sin(3 * a + w2) + sr.uniform(-0.05, 0.05)
         on_edge = sr.random() < 0.3
         sc = (sr.uniform(0.9, 1.7), sr.uniform(0.6, 1.1), sr.uniform(0.9, 1.25) if on_edge else sr.uniform(0.45, 0.8))
         s = stone(r, (math.cos(a) * d, math.sin(a) * d, r * sc[2] * sr.uniform(0.15, 0.45)), sc, M["stone" if sr.random() < 0.65 else "stone2"], sr)
-        s.rotation_euler = (sr.uniform(-0.5, 0.5), sr.uniform(-0.5, 0.5), sr.uniform(0, 2 * math.pi))
+        s.rotation_euler = (sr.uniform(-0.35, 0.35), sr.uniform(-0.35, 0.35), sr.uniform(0, 2 * math.pi))
         p.append(s)
     for k in range(3):                                             # a few small ones tucked in the gaps or propped on a neighbour
         a0, r0 = stones[sr.randrange(len(stones))]
