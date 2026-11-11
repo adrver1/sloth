@@ -47,7 +47,8 @@ lmid = ((LA[0] + LB[0]) / 2, (LA[1] + LB[1]) / 2)
 lyaw = math.atan2(-(LB[1] - LA[1]), LB[0] - LA[0])
 PLACE = {
     "lived": {"WoodPile": (wp[0], wp[1], wy), "WoodStack": (wp[0], wp[1], wy), "LooseLogs": (wp[0], wp[1], wy),
-              "SeatThings": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2)},
+              "SeatThings": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2),
+              "SeatTop": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2)},   # SeatTop: baked on the middle seat, used on all three
     "fire": {n: (0, 0, 0) for n in ("Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain")},
     "laundry": {"LaundryPosts": (lmid[0], lmid[1], lyaw), "LaundryCloth": (lmid[0], lmid[1], lyaw)},
 }
