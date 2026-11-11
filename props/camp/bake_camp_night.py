@@ -92,7 +92,7 @@ for i, p in enumerate(lanterns):
     point(f"LanternLight_{i}", B(p[0], p[1] - 0.12, p[2]), (1.0, 0.72, 0.38), 50, 0.05)
 tent = next(o for o in placed if o.name == "Tent")
 bpy.context.view_layer.update()
-point("StoveLight", tent.matrix_world @ Vector(bc["STOVE"]), (1.0, 0.5, 0.2), 45, 0.12)   # the wood stove inside the walk-in tent
+point("StoveLight", tent.matrix_world @ (Vector(bc["STOVE"]) + Vector((-0.35, 0, -0.1))), (1.0, 0.55, 0.15), 22, 0.12)   # the wood stove in the walk-in tent: amber, just out of its fire door
 moon = bpy.data.lights.new("Moon", "SUN"); moon.color = (0.55, 0.65, 1.0); moon.energy = 0.12; moon.angle = math.radians(2)
 mo = bpy.data.objects.new("Moon", moon); mo.rotation_euler = (math.radians(40), 0, math.radians(-120))
 bpy.context.collection.objects.link(mo); lights.append(mo)
@@ -132,7 +132,7 @@ for o in placed:
             k = 0.32 + 0.68 * A.data[li].color[0]
             day.data[li].color = (base.x * k, base.y * k, base.z * k, 1)
             c = L.data[li].color
-            night.data[li].color = ((1.0, 0.55, 0.22, 1) if m.name == "wt_glow" else (1.0, 0.82, 0.48, 1)) if glow else (tone(base.x * c[0]), tone(base.y * c[1]), tone(base.z * c[2]), 1)
+            night.data[li].color = ((1.0, 0.6, 0.18, 1) if m.name == "wt_glow" else (1.0, 0.82, 0.48, 1)) if glow else (tone(base.x * c[0]), tone(base.y * c[1]), tone(base.z * c[2]), 1)
     for n in ("A", "L"):                                          # by name: held references go stale as layers are removed
         me.color_attributes.remove(me.color_attributes[n])
     me.color_attributes.active_color = me.color_attributes["Col"]

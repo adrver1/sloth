@@ -432,15 +432,16 @@ STOVE = (1.0, 0.85, 0.42)        # the stove's fire, in the tent's own frame (ba
 def wall_tent():
     """Adriaen's pick (2026-11-11, from two photos): a white canvas wall tent you can walk into. Straight side walls,
     a ridge pole on wide A-frames of crossed shear poles at each end with the eave poles lashed onto them, an open
-    doorway with both flaps rolled and tied back, loose planks before the door. Inside: a lining (so the inside gets its
-    own bake), a plank floor, a bed along the back wall and a wood stove on the right under the stovepipe.
+    doorway with the flap rolled up above it, loose planks before the door. Inside: a lining (so the inside gets its
+    own bake), a plank floor, a bed along the left wall and a wood stove on the right under the stovepipe.
     Built at its final size with the door toward -Y; every canvas sheet is a small grid so the AO bake has vertices to
     vary at (the object is "coarse": no densify). camp.html mirrors W, D, Y0, the door and the furniture for walking."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),
         fascia=(0.36, 0.26, 0.17), pipe=(0.22, 0.22, 0.24), glow=(0.45, 0.16, 0.06), stone=(0.45, 0.44, 0.42),
-        ticking=(0.84, 0.82, 0.76), blanket=(0.62, 0.2, 0.15), pillow=(0.94, 0.93, 0.9)).items()}
+        ticking=(0.84, 0.82, 0.76), blanket=(0.62, 0.2, 0.15), pillow=(0.94, 0.93, 0.9),
+        iron=(0.15, 0.15, 0.16), brass=(0.72, 0.56, 0.26), tin=(0.55, 0.56, 0.58)).items()}
     W, D, E, H, Y0, Z0 = 1.4, 1.225, 1.3, 2.7, 0.275, 0.0    # half width, half depth, wall height, ridge, body offset, floor (the back stays
     # in front of the low branches of the hero tree behind it, where the sloths hang)
     DW, DH = 0.45, 1.95                                       # doorway half width and height
@@ -528,25 +529,34 @@ def wall_tent():
         p.append(pole((side * xe, jy[-1] - 0.16, ze), (side * xe, jy[1] + 0.16, ze), 0.035, M["pole"]))
         for s in (1, -1):
             p.append(pole((side * xe, jy[s] - 0.045, ze - 0.01), (side * xe, jy[s] + 0.045, ze - 0.01), 0.055, M["rope"]))   # tied to the A-frame
-        # the door flap on this side, rolled up and tied back beside the doorway
-        p.append(pole((side * (DW + 0.1), yf - 0.07, 0.04), (side * (DW + 0.1), yf - 0.07, DH - 0.05), 0.075, M["canvas2"]))
-        for z in (0.6, 1.5):
-            p.append(pole((side * (DW + 0.1), yf - 0.07, z - 0.03), (side * (DW + 0.1), yf - 0.07, z + 0.03), 0.085, M["rope"]))
-    # the bed along the back wall: a plank box, a ticking mattress, a red blanket and a pillow at the left end
-    bx, by = -W + 0.06 + 0.95, yb - 0.5
-    p.append(box((1.9, 0.84, 0.3), at=(bx, by, 0.15), m=M["plank2"]))
-    p.append(box((1.86, 0.8, 0.14), at=(bx, by, 0.37), m=M["ticking"]))
-    p.append(box((1.25, 0.88, 0.06), at=(bx + 0.3, by, 0.45), m=M["blanket"]))
-    p.append(box((0.3, 0.56, 0.1), at=(-W + 0.3, by, 0.49), rot=(0, 0, 0.05), m=M["pillow"]))
-    # the wood stove on the right on a stone pad, its door toward the middle, the pipe up through the roof
+    # the outer door flap, rolled up above the doorway and tied (Adriaen); a light fabric curtain hangs in the doorway,
+    # live in camp.html, swaying in the wind and parting as you walk through
+    p.append(pole((-DW - 0.12, yf - 0.08, DH + 0.09), (DW + 0.12, yf - 0.08, DH + 0.09), 0.08, M["canvas2"]))
+    for x in (-DW + 0.08, DW - 0.08):
+        p.append(pole((x - 0.03, yf - 0.08, DH + 0.09), (x + 0.03, yf - 0.08, DH + 0.09), 0.09, M["rope"]))
+    # the bed along the left wall, head at the back (Adriaen: feet not by the stove): a plank box, a ticking mattress,
+    # a red blanket over the foot end and a pillow at the head
+    bx, by = -W + 0.48, yb - 0.06 - 0.95
+    p.append(box((0.84, 1.9, 0.3), at=(bx, by, 0.15), m=M["plank2"]))
+    p.append(box((0.8, 1.86, 0.14), at=(bx, by, 0.37), m=M["ticking"]))
+    p.append(box((0.88, 1.25, 0.06), at=(bx, by - 0.3, 0.45), m=M["blanket"]))
+    p.append(box((0.56, 0.3, 0.1), at=(bx, yb - 0.3, 0.49), rot=(0, 0, 0.05), m=M["pillow"]))
+    # the wood stove on the right on a stone pad (Adriaen: a bit more detail): a cast-iron box with a wider top plate,
+    # a framed fire door with a glowing window and a brass handle, an ash lip, splayed legs, a pipe collar and a kettle
     sx, sy = STOVE[0], STOVE[1]
     p.append(box((0.7, 0.85, 0.04), at=(sx, sy, 0.04), m=M["stone"]))
-    p.append(box((0.42, 0.62, 0.36), at=(sx, sy, 0.42), m=M["pipe"]))
+    p.append(box((0.42, 0.62, 0.34), at=(sx, sy, 0.41), m=M["pipe"]))
+    p.append(box((0.5, 0.7, 0.035), at=(sx, sy, 0.6), m=M["iron"]))                                  # top plate
+    p.append(box((0.03, 0.66, 0.035), at=(sx - 0.2, sy, 0.235), m=M["iron"]))                         # ash lip
     for ax_ in (-1, 1):
         for ay in (-1, 1):
-            p.append(pole((sx + ax_ * 0.16, sy + ay * 0.25, 0.06), (sx + ax_ * 0.16, sy + ay * 0.25, 0.25), 0.02, M["pipe"], verts=4))
-    face_door = box((0.01, 0.3, 0.2), at=(sx - 0.212, sy, 0.42), m=M["glow"])
-    p.append(face_door)
+            p.append(pole((sx + ax_ * 0.22, sy + ay * 0.32, 0.06), (sx + ax_ * 0.16, sy + ay * 0.25, 0.25), 0.022, M["iron"], verts=4))
+    p.append(box((0.025, 0.36, 0.26), at=(sx - 0.215, sy, 0.41), m=M["iron"]))                      # door frame
+    p.append(box((0.01, 0.26, 0.14), at=(sx - 0.231, sy, 0.42), m=M["glow"]))                       # the fire window
+    p.append(pole((sx - 0.25, sy + 0.12, 0.39), (sx - 0.25, sy + 0.12, 0.46), 0.012, M["brass"], verts=4))   # handle
+    p.append(pole((sx, sy + 0.12, 0.6), (sx, sy + 0.12, 0.7), 0.09, M["iron"], verts=8))               # pipe collar
+    p.append(cyl(0.085, 0.13, at=(sx + 0.02, sy - 0.17, 0.685), m=M["tin"], verts=8))                 # kettle on the top plate
+    p.append(rod((sx - 0.07, sy - 0.17, 0.72), (sx - 0.15, sy - 0.17, 0.76), 0.012, M["tin"], verts=4))   # its spout
     p.append(pole((sx, sy + 0.12, 0.6), (sx, sy + 0.12, Z0 + H + 0.62), 0.065, M["pipe"], verts=8))
     bpy.ops.mesh.primitive_cone_add(radius1=0.14, radius2=0.0, depth=0.1, vertices=8, end_fill_type="NOTHING", location=(sx, sy + 0.12, Z0 + H + 0.69))
     p.append(_finish(bpy.context.object, M["pipe"]))
