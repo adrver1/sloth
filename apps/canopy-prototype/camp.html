@@ -572,7 +572,7 @@ $("c").addEventListener("pointermove", (e) => {
   const L = looks.get(e.pointerId); if (!L) return;
   const dx = e.clientX - L.x, dy = e.clientY - L.y; L.x = e.clientX; L.y = e.clientY; L.moved += Math.hypot(dx, dy);
   if (looks.size === 2) { const [a, b] = [...looks.values()]; fovAdd = THREE.MathUtils.clamp(fov0 + (pinch0 - Math.hypot(a.x - b.x, a.y - b.y)) * 0.06, -20, 6); resize(); return; }
-  me.yaw += dx * 0.005; me.pitch = THREE.MathUtils.clamp(me.pitch - dy * 0.004, -1.2, 1.2); me.lastDrag = uTime.value;
+  me.yaw -= dx * 0.005; me.pitch = THREE.MathUtils.clamp(me.pitch - dy * 0.004, -1.2, 1.2); me.lastDrag = uTime.value;
 });
 const lookEnd = (e) => {
   const L = looks.get(e.pointerId); looks.delete(e.pointerId); if (!L) return; clearTimeout(L.holdT);
