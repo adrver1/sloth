@@ -1,7 +1,7 @@
 """
 The laundry line for the Canopy Camp game (apps/canopy-prototype/camp.html), lived-in props batch 2 (2026-11-11).
 
-    LaundryPosts   two forked sticks pushed into the ground (baked AO, like the other props)
+    LaundryPosts   two sticks pushed into the ground (baked AO, like the other props)
     LaundryCloth   the line, a striped towel folded over it and three sloth-sized socks,
                    all textured quads on one drawn atlas (laundry.png, alpha cut on the page); the pegs are painted in
 
@@ -138,14 +138,12 @@ def cloth(img):
 
 
 def posts():
-    M = {"pole": mat("la_pole", (0.42, 0.31, 0.2)), "pole2": mat("la_pole2", (0.34, 0.25, 0.16))}
+    M = {"pole": mat("la_pole", (0.42, 0.31, 0.2))}
     p = []
     for s in (-1, 1):
         foot = Vector((s * (L / 2 + 0.06), 0, 0))
         top = Vector((s * L / 2, 0, H + 0.12))
-        p.append(rod(foot, top, 0.03, M["pole"], verts=6))
-        fork = top + Vector((-s * 0.08, 0.02, 0.1))                # a fork the line sits in
-        p.append(rod(top - Vector((0, 0, 0.1)), fork, 0.016, M["pole2"], verts=4))
+        p.append(rod(foot, top, 0.03, M["pole"], verts=6))         # a plain stick; the line is tied round it
     return join(p, "LaundryPosts")
 
 
