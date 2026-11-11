@@ -75,15 +75,30 @@ def log(a, b, r, M, burnt=0.35, verts=7):
 def ring(M):
     """The ring of stones (sooty on the inside) and the ash bed inside it, shared by all fires."""
     p = []
-    for i in range(11):
-        a = i / 11 * 2 * math.pi + rng.uniform(-0.08, 0.08)
-        s = stone(0.14, (math.cos(a) * 0.62, math.sin(a) * 0.62, 0.05), (rng.uniform(1.1, 1.4), rng.uniform(0.85, 1.05), rng.uniform(0.6, 0.85)),
-                  M["stone" if i % 3 else "stone2"])
-        s.rotation_euler.z = a
+    # stones gathered by hand: mixed sizes, uneven gaps, a wobbly radius, each turned and tipped its own way
+    sr = random.Random(5)
+    a, stones = sr.uniform(0, 1), []
+    while a < 2 * math.pi - 0.35:
+        big = sr.random() < 0.3
+        r = sr.uniform(0.15, 0.19) if big else sr.uniform(0.09, 0.14)
+        stones.append((a, r))
+        a += r * sr.uniform(1.9, 3.4) / 0.62                       # gap scales with the stone, plus a random spread
+    for i, (a, r) in enumerate(stones):
+        d = 0.62 + sr.uniform(-0.07, 0.08) + (r - 0.13) * 0.4
+        s = stone(r, (math.cos(a) * d, math.sin(a) * d, r * 0.3), (sr.uniform(1.0, 1.5), sr.uniform(0.75, 1.05), sr.uniform(0.55, 0.9)),
+                  M["stone" if sr.random() < 0.65 else "stone2"])
+        s.rotation_euler = (sr.uniform(-0.3, 0.3), sr.uniform(-0.3, 0.3), a + sr.uniform(-0.7, 0.7))
         p.append(s)
-    for i in range(7):                                             # soot smudges on the stones' inner faces
-        a = i / 7 * 2 * math.pi + 0.2
-        p.append(stone(0.07, (math.cos(a) * 0.51, math.sin(a) * 0.51, 0.06), (0.7, 1.2, 0.6), M["soot"]))
+    for k in range(3):                                             # a few small ones tucked in the gaps or propped on a neighbour
+        a0, r0 = stones[sr.randrange(len(stones))]
+        a = a0 + sr.uniform(0.15, 0.3)
+        d = 0.62 + sr.uniform(-0.05, 0.1)
+        s = stone(sr.uniform(0.06, 0.085), (math.cos(a) * d, math.sin(a) * d, sr.choice((0.03, r0 * 0.55))), (1.2, 0.9, 0.7), M["stone2"])
+        s.rotation_euler = (sr.uniform(-0.5, 0.5), sr.uniform(-0.5, 0.5), sr.uniform(0, 3))
+        p.append(s)
+    for i in range(4):                                             # soot smudges on some of the inner faces
+        a = stones[(i * 3 + 1) % len(stones)][0]
+        p.append(stone(0.06, (math.cos(a) * 0.52, math.sin(a) * 0.52, 0.05), (0.7, 1.2, 0.6), M["soot"]))
     bpy.ops.mesh.primitive_circle_add(vertices=20, radius=0.5, fill_type="TRIFAN", location=(0, 0, 0.012))
     ash = _finish(bpy.context.object, M["ash"], smooth=False)
     for v in ash.data.vertices:                                    # a gentle mound
