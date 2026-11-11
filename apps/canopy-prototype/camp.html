@@ -229,7 +229,7 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
 // ---------------------------------------------------------------- the jeep's track: a dirt road out through the forest, and muddy tyre ruts up to its wheels
 if (track) {
   const Q = (a, b) => a + Math.random() * (b - a);   // texture noise only: leaves the seeded layout alone
-  const ribbon = (width, y, tex, alpha, tile) => {
+  const ribbon = (width, y, tex, alpha, tile, order) => {
     const n = 140, pos = [], uv = [], col = [], idx = [], L = track.curve.getLength();
     for (let i = 0; i <= n; i++) {
       const t = i / n, p = track.curve.getPointAt(t), d = track.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), a = alpha(p, t * L);
@@ -240,7 +240,7 @@ if (track) {
     g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
     tex.wrapT = THREE.RepeatWrapping;
     const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }));
-    mesh.renderOrder = 1; scene.add(mesh);
+    mesh.renderOrder = order; scene.add(mesh);
   };
   const mud = LOOK === "low" ? ["#9a7a52", "#7d6040", "#5c4530"] : ["#8a6c4a", "#6b5038", "#4a3626"];
   const dirt = canvasTex(128, 512, (g, w, h) => {
@@ -262,8 +262,8 @@ if (track) {
     }
   });
   // the dirt fades out as the track meets the clearing; the ruts run on to the jeep's front wheels
-  ribbon(2.7, 0.015, dirt, (p) => sstep(RC - 3, RC + 0.5, Math.hypot(p.x, p.z)), 3.2);
-  ribbon(1.62, 0.02, ruts, (p, l) => sstep(0, 0.6, l) * (0.7 + 0.25 * sstep(RC - 4, RC, Math.hypot(p.x, p.z))), 1.6);
+  ribbon(2.7, 0.015, dirt, (p) => sstep(RC - 3, RC + 0.5, Math.hypot(p.x, p.z)), 3.2, 1);
+  ribbon(1.62, 0.02, ruts, (p, l) => sstep(0, 0.6, l) * (0.7 + 0.25 * sstep(RC - 4, RC, Math.hypot(p.x, p.z))), 1.6, 2);
 }
 
 // ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
@@ -353,6 +353,26 @@ const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump)
   }
 }
 scene.add(leaves);
+// bushes along both verges of the jeep's track, so the walk out feels like a lane through the jungle
+// (their own random stream, so the seeded layout of everything else stays the same)
+if (track) {
+  let s2 = 991; const Q2 = (a, b) => { s2 = (s2 * 16807) % 2147483647; return a + (s2 / 2147483647) * (b - a); };
+  const vc = [], L = track.curve.getLength();
+  for (let l = 2.5; l < L; l += 1.3) {
+    const t = l / L, p = track.curve.getPointAt(t), d = track.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
+    if (Math.hypot(p.x, p.z) < RC - 0.5) continue;
+    for (const k of [-1, 1]) vc.push([p.x + side.x * k * Q2(2.2, 3.2), Q2(0.5, 2.6), p.z + side.z * k * Q2(2.2, 3.2), Q2(0.7, 1.2)]);
+  }
+  const vm = new THREE.InstancedMesh(leafGeo, leafM, vc.length * perClump), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+  for (const [x, y, z, r] of vc) for (let k = 0; k < perClump; k++) {
+    const u = V(Q2(-1, 1), Q2(-0.5, 0.8), Q2(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q2(0, 1)));
+    e.set(Q2(0, 6.28), Q2(0, 6.28), Q2(0, 6.28)); q.setFromEuler(e);
+    const sc = Q2(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.6 ? 0 : 1);
+    m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.setMatrixAt(i, m);
+    vm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
+  }
+  scene.add(vm);
+}
 // ferns and undergrowth in a thick band round the clearing
 {
   let g, mat;
@@ -515,8 +535,25 @@ const EYE = 1.55, SPEED = 1.7;
 const me = { vel: V(), mode: "ground", pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), s: 0, yaw: 0, pitch: 0.08, target: null, holding: false, walkT: 0, lastDrag: -9, mark: null };
 me.yaw = Math.atan2(-d0.x, -d0.z);       // face the fire and the big tree behind it
 const look = V();
+// the first stretch of the jeep's track is walkable: past the clearing edge you stay within WALK_W of its centre line,
+// up to WALK_R from the middle, where it fades into the forest
+const WALK_R = RC + 8, WALK_W = 0.9, walkPts = track ? track.pts.filter((q) => Math.hypot(q.x, q.z) < WALK_R) : [];
+function onTrack(p) {                                  // the nearest point on the walkable stretch, and how far p is from it
+  let best = null, bd = 1e9;
+  for (let i = 1; i < walkPts.length; i++) {
+    const a = walkPts[i - 1], b = walkPts[i], dx = b.x - a.x, dz = b.z - a.z, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz)));
+    const x = a.x + dx * t, z = a.z + dz * t, d = Math.hypot(p.x - x, p.z - z);
+    if (d < bd) { bd = d; best = V(x, 0, z); }
+  }
+  return [best, bd];
+}
 function collide(p) {
-  const r = Math.hypot(p.x, p.z), lim = RC - 0.7; if (r > lim) p.multiplyScalar(lim / r);
+  const r = Math.hypot(p.x, p.z), lim = RC - 0.7;
+  if (r > lim) {
+    const [q, d] = walkPts.length > 1 ? onTrack(p) : [null, 1e9];
+    if (d < WALK_W + 0.4) { if (d > WALK_W) p.sub(q).multiplyScalar(WALK_W / d).add(q); }   // on the track: keep to it
+    else p.multiplyScalar(lim / r);
+  }
   for (const [c, rad] of blockers) { const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz); if (d < rad + 0.3) { const k = (rad + 0.3) / Math.max(d, 1e-4); p.x = c.x + dx * k; p.z = c.z + dz * k; } }
 }
 let landmark = -1;
