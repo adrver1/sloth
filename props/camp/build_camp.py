@@ -426,16 +426,24 @@ def rustic():
     return out
 
 
+STOVE = (1.0, 0.85, 0.42)        # the stove's fire, in the tent's own frame (bake_camp_night.py puts a light there)
+
+
 def wall_tent():
-    """Adriaen's pick (2026-11-11, from two photos): a white canvas wall tent with a few planks laid before the door. Straight side walls,
-    a ridge pole resting in crossed shear poles at each end, eave poles lashed onto wide A-frames of crossed shear poles at each end, the right door flap folded
-    back on a dark doorway, and a stovepipe through the roof. Built at its final size with the door toward -Y; every
-    canvas sheet is a small grid so the AO bake has vertices to vary at (the object is "coarse": no densify)."""
+    """Adriaen's pick (2026-11-11, from two photos): a white canvas wall tent you can walk into. Straight side walls,
+    a ridge pole on wide A-frames of crossed shear poles at each end with the eave poles lashed onto them, an open
+    doorway with both flaps rolled and tied back, loose planks before the door. Inside: a lining (so the inside gets its
+    own bake), a plank floor, a bed along the back wall and a wood stove on the right under the stovepipe.
+    Built at its final size with the door toward -Y; every canvas sheet is a small grid so the AO bake has vertices to
+    vary at (the object is "coarse": no densify). camp.html mirrors W, D, Y0, the door and the furniture for walking."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
-        canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), inside=(0.11, 0.09, 0.07),
+        canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),
-        fascia=(0.36, 0.26, 0.17), pipe=(0.28, 0.28, 0.3)).items()}
-    W, D, E, H, Y0, Z0 = 1.1, 1.3, 0.85, 2.0, 0.35, 0.0      # half width, half depth, wall height, ridge, body offset, floor
+        fascia=(0.36, 0.26, 0.17), pipe=(0.22, 0.22, 0.24), glow=(0.45, 0.16, 0.06), stone=(0.45, 0.44, 0.42),
+        ticking=(0.84, 0.82, 0.76), blanket=(0.62, 0.2, 0.15), pillow=(0.94, 0.93, 0.9)).items()}
+    W, D, E, H, Y0, Z0 = 1.4, 1.225, 1.3, 2.7, 0.275, 0.0    # half width, half depth, wall height, ridge, body offset, floor (the back stays
+    # in front of the low branches of the hero tree behind it, where the sloths hang)
+    DW, DH = 0.45, 1.95                                       # doorway half width and height
     mats = list(M.values()); mi = {k: i for i, k in enumerate(M)}
     V, F, FM = [], [], []
     def quad_grid(f, nu, nv, mf, flip=False):
@@ -459,20 +467,31 @@ def wall_tent():
         quad_grid(roof, 6, 3, lambda i, j: "canvas" if i % 2 else "canvas2", flip=s < 0)
     # side walls, flaring a touch to the ground, with a dirty hem
     for s in (1, -1):
-        zs = (Z0, Z0 + 0.13, Z0 + E)
+        zs = (Z0, Z0 + 0.13, Z0 + E + 0.06)          # tops tucked up under the roof, no slit to the sky
         quad_grid(lambda u, v, s=s: (s * (W + 0.05 * (1 - v)), Y0 - D + 2 * D * u, zs[round(v * 2)]), 6, 2,
                   lambda i, j: "hem" if j == 0 else "canvas", flip=s < 0)
-    # back gable (faces +Y) and the front (both flare at the foot like the side walls, so the corners close) (faces -Y): left half shut, right half with its flap folded back
+    # back gable (faces +Y) and the front (faces -Y) round the open doorway; both flare at the foot like the side walls
     yb, yf = Y0 + D, Y0 - D
-    face([(W + 0.05, yb, Z0), (-W - 0.05, yb, Z0), (-W, yb, Z0 + E), (0, yb, Z0 + H), (W, yb, Z0 + E)], "canvas2")
-    face([(-W - 0.05, yf, Z0), (0, yf, Z0), (0, yf, Z0 + H), (-W, yf, Z0 + E)], "canvas2")
-    face([(0.45, yf, Z0), (W + 0.05, yf, Z0), (W, yf, Z0 + E), (0, yf, Z0 + H), (0, yf, Z0 + 1.3)], "canvas2")
-    face([(0, yf + 0.25, Z0), (0.45, yf + 0.25, Z0), (0, yf + 0.25, Z0 + 1.3)], "inside")          # the dark doorway
-    face([(0.45, yf - 0.02, Z0), (0.8, yf - 0.03, Z0 + 0.28), (0, yf - 0.02, Z0 + 1.3)], "hem")      # folded flap, its dusty inside out
-    face([(0, yf - 0.012, Z0 + 1.3), (-0.02, yf - 0.012, Z0 + 1.3), (-0.02, yf - 0.012, Z0 + 0.02), (0, yf - 0.012, Z0 + 0.02)], "rope")  # door seam
-    # loose planks laid on the ground before the door, as wide as a porch (Adriaen: not a raised platform); top and long edges only
+    zg = lambda x: Z0 + E + 0.06 + (H - E - 0.06) * (1 - abs(x) / W)      # the gable's sloping top edge
+    face([(W + 0.05, yb, Z0), (-W - 0.05, yb, Z0), (-W, yb, zg(W)), (0, yb, Z0 + H), (W, yb, zg(W))], "canvas2")
+    face([(-W - 0.05, yf, Z0), (-DW, yf, Z0), (-DW, yf, zg(DW)), (-W, yf, zg(W))], "canvas2")
+    face([(DW, yf, Z0), (W + 0.05, yf, Z0), (W, yf, zg(W)), (DW, yf, zg(DW))], "canvas2")
+    face([(-DW, yf, Z0 + DH), (DW, yf, Z0 + DH), (DW, yf, zg(DW)), (0, yf, Z0 + H), (-DW, yf, zg(DW))], "canvas2")
+    # the lining: every canvas face again, a few cm in and facing inward, so the inside bakes its own light
+    n_out = len(F)
+    for k in range(n_out):
+        base = len(V)
+        for i in F[k]:
+            x, y, z = V[i]
+            V.append((x * 0.982, Y0 + (y - Y0) * 0.986, z - 0.03 * min(1.0, z / 0.3)))
+        F.append(tuple(range(base, base + len(F[k])))[::-1]); FM.append(mi["lining"])
+    # plank floor inside, and loose planks before the door (Adriaen: not a raised platform); top and long edges only
+    for k in range(7):
+        x0 = -W + 2 * W * k / 7
+        face([(x0 + 0.01, yf + 0.03, 0.02), (x0 + 2 * W / 7 - 0.01, yf + 0.03, 0.02), (x0 + 2 * W / 7 - 0.01, yb - 0.03, 0.02), (x0 + 0.01, yb - 0.03, 0.02)],
+             "plank" if k % 2 else "plank2")
     for k in range(5):
-        cy, ln, yaw, cx = yf - 0.115 - k * 0.185, 2.6 + 0.08 * math.sin(k * 2.7), 0.018 * math.sin(k * 1.9 + 1), 0.04 * math.sin(k * 3.1)
+        cy, ln, yaw, cx = yf - 0.115 - k * 0.185, 2 * (W + 0.2) + 0.08 * math.sin(k * 2.7), 0.018 * math.sin(k * 1.9 + 1), 0.04 * math.sin(k * 3.1)
         c, s_, hw2, t = math.cos(yaw), math.sin(yaw), 0.086, 0.03
         P = lambda u, v, z: (cx + u * c - v * s_, cy + u * s_ + v * c, z)
         m = "plank" if k % 2 else "plank2"
@@ -484,7 +503,7 @@ def wall_tent():
     for p, k in zip(me.polygons, FM): p.material_index = k
     body = bpy.data.objects.new("canvas", me); bpy.context.collection.objects.link(body)
     p = [body]
-    # frame: open-ended 6-sided poles (no caps anyone would see)
+    # frame: open-ended poles (no caps anyone would see)
     def pole(a, b, r, m, verts=6):
         a, b = Vector(a), Vector(b); d = b - a
         bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=d.length, vertices=verts, end_fill_type="NOTHING", location=(a + b) / 2)
@@ -492,7 +511,7 @@ def wall_tent():
         o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
         return _finish(o, m)
     rz = Z0 + H + 0.05
-    p.append(pole((0, Y0 - D - 0.45, rz), (0, Y0 + D + 0.45, rz), 0.045, M["pole"]))                  # ridge pole
+    p.append(pole((0, yf - 0.45, rz), (0, yb + 0.45, rz), 0.05, M["pole"]))                            # ridge pole
     # a wide A-frame of crossed shear poles at each end (as in the second photo); the eave poles rest on them, lashed on
     xe, ze, zc = W + 0.12, ez + 0.03, rz - 0.06
     tj = (ze - 0.06) / zc                                    # where up a shear pole the eave pole sits
@@ -502,22 +521,38 @@ def wall_tent():
         foot_y, cy = ye + s * 0.34, ye + s * 0.17
         for side in (1, -1):
             a = Vector((side * xf, foot_y, 0.0)); c = Vector((0, cy, zc))
-            p.append(pole(a, a + (c - a) * 1.1, 0.04, M["pole"]))
-        p.append(pole((0, cy - 0.05, rz - 0.04), (0, cy + 0.05, rz - 0.04), 0.06, M["rope"]))       # lashing at the crossing
+            p.append(pole(a, a + (c - a) * 1.1, 0.045, M["pole"]))
+        p.append(pole((0, cy - 0.05, rz - 0.04), (0, cy + 0.05, rz - 0.04), 0.065, M["rope"]))      # lashing at the crossing
         jy[s] = foot_y + (cy - foot_y) * tj
     for side in (1, -1):
-        p.append(pole((side * xe, jy[-1] - 0.16, ze), (side * xe, jy[1] + 0.16, ze), 0.032, M["pole"]))
+        p.append(pole((side * xe, jy[-1] - 0.16, ze), (side * xe, jy[1] + 0.16, ze), 0.035, M["pole"]))
         for s in (1, -1):
-            p.append(pole((side * xe, jy[s] - 0.045, ze - 0.01), (side * xe, jy[s] + 0.045, ze - 0.01), 0.05, M["rope"]))   # tied to the A-frame
-    # stovepipe through the right slope, with a rain hood
-    px, py = 0.5, Y0 + D - 0.6
-    p.append(pole((px, py, Z0 + 1.2), (px, py, Z0 + H + 0.62), 0.06, M["pipe"], verts=8))
-    bpy.ops.mesh.primitive_cone_add(radius1=0.13, radius2=0.0, depth=0.1, vertices=8, end_fill_type="NOTHING", location=(px, py, Z0 + H + 0.69))
+            p.append(pole((side * xe, jy[s] - 0.045, ze - 0.01), (side * xe, jy[s] + 0.045, ze - 0.01), 0.055, M["rope"]))   # tied to the A-frame
+        # the door flap on this side, rolled up and tied back beside the doorway
+        p.append(pole((side * (DW + 0.1), yf - 0.07, 0.04), (side * (DW + 0.1), yf - 0.07, DH - 0.05), 0.075, M["canvas2"]))
+        for z in (0.6, 1.5):
+            p.append(pole((side * (DW + 0.1), yf - 0.07, z - 0.03), (side * (DW + 0.1), yf - 0.07, z + 0.03), 0.085, M["rope"]))
+    # the bed along the back wall: a plank box, a ticking mattress, a red blanket and a pillow at the left end
+    bx, by = -W + 0.06 + 0.95, yb - 0.5
+    p.append(box((1.9, 0.84, 0.3), at=(bx, by, 0.15), m=M["plank2"]))
+    p.append(box((1.86, 0.8, 0.14), at=(bx, by, 0.37), m=M["ticking"]))
+    p.append(box((1.25, 0.88, 0.06), at=(bx + 0.3, by, 0.45), m=M["blanket"]))
+    p.append(box((0.3, 0.56, 0.1), at=(-W + 0.3, by, 0.49), rot=(0, 0, 0.05), m=M["pillow"]))
+    # the wood stove on the right on a stone pad, its door toward the middle, the pipe up through the roof
+    sx, sy = STOVE[0], STOVE[1]
+    p.append(box((0.7, 0.85, 0.04), at=(sx, sy, 0.04), m=M["stone"]))
+    p.append(box((0.42, 0.62, 0.36), at=(sx, sy, 0.42), m=M["pipe"]))
+    for ax_ in (-1, 1):
+        for ay in (-1, 1):
+            p.append(pole((sx + ax_ * 0.16, sy + ay * 0.25, 0.06), (sx + ax_ * 0.16, sy + ay * 0.25, 0.25), 0.02, M["pipe"], verts=4))
+    face_door = box((0.01, 0.3, 0.2), at=(sx - 0.212, sy, 0.42), m=M["glow"])
+    p.append(face_door)
+    p.append(pole((sx, sy + 0.12, 0.6), (sx, sy + 0.12, Z0 + H + 0.62), 0.065, M["pipe"], verts=8))
+    bpy.ops.mesh.primitive_cone_add(radius1=0.14, radius2=0.0, depth=0.1, vertices=8, end_fill_type="NOTHING", location=(sx, sy + 0.12, Z0 + H + 0.69))
     p.append(_finish(bpy.context.object, M["pipe"]))
     t = join(p, "Tent")
     t["coarse"] = True
     return t
-
 
 def tripod_kettle(M):
     """A bamboo tripod over the fire with a kettle on a cord (jungle materials)."""

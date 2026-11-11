@@ -556,14 +556,14 @@ const camp = [], lanternGlow = [];
   CODE && camp.push(flatCol(new THREE.SphereGeometry(0.22, 10, 6, 0, 6.28, Math.PI / 2, Math.PI / 2).translate(tb.x + 0.15, 0.85, tb.z), S.leaf[0]));
   for (let i = 0; i < 5; i++) CODE && camp.push(flatCol(new THREE.IcosahedronGeometry(0.07, 0).translate(tb.x - 0.2 + R(-0.2, 0.2), 0.72, tb.z + R(-0.3, 0.3)), [0xff6f91, 0xff9eb5, 0xffd66e][i % 3]));
   // lantern string from the tent ridge across to the hammock post
-  const l0 = tentAt.clone().setY(2.6), l1 = hA.clone().setY(2.5);
+  const l0 = PROPS === "picked" ? tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8) : tentAt.clone().setY(2.6), l1 = hA.clone().setY(2.5);   // picked: tied to the walk-in tent's front A-frame
   for (let i = 1; i < 9; i++) { const t = i / 9, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45; lanternGlow.push(p); }
   const str = []; for (let i = 0; i <= 20; i++) { const t = i / 20, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45 - 0.06; str.push(p); }
   camp.push(flatCol(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(str), 24, 0.01, 3), 0x5a4636));
   scene.add(new THREE.Mesh(merge(camp), woodMat));
   window.__camp = { tentAt, hA, hB, tb };
   // collision circles for walking round the camp
-  var blockers = [[V(0, 0, 0), 0.9], [tentAt.clone().multiplyScalar(1 + 0.35 / tentAt.length()), 1.75], [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
+  var blockers = [[V(0, 0, 0), 0.9], Object.assign([tentAt.clone().multiplyScalar(1 + 0.275 / tentAt.length()), 1.9], { tent: true }), [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
   for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; blockers.push([V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1), 0.75]); }
 }
 // lanterns and the fire: bright sprites, no real-time shadows; one warm point light for the fire glow
@@ -1151,8 +1151,22 @@ function feed(s) {
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
 // wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
 const groundLife = createGround({ scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
-    bare: (x, z) => { const t = window.__camp.tentAt, L = t.length(), fx_ = -t.x / L, fz_ = -t.z / L, dx = x - t.x, dz = z - t.z, a = dx * fx_ + dz * fz_, b = dx * fz_ - dz * fx_; return a > 0.8 && a < 2.1 && Math.abs(b) < 1.5; } });   // no grass through the planks before the tent door
+    bare: PROPS === "picked" ? (x, z) => { const [a, b] = tentLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; } : undefined });   // no grass in the tent or through its planks
 window.__ground = groundLife;
+// the walk-in tent (picked props; build_camp.py wall_tent, keep in step): walls stop you, the doorway lets you in,
+// the bed and the stove are in the way. tentLocal gives (a: ahead of tentAt toward the fire, b: across).
+function tentLocal(x, z) { const t = window.__camp.tentAt, L = t.length(), fx_ = -t.x / L, fz_ = -t.z / L, dx = x - t.x, dz = z - t.z; return [dx * fx_ + dz * fz_, dx * fz_ - dz * fx_]; }
+if (PROPS === "picked") {
+  const t = window.__camp.tentAt, L = t.length(), fx_ = -t.x / L, fz_ = -t.z / L;
+  const at = (bx, by) => V(t.x + bx * fz_ - by * fx_, 0, t.z - bx * fx_ - by * fz_);   // the tent's own (Blender) frame: x across, -y toward the fire
+  const W = 1.4, yf = -0.95, yb = 1.5, DW = 0.45, wall = [];
+  for (let y = yf; y <= yb + 0.01; y += 0.3) wall.push([-W, y], [W, y]);
+  for (let x = -W + 0.3; x < W; x += 0.3) { wall.push([x, yb]); if (Math.abs(x) > DW + 0.12) wall.push([x, yf]); }
+  const i = blockers.findIndex((b) => b.tent); if (i >= 0) blockers.splice(i, 1);
+  for (const [x, y] of wall) blockers.push([at(x, y), 0.1]);
+  for (let x = -W + 0.25; x < 0.6; x += 0.35) blockers.push([at(x, yb - 0.5), 0.18]);   // the bed
+  blockers.push([at(1.0, 0.85), 0.3]);                                                   // the stove
+}
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
 window.__atmo = atmo;
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
