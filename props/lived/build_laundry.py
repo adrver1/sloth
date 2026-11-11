@@ -2,7 +2,7 @@
 The laundry line for the Canopy Camp game (apps/canopy-prototype/camp.html), lived-in props batch 2 (2026-11-11).
 
     LaundryPosts   two forked sticks pushed into the ground (baked AO, like the other props)
-    LaundryCloth   the line, a striped towel folded over it and three sloth-sized socks with toe pockets for the claws,
+    LaundryCloth   the line, a striped towel folded over it and three sloth-sized socks,
                    all textured quads on one drawn atlas (laundry.png, alpha cut on the page); the pegs are painted in
 
 Triangles go where they show (Adriaen's rule, 2026-11-11): the line is two crossed strips, the towel is two quads (one
@@ -60,16 +60,13 @@ def atlas(path):
     for x in range(4, 196, 6):  # soft weave
         d.line(S(x, 4, x, 236), fill=(232, 222, 200, 255), width=k)
 
-    # socks: tube down, then a foot with three round toe pockets for the claws; a peg at the top
+    # socks: tube down, then a plain rounded foot; a peg at the top
     socks = [((200, 280), (255, 205, 90)), ((280, 360), (150, 210, 200)), ((360, 440), (240, 150, 175))]
     for i, ((x0, x1), col) in enumerate(socks):
         c = col + (255,)
         cx = (x0 + x1) / 2
         d.rounded_rectangle(S(cx - 22, 18, cx + 22, 170), radius=10 * k, fill=c)                # leg tube
-        d.rounded_rectangle(S(cx - 22, 130, cx + 34, 192), radius=20 * k, fill=c)   # foot, toward +x
-        for tx in (cx - 12, cx + 6, cx + 24):                                                   # three toe pockets for the claws
-            d.ellipse(S(tx - 11, 182, tx + 11, 204), fill=c)
-            d.line(S(tx - 9, 186, tx - 2, 191), fill=tuple(int(v * 0.85) for v in col) + (255,), width=2 * k)
+        d.rounded_rectangle(S(cx - 22, 130, cx + 34, 196), radius=30 * k, fill=c)                # foot, toward +x
         dark = tuple(int(v * 0.8) for v in col) + (255,)
         d.rectangle(S(cx - 22, 18, cx + 22, 34), fill=dark)                                     # ribbed cuff
         if i == 1:
