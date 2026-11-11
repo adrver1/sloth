@@ -1,7 +1,8 @@
 """
 build_critters: the four ground animals in the karaoke's "G'day, Slow Day"
 crowd, in the baby sloth's style: low poly, flat shaded, on the shared
-palette and material, with big shiny eyes, a white glint and pink cheeks,
+palette and material, with big shiny eyes and a white glint (no cheeks:
+Adriaen 2026-11-11),
 and each animal's tell-tale feature played up so it reads at a glance
 (Adriaen 2026-11-11: cute, low poly, but recognizable).
 
@@ -36,7 +37,7 @@ Vector, X, Y, Z = base.Vector, base.X, base.Y, base.Z
 
 
 # ------------------------------------------------------------------ shapes
-def ell(m, c, r, swatch, region, axes=(X, Y, Z), nu=10, nv=6):
+def ell(m, c, r, swatch, region, axes=(X, Y, Z), nu=8, nv=4):   # crowd props, not heroes: kept light
     """A low-poly ellipsoid: half axes r along axes (u, v, w), centre c."""
     c, (u, v, w) = Vector(c), axes
     pts = [c + w * r[2], c - w * r[2]]
@@ -72,26 +73,22 @@ def surf(c, r, d):
     return p, n
 
 
-def face(m, c, r, eye_dir, size, cheek_dir=None, cheek=None, region="head"):
+def face(m, c, r, eye_dir, size, region="head"):
     """The cute face on a head ellipsoid: big shiny eyes (a white glint up and
-    in), pink cheeks under and out. eye_dir for the right eye (+x)."""
+    in). eye_dir for the right eye (+x)."""
     for s in (1, -1):
         d = Vector((s * eye_dir[0], eye_dir[1], eye_dir[2]))
         p, n = surf(c, r, d)
         u, v, w = base.frame(n, Z)
-        ell(m, p - n * size * 0.2, (size, size * 1.15, size * 0.55), "eye", region, axes=(u, v, w), nu=8, nv=4)
-        ell(m, p + n * size * 0.32 + v * size * 0.42 - u * s * size * 0.3, (size * 0.3,) * 3, "white", region, nu=6, nv=3)
-        if cheek_dir:
-            p, n = surf(c, r, Vector((s * cheek_dir[0], cheek_dir[1], cheek_dir[2])))
-            u, v, w = base.frame(n, Z)
-            ell(m, p - n * cheek * 0.15, (cheek, cheek * 0.7, cheek * 0.28), "blush", region, axes=(u, v, w), nu=8, nv=3)
+        ell(m, p - n * size * 0.2, (size, size * 1.15, size * 0.55), "eye", region, axes=(u, v, w), nu=6, nv=3)
+        ell(m, p + n * size * 0.32 + v * size * 0.42 - u * s * size * 0.3, (size * 0.3,) * 3, "white", region, nu=4, nv=2)
 
 
 def smile(m, c, r, d, width, drop, region="head", swatch="lip_dark"):
     """A little U smile on a head ellipsoid, centred along direction d."""
     pts = []
-    for k in range(5):
-        x = (k / 4 - 0.5) * 2
+    for k in range(4):
+        x = (k / 3 - 0.5) * 2
         dd = Vector(d).normalized()
         side = dd.cross(Z).normalized()
         q = dd * 1.0 - side * x * width + Z * (drop * (1 - x * x) - drop)
@@ -114,11 +111,11 @@ def ear(m, root, tip, width, thick, swatch, inner, region, tip_swatch=None):
     L = w.length
     u, v, w = base.frame(w, Y)
     mid = root + w * L * 0.5
-    ell(m, mid, (width, thick, L * 0.55), swatch, region, axes=(u, v, w), nu=8, nv=4)
+    ell(m, mid, (width, thick, L * 0.55), swatch, region, axes=(u, v, w), nu=6, nv=4)
     ell(m, mid + v * thick * 0.55 - w * L * 0.05, (width * 0.6, thick * 0.6, L * 0.4), inner, region, axes=(u, v, w),
-        nu=8, nv=4)
+        nu=6, nv=3)
     if tip_swatch:
-        ell(m, mid + w * L * 0.4, (width * 0.62, thick * 1.08, L * 0.17), tip_swatch, region, axes=(u, v, w), nu=8, nv=3)
+        ell(m, mid + w * L * 0.4, (width * 0.62, thick * 1.08, L * 0.17), tip_swatch, region, axes=(u, v, w), nu=6, nv=3)
 
 
 # ------------------------------------------------------------------ animals
@@ -140,7 +137,7 @@ def platypus():
     m.hull(pts, BILL, "head")
     for sx in (-1, 1):
         ell(m, (sx * 0.013, 0.281, 0.0765), (0.005, 0.007, 0.003), "charcoal", "head", nu=6, nv=3)
-    face(m, hc, hr, (0.5, 0.66, 0.42), 0.0135, (0.7, 0.55, -0.08), 0.015)
+    face(m, hc, hr, (0.5, 0.66, 0.42), 0.0135)
     # four short legs on webbed paddles, splayed out like a swimmer's
     for s, tag in ((1, "R"), (-1, "L")):
         for key, a, b, fwd in ((f"arm.{tag}", (s * 0.06, 0.07, 0.045), (s * 0.105, 0.1, 0.012), (s * 0.35, 1, 0)),
@@ -154,7 +151,7 @@ def platypus():
             m.hull([p + Z * dz for p in web for dz in (-0.006, 0.004)], BILL, key)
     # the wide flat beaver tail
     pipe(m, [(0, -0.11, 0.055), (0, -0.17, 0.038), (0, -0.23, 0.028), (0, -0.285, 0.022), (0, -0.305, 0.022)],
-         [(0.05, 0.03), (0.068, 0.02), (0.072, 0.015), (0.056, 0.012), (0.02, 0.008)], DARK, "tail", n=8)
+         [(0.05, 0.03), (0.068, 0.02), (0.072, 0.015), (0.056, 0.012), (0.02, 0.008)], DARK, "tail", n=6)
     bones = {"body": ((0, -0.08, 0.06), (0, 0.07, 0.065), None),
              "head": ((0, 0.1, 0.072), (0, 0.22, 0.075), "body"),
              "tail.1": ((0, -0.1, 0.055), (0, -0.2, 0.034), "body"),
@@ -197,22 +194,21 @@ def wallaby():
     hc, hr = (0, 0.03, 0.307), (0.073, 0.07, 0.066)
     ell(m, hc, hr, FUR, "head")
     ell(m, (0, 0.088, 0.288), (0.038, 0.045, 0.032), MUZZLE, "head")
-    ell(m, (0, 0.131, 0.298), (0.014, 0.008, 0.009), "sloth_mask", "head", nu=8, nv=4)
+    ell(m, (0, 0.131, 0.298), (0.014, 0.008, 0.009), "sloth_mask", "head", nu=6, nv=3)
     smile(m, (0, 0.088, 0.288), (0.038, 0.045, 0.032), (0, 1, -0.55), 0.35, 0.18)
-    face(m, hc, hr, (0.46, 0.78, 0.26), 0.0138, (0.6, 0.6, -0.22), 0.014)
+    face(m, hc, hr, (0.46, 0.78, 0.26), 0.0138)
     for s, tag in ((1, "R"), (-1, "L")):
         ear(m, (s * 0.032, 0.02, 0.35), (s * 0.068, 0.0, 0.46), 0.022, 0.009, FUR, "blush", f"ear.{tag}", DARK)
         # little forepaws held in front of the chest
         a, b = Vector((s * 0.045, 0.05, 0.215)), Vector((s * 0.03, 0.098, 0.165))
         pipe(m, [a, b], [0.016, 0.012], FUR, f"arm.{tag}")
-        ell(m, b + Vector((0, 0.004, -0.006)), (0.013, 0.012, 0.012), DARK, f"arm.{tag}", nu=8, nv=4)
+        ell(m, b + Vector((0, 0.004, -0.006)), (0.013, 0.012, 0.012), DARK, f"arm.{tag}", nu=6, nv=3)
         # big haunches on long hind feet
         ell(m, (s * 0.068, 0.0, 0.07), (0.045, 0.072, 0.058), FUR, f"leg.{tag}")
         ell(m, (s * 0.07, 0.045, 0.014), (0.026, 0.078, 0.014), FEET, f"foot.{tag}", nu=8, nv=4)
-        claws(m, Vector((s * 0.07, 0.118, 0.012)), Y, 0.008, 0.012, f"foot.{tag}", DARK)
     # the thick tail, out behind on the ground with its tip curled up
     pipe(m, [(0, -0.06, 0.07), (0, -0.14, 0.03), (0, -0.22, 0.016), (0, -0.3, 0.022), (0, -0.345, 0.04)],
-         [0.036, 0.03, 0.022, 0.014, 0.006], FUR, "tail", n=7)
+         [0.036, 0.03, 0.022, 0.014, 0.006], FUR, "tail", n=6)
     bones = {"body": ((0, 0.0, 0.06), (0, 0.012, 0.25), None),
              "head": ((0, 0.02, 0.255), (0, 0.06, 0.36), "body"),
              "tail.1": ((0, -0.06, 0.07), (0, -0.18, 0.02), "body"),
@@ -272,9 +268,9 @@ def echidna():
     pipe(m, [(0, 0.155, 0.064), (0, 0.19, 0.052), (0, 0.222, 0.04), (0, 0.242, 0.032)],
          [0.017, 0.013, 0.009, 0.006], SNOUT, "head")
     ell(m, (0, 0.243, 0.032), (0.0065, 0.005, 0.0055), "sloth_mask", "head", nu=6, nv=3)
-    face(m, hc, hr, (0.48, 0.74, 0.4), 0.0118, (0.66, 0.56, -0.1), 0.013)
+    face(m, hc, hr, (0.48, 0.74, 0.4), 0.0118)
     # the quills: two-tone spines, cream with dark tips, swept back over the dome
-    n_q = 110
+    n_q = 70
     for i in range(n_q):
         u = (i + 0.5) / n_q
         th = math.acos(1 - 2 * u)
@@ -294,11 +290,11 @@ def echidna():
         side = a.cross(Z if abs(a.z) < 0.9 else X).normalized()
         up = a.cross(side)
         w = 0.0075
-        base_ring = [p - n * 0.006 + side * w * math.cos(k * math.pi / 2) + up * w * math.sin(k * math.pi / 2)
-                     for k in range(4)]
+        base_ring = [p - n * 0.006 + side * w * math.cos(k * 2 * math.pi / 3) + up * w * math.sin(k * 2 * math.pi / 3)
+                     for k in range(3)]
         mid = p + a * L * 0.6
-        mid_ring = [mid + side * w * 0.45 * math.cos(k * math.pi / 2) + up * w * 0.45 * math.sin(k * math.pi / 2)
-                    for k in range(4)]
+        mid_ring = [mid + side * w * 0.45 * math.cos(k * 2 * math.pi / 3) + up * w * 0.45 * math.sin(k * 2 * math.pi / 3)
+                    for k in range(3)]
         m.hull(base_ring + mid_ring, "pearl", "quills")
         m.hull(mid_ring + [p + a * L], "hair_black", "quills")
     for s, tag in ((1, "R"), (-1, "L")):
@@ -364,12 +360,12 @@ def wombat():
     for sx in (-1, 1):
         ell(m, (sx * 0.015, 0.279 + HY, 0.133 + HZ), (0.007, 0.003, 0.005), "black", "head", nu=6, nv=3)
     smile(m, mc, mr, (0, 1, -0.95), 0.28, 0.12)
-    face(m, hc, hr, (0.5, 0.76, 0.26), 0.0145, (0.72, 0.55, -0.22), 0.017)
+    face(m, hc, hr, (0.5, 0.76, 0.26), 0.0145)
     for s, tag in ((1, "R"), (-1, "L")):
         ear(m, (s * 0.06, 0.15 + HY, 0.215 + HZ), (s * 0.085, 0.145 + HY, 0.262 + HZ), 0.024, 0.01, FUR, "blush",
             f"ear.{tag}")
         for key, a, b in WOMBAT_LEGS(s, tag):
-            pipe(m, [a, b], [0.037, 0.032], DARK, key, n=7)
+            pipe(m, [a, b], [0.037, 0.032], DARK, key, n=5)
             claws(m, Vector(b) + Vector((0, 0.022, -0.004)), Y, 0.011, 0.016, key)
     bones = {"body": ((0, -0.1, 0.1), (0, 0.06, 0.1), None),
              "head": ((0, 0.1 + HY, 0.13 + HZ), (0, 0.26 + HY, 0.14 + HZ), "body")}
