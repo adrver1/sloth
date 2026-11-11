@@ -4,6 +4,7 @@ Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three 
     storybook  chunky and rounded: pebble fire ring, bell tent with a pennant, striped hammock, paper lanterns
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
     jungle     a rainforest hideout: bamboo tripod and kettle, a leaf-thatched lean-to, bamboo bench, gourd lanterns
+    picked     the set in use: rustic, with the jungle tripod and kettle over the rustic fire and the jungle hammock
 
     .venv/bin/python props/camp/build_camp.py                  # all three styles
     .venv/bin/python props/camp/build_camp.py --style rustic --samples 64
@@ -24,7 +25,7 @@ from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HAMMOCK_SPAN = 2.86
-STYLES = ("storybook", "rustic", "jungle")
+STYLES = ("storybook", "rustic", "jungle", "picked")
 rng = random.Random(7)
 
 
@@ -325,30 +326,53 @@ def rustic():
     for s in (-1, 1):
         p.append(rough_up(cyl(0.16, 0.36, at=(s * 0.5, 0, 0.18), m=M["bark"], verts=14), 0.01, 10))
     out["Seat"] = join(p, "Seat")
-    # tent: an A-frame ridge tent with poles, guy ropes and pegs
-    L, W, H = 2.3, 2.1, 1.55
-    p = []
-    for s in (-1, 1):
-        sl = box((L, math.hypot(W / 2, H), 0.02), at=(0, s * W / 4, H / 2), rot=(s * (math.pi / 2 - math.atan2(H, W / 2)) * -1, 0, 0), m=M["canvas"])
-        p.append(sl)
-    # back wall and the front flaps
-    me = bpy.data.meshes.new("gable")
-    me.from_pydata([(L / 2, -W / 2, 0), (L / 2, W / 2, 0), (L / 2, 0, H)], [], [(0, 1, 2)])
-    back = bpy.data.objects.new("back", me); bpy.context.collection.objects.link(back); _finish(back, M["canvas2"], False); back.modifiers.new("s", "SOLIDIFY").thickness = 0.02
-    p.append(back)
-    for s in (-1, 1):
-        me = bpy.data.meshes.new("flap")
-        me.from_pydata([(-L / 2, s * W / 2, 0), (-L / 2 - 0.25, s * W * 0.22, 0), (-L / 2, 0, H)], [], [(0, 1, 2)])
-        f = bpy.data.objects.new("flap", me); bpy.context.collection.objects.link(f); _finish(f, M["canvas2"], False); f.modifiers.new("s", "SOLIDIFY").thickness = 0.02
-        p.append(f)
-    for x in (-L / 2 - 0.02, L / 2 + 0.02):
-        p.append(rod((x, 0, 0), (x, 0, H + 0.12), 0.025, M["peg"]))
-        p.append(rod((x, 0, H + 0.05), (x + math.copysign(0.75, x), 0, 0), 0.007, M["rope"], verts=5))
+    # tent: a closed A-frame ridge tent. The roof is one sheet over the ridge (no gap at the top), its eaves reach the
+    # ground sheet, the back gable is sewn in and the front door is two flaps laced shut down a centre seam.
+    L, W, H, OV = 2.3, 2.1, 1.55, 0.08
+    nx, ny = 12, 8
+    verts, faces = [], []
+    for i in range(nx + 1):
+        x = -L / 2 - OV + (L + 2 * OV) * i / nx
+        sag = 0.035 * math.sin(math.pi * i / nx)                         # canvas sags a little between the poles
+        for j in range(2 * ny + 1):
+            v = j / ny - 1                                               # -1 .. 1 across, 0 at the ridge
+            y = v * W / 2
+            z = H * (1 - abs(v)) - sag * (1 - abs(v)) ** 0.5 + 0.015 * math.sin(math.pi * abs(v)) * math.sin(x * 9)
+            verts.append((x, y * (1 + 0.02 * math.sin(math.pi * i / nx)), max(0.0, z)))
+    for i in range(nx):
+        for j in range(2 * ny):
+            a = i * (2 * ny + 1) + j
+            faces.append((a, a + 2 * ny + 1, a + 2 * ny + 2, a + 1))
+    me = bpy.data.meshes.new("roof")
+    me.from_pydata(verts, [], faces)
+    roof = bpy.data.objects.new("roof", me); bpy.context.collection.objects.link(roof); _finish(roof, M["canvas"])
+    roof.modifiers.new("s", "SOLIDIFY").thickness = 0.025
+    p = [roof]
+    def gable(x, tris, m):
+        me = bpy.data.meshes.new("gable")
+        me.from_pydata([v for t in tris for v in t], [], [(3 * k, 3 * k + 1, 3 * k + 2) for k in range(len(tris))])
+        g = bpy.data.objects.new("gable", me); bpy.context.collection.objects.link(g); _finish(g, m, False)
+        g.modifiers.new("s", "SOLIDIFY").thickness = 0.02
+        return g
+    xb, xf = L / 2 - 0.01, -L / 2 + 0.01
+    p.append(gable(xb, [((xb, -W / 2, 0), (xb, W / 2, 0), (xb, 0, H - 0.01))], M["canvas2"]))
+    # front: two flaps that overlap a little at the centre, laced with toggles
+    p.append(gable(xf, [((xf, -W / 2, 0), (xf, 0.03, 0), (xf, 0.03, H - 0.01))], M["canvas2"]))
+    p.append(gable(xf - 0.012, [((xf - 0.012, W / 2, 0), (xf - 0.012, -0.03, 0), (xf - 0.012, -0.03, H - 0.01))], M["canvas2"]))
+    p.append(rod((xf - 0.03, 0, 0.02), (xf - 0.03, 0, H - 0.02), 0.008, M["rope"], verts=5))
+    for z in (0.35, 0.75, 1.15):
+        p.append(cyl(0.012, 0.09, at=(xf - 0.04, 0, z), rot=(math.pi / 2, 0, 0), m=M["peg"], verts=6))
+    for x in (-L / 2 - OV - 0.02, L / 2 + OV + 0.02):
+        p.append(rod((x, 0, 0), (x, 0, H + 0.14), 0.025, M["peg"]))
+        p.append(rod((x, 0, H + 0.06), (x + math.copysign(0.75, x), 0, 0), 0.007, M["rope"], verts=5))
         p.append(rod((x + math.copysign(0.75, x), 0, 0.08), (x + math.copysign(0.75, x), 0, -0.02), 0.02, M["peg"], verts=6))
-    p.append(rod((-L / 2, 0, H + 0.01), (L / 2, 0, H + 0.01), 0.03, M["canvas2"]))
-    p.append(box((L + 0.2, W + 0.15, 0.015), at=(0, 0, 0.008), m=M["canvas2"]))
+    for x in (-L / 4, L / 4):                                            # side guy ropes from the eaves
+        for s in (-1, 1):
+            p.append(rod((x, s * W * 0.36, 0.42), (x, s * (W / 2 + 0.45), 0), 0.006, M["rope"], verts=4))
+            p.append(rod((x, s * (W / 2 + 0.45), 0.07), (x, s * (W / 2 + 0.45), -0.02), 0.018, M["peg"], verts=6))
+    p.append(box((L + 0.3, W + 0.2, 0.015), at=(0, 0, 0.008), m=M["canvas2"]))
     t = join(p, "Tent")
-    t.rotation_euler = (0, 0, math.pi / 2)        # open end toward -Y
+    t.rotation_euler = (0, 0, math.pi / 2)        # door end toward -Y
     out["Tent"] = t
     h = HAMMOCK_SPAN / 2
     p = []
@@ -375,6 +399,19 @@ def rustic():
     return out
 
 
+def tripod_kettle(M):
+    """A bamboo tripod over the fire with a kettle on a cord (jungle materials)."""
+    p = []
+    for i in range(3):
+        a = i / 3 * 2 * math.pi + 0.3
+        p += bamboo((math.cos(a) * 0.75, math.sin(a) * 0.75, 0), (0, 0, 1.3), 0.03, M["bamboo"], M["node"], nodes=3)
+    p.append(rod((0, 0, 1.28), (0, 0, 0.72), 0.004, M["rope"], verts=4))
+    p.append(ball(0.13, at=(0, 0, 0.58), scale=(1, 1, 0.8), m=M["kettle"]))
+    p.append(rod((0.1, 0, 0.6), (0.2, 0, 0.67), 0.015, M["kettle"]))
+    p.append(torus(0.1, 0.008, at=(0, 0, 0.7), rot=(math.pi / 2, 0, 0), m=M["kettle"], major=16, minor=4))
+    return p
+
+
 def jungle():
     M = {k: mat(f"ju_{k}", c) for k, c in dict(
         stone=(0.42, 0.46, 0.42), stone2=(0.5, 0.52, 0.47), bamboo=(0.72, 0.68, 0.36), node=(0.52, 0.48, 0.24), char=(0.09, 0.07, 0.05),
@@ -385,13 +422,7 @@ def jungle():
     for i in range(9):
         a = i / 9 * 2 * math.pi
         p.append(ball(0.15, at=(math.cos(a) * 0.6, math.sin(a) * 0.6, 0.06), scale=(1.25, 0.9, 0.5), m=M["stone" if i % 2 else "stone2"], rot=(0, 0, a)))
-    for i in range(3):
-        a = i / 3 * 2 * math.pi + 0.3
-        p += bamboo((math.cos(a) * 0.75, math.sin(a) * 0.75, 0), (0, 0, 1.3), 0.03, M["bamboo"], M["node"], nodes=3)
-    p.append(rod((0, 0, 1.28), (0, 0, 0.72), 0.004, M["rope"], verts=4))
-    p.append(ball(0.13, at=(0, 0, 0.58), scale=(1, 1, 0.8), m=M["kettle"]))
-    p.append(rod((0.1, 0, 0.6), (0.2, 0, 0.67), 0.015, M["kettle"]))
-    p.append(torus(0.1, 0.008, at=(0, 0, 0.7), rot=(math.pi / 2, 0, 0), m=M["kettle"], major=16, minor=4))
+    p += tripod_kettle(M)
     out["Fire"] = join(p, "Fire")
     # seat: a bamboo bench
     p = []
@@ -517,9 +548,25 @@ def bake(objs, samples):
         me.materials.append(m)
 
 
+def picked():
+    """Adriaen's pick (2026-11-11): rustic tent (closed), table, seat and jar lanterns; the rustic fireplace
+    (rough rocks, split logs) under the jungle bamboo tripod and kettle; the jungle woven hammock."""
+    out = rustic()
+    j = jungle()
+    bpy.data.objects.remove(out["Hammock"])
+    out["Hammock"] = j.pop("Hammock")
+    for o in j.values():
+        bpy.data.objects.remove(o)
+    M = {k: bpy.data.materials[f"ju_{k}"] for k in ("bamboo", "node", "rope", "kettle")}
+    out["Fire"] = join([out["Fire"], *tripod_kettle(M)], "Fire")
+    for k, o in out.items():
+        o.name = k                       # the jungle hammock was made while the rustic one held the name
+    return out
+
+
 def build(style, samples):
     reset()
-    objs = {"storybook": storybook, "rustic": rustic, "jungle": jungle}[style]()
+    objs = {"storybook": storybook, "rustic": rustic, "jungle": jungle, "picked": picked}[style]()
     for o in objs.values():
         apply_all(o)
         o.location = (0, 0, 0)

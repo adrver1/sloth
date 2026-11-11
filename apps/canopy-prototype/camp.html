@@ -64,11 +64,11 @@ const DETAIL = LEVELS.includes(qs.get("detail")) ? qs.get("detail") : LEVELS.inc
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
             medium: { leaves: 1, ferns: 1, fx: 1, shells: 3, pr: 1.75, aa: LOOK !== "moss" },
             high: { leaves: 1.6, ferns: 1.7, fx: 1.5, shells: 4, pr: 2, aa: true } }[DETAIL];
-const PROPSETS = ["storybook", "rustic", "jungle", "code"], PNAME = { storybook: "Storybook", rustic: "Rustic", jungle: "Jungle", code: "Old shapes" };
-const PROPS = PROPSETS.includes(qs.get("props")) ? qs.get("props") : PROPSETS.includes(store.get("canopy-props")) ? store.get("canopy-props") : "storybook";
+const PROPSETS = ["picked", "storybook", "rustic", "jungle", "code"], PNAME = { picked: "Our camp", storybook: "Storybook", rustic: "Rustic", jungle: "Jungle", code: "Old shapes" };
+const PROPS = PROPSETS.includes(qs.get("props")) ? qs.get("props") : PROPSETS.includes(store.get("canopy-props2")) ? store.get("canopy-props2") : "picked";
 $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
 $("props").textContent = "Props: " + PNAME[PROPS];
-$("props").onclick = () => { store.set("canopy-props", PROPSETS[(PROPSETS.indexOf(PROPS) + 1) % PROPSETS.length]); location.reload(); };
+$("props").onclick = () => { store.set("canopy-props2", PROPSETS[(PROPSETS.indexOf(PROPS) + 1) % PROPSETS.length]); location.reload(); };
 $("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
 // seeded random, so all three looks grow the same tree and hide sloths in the same spots
