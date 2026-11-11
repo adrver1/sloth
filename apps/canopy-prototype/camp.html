@@ -50,11 +50,8 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { furify } from "./fur.js";
 import { createAtmosphere } from "./atmosphere.js";
-<<<<<<< HEAD
 import { createActivities } from "./activities.js";
-=======
 import { createGround } from "./ground.js";
->>>>>>> origin/claude/project-thread-0gu16b
 
 const qs = new URLSearchParams(location.search);
 const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
@@ -1028,13 +1025,9 @@ const lookEnd = (e) => {
 $("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
 addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.deltaY * 0.02, -20, 6); resize(); }, { passive: true });
 function tap(x, y) {
-<<<<<<< HEAD
   const h = pickAt(x, y, hit), a = acts.pick(ray);            // camp activities (activities.js) win when they are nearer than a sloth
   if (a && (!h || a.distance < h.distance)) { acts.tap(a); return; }
-  if (!h) return;
-=======
-  const h = pickAt(x, y, hit); if (!h) { jeepTap(x, y); return; }
->>>>>>> origin/claude/project-thread-0gu16b
+  if (!h) { jeepTap(x, y); return; }
   if (h.distance < 7) boop(h.object.userData.s); else toast("Get a bit closer");
 }
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
