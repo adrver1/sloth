@@ -218,9 +218,17 @@ def body(M, style):
     # roof gutters
     for s in (-1, 1):
         p.append(rod((s * 0.73, -0.12, ROOF - 0.03), (s * 0.73, REAR - 0.05, ROOF - 0.03), 0.012, top, verts=6))
-    # wipers
-    for x in (-0.3, 0.25):
-        p.append(rod((x, a.y + 0.012, a.z - 0.03), (x + 0.32, a.y - 0.02, a.z + 0.07), 0.008, M["trim"], verts=5))
+    # wipers, parked along the bottom of the windscreen: a pivot cap on the cowl, an arm, and a rubber blade on the glass
+    tilt = -math.atan2(up.y, up.z)                                   # turns a box's Z onto the glass's up direction
+    on_glass = lambda x, h, out: Vector((x, 0, 0)) + s0 + up * h + nrm.normalized() * out
+    for x in (-0.5, 0.06):
+        piv, tip = on_glass(x, 0.03, 0.03), on_glass(x + 0.36, 0.1, 0.03)
+        p.append(cyl(0.022, 0.03, at=tuple(on_glass(x, 0.03, 0.012)), rot=(tilt + math.pi / 2, 0, 0), m=M["trim"], verts=10))
+        p.append(rod(tuple(piv), tuple(tip), 0.008, M["trim"], verts=6))
+        bl = box((0.44, 0.014, 0.022), at=tuple(on_glass(x + 0.3, 0.12, 0.014)), rot=(tilt, 0, 0.0), m=M["trim"])
+        bl.rotation_mode = "XYZ"
+        p.append(bl)
+        p.append(box((0.03, 0.02, 0.03), at=tuple(on_glass(x + 0.36, 0.11, 0.024)), rot=(tilt, 0, 0), m=M["trim"]))   # the clip joining them
     # front: a recessed grille with three bars, round headlights, indicators, bumper
     grille_z = (0.7, 0.95)
     p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"], bevel=0.02))
@@ -315,11 +323,19 @@ def expedition():
     p.append(cyl(0.065, 0.36, at=(0, FRONT - 0.22, SILL + 0.11), rot=(0, math.pi / 2, 0), m=M["rope"], verts=14))
     for s in (-1, 1):
         p.append(torus(0.04, 0.012, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"], major=12, minor=4))
-    # snorkel up the right A pillar
-    x = W / 2 + 0.05
-    p.append(rod((x, -0.55, BELT - 0.1), (x, -0.42, BELT), 0.045, M["rack"], verts=10))
-    p.append(rod((x, -0.42, BELT), (x - 0.03, -0.18, ROOF - 0.02), 0.045, M["rack"], verts=10))
-    p.append(box((0.12, 0.16, 0.1), at=(x - 0.03, -0.24, ROOF + 0.02), m=M["rack"], bevel=0.03))
+    # snorkel: out of the right wing, up and along the A pillar, hugging it, to an intake head facing forward.
+    # One pipe of joined segments with a ball at each bend, so there are no gaps.
+    path = [(W / 2 - 0.04, -0.8, BELT - 0.3), (W / 2 + 0.045, -0.78, BELT - 0.22), (W / 2 + 0.045, -0.66, BELT - 0.02), (0.83, -0.5, BELT + 0.07),
+            (0.785, -0.2, ROOF - 0.04), (0.785, -0.2, ROOF + 0.05)]
+    for a_, b_ in zip(path, path[1:]):
+        p.append(rod(a_, b_, 0.045, M["rack"], verts=12))
+    for q_ in path[1:-1]:
+        p.append(ball(0.045, at=q_, m=M["rack"], seg=12))
+    p.append(box((0.016, 0.15, 0.15), at=(W / 2 + 0.006, -0.8, BELT - 0.29), m=M["rack"], bevel=0.02))     # flange on the wing
+    p.append(box((0.12, 0.2, 0.11), at=(0.785, -0.27, ROOF + 0.08), m=M["rack"], bevel=0.035))           # intake head
+    p.append(box((0.1, 0.01, 0.07), at=(0.785, -0.375, ROOF + 0.08), m=M["grille"]))                      # its mesh front
+    # front plate on the winch, where it can be seen
+    p.append(box((0.4, 0.015, 0.11), at=(0, FRONT - 0.3, SILL + 0.1), m=M["plate"], bevel=0.008))
     # roof rack: a black ladder frame with two jerry cans, a crate and a coil of rope
     z = ROOF + 0.12
     for s in (-1, 1):
@@ -424,9 +440,11 @@ def preview(style, o, samples):
     cam.data.lens = 42
     sc.camera = cam
     outs = []
-    for tag, pos in (("front", (-4.6, -5.6, 2.3)), ("back", (4.2, 5.8, 2.4))):
+    views = [("front", (-4.6, -5.6, 2.3), (0, 0, 0.95)), ("back", (4.2, 5.8, 2.4), (0, 0, 0.95)),
+             ("detail", (2.6, -3.0, 1.9), (0.45, -0.75, 1.05))]                  # close on the bonnet, wipers and snorkel
+    for tag, pos, aim in views:
         cam.location = pos
-        d = Vector((0, 0, 0.95)) - Vector(pos)
+        d = Vector(aim) - Vector(pos)
         cam.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
         path = os.path.join(HERE, f"preview_{style}_{tag}.png")
         sc.render.filepath = path

@@ -136,6 +136,33 @@ def bamboo(a, b, r, m, node_m, nodes=None):
     return parts
 
 
+def painted_bamboo(a, h, r, m, node_m, step=0.38, band=0.035):
+    """A plain octagonal pole (Adriaen 2026-11-11: no modelled rings): one flat-shaded eight-sided tube
+    with a ring of vertices at each node, the thin node bands taking the node colour, so the nodes are
+    only painted on; a top cap, no hidden faces. Standing at a, height h. About 16 triangles a metre."""
+    zs, kinds, z = [0.0], [], 0.0
+    while z < h - 1e-4:
+        z = min(h, z + step - band); zs.append(z); kinds.append(0)
+        if z < h - band:
+            z += band; zs.append(z); kinds.append(1)
+    verts = [(a[0] + r * math.cos(k * math.pi / 4 + math.pi / 8), a[1] + r * math.sin(k * math.pi / 4 + math.pi / 8), a[2] + zz)
+             for zz in zs for k in range(8)]
+    faces, mats = [], []
+    for i, kind in enumerate(kinds):
+        for k in range(8):
+            faces.append((i * 8 + k, i * 8 + (k + 1) % 8, (i + 1) * 8 + (k + 1) % 8, (i + 1) * 8 + k)); mats.append(kind)
+    faces.append(tuple(len(zs) * 8 - 8 + k for k in range(8))); mats.append(0)
+    me = bpy.data.meshes.new("post")
+    me.from_pydata(verts, [], faces)
+    o = bpy.data.objects.new("post", me)
+    bpy.context.collection.objects.link(o)
+    o.data.materials.append(m)
+    o.data.materials.append(node_m)
+    for poly, mi in zip(o.data.polygons, mats):
+        poly.material_index = mi
+    return [o]
+
+
 def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
     """A big tropical leaf: a strip bent down along its length, with a raised midrib."""
     nl, nw = 10, 4
@@ -412,7 +439,7 @@ def tripod_kettle(M):
     return p
 
 
-def jungle():
+def jungle(plain_posts=False):
     M = {k: mat(f"ju_{k}", c) for k, c in dict(
         stone=(0.42, 0.46, 0.42), stone2=(0.5, 0.52, 0.47), bamboo=(0.72, 0.68, 0.36), node=(0.52, 0.48, 0.24), char=(0.09, 0.07, 0.05),
         ember=(0.85, 0.3, 0.07), kettle=(0.24, 0.24, 0.26), leaf=(0.24, 0.5, 0.2), leaf2=(0.32, 0.6, 0.24), weave=(0.8, 0.66, 0.44),
@@ -458,10 +485,16 @@ def jungle():
     h = HAMMOCK_SPAN / 2
     p = []
     for s in (-1, 1):
-        p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
+        if plain_posts:                                  # the picked set (Adriaen 2026-11-11): octagon posts, nodes painted on
+            p += painted_bamboo((s * h, 0, 0), 2.4, 0.055, M["bamboo"], M["node"])
+        else:
+            p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
         p.append(rod((s * h, 0, 1.75), (s * (h - 0.4), 0, 1.35), 0.012, M["rope"], verts=5))
-    p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
-    for s in (-1, 1):                                    # two leaves tucked over the posts
+    if plain_posts:                                      # a coarse sling for the picked set: 12 x 4 quads, both sides
+        p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4, nx=12, ny=4))
+    else:
+        p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
+    for s in (-1, 1) if not plain_posts else ():         # two leaves tucked over the posts (not in the picked set)
         p.append(leaf(0.9, 0.38, (s * h, 0, 2.4), 0 if s < 0 else math.pi, 0.5, M["leaf2"], droop=0.3))
     out["Hammock"] = join(p, "Hammock")
     p = [ball(0.075, at=(0, 0, -0.17), m=M["gourd"], seg=12), ball(0.05, at=(0, 0, -0.07), m=M["gourd"], seg=10), cyl(0.012, 0.05, at=(0, 0, -0.025), m=M["node"], verts=6)]
@@ -509,7 +542,8 @@ def bake(objs, samples):
     bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
     ground = bpy.context.object
     for o in objs:
-        densify(o)
+        if not o.get("coarse"):                         # "coarse": keep the modelled detail, AO only at the existing vertices
+            densify(o)
         ao = o.data.color_attributes.new("AO", "FLOAT_COLOR", "CORNER")
         o.data.color_attributes.active_color = ao
     for o in objs:
@@ -550,15 +584,17 @@ def bake(objs, samples):
 
 def picked():
     """Adriaen's pick (2026-11-11): rustic tent (closed), table, seat and jar lanterns; the rustic fireplace
-    (rough rocks, split logs) under the jungle bamboo tripod and kettle; the jungle woven hammock."""
+    (rough rocks, split logs) under the jungle bamboo tripod and kettle; the jungle woven hammock,
+    on plain octagon posts with painted nodes and no leaves on top (2026-11-11)."""
     out = rustic()
-    j = jungle()
+    j = jungle(plain_posts=True)
     bpy.data.objects.remove(out["Hammock"])
     out["Hammock"] = j.pop("Hammock")
     for o in j.values():
         bpy.data.objects.remove(o)
     M = {k: bpy.data.materials[f"ju_{k}"] for k in ("bamboo", "node", "rope", "kettle")}
     out["Fire"] = join([out["Fire"], *tripod_kettle(M)], "Fire")
+    out["Hammock"]["coarse"] = True       # Adriaen 2026-11-11: the densified cloth was ~7k triangles
     for k, o in out.items():
         o.name = k                       # the jungle hammock was made while the rustic one held the name
     return out
