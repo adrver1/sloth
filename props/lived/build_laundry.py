@@ -72,8 +72,6 @@ def atlas(path):
         if i == 1:
             for y in range(50, 130, 22):
                 d.rectangle(S(cx - 22, y, cx + 22, y + 9), fill=(250, 245, 230, 255))            # stripes
-        if i == 2:
-            d.ellipse(S(cx - 30, 150, cx - 4, 196), fill=dark)                                  # darned heel patch
         d.rounded_rectangle(S(cx - 6, 0, cx + 6, 30), radius=3 * k, fill=(196, 150, 100, 255))   # wooden peg
         d.line(S(cx, 2, cx, 28), fill=(150, 110, 70, 255), width=k)
 
