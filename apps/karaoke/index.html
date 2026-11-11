@@ -981,7 +981,18 @@ for (const side of ["L", "R"]) { const t = new THREE.Object3D(); t.position.set(
 const didgeRings = [0, 1, 2].map(() => { const r = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 6, 24), new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0 })); didge.add(r); r.rotation.x = Math.PI / 2; return r; });
 // the new audience, on the front of the stage, turned in toward her so you see their faces in profile
 const crowd = [];
-function critter(kind, x, z, build) {
+// the crowd animals are rigged low-poly models with their own clips (characters/aussie_critters/: idle, bop, cheer, and
+// hop for the wallaby), furred like the sloths with 3 shells; ?critters=old brings back the first code-built crowd
+const OLD_CRITTERS = /[?&]critters=old\b/.test(location.search);
+const CRIT = OLD_CRITTERS ? {} : Object.fromEntries(await Promise.all(["platypus", "wallaby", "echidna", "wombat"].map(async (n) => [n, await glb(`models/${n}.txt`)])));
+const CRIT_FUR = { platypus: [0x8a6446, 0x5e4030], wallaby: [0xb49670], echidna: [0x3b2a20, 0x5e4030], wombat: [0x7a6a5e, 0x594a40] };
+function critter(kind, x, z, oldBuild) {
+  const build = OLD_CRITTERS ? oldBuild : (b) => {
+    const o = clone(CRIT[kind].scene); shadow(o); furify(o, { colors: CRIT_FUR[kind], shells: 3, length: 0.0075 * 1.25 }); b.add(o);
+    const mixer = new THREE.AnimationMixer(o);
+    const acts = Object.fromEntries(CRIT[kind].animations.map((a) => { const x = mixer.clipAction(a); x.play(); x.weight = 0; return [a.name, x]; }));
+    return { mixer, acts };
+  };
   const g = new THREE.Group(); g.position.set(x, STAGE_Y + 0.012, z);
   const toHer = new THREE.Vector2(-x, 0.15 - z).normalize(), toCam = new THREE.Vector2(-x, -4.7 - z).normalize();
   const f = toHer.multiplyScalar(0.35).add(toCam.multiplyScalar(0.65)).normalize();
@@ -1032,7 +1043,7 @@ critter("echidna", -0.5, -1.28, (b) => {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) blob(0.022, [1, 0.5, 1.2], 0x3a2c25, [sx * 0.08, 0.012, sz * 0.07], b);
   return { head, spikes };
 });
-critter("wombat", -1.08, -1.0, (b) => {
+critter("wombat", -1.0, -1.26, (b) => {
   // a low, round barrel of a wombat: broad flat head, wide square nose, little ears, short strong legs with claws
   const fur = 0x8c7259, dark = 0x5e4a3a;
   blob(0.15, [1.05, 0.8, 1.3], fur, [0, 0.13, 0.03], b);
@@ -1067,9 +1078,19 @@ function poseOz(b, sing, dt, t) {
   kooka.userData.jaw.rotation.x = laugh * (0.25 + 0.25 * Math.abs(Math.sin(t * 21)));
   kooka.position.y = KOOKA_Y + laugh * 0.012 * Math.abs(Math.sin(t * 21));
   // "Oi!": everyone jumps
-  let oi = 0; for (const o of ois) if (b >= o && b < o + 0.9) oi = Math.sin(Math.PI * (b - o) / 0.9);
+  let oi = 0, oiU = 0; for (const o of ois) if (b >= o && b < o + 0.9) { oiU = (b - o) / 0.9; oi = Math.sin(Math.PI * oiU); }
   for (const c of crowd) {
     c.vy -= 9.8 * dt; c.hop = Math.max(0, c.hop + c.vy * dt); if (c.hop === 0) c.vy = 0;
+    if (c.acts) {   // the rigged crowd: one clip at a time, scrubbed to the beat (bop and hop are one beat long)
+      const name = oi > 0 ? "cheer" : !playing ? "idle" : c.kind === "wallaby" && chorus ? "hop" : "bop";
+      const u = name === "cheer" ? oiU : name === "idle" ? (t / 4 + c.ph) % 1 : ((b % 1) + 1) % 1;
+      for (const [n, a] of Object.entries(c.acts)) { a.weight = n === name ? 1 : 0; if (n === name) a.time = u * a.getClip().duration * 0.999; }
+      c.mixer.update(0);
+      c.g.position.y = c.base.y + c.hop;
+      c.look = THREE.MathUtils.damp(c.look || 0, chorus || c.hop > 0 ? 1 : 0, 3, dt);
+      c.g.rotation.y = THREE.MathUtils.lerp(c.g.userData.yaw, c.g.userData.camYaw, c.look * 0.7);
+      continue;
+    }
     const bounce = c.kind === "wallaby" ? (chorus ? Math.abs(Math.sin(ph)) * 0.11 : Math.abs(Math.sin(ph)) * 0.015) : Math.abs(Math.sin(ph + c.ph)) * (chorus ? 0.03 : 0.012);
     c.g.position.y = c.base.y + c.hop + (bounce * groove) + oi * 0.16;
     c.body.scale.set(1 + Math.sin(ph * 2) * 0.03 * groove, 1 - Math.sin(ph * 2) * 0.03 * groove, 1);
