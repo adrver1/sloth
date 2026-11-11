@@ -712,7 +712,8 @@ function feed(s) {
 }
 
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
-const atmo = createAtmosphere({ scene, camera, fx: D.fx, spout: PROPS === "picked" || PROPS === "jungle" ? V(0.2, 0.67, 0) : null });
+// and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
+const atmo = createAtmosphere({ scene, camera, fx: D.fx, spout: PROPS === "picked" || PROPS === "jungle" ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
 window.__atmo = atmo;
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
 const hemiL = scene.children.find((o) => o.isHemisphereLight);
@@ -724,6 +725,7 @@ const flies = (() => {
   const pts = new THREE.Points(g, new THREE.PointsMaterial({ map: glowTex, color: 0xd8ff7a, size: 0.14, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); scene.add(pts); return pts;
 })();
 $("rest").onclick = () => { duskTo = duskTo ? 0 : 1; $("rest").textContent = duskTo ? "Wake up ☀️" : "Rest 🌙"; };
+flies.visible = false;   // atmosphere.js draws blinking fireflies instead
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }

@@ -1,5 +1,6 @@
 // Cozy camp atmosphere for camp.html: cheap particle effects round the fire, kept out of camp.html so the sibling threads' edits there don't collide.
 // Batch 1: smoke curling up from the fire, sparks that pop more often as you walk close, and steam from the kettle spout.
+// Batch 2: butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
 // Each effect is one instanced draw of camera-facing quads (no point sprites, so phone GPUs' point-size caps don't matter) with a fixed pool, scaled by the detail level.
 import * as THREE from "three";
 
@@ -48,7 +49,7 @@ function pool(scene, n, map, blending, order) {
 }
 
 // fire at the clearing centre; spout is the kettle spout tip in world space, or null when the props have no kettle
-export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0, 0, 0), spout = null }) {
+export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0, 0, 0), spout = null, sloths = [], roam = 7.5 }) {
   const k = fx > 1 ? 1.5 : fx ? 1 : 0.5;   // detail: low, medium, high
   const puff = puffTex();
   const smoke = pool(scene, Math.round(26 * k), puff, THREE.NormalBlending, 3);
@@ -108,6 +109,138 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
     smoke.mat.uniforms.tint.value.copy(DAY_SMOKE).lerp(DUSK_SMOKE, dusk);
     if (steam) steam.mat.uniforms.tint.value.setScalar(1 - 0.45 * dusk);
     sparks.mat.uniforms.tint.value.setScalar(1 + 0.4 * dusk);
+    flutter.update(dt, time, dusk);
+    flies.update(dt, time, dusk);
   }
-  return { update, stats: () => ({ smoke: smoke.live.length, sparks: sparks.live.length, steam: steam ? steam.live.length : 0 }) };
+  const flutter = butterflies(scene, Math.round(8 * k), sloths, roam);
+  const flies = fireflies(scene, Math.round(70 * k), roam);
+  return { update, flutter, stats: () => ({ smoke: smoke.live.length, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter.landed() }) };
+}
+
+// ---------------------------------------------------------------- butterflies: two wing quads each, hinged on the body and flapped in the shader; all in one draw
+// A butterfly wanders between random spots in the clearing. Every 10 to 30 s it picks a sloth that has no butterfly on it,
+// flies to the tip of its nose (followed every frame, so it lands on a swaying napper too), sits there 5 to 9 s slowly
+// opening and closing its wings, then flutters off. At dusk they fold away (scale to nothing) and the fireflies take over.
+const wingTex = () => canvasTex(64, (g, s) => {
+  // one wing, hinge at the left edge (u = 0), the front of the butterfly at the top (v = 1)
+  const wing = (path) => { g.beginPath(); path(); g.closePath(); };
+  const fore = () => { g.moveTo(1, 30); g.bezierCurveTo(14, 4, 46, -2, 62, 6); g.bezierCurveTo(60, 20, 46, 30, 1, 34); };
+  const hind = () => { g.moveTo(1, 32); g.bezierCurveTo(30, 34, 52, 44, 44, 56); g.bezierCurveTo(34, 64, 10, 60, 1, 40); };
+  for (const f of [fore, hind]) { wing(f); g.fillStyle = "#fff"; g.fill(); g.lineWidth = 5; g.strokeStyle = "#3a2a22"; g.stroke(); }
+  g.fillStyle = "rgba(58,42,34,.85)"; for (const [x, y, r] of [[52, 9, 2.2], [44, 6, 1.8], [36, 48, 3.2]]) { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+  g.fillStyle = "#fff8e0"; for (const [x, y] of [[57, 9], [49, 6]]) { g.beginPath(); g.arc(x, y, 1.4, 0, 7); g.fill(); }
+  g.fillStyle = "#2b1f1a"; g.fillRect(0, 22, 3, 30);   // the body along the hinge
+});
+const PASTEL = [0xffb3cf, 0xffd36e, 0x9fd3ff, 0xffa06a, 0xc9a6ff, 0xfff1a8, 0x7fc8ff, 0xff8fa8];
+
+// where a sloth's nose sits, in its head bone's space: the frontmost head-weighted vertex of the rest pose
+function noseOf(o) {
+  let m = null; o.traverse((c) => { if (!m && c.isSkinnedMesh) m = c; }); if (!m) return null;
+  const sk = m.skeleton, hi = sk.bones.findIndex((b) => b.name === "head"); if (hi < 0) return null;
+  const pos = m.geometry.attributes.position, si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight, v = new THREE.Vector3();
+  let best = null, bz = Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    let w = 0; for (let j = 0; j < 4; j++) if (si.getComponent(i, j) === hi) w += sw.getComponent(i, j);
+    if (w < 0.9) continue;
+    v.fromBufferAttribute(pos, i).applyMatrix4(m.bindMatrix);
+    if (v.z < bz) { bz = v.z; best = v.clone(); }        // glTF: the character faces -Z
+  }
+  if (!best) return null;
+  best.z -= 0.03;                                         // a hair in front of the nose, so the butterfly sits on it, not in it
+  return { bone: sk.bones[hi], local: best.applyMatrix4(sk.boneInverses[hi]) };
+}
+
+function butterflies(scene, n, sloths, roam) {
+  const geo = new THREE.InstancedBufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, -0.5, 1, 0, -0.5, 1, 0, 0.5, 0, 0, 0.5, 0, 0, -0.5, -1, 0, -0.5, -1, 0, 0.5, 0, 0, 0.5], 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1], 2));
+  geo.setIndex([0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6]);
+  const P = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4), W = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4), C = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+  P.setUsage(THREE.DynamicDrawUsage); W.setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute("iP", P); geo.setAttribute("iW", W); geo.setAttribute("iC", C); geo.instanceCount = n;
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: wingTex() }, light: { value: 1 } },
+    vertexShader: `attribute vec4 iP; attribute vec4 iW; attribute vec3 iC; varying vec2 vUv; varying vec3 vC;
+      void main() { vUv = uv; vC = iC;
+        float a = iW.x, ax = abs(position.x);
+        vec3 p = vec3(position.x * cos(a), ax * sin(a), position.z);            // wings raised by a about the body
+        float cp = cos(iW.w), sp = sin(iW.w); p = vec3(p.x, p.y * cp - p.z * sp, p.y * sp + p.z * cp);   // body pitch
+        float cy = cos(iP.w), sy = sin(iP.w); p = vec3(p.x * cy + p.z * sy, p.y, -p.x * sy + p.z * cy);  // heading
+        gl_Position = projectionMatrix * viewMatrix * vec4(iP.xyz + p * iW.y, 1.0); }`,
+    fragmentShader: `uniform sampler2D map; uniform float light; varying vec2 vUv; varying vec3 vC;
+      void main() { vec4 t = texture2D(map, vUv); if (t.a < 0.5) discard; gl_FragColor = vec4(t.rgb * vC * light, 1.0);
+        #include <colorspace_fragment>
+      }`,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; scene.add(mesh);
+  const noses = new Map(), V3 = () => new THREE.Vector3(), tmp = V3();
+  const nosePos = (s, out) => { let n = noses.get(s); if (n === undefined) { n = noseOf(s.o); noses.set(s, n); } if (!n) return null; n.bone.updateWorldMatrix(true, false); return out.copy(n.local).applyMatrix4(n.bone.matrixWorld); };
+  const spot = (out) => { const a = rnd(0, 6.28), r = Math.sqrt(Math.random()) * roam; return out.set(Math.cos(a) * r, rnd(0.5, 2.4), Math.sin(a) * r); };
+  const bs = [];
+  for (let i = 0; i < n; i++) {
+    const c = new THREE.Color(PASTEL[i % PASTEL.length]); C.setXYZ(i, c.r, c.g, c.b);
+    const b = { p: spot(V3()), v: V3(), to: spot(V3()), yaw: rnd(0, 6.28), ph: rnd(0, 6.28), size: rnd(0.07, 0.09), state: "fly", sloth: null, t: 0, next: rnd(4, 20) + i * 2, flap: 0.5 };
+    bs.push(b);
+  }
+  function update(dt, time, dusk) {
+    const show = 1 - Math.min(1, dusk * 2);
+    for (let i = 0; i < n; i++) {
+      const b = bs[i]; b.t += dt; b.next -= dt;
+      if (b.state === "fly") {
+        // now and then, head for a free sloth's nose
+        if (b.next <= 0 && show > 0.9 && sloths.length) {
+          const free = sloths.filter((s) => !bs.some((o) => o.sloth === s)); b.next = rnd(10, 30);
+          if (free.length) { b.sloth = free[Math.floor(Math.random() * free.length)]; b.state = "go"; }
+        }
+        if (b.p.distanceTo(b.to) < 0.4) spot(b.to);
+      }
+      if (b.state === "go" && (!nosePos(b.sloth, b.to) || show < 0.9)) { b.state = "fly"; b.sloth = null; spot(b.to); }
+      if (b.state === "sit") {
+        if (!nosePos(b.sloth, b.p)) b.t = 99;
+        b.flap = 1.2 - 0.9 * Math.max(0, Math.sin(b.t * 1.1 + b.ph));      // wings slowly open and fold
+        W.setXYZW(i, b.flap, b.size * show * Math.min(1, (b.sloth?.sc || 2.6) / 2.6), 0, -0.1);   // smaller on a baby's nose
+        if (b.t > b.stay || show < 0.9) { b.state = "fly"; b.sloth = null; b.v.set(rnd(-0.3, 0.3), 0.6, rnd(-0.3, 0.3)); spot(b.to); b.next = rnd(10, 30); }
+      } else {
+        // fluttering flight: steer at the target, with a jittery bob and weave
+        const d = tmp.copy(b.to).sub(b.p), dist = d.length(), near = b.state === "go" ? Math.min(1, dist / 0.5) : 1;
+        const speed = (0.7 + 0.25 * Math.sin(time * 1.7 + b.ph)) * (0.25 + 0.75 * near);
+        d.multiplyScalar(speed / Math.max(dist, 1e-3));
+        d.x += Math.sin(time * 3.1 + b.ph) * 0.35 * near; d.z += Math.cos(time * 2.7 + b.ph * 1.3) * 0.35 * near; d.y += Math.sin(time * 7 + b.ph) * 0.5 * near;
+        b.v.lerp(d, 1 - Math.exp(-4 * dt)); b.p.addScaledVector(b.v, dt);
+        if (b.p.y < 0.3) b.p.y = 0.3;
+        if (Math.hypot(b.v.x, b.v.z) > 0.05) { const want = Math.atan2(b.v.x, b.v.z); let dy = want - b.yaw; dy -= Math.round(dy / 6.2832) * 6.2832; b.yaw += dy * Math.min(1, dt * 6); }
+        b.flap = 0.35 + 0.95 * Math.sin(time * (b.state === "go" && near < 0.3 ? 14 : 22) + b.ph);
+        W.setXYZW(i, b.flap, b.size * show, 0, 0.25);
+        if (b.state === "go" && dist < 0.03) { b.state = "sit"; b.t = 0; b.stay = rnd(5, 9); b.p.copy(b.to); }
+      }
+      P.setXYZW(i, b.p.x, b.p.y, b.p.z, b.yaw);
+    }
+    P.needsUpdate = W.needsUpdate = true;
+    mat.uniforms.light.value = 1 - 0.5 * dusk;
+  }
+  return { update, list: bs, sloths, landed: () => bs.filter((b) => b.state === "sit").length,
+    land: (i, k = 0) => { const b = bs[i]; b.sloth = sloths[k]; b.state = "go"; nosePos(b.sloth, b.to); b.p.copy(b.to).add(new THREE.Vector3(0.3, 0.2, 0)); } };   // for screenshots
+}
+
+// ---------------------------------------------------------------- fireflies at dusk: each drifts round its own home spot and blinks on its own slow rhythm
+function fireflies(scene, n, roam) {
+  const glow = canvasTex(32, (g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, "rgba(250,255,210,1)"); gr.addColorStop(0.25, "rgba(220,255,120,.75)"); gr.addColorStop(1, "rgba(180,255,90,0)"); g.fillStyle = gr; g.fillRect(0, 0, s, s); });
+  const P = pool(scene, n, glow, THREE.AdditiveBlending, 6);
+  for (let i = 0; i < n; i++) {
+    const a = rnd(0, 6.28), r = i < n * 0.6 ? roam * (0.75 + 0.5 * Math.random()) : Math.sqrt(Math.random()) * roam;   // most along the forest edge, some in the camp
+    P.live.push({ hx: Math.cos(a) * r, hy: rnd(0.3, i % 4 ? 2.2 : 5), hz: Math.sin(a) * r, x: 0, y: 0, z: 0, ph: rnd(0, 6.28), per: rnd(2.5, 5.5), f: rnd(0.3, 0.7), size: 0, alpha: 0, spin: 0 });
+  }
+  function update(dt, time, dusk) {
+    if (dusk <= 0) { if (P.live[0].alpha) { P.live.forEach((p) => (p.alpha = 0)); P.flush(); } return; }
+    for (const p of P.live) {
+      p.x = p.hx + Math.sin(time * 0.31 * p.f + p.ph) * 0.8 + Math.sin(time * 0.9 * p.f + p.ph * 2) * 0.25;
+      p.z = p.hz + Math.cos(time * 0.27 * p.f + p.ph) * 0.8 + Math.cos(time * 0.8 * p.f + p.ph * 3) * 0.25;
+      p.y = p.hy + Math.sin(time * 0.5 * p.f + p.ph) * 0.35;
+      const c = ((time + p.ph * p.per) % p.per) / p.per, blink = c < 0.5 ? Math.sin((c / 0.5) * Math.PI) : 0;   // glow up and fade, then dark a while
+      p.alpha = dusk * (0.15 + 0.85 * blink); p.size = 0.14 + 0.14 * blink;
+    }
+    P.flush();
+  }
+  return { update };
 }
