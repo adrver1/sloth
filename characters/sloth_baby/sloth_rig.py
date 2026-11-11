@@ -71,7 +71,7 @@ HANG_SWING = 0.17                   # duty factor 0.83, as measured in three-toe
 HANG_CYCLE = 96
 HANG_SPEED = 2 * HANG_STRIDE / ((1 - HANG_SWING) * HANG_CYCLE / FPS)   # m/s, about 0.015
 CLING_BRANCH = (0.10, 0.0, 0.20)    # branch height over the belly, its z span
-DRIVE_WHEEL = ((0.0, 0.10, 0.11), 0.045)   # wheel centre ahead of the chest and its rim radius, sloth frame
+DRIVE_WHEEL = ((0.0, 0.10, 0.11), 0.062)   # wheel centre ahead of the chest and its rim radius, sloth frame
 NAP_TILT = 80                       # on its back, head end a little raised, degrees
 LIMB_BONES = {"arm": ("upper_arm", "forearm"), "leg": ("thigh", "shin")}
 
@@ -410,7 +410,7 @@ def drive(t, limbs):
             continue
         side = 1 if tag == "R" else -1
         a = math.radians(90 - side * 55 - 50 * steer)    # paws at ten to two, turned with the wheel
-        p = c + Vector((math.cos(a) * r, -0.15 * math.sin(a) * r, math.sin(a) * r))
+        p = c + Vector((math.cos(a) * r, -0.45 * math.sin(a) * r, 0.9 * math.sin(a) * r))   # rim tipped back 25 deg, top toward the driver
         pose[key] = (p, Vector((side * 1.0, -0.4, -0.6)))
     return pose
 
