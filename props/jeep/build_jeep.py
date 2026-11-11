@@ -206,7 +206,7 @@ def duct(path, secs, m):
     return o
 
 
-def lathe(prof, n, at, axis_x, M, name="lathe"):
+def lathe(prof, n, at, axis_x, M, name="lathe", face=None):
     """A surface of revolution about the axle. prof is [(radius, offset along the axle, material key of the band that
     starts here)]; n segments round. One object, one material per band, so grooves and stripes cost no extra triangles."""
     keys = []
@@ -232,9 +232,10 @@ def lathe(prof, n, at, axis_x, M, name="lathe"):
     # an open surface, so face it away from the wheel's centre explicitly (normals_make_consistent can pick inward,
     # and the page draws front faces only)
     import bmesh
+    # (face: a direction every face should look toward instead, for the rim, which is seen from outside only)
     bm = bmesh.new(); bm.from_mesh(me); c0 = Vector(at)
     for f in bm.faces:
-        if f.normal.dot(f.calc_center_median() - c0) < 0:
+        if f.normal.dot(Vector(face) if face else f.calc_center_median() - c0) < 0:
             f.normal_flip()
     bm.to_mesh(me); bm.free(); me.update()
     return o
@@ -276,11 +277,16 @@ def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
             p.append(b)
     # the rim: a lip, a dished face and a raised centre, then a hub and five nuts; a flat cap closes the inner side
     rim = [(rr, h * 1.02, "rim"), (rr * 0.88, h * 0.6, "rim"), (rr * 0.5, h * 0.6, "rim"), (rr * 0.42, h * 0.75, "hub")]
-    p.append(lathe([(r, o * side, k) for r, o, k in rim], 12, at, axis_x, M, "rim"))
+    p.append(lathe([(r, o * side, k) for r, o, k in rim], 12, at, axis_x, M, "rim", face=(side, 0, 0) if axis_x else (0, side, 0)))
     hub_at = (x + side * h * 0.75, y, 0) if axis_x else (x, y + side * h * 0.75, 0)
     rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
     p.append(cyl(rr * 0.42, 0.04, at=hub_at, rot=rot, m=M["hub"], verts=6))
     p.append(cyl(rr * 0.9, 0.01, at=(x - side * h * 0.98, y, 0) if axis_x else (x, y - side * h * 0.98, 0), rot=rot, m=M["under"], verts=6))
+    for k in range(5):     # five hex wheel nuts round the hub
+        a = k / 5 * 2 * math.pi
+        c, sn = math.cos(a) * rr * 0.3, math.sin(a) * rr * 0.3
+        nut_at = (hub_at[0] + side * 0.02, y + c, sn) if axis_x else (x + c, hub_at[1] + side * 0.02, sn)
+        p.append(cyl(rr * 0.075, 0.025, at=nut_at, rot=rot, m=M["trim"], verts=6))
     return p
 
 
