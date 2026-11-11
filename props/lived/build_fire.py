@@ -26,8 +26,11 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_lived  # noqa: E402  (also sets the light densify for bake)
+import build_lived  # noqa: E402  (shared helpers; its light densify is replaced below)
+import build_camp  # noqa: E402
 from build_camp import (apply_all, bake, bamboo, box, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
+
+build_camp.densify = apply_all          # no face splitting for the AO bake: the fire and pot are small enough that the plain faces shade fine
 
 rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
