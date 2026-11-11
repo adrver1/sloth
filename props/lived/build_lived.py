@@ -122,10 +122,11 @@ def hatchet(M, at, yaw, lean):
             v.co.y *= 0.25
     p.append(head)
     p.append(box((0.006, 0.008, 0.1), at=(0.078, 0, 0), m=M["edge"]))
-    handle_pts = [Vector((-0.01, 0, 0)), Vector((-0.02, 0, 0.14)), Vector((-0.01, 0, 0.28)), Vector((0.02, 0, 0.38))]
+    # the handle runs through the eye at the back of the head and comes out flush with its top (-Z, away from the grip),
+    # then on down to a plain end
+    handle_pts = [Vector((-0.015, 0, -0.04)), Vector((-0.015, 0, 0.05)), Vector((-0.022, 0, 0.2)), Vector((-0.008, 0, 0.38))]
     for a, b in zip(handle_pts, handle_pts[1:]):
-        p.append(rod(a, b, 0.014, M["handle"], verts=8))
-    p.append(cyl(0.018, 0.03, at=(0.022, 0, 0.39), m=M["handle"], verts=8))     # a swelled knob at the end
+        p.append(rod(a, b, 0.013, M["handle"], verts=8))
     h = join(p, "hatchet")
     # the blade edge points down into the wood: rotate so +X goes to -Z, then lean the handle
     h.scale = (1.25, 1.25, 1.25)
