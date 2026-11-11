@@ -1,0 +1,56 @@
+<!-- PROTOTYPE (throwaway): the seven camp sloths side by side, each with its name and one trait, to check the traits read on a phone. -->
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Camp Sloth Names</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+<style>
+html,body{margin:0;height:100%;background:#cfe3c0;font-family:Fredoka,system-ui,sans-serif;color:#4a3426;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.lab{position:fixed;transform:translate(-50%,0);text-align:center;font-weight:600;font-size:15px;line-height:1.15;background:rgb(255 248 238/.9);border-radius:12px;padding:4px 8px;white-space:nowrap;box-shadow:0 2px 0 rgb(138 90 59/.2)}
+.lab small{display:block;font-weight:500;font-size:11.5px;color:#8a6a55}
+@media (max-aspect-ratio:1/1){.lab{font-size:13px;padding:3px 6px}.lab small{font-size:10px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "./fur.js";
+const txt = (await (await fetch("models/sloth.txt")).text()).trim(), bin = Uint8Array.from(atob(txt), c => c.charCodeAt(0));
+const G = await new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); document.body.appendChild(renderer.domElement);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xcfe3c0);
+scene.add(new THREE.HemisphereLight(0xfff4e0, 0x6b8a55, 2.2)); const sun = new THREE.DirectionalLight(0xfff0d0, 1.6); sun.position.set(2, 4, 3); scene.add(sun);
+const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(20, 48).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x9cc27f })); scene.add(ground);
+const lam = (c) => new THREE.MeshLambertMaterial({ color: c });
+// each sloth: name, trait, favourite, and how to dress it (accessories hang off the head bone)
+const CAST = [
+  { name: "Hibi", trait: "pink flower", fav: "🌺 hibiscus", dress(h) { const f = new THREE.Group(); for (let k = 0; k < 5; k++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6).scale(1, 0.4, 1.6), lam(0xff5f8f)); p.position.set(0, 0, 0.03); const r = new THREE.Group(); r.rotation.y = k / 5 * 6.28; r.add(p); f.add(r); } f.add(new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), lam(0xffe06a))); f.position.set(0.085, 0.09, 0.02); f.rotation.set(0.3, 0, -0.9); h.add(f); } },
+  { name: "Mango", trait: "orange bandana", fav: "🥭 mango", dress(h) { const b = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.02, 8, 20), lam(0xff8a2a)); b.rotation.x = Math.PI / 2; b.scale.set(1.15, 1, 1); b.position.set(0, -0.05, 0); h.add(b); const k = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.07, 3), lam(0xff8a2a)); k.position.set(0, -0.08, 0.07); k.rotation.x = Math.PI; h.add(k); } },
+  { name: "Figgy", trait: "leaf hat", fav: "🟣 fig", dress(h) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 6, 0, 6.28, 0, 1.0).scale(1, 0.55, 1.2), lam(0x4f9a3c)); l.position.set(0, 0.07, -0.005); l.rotation.set(-0.2, 0, 0.12); h.add(l); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.06), lam(0x6b4a2a)); s.position.set(0, 0.135, -0.01); h.add(s); } },
+  { name: "Bandit", trait: "dark eye patches", fav: "🍌 banana", dress(h) { for (const x of [-1, 1]) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8).scale(1.45, 0.85, 0.35), lam(0x3a2a20)); p.position.set(x * 0.047, 0.048, -0.072); p.rotation.z = x * 0.3; p.scale.multiplyScalar(1.15); h.add(p); } } },
+  { name: "Pip", trait: "the smallest", fav: "🌺 hibiscus", scale: 0.72 },
+  { name: "Hazel", trait: "darker fur", fav: "🟣 fig", tint: 0xa08670 },
+  { name: "Sunny", trait: "yellow scarf", fav: "🥭 mango", dress(h, o) { const b = o.getObjectByName("body"); const s = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.026, 8, 20), lam(0xffd23f)); s.rotation.x = Math.PI / 2; s.position.copy(h.position).add(new THREE.Vector3(0, -0.075, 0)); h.parent.add(s); const t = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.11, 0.015), lam(0xffd23f)); t.position.copy(h.position).add(new THREE.Vector3(0.04, -0.13, -0.085)); t.rotation.z = 0.25; h.parent.add(t); } },
+];
+const SL = 2.4, GAP = 0.62, items = [];
+CAST.forEach((c, i) => {
+  const o = clone(G.scene); o.traverse(m => { if (m.isMesh) { m.frustumCulled = false; m.material = m.material.clone(); if (c.tint) m.material.color.setHex(c.tint); } });
+  furify(o, { shells: 4 }); o.scale.setScalar(SL * (c.scale || 1)); o.rotation.y = Math.PI;
+  const mx = new THREE.AnimationMixer(o); mx.clipAction(G.animations.find(a => a.name === "idle")).play(); mx.setTime(i * 0.7);
+  const h = o.getObjectByName("head"); c.dress?.(h, o); scene.add(o);
+  const el = document.createElement("div"); el.className = "lab"; el.innerHTML = `${c.name}<small>${c.trait}</small><small>${c.fav}</small>`; document.body.appendChild(el);
+  items.push({ o, mx, el, i });
+});
+function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); cam.aspect = a;
+  const ph = a < 1;   // phone: two rows (four behind, three in front), seen from a bit higher so the rows separate
+  for (const it of items) { const back = ph && it.i < 4, n = ph ? (back ? 4 : 3) : 7, k = ph ? (back ? it.i : it.i - 4) : it.i;
+    it.o.position.set((k - (n - 1) / 2) * GAP, 0, back ? -2.4 : 0); it.o.rotation.y = Math.PI + (k - (n - 1) / 2) * 0.06; }
+  cam.fov = ph ? 44 : 30; if (ph) { cam.position.set(0, 3.4, 5.6); cam.lookAt(0, 0.2, -1.1); } else { cam.position.set(0, 0.85, 5.2); cam.lookAt(0, 0.3, 0); } cam.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+const v = new THREE.Vector3(), clock = new THREE.Clock();
+renderer.setAnimationLoop(() => { const dt = clock.getDelta(); for (const it of items) { it.mx.update(dt); v.copy(it.o.position); v.y = -0.02; v.project(cam);
+  it.el.style.left = ((v.x + 1) / 2 * innerWidth) + "px"; it.el.style.top = ((1 - v.y) / 2 * innerHeight + 6) + "px"; }
+  renderer.render(scene, cam); window.__ready = true; });
+</script>
