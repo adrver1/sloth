@@ -168,6 +168,18 @@ VIEWS = []    # --views: only these preview stills (all when empty)
 TYRE = "mt"   # tread option (--tyre): "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders, "road" smooth with painted grooves
 
 
+def quad(pts, m, toward):
+    """One flat quad, no thickness, wound so its front faces the point toward."""
+    a, b, c = (Vector(q) for q in pts[:3])
+    n = (b - a).cross(c - a)
+    if n.dot(Vector(toward) - a) < 0:
+        pts = pts[::-1]
+    me = bpy.data.meshes.new("quad"); me.from_pydata([tuple(q) for q in pts], [], [(0, 1, 2, 3)]); me.update()
+    o = bpy.data.objects.new("quad", me); bpy.context.collection.objects.link(o)
+    me.materials.append(m)
+    return o
+
+
 def duct(path, secs, m):
     """A square-section pipe along path: one ring of four corners per point (w out from the body, h across), mitred at
     the bends, capped at both ends. Flat faces and sharp corners, so a bend costs 8 triangles."""
@@ -337,11 +349,15 @@ def body(M, style):
     for d, size in ((ux, (0.13, 0.03, 0.014)), (-ux, (0.13, 0.03, 0.014)), (-uy, (0.03, 0.13, 0.014))):
         p.append(box(size, at=tuple(wc + d * 0.085), rot=(wr, 0, 0), m=M["trim"]))
     p.append(torus(0.16, 0.018, at=(0.36, -0.05, BELT + 0.09), rot=(math.pi / 2 + 0.45, 0, 0), m=M["trim"], major=12, minor=4))
-    p.append(box((W - 0.16, 0.92, 0.05), at=(0, 1.06, SILL + 0.3), m=fab, bevel=0.015))     # the folded rear seats: a flat deck
+    p.append(box((1.08, 0.92, 0.05), at=(0, 1.06, SILL + 0.3), m=fab, bevel=0.015))   # fits between the wheel tubs     # the folded rear seats: a flat deck
     p.append(box((W - 0.16, 0.06, 0.2), at=(0, 0.62, SILL + 0.2), m=ins))
-    for sx in (-1, 1):   # rear wheel tubs: an inner wall and a lid over each arch, so the boot doesn't open onto the wheels
-        p.append(box((0.02, 2 * R + 0.2, zc + R + 0.1 - SILL), at=(sx * 0.54, yr, (SILL + zc + R + 0.1) / 2), m=ins))
-        p.append(box((0.27, 2 * R + 0.2, 0.02), at=(sx * 0.67, yr, zc + R + 0.11), m=ins))
+    for sx in (-1, 1):   # rear wheel tubs: single quads (inner wall, lid, both ends) facing into the boot, closing it off from the wheels
+        x0, x1, y0, y1, z0, z1 = sx * 0.54, sx * (W / 2 - 0.01), yr - R - 0.1, yr + R + 0.1, SILL + 0.1, zc + R + 0.1
+        aim = (0, yr, SILL + 0.6)
+        p.append(quad([(x0, y0, z0), (x0, y1, z0), (x0, y1, z1), (x0, y0, z1)], ins, aim))
+        p.append(quad([(x0, y0, z1), (x0, y1, z1), (x1, y1, z1), (x1, y0, z1)], ins, aim))
+        for y_ in (y0, y1):
+            p.append(quad([(x0, y_, z0), (x1, y_, z0), (x1, y_, z1), (x0, y_, z1)], ins, (0, yr, z0)))
     # handy points for the page: the driver's (SeatP, name kept) seat cushion, the steering wheel centre, the passenger door sill, the middle of the cargo deck
     for name, at in (("SeatP", (0.36, 0.18, SILL + 0.41)), ("DoorSill", (W / 2, 0.13, SILL + 0.11)), ("Boot", (0, 1.06, SILL + 0.33)), ("WheelHub", (0.36, -0.05, BELT + 0.09))):
         e = bpy.data.objects.new(name, None); e.location = at; bpy.context.collection.objects.link(e); EMPTIES.append(e)
@@ -359,9 +375,12 @@ def body(M, style):
         G["GlassP" if s > 0 else "GlassD"].append(panel((wx(zb), -0.24, zb), (wx(zb), 0.52, zb), (wx(zt), 0.52, zt), (wx(zt), -0.07, zt), g))
         G["Glass"].append(panel((wx(zb), 0.68, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), 0.68, zt), g))
         door.append(box((0.03, 0.14, 0.03), at=(s * (W / 2 + 0.012), 0.45, BELT - 0.12), m=M["trim"], bevel=0.008))   # handle
-        # mirror on a stalk
-        p.append(rod((s * (W / 2 - 0.05), -0.36, BELT + 0.03), (s * (W / 2 + 0.12), -0.4, BELT + 0.13), 0.014, M["trim"]))
-        p.append(box((0.07, 0.05, 0.13), at=(s * (W / 2 + 0.15), -0.4, BELT + 0.16), m=M["trim"], bevel=0.015))
+        # mirror: a big squarish housing close to the door on a short foot at the front corner of the window (Adriaen's photo)
+        # (it rides on the door, so it swings open with it)
+        dr = G["DoorP" if s > 0 else "DoorD"]
+        dr.append(box((0.05, 0.09, 0.07), at=(s * (W / 2 + 0.01), -0.29, BELT + 0.06), m=M["trim"], bevel=0.012))
+        dr.append(box((0.065, 0.21, 0.17), at=(s * (W / 2 + 0.06), -0.24, BELT + 0.16), m=M["trim"], bevel=0.02))
+        dr.append(box((0.045, 0.006, 0.13), at=(s * (W / 2 + 0.06), -0.132, BELT + 0.16), m=M["glass"]))
     G["GlassB"].append(panel((-0.5, REAR + 0.004, zb + 0.04), (0.5, REAR + 0.004, zb + 0.04), (0.48, REAR + 0.002, zt - 0.02), (-0.48, REAR + 0.002, zt - 0.02), g))
     # roof gutters
     for s in (-1, 1):
