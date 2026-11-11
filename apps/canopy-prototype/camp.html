@@ -619,12 +619,27 @@ if (PROPS !== "code") {
   put("Table", tb.x, tb.z, 0.6);
   lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02, i); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
 }
+// night light for the lived-in props (props/lived/bake_lived_night.py: the same fire, lantern and moon lights as the picked
+// set): COLOR_1 holds the baked light / 4, toned here against the surface colour (texture or vertex colour), shown unlit and
+// faded in with uNight like the picked set. Chains onto any hook a material already has (the laundry swing adds its own after).
+const lnight = (mat) => {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, r) => {
+    prev?.call(mat, sh, r);
+    sh.uniforms.uNight = uNight; sh.uniforms.uFlick = uFlick;
+    sh.vertexShader = "attribute vec3 color_1;\nvarying vec3 vNightL;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nvNightL = color_1;");
+    sh.fragmentShader = "uniform float uNight, uFlick;\nvarying vec3 vNightL;\n" + sh.fragmentShader.replace("#include <opaque_fragment>",
+      "outgoingLight = mix(outgoingLight, (1.0 - exp(-6.4 * diffuseColor.rgb * vNightL)) * uFlick, uNight);\n#include <opaque_fragment>");
+  };
+  mat.customProgramCacheKey = () => "lnight-" + mat.uuid;
+  return mat;
+};
 // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
 // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
 // rustic seats (Our camp, Rustic); ?lived=0 hides them to compare.
 if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
-  const L = await glb("models/lived.txt"), lm = new THREE.MeshLambertMaterial({ vertexColors: true });
-  L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map }) : lm; });   // the stack is a textured block
+  const L = await glb("models/lived.txt"), lm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
+  L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map })) : lm; });   // the stack is a textured block
   const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
   const wp = V(-0.55, 0, -3.15), wy = Math.atan2(-wp.x, -wp.z);
   put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); var WOODPILE = wp;   // the activities take logs from here
@@ -637,7 +652,7 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
 // The gap on the line at hang (window.__laundry) is kept free for a sloth to hang from. Shown with the lived-in props.
 if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
   const LD = await glb("models/laundry.txt"), A = V(1.3, 0, 4.3), B = V(4.0, 0, 3.0), mid = A.clone().lerp(B, 0.5), yaw = Math.atan2(-(B.z - A.z), B.x - A.x);
-  LD.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true }); });
+  LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
   const o = LD.scene; o.position.copy(mid); o.rotation.y = yaw; scene.add(o);
   const dir = B.clone().sub(A).normalize(), L = 3.0, t = 0.42;   // the line is 3 m post to post (A, B are where it's tied, roughly)
   blockers.push([mid.clone().addScaledVector(dir, -L / 2), 0.25], [mid.clone().addScaledVector(dir, L / 2), 0.25]);
@@ -650,15 +665,15 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
 // the embers are unlit so they glow. Our camp only; the other prop sets keep their old fire. ?fire=old shows the old one.
 var FIRE_CARDS = [];
 if (PROPS === "picked" && qs.get("fire") !== "old") {
-  const F = await glb("models/fire.txt"), fm = new THREE.MeshLambertMaterial({ vertexColors: true }), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const F = await glb("models/fire.txt"), fm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true })), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
   const old = scene.getObjectByName("Fire"); if (old) old.visible = false;
   flames.forEach((f) => (f.visible = false));
   fireLight.position.y = 0.4;                                    // inside the fire, below the pot (it hangs higher than the old kettle)
   for (const n of ["Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain"]) {
     const o = F.scene.getObjectByName(n); if (!o) continue;
     o.traverse((m) => { if (!m.isMesh) return;
-      m.material = n === "Embers" ? glow : n === "Chain" ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide })
-        : n === "TripodLegs" ? new THREE.MeshLambertMaterial({ map: m.material.map }) : fm; });   // the legs: one tube each, nodes in the texture
+      m.material = n === "Embers" ? glow : n === "Chain" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }))
+        : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map })) : fm; });   // the legs: one tube each, nodes in the texture
     scene.add(o);
   }
   var SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };              // the soup's surface; atmosphere.js lets steam rise off all of it
@@ -846,7 +861,9 @@ if (qs.get("campsloths") !== "0") {
     const cloth = scene.getObjectByName("LaundryCloth");
     if (cloth?.material) {
       const L = LL.a.distanceTo(LL.b), u = { uX: { value: 0 }, uPush: { value: 0 }, uTime }, mat = cloth.material;   // uTime: the breeze (props thread)
-      mat.onBeforeCompile = (sh) => {
+      const prevHook = mat.onBeforeCompile;   // keeps the props thread's night light (lnight)
+      mat.onBeforeCompile = (sh, r) => {
+        prevHook?.call(mat, sh, r);
         Object.assign(sh.uniforms, u);
         sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uX, uPush, uTime;").replace("#include <begin_vertex>", `#include <begin_vertex>
           float lt = transformed.x / ${L.toFixed(3)} + 0.5, ly = ${LL.a.y.toFixed(3)} - ${LL.sag.toFixed(3)} * 4.0 * lt * (1.0 - lt);
