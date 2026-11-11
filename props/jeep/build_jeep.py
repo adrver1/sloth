@@ -341,12 +341,50 @@ def lift(objs, z):
 
 
 def headlight(x, y, z, r, M, ring="chrome"):
-    p = [torus(r, r * 0.16, at=(x, y, z), rot=(math.pi / 2, 0, 0), m=M[ring], major=16, minor=4)]
-    p.append(cyl(r * 0.92, 0.04, at=(x, y + 0.005, z), rot=(math.pi / 2, 0, 0), m=M["lamp"], verts=16))
+    p = [torus(r, r * 0.16, at=(x, y, z), rot=(math.pi / 2, 0, 0), m=M[ring], major=12, minor=3)]
+    p.append(cyl(r * 0.92, 0.04, at=(x, y + 0.005, z), rot=(math.pi / 2, 0, 0), m=M["lamp"], verts=12))
     return p
 
 
 # ------------------------------------------------------------------ the shared body
+def hood_map(M):
+    """A folded paper map and a compass lying on the bonnet: flat quads with the map painted in coloured strips
+    (three folded panels in two paper shades, a river, a forest, a red route), and a squat 8-sided compass."""
+    def hz(y):      # bonnet top: falls 0.05 from the windscreen to the front
+        return BELT - 0.05 * (-0.42 - y) / (-0.42 - FRONT - 0.06) + 0.004
+    cx, cy, a = -0.2, -0.86, 0.22
+    def P(u, v, h=0.0):
+        x, y = cx + u * math.cos(a) - v * math.sin(a), cy + u * math.sin(a) + v * math.cos(a)
+        return (x, y, hz(y) + h)
+    up = (cx, cy, BELT + 2)
+    paper = (mat("map_paper", (0.93, 0.88, 0.72)), mat("map_paper2", (0.84, 0.79, 0.63)))
+    q = []
+    for k in range(3):                      # three panels, the fold shows as a change of shade
+        u0 = -0.21 + k * 0.14
+        q.append(quad([P(u0, -0.15), P(u0 + 0.14, -0.15), P(u0 + 0.14, 0.15), P(u0, 0.15)], paper[k % 2], up))
+    def strip(pts, w, m, h):                # a thin band along a polyline, one quad per leg
+        for (u0, v0), (u1, v1) in zip(pts, pts[1:]):
+            du, dv = u1 - u0, v1 - v0; L = math.hypot(du, dv); nu, nv = -dv / L * w / 2, du / L * w / 2
+            q.append(quad([P(u0 - nu, v0 - nv, h), P(u1 - nu, v1 - nv, h), P(u1 + nu, v1 + nv, h), P(u0 + nu, v0 + nv, h)], m, up))
+    q.append(quad([P(-0.17, 0.02, 0.002), P(-0.05, 0.0, 0.002), P(-0.03, 0.12, 0.002), P(-0.16, 0.13, 0.002)], mat("map_forest", (0.45, 0.62, 0.36)), up))
+    strip([(-0.21, -0.08), (-0.02, -0.03), (0.21, -0.11)], 0.018, mat("map_river", (0.36, 0.58, 0.78)), 0.003)
+    strip([(-0.12, -0.12), (0.03, 0.05), (0.15, 0.09)], 0.008, mat("map_route", (0.82, 0.22, 0.18)), 0.004)
+    PROP_AT["Map"] = P(0, 0)
+    # the compass, beside the map
+    k = (0.16, -1.02)
+    z = hz(k[1])
+    PROP_AT["Compass"] = (k[0], k[1], z)
+    m, q = q, []
+    q.append(cyl(0.045, 0.016, at=(k[0], k[1], z + 0.008), m=mat("compass_brass", (0.72, 0.56, 0.26)), verts=8, smooth=False))
+    q.append(quad([(k[0] - 0.034, k[1] - 0.034, z + 0.0165), (k[0] + 0.034, k[1] - 0.034, z + 0.0165), (k[0] + 0.034, k[1] + 0.034, z + 0.0165), (k[0] - 0.034, k[1] + 0.034, z + 0.0165)], mat("compass_face", (0.95, 0.94, 0.9)), (k[0], k[1], z + 1)))
+    n = (0.012, -0.03)                       # the needle: a red diamond pointing roughly forward
+    q.append(quad([(k[0] + n[0], k[1] + n[1], z + 0.018), (k[0] + 0.008, k[1], z + 0.018), (k[0] - n[0], k[1] - n[1], z + 0.018), (k[0] - 0.008, k[1], z + 0.018)], mat("compass_needle", (0.85, 0.15, 0.12)), (k[0], k[1], z + 1)))
+    return m, q
+
+
+PROP_AT = {}   # loose props: origin at the middle of the bottom, so the page can lift them off the bonnet
+
+
 def body(M, style):
     toy = style == "toy"
     R = 0.43 if toy else 0.37
@@ -358,7 +396,7 @@ def body(M, style):
     # lower body: hood and sides up to the beltline, with the wheel arches cut out
     lower = prism([(FRONT, SILL), (REAR, SILL), (REAR, BELT), (-0.42, BELT), (FRONT + 0.06, BELT - 0.05), (FRONT, BELT - 0.12)], W, M["paint"])
     for y in (yf, yr):
-        cut(lower, cyl(R + 0.08, W + 0.4, at=(0, y, zc), rot=(0, math.pi / 2, 0), m=M["paint"], verts=32))
+        cut(lower, cyl(R + 0.08, W + 0.4, at=(0, y, zc), rot=(0, math.pi / 2, 0), m=M["paint"], verts=20))
     soften(lower, 0.12 if toy else 0.05)
     # cabin: upright windscreen, flat roof, slightly narrower than the body
     top = M["paint2"]
@@ -396,8 +434,8 @@ def body(M, style):
         p.append(box((0.42, 0.46, 0.13), at=(x, 0.18, SILL + 0.34), m=fab, bevel=0.04))
         p.append(box((0.3, 0.3, 0.2), at=(x, 0.18, SILL + 0.18), m=ins))
         p.append(box((0.42, 0.11, 0.5), at=(x, 0.46, SILL + 0.64), rot=(-0.18, 0, 0), m=fab, bevel=0.04))
-        p.append(box((0.24, 0.08, 0.13), at=(x, 0.52, SILL + 0.97), rot=(-0.18, 0, 0), m=fab, bevel=0.03))
-    p.append(box((W - 0.14, 0.24, 0.2), at=(0, -0.26, BELT - 0.03), m=ins, bevel=0.04))
+        p.append(box((0.24, 0.08, 0.13), at=(x, 0.52, SILL + 0.97), rot=(-0.18, 0, 0), m=fab))
+    p.append(box((W - 0.14, 0.24, 0.2), at=(0, -0.26, BELT - 0.03), m=ins))
     p.append(rod((0.36, -0.26, BELT - 0.06), (0.36, -0.05, BELT + 0.09), 0.026, M["trim"], verts=6))
     # the wheel's middle: a hub boss and three spokes (left, right, down) in the rim's plane
     wr, wc = math.pi / 2 + 0.45, Vector((0.36, -0.05, BELT + 0.09))
@@ -406,7 +444,7 @@ def body(M, style):
     for d, size in ((ux, (0.13, 0.03, 0.014)), (-ux, (0.13, 0.03, 0.014)), (-uy, (0.03, 0.13, 0.014))):
         p.append(box(size, at=tuple(wc + d * 0.085), rot=(wr, 0, 0), m=M["trim"]))
     p.append(torus(0.16, 0.018, at=(0.36, -0.05, BELT + 0.09), rot=(math.pi / 2 + 0.45, 0, 0), m=M["trim"], major=12, minor=4))
-    p.append(box((1.08, 0.92, 0.05), at=(0, 1.06, SILL + 0.3), m=fab, bevel=0.015))   # fits between the wheel tubs     # the folded rear seats: a flat deck
+    p.append(box((1.08, 0.92, 0.05), at=(0, 1.06, SILL + 0.3), m=fab))   # fits between the wheel tubs     # the folded rear seats: a flat deck
     p.append(box((W - 0.16, 0.06, 0.2), at=(0, 0.62, SILL + 0.2), m=ins))
     for sx in (-1, 1):   # rear wheel tubs: single quads (inner wall, lid, both ends) facing into the boot, closing it off from the wheels
         x0, x1, y0, y1, z0, z1 = sx * 0.54, sx * (W / 2 - 0.01), yr - R - 0.1, yr + R + 0.1, SILL + 0.1, zc + R + 0.1
@@ -448,13 +486,14 @@ def body(M, style):
     on_glass = lambda x, h, out: Vector((x, 0, 0)) + s0 + up * h + nrm.normalized() * out
     for x in (-0.5, 0.06):
         piv, tip = on_glass(x, 0.03, 0.03), on_glass(x + 0.36, 0.1, 0.03)
-        p.append(cyl(0.022, 0.03, at=tuple(on_glass(x, 0.03, 0.012)), rot=(tilt + math.pi / 2, 0, 0), m=M["trim"], verts=10))
-        p.append(rod(tuple(piv), tuple(tip), 0.008, M["trim"], verts=6))
+        p.append(cyl(0.022, 0.03, at=tuple(on_glass(x, 0.03, 0.012)), rot=(tilt + math.pi / 2, 0, 0), m=M["trim"], verts=6))
+        p.append(rod(tuple(piv), tuple(tip), 0.008, M["trim"], verts=4))
         bl = box((0.44, 0.014, 0.022), at=tuple(on_glass(x + 0.3, 0.12, 0.014)), rot=(tilt, 0, 0.0), m=M["trim"])
         bl.rotation_mode = "XYZ"
         p.append(bl)
         p.append(box((0.03, 0.02, 0.03), at=tuple(on_glass(x + 0.36, 0.11, 0.024)), rot=(tilt, 0, 0), m=M["trim"]))   # the clip joining them
     # front: a recessed grille with three bars, round headlights, indicators, bumper
+    G["Map"], G["Compass"] = hood_map(M)   # loose props on the bonnet, their own nodes so the page can move them
     grille_z = (0.7, 0.95)
     p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"], bevel=0.02))
     for k in range(3):                                   # three horizontal bars (its own face, no maker's grille)
@@ -480,14 +519,14 @@ def body(M, style):
     bd += lift(wheel(0.06, REAR + 0.22, sr, 0.24, M, chunky=not toy, axis_x=False), 0.98)
     cover = M.get("cover")
     if cover:
-        bd.append(cyl(sr + 0.012, 0.25, at=(0.06, REAR + 0.22, 0.98), rot=(math.pi / 2, 0, 0), m=cover, verts=32))
+        bd.append(cyl(sr + 0.012, 0.25, at=(0.06, REAR + 0.22, 0.98), rot=(math.pi / 2, 0, 0), m=cover, verts=16))
     # chassis, axles and the four wheels with black flares over them
     p.append(box((W - 0.3, REAR - FRONT - 0.3, 0.2), at=(0, 0, SILL - 0.02), m=M["under"]))
     for y in (yf, yr):
         p.append(rod((-0.7, y, zc), (0.7, y, zc), 0.04, M["under"]))
         for s in (-1, 1):
             p += lift(wheel(s * (W / 2 - 0.1), y, R, 0.27 if toy else 0.25, M, chunky=not toy), zc)
-            fl = torus(R + 0.1, 0.06 if toy else 0.045, at=(s * (W / 2 + 0.01), y, zc), rot=(0, math.pi / 2, 0), m=M["flare"], major=20, minor=4)
+            fl = torus(R + 0.1, 0.06 if toy else 0.045, at=(s * (W / 2 + 0.01), y, zc), rot=(0, math.pi / 2, 0), m=M["flare"], major=20, minor=3)
             apply_all(fl)
             for v in fl.data.vertices:          # widen the torus tube sideways into a flat band
                 v.co.x *= 2.2
@@ -510,8 +549,11 @@ def finish(p, G):
         if name.startswith("Glass"):
             continue
         o = join(parts, name)
-        (hx, hy), _ = HINGES[name]
-        bpy.context.scene.cursor.location = (hx, hy, 0)
+        if name in PROP_AT:
+            bpy.context.scene.cursor.location = PROP_AT[name]
+        else:
+            (hx, hy), _ = HINGES[name]
+            bpy.context.scene.cursor.location = (hx, hy, 0)
         bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.context.view_layer.objects.active = o
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
         out[name] = o
@@ -550,10 +592,10 @@ def toy():
         for s in (-1, 1):
             p.append(rod((s * 0.65, -0.06, h), (s * 0.65, 1.38, h), 0.018, M["wicker" if k % 2 else "wicker2"], verts=6))
             p.append(rod((-0.65, 0.66 + s * 0.72, h), (0.65, 0.66 + s * 0.72, h), 0.018, M["wicker2" if k % 2 else "wicker"], verts=6))
-    roll = cyl(0.16, 1.0, at=(0, 0.2, z + 0.17), rot=(0, math.pi / 2, 0), m=M["blanket"], verts=20)
+    roll = cyl(0.16, 1.0, at=(0, 0.2, z + 0.17), rot=(0, math.pi / 2, 0), m=M["blanket"], verts=12)
     p.append(roll)
     for x in (-0.3, 0.0, 0.3):
-        p.append(cyl(0.163, 0.08, at=(x, 0.2, z + 0.17), rot=(0, math.pi / 2, 0), m=M["blanket2"], verts=20))
+        p.append(cyl(0.163, 0.08, at=(x, 0.2, z + 0.17), rot=(0, math.pi / 2, 0), m=M["blanket2"], verts=12))
     p.append(cyl(0.12, 0.18, at=(0.25, 0.95, z + 0.11), m=M["wicker"], verts=14, r2=0.15))
     for k in range(5):
         a = k / 5 * 2 * math.pi
@@ -574,9 +616,9 @@ def expedition():
     p, R, G = body(M, "expedition")
     # steel bumper with a winch and a pair of tow hooks
     p.append(box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"], bevel=0.02))
-    p.append(cyl(0.065, 0.36, at=(0, FRONT - 0.22, SILL + 0.11), rot=(0, math.pi / 2, 0), m=M["rope"], verts=14))
+    p.append(cyl(0.065, 0.36, at=(0, FRONT - 0.22, SILL + 0.11), rot=(0, math.pi / 2, 0), m=M["rope"], verts=10))
     for s in (-1, 1):
-        p.append(torus(0.04, 0.012, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"], major=12, minor=4))
+        p.append(torus(0.04, 0.012, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"], major=8, minor=3))
     # snorkel, angular like the aftermarket ones: a flat box duct along the top of the wing, a square riser up the A pillar
     # (raked like the windscreen, clear of the mirror) and a wedge-shaped intake head on top facing forward
     p.append(duct([(0.85, -1.3, BELT - 0.12), (0.85, -0.62, BELT - 0.12), (0.8, -0.31, ROOF - 0.03)],
@@ -587,26 +629,22 @@ def expedition():
     p.append(box((0.2, 0.03, 0.08), at=(0, FRONT - 0.3, SILL + 0.1), m=M["bumper"], bevel=0.01))
     p.append(box((0.12, 0.034, 0.025), at=(0, FRONT - 0.3, SILL + 0.1), m=M["grille"]))
     p.append(rod((0, FRONT - 0.3, SILL + 0.1), (0, FRONT - 0.34, SILL + 0.06), 0.008, M["rope"], verts=5))
-    p.append(torus(0.03, 0.008, at=(0, FRONT - 0.345, SILL + 0.03), rot=(0, math.pi / 2, 0), m=M["strap"], major=10, minor=4))
+    p.append(torus(0.03, 0.008, at=(0, FRONT - 0.345, SILL + 0.03), rot=(0, math.pi / 2, 0), m=M["strap"], major=6, minor=3))
     # roof rack: a black ladder frame with two jerry cans, a crate and a coil of rope
     z = ROOF + 0.12
     for s in (-1, 1):
-        p.append(rod((s * 0.7, -0.2, z), (s * 0.7, 1.55, z), 0.022, M["rack"], verts=6))
+        p.append(rod((s * 0.7, -0.2, z), (s * 0.7, 1.55, z), 0.022, M["rack"], verts=4))
         for y in (-0.15, 0.7, 1.5):
-            p.append(rod((s * 0.7, y, z), (s * 0.68, y, ROOF), 0.018, M["rack"], verts=6))
+            p.append(rod((s * 0.7, y, z), (s * 0.68, y, ROOF), 0.018, M["rack"], verts=4))
     for k in range(7):
         y = -0.2 + k * 1.75 / 6
-        p.append(rod((-0.7, y, z), (0.7, y, z), 0.016, M["rack"], verts=6))
+        p.append(rod((-0.7, y, z), (0.7, y, z), 0.016, M["rack"], verts=4))
     for k, (x, cm) in enumerate(((-0.42, "can"), (-0.14, "can2"))):
         p.append(box((0.17, 0.48, 0.34), at=(x, 1.2, z + 0.19), m=M[cm], bevel=0.02))
         p.append(box((0.04, 0.04, 0.06), at=(x, 1.0, z + 0.38), m=M[cm]))
         p.append(box((0.175, 0.03, 0.2), at=(x, 1.3, z + 0.2), m=M[cm], bevel=0.008))
     p.append(box((0.62, 0.55, 0.3), at=(0.25, 0.85, z + 0.17), m=M["crate"], bevel=0.02))
-    for k in range(4):
-        p.append(box((0.63, 0.02, 0.035), at=(0.25, 0.85 - 0.28, z + 0.06 + k * 0.08), m=M["rack"]))
     p.append(box((0.03, 0.57, 0.31), at=(0.25, 0.85, z + 0.17), m=M["strap"]))
-    p.append(torus(0.2, 0.05, at=(-0.25, 0.2, z + 0.07), m=M["rope"], major=16, minor=5))
-    p.append(torus(0.12, 0.05, at=(-0.25, 0.2, z + 0.09), m=M["rope"], major=12, minor=5))
     # a shovel on the rear door
     # (blade clear above the bumper, beside the spare)
     G["BackDoor"].append(rod((0.52, REAR + 0.04, 0.88), (0.52, REAR + 0.04, 1.52), 0.016, M["crate"], verts=6))
@@ -648,7 +686,7 @@ def camper():
         t = k / 7
         p.append(rod((xt + (xb - xt) * t, yl[0], z * (1 - t)), (xt + (xb - xt) * t, yl[1], z * (1 - t)), 0.016, M["alu"], verts=6))
     # a coiled rope and a little pennant on the spare
-    p.append(torus(0.15, 0.03, at=(-0.45, 1.3, z + 0.12), m=M["rope"], major=20, minor=6))
+    p.append(torus(0.15, 0.03, at=(-0.45, 1.3, z + 0.12), m=M["rope"], major=12, minor=3))
     return finish(p, G)
 
 
