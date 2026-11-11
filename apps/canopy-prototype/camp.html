@@ -563,7 +563,7 @@ const camp = [], lanternGlow = [];
   scene.add(new THREE.Mesh(merge(camp), woodMat));
   window.__camp = { tentAt, hA, hB, tb };
   // collision circles for walking round the camp
-  var blockers = [[V(0, 0, 0), 0.9], [tentAt, 1.4], [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
+  var blockers = [[V(0, 0, 0), 0.9], [tentAt.clone().multiplyScalar(1 + 0.35 / tentAt.length()), 1.75], [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
   for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; blockers.push([V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1), 0.75]); }
 }
 // lanterns and the fire: bright sprites, no real-time shadows; one warm point light for the fire glow
