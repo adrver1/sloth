@@ -654,10 +654,11 @@ if (PROPS === "picked" && qs.get("fire") !== "old") {
   const old = scene.getObjectByName("Fire"); if (old) old.visible = false;
   flames.forEach((f) => (f.visible = false));
   fireLight.position.y = 0.4;                                    // inside the fire, below the pot (it hangs higher than the old kettle)
-  for (const n of ["Ring", "Tripod", "Fire", "Embers", "Pot", "Chain"]) {
+  for (const n of ["Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain"]) {
     const o = F.scene.getObjectByName(n); if (!o) continue;
     o.traverse((m) => { if (!m.isMesh) return;
-      m.material = n === "Embers" ? glow : n === "Chain" ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : fm; });
+      m.material = n === "Embers" ? glow : n === "Chain" ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide })
+        : n === "TripodLegs" ? new THREE.MeshLambertMaterial({ map: m.material.map }) : fm; });   // the legs: one tube each, nodes in the texture
     scene.add(o);
   }
   var SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };              // the soup's surface; atmosphere.js lets steam rise off all of it
