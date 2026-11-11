@@ -347,38 +347,70 @@ def headlight(x, y, z, r, M, ring="chrome"):
 
 
 # ------------------------------------------------------------------ the shared body
+def poly(pts, m, toward):
+    """One flat n-gon, no thickness, wound so its front faces the point toward."""
+    a, b, c = (Vector(q) for q in pts[:3])
+    if (b - a).cross(c - a).dot(Vector(toward) - a) < 0:
+        pts = pts[::-1]
+    me = bpy.data.meshes.new("poly"); me.from_pydata([tuple(q) for q in pts], [], [tuple(range(len(pts)))]); me.update()
+    o = bpy.data.objects.new("poly", me); bpy.context.collection.objects.link(o)
+    me.materials.append(m)
+    return o
+
+
 def hood_map(M):
-    """A folded paper map and a compass lying on the bonnet: flat quads with the map painted in coloured strips
-    (three folded panels in two paper shades, a river, a forest, a red route), and a squat 8-sided compass."""
+    """A big folded paper map spread over half the bonnet, with an orienteering compass lying on it. All flat polygons
+    with the detail painted in coloured shapes: four folded panels in two paper shades, forests, a lake, a river and a
+    red route on the map; a clear baseplate with a red arrow, a black bezel, a white dial with an N mark and a red and
+    white needle on the compass."""
     def hz(y):      # bonnet top: falls 0.05 from the windscreen to the front
         return BELT - 0.05 * (-0.42 - y) / (-0.42 - FRONT - 0.06) + 0.004
-    cx, cy, a = -0.2, -0.86, 0.22
-    def P(u, v, h=0.0):
+    cx, cy, a, MW, MD = -0.2, -0.98, 0.1, 1.0, 0.74      # map centre, turn, width (x) and depth (y)
+    def P(u, v, h=0.0):                                   # map coordinates in -1..1 across the sheet
+        u, v = u * MW / 2, v * MD / 2
         x, y = cx + u * math.cos(a) - v * math.sin(a), cy + u * math.sin(a) + v * math.cos(a)
         return (x, y, hz(y) + h)
     up = (cx, cy, BELT + 2)
     paper = (mat("map_paper", (0.93, 0.88, 0.72)), mat("map_paper2", (0.84, 0.79, 0.63)))
-    q = []
-    for k in range(3):                      # three panels, the fold shows as a change of shade
-        u0 = -0.21 + k * 0.14
-        q.append(quad([P(u0, -0.15), P(u0 + 0.14, -0.15), P(u0 + 0.14, 0.15), P(u0, 0.15)], paper[k % 2], up))
-    def strip(pts, w, m, h):                # a thin band along a polyline, one quad per leg
+    m = []
+    for k in range(4):                      # four panels, the folds show as a change of shade
+        u0 = -1 + k * 0.5
+        m.append(poly([P(u0, -1), P(u0 + 0.5, -1), P(u0 + 0.5, 1), P(u0, 1)], paper[k % 2], up))
+    def strip(pts, w, mt, h):               # a thin band along a polyline, one quad per leg (w in metres)
         for (u0, v0), (u1, v1) in zip(pts, pts[1:]):
-            du, dv = u1 - u0, v1 - v0; L = math.hypot(du, dv); nu, nv = -dv / L * w / 2, du / L * w / 2
-            q.append(quad([P(u0 - nu, v0 - nv, h), P(u1 - nu, v1 - nv, h), P(u1 + nu, v1 + nv, h), P(u0 + nu, v0 + nv, h)], m, up))
-    q.append(quad([P(-0.17, 0.02, 0.002), P(-0.05, 0.0, 0.002), P(-0.03, 0.12, 0.002), P(-0.16, 0.13, 0.002)], mat("map_forest", (0.45, 0.62, 0.36)), up))
-    strip([(-0.21, -0.08), (-0.02, -0.03), (0.21, -0.11)], 0.018, mat("map_river", (0.36, 0.58, 0.78)), 0.003)
-    strip([(-0.12, -0.12), (0.03, 0.05), (0.15, 0.09)], 0.008, mat("map_route", (0.82, 0.22, 0.18)), 0.004)
+            A, B = Vector(P(u0, v0)), Vector(P(u1, v1)); d = (B - A); n = Vector((-d.y, d.x, 0)).normalized() * w / 2
+            m.append(poly([A - n + Vector((0, 0, h)), B - n + Vector((0, 0, h)), B + n + Vector((0, 0, h)), A + n + Vector((0, 0, h))], mt, up))
+    forest = mat("map_forest", (0.45, 0.62, 0.36))
+    m.append(poly([P(-0.92, 0.2, 0.002), P(-0.55, 0.05, 0.002), P(-0.3, 0.35, 0.002), P(-0.4, 0.85, 0.002), P(-0.85, 0.8, 0.002)], forest, up))
+    m.append(poly([P(0.45, -0.85, 0.002), P(0.9, -0.7, 0.002), P(0.85, -0.25, 0.002), P(0.55, -0.35, 0.002)], forest, up))
+    water = mat("map_river", (0.36, 0.58, 0.78))
+    m.append(poly([P(0.45, 0.45, 0.002), P(0.62, 0.32, 0.002), P(0.8, 0.4, 0.002), P(0.78, 0.65, 0.002), P(0.55, 0.7, 0.002)], water, up))
+    strip([(-1, -0.45), (-0.4, -0.2), (0.15, -0.35), (0.5, 0.42)], 0.03, water, 0.003)
+    strip([(-0.75, -0.8), (-0.35, 0.0), (0.1, 0.25), (0.62, -0.05)], 0.012, mat("map_route", (0.82, 0.22, 0.18)), 0.004)
     PROP_AT["Map"] = P(0, 0)
-    # the compass, beside the map
-    k = (0.16, -1.02)
-    z = hz(k[1])
-    PROP_AT["Compass"] = (k[0], k[1], z)
-    m, q = q, []
-    q.append(cyl(0.045, 0.016, at=(k[0], k[1], z + 0.008), m=mat("compass_brass", (0.72, 0.56, 0.26)), verts=8, smooth=False))
-    q.append(quad([(k[0] - 0.034, k[1] - 0.034, z + 0.0165), (k[0] + 0.034, k[1] - 0.034, z + 0.0165), (k[0] + 0.034, k[1] + 0.034, z + 0.0165), (k[0] - 0.034, k[1] + 0.034, z + 0.0165)], mat("compass_face", (0.95, 0.94, 0.9)), (k[0], k[1], z + 1)))
-    n = (0.012, -0.03)                       # the needle: a red diamond pointing roughly forward
-    q.append(quad([(k[0] + n[0], k[1] + n[1], z + 0.018), (k[0] + 0.008, k[1], z + 0.018), (k[0] - n[0], k[1] - n[1], z + 0.018), (k[0] - 0.008, k[1], z + 0.018)], mat("compass_needle", (0.85, 0.15, 0.12)), (k[0], k[1], z + 1)))
+    # the compass lies on the map: a clear baseplate (pale blue) with a red arrow, a black bezel, a white dial
+    q = []
+    ku, kv = 0.42, -0.45
+    o = Vector(P(ku, kv, 0.004)); th = a + 0.5
+    def C(x, y, h):                         # compass frame: y along the baseplate (pointing back towards the windscreen)
+        return (o.x + x * math.cos(th) - y * math.sin(th), o.y + x * math.sin(th) + y * math.cos(th), o.z + h)
+    kup = (o.x, o.y, o.z + 2)
+    q.append(poly([C(-0.06, -0.1, 0), C(0.06, -0.1, 0), C(0.06, 0.1, 0), C(-0.06, 0.1, 0)], mat("compass_plate", (0.72, 0.86, 0.9)), kup))
+    q.append(poly([C(-0.02, 0.06, 0.001), C(0.02, 0.06, 0.001), C(0, 0.095, 0.001)], mat("compass_needle", (0.85, 0.15, 0.12)), kup))
+    R, H, N = 0.045, 0.016, 12
+    ring = [(R * math.cos(t * 2 * math.pi / N), R * math.sin(t * 2 * math.pi / N) - 0.02) for t in range(N)]
+    bez = mat("compass_bezel", (0.08, 0.08, 0.09))
+    for i in range(N):                      # bezel wall, no bottom (it lies on the plate)
+        (x0, y0), (x1, y1) = ring[i], ring[(i + 1) % N]
+        q.append(poly([C(x0, y0, 0), C(x1, y1, 0), C(x1, y1, H), C(x0, y0, H)], bez, C(2 * (x0 + x1), 2 * (y0 + y1) + 0.06, H / 2)))
+    q.append(poly([C(x, y, H) for x, y in ring], mat("compass_face", (0.95, 0.94, 0.9)), (o.x, o.y, o.z + 2)))
+    q.append(poly([C(-0.008, R - 0.02 - 0.003, H + 0.001), C(0.008, R - 0.02 - 0.003, H + 0.001), C(0, R - 0.02 - 0.016, H + 0.001)], bez, kup))   # the N mark
+    nd = (math.sin(0.4), math.cos(0.4))     # needle: red half to north, dark half to south (white would vanish on the dial), turned a little off the plate
+    tip = lambda s, L: C(s * nd[0] * L, s * nd[1] * L - 0.02, H + 0.002)
+    side = lambda s: C(s * nd[1] * 0.007, -s * nd[0] * 0.007 - 0.02, H + 0.002)
+    q.append(poly([tip(1, 0.036), side(1), side(-1)], mat("compass_needle", (0.85, 0.15, 0.12)), kup))
+    q.append(poly([tip(-1, 0.036), side(-1), side(1)], mat("compass_south", (0.22, 0.22, 0.24)), kup))
+    PROP_AT["Compass"] = tuple(o)
     return m, q
 
 
