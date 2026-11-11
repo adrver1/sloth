@@ -50,6 +50,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { furify } from "./fur.js";
 import { createAtmosphere } from "./atmosphere.js";
+import { createActivities } from "./activities.js";
 
 const qs = new URLSearchParams(location.search);
 const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
@@ -621,7 +622,7 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
   L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map }) : lm; });   // the stack is a textured block
   const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
   const wp = V(-0.55, 0, -3.15), wy = Math.atan2(-wp.x, -wp.z);
-  put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy);
+  put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); var WOODPILE = wp;   // the activities take logs from here
   const side = V(Math.cos(wy), 0, -Math.sin(wy));                     // the pile's local +X (where the stump stands) in the world
   blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
   const a = A0 + Math.PI; put("SeatThings", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2);
@@ -630,6 +631,7 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
 // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
 // textured quad per link). The flames are three crossed cards with an animated flame shader instead of the old glow blobs;
 // the embers are unlit so they glow. Our camp only; the other prop sets keep their old fire. ?fire=old shows the old one.
+var FIRE_CARDS = [];
 if (PROPS === "picked" && qs.get("fire") !== "old") {
   const F = await glb("models/fire.txt"), fm = new THREE.MeshLambertMaterial({ vertexColors: true }), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
   const old = scene.getObjectByName("Fire"); if (old) old.visible = false;
@@ -659,7 +661,7 @@ if (PROPS === "picked" && qs.get("fire") !== "old") {
       }` });
   for (let k = 0; k < 3; k++) {
     const card = new THREE.Mesh(new THREE.PlaneGeometry(0.7, H).translate(0, H / 2 + 0.03, 0), flameMat(k));
-    card.rotation.y = k * Math.PI / 3; card.renderOrder = 3; scene.add(card);
+    card.rotation.y = k * Math.PI / 3; card.renderOrder = 3; scene.add(card); FIRE_CARDS.push(card);   // the activities flare these
   }
 }
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
@@ -972,7 +974,9 @@ const lookEnd = (e) => {
 $("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
 addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.deltaY * 0.02, -20, 6); resize(); }, { passive: true });
 function tap(x, y) {
-  const h = pickAt(x, y, hit); if (!h) return;
+  const h = pickAt(x, y, hit), a = acts.pick(ray);            // camp activities (activities.js) win when they are nearer than a sloth
+  if (a && (!h || a.distance < h.distance)) { acts.tap(a); return; }
+  if (!h) return;
   if (h.distance < 7) boop(h.object.userData.s); else toast("Get a bit closer");
 }
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
@@ -991,6 +995,10 @@ function feed(s) {
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
 window.__atmo = atmo;
+// camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
+const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !== "undefined" ? WOODPILE : null, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
+  spots: () => window.__spots || [], addBlocker: (c, r) => blockers.push([c, r]) });
+window.__acts = acts;
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
 const hemiL = scene.children.find((o) => o.isHemisphereLight);
 const DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity }, DUSK = new THREE.Color(0x34405a);
@@ -1029,6 +1037,7 @@ renderer.setAnimationLoop(() => {
   const fl = 0.85 + 0.15 * Math.sin(uTime.value * 13) * Math.sin(uTime.value * 7.3);
   flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
   fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
+  acts.update(dt, uTime.value);
   lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
