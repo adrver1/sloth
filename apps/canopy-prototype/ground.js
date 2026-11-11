@@ -13,7 +13,8 @@ const canvasTex = (w, h, draw, srgb = true) => {
 };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, trackDist = () => 1e9, trackPts = [], seed = 77 }) {
+export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], seed = 77 }) {
+  // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
   let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
 
@@ -72,9 +73,9 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   const grassMap = clearing.material.map;
   const mat = new THREE.MeshLambertMaterial({ map: grassMap });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uMask: { value: wear }, uDirt: { value: dirtTex }, uR: { value: RR } });
+    Object.assign(sh.uniforms, { uMask: { value: wear }, uDirt: { value: dirtTex }, uR: { value: RR }, uNight: night });
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt; uniform float uR;")
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt; uniform float uR, uNight;")
       .replace("#include <map_fragment>", `#include <map_fragment>
         float rr = length(vG);
         float h = fract(sin(dot(floor(vG * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
@@ -85,7 +86,8 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
         float d = 0.92 * smoothstep(0.3, 0.7, mk.r + (dot(dt, vec3(0.33)) - 0.25) * 0.6);
         vec3 c = mix(gr, dt, d);
         float ashy = 1.0 - smoothstep(1.0, 1.6, rr);                         // grey ash by the fire, dark wet mud elsewhere
-        diffuseColor.rgb = mix(c * (1.0 - 0.45 * mk.b * d), mix(c, vec3(0.30, 0.28, 0.26) * (0.8 + 0.4 * dot(dt, vec3(0.33))), 0.85 * mk.b), ashy);`);
+        diffuseColor.rgb = mix(c * (1.0 - 0.45 * mk.b * d), mix(c, vec3(0.30, 0.28, 0.26) * (0.8 + 0.4 * dot(dt, vec3(0.33))), 0.85 * mk.b), ashy);
+        diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
   clearing.visible = false;
@@ -162,14 +164,14 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   card.setAttribute("aCell", new THREE.InstancedBufferAttribute(cellA, 1));
   const pmat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide });
   pmat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime;
+    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night;
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime; attribute float aCell;")
       .replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * 0.5 + vec2(mod(aCell, 2.0), 1.0 - floor(aCell / 2.0)) * 0.5;")
       .replace("#include <begin_vertex>", `#include <begin_vertex>
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.6 + ip.x * 1.3 + ip.z * 1.7) + 0.4 * sin(uTime * 3.1 + ip.x * 3.0);
         transformed.xz += vec2(w * 0.06, w * 0.035) * position.y * position.y;`);
-    sh.fragmentShader = sh.fragmentShader.replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight;").replace("#include <map_fragment>", "#include <map_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
   };
   im.material = pmat; im.frustumCulled = false; scene.add(im);
   const counts = [0, 1, 2, 3].map((t) => pick.filter((p) => p[2] === t).length);
