@@ -602,8 +602,6 @@ def expedition():
         p.append(box((0.04, 0.04, 0.06), at=(x, 1.0, z + 0.38), m=M[cm]))
         p.append(box((0.175, 0.03, 0.2), at=(x, 1.3, z + 0.2), m=M[cm], bevel=0.008))
     p.append(box((0.62, 0.55, 0.3), at=(0.25, 0.85, z + 0.17), m=M["crate"], bevel=0.02))
-    for k in range(4):
-        p.append(box((0.63, 0.02, 0.035), at=(0.25, 0.85 - 0.28, z + 0.06 + k * 0.08), m=M["rack"]))
     p.append(box((0.03, 0.57, 0.31), at=(0.25, 0.85, z + 0.17), m=M["strap"]))
     # a shovel on the rear door
     # (blade clear above the bumper, beside the spare)
