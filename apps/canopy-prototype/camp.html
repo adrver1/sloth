@@ -261,7 +261,26 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const RC = 9;
 seed = 3000 + Number(qs.get("seed") || 7);
 const A0 = -0.75, d0 = V(Math.cos(A0), 0, Math.sin(A0)), t0 = V(-d0.z, 0, d0.x);
-const HERO = [d0.clone().multiplyScalar(RC + 0.4), V(Math.cos(A0 + 2.4), 0, Math.sin(A0 + 2.4)).multiplyScalar(RC + 0.6)];
+// the sloth tree's path (Adriaen 2026-11-11): the second big tree no longer stands behind the tent. A footpath leaves the
+// clearing between the tent and the laundry line and winds about 6 m into the forest to a small glade, where that tree
+// stands with its sloths. pathDist() clears trunks and ferns off the path and the glade like trackDist() does for the jeep.
+const PATH_A = 1.45, GLADE_R = 4.2, GLADE = V(Math.cos(PATH_A + 0.22), 0, Math.sin(PATH_A + 0.22)).multiplyScalar(RC + 9.5), PATH_W = 0.6;
+const sloPath = (() => {
+  const P = (a, r) => V(Math.cos(a) * r, 0, Math.sin(a) * r);
+  const curve = new THREE.CatmullRomCurve3([P(PATH_A, RC - 2), P(PATH_A, RC + 0.5), P(PATH_A - 0.1, RC + 2.5), P(PATH_A + 0.06, RC + 4.3), GLADE.clone().setLength(RC + 5.2), GLADE.clone().setLength(RC + 6.5)]);
+  return { curve, pts: curve.getSpacedPoints(48) };
+})();
+function polyDist(pts, x, z) {                         // distance from (x, z) to a polyline, and the nearest point on it
+  let best = 1e9, bx = 0, bz = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const ax = pts[i - 1].x, az = pts[i - 1].z, dx = pts[i].x - ax, dz = pts[i].z - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+    const d = Math.hypot(x - ax - dx * t, z - az - dz * t); if (d < best) { best = d; bx = ax + dx * t; bz = az + dz * t; }
+  }
+  return [best, bx, bz];
+}
+const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
+const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
+const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
 const nearPath = () => false;
 // the jeep's track: the jeep is parked at JEEP_AT along the clearing edge (facing JEEP_TAN) and came in on a muddy track
 // cut through the forest wall behind it. trackDist() thins trunks, leaves and ferns off the track (scaled to zero, so the
@@ -274,7 +293,8 @@ const track = JEEP === "none" ? null : (() => {
   const pts = curve.getSpacedPoints(90);
   return { curve, pts };
 })();
-function trackDist(x, z) {
+function trackDist(x, z) { return Math.min(jeepDist(x, z), pathDist(x, z)); }   // anything kept open: the jeep's track, the path, the glade
+function jeepDist(x, z) {
   if (!track) return 1e9;
   let best = 1e9; const p = track.pts;
   for (let i = 1; i < p.length; i++) {
@@ -292,6 +312,34 @@ const grass = canvasTex(256, 256, (g, w, h) => {
 grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(6, 6);
 const clearing = new THREE.Mesh(new THREE.CircleGeometry(RC + 0.8, 48), new THREE.MeshLambertMaterial({ map: grass }));
 clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(clearing);
+// the glade's grass and the footpath to it: one circle and one ribbon of trodden earth (2 draws, about 200 triangles)
+{
+  const soft = canvasTex(64, 64, (g, w) => { const r = g.createRadialGradient(w / 2, w / 2, w * 0.3, w / 2, w / 2, w / 2); r.addColorStop(0, "#fff"); r.addColorStop(1, "#000"); g.fillStyle = r; g.fillRect(0, 0, w, w); });
+  soft.colorSpace = THREE.NoColorSpace;
+  const glade = new THREE.Mesh(new THREE.CircleGeometry(GLADE_R + 1.2, 24), new THREE.MeshLambertMaterial({ map: clearing.material.map, alphaMap: soft, transparent: true, depthWrite: false }));   // a soft edge into the forest floor
+  glade.material.map = clearing.material.map.clone(); glade.material.map.repeat.set(3, 3); glade.material.map.needsUpdate = true;
+  glade.rotation.x = -Math.PI / 2; glade.position.set(GLADE.x, 0.012, GLADE.z); scene.add(glade);
+  const Q = (a, b) => a + Math.random() * (b - a);   // texture noise only
+  const earth = canvasTex(64, 256, (g, w, h) => {
+    g.fillStyle = LOOK === "low" ? "#a88a5e" : "#8f7653"; g.fillRect(0, 0, w, h);
+    if (LOOK !== "low") for (let i = 0; i < 260; i++) { g.fillStyle = ["#7a6245", "#a58b66", "#6e5a40"][i % 3]; g.globalAlpha = Q(0.2, 0.5); g.beginPath(); g.ellipse(Q(0, w), Q(0, h), Q(1, 3), Q(1, 2), 0, 0, 7); g.fill(); }
+    g.globalAlpha = 1; for (let i = 0; i < 18; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.lineWidth = 2; const x = Q(0, 1) < 0.5 ? Q(0, 9) : Q(w - 9, w), y = Q(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Q(-2, 2), y - Q(4, 8)); g.stroke(); }
+    const e = g.createLinearGradient(0, 0, w, 0); e.addColorStop(0, "rgba(0,0,0,0)"); e.addColorStop(0.25, "rgba(0,0,0,1)"); e.addColorStop(0.75, "rgba(0,0,0,1)"); e.addColorStop(1, "rgba(0,0,0,0)");
+    g.globalCompositeOperation = "destination-in"; g.fillStyle = e; g.fillRect(0, 0, w, h);
+  });
+  earth.wrapT = THREE.RepeatWrapping;
+  const n = 40, pos = [], uv = [], col = [], idx = [], L = sloPath.curve.getLength();
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, p = sloPath.curve.getPointAt(t), d = sloPath.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
+    const a = sstep(RC - 2, RC - 0.5, r) * (1 - sstep(L - 1.2, L, t * L));   // fades in from the clearing and out into the glade
+    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * 0.75); pos.push(q.x, 0.016, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
+    if (i) { const b = (i - 1) * 2; idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: earth, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  m.renderOrder = 1; scene.add(m);
+}
 
 // ---------------------------------------------------------------- the jeep's track: a dirt road out through the forest, and muddy tyre ruts up to its wheels
 if (track) {
@@ -416,7 +464,7 @@ const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump)
     const u = V(R(-1, 1), R(-0.5, 0.8) * (tight < 1 ? 0.7 : 1), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()) * tight);
     e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
     const s = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 / tight : r * 0.9) * Math.pow(D.leaves, -0.33);
-    const k0 = y + u.y < 4.5 && trackDist(x + u.x, z + u.z) < 1.9 ? 0 : s;   // keep the track open at eye height
+    const k0 = y + u.y < 4.5 && Math.min(jeepDist(x + u.x, z + u.z), pathLane(x + u.x, z + u.z)) < 1.9 ? 0 : s;   // keep the track and the path open at eye height
     m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); leaves.setMatrixAt(i, m);
     leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
@@ -940,10 +988,12 @@ if (qs.get("campsloths") !== "0") {
     spot.who = s; s.sc = SL;
     s.act = s.mixer.existingAction(clipOf("cling"));
     // down: lower itself on a vine to the ground right under its branch (kept inside the clearing)
-    const g = s.o.position.clone().setY(0); if (g.length() > RC - 1) g.setLength(RC - 1);
+    const g = s.o.position.clone().setY(0), inGlade = g.distanceTo(GLADE) < GLADE_R + 0.5;
+    if (!inGlade && g.length() > RC - 1) g.setLength(RC - 1);
+    const route = inGlade ? sloPath.pts.slice().reverse().filter((q) => Math.hypot(q.x, q.z) > RC - 2.5).filter((_, i) => i % 3 === 0) : [];   // from the glade: back along the path
     const vine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([s.p, s.p]), new THREE.LineBasicMaterial({ color: 0x4f6b2a }));
     scene.add(vine);
-    s.trip = { spot, phase: "down", t: 0, from: s.o.position.clone(), q: s.o.quaternion.clone(), to: g, top: s.p.clone(), vine, sc0: SL };
+    s.trip = { spot, phase: "down", t: 0, from: s.o.position.clone(), q: s.o.quaternion.clone(), to: g, top: s.p.clone(), vine, sc0: SL, route };
     play(s, "hang_walk", 1.2, 1.4);
   });
   // steer round the fire, tent, posts, seats, table and trees (the blockers you walk round), sliding along them
@@ -970,13 +1020,15 @@ if (qs.get("campsloths") !== "0") {
         if (fast > 1) s.mixer.update(sd - dt);
         if (T.phase === "down") {                     // about 10 s: slides down, turning from back-down to belly-down, facing its way
           const k = Math.min(1, T.t / 10), e = k * k * (3 - 2 * k);
-          const face = Math.atan2(-(spot.door.x - T.to.x), -(spot.door.z - T.to.z));
+          const aim = T.route?.[0] || spot.door, face = Math.atan2(-(aim.x - T.to.x), -(aim.z - T.to.z));
           s.o.position.lerpVectors(T.from, T.to, e); s.o.quaternion.slerpQuaternions(T.q, q0.setFromAxisAngle(UP, face), Math.min(1, e * 1.3));
           const pos = T.vine.geometry.attributes.position; pos.setXYZ(1, s.o.position.x, s.o.position.y + 0.25 * SL * (1 - e), s.o.position.z); pos.needsUpdate = true;
           T.vine.material.opacity = 1 - sstep(0.85, 1, k); T.vine.material.transparent = true;
           if (k >= 1) { T.phase = "crawl"; T.t = 0; T.yaw = face; scene.remove(T.vine); play(s, "walk", 1.5, 2.2); }
         } else if (T.phase === "crawl") {             // a slow belly crawl, about 0.15 m/s
-          const pos = s.o.position, dir = steer(pos, spot.door, spot.ignore), v = 0.027 * 2.2 * s.sc;
+          const pos = s.o.position, v = 0.027 * 2.2 * s.sc;
+          while (T.route?.length && pos.distanceTo(T.route[0]) < 0.5) T.route.shift();               // the path's waypoints first
+          const dir = T.route?.length ? T.route[0].clone().sub(pos).setY(0).normalize() : steer(pos, spot.door, spot.ignore);
           const want = Math.atan2(-dir.x, -dir.z); let dy = want - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
           T.yaw += dy * Math.min(1, sd * 1.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
           pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v * sd);
@@ -1087,7 +1139,11 @@ function collide(p) {
   const r = Math.hypot(p.x, p.z), lim = RC - 0.7;
   if (r > lim) {
     const [q, d] = walkPts.length > 1 ? onTrack(p) : [null, 1e9];
-    if (d < WALK_W + 0.4) { if (d > WALK_W) p.sub(q).multiplyScalar(WALK_W / d).add(q); }   // on the track: keep to it
+    const [pd, px, pz] = polyDist(sloPath.pts, p.x, p.z), dg = Math.hypot(p.x - GLADE.x, p.z - GLADE.z), GR = GLADE_R - 0.4;
+    if (dg < GR) {}                                                                          // in the sloth tree's glade
+    else if (pd < PATH_W + 0.4) { if (pd > PATH_W) { const c = V(px, 0, pz); p.sub(c).multiplyScalar(PATH_W / pd).add(c); } }   // on the path: keep to it
+    else if (d < WALK_W + 0.4) { if (d > WALK_W) p.sub(q).multiplyScalar(WALK_W / d).add(q); }   // on the track: keep to it
+    else if (dg < GR + 0.8) p.sub(GLADE).multiplyScalar(GR / dg).add(GLADE);
     else p.multiplyScalar(lim / r);
   }
   for (const [c, rad] of blockers) { const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz); if (d < rad + 0.3) { const k = (rad + 0.3) / Math.max(d, 1e-4); p.x = c.x + dx * k; p.z = c.z + dz * k; } }
@@ -1273,7 +1329,7 @@ window.__me = me; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) =>
 window.__face = (i) => { const s = sloths[i]; const flat = V(s.p.x, 0, s.p.z); me.pos.copy(flat.clone().multiplyScalar(Math.max(0, 1 - 2.2 / flat.length()))); collide(me.pos); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
 window.__stick = (x, y) => stickV.set(x, y);
 window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
-window.__scene = scene;
+window.__scene = scene; window.__glade = { at: GLADE, path: sloPath.pts };
 window.__ready = true;
 </script>
 
