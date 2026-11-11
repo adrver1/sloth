@@ -1,22 +1,18 @@
 """
-The campfire and the kettle over it for the Canopy Camp game (apps/canopy-prototype/camp.html), rebuilt as options to
-pick from (2026-11-11, Adriaen: the old fire and kettle needed rework):
+The campfire and the soup pot over it for the Canopy Camp game (apps/canopy-prototype/camp.html), rebuilt 2026-11-11.
+Adriaen picked from three fires and three kettles (the others are in git history, commit b1fe846):
 
-    fires     teepee   split logs leaning together in a cone over a bed of ash and embers
-              cabin    a log-cabin crib of four layers with kindling leaning inside it
-              star     five long logs pushed in to the middle from all round, their ends burnt down
-    kettles   classic  a round-bellied camp kettle with a lid, a curved spout and a wire bail
-              pot      a squat cast-iron pot with a lid and a bail
-              billy    a tall tin billy can with a lid and a wire bail
-
-Every fire has the same ring of sooty stones; every kettle hangs from the bamboo tripod (the one Adriaen picked) on a
-cord and a hook, with its steam point at x = 0.2, z = 0.97 (three.js (0.2, 0.97, 0); the page passes it to atmosphere.js for the steam).
+    fire   teepee: split logs leaning together in a cone over a bed of ash and embers, in a ring of sooty stones
+    pot    a squat cast-iron pot with no lid, full of a chunky tomato and veg soup, on a wire bail
+    chain  hangs the pot's bail from the bamboo tripod's lashing: one quad per link, the planes turning ZX / ZY / ZX ...,
+           with a drawn ring texture (chain_link.png, alpha cut on the page) instead of modelled rings
 
     .venv/bin/python props/lived/build_fire.py
 
-One GLB (props/lived/fire.glb) with objects Ring, Tripod, Fire_<style>, Embers_<style> and Kettle_<style>, each at
-the fire's origin, z up (three.js y up). Embers are drawn unlit on the page so they glow; the flames are animated cards
-made on the page. Same baked light as the other props (AO times base colour in a colour attribute).
+One GLB (props/lived/fire.glb) with objects Ring, Tripod, Fire, Embers, Pot and Chain, each at the fire's origin, z up
+(three.js y up). Embers are drawn unlit on the page so they glow; the flames are animated cards made on the page. Same
+baked light as the other props (AO times base colour in a colour attribute), except the chain, which only carries its
+texture. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
 """
 import math
 import os
@@ -30,14 +26,16 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_lived  # noqa: E402  (also sets the light densify for bake)
+import build_lived  # noqa: E402  (shared helpers; its light densify is replaced below)
+import build_camp  # noqa: E402
 from build_camp import (apply_all, bake, bamboo, box, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
 
+build_camp.densify = lambda o, *_: apply_all(o)   # no face splitting for the AO bake: the fire and pot are small enough that the plain faces shade fine
+
 rng = random.Random(23)
-FIRES = ("teepee", "cabin", "star")
-KETTLES = ("classic", "pot", "billy")
-SPOUT = Vector((0.2, 0.0, 0.97))
-LIFT = 0.3                             # kettles hang this much higher than the old one, clear of the flames
+LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
+POT_Z = 0.45 + LIFT                    # the pot's base
+SOUP = Vector((0.0, 0.0, POT_Z + 0.135))   # the soup's surface, middle
 TOP = Vector((0.0, 0.0, 1.3))          # where the tripod legs meet
 
 
@@ -47,17 +45,21 @@ def materials():
         bark=(0.3, 0.21, 0.14), wood=(0.66, 0.5, 0.34), ember=(0.95, 0.28, 0.04), ember2=(1.0, 0.5, 0.08),
         bamboo=(0.72, 0.68, 0.36), node=(0.52, 0.48, 0.24), rope=(0.7, 0.6, 0.4),
         iron=(0.13, 0.13, 0.14), iron2=(0.22, 0.22, 0.23), copper=(0.62, 0.36, 0.2), tin=(0.46, 0.47, 0.48), tin2=(0.34, 0.35, 0.36),
-        wood_knob=(0.42, 0.28, 0.16)).items()}
+        soup=(0.78, 0.3, 0.1), soup2=(0.86, 0.42, 0.14), carrot=(0.95, 0.5, 0.1), pea=(0.4, 0.62, 0.18),
+        potato=(0.88, 0.8, 0.55), herb=(0.25, 0.45, 0.12)).items()}
 
 
-def stone(r, at, scale, m):
-    """A low-poly fire stone: an ico sphere with one subdivision, pushed about, its top half flattened a little."""
+def stone(r, at, scale, m, sr=None):
+    """A low-poly fire stone: an ico sphere with one subdivision, pushed about with its own random lumps (pass `sr` for
+    a stone of its own shape), its top half flattened a little."""
+    sr = sr or rng
+    f = [sr.uniform(3, 8) for _ in range(4)] + [sr.uniform(0, 6.28) for _ in range(2)]
     bpy.ops.mesh.primitive_ico_sphere_add(radius=r, subdivisions=1, location=at)
     o = bpy.context.object
     o.scale = scale
     for v in o.data.vertices:
         n = v.co.normalized()
-        v.co *= 1 + 0.28 * (0.5 * math.sin(n.x * 5.1 + n.y * 3.3) + 0.3 * math.sin(n.y * 7.7 - n.z * 4.1) + 0.2 * rng.uniform(-1, 1))
+        v.co *= 1 + 0.3 * (0.5 * math.sin(n.x * f[0] + n.y * f[1] + f[4]) + 0.3 * math.sin(n.y * f[2] - n.z * f[3] + f[5]) + 0.2 * sr.uniform(-1, 1))
         if v.co.z > 0:
             v.co.z *= 0.8
     return _finish(o, m)
@@ -76,22 +78,48 @@ def log(a, b, r, M, burnt=0.35, verts=7):
 def ring(M):
     """The ring of stones (sooty on the inside) and the ash bed inside it, shared by all fires."""
     p = []
-    for i in range(11):
-        a = i / 11 * 2 * math.pi + rng.uniform(-0.08, 0.08)
-        s = stone(0.14, (math.cos(a) * 0.62, math.sin(a) * 0.62, 0.05), (rng.uniform(1.1, 1.4), rng.uniform(0.85, 1.05), rng.uniform(0.6, 0.85)),
-                  M["stone" if i % 3 else "stone2"])
-        s.rotation_euler.z = a
+    # stones gathered by hand: mixed sizes and shapes, uneven gaps, a lumpy oval ring with stones pushed in or out,
+    # each one facing and tipping its own way (some lying flat, some on edge)
+    sr = random.Random(11)
+    w1, w2 = sr.uniform(0, 6.28), sr.uniform(0, 6.28)
+    a, stones = sr.uniform(0, 1), []
+    while a < 2 * math.pi - 0.35:
+        big = sr.random() < 0.3
+        r = sr.uniform(0.15, 0.2) if big else sr.uniform(0.08, 0.14)
+        stones.append((a, r))
+        a += r * sr.uniform(1.7, 2.6) / 0.62
+    for i, (a, r) in enumerate(stones):
+        d = 0.6 + 0.045 * math.sin(2 * a + w1) + 0.03 * math.sin(3 * a + w2) + sr.uniform(-0.05, 0.05)
+        on_edge = sr.random() < 0.3
+        sc = (sr.uniform(0.9, 1.7), sr.uniform(0.6, 1.1), sr.uniform(0.9, 1.25) if on_edge else sr.uniform(0.45, 0.8))
+        s = stone(r, (math.cos(a) * d, math.sin(a) * d, r * sc[2] * sr.uniform(0.15, 0.45)), sc, M["stone" if sr.random() < 0.65 else "stone2"], sr)
+        s.rotation_euler = (sr.uniform(-0.35, 0.35), sr.uniform(-0.35, 0.35), sr.uniform(0, 2 * math.pi))
         p.append(s)
-    for i in range(7):                                             # soot smudges on the stones' inner faces
-        a = i / 7 * 2 * math.pi + 0.2
-        p.append(stone(0.07, (math.cos(a) * 0.51, math.sin(a) * 0.51, 0.06), (0.7, 1.2, 0.6), M["soot"]))
+    for k in range(3):                                             # a few small ones tucked in the gaps or propped on a neighbour
+        a0, r0 = stones[sr.randrange(len(stones))]
+        a = a0 + sr.uniform(0.15, 0.3)
+        d = 0.62 + sr.uniform(-0.05, 0.1)
+        s = stone(sr.uniform(0.06, 0.085), (math.cos(a) * d, math.sin(a) * d, sr.choice((0.03, r0 * 0.55))), (1.2, 0.9, 0.7), M["stone2"], sr)
+        s.rotation_euler = (sr.uniform(-0.5, 0.5), sr.uniform(-0.5, 0.5), sr.uniform(0, 3))
+        p.append(s)
+    for i in range(4):                                             # soot smudges on some of the inner faces
+        a = stones[(i * 3 + 1) % len(stones)][0]
+        p.append(stone(0.06, (math.cos(a) * 0.52, math.sin(a) * 0.52, 0.05), (0.7, 1.2, 0.6), M["soot"]))
     bpy.ops.mesh.primitive_circle_add(vertices=20, radius=0.5, fill_type="TRIFAN", location=(0, 0, 0.012))
     ash = _finish(bpy.context.object, M["ash"], smooth=False)
-    for v in ash.data.vertices:                                    # a gentle mound
+    for v in ash.data.vertices:                                    # a gentle mound with a ragged edge, not a perfect disc
+        k = 1 + 0.18 * math.sin(3 * math.atan2(v.co.y, v.co.x) + 1) + sr.uniform(-0.1, 0.1)
+        v.co.x *= k
+        v.co.y *= k * 0.92
         v.co.z += 0.03 * (1 - min(1, Vector((v.co.x, v.co.y, 0)).length / 0.5))
     p.append(ash)
     bpy.ops.mesh.primitive_circle_add(vertices=14, radius=0.3, fill_type="TRIFAN", location=(0, 0, 0.03))
-    p.append(_finish(bpy.context.object, M["char"], smooth=False))
+    char = _finish(bpy.context.object, M["char"], smooth=False)
+    for v in char.data.vertices:
+        k = 1 + sr.uniform(-0.25, 0.25) * min(1, v.co.xy.length / 0.3)
+        v.co.x *= k * 1.1
+        v.co.y *= k
+    p.append(char)
     return join(p, "Ring")
 
 
@@ -100,15 +128,15 @@ def tripod(M):
     for i in range(3):                                             # bamboo legs, with a slim ring at each node
         a = i / 3 * 2 * math.pi + 0.3
         foot = Vector((math.cos(a) * 0.75, math.sin(a) * 0.75, 0))
-        p.append(rod(foot, TOP, 0.03, M["bamboo"], verts=8))
+        p.append(rod(foot, TOP, 0.03, M["bamboo"], verts=6))
         for k in (1, 2, 3):
             q = foot.lerp(TOP, k / 4)
-            n = cyl(0.034, 0.014, at=q, m=M["node"], verts=8)
+            n = cyl(0.034, 0.014, at=q, m=M["node"], verts=6)
             n.rotation_mode = "QUATERNION"
             n.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(TOP - foot)
             p.append(n)
     for i in range(3):                                             # a lashing where the legs cross
-        p.append(torus(0.045, 0.01, at=(0, 0, TOP.z - 0.05 - i * 0.025), m=M["rope"], major=10, minor=4))
+        p.append(torus(0.045, 0.01, at=(0, 0, TOP.z - 0.05 - i * 0.025), m=M["rope"], major=8, minor=3))
     return join(p, "Tripod")
 
 
@@ -123,43 +151,19 @@ def embers(n, spread, M, z=0.04):
     return p
 
 
-def fire(style, M):
+def fire(M):
+    """The teepee: seven split logs leaning together, kindling between them, embers in the ash."""
     p = []
-    if style == "teepee":
-        for i in range(7):
-            a = i / 7 * 2 * math.pi + rng.uniform(-0.15, 0.15)
-            r0 = rng.uniform(0.3, 0.38)
-            p += log((math.cos(a) * r0, math.sin(a) * r0, 0.02), (math.cos(a + 0.25) * 0.05, math.sin(a + 0.25) * 0.05, rng.uniform(0.5, 0.58)),
-                     rng.uniform(0.035, 0.045), M, burnt=0.45)
-        for i in range(5):                                         # kindling sticks between them
-            a = i / 5 * 2 * math.pi + 0.5
-            p += log((math.cos(a) * 0.22, math.sin(a) * 0.22, 0.03), (0, 0, 0.38), 0.014, M, burnt=0.5, verts=5)
-        em = embers(12, 0.22, M)
-    elif style == "cabin":
-        z, w = 0.04, 0.42
-        for layer in range(4):
-            for s in (-1, 1):
-                if layer % 2 == 0:
-                    a, b = (-w / 2 - 0.08, s * w / 2, z), (w / 2 + 0.08, s * w / 2, z)
-                else:
-                    a, b = (s * w / 2, -w / 2 - 0.08, z), (s * w / 2, w / 2 + 0.08, z)
-                p += log(a, b, 0.04, M, burnt=0)
-                p.append(rod(Vector(a).lerp(Vector(b), 0.3), Vector(a).lerp(Vector(b), 0.7), 0.041, M["char"], verts=7))   # charred inside
-            z += 0.075
-            w -= 0.05
-        for i in range(5):
-            a = i / 5 * 2 * math.pi
-            p += log((math.cos(a) * 0.13, math.sin(a) * 0.13, 0.03), (0, 0, 0.36), 0.016, M, burnt=0.55, verts=5)
-        em = embers(10, 0.16, M)
-    else:                                                          # star
-        for i in range(5):
-            a = i / 5 * 2 * math.pi + 0.3
-            p += log((math.cos(a) * 0.75, math.sin(a) * 0.75, 0.06), (math.cos(a) * 0.1, math.sin(a) * 0.1, 0.09), rng.uniform(0.05, 0.06), M, burnt=0.3)
-        for i in range(3):
-            a = i / 3 * 2 * math.pi + 1
-            p += log((math.cos(a) * 0.2, math.sin(a) * 0.2, 0.05), (math.cos(a + 2) * 0.12, math.sin(a + 2) * 0.12, 0.12), 0.025, M, burnt=0.8, verts=5)
-        em = embers(14, 0.26, M)
-    return join(p, f"Fire_{style}"), join(em, f"Embers_{style}")
+    for i in range(7):
+        a = i / 7 * 2 * math.pi + rng.uniform(-0.15, 0.15)
+        r0 = rng.uniform(0.3, 0.38)
+        p += log((math.cos(a) * r0, math.sin(a) * r0, 0.02), (math.cos(a + 0.25) * 0.05, math.sin(a + 0.25) * 0.05, rng.uniform(0.5, 0.58)),
+                 rng.uniform(0.035, 0.045), M, burnt=0.45)
+    for i in range(5):                                             # kindling sticks between them
+        a = i / 5 * 2 * math.pi + 0.5
+        p += log((math.cos(a) * 0.22, math.sin(a) * 0.22, 0.03), (0, 0, 0.38), 0.014, M, burnt=0.5, verts=5)
+    em = embers(12, 0.22, M)
+    return join(p, "Fire"), join(em, "Embers")
 
 
 def lathe(profile, segs, m, z0=0.0):
@@ -192,89 +196,125 @@ def bail(half_w, z_pivot, rise, m, r=0.005):
     return [rod(pts[i], pts[i + 1], r, m, verts=4) for i in range(10)], pts[5]
 
 
-def hang(top_of_bail, M):
-    """The cord from the tripod top down to an S-hook through the bail."""
-    hook = top_of_bail + Vector((0, 0, 0.035))
-    p = [rod(TOP + Vector((0, 0, -0.06)), hook + Vector((0, 0, 0.03)), 0.005, M["rope"], verts=4)]
-    p.append(torus(0.02, 0.004, at=hook, rot=(math.pi / 2, 0, 0), m=M["iron"], major=10, minor=3))
-    return p
+def pot(M):
+    """The open iron pot: a lathed body with a rolled rim and an inside wall, the soup surface with chunks in it, three feet,
+    two lugs and the bail. Returns the pot and the top of the bail (where the chain hooks on)."""
+    prof = [(0.0, 0.0), (0.09, 0.0), (0.15, 0.04), (0.165, 0.09), (0.158, 0.14), (0.168, 0.152), (0.166, 0.162),   # outside up to the rim
+            (0.152, 0.158), (0.146, 0.12)]                                                                      # over the lip, down the inside
+    p = [lathe(prof, 16, M["iron"], z0=POT_Z)]
+    soup = lathe([(0.0, SOUP.z - POT_Z), (0.147, SOUP.z - POT_Z - 0.004)], 16, M["soup"], z0=POT_Z)
+    p.append(soup)
+    for i in range(9):                                             # chunks bobbing in it: carrot coins, potato cubes, peas, herbs
+        a, d = rng.uniform(0, 2 * math.pi), 0.11 * math.sqrt(rng.uniform(0.05, 1))
+        at = (math.cos(a) * d, math.sin(a) * d, SOUP.z + 0.002)
+        kind = ("carrot", "potato", "pea", "carrot", "potato", "herb", "pea", "carrot", "herb")[i]
+        if kind == "carrot":
+            o = cyl(0.018, 0.008, at=at, m=M["carrot"], verts=6)
+            o.rotation_euler = (rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3), 0)
+        elif kind == "potato":
+            o = box((0.024, 0.022, 0.016), at=at, m=M["potato"])
+            o.rotation_euler = (rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3), rng.uniform(0, 3))
+        elif kind == "pea":
+            bpy.ops.mesh.primitive_ico_sphere_add(radius=0.009, subdivisions=1, location=at)
+            o = _finish(bpy.context.object, M["pea"], smooth=False)
+        else:
+            o = box((0.022, 0.008, 0.003), at=(at[0], at[1], at[2] + 0.001), m=M["herb"])
+            o.rotation_euler.z = rng.uniform(0, 3)
+        p.append(o)
+    for k in range(4):                                             # a few lighter swirls on the surface
+        a = k / 4 * 2 * math.pi + 0.4
+        bpy.ops.mesh.primitive_circle_add(vertices=6, radius=0.022, fill_type="TRIFAN", location=(math.cos(a) * 0.07, math.sin(a) * 0.07, SOUP.z + 0.001))
+        o = bpy.context.object
+        o.scale = (1.6, 0.7, 1)
+        o.rotation_euler.z = a + 1.2
+        p.append(_finish(o, M["soup2"], smooth=False))
+    for k in range(3):                                             # three stubby feet
+        a = k / 3 * 2 * math.pi
+        p.append(cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, POT_Z), m=M["iron"], verts=6))
+    pivot = POT_Z + 0.15
+    wires, peak = bail(0.175, pivot, 0.17, M["iron"], r=0.006)
+    p += wires
+    for s in (-1, 1):                                              # the lugs the bail turns in
+        p.append(box((0.03, 0.02, 0.03), at=(0, s * 0.168, pivot), m=M["iron"]))
+    return join(p, "Pot"), peak
 
 
-def kettle(style, M):
-    p = []
-    if style == "classic":
-        prof = [(0.0, 0.0), (0.1, 0.0), (0.125, 0.03), (0.13, 0.07), (0.115, 0.115), (0.075, 0.145), (0.06, 0.15)]
-        body = lathe(prof, 16, M["copper"], z0=0.47 + LIFT)
-        p.append(body)
-        p.append(lathe([(0.0, 0.17), (0.035, 0.165), (0.062, 0.15)], 16, M["iron2"], z0=0.47 + LIFT))            # lid
-        p.append(lathe([(0.0, 0.2), (0.015, 0.195), (0.012, 0.17)], 8, M["wood_knob"], z0=0.47 + LIFT))            # knob
-        a, c = Vector((0.11, 0, 0.51 + LIFT)), Vector((0.17, 0, 0.58 + LIFT))
-        p += curve_rod([a, Vector((0.15, 0, 0.53 + LIFT)), c, SPOUT], 0.022, 0.011, M["copper"])
-        wires, peak = bail(0.12, 0.6 + LIFT, 0.13, M["iron"])
-        p += wires
-        for s in (-1, 1):
-            p.append(cyl(0.012, 0.02, at=(0, s * 0.122, 0.6 + LIFT), rot=(math.pi / 2, 0, 0), m=M["copper"], verts=6))
-    elif style == "pot":
-        prof = [(0.0, 0.0), (0.09, 0.0), (0.15, 0.04), (0.165, 0.09), (0.155, 0.14), (0.165, 0.15), (0.165, 0.16)]
-        p.append(lathe(prof, 16, M["iron"], z0=0.45 + LIFT))
-        p.append(lathe([(0.0, 0.18), (0.08, 0.175), (0.17, 0.16)], 16, M["iron2"], z0=0.45 + LIFT))
-        p.append(torus(0.025, 0.006, at=(0, 0, 0.45 + LIFT + 0.19), rot=(math.pi / 2, 0, 0), m=M["iron"], major=10, minor=4))   # lid handle
-        for k in range(3):                                            # three stubby feet
-            a = k / 3 * 2 * math.pi
-            p.append(cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, 0.45 + LIFT), m=M["iron"], verts=6))
-        p.append(cyl(0.012, 0.02, at=(0.172, 0, 0.62 + LIFT), rot=(0, math.pi / 2, 0), m=M["iron"], verts=6))   # the lid's steam notch, at SPOUT
-        wires, peak = bail(0.175, 0.6 + LIFT, 0.17, M["iron"], r=0.006)
-        p += wires
-        for s in (-1, 1):
-            p.append(box((0.03, 0.02, 0.03), at=(0, s * 0.168, 0.6 + LIFT), m=M["iron"]))
-    else:                                                             # billy
-        prof = [(0.0, 0.0), (0.095, 0.0), (0.1, 0.005), (0.1, 0.17), (0.106, 0.175)]
-        p.append(lathe(prof, 14, M["tin"], z0=0.47 + LIFT))
-        for z in (0.04, 0.13):                                        # rolled ridges
-            p.append(torus(0.101, 0.004, at=(0, 0, 0.47 + LIFT + z), m=M["tin2"], major=14, minor=3))
-        p.append(lathe([(0.0, 0.19), (0.1, 0.18), (0.108, 0.17)], 14, M["tin2"], z0=0.47 + LIFT))
-        p.append(rod((0.12, 0, 0.66 + LIFT), SPOUT + Vector((0.01, 0, 0.0)), 0.006, M["tin2"], verts=4))        # the lid's little lip, at SPOUT
-        wires, peak = bail(0.105, 0.63 + LIFT, 0.15, M["iron"], r=0.004)
-        p += wires
-    p += hang(peak, M)
-    return join(p, f"Kettle_{style}")
+def link_texture(path):
+    """One chain link, drawn: a dark iron oval ring with a highlight, on transparent (the page cuts it with alphaTest)."""
+    from PIL import Image, ImageDraw
+    W, H, k = 64, 128, 4                                           # drawn 4x and scaled down, for smooth edges
+    im = Image.new("RGBA", (W * k, H * k), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    t = 11 * k                                                     # wire thickness
+    d.rounded_rectangle((2 * k, 2 * k, (W - 2) * k, (H - 2) * k), radius=(W - 4) * k // 2, outline=(34, 33, 35, 255), width=t)
+    d.rounded_rectangle((5 * k, 5 * k, (W - 5) * k, (H - 5) * k), radius=(W - 10) * k // 2, outline=(92, 90, 92, 255), width=3 * k)   # highlight
+    im.resize((W, H), Image.LANCZOS).save(path)
+    return 2 / H, 13 / H                                           # the outer and inner edge of the wire, as fractions of the height
+
+
+def chain(bottom, top):
+    """Links from the bail's top (`bottom`) up to the tripod lashing (`top`): each one a quad, turning a quarter between
+    ZX and ZY, overlapping so each link's end sits through the next one's eye. The bottom link (ZX) hangs through the bail
+    wire, which runs along y at its peak, so the wire passes through the link's hole."""
+    tex_path = os.path.join(HERE, "chain_link.png")
+    edge, inner = link_texture(tex_path)
+    LW, LH = 0.02, 0.04                                            # one link's quad
+    pitch = LH * (1 - 2 * inner) + 0.004                           # links overlap by their wire
+    z0 = bottom.z - LH * inner - 0.004                             # the bottom link's lower inside edge sits on the wire
+    n = max(2, round((top.z - z0 - LH) / pitch) + 1)
+    pitch = (top.z - z0 - LH) / (n - 1)
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    for i in range(n):
+        zb, zt = z0 + i * pitch, z0 + i * pitch + LH
+        ax = Vector((1, 0, 0)) if i % 2 == 0 else Vector((0, 1, 0))
+        c = [bm.verts.new(v) for v in (-ax * LW / 2 + Vector((0, 0, zb)), ax * LW / 2 + Vector((0, 0, zb)),
+                                       ax * LW / 2 + Vector((0, 0, zt)), -ax * LW / 2 + Vector((0, 0, zt)))]
+        f = bm.faces.new(c)
+        for l, u in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
+            l[uv].uv = u
+    me = bpy.data.meshes.new("Chain")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("Chain", me)
+    bpy.context.collection.objects.link(o)
+    m = bpy.data.materials.new("Chain")
+    m.use_nodes = True
+    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
+    tx.image = bpy.data.images.load(tex_path)
+    bsdf = m.node_tree.nodes["Principled BSDF"]
+    m.node_tree.links.new(tx.outputs["Color"], bsdf.inputs["Base Color"])
+    m.node_tree.links.new(tx.outputs["Alpha"], bsdf.inputs["Alpha"])
+    me.materials.append(m)
+    return o
 
 
 def build(samples=32):
     reset()
     M = materials()
-    objs = [ring(M), tripod(M)]
-    for f in FIRES:
-        objs += fire(f, M)
-    for k in KETTLES:
-        objs.append(kettle(k, M))
+    ring_o, trip = ring(M), tripod(M)
+    fire_o, emb = fire(M)
+    pot_o, peak = pot(M)
+    objs = [ring_o, trip, fire_o, emb, pot_o]
     for o in objs:
         apply_all(o)
         o.location = (0, 0, 0)
-    # bake each set on its own, so the hidden options don't shade each other
+    bake(objs, samples)
     for o in objs:
-        o.hide_render = True
-    def bake_set(group):
-        for o in objs:
-            o.hide_render = o not in group
-        bake(group, samples)
-    ring_o, trip = objs[0], objs[1]
-    bake_set([ring_o, trip, *[o for o in objs if o.name in ("Fire_teepee", "Embers_teepee")]])
-    for f in ("cabin", "star"):
-        bake_set([o for o in objs if o.name in (f"Fire_{f}", f"Embers_{f}")])
-    bake_set([o for o in objs if o.name.startswith("Kettle_")])
-    for o in objs:
-        o.hide_render = False
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
+    ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
+    objs.append(ch)
     path = os.path.join(HERE, "fire.glb")
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
+                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
+                              export_image_format="AUTO")
     for o in objs:
         print(f"  {o.name}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
+    print(f"soup surface (three.js): (0, {SOUP.z:.3f}, 0)")
     print(f"fire: {os.path.getsize(path) // 1024} KB -> {path}")
 
 
