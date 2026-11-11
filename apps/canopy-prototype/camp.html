@@ -529,6 +529,66 @@ for (const c of branchCurves.filter((c) => c.low)) {
   if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) hang(p, tan);
   if (sloths.length >= 7) break;
 }
+// ---------------------------------------------------------------- sloths living in the camp (thread "Bring sloths to life in camp")
+// One napping on its back in the hammock, which sways gently, and a baby on a log seat by the fire, slowly reaching for the kettle.
+// Their clips (nap, reach) are in characters/sloth_baby/sloth_rig.py. They take boops and hibiscus like the hanging ones.
+// ?campsloths=0 leaves them out, to compare.
+const camping = [];
+let hammockSway = null;
+if (qs.get("campsloths") !== "0") {
+  const { hA, hB } = window.__camp, hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA), hYaw = -Math.atan2(hd.z, hd.x);
+  function shutEyes(o) {                              // asleep: the eyes and their glints take the dark patch colour round them (own copy of the mesh)
+    o.traverse((m) => {
+      if (!m.isSkinnedMesh || !m.material.map) return;
+      const img = m.material.map.image, cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      const g = cv.getContext("2d"); g.drawImage(img, 0, 0); const px = g.getImageData(0, 0, cv.width, cv.height).data;
+      m.geometry = m.geometry.clone(); const uv = m.geometry.attributes.uv, kind = [];
+      for (let i = 0; i < uv.count; i++) {
+        const k = (Math.min(cv.height - 1, Math.floor(uv.getY(i) * cv.height)) * cv.width + Math.min(cv.width - 1, Math.floor(uv.getX(i) * cv.width))) * 4, r = px[k], gg = px[k + 1], b = px[k + 2];
+        kind.push(r < 40 && gg < 40 && b < 45 ? "eye" : r > 235 && gg > 235 && b > 230 ? "eye" : r < 75 && r > gg && gg > b ? "patch" : "");
+      }
+      const pi = kind.indexOf("patch"); if (pi < 0) return;
+      const pu = uv.getX(pi), pv = uv.getY(pi);
+      kind.forEach((k, i) => k === "eye" && uv.setXY(i, pu, pv));
+    });
+  }
+  function camper(clip, scale, parent, t0, hitR, hitAt, asleep) {
+    const o = clone(SLOTH.scene); o.scale.setScalar(scale);
+    o.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
+    if (asleep) shutEyes(o);
+    furify(o, { shells: D.shells });
+    const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === clip));
+    act.play(); act.time = t0; parent.add(o);
+    const box = new THREE.Mesh(new THREE.SphereGeometry(hitR), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(hitAt); parent.add(box);
+    const s = { o, mixer, box, p: V(), sc: scale, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false };
+    box.userData.s = s; sloths.push(s); hit.push(box); camping.push(s);
+    return s;
+  }
+  // the hammock: the sling and its ropes swing about the line between the rope knots on the posts (1.75 m up);
+  // the posts and the leaves on top stay put. The same swing turns the group the napper lies in.
+  const PIV = 1.75, sway = { value: 0 };
+  const hg = new THREE.Group(); hg.position.set(hm.x, PIV, hm.z); hg.rotation.y = hYaw; scene.add(hg);
+  const swing = new THREE.Group(); hg.add(swing);
+  const ham = scene.getObjectByName("Hammock");
+  if (ham) {
+    const mat = ham.material.clone();
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uSway = sway;
+      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uSway;").replace("#include <begin_vertex>", `#include <begin_vertex>
+        float sw = uSway * (1.0 - smoothstep(1.03, 1.43, abs(transformed.x))) * (1.0 - smoothstep(1.8, 1.95, transformed.y));
+        vec2 q = transformed.yz - vec2(${PIV.toFixed(2)}, 0.0); float cs = cos(sw), sn = sin(sw);
+        transformed.yz = vec2(${PIV.toFixed(2)}, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
+    };
+    ham.material = mat;
+  }
+  const napper = camper("nap", 2.2, swing, 0, 0.5, V(0, 0.75 - PIV + 0.2, 0), true);
+  napper.o.position.set(0.08, 0.72 - PIV, 0); napper.o.rotation.set(0, -Math.PI / 2, 0);   // head toward the hammock's +x end, face rolled toward the fire
+  hammockSway = { sway, swing, napper, zz: null, push: 0 };   // zz: three letters drifting up from the napper in turn, made on the first frame
+  // the baby: on the log seat to the right of the gap, facing the fire and the kettle
+  const a = A0 + Math.PI - 1.15, at = V(Math.cos(a) * 2.1, 0.33, Math.sin(a) * 2.1).addScaledVector(V(-Math.sin(a), 0, Math.cos(a)), -0.12);
+  const seat = new THREE.Group(); seat.position.copy(at); seat.rotation.y = Math.atan2(at.x, at.z); scene.add(seat);
+  camper("reach", 1.6, seat, 0, 0.32, V(0, 0.25, 0));
+}
 const COUNT = sloths.length;
 
 // sprites: words, hearts, flowers
@@ -678,8 +738,17 @@ renderer.setAnimationLoop(() => {
   step(dt);
   for (const s of sloths) {
     s.mixer.update(dt);
-    if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; s.o.scale.set(SL * (1 + k), SL * (1 - k), SL * (1 + k)); }
+    if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; const sc = s.sc || SL; s.o.scale.set(sc * (1 + k), sc * (1 - k), sc * (1 + k)); }
     if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
+  }
+  for (const s of camping) s.box.getWorldPosition(s.p);
+  if (hammockSway) {                                   // a slow swing, nudged harder for a while after a boop
+    const H = hammockSway, T = uTime.value; H.push = Math.max(0, H.push - dt * 0.25);
+    H.sway.value = (0.055 + 0.1 * H.push) * Math.sin(T * 2 * Math.PI / 5.2); H.swing.rotation.x = H.sway.value;
+    if (H.napper.squish > 0.9) H.push = 1;
+    H.zz ??= [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
+    H.zz.forEach((z, i) => { const k = (T / 2.4 + i / 3) % 1; H.napper.head.getWorldPosition(z.position).add(V(0.1 * Math.sin(k * 6), 0.25 + 0.6 * k, 0));
+      z.material.opacity = Math.sin(Math.PI * k) * (H.napper.squish > 0 ? 0 : 0.85); z.scale.set(0.3 + 0.35 * k, (0.3 + 0.35 * k) / 4, 1); });
   }
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
@@ -713,6 +782,7 @@ renderer.setAnimationLoop(() => {
 window.__me = me; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__rest = () => { duskTo = 1; dusk = 1; };
 window.__face = (i) => { const s = sloths[i]; const flat = V(s.p.x, 0, s.p.z); me.pos.copy(flat.clone().multiplyScalar(Math.max(0, 1 - 2.2 / flat.length()))); collide(me.pos); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
 window.__stick = (x, y) => stickV.set(x, y);
+window.__camping = camping;
 window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
 window.__ready = true;
 </script>
