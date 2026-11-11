@@ -740,7 +740,7 @@ for (const c of branchCurves.filter((c) => c.low)) {
 // Adriaen 2026-11-11: the camp spots stay empty until a sloth is befriended. Then that same sloth (flower crown and all)
 // lowers itself from its branch on a vine and crawls slowly over the ground to the next free spot, in this order:
 // the hammock (climbs its post and the rope into it, naps on its back, eyes shut, zzz; the hammock sways gently all the time), then the log seat right of the
-// gap (sits and slowly reaches for the kettle), then the jeep's passenger seat (in through the open door, curls up asleep),
+// gap (sits and slowly reaches for the kettle), then the jeep's driver seat (in through the open door, plays at driving),
 // then the laundry line (climbs the end post, goes hand over hand along the line, brushing the towel aside, to the gap and hangs there). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
 // Befriending belongs to the camp activities: it fires window event "sloth-befriended" with detail.id = index into sloths.
 // ?campsloths=0 turns the spots off; window.__campFast speeds the trips up for checks.
@@ -799,7 +799,12 @@ if (qs.get("campsloths") !== "0") {
   if (J?.node) {
     J.node.updateMatrixWorld(true);
     const sillL = J.node.worldToLocal(J.sill.clone()), seatL = J.node.worldToLocal(J.seat.clone());
-    spots.push({ name: "jeep", parent: J.node, at: seatL.clone().add(V(0, -0.01, 0.04)), yaw: Math.PI, clip: "curl", scale: 1.7, asleep: true, car: true, ignore: 2.2,
+    // left-hand drive since 2026-11-11: the wheel (empty WheelHub) is in front of this seat, so it sits up behind it and plays
+    // at driving (clip drive). The clip's paws circle a rim 0.062 across, 0.11 up and 0.10 ahead of the sloth (x its scale),
+    // so at scale 2.4 they hold the 0.16 rim of the jeep's wheel; it sits where that puts the hub, no lower than the cushion.
+    const hubN = J.node.getObjectByName("WheelHub"), hub = hubN ? J.node.worldToLocal(hubN.getWorldPosition(V())) : V(0.36, 1.15, 0.05), dsc = 2.4;
+    const drv = V(hub.x, Math.max(seatL.y, hub.y - 0.11 * dsc), hub.z - 0.10 * dsc);
+    spots.push({ name: "jeep", parent: J.node, at: drv, yaw: Math.PI, clip: "drive", scale: dsc, car: true, ignore: 2.2,
       sill: sillL, door: J.node.localToWorld(sillL.clone().add(V(0.5, 0, 0))).setY(0) });
   }
   // the laundry line (thread "lived-in props", window.__laundry): it crawls round to the outer side of post a, climbs it
