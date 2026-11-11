@@ -11,7 +11,7 @@ props/camp/camp_picked.glb (and the page's base64 copy, apps/canopy-prototype/mo
   COLOR_1  night: base colour x baked light from the fire, 8 jar lanterns and a dim blue moon; the page shows it
            unlit and fades to it when you rest. Lantern glass glows.
 Each instance is its own node at its camp position (Fire, Seat_0-2, Tent, Hammock, Table, Lantern_0-7), since each
-copy now carries its own light. The layout below mirrors camp.html (A0, tentAt, hA, hB, tb, lanternGlow); keep the two
+copy now carries its own light. The layout below mirrors camp.html (A0, tentAt, hA, hB, tb, lanternGlow with l0 on the tent's front A-frame); keep the two
 in step. A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 """
 import argparse, base64, math, os, sys
@@ -38,7 +38,9 @@ A0 = -0.75
 d0 = (math.cos(A0), math.sin(A0)); t0 = (-d0[1], d0[0])
 def comb(sa, sb, base=(0, 0)): return (base[0] + d0[0] * sa + t0[0] * sb, base[1] + d0[1] * sa + t0[1] * sb)
 tentAt = comb(-4.2, 2.4); hA = comb(-1.5, -4.6); hB = comb(-2.6, -1.2, hA); tb = comb(1.6, 3.2)
-l0 = (tentAt[0], 2.6, tentAt[1]); l1 = (hA[0], 2.5, hA[1])
+_tl = math.hypot(*tentAt)
+l0 = (tentAt[0] - tentAt[0] / _tl * 1.12, 2.8, tentAt[1] - tentAt[1] / _tl * 1.12)   # tied to the tent's front A-frame crossing
+l1 = (hA[0], 2.5, hA[1])
 lanterns = []
 for i in range(1, 9):
     t = i / 9; p = [l0[k] + (l1[k] - l0[k]) * t for k in range(3)]; p[1] -= math.sin(math.pi * t) * 0.45
@@ -88,6 +90,9 @@ def point(name, at, rgb, watts, r):
 point("FireLight", B(0, 0.55, 0), (1.0, 0.50, 0.20), 260, 0.25)
 for i, p in enumerate(lanterns):
     point(f"LanternLight_{i}", B(p[0], p[1] - 0.12, p[2]), (1.0, 0.72, 0.38), 50, 0.05)
+tent = next(o for o in placed if o.name == "Tent")
+bpy.context.view_layer.update()
+point("StoveLight", tent.matrix_world @ Vector(bc["STOVE"]), (1.0, 0.5, 0.2), 45, 0.12)   # the wood stove inside the walk-in tent
 moon = bpy.data.lights.new("Moon", "SUN"); moon.color = (0.55, 0.65, 1.0); moon.energy = 0.12; moon.angle = math.radians(2)
 mo = bpy.data.objects.new("Moon", moon); mo.rotation_euler = (math.radians(40), 0, math.radians(-120))
 bpy.context.collection.objects.link(mo); lights.append(mo)
@@ -122,12 +127,12 @@ for o in placed:
     for poly in me.polygons:
         m = me.materials[poly.material_index]
         base = Vector(m["base"]) if "base" in m else Vector((0.5, 0.5, 0.5))
-        glow = o.name.startswith("Lantern") and m.name == "ru_glass"
+        glow = (o.name.startswith("Lantern") and m.name == "ru_glass") or m.name == "wt_glow"
         for li in poly.loop_indices:
             k = 0.32 + 0.68 * A.data[li].color[0]
             day.data[li].color = (base.x * k, base.y * k, base.z * k, 1)
             c = L.data[li].color
-            night.data[li].color = (1.0, 0.82, 0.48, 1) if glow else (tone(base.x * c[0]), tone(base.y * c[1]), tone(base.z * c[2]), 1)
+            night.data[li].color = ((1.0, 0.55, 0.22, 1) if m.name == "wt_glow" else (1.0, 0.82, 0.48, 1)) if glow else (tone(base.x * c[0]), tone(base.y * c[1]), tone(base.z * c[2]), 1)
     for n in ("A", "L"):                                          # by name: held references go stale as layers are removed
         me.color_attributes.remove(me.color_attributes[n])
     me.color_attributes.active_color = me.color_attributes["Col"]
