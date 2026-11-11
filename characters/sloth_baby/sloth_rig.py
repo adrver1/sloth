@@ -29,6 +29,13 @@ Clips, baked into the .glb as named glTF animations:
 
     titanic the ship's-bow pose, held up by the waist: arms flung out to
             the sides, chin up into the wind, legs dangling   (loop, 4 s)
+    nap     asleep on its back (in a hammock), paws folded on its belly,
+            knees drawn up, head rolled to one side, breathing slowly
+                                                           (loop, 6 s)
+    reach   sitting up, slowly stretching the right arm out ahead and a
+            little up (for the kettle over the camp fire), leaning after
+            it, claws wiggling at the top, then drawing it back
+                                                           (loop, 8 s)
 
 How real sloths move (Bradypus studies, 2023-2025): arms far longer than
 the legs, hook-like hands and feet with three claws each; on the ground
@@ -61,6 +68,7 @@ HANG_SWING = 0.17                   # duty factor 0.83, as measured in three-toe
 HANG_CYCLE = 96
 HANG_SPEED = 2 * HANG_STRIDE / ((1 - HANG_SWING) * HANG_CYCLE / FPS)   # m/s, about 0.015
 CLING_BRANCH = (0.10, 0.0, 0.20)    # branch height over the belly, its z span
+NAP_TILT = 80                       # on its back, head end a little raised, degrees
 LIMB_BONES = {"arm": ("upper_arm", "forearm"), "leg": ("thigh", "shin")}
 
 
@@ -331,12 +339,58 @@ def titanic(t, limbs):
     return pose
 
 
+def nap(t, limbs):
+    """t 0..1 round the loop: asleep on its back, as in a hammock (the
+    Canopy Camp nap). The body lies with its belly up, rolled a little to
+    one side; three slow breaths a loop lift the belly and the folded paws."""
+    w = 2 * math.pi * t
+    breath = math.sin(3 * w)
+    off = (0.0, 0.0, 0.028 + 0.002 * breath)
+    spec = [(X, NAP_TILT + 1.5 * breath), (Y, 8)]
+    rb = _rot(spec)
+    pose = {"body": (off, spec), "head": [(Z, 55 + 3 * math.sin(w)), (Y, -12), (X, -10 + 2 * breath)]}
+    for key in limbs:
+        kind, tag = key.split(".")
+        side = 1 if tag == "R" else -1
+        if kind == "arm":   # paws folded on the belly, one over the other, elbows out
+            p = Vector((-side * 0.012, 0.072, 0.085 + 0.012 * side))
+            pole = rb @ Vector((side * 1.0, 0.2, -0.3))
+        else:               # knees drawn up and out, soles together
+            p = Vector((side * 0.035, 0.075, 0.0))
+            pole = rb @ Vector((side * 0.7, 1.0, 0.2))
+        pose[key] = (_point(off, spec, p), pole)
+    return pose
+
+
+def reach(t, limbs):
+    """t 0..1 round the loop: sitting up as idle and very slowly reaching
+    the right paw out ahead and up (for the kettle in Canopy Camp), leaning
+    after it, the claws wiggling at full stretch, then drawing it back."""
+    w = 2 * math.pi * t
+    e = 0.5 - 0.5 * math.cos(w)            # 0 at rest, 1 at full stretch (t = 0.5)
+    e = e * e * (3 - 2 * e)
+    wiggle = math.sin(9 * w) * e ** 4
+    off = (0.0, 0.004 * e, 0.002 * math.sin(2 * w))
+    spec = [(X, -9 * e), (Y, -4 * e)]
+    rb = _rot(spec)
+    pose = {"body": (off, spec), "head": [(X, 16 * e + 2 * math.sin(2 * w)), (Z, 6 * math.sin(w + 1.0) * (1 - e))]}
+    a, b = limbs["arm.R"]
+    n = (b - a).length
+    root = _point(off, spec, a)
+    rest = _point(off, spec, b)
+    out = root + Vector((0.12, 0.92, 0.38)).normalized() * 0.97 * n + Vector((0.0, 0.0, 0.006 * wiggle))
+    pose["arm.R"] = (rest.lerp(out, e), rb @ Vector((1.0, -0.2, -1.0)))
+    return pose
+
+
 def clips(limbs):
     return {"idle": [(k * 12, idle(k / 8)) for k in range(9)],
             "walk": [(k * WALK_CYCLE // 24, walk(k / 24, limbs)) for k in range(25)],
             "cling": [(k * 12, cling(k / 8, limbs)) for k in range(9)],
             "hang_walk": [(k * HANG_CYCLE // 24, hang_walk(k / 24, limbs)) for k in range(25)],
-            "titanic": [(k * 12, titanic(k / 8, limbs)) for k in range(9)]}
+            "titanic": [(k * 12, titanic(k / 8, limbs)) for k in range(9)],
+            "nap": [(k * 9, nap(k / 16, limbs)) for k in range(17)],
+            "reach": [(k * 8, reach(k / 24, limbs)) for k in range(25)]}
 
 
 def add_clips(arm_ob, limbs):
