@@ -49,6 +49,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { furify } from "./fur.js";
+import { createAtmosphere } from "./atmosphere.js";
 
 const qs = new URLSearchParams(location.search);
 const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
@@ -650,6 +651,9 @@ function feed(s) {
   } });
 }
 
+// cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
+const atmo = createAtmosphere({ scene, camera, fx: D.fx, spout: PROPS === "picked" || PROPS === "jungle" ? V(0.2, 0.67, 0) : null });
+window.__atmo = atmo;
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
 const hemiL = scene.children.find((o) => o.isHemisphereLight);
 const DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity }, DUSK = new THREE.Color(0x34405a);
@@ -694,6 +698,7 @@ renderer.setAnimationLoop(() => {
     if (typeof rayMat !== "undefined") rayMat.opacity = S.rays * (1 - dusk);
   }
   if (motes) motes.rotation.y += dt * 0.02;
+  atmo.update(dt, uTime.value, dusk);
   renderer.render(scene, camera);
   frames++; acc += raw;
   if (acc >= 1) {
