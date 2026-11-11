@@ -168,6 +168,32 @@ VIEWS = []    # --views: only these preview stills (all when empty)
 TYRE = "mt"   # tread option (--tyre): "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders, "road" smooth with painted grooves
 
 
+def duct(path, secs, m):
+    """A square-section pipe along path: one ring of four corners per point (w out from the body, h across), mitred at
+    the bends, capped at both ends. Flat faces and sharp corners, so a bend costs 8 triangles."""
+    P = [Vector(q) for q in path]
+    verts, faces = [], []
+    for i, q in enumerate(P):
+        ds = [(P[j + 1] - P[j]).normalized() for j in (i - 1, i) if 0 <= j < len(P) - 1]
+        t = sum(ds, Vector()).normalized()
+        k = 1 / max(0.5, ds[0].dot(t))                        # mitre: widen the ring where the pipe bends
+        n1 = (Vector((1, 0, 0)) - t * t.x).normalized()        # out from the body
+        n2 = t.cross(n1).normalized()
+        w, h = secs[i]
+        for a_, b_ in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+            verts.append(tuple(q + n1 * (a_ * w / 2) + n2 * (b_ * h / 2 * k)))
+    for i in range(len(P) - 1):
+        for c in range(4):
+            c2 = (c + 1) % 4
+            faces.append((i * 4 + c, i * 4 + c2, (i + 1) * 4 + c2, (i + 1) * 4 + c))
+    faces += [(0, 1, 2, 3), tuple(len(verts) - 4 + c for c in (3, 2, 1, 0))]
+    me = bpy.data.meshes.new("duct"); me.from_pydata(verts, [], faces); me.update()
+    o = bpy.data.objects.new("duct", me); bpy.context.collection.objects.link(o)
+    me.materials.append(m)
+    outward(o)
+    return o
+
+
 def lathe(prof, n, at, axis_x, M, name="lathe"):
     """A surface of revolution about the axle. prof is [(radius, offset along the axle, material key of the band that
     starts here)]; n segments round. One object, one material per band, so grooves and stripes cost no extra triangles."""
@@ -196,7 +222,7 @@ def lathe(prof, n, at, axis_x, M, name="lathe"):
 
 
 def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
-    """A tyre with a rounded shoulder and tread (style TYRE), a dished steel rim with a hub and five nuts, on an axle along X
+    """A tyre with a rounded shoulder and tread (style TYRE), a dished steel rim with a hub, on an axle along X
     (or along Y for the spare). The silhouette gets the segments; the tread pattern is low blocks or painted bands."""
     if "groove" not in M:
         M["groove"] = mat(M["tyre"].name + "_groove", tuple(c * 0.45 for c in M["tyre"]["base"]))
@@ -213,9 +239,9 @@ def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
         prof = [(rr, -h, t), (R * 0.84, -h - 0.014, t), (core * 0.97, -h * 0.9, t), (core, -h * 0.74, g), (core, h * 0.74, t),
                 (core * 0.97, h * 0.9, t), (R * 0.84, h + 0.014, t), (rr, h, t)]
     prof = [(r, o * side, k) for r, o, k in prof]
-    p = [lathe(prof, 24 if TYRE != "mt" else 20, at, axis_x, M, "tyre")]
+    p = [lathe(prof, 20 if TYRE != "mt" else 16, at, axis_x, M, "tyre")]
     if TYRE in ("at", "mt"):
-        nb = 20 if TYRE == "at" else 14
+        nb = 16 if TYRE == "at" else 12
         for i in range(nb):
             a = (i + 0.5) / nb * 2 * math.pi
             lane = 1 if i % 2 else -1
@@ -230,17 +256,12 @@ def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
                 b = box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=M[t], bevel=0.012)
             p.append(b)
     # the rim: a lip, a dished face and a raised centre, then a hub and five nuts; a flat cap closes the inner side
-    rim = [(rr, h * 1.02, "rim"), (rr * 0.93, h * 0.98, "rim"), (rr * 0.88, h * 0.55, "rim"), (rr * 0.5, h * 0.55, "rim"), (rr * 0.42, h * 0.75, "hub")]
-    p.append(lathe([(r, o * side, k) for r, o, k in rim], 16, at, axis_x, M, "rim"))
+    rim = [(rr, h * 1.02, "rim"), (rr * 0.88, h * 0.6, "rim"), (rr * 0.5, h * 0.6, "rim"), (rr * 0.42, h * 0.75, "hub")]
+    p.append(lathe([(r, o * side, k) for r, o, k in rim], 12, at, axis_x, M, "rim"))
     hub_at = (x + side * h * 0.75, y, 0) if axis_x else (x, y + side * h * 0.75, 0)
     rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
-    p.append(cyl(rr * 0.42, 0.04, at=hub_at, rot=rot, m=M["hub"], verts=8))
-    p.append(cyl(rr * 0.9, 0.01, at=(x - side * h * 0.98, y, 0) if axis_x else (x, y - side * h * 0.98, 0), rot=rot, m=M["under"], verts=8))
-    for k in range(5):
-        a = k / 5 * 2 * math.pi
-        c, sn = math.cos(a) * rr * 0.28, math.sin(a) * rr * 0.28
-        nut_at = (hub_at[0] + side * 0.022, y + c, sn) if axis_x else (x + c, hub_at[1] + side * 0.022, sn)
-        p.append(cyl(rr * 0.06, 0.02, at=nut_at, rot=rot, m=M["trim"], verts=4))
+    p.append(cyl(rr * 0.42, 0.04, at=hub_at, rot=rot, m=M["hub"], verts=6))
+    p.append(cyl(rr * 0.9, 0.01, at=(x - side * h * 0.98, y, 0) if axis_x else (x, y - side * h * 0.98, 0), rot=rot, m=M["under"], verts=6))
     return p
 
 
@@ -308,10 +329,19 @@ def body(M, style):
         p.append(box((0.42, 0.11, 0.5), at=(x, 0.46, SILL + 0.64), rot=(-0.18, 0, 0), m=fab, bevel=0.04))
         p.append(box((0.24, 0.08, 0.13), at=(x, 0.52, SILL + 0.97), rot=(-0.18, 0, 0), m=fab, bevel=0.03))
     p.append(box((W - 0.14, 0.24, 0.2), at=(0, -0.26, BELT - 0.03), m=ins, bevel=0.04))
-    p.append(rod((0.36, -0.2, BELT - 0.02), (0.36, -0.05, BELT + 0.09), 0.02, M["trim"], verts=6))
-    p.append(torus(0.16, 0.018, at=(0.36, -0.05, BELT + 0.09), rot=(math.pi / 2 + 0.45, 0, 0), m=M["trim"], major=20, minor=6))
+    p.append(rod((0.36, -0.26, BELT - 0.06), (0.36, -0.05, BELT + 0.09), 0.026, M["trim"], verts=6))
+    # the wheel's middle: a hub boss and three spokes (left, right, down) in the rim's plane
+    wr, wc = math.pi / 2 + 0.45, Vector((0.36, -0.05, BELT + 0.09))
+    ux, uy = Vector((1, 0, 0)), Vector((0, math.cos(wr), math.sin(wr)))      # the rim plane's axes
+    p.append(cyl(0.045, 0.04, at=tuple(wc), rot=(wr, 0, 0), m=M["trim"], verts=6))
+    for d, size in ((ux, (0.13, 0.03, 0.014)), (-ux, (0.13, 0.03, 0.014)), (-uy, (0.03, 0.13, 0.014))):
+        p.append(box(size, at=tuple(wc + d * 0.085), rot=(wr, 0, 0), m=M["trim"]))
+    p.append(torus(0.16, 0.018, at=(0.36, -0.05, BELT + 0.09), rot=(math.pi / 2 + 0.45, 0, 0), m=M["trim"], major=12, minor=4))
     p.append(box((W - 0.16, 0.92, 0.05), at=(0, 1.06, SILL + 0.3), m=fab, bevel=0.015))     # the folded rear seats: a flat deck
     p.append(box((W - 0.16, 0.06, 0.2), at=(0, 0.62, SILL + 0.2), m=ins))
+    for sx in (-1, 1):   # rear wheel tubs: an inner wall and a lid over each arch, so the boot doesn't open onto the wheels
+        p.append(box((0.02, 2 * R + 0.2, zc + R + 0.1 - SILL), at=(sx * 0.54, yr, (SILL + zc + R + 0.1) / 2), m=ins))
+        p.append(box((0.27, 2 * R + 0.2, 0.02), at=(sx * 0.67, yr, zc + R + 0.11), m=ins))
     # handy points for the page: the driver's (SeatP, name kept) seat cushion, the steering wheel centre, the passenger door sill, the middle of the cargo deck
     for name, at in (("SeatP", (0.36, 0.18, SILL + 0.41)), ("DoorSill", (W / 2, 0.13, SILL + 0.11)), ("Boot", (0, 1.06, SILL + 0.33)), ("WheelHub", (0.36, -0.05, BELT + 0.09))):
         e = bpy.data.objects.new(name, None); e.location = at; bpy.context.collection.objects.link(e); EMPTIES.append(e)
@@ -470,17 +500,12 @@ def expedition():
     p.append(cyl(0.065, 0.36, at=(0, FRONT - 0.22, SILL + 0.11), rot=(0, math.pi / 2, 0), m=M["rope"], verts=14))
     for s in (-1, 1):
         p.append(torus(0.04, 0.012, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"], major=12, minor=4))
-    # snorkel: out of the right wing, up and along the A pillar, hugging it, to an intake head facing forward.
-    # One pipe of joined segments with a ball at each bend, so there are no gaps.
-    path = [(W / 2 - 0.04, -0.8, BELT - 0.3), (W / 2 + 0.045, -0.78, BELT - 0.22), (W / 2 + 0.045, -0.66, BELT - 0.02), (0.83, -0.5, BELT + 0.07),
-            (0.785, -0.2, ROOF - 0.04), (0.785, -0.2, ROOF + 0.05)]
-    for a_, b_ in zip(path, path[1:]):
-        p.append(rod(a_, b_, 0.045, M["rack"], verts=12))
-    for q_ in path[1:-1]:
-        p.append(ball(0.045, at=q_, m=M["rack"], seg=12))
-    p.append(box((0.016, 0.15, 0.15), at=(W / 2 + 0.006, -0.8, BELT - 0.29), m=M["rack"], bevel=0.02))     # flange on the wing
-    p.append(box((0.12, 0.2, 0.11), at=(0.785, -0.27, ROOF + 0.08), m=M["rack"], bevel=0.035))           # intake head
-    p.append(box((0.1, 0.01, 0.07), at=(0.785, -0.375, ROOF + 0.08), m=M["grille"]))                      # its mesh front
+    # snorkel, angular like the aftermarket ones: a flat box duct along the top of the wing, a square riser up the A pillar
+    # (raked like the windscreen, clear of the mirror) and a wedge-shaped intake head on top facing forward
+    p.append(duct([(0.85, -1.3, BELT - 0.12), (0.85, -0.62, BELT - 0.12), (0.8, -0.31, ROOF - 0.03)],
+                  [(0.07, 0.15), (0.07, 0.15), (0.075, 0.085)], M["rack"]))
+    p.append(box((0.14, 0.27, 0.1), at=(0.79, -0.37, ROOF + 0.03), rot=(-0.12, 0, 0), m=M["rack"]))                 # intake head
+    p.append(box((0.11, 0.01, 0.06), at=(0.79, -0.505, ROOF + 0.04), rot=(-0.12, 0, 0), m=M["grille"]))             # its mesh front
     # no front plate here: the winch shows instead (Adriaen, 2026-11-11). Its fairlead, where the rope comes out:
     p.append(box((0.2, 0.03, 0.08), at=(0, FRONT - 0.3, SILL + 0.1), m=M["bumper"], bevel=0.01))
     p.append(box((0.12, 0.034, 0.025), at=(0, FRONT - 0.3, SILL + 0.1), m=M["grille"]))
@@ -506,8 +531,9 @@ def expedition():
     p.append(torus(0.2, 0.05, at=(-0.25, 0.2, z + 0.07), m=M["rope"], major=16, minor=5))
     p.append(torus(0.12, 0.05, at=(-0.25, 0.2, z + 0.09), m=M["rope"], major=12, minor=5))
     # a shovel on the rear door
-    G["BackDoor"].append(rod((0.42, REAR + 0.04, 0.6), (0.42, REAR + 0.04, 1.4), 0.016, M["crate"], verts=6))
-    G["BackDoor"].append(box((0.16, 0.02, 0.22), at=(0.42, REAR + 0.05, 0.55), m=M["rack"], bevel=0.01))
+    # (blade clear above the bumper, beside the spare)
+    G["BackDoor"].append(rod((0.52, REAR + 0.04, 0.88), (0.52, REAR + 0.04, 1.52), 0.016, M["crate"], verts=6))
+    G["BackDoor"].append(box((0.15, 0.02, 0.2), at=(0.52, REAR + 0.05, 0.8), m=M["rack"], bevel=0.01))
     return finish(p, G)
 
 
