@@ -144,6 +144,36 @@ const back = canvasTex(1024, 256, (g, w, h) => {
 back.wrapS = THREE.RepeatWrapping; back.repeat.x = 3;
 const sky = new THREE.Mesh(new THREE.CylinderGeometry(30, 30, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
 sky.position.y = 10; scene.add(sky);
+// the open sky over the clearing: a low dome capping the backdrop, painted with soft clouds and a fringe of leaves round its rim
+// (planar UVs, so the clouds don't pinch at the top); one draw, no fog, dimmed at dusk with the backdrop
+const ZENITH = { moss: ["#e8f1df", "#a6cdd6"], paint: ["#fdf0dc", "#a3d5ec"], low: ["#e6f8ff", "#7fcfff"] }[LOOK];
+const domeTex = canvasTex(1024, 1024, (g, w, h) => {
+  const c = w / 2, gr = g.createRadialGradient(c * 1.1, c * 0.9, 0, c, c, c);
+  gr.addColorStop(0, ZENITH[1]); gr.addColorStop(0.55, ZENITH[0]); gr.addColorStop(1, S.sky[0]); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  const sunG = g.createRadialGradient(c * 0.8, c * 1.15, 0, c * 0.8, c * 1.15, c * 0.35);   // a warm glow where the sun is (sun light comes from -x, +z)
+  sunG.addColorStop(0, "rgba(255,246,214,.9)"); sunG.addColorStop(1, "rgba(255,246,214,0)"); g.fillStyle = sunG; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < (LOOK === "low" ? 9 : 16); i++) {              // clouds: clusters of soft (or, low-poly, crisp) puffs with a shaded underside
+    const a = R(0, 6.28), r = R(0.05, 0.62) * c, x = c + Math.cos(a) * r, y = c + Math.sin(a) * r, n = Math.round(R(4, 8)), sz = R(26, 56);
+    for (const [dy, col] of [[sz * 0.18, LOOK === "moss" ? "rgba(196,210,200," : "rgba(214,226,236,"], [0, "rgba(255,255,255,"]]) for (let k = 0; k < n; k++) {
+      const px = x + (k - n / 2) * sz * 0.55 + R(-8, 8), py = y + dy + R(-10, 6), rr = sz * R(0.55, 1);
+      if (LOOK === "low") { g.fillStyle = col + "1)"; g.beginPath(); g.arc(px, py, rr, 0, 7); g.fill(); continue; }
+      const b = g.createRadialGradient(px, py, 0, px, py, rr); b.addColorStop(0, col + ".75)"); b.addColorStop(0.6, col + ".45)"); b.addColorStop(1, col + "0)");
+      g.fillStyle = b; g.fillRect(px - rr, py - rr, rr * 2, rr * 2);
+    }
+  }
+  const leafC = new THREE.Color(S.fog[0]).lerp(new THREE.Color(S.leaf[2]), 0.55);   // leaves overhanging the rim, misted like the backdrop
+  for (let i = 0; i < 260; i++) {
+    const a = R(0, 6.28), r = R(0.8, 1.02) * c, x = c + Math.cos(a) * r, y = c + Math.sin(a) * r;
+    g.fillStyle = leafC.clone().multiplyScalar(R(0.85, 1.1)).getStyle(); g.beginPath();
+    if (LOOK === "low") { g.moveTo(x, y - 18); g.lineTo(x + 16, y + 12); g.lineTo(x - 16, y + 12); } else g.ellipse(x, y, R(8, 16), R(20, 34), a + R(-0.6, 0.6), 0, 7);
+    g.fill();
+  }
+});
+const domeGeo = new THREE.SphereGeometry(30, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
+{ const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / 60, 0.5 - p.getZ(i) / 60); }
+const dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
+dome.position.y = 27; scene.add(dome);
+scene.background = new THREE.Color(S.sky[0]);
 const gTex = canvasTex(256, 256, (g, w, h) => {
   g.fillStyle = hex(new THREE.Color(S.leaf[2]).lerp(new THREE.Color(S.bark[1]), 0.45).getHex()); g.fillRect(0, 0, w, h);
   for (let i = 0; i < (LOOK === "low" ? 0 : 900); i++) { g.fillStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.15, 0.5); g.beginPath(); g.ellipse(R(0, w), R(0, h), R(2, 8), R(1, 3), R(0, 3), 0, 7); g.fill(); }
@@ -677,7 +707,7 @@ renderer.setAnimationLoop(() => {
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
     scene.fog.color.copy(DAY.fog).lerp(DUSK, dusk); hemiL.intensity = DAY.hemi * (1 - 0.6 * dusk); sun.intensity = DAY.sun * (1 - 0.85 * dusk);
-    sky.material.color.setScalar(1 - 0.65 * dusk); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
+    sky.material.color.setScalar(1 - 0.65 * dusk); dome.material.color.setRGB(1 - 0.7 * dusk, 1 - 0.66 * dusk, 1 - 0.5 * dusk); scene.background.set(S.sky[0]).multiplyScalar(1 - 0.7 * dusk); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
     if (typeof rayMat !== "undefined") rayMat.opacity = S.rays * (1 - dusk);
   }
   if (motes) motes.rotation.y += dt * 0.02;
