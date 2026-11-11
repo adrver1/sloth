@@ -543,7 +543,7 @@ def bake(objs, samples):
     ground = bpy.context.object
     for o in objs:
         if not o.get("coarse"):                         # "coarse": keep the modelled detail, AO only at the existing vertices
-            densify(o)
+            densify(o, o.get("ao_edge", 0.13))          # "ao_edge": a coarser split for that object
         ao = o.data.color_attributes.new("AO", "FLOAT_COLOR", "CORNER")
         o.data.color_attributes.active_color = ao
     for o in objs:
@@ -595,6 +595,8 @@ def picked():
     M = {k: bpy.data.materials[f"ju_{k}"] for k in ("bamboo", "node", "rope", "kettle")}
     out["Fire"] = join([out["Fire"], *tripod_kettle(M)], "Fire")
     out["Hammock"]["coarse"] = True       # Adriaen 2026-11-11: the densified cloth was ~7k triangles
+    for k in ("Tent", "Table", "Seat"):    # and the 0.13 m split made these 12k, 12k and 3.6k (Adriaen: slim them)
+        out[k]["ao_edge"] = 0.5
     for k, o in out.items():
         o.name = k                       # the jungle hammock was made while the rustic one held the name
     return out
