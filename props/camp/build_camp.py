@@ -428,7 +428,7 @@ def rustic():
 
 def wall_tent():
     """Adriaen's pick (2026-11-11, from two photos): a white canvas wall tent with a few planks laid before the door. Straight side walls,
-    a ridge pole resting in crossed shear poles at each end, eave poles on corner posts, the right door flap folded
+    a ridge pole resting in crossed shear poles at each end, eave poles lashed onto wide A-frames of crossed shear poles at each end, the right door flap folded
     back on a dark doorway, and a stovepipe through the roof. Built at its final size with the door toward -Y; every
     canvas sheet is a small grid so the AO bake has vertices to vary at (the object is "coarse": no densify)."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
@@ -470,9 +470,10 @@ def wall_tent():
     face([(0, yf + 0.25, Z0), (0.45, yf + 0.25, Z0), (0, yf + 0.25, Z0 + 1.3)], "inside")          # the dark doorway
     face([(0.45, yf - 0.02, Z0), (0.8, yf - 0.03, Z0 + 0.28), (0, yf - 0.02, Z0 + 1.3)], "hem")      # folded flap, its dusty inside out
     face([(0, yf - 0.012, Z0 + 1.3), (-0.02, yf - 0.012, Z0 + 1.3), (-0.02, yf - 0.012, Z0 + 0.02), (0, yf - 0.012, Z0 + 0.02)], "rope")  # door seam
-    # a few loose planks laid on the ground in front of the door (Adriaen: not a raised platform); top and long edges only
-    for k, (cx, cy, ln, yaw) in enumerate(((0.05, yf - 0.16, 1.5, 0.03), (-0.08, yf - 0.4, 1.35, -0.06), (0.12, yf - 0.63, 1.2, 0.1), (-0.02, yf - 0.85, 0.95, -0.04))):
-        c, s_, hw2, t = math.cos(yaw), math.sin(yaw), 0.105, 0.03
+    # loose planks laid on the ground before the door, as wide as a porch (Adriaen: not a raised platform); top and long edges only
+    for k in range(5):
+        cy, ln, yaw, cx = yf - 0.115 - k * 0.185, 2.6 + 0.08 * math.sin(k * 2.7), 0.018 * math.sin(k * 1.9 + 1), 0.04 * math.sin(k * 3.1)
+        c, s_, hw2, t = math.cos(yaw), math.sin(yaw), 0.086, 0.03
         P = lambda u, v, z: (cx + u * c - v * s_, cy + u * s_ + v * c, z)
         m = "plank" if k % 2 else "plank2"
         face([P(-ln / 2, -hw2, t), P(ln / 2, -hw2, t), P(ln / 2, hw2, t), P(-ln / 2, hw2, t)], m)
@@ -492,18 +493,22 @@ def wall_tent():
         return _finish(o, m)
     rz = Z0 + H + 0.05
     p.append(pole((0, Y0 - D - 0.45, rz), (0, Y0 + D + 0.45, rz), 0.045, M["pole"]))                  # ridge pole
-    for ye, s in ((yf, -1), (yb, 1)):                                                                    # shear poles, crossing under the ridge
-        foot_y, top_y = ye + s * 0.3, ye + s * 0.14
-        fz = Z0 if s < 0 else 0.0
+    # a wide A-frame of crossed shear poles at each end (as in the second photo); the eave poles rest on them, lashed on
+    xe, ze, zc = W + 0.12, ez + 0.03, rz - 0.06
+    tj = (ze - 0.06) / zc                                    # where up a shear pole the eave pole sits
+    xf = xe / (1 - tj)                                       # so the feet spread wide enough to carry it
+    jy = {}
+    for ye, s in ((yf, -1), (yb, 1)):
+        foot_y, cy = ye + s * 0.34, ye + s * 0.17
         for side in (1, -1):
-            a = Vector((side * 1.3, foot_y, fz)); c = Vector((0, ye + s * 0.17, rz - 0.06))
-            b = a + (c - a) * 1.12
-            p.append(pole(a, b, 0.04, M["pole"]))
-        p.append(pole((0, ye + s * 0.17 - 0.05, rz - 0.04), (0, ye + s * 0.17 + 0.05, rz - 0.04), 0.06, M["rope"]))   # lashing
-    for s in (1, -1):                                                                                    # eave poles on corner posts
-        p.append(pole((s * (W + 0.12), Y0 - D - 0.3, ez + 0.03), (s * (W + 0.12), Y0 + D + 0.3, ez + 0.03), 0.032, M["pole"]))
-        for ye, fz in ((yf - 0.15, Z0), (yb + 0.15, Z0)):
-            p.append(pole((s * (W + 0.12), ye, fz), (s * (W + 0.12), ye, ez + 0.06), 0.03, M["pole"]))
+            a = Vector((side * xf, foot_y, 0.0)); c = Vector((0, cy, zc))
+            p.append(pole(a, a + (c - a) * 1.1, 0.04, M["pole"]))
+        p.append(pole((0, cy - 0.05, rz - 0.04), (0, cy + 0.05, rz - 0.04), 0.06, M["rope"]))       # lashing at the crossing
+        jy[s] = foot_y + (cy - foot_y) * tj
+    for side in (1, -1):
+        p.append(pole((side * xe, jy[-1] - 0.16, ze), (side * xe, jy[1] + 0.16, ze), 0.032, M["pole"]))
+        for s in (1, -1):
+            p.append(pole((side * xe, jy[s] - 0.045, ze - 0.01), (side * xe, jy[s] + 0.045, ze - 0.01), 0.05, M["rope"]))   # tied to the A-frame
     # stovepipe through the right slope, with a rain hood
     px, py = 0.5, Y0 + D - 0.6
     p.append(pole((px, py, Z0 + 1.2), (px, py, Z0 + H + 0.62), 0.06, M["pipe"], verts=8))

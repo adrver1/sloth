@@ -13,7 +13,7 @@ const canvasTex = (w, h, draw, srgb = true) => {
 };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], seed = 77 }) {
+export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, seed = 77 }) {
   // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
   let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
@@ -143,7 +143,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     for (let tries = 0; tries < want[type] * 40 && n < want[type]; tries++) {
       const a = R(0, 6.28), r = Math.sqrt(rnd()) * (RC + 0.6), x = Math.cos(a) * r, z = Math.sin(a) * r;
       const dirt = sample(x, z, 0), lush = sample(x, z, 1), edge = smooth(RC - 2.5, RC, r), hug = nearThing(x, z);
-      if (inside(x, z, type === 1 ? 0.1 : 0) || trackDist(x, z) < 1.1) continue;
+      if (inside(x, z, type === 1 ? 0.1 : 0) || bare(x, z) || trackDist(x, z) < 1.1) continue;   // bare: kept clear, e.g. under the tent's planks
       let p;
       if (type === 0) p = (0.18 + 0.7 * edge + 0.5 * hug + 0.3 * lush) * (1 - smooth(0.25, 0.5, dirt)) + 0.35 * smooth(0.15, 0.3, dirt) * (1 - smooth(0.3, 0.45, dirt));   // and along path edges
       else if (type === 1) p = (0.9 * smooth(RC - 2, RC, r) + 0.7 * hug) * (1 - smooth(0.2, 0.35, dirt));

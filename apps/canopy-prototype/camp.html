@@ -1131,7 +1131,8 @@ function feed(s) {
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
 // wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
-const groundLife = createGround({ scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [] });
+const groundLife = createGround({ scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
+    bare: (x, z) => { const t = window.__camp.tentAt, L = t.length(), fx_ = -t.x / L, fz_ = -t.z / L, dx = x - t.x, dz = z - t.z, a = dx * fx_ + dz * fz_, b = dx * fz_ - dz * fx_; return a > 0.8 && a < 2.1 && Math.abs(b) < 1.5; } });   // no grass through the planks before the tent door
 window.__ground = groundLife;
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
 window.__atmo = atmo;
