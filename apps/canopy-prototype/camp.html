@@ -642,7 +642,7 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
   L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map })) : lm; });   // the stack is a textured block
   const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
   const wp = V(-0.55, 0, -3.15), wy = Math.atan2(-wp.x, -wp.z);
-  put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); var WOODPILE = wp;   // the activities take logs from here
+  put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); put("LooseLogs", wp.x, wp.z, wy); var WOODPILE = wp;   // the activities take logs from here
   var WOOD_TEX; L.scene.getObjectByName("WoodStack").traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; });   // and paint them like the stack
   const side = V(Math.cos(wy), 0, -Math.sin(wy));                     // the pile's local +X (where the stump stands) in the world
   blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);

@@ -313,16 +313,56 @@ def wood_pile(M):
     k0 = mark(p, k0, "Chopping stump")
     p.append(hatchet(M, (sx + 0.03, sy - 0.02, 0.505), yaw=-0.5, lean=0.85))   # the blade bitten in about 2 cm
     k0 = mark(p, k0, "Hatchet")
-    p.append(split_log(0.4, 0.09, "half", M, at=(sx + 0.38, sy - 0.28, 0.035), yaw=1.1, roll=math.pi / 2 + 0.1))
-    p.append(split_log(0.44, 0.085, "quarter", M, at=(0.2, -0.45, 0.05), yaw=0.3, roll=2.2))
-    p.append(split_log(0.46, 0.06, "whole", M, at=(-0.35, -0.42, 0.06), yaw=-0.2))
-    k0 = mark(p, k0, "Loose logs")
     for k in range(14):                             # chips round the stump
         a, d = rng.uniform(0, 2 * math.pi), rng.uniform(0.3, 0.6)
         p.append(box((rng.uniform(0.03, 0.06), rng.uniform(0.015, 0.03), 0.006), at=(sx + math.cos(a) * d, sy + math.sin(a) * d, 0.004),
                      rot=(rng.uniform(-0.2, 0.2), rng.uniform(-0.2, 0.2), rng.uniform(0, 3.14)), m=M["chip" if k % 3 else "wood"]))
     mark(p, k0, "Wood chips")
     return join(p, "WoodPile")
+
+
+# the loose logs lying about: (length, radius, x, y, yaw, end circle, side band), in WoodPile's own frame
+LOOSE = [(0.4, 0.085, 1.38, -0.43, 1.1, 0, 0), (0.44, 0.08, 0.2, -0.45, 0.3, 1, 1), (0.46, 0.065, -0.35, -0.42, -0.2, 2, 2)]
+# where they read the stack's atlas (wood_stack.jpg, 1024 px, y down): sawn ends with rings, and log sides
+ATLAS_ENDS = [(442, 92, 54), (568, 90, 56), (150, 457, 48)]          # circle centre and radius
+ATLAS_SIDES = [(545, 640), (740, 830), (835, 925)]                    # rows of one log side, x 20-355
+HEX = 6
+
+
+def loose_logs(logs=None, name="LooseLogs"):
+    """The loose logs as plain hexagonal prisms (12 side + 8 end triangles each) on the stack's own texture, so they
+    look like logs taken off the stack. The page and the activities thread use the same atlas rectangles."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    U = lambda x, y: (x / 1024, 1 - y / 1024)  # noqa: E731
+    for L, r, x, y, yaw, e, sd in logs or LOOSE:
+        c, sn = math.cos(yaw), math.sin(yaw)
+        P = lambda lx, ly, lz: Vector((x + lx * c - ly * sn, y + lx * sn + ly * c, lz))  # noqa: E731
+        ang = [math.radians(30 + 60 * k) for k in range(HEX)]       # a flat face down, so it rests on the ground
+        zc = r * math.cos(math.radians(30))
+        ends = [[bm.verts.new(P(s * L / 2, r * math.cos(a), zc + r * math.sin(a))) for a in ang] for s in (-1, 1)]
+        y0, y1 = ATLAS_SIDES[sd]
+        for k in range(HEX):
+            j = (k + 1) % HEX
+            f = bm.faces.new((ends[0][k], ends[1][k], ends[1][j], ends[0][j]))
+            va, vb = y0 + (y1 - y0) * k / HEX, y0 + (y1 - y0) * (k + 1) / HEX   # each face a slice across the band
+            for lp, (ux, vy) in zip(f.loops, ((20, va), (355, va), (355, vb), (20, vb))):
+                lp[uv].uv = U(ux, vy)
+        ex, ey, er = ATLAS_ENDS[e]
+        for s, ring in ((-1, ends[0][::-1]), (1, ends[1])):
+            f = bm.faces.new(ring)
+            for lp, v in zip(f.loops, ring):
+                a = ang[ends[0 if s < 0 else 1].index(v)]
+                lp[uv].uv = U(ex + er * math.cos(a) * s, ey - er * math.sin(a))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    me.materials.append(bpy.data.materials["WoodStack"])           # the stack's own material and image, exported once
+    return o
 
 
 def quad(corners, m):
@@ -376,6 +416,7 @@ def build(samples, parts_out=None):
     reset()
     M = materials()
     stack = wood_stack(M, max(samples, 48))
+    loose = loose_logs()
     objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M)}
     for k, o in objs.items():
         apply_all(o)
@@ -387,12 +428,13 @@ def build(samples, parts_out=None):
             o.data.uv_layers.remove(o.data.uv_layers[0])
     path = os.path.join(HERE, "lived.glb")
     bpy.ops.object.select_all(action="DESELECT")
-    for o in [*objs.values(), stack]:
+    for o in [*objs.values(), stack, loose]:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
                               export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
                               export_image_format="JPEG")
     print(f"  WoodStack: {sum(len(pl.vertices) - 2 for pl in stack.data.polygons)} triangles")
+    print(f"  LooseLogs: {sum(len(pl.vertices) - 2 for pl in loose.data.polygons)} triangles")
     for k, o in objs.items():
         print(f"  {k}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
         part = o.data.attributes["part"]
