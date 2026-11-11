@@ -48,10 +48,11 @@ lyaw = math.atan2(-(LB[1] - LA[1]), LB[0] - LA[0])
 _A0d = (math.cos(A0), math.sin(A0)); _t0 = (-_A0d[1], _A0d[0])
 _ta = (-4.2 * _A0d[0] + 2.4 * _t0[0], -4.2 * _A0d[1] + 2.4 * _t0[1])
 TENT = (_ta[0], _ta[1], math.atan2(-_ta[0], -_ta[1]))      # the tent's origin and yaw, as camp.html put("Tent")
+KITCHEN = (4.55, 1.7, math.atan2(-4.55, -1.7))            # the kitchen crate beside the snack table, as camp.html
 PLACE = {
     "lived": {"WoodPile": (wp[0], wp[1], wy), "WoodStack": (wp[0], wp[1], wy), "LooseLogs": (wp[0], wp[1], wy),
               "SeatThings": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2),
-              "TentSide": TENT, "MatRoll": TENT,
+              "TentSide": TENT, "MatRoll": TENT, "KitchenCrate": KITCHEN, "KitchenThings": KITCHEN,
               "SeatTop": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2)},   # SeatTop: baked on the middle seat, used on all three
     "fire": {n: (0, 0, 0) for n in ("Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain")},
     "laundry": {"LaundryPosts": (lmid[0], lmid[1], lyaw), "LaundryCloth": (lmid[0], lmid[1], lyaw)},

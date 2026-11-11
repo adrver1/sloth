@@ -72,7 +72,8 @@ def materials():
     return {k: mat(f"lv_{k}", c) for k, c in dict(
         bark=(0.3, 0.21, 0.14), bark2=(0.24, 0.17, 0.11), wood=(0.68, 0.52, 0.36), endgrain=(0.78, 0.62, 0.42), chip=(0.82, 0.68, 0.48),
         handle=(0.62, 0.45, 0.28), steel=(0.32, 0.33, 0.35), edge=(0.7, 0.71, 0.72),
-        rubber=(0.2, 0.36, 0.2), mud=(0.3, 0.21, 0.13), inside=(0.08, 0.08, 0.07),
+        tin=(0.55, 0.56, 0.58), pan=(0.16, 0.16, 0.17), plate=(0.92, 0.92, 0.88), honey=(0.86, 0.56, 0.12), lid=(0.72, 0.2, 0.16),
+        rubber=(0.2, 0.36, 0.2), sole=(0.1, 0.09, 0.08), cuff=(0.14, 0.27, 0.15), mud=(0.3, 0.21, 0.13), inside=(0.08, 0.08, 0.07),
         enamel=(0.97, 0.96, 0.92), rim=(0.16, 0.24, 0.45), cover=(0.5, 0.16, 0.13), page=(0.93, 0.9, 0.8), ink=(0.55, 0.52, 0.46), ribbon=(0.85, 0.7, 0.2)).items()}
 
 
@@ -470,12 +471,15 @@ def seat_top():
 # the tent side (props/camp/build_camp.py wall_tent, in the tent's own frame: x across, door toward -y, front wall at
 # y -0.95, loose planks before it with their tops at z 0.03). The doorway (|x| < 0.45) stays clear: you walk in there.
 PLANK = 0.03
-BOOT = [(-0.08, 0), (0.16, 0), (0.195, 0.035), (0.17, 0.08), (0.06, 0.105), (0.045, 0.3), (-0.075, 0.3), (-0.095, 0.06)]
+# side outline of a welly (x toward the toe, z up): a heel block and an arch under the sole, a rounded toe, the
+# shaft flaring a little at the top
+BOOT = [(-0.09, 0), (-0.035, 0), (-0.03, 0.012), (0.045, 0.012), (0.05, 0), (0.15, 0), (0.185, 0.02), (0.195, 0.045),
+        (0.18, 0.075), (0.13, 0.095), (0.06, 0.11), (0.05, 0.2), (0.055, 0.3), (-0.08, 0.3), (-0.075, 0.2), (-0.1, 0.09), (-0.1, 0.03)]
 
 
 def boot(M, at, yaw, roll=0.0):
-    """A green welly: its side outline extruded 9 cm wide (about 30 triangles), cut at 7 cm so the bottom is mud,
-    the shaft top dark inside."""
+    """A green welly: its side outline extruded (about 60 triangles), the foot a little wider than the shaft. Bands cut
+    across it: a dark sole, mud up to 7 cm, a darker cuff at the top; the shaft top dark inside."""
     bm = bmesh.new()
     a = [bm.verts.new((x, -0.045, z)) for x, z in BOOT]
     b = [bm.verts.new((x, 0.045, z)) for x, z in BOOT]
@@ -485,18 +489,22 @@ def boot(M, at, yaw, roll=0.0):
     for i in range(n):
         j = (i + 1) % n
         bm.faces.new((a[i], a[j], b[j], b[i]))
+    for v in bm.verts:                                         # wider round the foot, narrower up the shaft
+        x, y, z = v.co
+        v.co.y = y * (1.15 if z < 0.1 else 1.15 - 0.25 * min(1, (z - 0.1) / 0.1))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, 0.07), plane_no=(0, 0, 1))
+    for zc in (0.022, 0.07, 0.262):
+        bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, zc), plane_no=(0, 0, 1))
     me = bpy.data.meshes.new("boot")
     bm.to_mesh(me)
     bm.free()
     o = bpy.data.objects.new("boot", me)
     bpy.context.collection.objects.link(o)
-    for k in ("rubber", "mud", "inside"):
+    for k in ("rubber", "mud", "inside", "sole", "cuff"):
         me.materials.append(M[k])
     for pl in me.polygons:
-        c = pl.center
-        pl.material_index = 2 if pl.normal.z > 0.9 and c.z > 0.25 else 1 if c.z < 0.07 else 0
+        z = pl.center.z
+        pl.material_index = 2 if pl.normal.z > 0.9 and z > 0.29 else 3 if z < 0.022 else 1 if z < 0.07 else 4 if z > 0.262 else 0
     o.rotation_euler = (roll, 0, yaw)
     o.scale = (1.25, 1.25, 1.25)                                 # grown-up size next to the tent door
     o.location = at
@@ -505,7 +513,7 @@ def boot(M, at, yaw, roll=0.0):
 
 def tent_side(M):
     """A pair of muddy wellies kicked off on the planks right of the door, one fallen over."""
-    p = [boot(M, (0.8, -1.15, PLANK), 1.75), boot(M, (1.08, -1.28, PLANK + 0.056), 2.1, roll=math.pi / 2)]
+    p = [boot(M, (0.8, -1.15, PLANK), 1.75), boot(M, (1.08, -1.28, PLANK + 0.065), 2.1, roll=math.pi / 2)]
     mark(p, 0, "Wellies")
     return join(p, "TentSide")
 
@@ -563,6 +571,103 @@ def mat_roll(path):
     return o
 
 
+# the camp kitchen crate: an open wooden crate on the ground beside the snack table, on the side away from the fire
+CW, CD, CH, CT = 0.5, 0.34, 0.28, 0.018       # outer width, depth, height, wall thickness
+
+
+def crate_texture(path):
+    """256 x 256: outer planks (left half), inside planks (top right), sawn rim (bottom right)."""
+    from PIL import Image, ImageDraw
+    k = 4
+    im = Image.new("RGB", (256 * k, 256 * k), (60, 42, 28))
+    d = ImageDraw.Draw(im)
+    r = random.Random(3)
+    def boards(x0, y0, x1, y1, n, base, dark):
+        h = (y1 - y0) / n
+        for i in range(n):
+            c = tuple(int(v * r.uniform(0.92, 1.06)) for v in base)
+            d.rectangle((x0 * k, (y0 + i * h + 2) * k, x1 * k, (y0 + (i + 1) * h - 2) * k), fill=c)
+            for g in range(5):                                    # a few grain streaks along the board
+                yy = y0 + i * h + r.uniform(5, h - 5)
+                d.line((x0 * k, yy * k, x1 * k, (yy + r.uniform(-2, 2)) * k), fill=dark, width=k)
+            for nx in (x0 + 6, x1 - 6):                           # two nails at each end
+                d.ellipse(((nx - 1.6) * k, (y0 + i * h + h / 2 - 1.6) * k, (nx + 1.6) * k, (y0 + i * h + h / 2 + 1.6) * k), fill=(70, 66, 62))
+    boards(0, 0, 128, 256, 3, (178, 136, 88), (150, 112, 70))
+    # a stamped paw on the outside, faded
+    cx, cy = 64 * k, 128 * k
+    stamp = (128, 84, 52)
+    d.ellipse((cx - 14 * k, cy - 4 * k, cx + 14 * k, cy + 18 * k), fill=stamp)
+    for dx, dy in ((-16, -14), (-6, -22), (6, -22), (16, -14)):
+        d.ellipse((cx + (dx - 5) * k, cy + (dy - 5) * k, cx + (dx + 5) * k, cy + (dy + 5) * k), fill=stamp)
+    boards(128, 0, 256, 128, 3, (140, 104, 66), (116, 84, 52))
+    d.rectangle((128 * k, 128 * k, 256 * k, 256 * k), fill=(204, 168, 120))
+    im.resize((256, 256), Image.LANCZOS).save(path)
+
+
+def kitchen_crate():
+    """The crate as one textured open box: outer walls, inner walls, floor and rim (13 quads, 26 triangles)."""
+    img = os.path.join(HERE, "kitchen_crate.png")
+    crate_texture(img)
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    def q(pts, uvs):
+        f = bm.faces.new([bm.verts.new(p) for p in pts])
+        for lp, t in zip(f.loops, uvs):
+            lp[uv].uv = t
+    X, Y, x, y, Z, z0 = CW / 2, CD / 2, CW / 2 - CT, CD / 2 - CT, CH, 0.02
+    # outer walls, counter-clockwise seen from outside: u along the wall (the boards run along it), v up
+    for (a, b), w in ((((-X, -Y), (X, -Y)), CW), (((X, -Y), (X, Y)), CD), (((X, Y), (-X, Y)), CW), (((-X, Y), (-X, -Y)), CD)):
+        u1 = 0.5 * w / CW
+        q([(a[0], a[1], 0), (b[0], b[1], 0), (b[0], b[1], Z), (a[0], a[1], Z)], [(0, 0), (u1, 0), (u1, 1), (0, 1)])
+    # inner walls, facing in
+    for (a, b), w in ((((x, -y), (-x, -y)), CW), (((x, y), (x, -y)), CD), (((-x, y), (x, y)), CW), (((-x, -y), (-x, y)), CD)):
+        u1 = 0.5 + 0.5 * w / CW
+        q([(a[0], a[1], z0), (b[0], b[1], z0), (b[0], b[1], Z), (a[0], a[1], Z)], [(0.5, 0.5), (u1, 0.5), (u1, 1), (0.5, 1)])
+    q([(-x, -y, z0), (x, -y, z0), (x, y, z0), (-x, y, z0)], [(0.5, 0.5), (1, 0.5), (1, 1), (0.5, 1)])      # floor
+    # rim: four flat strips on top of the walls
+    for pts in (((-X, -Y), (X, -Y), (x, -y), (-x, -y)), ((X, -Y), (X, Y), (x, y), (x, -y)), ((X, Y), (-X, Y), (-x, y), (x, y)), ((-X, Y), (-X, -Y), (-x, -y), (-x, y))):
+        q([(p[0], p[1], Z) for p in pts], [(0.55, 0.05), (0.95, 0.05), (0.95, 0.45), (0.55, 0.45)])
+    bm.verts.ensure_lookup_table()
+    me = bpy.data.meshes.new("KitchenCrate")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("KitchenCrate", me)
+    bpy.context.collection.objects.link(o)
+    m = bpy.data.materials.new("KitchenCrate")
+    m.use_nodes = True
+    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
+    tx.image = bpy.data.images.load(img)
+    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    me.materials.append(m)
+    return o
+
+
+def kitchen_things(M):
+    """What's in and by the crate: a frying pan standing in it with its handle up, a stack of enamel plates, a honey
+    jar and a wooden spoon (plain low-sided shapes, baked AO like the other props)."""
+    p = []
+    # the pan: a shallow 8-sided dish leaning against the back wall, handle sticking up out of the crate
+    pan = cyl(0.12, 0.035, at=(0, 0, 0), m=M["pan"], verts=8, r2=0.1, smooth=False)
+    handle = rod((0.115, 0, 0.01), (0.3, 0, 0.03), 0.012, M["pan"], verts=4)
+    pj = join([pan, handle], "pan")
+    pj.rotation_euler = (math.radians(-70), 0, math.radians(90))   # the dish faces the front, the handle points up
+    pj.location = (-0.08, 0.07, 0.16)
+    p.append(pj)
+    k0 = mark(p, 0, "Frying pan")
+    # plates stacked on the floor of the crate, front right
+    p.append(cyl(0.085, 0.04, at=(0.12, -0.04, 0.04), m=M["plate"], verts=8, smooth=False))
+    p.append(cyl(0.086, 0.004, at=(0.12, -0.04, 0.0615), m=M["rim"], verts=8, smooth=False))
+    k0 = mark(p, k0, "Enamel plates")
+    # the honey jar on the ground beside the crate, and a wooden spoon resting across the rim
+    p.append(cyl(0.045, 0.1, at=(0.33, -0.12, 0.05), m=M["honey"], verts=6, smooth=False))
+    p.append(cyl(0.05, 0.022, at=(0.33, -0.12, 0.111), m=M["lid"], verts=6, smooth=False))
+    k0 = mark(p, k0, "Honey jar")
+    p.append(rod((-0.2, -0.17, CH + 0.008), (0.06, -0.15, CH + 0.03), 0.008, M["handle"], verts=4))
+    p.append(box((0.07, 0.045, 0.014), at=(0.1, -0.148, CH + 0.03), rot=(0, 0.15, 0.08), m=M["handle"]))
+    mark(p, k0, "Wooden spoon")
+    return join(p, "KitchenThings")
+
+
 def build(samples, parts_out=None):
     reset()
     M = materials()
@@ -570,7 +675,8 @@ def build(samples, parts_out=None):
     loose = loose_logs()
     top = seat_top()
     roll = mat_roll(os.path.join(HERE, "mat_roll.png"))
-    objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M), "TentSide": tent_side(M)}
+    crate = kitchen_crate()
+    objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M), "TentSide": tent_side(M), "KitchenThings": kitchen_things(M)}
     for k, o in objs.items():
         apply_all(o)
         o.location = (0, 0, 0)
@@ -581,13 +687,14 @@ def build(samples, parts_out=None):
             o.data.uv_layers.remove(o.data.uv_layers[0])
     path = os.path.join(HERE, "lived.glb")
     bpy.ops.object.select_all(action="DESELECT")
-    for o in [*objs.values(), stack, loose, top, roll]:
+    for o in [*objs.values(), stack, loose, top, roll, crate]:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
                               export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
                               export_image_format="JPEG")
     print(f"  WoodStack: {sum(len(pl.vertices) - 2 for pl in stack.data.polygons)} triangles")
     print(f"  LooseLogs: {sum(len(pl.vertices) - 2 for pl in loose.data.polygons)} triangles")
+    print(f"  KitchenCrate: {sum(len(pl.vertices) - 2 for pl in crate.data.polygons)} triangles")
     print(f"  MatRoll: {sum(len(pl.vertices) - 2 for pl in roll.data.polygons)} triangles")
     print(f"  SeatTop: {sum(len(pl.vertices) - 2 for pl in top.data.polygons)} triangles (x3 seats on the page)")
     for k, o in objs.items():
