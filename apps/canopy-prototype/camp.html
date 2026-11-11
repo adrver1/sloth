@@ -1173,32 +1173,6 @@ if (PROPS === "picked") {
     m.onBeforeRender = () => { m.material.opacity = (onFloor ? 0.18 + 0.6 * uNight.value : 0.35 + 0.65 * uNight.value) * (0.75 + 0.25 * Math.sin(uTime.value * 9.1) * Math.sin(uTime.value * 5.3 + 1)); if (!onFloor) m.quaternion.copy(camera.quaternion); };
     scene.add(m); return m; };
   amber(1.6, 0.035, true); amber(0.5, 0.42, false);
-  // the door curtain (Adriaen): two halves of light fabric pinned at the top of the doorway, swaying in the wind;
-  // walking through pushes them apart and away from you. Bent in the vertex shader, 2 x 18 quads.
-  const door = new THREE.Group(); door.position.set(t.x, 0, t.z); door.rotation.y = Math.atan2(-t.x, -t.z); scene.add(door);
-  const DH = 1.95, CW = DW + 0.03, doorZ = -yf - 0.02, uOpen = { value: 0 }, uPush = { value: 0 };
-  for (const side of [-1, 1]) {
-    const g = new THREE.PlaneGeometry(CW, DH - 0.06, 3, 6).translate(side * CW / 2, -(DH - 0.06) / 2, 0);
-    const m = new THREE.MeshLambertMaterial({ color: 0xe9dfc8, side: THREE.DoubleSide });
-    m.onBeforeCompile = (sh) => {
-      Object.assign(sh.uniforms, { uTime, uNight, uOpen, uPush, uSide: { value: side } });
-      sh.vertexShader = "uniform float uTime, uOpen, uPush, uSide;\n" + sh.vertexShader.replace("#include <begin_vertex>", `#include <begin_vertex>
-        float h = clamp(-position.y / ${(DH - 0.06).toFixed(2)}, 0.0, 1.0), w = abs(position.x) / ${CW.toFixed(2)};
-        transformed.z += (0.035 * sin(uTime * 2.1 + position.x * 4.0 + uSide) + 0.025 * sin(uTime * 3.7 + h * 5.0)) * h * (0.6 + 0.4 * w);
-        transformed.x += uSide * uOpen * 0.32 * h * h * (1.0 - 0.4 * w);
-        transformed.z += uPush * uOpen * 0.45 * h * h;
-        transformed.y += uOpen * 0.12 * h * h;`);
-      sh.fragmentShader = "uniform float uNight;\n" + sh.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n  diffuseColor.rgb *= mix(vec3(1.0), vec3(0.75, 0.5, 0.32), uNight);");
-    };
-    const c = new THREE.Mesh(g, m); c.position.set(0, DH, doorZ); door.add(c);
-  }
-  const lp = V();
-  door.children[0].onBeforeRender = () => {
-    lp.copy(me.pos); door.worldToLocal(lp); const dz = lp.z - doorZ;
-    const near = Math.max(0, 1 - Math.max(Math.abs(dz) / 0.75, Math.abs(lp.x) / 0.8));
-    uOpen.value += (Math.min(1, near * 1.6) - uOpen.value) * 0.12;
-    if (near > 0) uPush.value += ((dz > 0 ? -1 : 1) - uPush.value) * 0.1;
-  };
 }
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
 window.__atmo = atmo;

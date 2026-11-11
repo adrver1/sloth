@@ -529,8 +529,7 @@ def wall_tent():
         p.append(pole((side * xe, jy[-1] - 0.16, ze), (side * xe, jy[1] + 0.16, ze), 0.035, M["pole"]))
         for s in (1, -1):
             p.append(pole((side * xe, jy[s] - 0.045, ze - 0.01), (side * xe, jy[s] + 0.045, ze - 0.01), 0.055, M["rope"]))   # tied to the A-frame
-    # the outer door flap, rolled up above the doorway and tied (Adriaen); a light fabric curtain hangs in the doorway,
-    # live in camp.html, swaying in the wind and parting as you walk through
+    # the outer door flap, rolled up above the doorway and tied (Adriaen); the doorway stays open
     p.append(pole((-DW - 0.12, yf - 0.08, DH + 0.09), (DW + 0.12, yf - 0.08, DH + 0.09), 0.08, M["canvas2"]))
     for x in (-DW + 0.08, DW - 0.08):
         p.append(pole((x - 0.03, yf - 0.08, DH + 0.09), (x + 0.03, yf - 0.08, DH + 0.09), 0.09, M["rope"]))
