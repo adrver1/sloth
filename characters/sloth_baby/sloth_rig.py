@@ -32,6 +32,9 @@ Clips, baked into the .glb as named glTF animations:
     nap     asleep on its back (in a hammock), paws folded on its belly,
             knees drawn up, head rolled to one side, breathing slowly
                                                            (loop, 6 s)
+    curl    curled up asleep sitting (a car seat): bent forward over its
+            drawn-up knees, head tucked down on them, arms wrapped round,
+            breathing slowly                               (loop, 6 s)
     reach   sitting up, slowly stretching the right arm out ahead and a
             little up (for the kettle over the camp fire), leaning after
             it, claws wiggling at the top, then drawing it back
@@ -68,6 +71,7 @@ HANG_SWING = 0.17                   # duty factor 0.83, as measured in three-toe
 HANG_CYCLE = 96
 HANG_SPEED = 2 * HANG_STRIDE / ((1 - HANG_SWING) * HANG_CYCLE / FPS)   # m/s, about 0.015
 CLING_BRANCH = (0.10, 0.0, 0.20)    # branch height over the belly, its z span
+DRIVE_WHEEL = ((0.0, 0.10, 0.11), 0.062)   # wheel centre ahead of the chest and its rim radius, sloth frame
 NAP_TILT = 80                       # on its back, head end a little raised, degrees
 LIMB_BONES = {"arm": ("upper_arm", "forearm"), "leg": ("thigh", "shin")}
 
@@ -362,6 +366,55 @@ def nap(t, limbs):
     return pose
 
 
+def curl(t, limbs):
+    """t 0..1 round the loop: curled up asleep where it sits (the jeep's
+    passenger seat in Canopy Camp): leaning forward over drawn-up knees,
+    head tucked down, arms hugging the legs; three slow breaths a loop."""
+    w = 2 * math.pi * t
+    breath = math.sin(3 * w)
+    off = (0.0, -0.01, 0.002 * breath)
+    spec = [(X, -28 - 2 * breath)]
+    rb = _rot(spec)
+    pose = {"body": (off, spec), "head": [(X, -38 + 2 * breath), (Z, 18)]}
+    for key in limbs:
+        kind, tag = key.split(".")
+        side = 1 if tag == "R" else -1
+        if kind == "arm":   # wrapped round the knees, paws meeting in front of the shins
+            p = Vector((-side * 0.01, 0.105, 0.045))
+            pole = rb @ Vector((side * 1.0, -0.2, -0.4))
+        else:               # knees drawn up to the chest, feet tucked under
+            p = Vector((side * 0.03, 0.07, 0.0))
+            pole = Vector((side * 0.4, 1.0, 1.0))
+            pose[key] = (Vector((side * 0.035, 0.075, 0.004)), pole)
+            continue
+        pose[key] = (_point(off, spec, p), pole)
+    return pose
+
+
+def drive(t, limbs):
+    """t 0..1 round the loop: playing at driving (the jeep's driver seat in
+    Canopy Camp). Sitting up, both paws on a wheel ahead of the chest at
+    DRIVE_WHEEL, turning it hard one way and the other, leaning into the
+    turns and looking where it steers, bouncing a little as on a bumpy
+    track. The wheel's rim is the circle the paws follow."""
+    w = 2 * math.pi * t
+    steer = math.sin(w) + 0.25 * math.sin(3 * w)          # two big turns a loop, with a wiggle
+    bump = abs(math.sin(6 * w))
+    off = (0.0, 0.004, 0.003 * bump)
+    spec = [(X, -6 + 2 * bump), (Y, -7 * steer)]
+    pose = {"body": (off, spec), "head": [(X, 6 + 4 * bump), (Z, -22 * steer), (Y, 6 * steer)]}
+    c, r = Vector(DRIVE_WHEEL[0]), DRIVE_WHEEL[1]
+    for key in limbs:
+        kind, tag = key.split(".")
+        if kind != "arm":
+            continue
+        side = 1 if tag == "R" else -1
+        a = math.radians(90 - side * 55 - 50 * steer)    # paws at ten to two, turned with the wheel
+        p = c + Vector((math.cos(a) * r, -0.45 * math.sin(a) * r, 0.9 * math.sin(a) * r))   # rim tipped back 25 deg, top toward the driver
+        pose[key] = (p, Vector((side * 1.0, -0.4, -0.6)))
+    return pose
+
+
 def reach(t, limbs):
     """t 0..1 round the loop: sitting up as idle and very slowly reaching
     the right paw out ahead and up (for the kettle in Canopy Camp), leaning
@@ -390,7 +443,9 @@ def clips(limbs):
             "hang_walk": [(k * HANG_CYCLE // 24, hang_walk(k / 24, limbs)) for k in range(25)],
             "titanic": [(k * 12, titanic(k / 8, limbs)) for k in range(9)],
             "nap": [(k * 9, nap(k / 16, limbs)) for k in range(17)],
-            "reach": [(k * 8, reach(k / 24, limbs)) for k in range(25)]}
+            "reach": [(k * 8, reach(k / 24, limbs)) for k in range(25)],
+            "curl": [(k * 9, curl(k / 16, limbs)) for k in range(17)],
+            "drive": [(k * 6, drive(k / 24, limbs)) for k in range(25)]}
 
 
 def add_clips(arm_ob, limbs):
