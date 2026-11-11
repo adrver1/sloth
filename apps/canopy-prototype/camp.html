@@ -1,4 +1,5 @@
-<!-- PROTOTYPE (throwaway): Canopy Camp. Question: does a cozy clearing hub plus canopy boardwalks (you can't step off them) feel free to explore while staying cheap to render?
+<!-- PROTOTYPE (throwaway): Canopy Camp. Question: does a cozy clearing in a lush forest, walked on foot, feel good to explore while staying cheap to render?
+     Ground level only for now (the boardwalk was dropped on 2026-11-11): you walk the round clearing, the forest edge stops you.
      First person. On a phone a stick bottom-left walks (as in desk-at-night's free mode) and a drag anywhere else looks; on a computer WASD or the arrow keys walk and a mouse drag looks. Tap a sloth to boop it, hold on it to feed it. Rest turns the light to dusk.
      Built on index.html (the forest look prototype): same three looks behind #moss | #paint | #low, and the same detail toggle.
      Detail button (Low / Medium / High, or ?detail=) scales leaves, ferns, fur shells, effects and resolution.
@@ -180,49 +181,13 @@ function merge(geos) {                               // position, normal, colour
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // ================================================================ layout
-// a round clearing (radius RC) with the camp in it; one boardwalk leaves at the gate, climbs round the Grandmother tree
-// and crosses rope bridges to two more trees. Only what is near the clearing and the boardwalk is modelled.
+// a round clearing (radius RC) with the camp in it; two big mossy trees at its edge lean their low branches over it,
+// and that is where the sloths hang. Everything past the edge is the forest wall: instanced trunks, leaves and mist.
 const RC = 9;
 seed = 3000 + Number(qs.get("seed") || 7);
 const A0 = -0.75, d0 = V(Math.cos(A0), 0, Math.sin(A0)), t0 = V(-d0.z, 0, d0.x);
-const T1 = d0.clone().multiplyScalar(14);
-const T2 = T1.clone().addScaledVector(t0, 9).addScaledVector(d0, 1.5);
-const T3 = T2.clone().addScaledVector(t0, 4).addScaledVector(d0, -6.5);
-const BIG = [{ c: T1, r: 1.35, deck: 6 }, { c: T2, r: 1.2, deck: 7.2 }, { c: T3, r: 1.1, deck: 6.4 }];
-const RW = 2.3;                                      // walkway radius round each trunk
-const GATE = d0.clone().multiplyScalar(RC - 0.3);
-
-// ---------------------------------------------------------------- the boardwalk path: one polyline, walked by arc length s
-const path = [];
-const ang = (c, p) => Math.atan2(p.z - c.z, p.x - c.x);
-const onRing = (c, a, y) => V(c.x + Math.cos(a) * RW, y, c.z + Math.sin(a) * RW);
-function seg(a, b, n, sag = 0) { for (let i = 1; i <= n; i++) { const t = i / n, p = a.clone().lerp(b, t); p.y -= sag * Math.sin(Math.PI * t); path.push(p); } }
-function arc(c, a0, a1, y0, y1, n) { for (let i = 1; i <= n; i++) { const t = i / n; path.push(onRing(c, a0 + (a1 - a0) * t, y0 + (y1 - y0) * t)); } }
-const shortest = (a0, a1) => { let d = a1 - a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a0 + d; };
-path.push(GATE.clone().setY(0.18));
-const as = ang(T1, GATE);
-seg(path[0], onRing(T1, as, 0.18), 14);
-const helixEnd = as + 2.25 * Math.PI;                // a stair winding up round the trunk
-arc(T1, as, helixEnd, 0.18, BIG[0].deck, 70);
-const a12 = ang(T1, T2), a12s = shortest(helixEnd, a12);
-arc(T1, helixEnd, a12s, BIG[0].deck, BIG[0].deck, 12);
-const a21 = ang(T2, T1);
-seg(path[path.length - 1].clone(), onRing(T2, a21, BIG[1].deck), 26, 0.55);   // rope bridge 1
-const a23 = shortest(a21, ang(T2, T3));
-arc(T2, a21, a23, BIG[1].deck, BIG[1].deck, 16);
-const a32 = ang(T3, T2);
-seg(path[path.length - 1].clone(), onRing(T3, a32, BIG[2].deck), 22, 0.45);   // rope bridge 2
-arc(T3, a32, a32 + 1.6, BIG[2].deck, BIG[2].deck, 14);                         // the lookout
-const cum = [0]; for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + path[i].distanceTo(path[i - 1]));
-const PL = cum[cum.length - 1];
-function at(s, out = V()) {
-  s = THREE.MathUtils.clamp(s, 0, PL); let lo = 0, hi = cum.length - 1;
-  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (cum[m] <= s) lo = m; else hi = m; }
-  const t = (s - cum[lo]) / Math.max(1e-6, cum[hi] - cum[lo]); return out.copy(path[lo]).lerp(path[hi], t);
-}
-function tangent(s, out = V()) { const a = at(s - 0.15), b = at(s + 0.15); return out.copy(b).sub(a).normalize(); }
-function nearestS(p) { let best = 0, bd = 1e9; for (let i = 0; i < path.length; i++) { const d = path[i].distanceToSquared(p); if (d < bd) { bd = d; best = i; } } return cum[best]; }
-const LANDMARKS = [[0, "Canopy Walk"], [cum[15 + 70], "Grandmother tree"], [cum[15 + 70 + 12 + 26 + 8], "Swaying bridge"], [PL - 6, "The lookout"]];
+const HERO = [d0.clone().multiplyScalar(RC + 0.4), V(Math.cos(A0 + 2.4), 0, Math.sin(A0 + 2.4)).multiplyScalar(RC + 0.6)];
+const nearPath = () => false;
 
 // ---------------------------------------------------------------- clearing floor
 const grass = canvasTex(256, 256, (g, w, h) => {
@@ -232,27 +197,32 @@ const grass = canvasTex(256, 256, (g, w, h) => {
 grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(6, 6);
 const clearing = new THREE.Mesh(new THREE.CircleGeometry(RC + 0.8, 48), new THREE.MeshLambertMaterial({ map: grass }));
 clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(clearing);
-// a worn footpath from the fire to the gate
-const trail = new THREE.Mesh(new THREE.PlaneGeometry(1.1, RC - 1.5), new THREE.MeshLambertMaterial({ color: new THREE.Color(S.bark[0]).lerp(new THREE.Color(0xc8b48a), 0.5), transparent: true, opacity: 0.55 }));
-trail.rotation.x = -Math.PI / 2; trail.rotation.z = -A0 - Math.PI / 2; trail.position.copy(d0.clone().multiplyScalar((RC + 1.5) / 2)).setY(0.02); scene.add(trail);
 
-// ---------------------------------------------------------------- the three boardwalk trees, with branches reaching over the walkway
-const branchCurves = [];
-for (const [k, b] of BIG.entries()) {
-  const g = new THREE.CylinderGeometry(b.r * 0.6, b.r, 24, S.flat ? 9 : 24, S.flat ? 12 : 48, true); g.translate(0, 12, 0);
+// ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
+const branchCurves = [], TOP = 15;
+for (const [k, c] of HERO.entries()) {
+  const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, S.flat ? 9 : 24, S.flat ? 12 : 48, true); g.translate(0, TOP / 2, 0);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
-    const f = 1 + 0.08 * Math.sin(a * 5 + y * 0.5) + 0.05 * Math.sin(a * 11 - y * 1.1) + 0.9 * Math.exp(-y * 1.3) * (0.5 + 0.5 * Math.cos(a * 4 + k));
-    p.setXYZ(i, x * f, y, z * f);
+    const f = 1 + 0.08 * Math.sin(a * 5 + y * 0.6) + 0.05 * Math.sin(a * 11 - y * 1.3) + 0.7 * Math.exp(-y * 1.5) * (0.5 + 0.5 * Math.cos(a * 4 + k));
+    p.setXYZ(i, x * f + Math.sin(y * 0.35) * 0.2, y, z * f);
   }
-  woodGeos.push(bake(g, 0, 8).translate(b.c.x, 0, b.c.z));
-  for (let i = 0; i < 4; i++) {
-    const h = b.deck + 1.2 + i * 0.9 + R(-0.2, 0.2), a = i * 2.39996 + k + R(-0.3, 0.3), L = R(3, 4.2), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), pts = [];
-    for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push(dir.clone().multiplyScalar(b.r * 0.7 + L * t).addScaledVector(side, Math.sin(t * 3 + i) * 0.3).setY(h + 0.6 * t - 0.6 * t * t)); }
+  woodGeos.push(bake(g, 0, 7).translate(c.x, 0, c.z));
+  const inward = Math.atan2(-c.z, -c.x);
+  for (let i = 0; i < 9; i++) {
+    const low = i < 5, h = (low ? 2.05 + i * 0.16 : 4.6 + (i - 5) * 1.2) + R(-0.08, 0.08);   // low ones at head height: you meet the sloths face to face
+    const a = low ? inward + (i % 2 ? 1 : -1) * (0.25 + i * 0.22) + R(-0.1, 0.1) : inward + Math.PI + i * 2.39996;
+    const L = low ? R(2.8, 3.8) : R(2.4, 3.4), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), pts = [];
+    for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push(dir.clone().multiplyScalar(0.45 + L * t).addScaledVector(side, Math.sin(t * 3 + i) * 0.3).setY(h + (low ? 0.25 * t - 0.3 * t * t : 0.7 * t - 0.65 * t * t))); }
     const curve = new THREE.CatmullRomCurve3(pts);
-    woodGeos.push(bake(tube(curve, 0.22, 0.08, S.flat ? 8 : 18, S.flat ? 5 : 8), 0, 8).translate(b.c.x, 0, b.c.z));
-    curve.points.forEach((q) => q.add(V(b.c.x, 0, b.c.z))); curve.updateArcLengths(); branchCurves.push(curve);
+    woodGeos.push(bake(tube(curve, 0.2, 0.07, S.flat ? 8 : 20, S.flat ? 5 : 8), 0, 7).translate(c.x, 0, c.z));
+    curve.points.forEach((q) => q.add(V(c.x, 0, c.z))); curve.updateArcLengths(); curve.low = low; branchCurves.push(curve);
+  }
+  // lianas from the low branches down to the ground
+  for (let i = 0; i < 3; i++) {
+    const b = branchCurves[branchCurves.length - 9 + i], p0 = b.getPointAt(R(0.55, 0.95)), p1 = p0.clone().multiplyScalar(1.08).setY(0), mid = p0.clone().lerp(p1, 0.5).addScaledVector(V(p0.x, 0, p0.z).normalize(), 0.4);
+    woodGeos.push(bake(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 16, 0.025, 4), 0, 7));
   }
 }
 function tube(curve, r0, r1, segs, rad) {
@@ -265,50 +235,15 @@ function tube(curve, r0, r1, segs, rad) {
 }
 scene.add(new THREE.Mesh(merge(woodGeos), barkMat));
 
-// ---------------------------------------------------------------- boardwalk: planks, posts and rope rails (three instanced or merged draws)
 const plankCol = new THREE.Color(S.bark[0]).lerp(new THREE.Color(0xd9b88a), LOOK === "low" ? 0.55 : 0.4);
-const planks = new THREE.InstancedMesh(new THREE.BoxGeometry(1.15, 0.06, 0.2), new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: S.flat }), Math.ceil(PL / 0.26) + 2);
-{
-  const m = new THREE.Matrix4(), tng = V(), side = V(), upv = V(), c = new THREE.Color(); let i = 0;
-  for (let s = 0; s < PL; s += 0.26) {
-    const p = at(s); tangent(s, tng); side.set(-tng.z, 0, tng.x).normalize(); upv.crossVectors(tng, side).normalize(); if (upv.y < 0) upv.negate();
-    m.makeBasis(side, upv, tng); m.setPosition(p.x, p.y - 0.03, p.z); planks.setMatrixAt(i, m);
-    planks.setColorAt(i, c.copy(plankCol).multiplyScalar(R(0.8, 1.1))); i++;
-  }
-  planks.count = i;
-}
-scene.add(planks);
-const ropeGeos = [], postN = Math.ceil(PL / 1.4) * 2 + 2;
-const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.04, 0.05, 1.0, 5).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: plankCol.clone().multiplyScalar(0.75), flatShading: S.flat }), postN);
-{
-  const m = new THREE.Matrix4(), tng = V(), side = V(); let i = 0; const rails = [[], []];
-  for (let s = 0; s <= PL; s += 0.5) {
-    const p = at(s); tangent(s, tng); side.set(-tng.z, 0, tng.x).normalize();
-    for (const [k, sg] of [[0, 1], [1, -1]].entries()) {
-      const q = p.clone().addScaledVector(side, 0.58 * sg[1]); rails[k].push(q.clone().setY(q.y + 0.95));
-      if (Math.abs((s / 1.4) - Math.round(s / 1.4)) < 0.19 && i < postN) { m.makeTranslation(q.x, q.y - 0.05, q.z); posts.setMatrixAt(i++, m); }
-    }
-  }
-  posts.count = i;
-  const ropeC = new THREE.Color(0xc9b48a).lerp(new THREE.Color(S.bark[0]), 0.3);
-  for (const pts of rails) ropeGeos.push(flatCol(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, 0.025, 4), ropeC));
-  // platforms: a plank deck ring round each tree at walkway height
-  for (const b of BIG) {
-    const g = new THREE.RingGeometry(b.r * 0.85, RW + 0.75, S.flat ? 12 : 36, 1); g.rotateX(-Math.PI / 2); g.translate(b.c.x, b.deck - 0.07, b.c.z);
-    ropeGeos.push(flatCol(g, plankCol, 0.9));
-    const u = new THREE.CylinderGeometry(RW + 0.75, RW + 0.6, 0.18, S.flat ? 12 : 36, 1, true); u.translate(b.c.x, b.deck - 0.16, b.c.z); ropeGeos.push(flatCol(u, plankCol, 0.6));
-  }
-}
-scene.add(posts, new THREE.Mesh(merge(ropeGeos), woodMat));
 
 // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
-const nearPath = (x, z, y, r) => { for (let i = 0; i < path.length; i += 2) { const p = path[i]; if ((p.x - x) ** 2 + (p.z - z) ** 2 < r * r && (y === undefined || Math.abs(p.y - y) < 2.2)) return true; } return false; };
 const wall = [];
 {
   const g = bake(new THREE.CylinderGeometry(0.35, 0.65, 20, S.flat ? 6 : 10, 6, true).translate(0, 10, 0), 0, 9);
   for (let i = 0; i < 400 && wall.length < 70; i++) {
     const a = R(0, 6.28), r = RC + 1.2 + Math.pow(rnd(), 1.4) * 15, x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (nearPath(x, z, undefined, 1.8) || BIG.some((b) => Math.hypot(b.c.x - x, b.c.z - z) < b.r + 2) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
+    if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
     wall.push([x, z, R(0.6, 1.4)]);
   }
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
@@ -334,9 +269,9 @@ if (LOOK === "moss") {
 } else { leafGeo = new THREE.IcosahedronGeometry(0.5, 0); leafM = leafMat({}, 0.02); perClump = Math.round(5 * D.leaves); leafScale = [0.6, 1.1]; }
 const clumps = [];
 for (const [x, z, s] of wall) for (let k = 0; k < 2; k++) { const y = 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s]); }
-for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); if (!nearPath(p.x, p.z, p.y + 0.9, 0.9)) clumps.push([p.x, p.y + 0.9, p.z, R(0.6, 0.9)]); }
-for (const b of BIG) for (let k = 0; k < 7; k++) { const a = R(0, 6.28), r = R(0, 4); clumps.push([b.c.x + Math.cos(a) * r, b.deck + R(6, 10), b.c.z + Math.sin(a) * r, R(1.6, 2.4)]); }
-for (let i = 0; i < 30; i++) { const a = R(0, 6.28), r = RC + R(0.2, 1.4), x = Math.cos(a) * r, z = Math.sin(a) * r; if (!nearPath(x, z, undefined, 1.6)) clumps.push([x, R(0.5, 1.4), z, R(0.7, 1.1)]); }   // bushes round the clearing edge
+for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); clumps.push([p.x, p.y + (c.low ? 1.2 : 0.9), p.z, R(0.6, 0.9)]); }
+for (const h of HERO) for (let k = 0; k < 18; k++) { const a = R(0, 6.28), r = R(0, 4.5); clumps.push([h.x + Math.cos(a) * r, TOP + R(-2, 1.5), h.z + Math.sin(a) * r, R(1.3, 1.9)]); }   // the big trees' crowns
+for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = Math.cos(a) * r, z = Math.sin(a) * r; clumps.push([x, R(0.4, 2.8), z, R(0.7, 1.2)]); }   // a thick leafy edge at eye height all round the clearing
 const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump);
 {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
@@ -345,11 +280,11 @@ const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump)
     e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
     const s = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33);
     m.compose(V(x + u.x, y + u.y, z + u.z), q, V(s, s, s)); leaves.setMatrixAt(i, m);
-    leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.55 + 0.45 * sstep(0, 14, y + u.y))); i++;
+    leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
 }
 scene.add(leaves);
-// ferns and undergrowth in a thick band round the clearing (kept off the trail)
+// ferns and undergrowth in a thick band round the clearing
 {
   let g, mat;
   if (LOOK === "moss") {
@@ -371,7 +306,7 @@ scene.add(leaves);
   scene.add(im);
 }
 
-// ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table, the gate
+// ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
 const camp = [], lanternGlow = [];
 {
   const stone = 0x9a9488, log = S.bark[0], canvasC = 0xf3e6c8, flap = 0xe3a6a0;
@@ -386,7 +321,7 @@ const camp = [], lanternGlow = [];
   const door = new THREE.CircleGeometry(0.55, 3).rotateZ(Math.PI / 2).translate(0, 0.5, 1.22).rotateY(-tentA + Math.PI / 2).translate(tentAt.x, 0, tentAt.z); camp.push(flatCol(door, flap));
   // hammock between two posts
   const hA = d0.clone().multiplyScalar(-1.5).addScaledVector(t0, -4.6), hB = hA.clone().addScaledVector(d0, -2.6).addScaledVector(t0, -1.2);
-  for (const h of [hA, hB]) camp.push(flatCol(new THREE.CylinderGeometry(0.07, 0.09, 1.9, 6).translate(h.x, 0.95, h.z), log, 0.85));
+  for (const h of [hA, hB]) camp.push(flatCol(new THREE.CylinderGeometry(0.07, 0.09, 2.6, 6).translate(h.x, 1.3, h.z), log, 0.85));
   {
     const n = 16, m = 5, pos = [], hx = hB.clone().sub(hA), len = hx.length(); hx.normalize(); const hz = V(-hx.z, 0, hx.x);
     for (let i = 0; i <= n; i++) for (let j = 0; j <= m; j++) { const u = i / n, v = j / m - 0.5, w = Math.sin(Math.PI * u);
@@ -402,25 +337,16 @@ const camp = [], lanternGlow = [];
   camp.push(flatCol(new THREE.CylinderGeometry(0.35, 0.42, 0.62, 9).translate(tb.x, 0.31, tb.z), log), flatCol(new THREE.CylinderGeometry(0.62, 0.62, 0.07, 12).translate(tb.x, 0.65, tb.z), plankCol));
   camp.push(flatCol(new THREE.SphereGeometry(0.22, 10, 6, 0, 6.28, Math.PI / 2, Math.PI / 2).translate(tb.x + 0.15, 0.85, tb.z), S.leaf[0]));
   for (let i = 0; i < 5; i++) camp.push(flatCol(new THREE.IcosahedronGeometry(0.07, 0).translate(tb.x - 0.2 + R(-0.2, 0.2), 0.72, tb.z + R(-0.3, 0.3)), [0xff6f91, 0xff9eb5, 0xffd66e][i % 3]));
-  // the gate: two posts, a crooked branch across, a sign
-  const gs = t0.clone().multiplyScalar(0.85);
-  for (const s of [1, -1]) camp.push(flatCol(new THREE.CylinderGeometry(0.1, 0.13, 2.7, 7).translate(GATE.x + gs.x * s, 1.35, GATE.z + gs.z * s), log, 0.9));
-  const bar = new THREE.CatmullRomCurve3([GATE.clone().addScaledVector(gs, 1.25).setY(2.55), GATE.clone().setY(2.75), GATE.clone().addScaledVector(gs, -1.25).setY(2.5)]);
-  camp.push(bake(new THREE.TubeGeometry(bar, 12, 0.1, 6), 0, 3));
   // lantern string from the tent ridge across to the hammock post
-  const l0 = tentAt.clone().setY(1.95), l1 = hA.clone().setY(1.9);
+  const l0 = tentAt.clone().setY(2.6), l1 = hA.clone().setY(2.5);
   for (let i = 1; i < 9; i++) { const t = i / 9, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45; lanternGlow.push(p); }
   const str = []; for (let i = 0; i <= 20; i++) { const t = i / 20, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45 - 0.06; str.push(p); }
   camp.push(flatCol(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(str), 24, 0.01, 3), 0x5a4636));
   scene.add(new THREE.Mesh(merge(camp), woodMat));
   window.__camp = { tentAt, hA, hB, tb };
   // collision circles for walking round the camp
-  var blockers = [[V(0, 0, 0), 0.9], [tentAt, 1.4], [tb, 0.75], [hA, 0.3], [hB, 0.3], [GATE.clone().addScaledVector(gs, 1), 0.25], [GATE.clone().addScaledVector(gs, -1), 0.25]];
+  var blockers = [[V(0, 0, 0), 0.9], [tentAt, 1.4], [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
   for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; blockers.push([V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1), 0.75]); }
-  // the sign on the gate
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.38), new THREE.MeshLambertMaterial({ map: canvasTex(512, 150, (g, w, h) => { g.fillStyle = "#c79a6a"; g.fillRect(0, 0, w, h); g.strokeStyle = "#7a5534"; g.lineWidth = 10; g.strokeRect(5, 5, w - 10, h - 10);
-    g.fillStyle = "#4a3426"; g.font = "600 64px Fredoka, Trebuchet MS, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("Canopy Walk ↑", w / 2, h / 2 + 4); }), side: THREE.DoubleSide }));
-  sign.position.copy(GATE).setY(1.85); sign.lookAt(0, 1.85, 0); scene.add(sign);
 }
 // lanterns and the fire: bright sprites, no real-time shadows; one warm point light for the fire glow
 const glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
@@ -446,7 +372,7 @@ let motes;
   }
 }
 
-// ================================================================ sloths: one on the gate, the rest on branches along the boardwalk
+// ================================================================ sloths: hanging under the low branches over the clearing
 async function glb(url) {
   const txt = (await (await fetch(url)).text()).trim(), bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
@@ -468,10 +394,12 @@ function hang(p, dir) {                               // a sloth under a branch 
   const box = new THREE.Mesh(new THREE.SphereGeometry(0.42), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(p).add(V(0, -0.25, 0)); scene.add(box);
   const s = { o, mixer, box, p, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false }; box.userData.s = s; sloths.push(s); hit.push(box);
 }
-hang(GATE.clone().setY(2.72), t0.clone());
-// on the branches whose middle passes closest over the walkway (within view, not in the way)
-const scored = branchCurves.map((c) => { let best = { d: 1e9 }; for (let t = 0.35; t <= 0.85; t += 0.05) { const p = c.getPointAt(t), s = nearestS(p), q = at(s), dy = p.y - q.y, d = Math.hypot(p.x - q.x, p.z - q.z); const score = Math.abs(d - 1.4) + Math.abs(dy - 1.6) * 0.7; if (score < best.d) best = { d: score, t, c }; } return best; });
-scored.sort((a, b) => a.d - b.d).slice(0, 5).forEach(({ c, t }) => { const tan = c.getTangentAt(t); hang(c.getPointAt(t), tan); });
+for (const c of branchCurves.filter((c) => c.low)) {
+  const t = R(0.5, 0.8), p = c.getPointAt(t), tan = c.getTangentAt(t);
+  if (tan.x * p.x + tan.z * p.z > 0) tan.negate();   // head toward the middle of the clearing, so you meet its face
+  if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) hang(p, tan);
+  if (sloths.length >= 7) break;
+}
 const COUNT = sloths.length;
 
 // sprites: words, hearts, flowers
@@ -487,10 +415,10 @@ function flowerCrown(s) {
   c.position.set(0, 0.105, 0); c.rotation.x = -0.25; s.head.add(c);
 }
 
-// ================================================================ the player: first person, on the clearing floor or on the boardwalk
+// ================================================================ the player: first person, on the clearing floor
 const EYE = 1.55, SPEED = 1.7;
 const me = { vel: V(), mode: "ground", pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), s: 0, yaw: 0, pitch: 0.08, target: null, holding: false, walkT: 0, lastDrag: -9, mark: null };
-me.yaw = Math.atan2(-(GATE.x - me.pos.x), -(GATE.z - me.pos.z));       // face the gate and the big tree
+me.yaw = Math.atan2(-d0.x, -d0.z);       // face the fire and the big tree behind it
 const look = V();
 function collide(p) {
   const r = Math.hypot(p.x, p.z), lim = RC - 0.7; if (r > lim) p.multiplyScalar(lim / r);
@@ -506,32 +434,13 @@ function step(dt) {
   const az = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) - stickV.y;
   const wish = fwd.clone().multiplyScalar(az).addScaledVector(right, ax); if (wish.lengthSq() > 1) wish.normalize();
   me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
-  const sp = me.vel.length();
-  if (sp > 0.05) {
-    moving = true;
-    if (me.mode === "ground") {
-      const p = me.pos.clone().addScaledVector(me.vel, dt);
-      // walking into the gate from the clearing puts you on the boardwalk
-      if (p.distanceTo(GATE.clone().setY(0)) < 0.8 && me.vel.dot(d0) > 0.3 * sp) { me.mode = "walk"; me.s = 0.05; }
-      else { collide(p); me.pos.copy(p); }
-    } else {
-      // on the boardwalk only along it: the push along the path counts; a push mostly sideways still goes the way you face
-      const tH = tangent(me.s).setY(0).normalize();
-      let along = me.vel.dot(tH);
-      if (Math.abs(along) < 0.4 * sp) along = Math.sign(az || 1) * Math.sign(fwd.dot(tH) || 1) * sp;
-      me.s = Math.min(PL, me.s + along * dt);
-      if (Math.abs(along) > 0.2) turnTo(tH.clone().multiplyScalar(Math.sign(along)), dt * 0.6);   // the view eases round the bends
-      if (me.s < 0) { me.mode = "ground"; me.pos.copy(GATE).setY(0).addScaledVector(d0, -0.8); }
-    }
-  }
+  if (me.vel.length() > 0.05) { moving = true; const p = me.pos.clone().addScaledVector(me.vel, dt); collide(p); me.pos.copy(p); }
   if (moving) me.walkT += dt;
-  const feet = me.mode === "walk" ? at(me.s) : me.pos;
+  const feet = me.pos;
   const bob = moving ? Math.sin(me.walkT * 7) * 0.03 : 0;
   camera.position.set(feet.x, feet.y + EYE + bob, feet.z);
   look.set(-Math.sin(me.yaw) * Math.cos(me.pitch), Math.sin(me.pitch), -Math.cos(me.yaw) * Math.cos(me.pitch)).add(camera.position);
   camera.lookAt(look);
-  if (me.mode === "walk") { let k = -1; LANDMARKS.forEach(([s], i) => { if (Math.abs(me.s - s) < 1.2) k = i; }); if (k >= 0 && k !== landmark) toast(LANDMARKS[k][1]); if (k >= 0) landmark = k; }
-  else if (landmark !== -2 && me.pos.length() < RC - 2 && landmark >= 0) { toast("Camp"); landmark = -2; }
 }
 function turnTo(dir, dt) {                             // ease the view round to face the way you walk, unless you have just looked around
   if (uTime.value - me.lastDrag < 1.5) return;
@@ -611,7 +520,6 @@ $("rest").onclick = () => { duskTo = duskTo ? 0 : 1; $("rest").textContent = dus
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
 camera.far = 80;
-if (qs.has("at")) { const s = +qs.get("at"); if (s > 0) { me.mode = "walk"; me.s = s; me.yaw = Math.atan2(-tangent(s).x, -tangent(s).z); } }
 if (qs.has("yaw")) me.yaw = +qs.get("yaw"); if (qs.has("pitch")) me.pitch = +qs.get("pitch");
 const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
 window.__stats = {};
@@ -651,9 +559,9 @@ renderer.setAnimationLoop(() => {
     frames = 0; acc = 0;
   }
 });
-window.__me = me; window.__PL = PL; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__rest = () => { duskTo = 1; dusk = 1; };
-window.__face = (i) => { const s = sloths[i]; me.mode = s === sloths[0] ? "ground" : "walk"; if (me.mode === "walk") me.s = Math.max(0.5, nearestS(s.p) - 1.2); else me.pos.copy(GATE).setY(0).addScaledVector(d0, -3); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
+window.__me = me; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__rest = () => { duskTo = 1; dusk = 1; };
+window.__face = (i) => { const s = sloths[i]; const flat = V(s.p.x, 0, s.p.z); me.pos.copy(flat.clone().multiplyScalar(Math.max(0, 1 - 2.2 / flat.length()))); collide(me.pos); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
 window.__stick = (x, y) => stickV.set(x, y);
-window.__slothS = sloths.map((s) => +nearestS(s.p).toFixed(1));
+window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
 window.__ready = true;
 </script>
