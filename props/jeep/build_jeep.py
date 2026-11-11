@@ -168,18 +168,16 @@ def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
     """Tyre with tread blocks, a rim and a hub, on an axle along X (or along Y for the spare)."""
     rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
     p = [soften(cyl(R * 0.93, Wt, at=(x, y, 0), rot=rot, m=M["tyre"], verts=16), 0.05 * R / 0.36, seg=1)]
-    nb = 14 if chunky else 12
+    nb = 16                                                       # low lugs, one per tyre face: reads as tread, not as paddles
     for i in range(nb):
-        a = i / nb * 2 * math.pi
-        for s in ((1 if i % 2 else -1,) if chunky else (0,)):       # chunky: blocks staggered left and right
-            off = s * Wt * 0.18
-            if axis_x:
-                at = (x + off, y + math.cos(a) * R * 0.94, math.sin(a) * R * 0.94)
-                b = _box((Wt * (0.62 if chunky else 0.9), R * 0.26, R * 0.09), at=at, rot=(a - math.pi / 2, 0, 0), m=M["tyre"])
-            else:
-                at = (x + math.cos(a) * R * 0.94, y + off, math.sin(a) * R * 0.94)
-                b = _box((R * 0.26, Wt * (0.62 if chunky else 0.9), R * 0.09), at=at, rot=(0, -a + math.pi / 2, 0), m=M["tyre"])
-            p.append(b)
+        a = (i + 0.5) / nb * 2 * math.pi
+        if axis_x:
+            at = (x, y + math.cos(a) * R * 0.95, math.sin(a) * R * 0.95)
+            b = _box((Wt * 0.86, R * (0.24 if chunky else 0.2), R * 0.07), at=at, rot=(a - math.pi / 2, 0, 0), m=M["tyre"])
+        else:
+            at = (x + math.cos(a) * R * 0.95, y, math.sin(a) * R * 0.95)
+            b = _box((R * (0.24 if chunky else 0.2), Wt * 0.86, R * 0.07), at=at, rot=(0, -a + math.pi / 2, 0), m=M["tyre"])
+        p.append(b)
     rr = R * 0.58
     if axis_x:
         side = math.copysign(1, x) if x else 1
