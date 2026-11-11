@@ -4,7 +4,7 @@ Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three 
     storybook  chunky and rounded: pebble fire ring, bell tent with a pennant, striped hammock, paper lanterns
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
     jungle     a rainforest hideout: bamboo tripod and kettle, a leaf-thatched lean-to, bamboo bench, gourd lanterns
-    picked     the set in use: rustic, with a canvas wall tent on a plank deck, the jungle tripod and kettle over the rustic fire and the jungle hammock
+    picked     the set in use: rustic, with a canvas wall tent with planks before the door, the jungle tripod and kettle over the rustic fire and the jungle hammock
 
     .venv/bin/python props/camp/build_camp.py                  # all three styles
     .venv/bin/python props/camp/build_camp.py --style rustic --samples 64
@@ -427,7 +427,7 @@ def rustic():
 
 
 def wall_tent():
-    """Adriaen's pick (2026-11-11, from two photos): a white canvas wall tent on a plank deck. Straight side walls,
+    """Adriaen's pick (2026-11-11, from two photos): a white canvas wall tent with a few planks laid before the door. Straight side walls,
     a ridge pole resting in crossed shear poles at each end, eave poles on corner posts, the right door flap folded
     back on a dark doorway, and a stovepipe through the roof. Built at its final size with the door toward -Y; every
     canvas sheet is a small grid so the AO bake has vertices to vary at (the object is "coarse": no densify)."""
@@ -435,7 +435,7 @@ def wall_tent():
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), inside=(0.11, 0.09, 0.07),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),
         fascia=(0.36, 0.26, 0.17), pipe=(0.28, 0.28, 0.3)).items()}
-    W, D, E, H, Y0, Z0 = 1.1, 1.3, 0.85, 2.0, 0.35, 0.14     # half width, half depth, wall height, ridge, body offset, deck top
+    W, D, E, H, Y0, Z0 = 1.1, 1.3, 0.85, 2.0, 0.35, 0.0      # half width, half depth, wall height, ridge, body offset, floor
     mats = list(M.values()); mi = {k: i for i, k in enumerate(M)}
     V, F, FM = [], [], []
     def quad_grid(f, nu, nv, mf, flip=False):
@@ -457,7 +457,7 @@ def wall_tent():
             sag = 0.05 * math.sin(math.pi * v) * (0.4 + 0.6 * abs(math.sin(math.pi * u * 3)))
             return (s * ex * (1 - v), y, ez + (Z0 + H - ez) * v - sag)
         quad_grid(roof, 6, 3, lambda i, j: "canvas" if i % 2 else "canvas2", flip=s < 0)
-    # side walls, flaring a touch to the deck, with a dirty hem
+    # side walls, flaring a touch to the ground, with a dirty hem
     for s in (1, -1):
         zs = (Z0, Z0 + 0.13, Z0 + E)
         quad_grid(lambda u, v, s=s: (s * (W + 0.05 * (1 - v)), Y0 - D + 2 * D * u, zs[round(v * 2)]), 6, 2,
@@ -470,18 +470,14 @@ def wall_tent():
     face([(0, yf + 0.25, Z0), (0.45, yf + 0.25, Z0), (0, yf + 0.25, Z0 + 1.3)], "inside")          # the dark doorway
     face([(0.45, yf - 0.02, Z0), (0.8, yf - 0.03, Z0 + 0.28), (0, yf - 0.02, Z0 + 1.3)], "hem")      # folded flap, its dusty inside out
     face([(0, yf - 0.012, Z0 + 1.3), (-0.02, yf - 0.012, Z0 + 1.3), (-0.02, yf - 0.012, Z0 + 0.02), (0, yf - 0.012, Z0 + 0.02)], "rope")  # door seam
-    # deck: porch planks in front (with gaps), fascia round the edge; the deck under the tent is never seen
-    xd, yd0, yd1 = W + 0.2, Y0 - D - 0.95, Y0 + D + 0.1
-    n = 5; step = (yf - yd0) / n
-    for k in range(n):
-        a, b = yd0 + k * step + (0.012 if k else 0), yd0 + (k + 1) * step - 0.012
-        dx = 0.03 * math.sin(k * 2.3)                                                                  # ragged plank ends
-        face([(-xd + dx, a, Z0), (xd + dx, a, Z0), (xd + dx, b, Z0), (-xd + dx, b, Z0)], "plank" if k % 2 else "plank2")
-    face([(-xd, yd0, 0), (xd, yd0, 0), (xd, yd0, Z0), (-xd, yd0, Z0)], "fascia")
-    face([(xd, yd1, 0), (-xd, yd1, 0), (-xd, yd1, Z0), (xd, yd1, Z0)], "fascia")
-    for s in (1, -1):
-        q = [(s * xd, yd0, 0), (s * xd, yd1, 0), (s * xd, yd1, Z0), (s * xd, yd0, Z0)]
-        face(q if s > 0 else q[::-1], "fascia")
+    # a few loose planks laid on the ground in front of the door (Adriaen: not a raised platform); top and long edges only
+    for k, (cx, cy, ln, yaw) in enumerate(((0.05, yf - 0.16, 1.5, 0.03), (-0.08, yf - 0.4, 1.35, -0.06), (0.12, yf - 0.63, 1.2, 0.1), (-0.02, yf - 0.85, 0.95, -0.04))):
+        c, s_, hw2, t = math.cos(yaw), math.sin(yaw), 0.105, 0.03
+        P = lambda u, v, z: (cx + u * c - v * s_, cy + u * s_ + v * c, z)
+        m = "plank" if k % 2 else "plank2"
+        face([P(-ln / 2, -hw2, t), P(ln / 2, -hw2, t), P(ln / 2, hw2, t), P(-ln / 2, hw2, t)], m)
+        face([P(-ln / 2, -hw2, 0), P(ln / 2, -hw2, 0), P(ln / 2, -hw2, t), P(-ln / 2, -hw2, t)], "fascia")
+        face([P(ln / 2, hw2, 0), P(-ln / 2, hw2, 0), P(-ln / 2, hw2, t), P(ln / 2, hw2, t)], "fascia")
     me = bpy.data.meshes.new("wall_tent"); me.from_pydata(V, [], F)
     for m in mats: me.materials.append(m)
     for p, k in zip(me.polygons, FM): p.material_index = k
@@ -687,7 +683,7 @@ def picked():
     M = {k: bpy.data.materials[f"ju_{k}"] for k in ("bamboo", "node", "rope", "kettle")}
     out["Fire"] = join([out["Fire"], *tripod_kettle(M)], "Fire")
     out["Hammock"]["coarse"] = True       # Adriaen 2026-11-11: the densified cloth was ~7k triangles
-    bpy.data.objects.remove(out["Tent"])  # Adriaen 2026-11-11: a rustic wall tent on a deck, like his photos (the A-frame stays in "rustic")
+    bpy.data.objects.remove(out["Tent"])  # Adriaen 2026-11-11: a rustic wall tent like his photos, loose planks before the door (the A-frame stays in "rustic")
     out["Tent"] = wall_tent()
     for k, o in out.items():
         o.name = k                       # the jungle hammock was made while the rustic one held the name
