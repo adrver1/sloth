@@ -650,8 +650,7 @@ if (PROPS !== "code") {
   // the picked set's light in one shared texture (props/camp/bake_camp_lightmap.py), ?lm=4k|2k|1k|off; off = the vertex-colour bake
   const LM = PROPS === "picked" && ["4k", "2k", "1k"].includes(qs.get("lm") ?? "4k") ? (qs.get("lm") ?? "4k") : null;
   const [P, lmTex] = await Promise.all([glb(`models/camp_${PROPS}${LM ? "_lm" : ""}.txt`),
-    LM ? new THREE.TextureLoader().loadAsync(`models/camp_picked_lm_${LM}.png`).catch(() => new THREE.TextureLoader().loadAsync("models/camp_picked_lm_2k.png")) : null]);   // 4k is over the artifact's 15 MB file limit, so the published page falls back to 2k
-  const { tentAt, hA, hB, tb } = window.__camp;
+    LM ? new THREE.TextureLoader().loadAsync(`models/camp_picked_lm_${LM}.png`).catch(() => new THREE.TextureLoader().loadAsync("models/camp_picked_lm_2k.png")) : null]), { tentAt, hA, hB, tb } = window.__camp;   // 4k is over the artifact's 15 MB file limit, so the published page falls back to 2k
   const lam = new THREE.MeshLambertMaterial({ vertexColors: true });
   // the picked set also carries a night bake (COLOR_1, props/camp/bake_camp_night.py): fire, lantern and moon light,
   // shown unlit and faded in as you rest, so the props need no extra real-time lights at night
