@@ -341,7 +341,7 @@ if (track) {
 // ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
 const branchCurves = [], TOP = 15;
 for (const [k, c] of HERO.entries()) {
-  const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, S.flat ? 9 : 24, S.flat ? 12 : 48, true); g.translate(0, TOP / 2, 0);
+  const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, S.flat ? 9 : 14, S.flat ? 8 : 16, true); g.translate(0, TOP / 2, 0);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
@@ -356,13 +356,13 @@ for (const [k, c] of HERO.entries()) {
     const L = low ? R(2.8, 3.8) : R(2.4, 3.4), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), pts = [];
     for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push(dir.clone().multiplyScalar(0.45 + L * t).addScaledVector(side, Math.sin(t * 3 + i) * 0.3).setY(h + (low ? 0.25 * t - 0.3 * t * t : 0.7 * t - 0.65 * t * t))); }
     const curve = new THREE.CatmullRomCurve3(pts);
-    woodGeos.push(bake(tube(curve, 0.2, 0.07, S.flat ? 8 : 20, S.flat ? 5 : 8), 0, 7).translate(c.x, 0, c.z));
+    woodGeos.push(bake(tube(curve, 0.2, 0.07, low ? (S.flat ? 6 : 10) : 5, low ? (S.flat ? 5 : 7) : 4), 0, 7).translate(c.x, 0, c.z));
     curve.points.forEach((q) => q.add(V(c.x, 0, c.z))); curve.updateArcLengths(); curve.low = low; branchCurves.push(curve);
   }
   // lianas from the low branches down to the ground
   for (let i = 0; i < 3; i++) {
     const b = branchCurves[branchCurves.length - 9 + i], p0 = b.getPointAt(R(0.55, 0.95)), p1 = p0.clone().multiplyScalar(1.08).setY(0), mid = p0.clone().lerp(p1, 0.5).addScaledVector(V(p0.x, 0, p0.z).normalize(), 0.4);
-    woodGeos.push(bake(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 16, 0.025, 4), 0, 7));
+    woodGeos.push(bake(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 8, 0.025, 3), 0, 7));
   }
 }
 function tube(curve, r0, r1, segs, rad) {
@@ -380,7 +380,7 @@ const plankCol = new THREE.Color(S.bark[0]).lerp(new THREE.Color(0xd9b88a), LOOK
 // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
 const wall = [];
 {
-  const g = bake(new THREE.CylinderGeometry(0.35, 0.65, 20, S.flat ? 6 : 10, 6, true).translate(0, 10, 0), 0, 9);
+  const g = bake(new THREE.CylinderGeometry(0.35, 0.65, 20, S.flat ? 6 : 8, 3, true).translate(0, 10, 0), 0, 9);
   for (let i = 0; i < 400 && wall.length < 70; i++) {
     const a = R(0, 6.28), r = RC + 1.2 + Math.pow(rnd(), 1.4) * 15, x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
@@ -430,17 +430,24 @@ scene.add(leaves);
 // top of each forest tree, so the treetops are wood and leaves, not floating leaves (one draw for the wood, one for the new
 // leaves; their own random stream, so the seeded layout stays the same). Twigs scale with the detail level.
 {
+  const NEAR = RC + 6;   // only the trees you can see clearly get limbs (fewest triangles that still look good)
   let s4 = 777; const Q = (a, b) => { s4 = (s4 * 16807) % 2147483647; return a + (s4 / 2147483647) * (b - a); };
-  const geos = [], tops = [], twigs = D.fx > 1 ? 2 : D.fx ? 1 : 0, seg = 3;
+  const geos = [], tops = [], twigs = D.fx > 1 ? 2 : D.fx ? 1 : 0, seg = 2;   // a limb is a flat strip with two bends: 4 triangles
+  // a limb as a flat tapered strip, its wide side facing down: from the ground, looking up, it reads as round wood
+  const strip = (curve, r0, r1, n) => {
+    const pos = [];
+    const P = (i) => { const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), sd = V(-d.z, 0, d.x); if (sd.lengthSq() < 1e-4) sd.set(1, 0, 0); sd.normalize().multiplyScalar(THREE.MathUtils.lerp(r0, r1, t)); return [p.clone().sub(sd), p.clone().add(sd)]; };
+    for (let i = 0; i < n; i++) { const [a, b] = P(i), [c, d] = P(i + 1); pos.push(...a.toArray(), ...c.toArray(), ...b.toArray(), ...b.toArray(), ...c.toArray(), ...d.toArray()); }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); return g;
+  };
   const limb = (p0, p1, r0, r1, fork) => {
-    const rad = !S.flat && Math.hypot(p0.x, p0.z) < RC + 6 ? 4 : 3;   // round near the clearing, three-sided out in the mist
-    if (Math.hypot(p0.x, p0.z) > RC + 10) fork = Math.min(fork, 1);
+    if (Math.hypot(p0.x, p0.z) > NEAR) return;                       // out in the mist the leaves alone read as a crown: no wood
     const d = p1.clone().sub(p0), mid = p0.clone().lerp(p1, 0.5).add(V(Q(-0.2, 0.2), d.length() * Q(0.08, 0.18), Q(-0.2, 0.2)));
-    const c = new THREE.CatmullRomCurve3([p0, mid, p1]); geos.push(bake(tube(c, r0, r1, seg, rad), 0, 18));
+    const c = new THREE.CatmullRomCurve3([p0, mid, p1]); geos.push(bake(strip(c, r0, r1, seg), 0, 18));
     for (let i = 0; i < fork; i++) {                                    // twigs off the outer half, splaying up and sideways
       const q = c.getPointAt(Q(0.5, 0.8)), side = V(-d.z, 0, d.x).normalize().multiplyScalar(i % 2 ? 1 : -1), L = d.length() * Q(0.35, 0.55);
       const e = q.clone().addScaledVector(d.clone().normalize(), L * 0.5).addScaledVector(side, L * 0.7).add(V(0, L * 0.5, 0));
-      geos.push(bake(tube(new THREE.CatmullRomCurve3([q, q.clone().lerp(e, 0.5).add(V(0, L * 0.12, 0)), e]), r1 * 0.9, r1 * 0.35, seg, rad), 0, 18));
+      geos.push(bake(strip(new THREE.CatmullRomCurve3([q, q.clone().lerp(e, 0.5).add(V(0, L * 0.12, 0)), e]), r1 * 0.9, r1 * 0.35, seg), 0, 18));
       tops.push([e.x, e.y + 0.3, e.z, L * 0.6 + 0.5, 0.3]);
     }
   };
@@ -466,9 +473,9 @@ scene.add(leaves);
     }
     tops.push([x, top + 0.4, z, 1.3 * s]);                              // covers the cut top of the trunk
   }
-  scene.add(new THREE.Mesh(merge(geos), barkMat));
+  scene.add(new THREE.Mesh(merge(geos), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: S.flat, side: THREE.DoubleSide })));
   // fewer leaves per crown for the big ball leaves of the other looks
-  const per = (f) => Math.max(1, Math.round(perClump * (f || 0.5) * (LOOK === "moss" ? 1 : 0.45))), lm = new THREE.InstancedMesh(leafGeo, leafM, tops.reduce((n, t) => n + per(t[4]), 0)), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+  const per = (f) => LOOK === "moss" ? Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)) : f ? 0 : 1, lm = new THREE.InstancedMesh(leafGeo, leafM, tops.reduce((n, t) => n + per(t[4]), 0)), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
   for (const [x, y, z, r, f] of tops) for (let k = 0; k < per(f); k++) {
     const u = V(Q(-1, 1), Q(-0.4, 0.8), Q(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q(0, 1)));
     e.set(Q(0, 6.28), Q(0, 6.28), Q(0, 6.28)); q.setFromEuler(e);
@@ -1046,6 +1053,7 @@ window.__me = me; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) =>
 window.__face = (i) => { const s = sloths[i]; const flat = V(s.p.x, 0, s.p.z); me.pos.copy(flat.clone().multiplyScalar(Math.max(0, 1 - 2.2 / flat.length()))); collide(me.pos); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
 window.__stick = (x, y) => stickV.set(x, y);
 window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
+window.__scene = scene;
 window.__ready = true;
 </script>
 
