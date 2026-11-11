@@ -165,7 +165,7 @@ def panel(a, b, c, d, m, t=0.012):
 
 
 VIEWS = []    # --views: only these preview stills (all when empty)
-TYRE = "at"   # tread option (--tyre): "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders, "road" smooth with painted grooves
+TYRE = "mt"   # tread option (--tyre): "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders, "road" smooth with painted grooves
 
 
 def lathe(prof, n, at, axis_x, M, name="lathe"):
