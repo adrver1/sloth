@@ -41,7 +41,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 <div id="toast"></div>
 <div class="bar">
   <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
-  <button id="props">Props</button><button id="jeep">Jeep</button><button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
+  <button id="props">Props</button><button id="jeep">Jeep</button><button id="fire">Fire</button><button id="kettle">Kettle</button><button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
@@ -49,6 +49,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { furify } from "./fur.js";
+import { createAtmosphere } from "./atmosphere.js";
 
 const qs = new URLSearchParams(location.search);
 const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
@@ -605,6 +606,63 @@ if (PROPS !== "code") {
   put("Table", tb.x, tb.z, 0.6);
   lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
 }
+// ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
+// chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
+// rustic seats (Our camp, Rustic); ?lived=0 hides them to compare.
+if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
+  const L = await glb("models/lived.txt"), lm = new THREE.MeshLambertMaterial({ vertexColors: true });
+  L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map }) : lm; });   // the stack is a textured block
+  const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
+  const wp = V(-0.55, 0, -3.15), wy = Math.atan2(-wp.x, -wp.z);
+  put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy);
+  const side = V(Math.cos(wy), 0, -Math.sin(wy));                     // the pile's local +X (where the stump stands) in the world
+  blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
+  const a = A0 + Math.PI; put("SeatThings", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2);
+}
+// ---------------------------------------------------------------- the campfire and kettle options (props/lived/build_fire.py), to pick from (2026-11-11).
+// Fire and Kettle buttons (kept per viewer) swap the old fire for a new layout (teepee, cabin, star) under the same bamboo
+// tripod, with a new kettle (classic, pot, billy) whose steam point stays where atmosphere.js puffs steam. The flames are
+// three crossed cards with an animated flame shader instead of the old glow blobs; the embers are unlit so they glow.
+const FIRES = ["old", "teepee", "cabin", "star"], KETTLES = ["classic", "pot", "billy"];
+const FIRE = FIRES.includes(store.get("canopy-fire")) ? store.get("canopy-fire") : "teepee";
+const KETTLE = KETTLES.includes(store.get("canopy-kettle")) ? store.get("canopy-kettle") : "classic";
+$("fire").textContent = "Fire: " + FIRE[0].toUpperCase() + FIRE.slice(1);
+$("kettle").textContent = "Kettle: " + KETTLE[0].toUpperCase() + KETTLE.slice(1);
+$("fire").onclick = () => { store.set("canopy-fire", FIRES[(FIRES.indexOf(FIRE) + 1) % FIRES.length]); location.reload(); };
+$("kettle").onclick = () => { store.set("canopy-kettle", KETTLES[(KETTLES.indexOf(KETTLE) + 1) % KETTLES.length]); location.reload(); };
+$("kettle").hidden = FIRE === "old" || PROPS !== "picked";
+$("fire").hidden = PROPS !== "picked";
+if (FIRE !== "old" && PROPS === "picked") {
+  const F = await glb("models/fire.txt"), fm = new THREE.MeshLambertMaterial({ vertexColors: true }), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const old = scene.getObjectByName("Fire"); if (old) old.visible = false;
+  flames.forEach((f) => (f.visible = false));
+  fireLight.position.y = 0.4;                                    // inside the new fire, below the kettle (it hangs higher now)
+  for (const n of ["Ring", "Tripod", `Fire_${FIRE}`, `Embers_${FIRE}`, `Kettle_${KETTLE}`]) {
+    const o = F.scene.getObjectByName(n); if (!o) continue;
+    o.traverse((m) => { if (m.isMesh) m.material = n.startsWith("Embers") ? glow : fm; });
+    scene.add(o);
+  }
+  var KETTLE_SPOUT = V(0.2, 0.97, 0);                           // the new kettles hang higher; atmosphere.js puffs steam here
+  const H = { teepee: 0.8, cabin: 0.74, star: 0.66 }[FIRE], flameMat = (ph) => new THREE.ShaderMaterial({
+    uniforms: { uTime, uPh: { value: ph } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: `uniform float uTime, uPh; varying vec2 vUv;
+      void main() {
+        float v = vUv.y, t = uTime * (1.0 + 0.15 * uPh) + uPh * 4.0;
+        float x = vUv.x - 0.5;
+        x += (sin(v * 9.0 - t * 7.0) * 0.05 + sin(v * 17.0 - t * 11.0 + 1.3) * 0.025) * v;          // the flame sways more toward its tip
+        float tongues = 0.75 + 0.25 * sin(vUv.x * 23.0 + t * 3.0) * sin(vUv.x * 9.0 - t * 2.0);
+        float w = 0.42 * pow(max(0.0, 1.0 - v / tongues), 0.75);                                      // wide at the base, tapering up
+        float a = smoothstep(w, w * 0.35, abs(x)) * smoothstep(0.0, 0.08, v);
+        vec3 c = mix(vec3(1.0, 0.25, 0.04), vec3(1.0, 0.62, 0.15), smoothstep(w, w * 0.4, abs(x)));
+        c = mix(c, vec3(1.0, 0.92, 0.6), smoothstep(0.5, 1.0, 1.0 - v) * smoothstep(w * 0.5, 0.0, abs(x)));
+        gl_FragColor = vec4(c * a * 1.5, a);
+      }` });
+  for (let k = 0; k < 3; k++) {
+    const card = new THREE.Mesh(new THREE.PlaneGeometry(0.7, H).translate(0, H / 2 + 0.03, 0), flameMat(k));
+    card.rotation.y = k * Math.PI / 3; card.renderOrder = 3; scene.add(card);
+  }
+}
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
 // between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge,
 // its right side (the camper's ladder) toward the fire
@@ -638,6 +696,175 @@ for (const c of branchCurves.filter((c) => c.low)) {
   if (tan.x * p.x + tan.z * p.z > 0) tan.negate();   // head toward the middle of the clearing, so you meet its face
   if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) hang(p, tan);
   if (sloths.length >= 7) break;
+}
+// ---------------------------------------------------------------- sloths living in the camp (thread "Bring sloths to life in camp")
+// Adriaen 2026-11-11: the camp spots stay empty until a sloth is befriended. Then that same sloth (flower crown and all)
+// lowers itself from its branch on a vine and crawls slowly over the ground to the next free spot, in this order:
+// the hammock (climbs its post and the rope into it, naps on its back, eyes shut, zzz; the hammock sways gently all the time), then the log seat right of the
+// gap (sits and slowly reaches for the kettle). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
+// Befriending belongs to the camp activities: it fires window event "sloth-befriended" with detail.id = index into sloths.
+// ?campsloths=0 turns the spots off; window.__campFast speeds the trips up for checks.
+let hammockSway = null, campStep = () => {};
+if (qs.get("campsloths") !== "0") {
+  const { hA, hB } = window.__camp, hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA), hYaw = -Math.atan2(hd.z, hd.x);
+  const clipOf = (n) => SLOTH.animations.find((a) => a.name === n);
+  function shutEyes(o) {                              // asleep: the eyes and their glints take the dark patch colour round them (own copy of the mesh)
+    o.traverse((m) => {
+      if (!m.isSkinnedMesh || !m.material.map) return;          // the fur shells too, or their tips keep the glint
+      const img = m.material.map.image, cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      const g = cv.getContext("2d"); g.drawImage(img, 0, 0); const px = g.getImageData(0, 0, cv.width, cv.height).data;
+      m.geometry = m.geometry.clone(); const uv = m.geometry.attributes.uv, kind = [];
+      for (let i = 0; i < uv.count; i++) {
+        const k = (Math.min(cv.height - 1, Math.floor(uv.getY(i) * cv.height)) * cv.width + Math.min(cv.width - 1, Math.floor(uv.getX(i) * cv.width))) * 4, r = px[k], gg = px[k + 1], b = px[k + 2];
+        kind.push(r < 40 && gg < 40 && b < 45 ? "eye" : r > 235 && gg > 235 && b > 230 ? "eye" : r < 75 && r > gg && gg > b ? "patch" : "");
+      }
+      const pi = kind.indexOf("patch"); if (pi < 0) return;
+      const pu = uv.getX(pi), pv = uv.getY(pi);
+      kind.forEach((k, i) => k === "eye" && uv.setXY(i, pu, pv));
+    });
+  }
+  // the hammock: the sling and its ropes swing about the line between the rope knots on the posts (1.75 m up);
+  // the posts and the leaves on top stay put. The same swing turns the group the napper lies in.
+  const PIV = 1.75, sway = { value: 0 };
+  const hg = new THREE.Group(); hg.position.set(hm.x, PIV, hm.z); hg.rotation.y = hYaw; scene.add(hg);
+  const swing = new THREE.Group(); hg.add(swing);
+  const ham = scene.getObjectByName("Hammock");
+  if (ham) {
+    const mat = ham.material.clone();
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uSway = sway;
+      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uSway;").replace("#include <begin_vertex>", `#include <begin_vertex>
+        float sw = uSway * (1.0 - smoothstep(1.03, 1.43, abs(transformed.x))) * (1.0 - smoothstep(1.8, 1.95, transformed.y));
+        vec2 q = transformed.yz - vec2(${PIV.toFixed(2)}, 0.0); float cs = cos(sw), sn = sin(sw);
+        transformed.yz = vec2(${PIV.toFixed(2)}, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
+    };
+    ham.material = mat;
+  }
+  hammockSway = { sway, swing, zz: null, push: 0 };
+  const inward = V(-hd.z, 0, hd.x).normalize(); if (inward.dot(hm) > 0) inward.negate();   // from the hammock toward the fire
+  // the log seat right of the gap, facing the fire and the kettle
+  const sa = A0 + Math.PI - 1.15, at = V(Math.cos(sa) * 2.1, 0.33, Math.sin(sa) * 2.1).addScaledVector(V(-Math.sin(sa), 0, Math.cos(sa)), -0.12);
+  const seat = new THREE.Group(); seat.position.copy(at); seat.rotation.y = Math.atan2(at.x, at.z); scene.add(seat);
+  // each spot: where the sloth ends up (local to its group), the clip it plays there, its size there, and the door on the
+  // ground it crawls to before climbing in
+  const spots = [
+    { name: "hammock", parent: swing, at: V(0.08, 0.72 - PIV, 0), yaw: -Math.PI / 2, clip: "nap", scale: 2.2, asleep: true,
+      door: hA.clone().setY(0).addScaledVector(inward, 0.1 * 2.2), climb: true },   // the foot of the -x post, fire side: climbs it, then the rope
+    { name: "seat", parent: seat, at: V(0, 0, 0), yaw: 0, clip: "reach", scale: 1.9, door: at.clone().setY(0).addScaledVector(at.clone().setY(0).normalize(), -0.6) },
+  ];
+  const UP = V(0, 1, 0), q0 = new THREE.Quaternion(), tmp = V();
+  // the hammock route, in the swing's frame (x along the span, the knots on the pivot line): up the -x post to its rope knot
+  // (x -1.43, y 0), then hand over hand down the rope to the sling's end (x -1.03, y -0.40), hanging back-down under it
+  // as on a branch (hang_walk), then onto the sling. hang_walk keeps its paws on a line 0.10 (x scale) over its belly,
+  // spanning 0..0.20 toward its head, so the same clip climbs the post when the sloth is upright facing it.
+  const KNOT = V(-1.43, 0, 0), ROPE_END = V(-1.03, -0.40, 0), ROPE = ROPE_END.clone().sub(KNOT), ROPE_L = ROPE.length(); ROPE.normalize();
+  const climbYaw = Math.atan2(inward.x, inward.z), m4 = new THREE.Matrix4();
+  function ropePose(s, u) {                           // the sloth hanging under the rope, its grip centre u metres down from the knot
+    const yl = ROPE.clone().setY(ROPE.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
+    m4.makeBasis(xl, yl, zl);
+    return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: KNOT.clone().addScaledVector(ROPE, u).sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
+  }
+  function play(s, name, fade, timeScale = 1) {
+    const next = s.mixer.clipAction(clipOf(name)); if (s.act === next) return;
+    next.reset(); next.timeScale = timeScale; next.play();
+    if (s.act) s.act.crossFadeTo(next, fade, false);
+    s.act = next;
+  }
+  addEventListener("sloth-befriended", (e) => {
+    const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);
+    if (!s || s.trip || !spot) return;
+    spot.who = s; s.sc = SL;
+    s.act = s.mixer.existingAction(clipOf("cling"));
+    // down: lower itself on a vine to the ground right under its branch (kept inside the clearing)
+    const g = s.o.position.clone().setY(0); if (g.length() > RC - 1) g.setLength(RC - 1);
+    const vine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([s.p, s.p]), new THREE.LineBasicMaterial({ color: 0x4f6b2a }));
+    scene.add(vine);
+    s.trip = { spot, phase: "down", t: 0, from: s.o.position.clone(), q: s.o.quaternion.clone(), to: g, top: s.p.clone(), vine, sc0: SL };
+    play(s, "hang_walk", 1.2, 1.4);
+  });
+  // steer round the fire, tent, posts, seats, table and trees (the blockers you walk round), sliding along them
+  function steer(pos, door) {
+    const want = door.clone().sub(pos).setY(0), d = want.length(); want.divideScalar(Math.max(d, 1e-4));
+    const out = want.clone();
+    for (const [c, r] of blockers) {
+      if (c.distanceTo(door) < 1.3) continue;                          // what it is crawling up to
+      tmp.set(pos.x - c.x, 0, pos.z - c.z); const k = tmp.length(), reach = r + 0.55;
+      if (k > reach || k < 1e-4) continue;
+      tmp.divideScalar(k); const w = (reach - k) / reach * 3;
+      const side = V(-tmp.z, 0, tmp.x); if (side.dot(want) < 0) side.negate();
+      out.addScaledVector(tmp, w).addScaledVector(side, w);
+    }
+    return out.normalize();
+  }
+  campStep = (dt) => {
+    const fast = window.__campFast || 1;
+    for (const spot of spots) {
+      const s = spot.who; if (!s) continue;
+      const T = s.trip;
+      if (T && T.phase !== "home") {
+        const sd = dt * fast; T.t += sd;
+        if (fast > 1) s.mixer.update(sd - dt);
+        if (T.phase === "down") {                     // about 10 s: slides down, turning from back-down to belly-down, facing its way
+          const k = Math.min(1, T.t / 10), e = k * k * (3 - 2 * k);
+          const face = Math.atan2(-(spot.door.x - T.to.x), -(spot.door.z - T.to.z));
+          s.o.position.lerpVectors(T.from, T.to, e); s.o.quaternion.slerpQuaternions(T.q, q0.setFromAxisAngle(UP, face), Math.min(1, e * 1.3));
+          const pos = T.vine.geometry.attributes.position; pos.setXYZ(1, s.o.position.x, s.o.position.y + 0.25 * SL * (1 - e), s.o.position.z); pos.needsUpdate = true;
+          T.vine.material.opacity = 1 - sstep(0.85, 1, k); T.vine.material.transparent = true;
+          if (k >= 1) { T.phase = "crawl"; T.t = 0; T.yaw = face; scene.remove(T.vine); play(s, "walk", 1.5, 2.2); }
+        } else if (T.phase === "crawl") {             // a slow belly crawl, about 0.15 m/s
+          const pos = s.o.position, dir = steer(pos, spot.door), v = 0.027 * 2.2 * s.sc;
+          const want = Math.atan2(-dir.x, -dir.z); let dy = want - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+          T.yaw += dy * Math.min(1, sd * 1.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+          pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v * sd);
+          s.sc += (spot.scale - s.sc) * Math.min(1, sd * 0.05); s.o.scale.setScalar(s.sc);
+          if (pos.distanceTo(spot.door) < 0.12 + v * sd && spot.climb) { T.phase = "climb"; T.t = 0; pos.copy(spot.door); }
+          else if (pos.distanceTo(spot.door) < 0.12 + v * sd) {
+            T.phase = "settle"; T.t = 0; spot.parent.attach(s.o);
+            T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); T.sc0 = s.sc;
+            play(s, spot.clip, 2.5);
+            if (spot.asleep) shutEyes(s.o);
+          }
+        } else if (T.phase === "climb") {             // up the post hand over hand, about 15 s, until its arms reach the rope knot
+          if (T.t < sd + 1e-6) play(s, "hang_walk", 1.2, 2.5);
+          let dy = climbYaw - T.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+          T.yaw += dy * Math.min(1, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+          const top = PIV - 0.2 * s.sc;
+          s.o.position.y = Math.min(top, s.o.position.y + 0.015 * 2.5 * s.sc * sd * Math.min(1, T.t / 1.5));
+          if (s.o.position.y >= top) { T.phase = "turn"; T.t = 0; spot.parent.attach(s.o); T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); }
+        } else if (T.phase === "turn") {              // about 3 s: swings round from the post to hang under the rope
+          const k = Math.min(1, T.t / 3), e = k * k * (3 - 2 * k), R0 = ropePose(s, 0.1);
+          s.o.position.lerpVectors(T.from, R0.p, e); s.o.quaternion.slerpQuaternions(T.q, R0.q, e);
+          if (k >= 1) { T.phase = "rope"; T.t = 0; T.u = 0.1; }
+        } else if (T.phase === "rope") {              // down the rope to the sling's end, about 6 s
+          T.u = Math.min(ROPE_L - 0.05, T.u + 0.015 * 2.5 * s.sc * sd); const R1 = ropePose(s, T.u);
+          s.o.position.copy(R1.p); s.o.quaternion.copy(R1.q);
+          if (T.u >= ROPE_L - 0.05) {
+            T.phase = "settle"; T.t = 0; T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); T.sc0 = s.sc;
+            play(s, spot.clip, 3);
+            if (spot.asleep) shutEyes(s.o);
+          }
+        } else if (T.phase === "settle") {            // about 4 s: climbs up into its spot and settles
+          const k = Math.min(1, T.t / (spot.climb ? 6 : 4)), e = k * k * (3 - 2 * k);
+          s.o.position.lerpVectors(T.from, spot.at, e); if (!spot.climb) s.o.position.y += Math.sin(Math.PI * e) * 0.12;
+          s.o.quaternion.slerpQuaternions(T.q, q0.setFromAxisAngle(UP, spot.yaw), e);
+          s.sc = T.sc0 + (spot.scale - T.sc0) * e; s.o.scale.setScalar(s.sc);
+          if (k >= 1) { T.phase = "home"; spot.home = true; }
+        }
+      }
+      // the hit sphere and the point hearts and words fly to follow the sloth
+      s.o.getWorldPosition(s.box.position).y += 0.25 * s.sc / SL; s.p.copy(s.box.position);
+    }
+    const H = hammockSway, T = uTime.value, napper = spots[0].home ? spots[0].who : null;   // a slow swing, nudged harder for a while after a boop
+    H.push = Math.max(0, H.push - dt * 0.25);
+    H.sway.value = (0.055 + 0.1 * H.push) * Math.sin(T * 2 * Math.PI / 5.2); H.swing.rotation.x = H.sway.value;
+    if (napper?.squish > 0.9) H.push = 1;
+    if (napper) {
+      H.zz ??= [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
+      H.zz.forEach((z, i) => { const k = (T / 2.4 + i / 3) % 1; napper.head.getWorldPosition(z.position).add(V(0.1 * Math.sin(k * 6), 0.25 + 0.6 * k, 0));
+        z.material.opacity = Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85); z.scale.set(0.3 + 0.35 * k, (0.3 + 0.35 * k) / 4, 1); });
+    }
+  };
+  window.__spots = spots;
 }
 const COUNT = sloths.length;
 
@@ -756,11 +983,15 @@ function feed(s) {
   const f = sprite("🌺", 96); f.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(f);
   fx.push({ s: f, fly: { from: f.position.clone(), to: s.p.clone().add(V(0, -0.15, 0)) }, t: 0, life: 0.9, done() {
     s.nod = 2.4; burst(s.p.clone().add(V(0, 0.2, 0)), "💗", 5, 1.6, 80);
-    if (!s.friend) { s.friend = true; friends++; flowerCrown(s); $("score").textContent = `💗 ${friends} friend${friends > 1 ? "s" : ""}`; toast(friends === COUNT ? "Everyone's your friend! 🌸" : "New friend! 🌸"); }
+    if (!s.friend) { s.friend = true; friends++; dispatchEvent(new CustomEvent("sloth-befriended", { detail: { id: sloths.indexOf(s) } }));   /* stand-in until the activities' befriend(s) */ flowerCrown(s); $("score").textContent = `💗 ${friends} friend${friends > 1 ? "s" : ""}`; toast(friends === COUNT ? "Everyone's your friend! 🌸" : "New friend! 🌸"); }
     else burst(s.p.clone().add(V(0, 0.45, 0)), "nom nom", 1, 1.4, 60);
   } });
 }
 
+// cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
+// and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
+const atmo = createAtmosphere({ scene, camera, fx: D.fx, spout: typeof KETTLE_SPOUT !== "undefined" ? KETTLE_SPOUT : PROPS === "picked" || PROPS === "jungle" ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
+window.__atmo = atmo;
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
 const hemiL = scene.children.find((o) => o.isHemisphereLight);
 const DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity }, DUSK = new THREE.Color(0x34405a);
@@ -771,6 +1002,7 @@ const flies = (() => {
   const pts = new THREE.Points(g, new THREE.PointsMaterial({ map: glowTex, color: 0xd8ff7a, size: 0.14, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); scene.add(pts); return pts;
 })();
 $("rest").onclick = () => { duskTo = duskTo ? 0 : 1; $("rest").textContent = duskTo ? "Wake up ☀️" : "Rest 🌙"; };
+flies.visible = false;   // atmosphere.js draws blinking fireflies instead
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
@@ -785,9 +1017,10 @@ renderer.setAnimationLoop(() => {
   step(dt);
   for (const s of sloths) {
     s.mixer.update(dt);
-    if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; s.o.scale.set(SL * (1 + k), SL * (1 - k), SL * (1 + k)); }
+    if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; const sc = s.sc || SL; s.o.scale.set(sc * (1 + k), sc * (1 - k), sc * (1 + k)); }
     if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
   }
+  campStep(dt);
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
     if (f.fly) { const e = Math.min(1, f.t / f.life), k = e * e * (3 - 2 * e); f.s.position.lerpVectors(f.fly.from, f.fly.to, k); f.s.position.y += Math.sin(k * Math.PI) * 0.4; }
@@ -805,6 +1038,7 @@ renderer.setAnimationLoop(() => {
     if (typeof rayMat !== "undefined") rayMat.opacity = S.rays * (1 - dusk);
   }
   if (motes) motes.rotation.y += dt * 0.02;
+  atmo.update(dt, uTime.value, dusk);
   renderer.render(scene, camera);
   frames++; acc += raw;
   if (acc >= 1) {
@@ -822,3 +1056,4 @@ window.__stick = (x, y) => stickV.set(x, y);
 window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
 window.__ready = true;
 </script>
+
