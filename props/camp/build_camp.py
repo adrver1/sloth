@@ -136,6 +136,20 @@ def bamboo(a, b, r, m, node_m, nodes=None):
     return parts
 
 
+def painted_bamboo(a, h, r, m, node_m, step=0.38, band=0.035):
+    """A plain octagonal pole (Adriaen 2026-11-11: no modelled rings): stacked flat-shaded eight-sided
+    sections of one radius, with thin node-coloured sections where the rings would be, so the nodes
+    are only painted on. Standing at a, height h."""
+    a = Vector(a)
+    parts, z = [], 0.0
+    while z < h - 1e-4:
+        seg = min(step - band, h - z)
+        parts.append(cyl(r, seg, at=a + Vector((0, 0, z + seg / 2)), m=m, verts=8, smooth=False)); z += seg
+        if z < h - band:
+            parts.append(cyl(r, band, at=a + Vector((0, 0, z + band / 2)), m=node_m, verts=8, smooth=False)); z += band
+    return parts
+
+
 def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
     """A big tropical leaf: a strip bent down along its length, with a raised midrib."""
     nl, nw = 10, 4
@@ -412,7 +426,7 @@ def tripod_kettle(M):
     return p
 
 
-def jungle():
+def jungle(plain_posts=False):
     M = {k: mat(f"ju_{k}", c) for k, c in dict(
         stone=(0.42, 0.46, 0.42), stone2=(0.5, 0.52, 0.47), bamboo=(0.72, 0.68, 0.36), node=(0.52, 0.48, 0.24), char=(0.09, 0.07, 0.05),
         ember=(0.85, 0.3, 0.07), kettle=(0.24, 0.24, 0.26), leaf=(0.24, 0.5, 0.2), leaf2=(0.32, 0.6, 0.24), weave=(0.8, 0.66, 0.44),
@@ -458,10 +472,13 @@ def jungle():
     h = HAMMOCK_SPAN / 2
     p = []
     for s in (-1, 1):
-        p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
+        if plain_posts:                                  # the picked set (Adriaen 2026-11-11): octagon posts, nodes painted on
+            p += painted_bamboo((s * h, 0, 0), 2.4, 0.055, M["bamboo"], M["node"])
+        else:
+            p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
         p.append(rod((s * h, 0, 1.75), (s * (h - 0.4), 0, 1.35), 0.012, M["rope"], verts=5))
     p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
-    for s in (-1, 1):                                    # two leaves tucked over the posts
+    for s in (-1, 1) if not plain_posts else ():         # two leaves tucked over the posts (not in the picked set)
         p.append(leaf(0.9, 0.38, (s * h, 0, 2.4), 0 if s < 0 else math.pi, 0.5, M["leaf2"], droop=0.3))
     out["Hammock"] = join(p, "Hammock")
     p = [ball(0.075, at=(0, 0, -0.17), m=M["gourd"], seg=12), ball(0.05, at=(0, 0, -0.07), m=M["gourd"], seg=10), cyl(0.012, 0.05, at=(0, 0, -0.025), m=M["node"], verts=6)]
@@ -550,9 +567,10 @@ def bake(objs, samples):
 
 def picked():
     """Adriaen's pick (2026-11-11): rustic tent (closed), table, seat and jar lanterns; the rustic fireplace
-    (rough rocks, split logs) under the jungle bamboo tripod and kettle; the jungle woven hammock."""
+    (rough rocks, split logs) under the jungle bamboo tripod and kettle; the jungle woven hammock,
+    on plain octagon posts with painted nodes and no leaves on top (2026-11-11)."""
     out = rustic()
-    j = jungle()
+    j = jungle(plain_posts=True)
     bpy.data.objects.remove(out["Hammock"])
     out["Hammock"] = j.pop("Hammock")
     for o in j.values():
