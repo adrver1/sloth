@@ -28,7 +28,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "camp"))
 import build_lived  # noqa: E402  (shared helpers; its light densify is replaced below)
 import build_camp  # noqa: E402
-from build_camp import (apply_all, bake, bamboo, box, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
+from build_camp import (apply_all, bake, bamboo, box, painted_bamboo, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
 
 build_camp.densify = lambda o, *_: apply_all(o)   # no face splitting for the AO bake: the fire and pot are small enough that the plain faces shade fine
 
@@ -36,7 +36,7 @@ rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
 POT_Z = 0.45 + LIFT                    # the pot's base
 SOUP = Vector((0.0, 0.0, POT_Z + 0.135))   # the soup's surface, middle
-TOP = Vector((0.0, 0.0, 1.3))          # where the tripod legs meet
+TOP = Vector((0.0, 0.0, 1.75))         # where the tripod legs meet (tall, so the pot hangs on a long chain)
 
 
 def materials():
@@ -124,19 +124,20 @@ def ring(M):
 
 
 def tripod(M):
+    """Three bamboo legs like the picked hammock's posts (build_camp.painted_bamboo: flat-shaded octagon, nodes painted
+    on, no modelled rings), crossing a little below their tops, with a rope lashing where they cross."""
     p = []
-    for i in range(3):                                             # bamboo legs, with a slim ring at each node
+    for i in range(3):
         a = i / 3 * 2 * math.pi + 0.3
-        foot = Vector((math.cos(a) * 0.75, math.sin(a) * 0.75, 0))
-        p.append(rod(foot, TOP, 0.03, M["bamboo"], verts=6))
-        for k in (1, 2, 3):
-            q = foot.lerp(TOP, k / 4)
-            n = cyl(0.034, 0.014, at=q, m=M["node"], verts=6)
-            n.rotation_mode = "QUATERNION"
-            n.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(TOP - foot)
-            p.append(n)
-    for i in range(3):                                             # a lashing where the legs cross
-        p.append(torus(0.045, 0.01, at=(0, 0, TOP.z - 0.05 - i * 0.025), m=M["rope"], major=8, minor=3))
+        foot = Vector((math.cos(a) * 0.85, math.sin(a) * 0.85, 0))
+        d = (TOP - foot).normalized()
+        length = (TOP - foot).length + 0.16                        # the tops poke out past the crossing
+        o = painted_bamboo((0, 0, 0), length, 0.032, M["bamboo"], M["node"], step=0.5, band=0.03)[0]
+        o.rotation_mode = "QUATERNION"
+        o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d)
+        o.location = foot
+        p.append(o)
+    p.append(torus(0.05, 0.022, at=(0, 0, TOP.z - 0.06), m=M["rope"], major=8, minor=3))   # the lashing where the legs cross
     return join(p, "Tripod")
 
 
