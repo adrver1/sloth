@@ -137,17 +137,30 @@ def bamboo(a, b, r, m, node_m, nodes=None):
 
 
 def painted_bamboo(a, h, r, m, node_m, step=0.38, band=0.035):
-    """A plain octagonal pole (Adriaen 2026-11-11: no modelled rings): stacked flat-shaded eight-sided
-    sections of one radius, with thin node-coloured sections where the rings would be, so the nodes
-    are only painted on. Standing at a, height h."""
-    a = Vector(a)
-    parts, z = [], 0.0
+    """A plain octagonal pole (Adriaen 2026-11-11: no modelled rings): one flat-shaded eight-sided tube
+    with a ring of vertices at each node, the thin node bands taking the node colour, so the nodes are
+    only painted on; a top cap, no hidden faces. Standing at a, height h. About 16 triangles a metre."""
+    zs, kinds, z = [0.0], [], 0.0
     while z < h - 1e-4:
-        seg = min(step - band, h - z)
-        parts.append(cyl(r, seg, at=a + Vector((0, 0, z + seg / 2)), m=m, verts=8, smooth=False)); z += seg
+        z = min(h, z + step - band); zs.append(z); kinds.append(0)
         if z < h - band:
-            parts.append(cyl(r, band, at=a + Vector((0, 0, z + band / 2)), m=node_m, verts=8, smooth=False)); z += band
-    return parts
+            z += band; zs.append(z); kinds.append(1)
+    verts = [(a[0] + r * math.cos(k * math.pi / 4 + math.pi / 8), a[1] + r * math.sin(k * math.pi / 4 + math.pi / 8), a[2] + zz)
+             for zz in zs for k in range(8)]
+    faces, mats = [], []
+    for i, kind in enumerate(kinds):
+        for k in range(8):
+            faces.append((i * 8 + k, i * 8 + (k + 1) % 8, (i + 1) * 8 + (k + 1) % 8, (i + 1) * 8 + k)); mats.append(kind)
+    faces.append(tuple(len(zs) * 8 - 8 + k for k in range(8))); mats.append(0)
+    me = bpy.data.meshes.new("post")
+    me.from_pydata(verts, [], faces)
+    o = bpy.data.objects.new("post", me)
+    bpy.context.collection.objects.link(o)
+    o.data.materials.append(m)
+    o.data.materials.append(node_m)
+    for poly, mi in zip(o.data.polygons, mats):
+        poly.material_index = mi
+    return [o]
 
 
 def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
@@ -477,7 +490,10 @@ def jungle(plain_posts=False):
         else:
             p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
         p.append(rod((s * h, 0, 1.75), (s * (h - 0.4), 0, 1.35), 0.012, M["rope"], verts=5))
-    p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
+    if plain_posts:                                      # a coarse sling for the picked set: 12 x 4 quads, both sides
+        p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4, nx=12, ny=4))
+    else:
+        p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
     for s in (-1, 1) if not plain_posts else ():         # two leaves tucked over the posts (not in the picked set)
         p.append(leaf(0.9, 0.38, (s * h, 0, 2.4), 0 if s < 0 else math.pi, 0.5, M["leaf2"], droop=0.3))
     out["Hammock"] = join(p, "Hammock")
@@ -526,7 +542,8 @@ def bake(objs, samples):
     bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
     ground = bpy.context.object
     for o in objs:
-        densify(o)
+        if not o.get("coarse"):                         # "coarse": keep the modelled detail, AO only at the existing vertices
+            densify(o)
         ao = o.data.color_attributes.new("AO", "FLOAT_COLOR", "CORNER")
         o.data.color_attributes.active_color = ao
     for o in objs:
@@ -577,6 +594,7 @@ def picked():
         bpy.data.objects.remove(o)
     M = {k: bpy.data.materials[f"ju_{k}"] for k in ("bamboo", "node", "rope", "kettle")}
     out["Fire"] = join([out["Fire"], *tripod_kettle(M)], "Fire")
+    out["Hammock"]["coarse"] = True       # Adriaen 2026-11-11: the densified cloth was ~7k triangles
     for k, o in out.items():
         o.name = k                       # the jungle hammock was made while the rustic one held the name
     return out
