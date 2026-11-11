@@ -206,23 +206,25 @@ def duct(path, secs, m):
     return o
 
 
-def lathe(prof, n, at, axis_x, M, name="lathe"):
+def lathe(prof, n, at, axis_x, M, name="lathe", face=None):
     """A surface of revolution about the axle. prof is [(radius, offset along the axle, material key of the band that
     starts here)]; n segments round. One object, one material per band, so grooves and stripes cost no extra triangles."""
     keys = []
     for _, _, k in prof:
         if k not in keys:
             keys.append(k)
-    verts, faces, fm = [], [], []
-    for r, off, _ in prof:
-        for i in range(n):
-            a = (i + 0.5) / n * 2 * math.pi
-            c, sn = math.cos(a) * r, math.sin(a) * r
-            verts.append((at[0] + off, at[1] + c, at[2] + sn) if axis_x else (at[0] + c, at[1] + off, at[2] + sn))
+    verts, faces, fm, rings = [], [], [], []
+    P = lambda r, off, a: (at[0] + off, at[1] + math.cos(a) * r, at[2] + math.sin(a) * r) if axis_x else (at[0] + math.cos(a) * r, at[1] + off, at[2] + math.sin(a) * r)
+    for r, off, _ in prof:            # a ring of n vertices, or one vertex on the axle where r is 0 (closes the end)
+        rings.append([len(verts)] * n if r == 0 else list(range(len(verts), len(verts) + n)))
+        verts += [P(0, off, 0)] if r == 0 else [P(r, off, (i + 0.5) / n * 2 * math.pi) for i in range(n)]
     for j in range(len(prof) - 1):
+        A, B = rings[j], rings[j + 1]
         for i in range(n):
             i2 = (i + 1) % n
-            faces.append((j * n + i, j * n + i2, (j + 1) * n + i2, (j + 1) * n + i)); fm.append(keys.index(prof[j][2]))
+            f = (A[i], A[i2], B[i2], B[i])
+            f = tuple(dict.fromkeys(f))   # a fan triangle where one ring is a single point
+            faces.append(f); fm.append(keys.index(prof[j][2]))
     me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces); me.update()
     o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
     for k in keys:
@@ -232,15 +234,58 @@ def lathe(prof, n, at, axis_x, M, name="lathe"):
     # an open surface, so face it away from the wheel's centre explicitly (normals_make_consistent can pick inward,
     # and the page draws front faces only)
     import bmesh
+    # (face: a direction every face should look toward instead, for the rim, which is seen from outside only)
     bm = bmesh.new(); bm.from_mesh(me); c0 = Vector(at)
     for f in bm.faces:
-        if f.normal.dot(f.calc_center_median() - c0) < 0:
+        if f.normal.dot(Vector(face) if face else f.calc_center_median() - c0) < 0:
             f.normal_flip()
     bm.to_mesh(me); bm.free(); me.update()
     return o
 
 
+WHEEL = "closed"   # "closed": the whole wheel is one sealed lathe; "open": the earlier separate tyre, rim, hub and cap
+
+
 def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
+    return (wheel_closed if WHEEL == "closed" else wheel_open)(x, y, R, Wt, M, chunky, axis_x)
+
+
+def wheel_closed(x, y, R, Wt, M, chunky=True, axis_x=True):
+    """The whole wheel as one sealed surface of revolution, 14 segments round: from the axle on the inside, out over the
+    sidewall, across the tread, down the outer sidewall, into the dished rim and back to the axle at the hub. No gaps to
+    see through, no hidden caps. Then 12 low mud-terrain lugs and five hex nuts."""
+    if "groove" not in M:
+        M["groove"] = mat(M["tyre"].name + "_groove", tuple(c * 0.45 for c in M["tyre"]["base"]))
+    at, h, rr = (x, y, 0), Wt / 2, R * 0.6
+    side = (math.copysign(1, x) if x else 1) if axis_x else 1
+    core = R * 0.95
+    prof = [(0, -h, "under"), (R * 0.84, -h - 0.012, "tyre"), (core, -h * 0.74, "groove"), (core, h * 0.74, "tyre"), (R * 0.84, h + 0.012, "tyre"),
+            (rr, h, "rim"), (rr * 0.88, h * 0.6, "rim"), (rr * 0.45, h * 0.6, "hub"), (rr * 0.45, h * 0.78, "hub"), (0, h * 0.78, "hub")]
+    o = lathe([(r, off * side, k) for r, off, k in prof], 14, at, axis_x, M, "wheel")
+    outward(o)                                        # a closed surface, so this is reliable
+    for pl in o.data.polygons:                        # smooth over the rubber only; the rim, hub and back stay crisp
+        pl.use_smooth = o.data.materials[pl.material_index] in (M["tyre"], M["groove"])
+    p = [o]
+    nb = 12
+    for i in range(nb):
+        a = (i + 0.5) / nb * 2 * math.pi
+        lane = 1 if i % 2 else -1
+        w_, off, ln, ht = Wt * 0.5, lane * Wt * 0.12, 2 * math.pi * R / nb * 0.6, R * 0.07
+        rc = core + ht * 0.1
+        if axis_x:
+            p.append(box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=M["tyre"]))
+        else:
+            p.append(box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=M["tyre"]))
+    rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
+    for k in range(5):
+        a = k / 5 * 2 * math.pi
+        c, sn = math.cos(a) * rr * 0.28, math.sin(a) * rr * 0.28
+        nut_at = (x + side * (h * 0.78 + 0.01), y + c, sn) if axis_x else (x + c, y + side * (h * 0.78 + 0.01), sn)
+        p.append(cyl(rr * 0.075, 0.02, at=nut_at, rot=rot, m=M["trim"], verts=6, smooth=False))
+    return p
+
+
+def wheel_open(x, y, R, Wt, M, chunky=True, axis_x=True):
     """A tyre with a rounded shoulder and tread (style TYRE), a dished steel rim with a hub, on an axle along X
     (or along Y for the spare). The silhouette gets the segments; the tread pattern is low blocks or painted bands."""
     if "groove" not in M:
@@ -276,11 +321,16 @@ def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
             p.append(b)
     # the rim: a lip, a dished face and a raised centre, then a hub and five nuts; a flat cap closes the inner side
     rim = [(rr, h * 1.02, "rim"), (rr * 0.88, h * 0.6, "rim"), (rr * 0.5, h * 0.6, "rim"), (rr * 0.42, h * 0.75, "hub")]
-    p.append(lathe([(r, o * side, k) for r, o, k in rim], 12, at, axis_x, M, "rim"))
+    p.append(lathe([(r, o * side, k) for r, o, k in rim], 12, at, axis_x, M, "rim", face=(side, 0, 0) if axis_x else (0, side, 0)))
     hub_at = (x + side * h * 0.75, y, 0) if axis_x else (x, y + side * h * 0.75, 0)
     rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
     p.append(cyl(rr * 0.42, 0.04, at=hub_at, rot=rot, m=M["hub"], verts=6))
     p.append(cyl(rr * 0.9, 0.01, at=(x - side * h * 0.98, y, 0) if axis_x else (x, y - side * h * 0.98, 0), rot=rot, m=M["under"], verts=6))
+    for k in range(5):     # five hex wheel nuts round the hub
+        a = k / 5 * 2 * math.pi
+        c, sn = math.cos(a) * rr * 0.3, math.sin(a) * rr * 0.3
+        nut_at = (hub_at[0] + side * 0.02, y + c, sn) if axis_x else (x + c, hub_at[1] + side * 0.02, sn)
+        p.append(cyl(rr * 0.075, 0.025, at=nut_at, rot=rot, m=M["trim"], verts=6))
     return p
 
 
@@ -718,9 +768,11 @@ if __name__ == "__main__":
     ap.add_argument("--preview-samples", type=int, default=48)
     ap.add_argument("--no-preview", action="store_true")
     ap.add_argument("--views", default="")
+    ap.add_argument("--wheel", default=WHEEL, choices=["closed", "open"])
     ap.add_argument("--tyre", default=TYRE, choices=["at", "mt", "road"])
     a = ap.parse_args()
     TYRE = a.tyre
+    WHEEL = a.wheel
     VIEWS = a.views.split(",") if a.views else []
     for s in (STYLES if a.style == "all" else [a.style]):
         build(s, a.samples, not a.no_preview, a.preview_samples)

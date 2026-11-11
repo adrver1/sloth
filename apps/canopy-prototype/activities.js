@@ -20,8 +20,16 @@ const logMat = new THREE.MeshLambertMaterial({ map: barkTex });
 const hintTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 4, 32, 32, 30); r.addColorStop(0, "rgba(255,248,238,.95)"); r.addColorStop(0.6, "rgba(255,248,238,.75)"); r.addColorStop(1, "rgba(255,248,238,0)");
   g.fillStyle = r; g.fillRect(0, 0, 64, 64); g.font = "28px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("👆", 32, 34); });
 
-export function createActivities({ scene, camera, me, woodPile, fire = V(0, 0, 0), fireCards = [], flames = [], fireLight, glowTex, burst, toast, spots = () => [], addBlocker }) {
-  if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
+export function createActivities({ scene, camera, me, woodPile, woodTex, fire = V(0, 0, 0), fireCards = [], flames = [], fireLight, glowTex, burst, toast, spots = () => [], addBlocker }) {
+  if (!camera.parent) scene.add(camera);
+  // logs painted like the props thread's stack: its atlas (props/lived/wood_stack.jpg) has log ends on the top half and the logs
+  // seen from above bottom right, so the sides take one log's strip (mirrored round, so no seam) and the caps one round end
+  if (woodTex) {
+    const px = (x, y) => [x / 1024, woodTex.flipY ? 1 - y / 1024 : y / 1024], uv = logGeo.attributes.uv, side = (6 + 1) * 2;
+    for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i);
+      uv.setXY(i, ...(i < side ? px(540 + 62 * Math.abs(2 * u - 1), 555 + 455 * v) : px(440 + (u - 0.5) * 120, 92 + (v - 0.5) * 120))); }
+    uv.needsUpdate = true; logMat.map = woodTex; logMat.needsUpdate = true;
+  }   // so things held in your hand (children of the camera) are drawn
   // the wood pile: the props thread's pile when it is there, else a plain stack of the same logs in the same spot
   const pileAt = woodPile ? woodPile.clone() : V(-0.55, 0, -3.15);
   if (!woodPile) {

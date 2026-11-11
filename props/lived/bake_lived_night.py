@@ -46,7 +46,7 @@ LA, LB = (1.3, 4.3), (4.0, 3.0)
 lmid = ((LA[0] + LB[0]) / 2, (LA[1] + LB[1]) / 2)
 lyaw = math.atan2(-(LB[1] - LA[1]), LB[0] - LA[0])
 PLACE = {
-    "lived": {"WoodPile": (wp[0], wp[1], wy), "WoodStack": (wp[0], wp[1], wy),
+    "lived": {"WoodPile": (wp[0], wp[1], wy), "WoodStack": (wp[0], wp[1], wy), "LooseLogs": (wp[0], wp[1], wy),
               "SeatThings": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2)},
     "fire": {n: (0, 0, 0) for n in ("Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain")},
     "laundry": {"LaundryPosts": (lmid[0], lmid[1], lyaw), "LaundryCloth": (lmid[0], lmid[1], lyaw)},
@@ -77,6 +77,8 @@ sets = {}
 for name in PLACE:
     objs = import_glb(os.path.join(HERE, f"{name}.glb"))
     meshes = [o for o in objs if o.type == "MESH"]
+    if any(len(o.data.color_attributes) > 1 for o in meshes):
+        sys.exit(f"{name}.glb already carries a night set: run its builder again first")
     for o in objs:                      # unparent, keeping the transform, so each mesh can be placed on its own
         if o.parent:
             mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
