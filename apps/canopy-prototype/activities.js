@@ -66,7 +66,7 @@ export function createActivities({ scene, camera, me, woodPile, fire = V(0, 0, 0
     const hint = new THREE.Sprite(new THREE.SpriteMaterial({ map: hintTex, depthWrite: false, transparent: true, opacity: 0 })); hint.scale.setScalar(0.28); hint.position.copy(at).setY(hintY); hint.renderOrder = 4; scene.add(hint);
     const t = { name, at, box, hint, when, act }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
   }
-  thing("woodpile", pileAt, 0.55, 0.85, () => !held, () => { hold("log"); toast("Got a log 🪵 Bring it to the fire"); });
+  thing("woodpile", pileAt, 0.55, 0.85, () => !held, () => { hold("log"); toast("Got a log 🪵"); });
   thing("fire", fire, 0.6, 1.5, () => held === "log", () => {
     if (burning.length >= MAX_LOGS) { toast("The fire is roaring already 🔥"); return; }
     hold(null); addLog();
@@ -90,7 +90,7 @@ export function createActivities({ scene, camera, me, woodPile, fire = V(0, 0, 0
         t.hint.material.opacity += (on * 0.95 - t.hint.material.opacity) * Math.min(1, dt * 5); t.hint.visible = t.hint.material.opacity > 0.02;
         t.hint.position.y = t.hint.userData.y0 ??= t.hint.position.y; t.hint.position.y += Math.sin(time * 2.4) * 0.04; }
       // the held log sways a little as you walk
-      hand.userData.t = (hand.userData.t || 0) + dt; hand.position.y = -0.36 + Math.sin(me.walkT * 7) * 0.01 + (1 - Math.min(1, hand.userData.t * 4)) * -0.2;
+      hand.userData.t = (hand.userData.t || 0) + dt; hand.position.x = 0.1 + 0.26 * Math.min(1, camera.aspect);   // stays in view on a narrow phone hand.position.y = -0.36 + Math.sin(me.walkT * 7) * 0.01 + (1 - Math.min(1, hand.userData.t * 4)) * -0.2;
       // burning logs char and shrink as they settle; the fire's size follows how many are burning
       for (let i = burning.length - 1; i >= 0; i--) { const b = burning[i]; b.t += dt; const k = b.t < HOLD ? 0 : Math.min(1, (b.t - HOLD) / SETTLE);
         b.m.material.color.setScalar(1 - 0.75 * Math.min(1, b.t / 40)); b.m.scale.set(1 - 0.5 * k, 1 - 0.7 * k, 1 - 0.5 * k);
