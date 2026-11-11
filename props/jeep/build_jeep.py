@@ -229,7 +229,14 @@ def lathe(prof, n, at, axis_x, M, name="lathe"):
         me.materials.append(M[k])
     for pl, k in zip(me.polygons, fm):
         pl.material_index, pl.use_smooth = k, True
-    outward(o)
+    # an open surface, so face it away from the wheel's centre explicitly (normals_make_consistent can pick inward,
+    # and the page draws front faces only)
+    import bmesh
+    bm = bmesh.new(); bm.from_mesh(me); c0 = Vector(at)
+    for f in bm.faces:
+        if f.normal.dot(f.calc_center_median() - c0) < 0:
+            f.normal_flip()
+    bm.to_mesh(me); bm.free(); me.update()
     return o
 
 
@@ -356,8 +363,8 @@ def body(M, style):
         aim = (0, yr, SILL + 0.6)
         p.append(quad([(x0, y0, z0), (x0, y1, z0), (x0, y1, z1), (x0, y0, z1)], ins, aim))
         p.append(quad([(x0, y0, z1), (x0, y1, z1), (x1, y1, z1), (x1, y0, z1)], ins, aim))
-        for y_ in (y0, y1):
-            p.append(quad([(x0, y_, z0), (x1, y_, z0), (x1, y_, z1), (x0, y_, z1)], ins, (0, yr, z0)))
+        for y_, away in ((y0, -1), (y1, 1)):     # the ends face away from the wheel, into the cabin and the boot
+            p.append(quad([(x0, y_, z0), (x1, y_, z0), (x1, y_, z1), (x0, y_, z1)], ins, (x0, y_ + away, z0)))
     # handy points for the page: the driver's (SeatP, name kept) seat cushion, the steering wheel centre, the passenger door sill, the middle of the cargo deck
     for name, at in (("SeatP", (0.36, 0.18, SILL + 0.41)), ("DoorSill", (W / 2, 0.13, SILL + 0.11)), ("Boot", (0, 1.06, SILL + 0.33)), ("WheelHub", (0.36, -0.05, BELT + 0.09))):
         e = bpy.data.objects.new(name, None); e.location = at; bpy.context.collection.objects.link(e); EMPTIES.append(e)
@@ -378,9 +385,10 @@ def body(M, style):
         # mirror: a big squarish housing close to the door on a short foot at the front corner of the window (Adriaen's photo)
         # (it rides on the door, so it swings open with it)
         dr = G["DoorP" if s > 0 else "DoorD"]
-        dr.append(box((0.05, 0.09, 0.07), at=(s * (W / 2 + 0.01), -0.29, BELT + 0.06), m=M["trim"], bevel=0.012))
-        dr.append(box((0.065, 0.21, 0.17), at=(s * (W / 2 + 0.06), -0.24, BELT + 0.16), m=M["trim"], bevel=0.02))
-        dr.append(box((0.045, 0.006, 0.13), at=(s * (W / 2 + 0.06), -0.132, BELT + 0.16), m=M["glass"]))
+        # the housing sticks out sideways with its glass facing back
+        dr.append(box((0.06, 0.06, 0.08), at=(s * (W / 2 + 0.03), -0.28, BELT + 0.07), m=M["trim"], bevel=0.012))
+        dr.append(box((0.18, 0.065, 0.16), at=(s * (W / 2 + 0.105), -0.28, BELT + 0.17), m=M["trim"], bevel=0.02))
+        dr.append(box((0.14, 0.006, 0.12), at=(s * (W / 2 + 0.105), -0.246, BELT + 0.17), m=M["glass"]))
     G["GlassB"].append(panel((-0.5, REAR + 0.004, zb + 0.04), (0.5, REAR + 0.004, zb + 0.04), (0.48, REAR + 0.002, zt - 0.02), (-0.48, REAR + 0.002, zt - 0.02), g))
     # roof gutters
     for s in (-1, 1):
