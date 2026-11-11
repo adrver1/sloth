@@ -639,7 +639,7 @@ const lnight = (mat) => {
 // rustic seats (Our camp, Rustic); ?lived=0 hides them to compare.
 if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
   const L = await glb("models/lived.txt"), lm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
-  L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map })) : lm; });   // the stack is a textured block
+  L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, ...(m.name.startsWith("SeatTop") && { polygonOffset: true, polygonOffsetFactor: -2 }) })) : lm; });   // the stack, loose logs and seat tops are textured
   const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
   const wp = V(-0.55, 0, -3.15), wy = Math.atan2(-wp.x, -wp.z);
   put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); put("LooseLogs", wp.x, wp.z, wy); var WOODPILE = wp;   // the activities take logs from here
@@ -647,6 +647,7 @@ if ((PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0") {
   const side = V(Math.cos(wy), 0, -Math.sin(wy));                     // the pile's local +X (where the stump stands) in the world
   blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
   const a = A0 + Math.PI; put("SeatThings", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2);
+  for (let i = 0; i < 3; i++) { const b = A0 + Math.PI + (i - 1) * 1.15; put("SeatTop", Math.cos(b) * 2.1, Math.sin(b) * 2.1, -b + Math.PI / 2); }   // the sawn top on each seat
 }
 // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,
 // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, about 110 triangles).

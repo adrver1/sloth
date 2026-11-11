@@ -302,14 +302,14 @@ def wood_pile(M):
     k0 = mark(p, 0, "End posts")
     # the chopping stump beside it, with the hatchet left in, and a half-split log waiting on the ground
     sx, sy = 1.0, -0.15
-    stump = rough_up(cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=16, r2=None), 0.01, 10)
+    stump = rough_up(cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=8, r2=None, smooth=False), 0.01, 10)   # 8 flat sides
     p.append(stump)
-    p.append(cyl(0.205, 0.012, at=(sx, sy, 0.424), m=M["endgrain"], verts=16, smooth=False))
+    p.append(cyl(0.205, 0.012, at=(sx, sy, 0.424), m=M["endgrain"], verts=8, smooth=False))
     for k in range(3):
-        p.append(torus(0.05 + k * 0.05, 0.003, at=(sx, sy, 0.43), m=M["wood"], major=16, minor=3))
+        p.append(torus(0.05 + k * 0.05, 0.003, at=(sx, sy, 0.43), m=M["wood"], major=8, minor=3))
     for k in range(4):                              # roots flaring into the ground
         a = k / 4 * 2 * math.pi + 0.4
-        p.append(rod((sx + math.cos(a) * 0.17, sy + math.sin(a) * 0.17, 0.05), (sx + math.cos(a) * 0.27, sy + math.sin(a) * 0.27, -0.03), 0.045, M["bark"], verts=8))
+        p.append(rod((sx + math.cos(a) * 0.17, sy + math.sin(a) * 0.17, 0.05), (sx + math.cos(a) * 0.27, sy + math.sin(a) * 0.27, -0.03), 0.045, M["bark"], verts=5))
     k0 = mark(p, k0, "Chopping stump")
     p.append(hatchet(M, (sx + 0.03, sy - 0.02, 0.505), yaw=-0.5, lean=0.85))   # the blade bitten in about 2 cm
     k0 = mark(p, k0, "Hatchet")
@@ -412,11 +412,66 @@ def seat_things(M):
     return join(p, "SeatThings")
 
 
+def seat_top_texture(path):
+    """The sawn top of the half-log seat (1.48 x 0.46 m): pale wood with grain running along the log (no knots,
+    Adriaen), a drying crack, and the sawn edges a little darker and worn."""
+    from PIL import Image, ImageDraw, ImageFilter
+    r = random.Random(5)
+    k, W, H = 2, 1024, 320
+    im = Image.new("RGB", (W * k, H * k), (206, 168, 120))
+    d = ImageDraw.Draw(im)
+    for i in range(46):                                       # grain lines along the log, gently wavy
+        y0, col = r.uniform(0, H), r.choice([(186, 146, 100), (176, 136, 92), (222, 188, 142), (194, 154, 108)])
+        ph, amp, w = r.uniform(0, 6.3), r.uniform(1, 4), r.choice([1, 1, 2, 2, 3])
+        pts = []
+        for x in range(0, W + 8, 8):
+            y = y0 + amp * math.sin(x / r.uniform(60, 140) + ph)
+            pts.append((x * k, y * k))
+        d.line(pts, fill=col, width=w * k)
+    pts = [(W * 0.52 * k, H * 0.5 * k)]                         # a drying crack from one sawn end
+    x, y = W * 0.52, H * 0.5
+    while x < W:
+        x += r.uniform(14, 30); y += r.uniform(-3, 3); pts.append((x * k, y * k))
+    d.line(pts, fill=(92, 62, 38), width=3 * k)
+    im = im.filter(ImageFilter.GaussianBlur(1.2 * k))
+    edge = Image.new("L", im.size, 0)                         # darker worn rim along the long edges and the sawn ends
+    de = ImageDraw.Draw(edge)
+    for i in range(14):
+        de.rectangle((i * k, i * k, (W - i) * k, (H - i) * k), outline=int(120 * (1 - i / 14) ** 1.5), width=k)
+    im = Image.composite(Image.new("RGB", im.size, (120, 86, 56)), im, edge)
+    im.resize((W, H), Image.LANCZOS).save(path)
+
+
+def seat_top():
+    """One textured quad laid on the seat's flat top (2 triangles); the page puts a copy on each of the three seats."""
+    img = os.path.join(HERE, "seat_top.png")
+    seat_top_texture(img)
+    hx, hy, z = 0.74, 0.23, SEAT_TOP + 0.0055                  # just over the top board (1.48 x 0.46, top face at 0.366)
+    me = bpy.data.meshes.new("SeatTop")
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    f = bm.faces.new([bm.verts.new(c) for c in ((-hx, -hy, z), (hx, -hy, z), (hx, hy, z), (-hx, hy, z))])
+    for lp, t in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
+        lp[uv].uv = t
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("SeatTop", me)
+    bpy.context.collection.objects.link(o)
+    m = bpy.data.materials.new("SeatTop")
+    m.use_nodes = True
+    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
+    tx.image = bpy.data.images.load(img)
+    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    me.materials.append(m)
+    return o
+
+
 def build(samples, parts_out=None):
     reset()
     M = materials()
     stack = wood_stack(M, max(samples, 48))
     loose = loose_logs()
+    top = seat_top()
     objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M)}
     for k, o in objs.items():
         apply_all(o)
@@ -428,13 +483,14 @@ def build(samples, parts_out=None):
             o.data.uv_layers.remove(o.data.uv_layers[0])
     path = os.path.join(HERE, "lived.glb")
     bpy.ops.object.select_all(action="DESELECT")
-    for o in [*objs.values(), stack, loose]:
+    for o in [*objs.values(), stack, loose, top]:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
                               export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
                               export_image_format="JPEG")
     print(f"  WoodStack: {sum(len(pl.vertices) - 2 for pl in stack.data.polygons)} triangles")
     print(f"  LooseLogs: {sum(len(pl.vertices) - 2 for pl in loose.data.polygons)} triangles")
+    print(f"  SeatTop: {sum(len(pl.vertices) - 2 for pl in top.data.polygons)} triangles (x3 seats on the page)")
     for k, o in objs.items():
         print(f"  {k}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
         part = o.data.attributes["part"]

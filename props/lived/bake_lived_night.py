@@ -47,7 +47,8 @@ lmid = ((LA[0] + LB[0]) / 2, (LA[1] + LB[1]) / 2)
 lyaw = math.atan2(-(LB[1] - LA[1]), LB[0] - LA[0])
 PLACE = {
     "lived": {"WoodPile": (wp[0], wp[1], wy), "WoodStack": (wp[0], wp[1], wy), "LooseLogs": (wp[0], wp[1], wy),
-              "SeatThings": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2)},
+              "SeatThings": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2),
+              "SeatTop": (math.cos(sa) * 2.1, math.sin(sa) * 2.1, -sa + math.pi / 2)},   # SeatTop: baked on the middle seat, used on all three
     "fire": {n: (0, 0, 0) for n in ("Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain")},
     "laundry": {"LaundryPosts": (lmid[0], lmid[1], lyaw), "LaundryCloth": (lmid[0], lmid[1], lyaw)},
 }
@@ -99,7 +100,8 @@ for name in PLACE:
 A0d = (math.cos(A0), math.sin(A0)); t0 = (-A0d[1], A0d[0])
 comb = lambda s1, s2, base=(0, 0): (base[0] + A0d[0] * s1 + t0[0] * s2, base[1] + A0d[1] * s1 + t0[1] * s2)  # noqa: E731
 tentAt = comb(-4.2, 2.4); hA = comb(-1.5, -4.6)
-l0 = (tentAt[0], 2.6, tentAt[1]); l1 = (hA[0], 2.5, hA[1])
+_tl = math.hypot(*tentAt)
+l0 = (tentAt[0] - tentAt[0] / _tl * 1.12, 2.8, tentAt[1] - tentAt[1] / _tl * 1.12); l1 = (hA[0], 2.5, hA[1])
 
 
 def point(name, at, rgb, watts, r):
@@ -108,6 +110,10 @@ def point(name, at, rgb, watts, r):
 
 
 point("FireLight", B(0, 0.55, 0), (1.0, 0.50, 0.20), 260, 0.25)
+sys.path.insert(0, os.path.join(ROOT, "props", "camp"))
+from build_camp import STOVE  # noqa: E402
+tent = next(o for o in bpy.data.objects if o.name.startswith("occ_Tent") and o.type == "MESH")
+point("StoveLight", tent.matrix_world @ Vector(STOVE), (1.0, 0.50, 0.20), 45, 0.12)   # the wood stove in the walk-in tent
 for i in range(1, 9):
     t = i / 9; p = [l0[k] + (l1[k] - l0[k]) * t for k in range(3)]; p[1] -= math.sin(math.pi * t) * 0.45
     point(f"LanternLight_{i}", B(p[0], p[1] - 0.12, p[2]), (1.0, 0.72, 0.38), 50, 0.05)
