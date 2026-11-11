@@ -41,7 +41,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 <div id="toast"></div>
 <div class="bar">
   <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
-  <button id="props">Props</button><button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
+  <button id="props">Props</button><button id="jeep">Jeep</button><button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
@@ -69,6 +69,10 @@ const PROPS = PROPSETS.includes(qs.get("props")) ? qs.get("props") : PROPSETS.in
 $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
 $("props").textContent = "Props: " + PNAME[PROPS];
 $("props").onclick = () => { store.set("canopy-props2", PROPSETS[(PROPSETS.indexOf(PROPS) + 1) % PROPSETS.length]); location.reload(); };
+const JEEPS = ["expedition", "toy", "camper", "none"], JNAME = { expedition: "Expedition", toy: "Toy", camper: "Camper", none: "None" };
+const JEEP = JEEPS.includes(qs.get("jeep")) ? qs.get("jeep") : JEEPS.includes(store.get("canopy-jeep")) ? store.get("canopy-jeep") : "expedition";
+$("jeep").textContent = "Jeep: " + JNAME[JEEP];
+$("jeep").onclick = () => { store.set("canopy-jeep", JEEPS[(JEEPS.indexOf(JEEP) + 1) % JEEPS.length]); location.reload(); };
 $("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
 // seeded random, so all three looks grow the same tree and hide sloths in the same spots
@@ -395,6 +399,19 @@ if (PROPS !== "code") {
   const hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA); put("Hammock", hm.x, hm.z, -Math.atan2(hd.z, hd.x));
   put("Table", tb.x, tb.z, 0.6);
   lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
+}
+// ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
+// between the hammock and the first big tree, along the edge, its right side (the camper's ladder) toward the fire
+if (JEEP !== "none") {
+  const J = await glb(`models/jeep_${JEEP}.txt`), at = V(-2.2, 0, -6.4), out = at.clone().normalize();
+  let tan = V(-out.z, 0, out.x);
+  if (V(tan.z, 0, -tan.x).dot(out) > 0) tan.negate();     // local +X (the right side) must face the middle
+  const jeep = J.scene.getObjectByName("Jeep");
+  const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
+  jeep.traverse((m) => { if (m.isMesh) m.material = jm; });
+  jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep);
+  for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
+  if (JEEP === "camper") blockers.push([at.clone().addScaledVector(out, -2.3), 0.4]);   // the ladder foot
 }
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
 const sloths = [], hit = [];
