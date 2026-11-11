@@ -1,5 +1,5 @@
 <!-- PROTOTYPE (throwaway): Canopy Camp. Question: does a cozy clearing hub plus canopy boardwalks (you can't step off them) feel free to explore while staying cheap to render?
-     First person. Tap to walk, hold to keep walking, drag to look. Tap a sloth to boop it, hold on it to feed it. Rest turns the light to dusk.
+     First person. On a phone a stick bottom-left walks (as in desk-at-night's free mode) and a drag anywhere else looks; on a computer WASD or the arrow keys walk and a mouse drag looks. Tap a sloth to boop it, hold on it to feed it. Rest turns the light to dusk.
      Built on index.html (the forest look prototype): same three looks behind #moss | #paint | #low, and the same detail toggle.
      Detail button (Low / Medium / High, or ?detail=) scales leaves, ferns, fur shells, effects and resolution.
      No real-time shadows; "baked" light is vertex colour; leaves and plants are instanced (one draw per kind). -->
@@ -18,20 +18,25 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
 .pill { background: rgb(255 248 238 / .9); border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 20px; box-shadow: 0 3px 0 rgb(138 90 59 / .18); font-variant-numeric: tabular-nums; }
 #perf { font-size: 12px; font-weight: 500; padding: 5px 10px; color: var(--soft); text-align: right; line-height: 1.25; border-radius: 14px; }
-.bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
-  padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
-.bar a, .bar button { pointer-events: auto; font: 600 16px var(--display); color: var(--ink); background: rgb(255 248 238 / .9); border: 0; border-radius: 999px;
-  padding: 9px 16px; text-decoration: none; box-shadow: 0 3px 0 rgb(138 90 59 / .2); cursor: pointer; }
+.bar { position: fixed; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top, 0px)); display: flex; justify-content: center; gap: 6px; flex-wrap: wrap;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
+.bar a, .bar button { pointer-events: auto; font: 600 13px var(--display); color: var(--ink); background: rgb(255 248 238 / .85); border: 0; border-radius: 999px;
+  padding: 6px 11px; text-decoration: none; box-shadow: 0 2px 0 rgb(138 90 59 / .2); cursor: pointer; }
+.stick { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%;
+  background: rgb(255 248 238 / .18); border: 2px solid rgb(255 248 238 / .55); touch-action: none; }
+.stick i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgb(255 248 238 / .85); box-shadow: 0 3px 0 rgb(138 90 59 / .25); }
+.stick i::after { content: "🐾"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 20px; opacity: .7; }
 .bar a.on { background: var(--pink); color: #fff; box-shadow: 0 3px 0 #d95c86; }
 .bar button { background: #ffe9a8; }
 #toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none;
   font-weight: 700; font-size: 34px; color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
 #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-#q { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); top: calc(56px + env(safe-area-inset-top, 0px)); text-align: center; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .5); pointer-events: none; }
+#q { position: fixed; left: max(160px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); transition: opacity 1s; text-align: center; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .5); pointer-events: none; }
 </style>
 <canvas id="c"></canvas>
 <div class="hud"><div class="pill" id="score">💗 0 friends</div><div class="pill" id="perf">… fps</div></div>
-<div id="q">Tap to walk · hold to keep walking · drag to look · tap a sloth to boop, hold on it to feed</div>
+<div id="q">Stick to walk · drag to look<br>Tap a sloth to boop it, hold on it to feed it</div>
+<div class="stick" id="stick" hidden><i></i></div>
 <div id="toast"></div>
 <div class="bar">
   <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
@@ -484,7 +489,7 @@ function flowerCrown(s) {
 
 // ================================================================ the player: first person, on the clearing floor or on the boardwalk
 const EYE = 1.55, SPEED = 1.7;
-const me = { mode: "ground", pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), s: 0, yaw: 0, pitch: 0.08, target: null, holding: false, walkT: 0, lastDrag: -9, mark: null };
+const me = { vel: V(), mode: "ground", pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), s: 0, yaw: 0, pitch: 0.08, target: null, holding: false, walkT: 0, lastDrag: -9, mark: null };
 me.yaw = Math.atan2(-(GATE.x - me.pos.x), -(GATE.z - me.pos.z));       // face the gate and the big tree
 const look = V();
 function collide(p) {
@@ -495,34 +500,29 @@ let landmark = -1;
 function step(dt) {
   let moving = false;
   const fwd = V(-Math.sin(me.yaw), 0, -Math.cos(me.yaw));
-  if (me.holding && !me.target) {
+  // walk with the stick (phone) or WASD / arrows (computer), like desk-at-night's free mode
+  const right = V(-fwd.z, 0, fwd.x);
+  const ax = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + stickV.x;
+  const az = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) - stickV.y;
+  const wish = fwd.clone().multiplyScalar(az).addScaledVector(right, ax); if (wish.lengthSq() > 1) wish.normalize();
+  me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
+  const sp = me.vel.length();
+  if (sp > 0.05) {
+    moving = true;
     if (me.mode === "ground") {
-      const p = me.pos.clone().addScaledVector(fwd, SPEED * dt);
+      const p = me.pos.clone().addScaledVector(me.vel, dt);
       // walking into the gate from the clearing puts you on the boardwalk
-      if (p.distanceTo(GATE.clone().setY(0)) < 0.7 && fwd.dot(d0) > 0.3) { me.mode = "walk"; me.s = 0; }
+      if (p.distanceTo(GATE.clone().setY(0)) < 0.8 && me.vel.dot(d0) > 0.3 * sp) { me.mode = "walk"; me.s = 0.05; }
       else { collide(p); me.pos.copy(p); }
     } else {
-      const sg = Math.sign(fwd.dot(tangent(me.s))) || 1; me.s += sg * SPEED * dt;
+      // on the boardwalk only along it: the push along the path counts; a push mostly sideways still goes the way you face
+      const tH = tangent(me.s).setY(0).normalize();
+      let along = me.vel.dot(tH);
+      if (Math.abs(along) < 0.4 * sp) along = Math.sign(az || 1) * Math.sign(fwd.dot(tH) || 1) * sp;
+      me.s = Math.min(PL, me.s + along * dt);
+      if (Math.abs(along) > 0.2) turnTo(tH.clone().multiplyScalar(Math.sign(along)), dt * 0.6);   // the view eases round the bends
       if (me.s < 0) { me.mode = "ground"; me.pos.copy(GATE).setY(0).addScaledVector(d0, -0.8); }
-      me.s = Math.min(me.s, PL);
     }
-    moving = true;
-  } else if (me.target) {
-    const t = me.target;
-    if (me.mode === "ground" && t.kind === "walk") {           // walk to the gate first
-      const g = GATE.clone().setY(0).addScaledVector(d0, -0.3), d = g.clone().sub(me.pos).setY(0), L = d.length();
-      if (L < 0.15) { me.mode = "walk"; me.s = 0; } else { me.pos.addScaledVector(d.normalize(), Math.min(L, SPEED * dt)); collide(me.pos); turnTo(d, dt); }
-    } else if (me.mode === "walk" && t.kind === "ground") {    // back down to the clearing
-      me.s -= SPEED * 1.2 * dt; turnTo(tangent(me.s).negate(), dt);
-      if (me.s <= 0) { me.mode = "ground"; me.pos.copy(GATE).setY(0).addScaledVector(d0, -0.8); }
-    } else if (me.mode === "walk") {
-      const ds = t.s - me.s; if (Math.abs(ds) < 0.05) me.target = null; else { me.s += Math.sign(ds) * Math.min(Math.abs(ds), SPEED * dt); turnTo(tangent(me.s).multiplyScalar(Math.sign(ds)), dt); }
-    } else {
-      const d = t.p.clone().sub(me.pos).setY(0), L = d.length();
-      if (L < 0.1) me.target = null; else { const before = me.pos.clone(); me.pos.addScaledVector(d.normalize(), Math.min(L, SPEED * dt)); collide(me.pos); turnTo(d, dt); if (me.pos.distanceTo(before) < SPEED * dt * 0.2) me.target = null; }
-    }
-    moving = !!me.target;
-    if (!me.target && me.mark) me.mark.visible = false;
   }
   if (moving) me.walkT += dt;
   const feet = me.mode === "walk" ? at(me.s) : me.pos;
@@ -536,43 +536,53 @@ function step(dt) {
 function turnTo(dir, dt) {                             // ease the view round to face the way you walk, unless you have just looked around
   if (uTime.value - me.lastDrag < 1.5) return;
   const want = Math.atan2(-dir.x, -dir.z); let d = want - me.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
-  me.yaw += d * Math.min(1, dt * 2.5); me.pitch += ((dir.y || 0) * 0.6 + 0.02 - me.pitch) * Math.min(1, dt * 1.5);
+  me.yaw += d * Math.min(1, dt * 2.5);
 }
 let toastT;
 function toast(txt) { const t = $("toast"); t.textContent = txt; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1600); }
-// a soft ring where you tapped
-const ringMark = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.26, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xfff6e0, transparent: true, opacity: 0.8, depthWrite: false })); ringMark.visible = false; scene.add(ringMark); me.mark = ringMark;
 
 // ---------------------------------------------------------------- input
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function pickAt(x, y, list) { ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.intersectObjects(list, false)[0]; }
-const ptrs = new Map(); let moved = 0, holdT = null, pinch0 = 0, fov0 = 0, fovAdd = 0, held = false;
-addEventListener("pointerdown", (e) => {
-  if (e.target.closest(".bar")) return;
-  ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; held = false;
-  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); fov0 = fovAdd; clearTimeout(holdT); me.holding = false; return; }
+const keys = new Set();
+addEventListener("keydown", (e) => { keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
+const coarse = matchMedia("(pointer: coarse)").matches || qs.has("touch");
+const stick = $("stick"), stickV = new THREE.Vector2(); let stickId = null;
+stick.hidden = !coarse;
+if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth to boop it, hold on it to feed it";
+function hideHelp() { setTimeout(() => ($("q").style.opacity = 0), 6000); }
+function stickMove(e) {
+  const r = stick.getBoundingClientRect(), v = new THREE.Vector2(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2).divideScalar(r.width / 2);
+  if (v.length() > 1) v.normalize(); stickV.copy(v); stick.firstElementChild.style.transform = `translate(${v.x * 37}px, ${v.y * 37}px)`;
+}
+stick.addEventListener("pointerdown", (e) => { e.stopPropagation(); stickId = e.pointerId; stick.setPointerCapture(e.pointerId); stickMove(e); hideHelp(); });
+stick.addEventListener("pointermove", (e) => { if (e.pointerId === stickId) stickMove(e); });
+const stickEnd = (e) => { if (e.pointerId !== stickId) return; stickId = null; stickV.set(0, 0); stick.firstElementChild.style.transform = ""; };
+stick.addEventListener("pointerup", stickEnd); stick.addEventListener("pointercancel", stickEnd);
+// anywhere else: drag to look, two fingers to zoom, a short tap boops a sloth, a hold on one feeds it
+const looks = new Map(); let pinch0 = 0, fov0 = 0, fovAdd = 0;
+$("c").addEventListener("pointerdown", (e) => {
+  const L = { x: e.clientX, y: e.clientY, moved: 0, t0: performance.now(), held: false };
+  looks.set(e.pointerId, L);
+  if (looks.size === 2) { const [a, b] = [...looks.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); fov0 = fovAdd; return; }
   const h = pickAt(e.clientX, e.clientY, hit);
-  holdT = setTimeout(() => { if (moved > 10) return; held = true; if (h && h.distance < 7) feed(h.object.userData.s); else if (h) toast("Get a bit closer"); else { me.target = null; ringMark.visible = false; me.holding = true; } }, 450);
+  if (h) L.holdT = setTimeout(() => { if (L.moved > 12) return; L.held = true; h.distance < 7 ? feed(h.object.userData.s) : toast("Get a bit closer"); }, 450);
 });
-addEventListener("pointermove", (e) => {
-  if (!ptrs.has(e.pointerId)) return; const [px, py] = ptrs.get(e.pointerId), dx = e.clientX - px, dy = e.clientY - py; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
-  moved += Math.abs(dx) + Math.abs(dy);
-  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; fovAdd = THREE.MathUtils.clamp(fov0 + (pinch0 - Math.hypot(a[0] - b[0], a[1] - b[1])) * 0.06, -20, 6); resize(); return; }
-  if (moved > 10) { me.yaw += dx * 0.005; me.pitch = THREE.MathUtils.clamp(me.pitch - dy * 0.004, -1.0, 1.0); me.lastDrag = uTime.value; }
+$("c").addEventListener("pointermove", (e) => {
+  const L = looks.get(e.pointerId); if (!L) return;
+  const dx = e.clientX - L.x, dy = e.clientY - L.y; L.x = e.clientX; L.y = e.clientY; L.moved += Math.hypot(dx, dy);
+  if (looks.size === 2) { const [a, b] = [...looks.values()]; fovAdd = THREE.MathUtils.clamp(fov0 + (pinch0 - Math.hypot(a.x - b.x, a.y - b.y)) * 0.06, -20, 6); resize(); return; }
+  me.yaw += dx * 0.005; me.pitch = THREE.MathUtils.clamp(me.pitch - dy * 0.004, -1.2, 1.2); me.lastDrag = uTime.value;
 });
-addEventListener("pointerup", (e) => {
-  clearTimeout(holdT); me.holding = false;
-  if (ptrs.has(e.pointerId) && ptrs.size === 1 && moved < 10 && !held) tap(e.clientX, e.clientY);
-  ptrs.delete(e.pointerId);
-});
-addEventListener("pointercancel", (e) => { clearTimeout(holdT); me.holding = false; ptrs.delete(e.pointerId); });
+const lookEnd = (e) => {
+  const L = looks.get(e.pointerId); looks.delete(e.pointerId); if (!L) return; clearTimeout(L.holdT);
+  if (L.moved < 12 && !L.held && performance.now() - L.t0 < 450) tap(e.clientX, e.clientY);
+};
+$("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
 addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.deltaY * 0.02, -20, 6); resize(); }, { passive: true });
 function tap(x, y) {
-  const h = pickAt(x, y, hit); if (h && h.distance < 7) return boop(h.object.userData.s); if (h) return toast("Get a bit closer");
-  const w = pickAt(x, y, [planks]);
-  if (w) { me.target = { kind: "walk", s: nearestS(w.point) }; ringMark.position.copy(w.point).setY(w.point.y + 0.04); ringMark.visible = true; return; }
-  const g = pickAt(x, y, [clearing]);
-  if (g) { const p = g.point.clone(); collide(p); me.target = { kind: "ground", p }; ringMark.position.copy(p).setY(0.04); ringMark.visible = true; }
+  const h = pickAt(x, y, hit); if (!h) return;
+  if (h.distance < 7) boop(h.object.userData.s); else toast("Get a bit closer");
 }
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
 function boop(s) { s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
@@ -623,7 +633,6 @@ renderer.setAnimationLoop(() => {
   flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
   fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
   lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
-  if (ringMark.visible) ringMark.material.opacity = 0.5 + 0.3 * Math.sin(uTime.value * 5);
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
     scene.fog.color.copy(DAY.fog).lerp(DUSK, dusk); hemiL.intensity = DAY.hemi * (1 - 0.6 * dusk); sun.intensity = DAY.sun * (1 - 0.85 * dusk);
@@ -644,6 +653,7 @@ renderer.setAnimationLoop(() => {
 });
 window.__me = me; window.__PL = PL; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__rest = () => { duskTo = 1; dusk = 1; };
 window.__face = (i) => { const s = sloths[i]; me.mode = s === sloths[0] ? "ground" : "walk"; if (me.mode === "walk") me.s = Math.max(0.5, nearestS(s.p) - 1.2); else me.pos.copy(GATE).setY(0).addScaledVector(d0, -3); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
+window.__stick = (x, y) => stickV.set(x, y);
 window.__slothS = sloths.map((s) => +nearestS(s.p).toFixed(1));
 window.__ready = true;
 </script>
