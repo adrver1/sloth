@@ -124,45 +124,119 @@ def ring(M):
 
 
 def tripod(M):
-    """Three bamboo legs like the picked hammock's posts (build_camp.painted_bamboo: flat-shaded octagon, nodes painted
-    on, no modelled rings), crossing a little below their tops, with a rope lashing where they cross."""
-    p = []
+    """The rope lashing where the three legs cross (baked like the rest); the legs themselves are tripod_legs()."""
+    return join([torus(0.05, 0.022, at=(0, 0, TOP.z - 0.06), m=M["rope"], major=8, minor=3)], "Tripod")
+
+
+def bamboo_texture(path):
+    """One 0.5 m length of bamboo, tiled along the legs: a pale culm with faint fibres and a darker node band with a
+    light ridge, so the nodes are only painted on (no extra triangles however long the legs are)."""
+    from PIL import Image, ImageDraw
+    W, H = 32, 128
+    im = Image.new("RGB", (W, H), (201, 190, 118))
+    d = ImageDraw.Draw(im)
+    for x in range(0, W, 5):
+        d.line((x, 0, x, H), fill=(190, 178, 108))
+    for y in range(H):                                             # a soft swell toward each node
+        t = abs(y - H / 2) / (H / 2)
+        if t > 0.75:
+            d.line((0, y, W, y), fill=(int(196 - 30 * (t - 0.75)), int(185 - 30 * (t - 0.75)), int(114 - 20 * (t - 0.75))))
+    d.rectangle((0, 0, W, 5), fill=(150, 138, 76))
+    d.line((0, 2, W, 2), fill=(222, 212, 150))
+    im.save(path)
+
+
+def tripod_legs():
+    """Three bamboo legs, each one stretched eight-sided tube with a cap on top (16 + 6 triangles), textured with
+    bamboo.png repeating every 0.5 m along it."""
+    img = os.path.join(HERE, "bamboo.png")
+    bamboo_texture(img)
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    r, n = 0.032, 8
     for i in range(3):
         a = i / 3 * 2 * math.pi + 0.3
         foot = Vector((math.cos(a) * 0.85, math.sin(a) * 0.85, 0))
         d = (TOP - foot).normalized()
-        length = (TOP - foot).length + 0.16                        # the tops poke out past the crossing
-        o = painted_bamboo((0, 0, 0), length, 0.032, M["bamboo"], M["node"], step=0.5, band=0.03)[0]
-        o.rotation_mode = "QUATERNION"
-        o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d)
-        o.location = foot
-        p.append(o)
-    p.append(torus(0.05, 0.022, at=(0, 0, TOP.z - 0.06), m=M["rope"], major=8, minor=3))   # the lashing where the legs cross
-    return join(p, "Tripod")
+        top = TOP + d * 0.16                                       # the tops poke out past the crossing
+        L = (top - foot).length
+        x = d.cross(Vector((0, 0, 1))).normalized()
+        y = d.cross(x)
+        ring = lambda c: [c + (x * math.cos(k / n * 2 * math.pi) + y * math.sin(k / n * 2 * math.pi)) * r for k in range(n + 1)]
+        lo, hi = [bm.verts.new(v) for v in ring(foot)], [bm.verts.new(v) for v in ring(top)]
+        for k in range(n):
+            f = bm.faces.new((lo[k], lo[k + 1], hi[k + 1], hi[k]))
+            for lp, u in zip(f.loops, ((k / n, 0), ((k + 1) / n, 0), ((k + 1) / n, L / 0.5), (k / n, L / 0.5))):
+                lp[uv].uv = u
+        cap = bm.faces.new(hi[:n])
+        for lp in cap.loops:
+            lp[uv].uv = (0.5, 0.01)                                # the node colour
+    me = bpy.data.meshes.new("TripodLegs")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("TripodLegs", me)
+    bpy.context.collection.objects.link(o)
+    m = bpy.data.materials.new("TripodLegs")
+    m.use_nodes = True
+    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
+    tx.image = bpy.data.images.load(img)
+    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    me.materials.append(m)
+    return o
 
 
 def embers(n, spread, M, z=0.04):
     p = []
     for i in range(n):
         a, d = rng.uniform(0, 2 * math.pi), spread * math.sqrt(rng.uniform(0, 1))
-        bpy.ops.mesh.primitive_ico_sphere_add(radius=rng.uniform(0.025, 0.045), subdivisions=1, location=(math.cos(a) * d, math.sin(a) * d, z))
+        bpy.ops.mesh.primitive_cone_add(vertices=5, radius1=rng.uniform(0.03, 0.05), radius2=0, depth=0.035, end_fill_type="NOTHING",
+                                        location=(math.cos(a) * d, math.sin(a) * d, z), rotation=(0, 0, rng.uniform(0, 6.3)))   # a low glowing lump: 5 triangles
         o = bpy.context.object
-        o.scale = (1, rng.uniform(0.7, 1.2), 0.6)
+        o.scale = (1, rng.uniform(0.7, 1.2), 1)
         p.append(_finish(o, M["ember" if i % 3 else "ember2"], smooth=False))
     return p
 
 
+def hex_log(a, b, r, M, burnt=0.45, sides=6):
+    """A low-poly fire log from a (in the ash) to b: one six-sided tube with a single extra ring where the bark turns to
+    char, a cap on the burnt end and none on the buried end. 4 x sides + (sides - 2) triangles."""
+    a, b = Vector(a), Vector(b)
+    d = (b - a).normalized()
+    x = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.99 else Vector((1, 0, 0))).normalized()
+    y = d.cross(x)
+    k = a.lerp(b, 1 - burnt)
+    tw = rng.uniform(0, 1)
+    rings = [[c + (x * math.cos((j + tw) / sides * 2 * math.pi) + y * math.sin((j + tw) / sides * 2 * math.pi)) * rr for j in range(sides)]
+             for c, rr in ((a, r), (k, r), (b, r * 0.85))]
+    verts = [v for ring in rings for v in ring]
+    faces, mats = [], []
+    for i, m in ((0, 0), (1, 1)):
+        for j in range(sides):
+            faces.append((i * sides + j, i * sides + (j + 1) % sides, (i + 1) * sides + (j + 1) % sides, (i + 1) * sides + j)); mats.append(m)
+    faces.append(tuple(2 * sides + j for j in range(sides))); mats.append(1)
+    me = bpy.data.meshes.new("log")
+    me.from_pydata([tuple(v) for v in verts], [], faces)
+    o = bpy.data.objects.new("log", me)
+    bpy.context.collection.objects.link(o)
+    me.materials.append(M["bark"])
+    me.materials.append(M["char"])
+    for poly, mi in zip(me.polygons, mats):
+        poly.material_index = mi
+    return [o]
+
+
 def fire(M):
-    """The teepee: seven split logs leaning together, kindling between them, embers in the ash."""
+    """The teepee: seven split logs leaning together, kindling between them, embers in the ash. Hexagonal logs and
+    four-sided kindling sticks (Adriaen: they need not be round)."""
     p = []
     for i in range(7):
         a = i / 7 * 2 * math.pi + rng.uniform(-0.15, 0.15)
         r0 = rng.uniform(0.3, 0.38)
-        p += log((math.cos(a) * r0, math.sin(a) * r0, 0.02), (math.cos(a + 0.25) * 0.05, math.sin(a + 0.25) * 0.05, rng.uniform(0.5, 0.58)),
-                 rng.uniform(0.035, 0.045), M, burnt=0.45)
+        p += hex_log((math.cos(a) * r0, math.sin(a) * r0, 0.02), (math.cos(a + 0.25) * 0.05, math.sin(a + 0.25) * 0.05, rng.uniform(0.5, 0.58)),
+                     rng.uniform(0.035, 0.045), M, burnt=0.45)
     for i in range(5):                                             # kindling sticks between them
         a = i / 5 * 2 * math.pi + 0.5
-        p += log((math.cos(a) * 0.22, math.sin(a) * 0.22, 0.03), (0, 0, 0.38), 0.014, M, burnt=0.5, verts=5)
+        p += hex_log((math.cos(a) * 0.22, math.sin(a) * 0.22, 0.03), (0, 0, 0.38), 0.016, M, burnt=0.5, sides=4)
     em = embers(12, 0.22, M)
     return join(p, "Fire"), join(em, "Embers")
 
@@ -202,8 +276,8 @@ def pot(M):
     two lugs and the bail. Returns the pot and the top of the bail (where the chain hooks on)."""
     prof = [(0.0, 0.0), (0.09, 0.0), (0.15, 0.04), (0.165, 0.09), (0.158, 0.14), (0.168, 0.152), (0.166, 0.162),   # outside up to the rim
             (0.152, 0.158), (0.146, 0.12)]                                                                      # over the lip, down the inside
-    p = [lathe(prof, 16, M["iron"], z0=POT_Z)]
-    soup = lathe([(0.0, SOUP.z - POT_Z), (0.147, SOUP.z - POT_Z - 0.004)], 16, M["soup"], z0=POT_Z)
+    p = [lathe(prof, 12, M["iron"], z0=POT_Z)]
+    soup = lathe([(0.0, SOUP.z - POT_Z), (0.147, SOUP.z - POT_Z - 0.004)], 12, M["soup"], z0=POT_Z)
     p.append(soup)
     for i in range(9):                                             # chunks bobbing in it: carrot coins, potato cubes, peas, herbs
         a, d = rng.uniform(0, 2 * math.pi), 0.11 * math.sqrt(rng.uniform(0.05, 1))
@@ -305,7 +379,7 @@ def build(samples=32):
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
     ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
-    objs.append(ch)
+    objs += [ch, tripod_legs()]
     path = os.path.join(HERE, "fire.glb")
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
