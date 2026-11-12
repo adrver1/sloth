@@ -108,9 +108,9 @@ function wagon() {   // the red toy wagon (prototype A): an open bed (10 tris), 
     c.strokeStyle = "#2e2a2a"; c.lineWidth = 9; for (let a = 0; a < 6; a++) { c.beginPath(); c.moveTo(64, 64); c.lineTo(64 + 50 * Math.cos(a), 64 + 50 * Math.sin(a)); c.stroke(); } c.fillStyle = "#e0473c"; c.beginPath(); c.arc(64, 64, 13, 0, 7); c.fill(); });
   const cap = lam(0xffffff, { map: spokes }), wheels = [];
   for (const [x, z] of [[0.36, 0.33], [-0.36, 0.33], [0.36, -0.33], [-0.36, -0.33]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 10), [tyre, cap, cap]); w.rotation.x = Math.PI / 2; w.position.set(x, 0.13, z); g.add(w); wheels.push(w); }
-  const h = new THREE.Mesh(new THREE.BoxGeometry(0.97, 0.03, 0.03), redD); h.position.set(0.875, 0.51, 0); h.rotation.z = 0.69; g.add(h);
-  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.2), tyre); grip.position.set(1.25, 0.82, 0); g.add(grip);
-  g.userData = { tip: V(1.25, 0.82, 0), seats: [V(0.26, 0.31, 0.12), V(-0.12, 0.31, -0.14), V(-0.3, 0.31, 0.16)], wheels };
+  const h = new THREE.Mesh(new THREE.BoxGeometry(0.97, 0.03, 0.03), redD); h.position.set(0.9, 0.47, 0); h.rotation.z = 0.594; g.add(h);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.2), tyre); grip.position.set(1.3, 0.74, 0); g.add(grip);
+  g.userData = { tip: V(1.3, 0.74, 0), seats: [V(0.26, 0.31, 0.12), V(-0.12, 0.31, -0.14), V(-0.3, 0.31, 0.16)], wheels };
   return g;
 }
 function person(src, anims) {   // a clone of a kit character walking (both share the kit rig, so the operator's walk clip drives her too)
@@ -165,11 +165,11 @@ function cutStep(dt) {
   const f = place(c.op.o, s);
   const inward = f.side.dot(V(-f.p.x, 0, -f.p.z)) > 0 ? 1 : -1;   // +1 when side points back toward the camp
   place(c.pony.o, s + 0.05, -0.56);                              // she walks close on his left (side is his right), holding his hand (Adriaen 2026-11-12)
-  const fw = frameAt(s - 1.55); c.w.position.copy(fw.p); c.w.rotation.set(0, Math.atan2(-fw.d.z, fw.d.x), 0);   // the wagon's +X along the path
+  const fw = frameAt(s - 1.62); c.w.position.copy(fw.p).addScaledVector(fw.side, 0.2); c.w.rotation.set(0, Math.atan2(-fw.d.z, fw.d.x), 0);   // the wagon's +X along the path, a little to his right so the handle comes up beside his hip
   c.w.rotation.z = Math.sin(t * 5.6) * 0.008; c.w.position.y += Math.abs(Math.sin(t * 5.6)) * 0.008;   // a little rattle on the path
   for (const wh of c.w.userData.wheels) wh.rotation.y = -s / 0.13;
   scene.updateMatrixWorld(true);
-  reach(c.op.B, "R", c.w.localToWorld(c.w.userData.tip.clone()), V(0, -1, 0));   // he pulls with his right hand behind him
+  reach(c.op.B, "R", c.w.localToWorld(c.w.userData.tip.clone()), V(0, -0.4, 0).addScaledVector(f.d, -1));   // he pulls with his right hand hanging a little behind his hip, arm nearly straight, elbow back (Adriaen: the bent-up arm looked painful)
   { // and holds hers with his left: both hands meet halfway between them, low and a little ahead, swinging gently with the stride
     const hold = f.p.clone().addScaledVector(f.side, -0.28).addScaledVector(f.d, 0.12 + 0.05 * Math.sin(t * 0.9 * Math.PI * 2)).setY(f.p.y + 0.86);
     reach(c.op.B, "L", hold, V(0, -1, 0).addScaledVector(f.side, -0.5)); reach(c.pony.B, "R", hold, V(0, -1, 0).addScaledVector(f.side, 0.5));
@@ -190,7 +190,7 @@ function cutStep(dt) {
   if (upright) camera.position.copy(mid.p).addScaledVector(mid.d, 5.0).addScaledVector(mid.side, 3.0 * inward).add(V(0, 1.8, 0));
   else camera.position.copy(mid.p).addScaledVector(mid.side, 6.0 * inward).addScaledVector(mid.d, 2.6).add(V(0, 1.35, 0));   // a little ahead of side on, so she isn't hidden behind him
   camera.near = 1.2; camera.fov = upright ? 60 : 34; camera.updateProjectionMatrix();
-  camera.lookAt(mid.p.clone().add(V(0, upright ? 0.7 : 0.85, 0)).addScaledVector(mid.side, upright ? -0.45 * inward : 0).addScaledVector(mid.d, upright ? 0.15 : 0));
+  camera.lookAt(mid.p.clone().add(V(0, upright ? 0.7 : 0.85, 0)).addScaledVector(mid.side, upright ? -0.45 * inward : 0).addScaledVector(mid.d, upright ? -0.4 : 0));
   if (t > DUR - 0.9) fade.classList.add("on");
   if (t > DUR && !c.left) {
     c.left = true;
@@ -203,7 +203,7 @@ const BACK = load("trip");
 if (BACK?.state === "back" || BACK?.state === "out") {   // home from the karaoke stage (or the page was left mid-trip): stand by the sign, facing the glade
   const f = frameAt(SIGN_T * LEN + 1.2); me.pos.copy(f.p); me.yaw = Math.atan2(f.d.x, f.d.z); me.pitch = 0.02;
   save("trip", null);
-  if (BACK.state === "back") setTimeout(() => toast(BACK.riders?.length ? `Back from karaoke with ${BACK.riders.join(", ")} 🎤` : "Back from karaoke 🎤"), 1200);
+  if (BACK.state === "back") setTimeout(() => toast(BACK.riders?.length ? `Back from karaoke with ${BACK.riders.length > 1 ? BACK.riders.slice(0, -1).join(", ") + " and " + BACK.riders.at(-1) : BACK.riders[0]} 🎤` : "Back from karaoke 🎤"), 1200);
 }
 function tripStep(dt) {
   if (cut) { cutStep(dt); return true; }
