@@ -16,7 +16,7 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
   await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (rt) => { const m = rt.request().url().match(/three@0\.186\.1\/(.*)/); rt.fulfill({ path: path.join(NM, m[1]), contentType: m[1].endsWith('.wasm') ? 'application/wasm' : 'text/javascript' }); });
   await p.route(/fonts\.(googleapis|gstatic)\.com/, (rt) => rt.fulfill({ body: '', contentType: 'text/css' }));
   // count shader programs linked (each is a compile the phone pays for)
-  await p.addInitScript(() => { window.__programs = 0; for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) { const f = C.prototype.linkProgram; C.prototype.linkProgram = function (...a) { window.__programs++; return f.apply(this, a); }; } });
+  await p.addInitScript(() => { window.__programs = 0; for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) { const f = C.prototype.linkProgram; C.prototype.linkProgram = function (...a) { window.__programs++; try { const src = this.getAttachedShaders(a[0]).map((sh) => this.getShaderSource(sh)).join(''); let h = 0; for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) | 0; (window.__progSrc ??= {})[(h >>> 0).toString(16)] = (src.match(/#define [A-Z_0-9]+( [^\n]*)?/g) || []).filter((d) => !/attribute|varying|texture2D|gl_FragColor|SHADER_TYPE|PI|RECIPROCAL|EPSILON|saturate|whiteComplement|LOG2|HALF|TWO|DEFAULT|SHADER_NAME/.test(d)).join(' ') + ' | ' + (src.match(/uniform [^;]+;/g) || []).filter((u) => /u[A-Z]/.test(u)).join(' '); (window.__progNames ??= []).push(((src.match(/#define SHADER_NAME (\\S+)/) || [])[1] || '?') + ':' + (h >>> 0).toString(16)); } catch {} return f.apply(this, a); }; } });
   const errs = [];
   // THROTTLE=mbps,latencyMs (e.g. 10,80) emulates a phone connection, to compare load times
   if (process.env.THROTTLE) { const [mb, lat] = process.env.THROTTLE.split(',').map(Number); const cdp = await p.context().newCDPSession(p);
@@ -42,7 +42,7 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
       for (const m of mats) for (const k in m) { const v = m[k]; if (v && v.isTexture && v.image) { const im = v.image; const w = im.width || im.videoWidth, h = im.height; tex.set(v.uuid, { k, w, h, name: names.join('/') || m.type, src: (im.src || im.currentSrc || (im.tagName || 'data')).toString().slice(-60) }); } }
       rows.push({ n: names.join('/') || o.type, type: o.isInstancedMesh ? 'inst' : o.isSkinnedMesh ? 'skin' : o.type, tris: o.isPoints ? 0 : Math.round(idx / 3), inst, mat: mats.map((m) => m.type + (m.transparent ? '+T' : '') + (m.onBeforeCompile && m.onBeforeCompile.toString().length > 30 ? '+obc' : '')).join(','), vis: o.visible && (() => { let q = o; while (q) { if (!q.visible) return false; q = q.parent; } return true; })(), verts: g.attributes.position.count, attrs: Object.keys(g.attributes).join(' ') });
     });
-    return { programs: window.__programs, stats: window.__stats, rows, tex: [...tex.values()] };
+    return { programs: window.__programs, programNames: window.__progNames, progSrc: window.__progSrc, stats: window.__stats, rows, tex: [...tex.values()] };
   });
   console.log(JSON.stringify({ net, tReady, errs: errs.slice(0, 10), ...info }));
   await b.close(); srv.close();
