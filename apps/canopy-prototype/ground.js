@@ -6,7 +6,7 @@
 // Plants: crossed-quad cards (4 tris each) from one painted atlas, all in one instanced draw, swaying in the vertex shader.
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
 import * as THREE from "three";
-import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "./bakedlight.js";   // the camp's baked lights, one channel each
+import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";   // the camp's baked lights, one channel each
 
 const canvasTex = (w, h, draw, srgb = true) => {
   const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
@@ -282,12 +282,12 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
     shadowBaked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; }, undefined, () => {});
   let nightBaked = false;
-  if (nightMap) new THREE.TextureLoader().load(nightMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4;
-    uGN.value = t; uGNon.value = 1; nightBaked = true; }, undefined, () => {});
+  if (nightMap) loadLightMap(nightMap).then((t) => { t.anisotropy = 4;
+    uGN.value = t; uGNon.value = 1; nightBaked = true; }).catch(() => {});
   uGJ.value = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); uGJ.value.needsUpdate = true;   // no jeep light until its map loads
   for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings
-    if (nightMap) new THREE.TextureLoader().load(nightMap.replace("camp_ground_night_", `camp_ground_door${k}_`), (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; u.value = t; }, undefined, () => {}); }
-  if (nightMap) new THREE.TextureLoader().load(nightMap.replace("camp_ground_night_", "camp_ground_jeep_"), (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; uGJ.value = t; }, undefined, () => {});
+    if (nightMap) loadLightMap(nightMap.replace("camp_ground_night_", `camp_ground_door${k}_`)).then((t) => { u.value = t; }).catch(() => {}); }
+  if (nightMap) loadLightMap(nightMap.replace("camp_ground_night_", "camp_ground_jeep_")).then((t) => { uGJ.value = t; }).catch(() => {});
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
   return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
