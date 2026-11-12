@@ -11,9 +11,11 @@ const canvasTex = (w, h, draw, srgb = true) => {
   const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
   const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 };
+// the night tone, as camp.html: 1 - exp(-x) on the brightness, keeping the light's hue
+const NIGHT_TONE = "vec3 nightTone(vec3 x) { float l = max(dot(x, vec3(0.2126, 0.7152, 0.0722)), 1e-4); return min(x * (1.0 - exp(-l)) / l, vec3(1.0)); }\n";
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, baked = null, seed = 77 }) {
+export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77 }) {
   // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
   let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
@@ -142,12 +144,15 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     bakedMask = new THREE.CanvasTexture(baked.mask); bakedMask.flipY = false; bakedMask.colorSpace = THREE.NoColorSpace;
     bakedSoil = new THREE.TextureLoader().load(baked.soil); bakedSoil.flipY = false; bakedSoil.anisotropy = 4;   // sRGB, decoded in the shader like the dirt tile
   }
+  // the baked night light on the ground (props/camp/bake_camp_lightmap.py: fire, lanterns, stove and moon, with the props' and the
+  // jeep's shadows), toned like the props': 1 - exp(-6.4 x surface colour x light), faded in with uNight; uGNon = 0 until it loads
+  const uGN = { value: null }, uGNon = { value: 0 };
   const mat = new THREE.MeshLambertMaterial({ map: grassMap });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night });
+    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGNon });
     if (baked) sh.defines = { ...sh.defines, BAKED: 1 };
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil; uniform float uR, uNight;")
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil, uGN; uniform float uR, uNight, uGNon; vec3 albedoG;\n" + NIGHT_TONE)
       .replace("#include <map_fragment>", `#include <map_fragment>
         float rr = length(vG);
         float h = fract(sin(dot(floor(vG * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
@@ -166,14 +171,17 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
         float ashy = 1.0 - smoothstep(1.0, 1.6, rr);                         // grey ash by the fire, dark wet mud elsewhere
         diffuseColor.rgb = mix(c * (1.0 - 0.45 * mk.b * d), mix(c, vec3(0.30, 0.28, 0.26) * (0.8 + 0.4 * dot(dt, vec3(0.33))), 0.85 * mk.b), ashy);
         #endif
-        diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`);
+        albedoG = diffuseColor.rgb;
+        diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`)
+      .replace("#include <opaque_fragment>", `outgoingLight = mix(outgoingLight, nightTone(6.4 * albedoG * texture2D(uGN, vG / (2.0 * uR) + 0.5).rgb), uNight * uGNon);
+#include <opaque_fragment>`);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
   // the contact shadows as one dark see-through disc just above the floor, the jeep's track and the path (48 triangles, 1 draw)
   const uShade = { value: shade };
   const shadeMat = new THREE.MeshBasicMaterial({ color: 0x1a1408, alphaMap: shade, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
-  shadeMat.onBeforeCompile = (sh) => { sh.uniforms.uNight = night;
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight;").replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\ndiffuseColor.a *= 1.0 - 0.5 * uNight;"); };
+  shadeMat.onBeforeCompile = (sh) => { sh.uniforms.uNight = night; sh.uniforms.uGNon = uGNon;
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight, uGNon;").replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\ndiffuseColor.a *= 1.0 - (0.5 + 0.5 * uGNon) * uNight;"); };   // with the night bake in, it fades out fully at night (below): the bake holds the night's shadows
   const shadeUv = geo.clone(); { const p = shadeUv.attributes.position, uv = shadeUv.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / (2 * RR) + 0.5, p.getZ(i) / (2 * RR) + 0.5); }
   const shadeMesh = new THREE.Mesh(shadeUv.translate(0, 0.012, 0), shadeMat); shadeMesh.renderOrder = 3; scene.add(shadeMesh);
   clearing.visible = false;
@@ -250,15 +258,18 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   card.setAttribute("aCell", new THREE.InstancedBufferAttribute(cellA, 1));
   const pmat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide });
   pmat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR };
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade; attribute float aCell; varying float vShade;")
+    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR }; sh.uniforms.uGN = uGN; sh.uniforms.uGNon = uGNon;
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade, uGN; attribute float aCell; varying float vShade; varying vec3 vGN;")
       .replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * 0.5 + vec2(mod(aCell, 2.0), 1.0 - floor(aCell / 2.0)) * 0.5;")
       .replace("#include <begin_vertex>", `#include <begin_vertex>
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.6 + ip.x * 1.3 + ip.z * 1.7) + 0.4 * sin(uTime * 3.1 + ip.x * 3.0);
         transformed.xz += vec2(w * 0.06, w * 0.035) * position.y * position.y;
-        vShade = texture2D(uShade, ip.xz / (2.0 * uR) + 0.5).r;`);
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight; varying float vShade;").replace("#include <map_fragment>", "#include <map_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
+        vShade = texture2D(uShade, ip.xz / (2.0 * uR) + 0.5).r;
+        vGN = texture2D(uGN, ip.xz / (2.0 * uR) + 0.5).rgb;`);   // the plants take the ground's night light where they stand
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight, uGNon; varying float vShade; varying vec3 vGN; vec3 albedoP;\n" + NIGHT_TONE)
+      .replace("#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, nightTone(6.4 * albedoP * vGN), uNight * uGNon);\n#include <opaque_fragment>")
+      .replace("#include <map_fragment>", "#include <map_fragment>\nalbedoP = diffuseColor.rgb;\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
   };
   im.material = pmat; im.frustumCulled = false; scene.add(im);
   own.add(floor).add(shadeMesh).add(im);
@@ -268,7 +279,10 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   let shadowBaked = false;
   if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
     shadowBaked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; }, undefined, () => {});
+  let nightBaked = false;
+  if (nightMap) new THREE.TextureLoader().load(nightMap, (t) => { t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    uGN.value = t; uGNon.value = 1; nightBaked = true; }, undefined, () => {});
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
-  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
+  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
 }

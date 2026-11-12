@@ -10,10 +10,18 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
    their vertex colours are plain base colours (no AO of their own) and their GLBs carry no light.
 2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the lived GLBs, and stands everything where
    camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
-3. Gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or a dummy) packed into one atlas, and
-   bakes one RGBA image on the fire, 8 jar lanterns, the tent stove and a dim blue moon:
-     RGB  night light / 4, sRGB-encoded; the page tones it as 1 - exp(-6.4 x surface colour x light), unlit, at night
-     A    day ambient occlusion (distance 0.6); the page darkens the surface colour by 0.32 + 0.68 x AO by day
+3. Adds the jeep (an occluder) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
+   one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
+   lanterns, the tent stove and a dim blue moon. Every prop gets a second UV map (TEXCOORD_1; TEXCOORD_0 stays the
+   texture's, or a dummy) packed into one atlas. Written:
+     camp_lm_<k>.png      RGB  night light / 4, sRGB-encoded; the page tones it as 1 - exp(-6.4 x surface colour x light),
+                               unlit, at night
+                          A    sky occlusion (distance 0.6); the page scales the sky light by 0.32 + 0.68 x AO by day
+     camp_lm_sun_<k>.png  where the sun reaches each prop (direct sun over the same with no shadows); the page scales its
+                          live sun by it, so the props shade each other and the jeep shades them
+     camp_shadow_picked_<jeep>.png        the ground's day shadow, 1 - light / open ground (as ground.js always read it)
+     camp_ground_night_picked_<jeep>.png  the ground's night light / 4 (sRGB), with every prop's shadow in it
+   Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
    Thin double-sided cards (laundry, chain) take the brighter of their two sides.
    COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
@@ -38,6 +46,8 @@ ap.add_argument("--samples", type=int, default=512)
 ap.add_argument("--angle", type=float, default=60)
 ap.add_argument("--margin", type=float, default=6)    # texels between islands at --size
 ap.add_argument("--unwrap-only", action="store_true")
+ap.add_argument("--ground", type=int, default=1024, help="ground map size")
+ap.add_argument("--jeep", default="expedition")
 a = ap.parse_args(argv)
 T0 = time.time()
 GLOW = ("ru_glass", "wt_glow")
@@ -206,14 +216,35 @@ print(f"  atlas: {len(receivers)} objects, {area * 100:.0f}% of the image covere
 if a.unwrap_only:
     sys.exit(0)
 
-# ---- 3b. ground stand-in, lights, world
-bpy.ops.mesh.primitive_plane_add(size=24, location=(0, 0, 0))
-gm = bpy.data.materials.new("ground"); gm.use_nodes = True
-gm.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.16, 0.22, 0.10, 1)
-bpy.context.object.data.materials.append(gm)
+# ---- 3b. the rest of the scene: the jeep (an occluder only) and the real ground disc (a receiver, mapped straight onto
+# the page's floor: image row 0 = page z -RR, column 0 = x -RR, as ground.js looks it up with flipY false)
+jo = (-2.2 / math.hypot(-2.2, -6.4), -6.4 / math.hypot(-2.2, -6.4))                   # camp.html JEEP_OUT (x, z)
+jt = (-jo[1], jo[0])
+if jt[1] * jo[0] - jt[0] * jo[1] > 0:                                                 # camp.html JEEP_TAN: its right side faces the fire
+    jt = (-jt[0], -jt[1])
+jeep = []
+for o in import_glb(os.path.join(ROOT, "props", "jeep", f"jeep_{a.jeep}.glb")):
+    if o.type == "MESH" and o.name.startswith("Glass"):
+        o.hide_render = True                                                           # see-through on the page
+    if not o.parent:
+        o.location = B(-2.2, 0, -6.4); o.rotation_mode = "XYZ"; o.rotation_euler = (0, 0, math.atan2(jt[0], jt[1]))
+    if o.type == "MESH":
+        jeep.append(o)
+RR = 9.8
+bpy.ops.mesh.primitive_plane_add(size=2 * RR, location=(0, 0, 0))
+ground = bpy.context.object; ground.name = "Ground"
+guv = ground.data.uv_layers.active.data
+for poly in ground.data.polygons:
+    for li in poly.loop_indices:
+        co = ground.data.vertices[ground.data.loops[li].vertex_index].co
+        guv[li].uv = (co.x / (2 * RR) + 0.5, co.y / (2 * RR) + 0.5)
+print(f"  scene: {len(receivers)} props, {len(jeep)} jeep parts, ground {2 * RR} m square")
+
+# ---- 3c. lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) and a white sky; night = fire, lanterns, stove, moon
+day_l, night_l = [], []
 def point(name, at, rgb, watts, r):
     L = bpy.data.lights.new(name, "POINT"); L.color = rgb; L.energy = watts; L.shadow_soft_size = r
-    o = bpy.data.objects.new(name, L); o.location = at; bpy.context.collection.objects.link(o)
+    o = bpy.data.objects.new(name, L); o.location = at; bpy.context.collection.objects.link(o); night_l.append(o)
 point("FireLight", B(0, 0.55, 0), (1.0, 0.50, 0.20), 260, 0.25)
 for i, p in enumerate(lanterns):
     point(f"LanternLight_{i}", B(p[0], p[1] - 0.12, p[2]), (1.0, 0.72, 0.38), 50, 0.05)
@@ -222,23 +253,38 @@ bpy.context.view_layer.update()
 point("StoveLight", tent.matrix_world @ (Vector(build_camp.STOVE) + Vector((-0.35, 0, -0.1))), (1.0, 0.55, 0.15), 22, 0.12)
 moon = bpy.data.lights.new("Moon", "SUN"); moon.color = (0.55, 0.65, 1.0); moon.energy = 0.12; moon.angle = math.radians(2)
 mo = bpy.data.objects.new("Moon", moon); mo.rotation_euler = (math.radians(40), 0, math.radians(-120))
-bpy.context.collection.objects.link(mo)
+bpy.context.collection.objects.link(mo); night_l.append(mo)
+sd = Vector((-4, -3, 10)).normalized()                                                  # toward the sun: page (-4, 10, 3)
+sun = bpy.data.lights.new("Sun", "SUN"); sun.energy = 3.0; sun.angle = math.radians(4)
+so = bpy.data.objects.new("Sun", sun); so.rotation_euler = (-sd).to_track_quat("-Z", "Y").to_euler()
+bpy.context.collection.objects.link(so); day_l.append(so)
 sc = bpy.context.scene
-sc.world = bpy.data.worlds.new("night"); sc.world.use_nodes = True
-sc.world.node_tree.nodes["Background"].inputs["Color"].default_value = (0.010, 0.014, 0.030, 1)
+w = bpy.data.worlds.new("sky"); w.use_nodes = True; sc.world = w
+bgn = w.node_tree.nodes["Background"]
 sc.world.light_settings.distance = 0.6
 sc.render.engine = "CYCLES"; sc.cycles.samples = a.samples; sc.cycles.use_adaptive_sampling = False
+sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 3
 bk = sc.render.bake
 bk.target = "IMAGE_TEXTURES"; bk.margin = 8; bk.use_clear = True
 bk.use_pass_direct = True; bk.use_pass_indirect = True; bk.use_pass_color = False
 
-# ---- 3c. bake through plain grey stand-ins (one for the thin cards), real materials back afterwards
-def grey(name):
+
+def mode(day):
+    for o in day_l: o.hide_render = not day
+    for o in night_l: o.hide_render = day
+    bgn.inputs["Color"].default_value = (1, 1, 1, 1) if day else (0.010, 0.014, 0.030, 1)
+    bgn.inputs["Strength"].default_value = 1.0
+
+
+# ---- 3d. bake through plain stand-ins (grey for props and jeep, one for the thin cards, white for the ground)
+def grey(name, c=0.5):
     m = bpy.data.materials.new(name); m.use_nodes = True
-    m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.5, 0.5, 0.5, 1)
+    m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (c, c, c, 1)
+    m.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 1.0
     n = m.node_tree.nodes.new("ShaderNodeTexImage"); m.node_tree.nodes.active = n
     return m, n
-g_all, n_all = grey("bake_grey"); g_thin, n_thin = grey("bake_grey_thin")
+g_all, n_all = grey("bake_grey"); g_thin, n_thin = grey("bake_grey_thin"); g_gnd, n_gnd = grey("bake_ground", 1.0)
+ground.data.materials.append(g_gnd)
 keep = {}
 for o in receivers:
     keep[o.name] = list(o.data.materials)
@@ -246,34 +292,62 @@ for o in receivers:
         o.data.materials.append(None)
     for i in range(len(o.data.materials)):
         o.data.materials[i] = g_thin if o.name in THIN else g_all
+for o in jeep:
+    if not o.data.materials:
+        o.data.materials.append(None)
+    for i in range(len(o.data.materials)):
+        o.data.materials[i] = g_all
 
 
-def bake(kind, img_name, objs):
-    img = bpy.data.images.get(img_name) or bpy.data.images.new(img_name, a.size, a.size, alpha=False, float_buffer=True)
+def bake(kind, objs, img):
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
     bpy.context.view_layer.objects.active = objs[0]
-    t = time.time(); bpy.ops.object.bake(type=kind); print(f"  {kind} -> {img_name}: {time.time() - t:.0f} s")
-    px = np.empty(a.size * a.size * 4, np.float32); img.pixels.foreach_get(px)
-    return px.reshape(a.size, a.size, 4)
+    t = time.time(); bpy.ops.object.bake(type=kind); print(f"  {kind} -> {img.name}: {time.time() - t:.0f} s")
+    px = np.empty(img.size[0] * img.size[1] * 4, np.float32); img.pixels.foreach_get(px)
+    return px.reshape(img.size[1], img.size[0], 4)
 
 
-n_all.image = n_thin.image = bpy.data.images.new("AO", a.size, a.size, alpha=False, float_buffer=True)
-ao = bake("AO", "AO", receivers)
-n_all.image = n_thin.image = bpy.data.images.new("L", a.size, a.size, alpha=False, float_buffer=True)
-light = bake("DIFFUSE", "L", receivers)
+def props_img(tag):
+    img = bpy.data.images.new(tag, a.size, a.size, alpha=False, float_buffer=True)
+    n_all.image = n_thin.image = img
+    return img
+
+
+def ground_img(tag):
+    img = bpy.data.images.new(tag, a.ground, a.ground, alpha=False, float_buffer=True)
+    n_gnd.image = img
+    return img
+
+
 thin = [o for o in receivers if o.name in THIN]
-if thin:                                          # the back of each card, into its own image; keep the brighter side
-    n_thin.image = bpy.data.images.new("L2", a.size, a.size, alpha=False, float_buffer=True)
+mode(day=True)
+ao = bake("AO", receivers, props_img("AO"))                                 # sky occlusion on the props (as before)
+bgn.inputs["Strength"].default_value = 0.0; bk.use_pass_indirect = False     # where the sun reaches each prop: its direct
+sundirect = bake("DIFFUSE", receivers, props_img("SUN"))                    # light, over the same with nothing casting shadows
+casts = {o.name: o.visible_shadow for o in receivers + jeep}
+for o in receivers + jeep: o.visible_shadow = False
+sunopen = bake("DIFFUSE", receivers, props_img("SUN_OPEN"))
+for o in receivers + jeep: o.visible_shadow = casts[o.name]
+bk.use_pass_indirect = True; bgn.inputs["Strength"].default_value = 1.0
+gday = bake("DIFFUSE", [ground], ground_img("GROUND_DAY"))                  # sun + sky on the ground
+mode(day=False)
+light = bake("DIFFUSE", receivers, props_img("NIGHT"))
+gnight = bake("DIFFUSE", [ground], ground_img("GROUND_NIGHT"))
+if thin:                                                                    # the back of each card; keep the brighter side
+    n_thin.image = bpy.data.images.new("NIGHT2", a.size, a.size, alpha=False, float_buffer=True)
     for o in thin: o.data.flip_normals()
-    light = np.maximum(light, bake("DIFFUSE", "L2", thin))
+    light = np.maximum(light, bake("DIFFUSE", thin, n_thin.image))
     for o in thin: o.data.flip_normals()
 for o in receivers:
     for i, m in enumerate(keep[o.name]):
         o.data.materials[i] = m
     if not keep[o.name]:
         o.data.materials.clear()
+for o in jeep:
+    bpy.data.objects.remove(o)
+bpy.data.objects.remove(ground)
 
 
 def srgb(x):
@@ -281,20 +355,36 @@ def srgb(x):
     return np.where(x <= 0.0031308, x * 12.92, 1.055 * np.power(x, 1 / 2.4) - 0.055)
 
 
-rgba = np.empty_like(light)
-rgba[..., :3] = srgb(light[..., :3] / 4)
-rgba[..., 3] = np.clip(ao[..., 0], 0, 1)
-for size, tag in dict(((a.size, f"{a.size // 1024}k"), (2048, "2k"), (1024, "1k"))).items():
-    if size > a.size:
-        continue
-    img = bpy.data.images.new(f"lm_{tag}", a.size, a.size, alpha=True)
-    img.colorspace_settings.name = "Non-Color"; img.alpha_mode = "STRAIGHT"
-    img.pixels.foreach_set(rgba.ravel())
-    if size != a.size:
-        img.scale(size, size)
-    img.filepath_raw = os.path.join(MODELS, f"camp_lm_{tag}.png"); img.file_format = "PNG"
-    img.save()
-    print(f"  camp_lm_{tag}.png: {os.path.getsize(img.filepath_raw) // 1024} KB")
+def save(px, name):
+    n = px.shape[0]
+    for size in sorted({a.size, 2048, 1024}, reverse=True):
+        if size > n:
+            continue
+        img = bpy.data.images.new(f"{name}_{size}", n, n, alpha=True)
+        img.colorspace_settings.name = "Non-Color"; img.alpha_mode = "STRAIGHT"
+        img.pixels.foreach_set(px.ravel())
+        if size != n:
+            img.scale(size, size)
+        f = os.path.join(MODELS, f"{name}_{size // 1024}k.png"); img.filepath_raw = f; img.file_format = "PNG"
+        img.save()
+        print(f"  {os.path.basename(f)}: {os.path.getsize(f) // 1024} KB")
+
+
+# props: one RGBA map, RGB night light / 4 (sRGB), A sky occlusion; one grey map, 1 = in the sun
+rgba = np.empty_like(light); rgba[..., :3] = srgb(light[..., :3] / 4); rgba[..., 3] = np.clip(ao[..., 0], 0, 1)
+save(rgba, "camp_lm")
+so_ = sunopen[..., :3].mean(-1); sd_ = sundirect[..., :3].mean(-1)
+sv = np.where(so_ > 0.02, np.clip(sd_ / np.maximum(so_, 1e-6), 0, 1), 1.0)   # surfaces facing away: the page's N . L hides them anyway
+print(f"  sun: mean visibility {sv[so_ > 0.02].mean():.2f}")
+save(np.stack([sv, sv, sv, np.ones_like(sv)], -1), "camp_lm_sun")
+# ground: the day shadow (1 - light / open ground, as before) and the night light / 4 (sRGB); row 0 = page z -RR
+from PIL import Image
+gd = gday[..., :3].mean(-1); open_ = np.percentile(gd, 99.5)
+shadow = np.clip(1 - gd / open_, 0, 1)[::-1]
+Image.fromarray((shadow * 255 + 0.5).astype(np.uint8), "L").save(os.path.join(MODELS, f"camp_shadow_picked_{a.jeep}.png"), optimize=True)
+gn = (srgb(gnight[..., :3] / 4)[::-1] * 255 + 0.5).astype(np.uint8)
+Image.fromarray(np.ascontiguousarray(gn), "RGB").save(os.path.join(MODELS, f"camp_ground_night_picked_{a.jeep}.png"), optimize=True)
+print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}; night max {gnight[..., :3].max():.2f}")
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
 def export(objs, path, txt, image_format="AUTO"):

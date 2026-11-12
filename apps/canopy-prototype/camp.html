@@ -656,22 +656,30 @@ const SLOTH = await glb("models/sloth.txt");
 const uNight = { value: 0 }, uFlick = { value: 1 };
 const LMTEX = await new THREE.TextureLoader().loadAsync(`models/camp_lm_${LMSET}.png`).catch(() => new THREE.TextureLoader().loadAsync("models/camp_lm_2k.png"));
 LMTEX.flipY = false; LMTEX.colorSpace = THREE.SRGBColorSpace; LMTEX.channel = 1; LMTEX.anisotropy = 4;
+// and where the sun reaches each prop (1 = sunlit), baked in the same scene as the ground's shadows, so the props shade each other
+const LMSUN = await new THREE.TextureLoader().loadAsync(`models/camp_lm_sun_${LMSET}.png`).catch(() => new THREE.TextureLoader().loadAsync("models/camp_lm_sun_2k.png")).catch(() => null);
+if (LMSUN) { LMSUN.flipY = false; LMSUN.colorSpace = THREE.NoColorSpace; LMSUN.channel = 1; }
+// the night tone, shared with ground.js: 1 - exp(-x) on the brightness, keeping the light's hue, so the fire's warm glow
+// stays orange up close instead of washing out to white
+const NIGHT_TONE = "vec3 nightTone(vec3 x) { float l = max(dot(x, vec3(0.2126, 0.7152, 0.0722)), 1e-4); return min(x * (1.0 - exp(-l)) / l, vec3(1.0)); }\n";
 const lnight = (mat) => {
   const prev = mat.onBeforeCompile;
   mat.lightMap = LMTEX; mat.lightMapIntensity = 0;
   mat.onBeforeCompile = (sh, r) => {
     prev?.call(mat, sh, r);
-    sh.uniforms.uNight = uNight; sh.uniforms.uFlick = uFlick;
-    sh.fragmentShader = "uniform float uNight, uFlick;\n" + sh.fragmentShader
+    sh.uniforms.uNight = uNight; sh.uniforms.uFlick = uFlick; sh.uniforms.uSun = { value: LMSUN };
+    sh.fragmentShader = "uniform float uNight, uFlick; uniform sampler2D uSun;\n" + NIGHT_TONE + sh.fragmentShader
+      .replace("#include <lights_fragment_begin>", THREE.ShaderChunk.lights_fragment_begin.replace("getDirectionalLightInfo( directionalLight, directLight );",
+        "getDirectionalLightInfo( directionalLight, directLight );\n" + (LMSUN ? "directLight.color *= texture2D(uSun, vLightMapUv).r;" : "")))   // the sun's baked shadow
+      .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse *= 0.32 + 0.68 * lmT.a;")      // sky occlusion on the sky light only
       .replace("#include <color_fragment>", `#include <color_fragment>
   vec3 baseC = diffuseColor.rgb; vec4 lmT = texture2D(lightMap, vLightMapUv);
   #ifdef USE_COLOR_ALPHA
   float glowK = 1.0 - vColor.a;
   #else
   float glowK = 0.0;
-  #endif
-  diffuseColor.rgb *= 0.32 + 0.68 * lmT.a;`)
-      .replace("#include <opaque_fragment>", `vec3 nightC = mix(1.0 - exp(-6.4 * baseC * lmT.rgb), min(baseC * 1.15, vec3(1.0)), glowK);
+  #endif`)
+      .replace("#include <opaque_fragment>", `vec3 nightC = mix(nightTone(6.4 * baseC * lmT.rgb), min(baseC * 1.15, vec3(1.0)), glowK);
   outgoingLight = mix(outgoingLight, nightC * uFlick, uNight);
 #include <opaque_fragment>`);
   };
@@ -1260,7 +1268,7 @@ function feed(s) {
 const groundBake = await new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: `models/camp_ground_${PROPS}.jpg` }); im.onerror = () => ok(null); im.src = `models/camp_ground_${PROPS}_mask.png`; });
 const groundLife = createGround({ baked: groundBake,  scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
     bare: PROPS === "picked" ? (x, z) => { const [a, b] = tentLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; } : undefined,   // no grass in the tent or through its planks
-    shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png` });   // baked ground shadows; for a set with no bake, ground.js renders them live
+    shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
 window.__ground = groundLife;
 // the walk-in tent (picked props; build_camp.py wall_tent, keep in step): walls stop you, the doorway lets you in,
 // the bed and the stove are in the way. tentLocal gives (a: ahead of tentAt toward the fire, b: across).
@@ -1332,7 +1340,7 @@ renderer.setAnimationLoop(() => {
   flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
   fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
   acts.update(dt, uTime.value);
-  uNight.value = dusk; uFlick.value = 0.92 + 0.08 * fl; pools.visible = dusk > 0; pools.material.opacity = dusk * (0.9 + 0.1 * fl);
+  uNight.value = dusk; uFlick.value = 0.92 + 0.08 * fl; pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
   lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
