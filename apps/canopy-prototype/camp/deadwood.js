@@ -83,7 +83,7 @@ if (spots[0]) { const c = spots[0], yaw = Math.atan2(c.z, c.x) + Math.PI / 2 + R
   parts.push(paint(stub, { moss: 0.5, y0: 0, y1: 0.6 }).rotateY(-yaw).translate(c.x, r * 0.75 - 0.1, c.z));
   const ax = V(Math.cos(yaw), 0, Math.sin(yaw)), side = V(-ax.z, 0, ax.x);
   for (let i = 0; i < 3; i++) { const t = R(-0.9, 0.9), sd = i % 2 ? 1 : -1; shelf(parts, c.clone().addScaledVector(ax, t).addScaledVector(side, sd * r * 0.98).setY(r * 0.75 + R(-0.05, 0.08)), side.clone().multiplyScalar(sd), R(0.12, 0.16)); }
-  for (const t of [-0.9, 0, 0.9]) blockers.push([c.clone().addScaledVector(ax, t), 0.35]);
+  for (const t of [-0.9, 0, 0.9]) blockers.push(Object.assign([c.clone().addScaledVector(ax, t), 0.35], { wild: true }));
   layout.push({ name: "FallenLog", x: c.x, z: c.z, y: lift(from, c), yaw, L, r }); count("log", from);
 }
 // the stump: a cut stump with flared roots and a ringed top
@@ -94,7 +94,7 @@ if (spots[1]) { const c = spots[1], r = 0.36, h = 0.48, from = parts.length;
   parts.push(paint(g, { y0: 0, y1: h, cap: (x, y, z, nx, ny) => ny > 0.8 ? (Math.hypot(x, z) < 0.02 ? 1 : 0.2) : -1, uv: [2, 0.5] }).translate(c.x, 0, c.z));
   const out = c.clone().normalize().negate();
   for (let i = 0; i < 2; i++) { const a = Math.atan2(out.z, out.x) + (i ? 0.7 : -0.6), d = V(Math.cos(a), 0, Math.sin(a)); shelf(parts, c.clone().addScaledVector(d, r * 1.02).setY(0.18 + i * 0.14), d, R(0.12, 0.15)); }
-  blockers.push([c.clone(), r + 0.1]); layout.push({ name: "Stump", x: c.x, z: c.z, y: lift(from, c), r, h }); count("stump", from);
+  blockers.push(Object.assign([c.clone(), r + 0.1], { wild: true })); layout.push({ name: "Stump", x: c.x, z: c.z, y: lift(from, c), r, h }); count("stump", from);
 }
 // the dead trunk: a bleached snag, snapped off at the top, a broken limb, fungus climbing it
 if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
@@ -106,7 +106,7 @@ if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
   parts.push(paint(limb, { bleach: 0.8, moss: 0.3, y0: 0, y1: 2.5 }).rotateY(R(0, 6.28)).translate(c.x, 0, c.z));
   const out = c.clone().normalize().negate();
   for (let i = 0; i < 4; i++) { const a = Math.atan2(out.z, out.x) + R(-0.8, 0.8), d = V(Math.cos(a), 0, Math.sin(a)), y = 0.5 + i * 0.42 + R(-0.1, 0.1), rr = 0.34 - y * 0.03; shelf(parts, c.clone().addScaledVector(d, rr).setY(y), d, R(0.13, 0.19)); }
-  blockers.push([c.clone(), 0.45]); layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);
+  blockers.push(Object.assign([c.clone(), 0.45], { wild: true }));   // wild: no worn dirt or path to it (ground.js) layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);
 }
 // roots (forest-ground note 2b): low half-round roots spreading 1.5 to 2.6 m from both big trees over the ground, across the sloths'
 // way down, so the trees sit in the ground instead of on it. 16 triangles each, in the same draw and bark as the deadwood.
