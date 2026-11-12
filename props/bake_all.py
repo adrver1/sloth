@@ -61,6 +61,8 @@ if "ktx" in steps:
         run([TOKTX, "--t2", "--encode", "uastc", "--uastc_quality", "2", "--uastc_rdo_l", "1.0", "--zcmp", "19",
              "--assign_oetf", "linear", "--assign_primaries", "none", "--genmipmap", out, f])
         print(f"  {os.path.basename(out)}: {os.path.getsize(out) // 1024} KB (png {os.path.getsize(f) // 1024} KB)", flush=True)
+    import json
+    jf = os.path.join(M, "camp_lights.json"); j = json.load(open(jf)); j["ktx2"] = True; json.dump(j, open(jf, "w"), indent=1)   # tells the page to try .ktx2
 if "layout" in steps:
     srv = subprocess.Popen([sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:

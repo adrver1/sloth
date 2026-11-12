@@ -12,12 +12,13 @@ import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 // the light maps ship as KTX2 (UASTC + zstd, props/bake_all.py --only ktx): about half the download of the PNGs and a quarter
 // of the GPU memory; a map with no .ktx2 next to it (or a browser that can't take it) falls back to its .png
 let ktx = null;
+const META = fetch("models/camp_lights.json").then((r) => r.json()).catch(() => ({}));
 export function initKtx(renderer) {
   ktx = new KTX2Loader().setTranscoderPath("https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/libs/basis/").detectSupport(renderer);
 }
 export async function loadLightMap(png) {
   let t = null;
-  if (ktx) t = await ktx.loadAsync(png.replace(/\.png$/, ".ktx2")).catch(() => null);
+  if (ktx && (await META).ktx2) t = await ktx.loadAsync(png.replace(/\.png$/, ".ktx2")).catch(() => null);   // only once the bake wrote them
   t ??= await new THREE.TextureLoader().loadAsync(png);
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;   // data, decoded in the shaders
 }

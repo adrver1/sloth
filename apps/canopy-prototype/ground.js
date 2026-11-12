@@ -6,7 +6,10 @@
 // Plants: crossed-quad cards (4 tris each) from one painted atlas, all in one instanced draw, swaying in the vertex shader.
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
 import * as THREE from "three";
-import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";   // the camp's baked lights, one channel each
+import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";
+// the contact shadow on whatever sits on the floor: a dark brown laid over it by the shadow map, faded at night (the night
+// bake holds the night's shadows); xz is the point's world x, z
+const SHADE = (xz) => `outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), texture2D(uShadeT, ${xz} / (2.0 * uR) + 0.5).r * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight) * step(length(${xz}), uR));`;   // the camp's baked lights, one channel each
 
 const canvasTex = (w, h, draw, srgb = true) => {
   const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
@@ -148,10 +151,10 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   const uGN = { value: null }, uGJ = { value: null }, uGDP = { value: null }, uGDD = { value: null }, uGDB = { value: null }, uGNon = { value: 0 };   // uGD: the cabin light's spill through each door (patch round the jeep)   // uGJ: the jeep's headlights (R) and cabin light (G)
   const mat = new THREE.MeshLambertMaterial({ map: grassMap });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGJ, uGDP, uGDD, uGDB, uGNon }); bindLight(sh);
+    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGJ, uGDP, uGDD, uGDB, uGNon, uShadeT: uShade, uShadeK }); bindLight(sh);
     if (baked) sh.defines = { ...sh.defines, BAKED: 1 };
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB; uniform float uR, uNight, uGNon; vec3 albedoG;\n" + LIGHT_GLSL)
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB, uShadeT; uniform float uR, uNight, uGNon, uShadeK; vec3 albedoG;\n" + LIGHT_GLSL)
       .replace("#include <lights_fragment_begin>", liveChunk())   // keeps the live cabin light's share apart (Cabin: live)
       .replace("#include <map_fragment>", `#include <map_fragment>
         float rr = length(vG);
@@ -175,16 +178,19 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`)
       .replace("#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, vG / (2.0 * uR) + 0.5)) * uGNon; vec2 gj = lmDecode2(texture2D(uGJ, vG / (2.0 * uR) + 0.5).rg) * uGNon;
         vec2 du = lmDoorUv(vG); vec3 gd = all(greaterThan(du, vec2(0.0))) && all(lessThan(du, vec2(1.0))) ? vec3(doorKey(lmDecode(texture2D(uGDP, du)), uLD.x), doorKey(lmDecode(texture2D(uGDD, du)), uLD.y), doorKey(lmDecode(texture2D(uGDB, du)), uLD.z)) * uGNon : vec3(0.0);${LIGHT_MIX("albedoG", "gq", "gj", "(uNight * uGNon)", "gd", true)}
+        ${SHADE("vG")}
 #include <opaque_fragment>`);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
-  // the contact shadows as one dark see-through disc just above the floor, the jeep's track and the path (48 triangles, 1 draw)
-  const uShade = { value: shade };
+  // the contact shadows: the floor darkens itself by the shadow map (review P8: it was a see-through disc blended over the whole
+  // floor every frame); the track and path ribbons on top take the same darkening through shadeOn(). shadeMat and shadeMesh
+  // stay only as the live fallback's bookkeeping and are not drawn
+  const uShade = { value: shade }, uShadeK = { value: 1 };
   const shadeMat = new THREE.MeshBasicMaterial({ color: 0x1a1408, alphaMap: shade, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
   shadeMat.onBeforeCompile = (sh) => { sh.uniforms.uNight = night; sh.uniforms.uGNon = uGNon;
     sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight, uGNon;").replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\ndiffuseColor.a *= 1.0 - (0.5 + 0.5 * uGNon) * uNight;"); };   // with the night bake in, it fades out fully at night (below): the bake holds the night's shadows
   const shadeUv = geo.clone(); { const p = shadeUv.attributes.position, uv = shadeUv.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / (2 * RR) + 0.5, p.getZ(i) / (2 * RR) + 0.5); }
-  const shadeMesh = new THREE.Mesh(shadeUv.translate(0, 0.012, 0), shadeMat); shadeMesh.renderOrder = 3; scene.add(shadeMesh);
+  const shadeMesh = new THREE.Mesh(shadeUv.translate(0, 0.012, 0), shadeMat); shadeMesh.renderOrder = 3;
   clearing.visible = false;
 
   // ---------------------------------------------------------------- plant atlas: tuft, tall grass, wildflowers, clover (2 x 2 cells of 128)
@@ -280,7 +286,20 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   // for prop sets and jeeps that have no bake yet
   let shadowBaked = false;
   if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
-    shadowBaked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; }, undefined, () => {});
+    shadowBaked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; uShadeK.value = 0.85; }, undefined, () => {});
+  // the same darkening for a material drawn on the floor (the track and path ribbons): its world x, z looks up the shadow map
+  function shadeOn(m) {
+    const prev = m.onBeforeCompile;
+    m.onBeforeCompile = (sh, r) => {
+      prev?.call(m, sh, r);
+      Object.assign(sh.uniforms, { uShadeT: uShade, uShadeK, uR: { value: RR }, uNight: night, uGNon });
+      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vSW;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvSW = (modelMatrix * vec4(transformed, 1.0)).xz;");
+      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vSW; uniform sampler2D uShadeT; uniform float uShadeK, uR, uNight, uGNon;")
+        .replace("#include <opaque_fragment>", SHADE("vSW") + "\n#include <opaque_fragment>");
+    };
+    m.customProgramCacheKey = () => "shade|" + (prev ? prev.toString() : ""); m.needsUpdate = true;
+    return m;
+  }
   let nightBaked = false;
   if (nightMap) loadLightMap(nightMap).then((t) => { t.anisotropy = 4;
     uGN.value = t; uGNon.value = 1; nightBaked = true; }).catch(() => {});
@@ -290,5 +309,5 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   if (nightMap) loadLightMap(nightMap.replace("camp_ground_night_", "camp_ground_jeep_")).then((t) => { uGJ.value = t; }).catch(() => {});
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
-  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
+  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
 }
