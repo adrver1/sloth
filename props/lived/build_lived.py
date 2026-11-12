@@ -687,9 +687,9 @@ def kitchen_things(M):
     p.append(cyl(0.085, 0.04, at=(0.12, -0.04, 0.04), m=M["plate"], verts=8, smooth=False))
     p.append(cyl(0.086, 0.004, at=(0.12, -0.04, 0.0615), m=M["rim"], verts=8, smooth=False))
     k0 = mark(p, k0, "Enamel plates")
-    # the honey jar on the ground beside the crate, and a wooden spoon resting across the rim
-    p.append(cyl(0.045, 0.1, at=(0.33, -0.12, 0.05), m=M["honey"], verts=6, smooth=False))
-    p.append(cyl(0.05, 0.022, at=(0.33, -0.12, 0.111), m=M["lid"], verts=6, smooth=False))
+    # the honey jar in the back corner of the crate, and a wooden spoon resting across the rim
+    p.append(cyl(0.045, 0.1, at=(0.17, 0.095, 0.07), m=M["honey"], verts=6, smooth=False))
+    p.append(cyl(0.05, 0.022, at=(0.17, 0.095, 0.131), m=M["lid"], verts=6, smooth=False))
     k0 = mark(p, k0, "Honey jar")
     p.append(rod((-0.2, -0.17, CH + 0.008), (0.06, -0.15, CH + 0.03), 0.008, M["handle"], verts=4))
     p.append(box((0.07, 0.045, 0.014), at=(0.1, -0.148, CH + 0.03), rot=(0, 0.15, 0.08), m=M["handle"]))
