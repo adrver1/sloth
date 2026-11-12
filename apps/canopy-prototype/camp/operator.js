@@ -397,9 +397,19 @@ function giveBack(at) {
   s.o.position.copy(p); s.o.rotation.set(0, R(0, 6.28), 0); s.cuddled = false;
   life().giveBack?.(s, p, s.o.rotation.y);
 }
+// a bit of open ground beside him to set the sloth on: in front if it's free, else a little round to either side, clear of the
+// log seats, the table, the fire and the rest (campProps blockers), never inside one (Adriaen: it was dropped through a bench)
+function clearSpot() {
+  for (const d of [0.55, 0.75, 0.95]) for (const a of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, 2.3, -2.3, Math.PI]) {
+    const p = root.localToWorld(V(Math.sin(a) * d, 0, -Math.cos(a) * d)); p.y = 0;
+    if (Math.hypot(p.x, p.z) > RC - 1) continue;
+    if (blockers.every(([c, r]) => Math.hypot(p.x - c.x, p.z - c.z) > r + 0.22)) return p;
+  }
+  return root.localToWorld(V(0.1, 0, -0.55));
+}
 function* putDown() {                                   // set it down in front of him, facing him, and let it go
-  if (!op.buddy || !op.carry) return; const c = op.carry, to = root.localToWorld(V(0.1, 0, -0.55)); to.y = groundAt(to.x, to.z);
-  play("idle", 0.6); c.from.copy(to); c.q0.setFromAxisAngle(UP, root.rotation.y + Math.PI);
+  if (!op.buddy || !op.carry) return; const c = op.carry, to = clearSpot(); to.y = groundAt(to.x, to.z);
+  play("idle", 0.6); c.from.copy(to); c.q0.setFromAxisAngle(UP, yawTo(root.position.clone().sub(to)) + Math.PI);   // facing him
   for (let t = 0; t < 0.8;) { t += yield; c.k = 1 - THREE.MathUtils.smoothstep(t, 0, 0.8); }
   op.carry = null; giveBack(to);
 }
@@ -629,7 +639,7 @@ if (ON) {
   window.__op = { root, op, acts, mixer, go: (k) => { op.next = k; },
     dbg: () => ({ inHand: op.inHand && [op.inHand === bowl ? 'bowl' : 'mug', op.inHand.visible, op.inHand.position.toArray().map((v) => +v.toFixed(2)), !!op.inHand.parent], w: Object.entries(acts).filter(([, a]) => a.isRunning()).map(([n, a]) => n + ':' + a.getEffectiveWeight().toFixed(2) + '@' + a.time.toFixed(2)) }),
     state: () => ({ kind: op.kind, at: root.position.toArray().map((v) => +v.toFixed(2)), place: op.place, seated: op.seated, lying: op.lying, sleeping: op.sleeping, buddy: op.buddy?.name ?? null, clip: cur?.getClip().name }),
-    talk, tapCol, line: () => say.textContent, tapAt: () => op.scr,
+    talk, tapCol, clearSpot, line: () => say.textContent, tapAt: () => op.scr,
     sim: (sec) => { for (let t = 0; t < sec; t += 0.05) opStep(0.05); return window.__op.state(); },   // run his life ahead (checks)
     tris: () => { let n = 0; root.traverse((m) => { if (m.isMesh) n += m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3; }); return n; },
     jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); Object.assign(op, { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null }); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0);
