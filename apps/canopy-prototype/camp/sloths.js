@@ -57,7 +57,8 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
   o.quaternion.setFromRotationMatrix(rot); o.position.copy(p).sub(V(0, BR.z * sc / SL, -BR.y * sc / SL).applyMatrix4(rot)); scene.add(o);
   const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(p).add(V(0, -0.25, 0)); scene.add(box);
   const s = { o, mixer, box, p, sc, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false, shells: o.userData.furShells || [], eyes: eyeKit(o), blink: R(1, 6), look: 0, act, napT: R(4, 40), droop: 0, yawn: 0,
-    arm: [o.getObjectByName("upper_armR") || o.getObjectByName("upper_arm.R"), o.getObjectByName("forearmR") || o.getObjectByName("forearm.R")], gaze: 0, waveCD: 0, wave: 0 };
+    arm: [o.getObjectByName("upper_armR") || o.getObjectByName("upper_arm.R"), o.getObjectByName("forearmR") || o.getObjectByName("forearm.R")],
+    armL: [o.getObjectByName("upper_armL") || o.getObjectByName("upper_arm.L"), o.getObjectByName("forearmL") || o.getObjectByName("forearm.L")], gaze: 0, waveCD: 0, wave: 0 };
   s.lit = []; o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur && !s.lit.length) s.lit.push(m); });   // what lights up when a tap would boop it (camp/highlight.js)
   box.userData.s = s; sloths.push(s); hit.push(box);
 }
@@ -107,6 +108,10 @@ function slothLife(s, dt) {                            // after the clip: fur by
   s.droop += ((s.dozing && s.asleep ? 1 : 0) - s.droop) * Math.min(1, dt * 0.8);
   if (s.droop > 0.01) s.head.rotation.x -= (s.act?.getClip().name === "curl" ? 0.12 : 0.4) * s.droop;
   if (s.yawn) yawnStep(s, dt);
+  if (s.munch > 0) {                                   // munching what you fed it: the mouth opens and shuts a few times
+    s.munch = Math.max(0, s.munch - dt); const m = mouthOf(s), o = s.munch > 0.1 ? Math.max(0, Math.sin(s.munch * 9)) : 0;
+    m.visible = o > 0.08; m.scale.set(0.75, Math.max(0.01, o * 0.6), 1); s.head.rotation.x += 0.08 * o;
+  }
 }
 // a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
 // muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.
@@ -575,6 +580,7 @@ if (qs.get("campsloths") !== "0") {
   }
   function errand(s) {                                // a place at the table or the crate with a fruit there (or a wander)
     if (s.ownSpot) { life.release(s.spot.key, s); s.spot.who = null; s.spot = s.ownSpot; s.ownSpot = null; return goHome(s); }   // back from a nap trip
+    if (s.cardsTo) { const slot = s.cardsTo; s.cardsTo = null; return walkTo(s, slot.p, () => { startEat(s, slot); s.trip.cards = true; }); }
     if (s.napTo) { const g = s.napTo; s.napTo = null; life.claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; return goHome(s); }
     if (!s.food && R(0, 1) < 0.3 && napTrip(s)) return;
     if (s.food) {                                     // a bowl you set down (activities' "camp-food"): eat from it there
@@ -614,7 +620,7 @@ if (qs.get("campsloths") !== "0") {
       if (T.t > 1.2) { play(s, "hang_walk", 1, -2); move(s, T, T.front, 4, 0.15, -0.5, () => { J.close("H"); life.release("jeep:hood", s); goHome(s); }); }
     }
   }
-  function startEat(s, slot) { Object.assign(s.trip, { phase: "eat", st: "turn", t: 0, slot }); play(s, "idle", 1); }
+  function startEat(s, slot) { Object.assign(s.trip, { phase: "eat", st: "turn", t: 0, slot, cards: false }); play(s, "idle", 1); }
   // a move inside the eat phase: from where it is to `to` over dur s, lifted by `lift` in the middle, tipped back by `tip`
   function move(s, T, to, dur, lift, tip, then) { T.mv = { fp: s.o.position.clone(), to, dur, lift, tip, then }; T.st = "move"; T.t = 0; }
   function eatStep(s, T, sd) {
@@ -622,7 +628,7 @@ if (qs.get("campsloths") !== "0") {
     if (T.st === "turn") {                           // face the fruit, then up onto the table or up against the crate
       if (turnTo(T, slot.yaw, sd * 2) < 0.05 || T.t > 3) {
         const sit = sitFor(slot, s.sc);
-        if (slot.name === "table") { play(s, "hang_walk", 1, 2); move(s, T, sit, 3.5, 0.12, -0.5, () => chew(s, T)); }
+        if (slot.name === "table") { play(s, "hang_walk", 1, 2); move(s, T, sit, 3.5, 0.12, -0.5, () => T.cards ? cardsSit(s, T) : chew(s, T)); }
         else { play(s, "walk", 1, WALK_TS); move(s, T, sit, 1.6, 0, 0, () => chew(s, T)); }
       }
       s.o.quaternion.setFromAxisAngle(UP, T.yaw);
@@ -631,9 +637,61 @@ if (qs.get("campsloths") !== "0") {
       s.o.position.lerpVectors(M.fp, M.to, e); s.o.position.y += Math.sin(Math.PI * k) * M.lift;
       s.o.quaternion.setFromAxisAngle(UP, T.yaw).multiply(q0.setFromAxisAngle(V(1, 0, 0), M.tip * Math.sin(Math.PI * k)));
       if (k >= 1) M.then();
-    } else if (T.st === "eat") {
+    } else if (T.st === "cards") cardsStep(s, T, sd);
+    else if (T.st === "eat") {
       if (!F.mesh && s.act.time > EAT_GRAB - 0.1) { F.mesh = fruit(); F.mesh.position.copy(pawOf(s, paw)); }   // a bowl: the fruit comes up out of it
       if (F.mesh) chewStep(s, F.mesh, F.at, EAT_GRAB);
+    }
+  }
+  // cards (Adriaen 2026-11-12: "sloths playing cards together, of course with the occasional dozing off"): now and then two
+  // sloths climb onto the two ends of the table, facing each other, each holding a fan of three cards in its left paw. In
+  // turn, slowly, one reaches out and lays a card on the pile between them. Now and then one nods off mid-game (eyes shut,
+  // head sinking, a z) and the other waits for it. After a minute or two they climb down and go home. Cards: quads (2
+  // triangles each) with one painted texture, a fan of 3 per player and a pile of at most 8: 44 triangles while they play.
+  const cardTex = canvasTex(64, 96, (g) => { g.fillStyle = "#fff8ee"; g.fillRect(0, 0, 64, 96); g.strokeStyle = "#c9a27a"; g.lineWidth = 4; g.strokeRect(3, 3, 58, 90);
+    g.fillStyle = "#e0566f"; g.beginPath(); g.moveTo(32, 66); g.bezierCurveTo(4, 44, 18, 22, 32, 38); g.bezierCurveTo(46, 22, 60, 44, 32, 66); g.fill(); });
+  const cardMat = new THREE.MeshLambertMaterial({ map: cardTex, side: THREE.DoubleSide }), cardGeo = new THREE.PlaneGeometry(0.036, 0.054);
+  const pile = []; let game = null;
+  const lpaw = V(), qL = new THREE.Quaternion();
+  function lpawOf(s, out) { s.armL[0].getWorldPosition(shoulder); s.armL[1].getWorldPosition(elbow); return out.copy(UP).applyQuaternion(s.armL[1].getWorldQuaternion(qL)).multiplyScalar(shoulder.distanceTo(elbow) * 0.82).add(elbow); }
+  function startCards(a, b) {                         // a and b (both at home, awake) go and play at the table
+    const P = pois().find((q) => q.name === "table"); if (!P || P.slots.length < 2 || game) return false;
+    if (P.slots.some((q) => q.who || claims.has(q.key))) return false;
+    game = { P, players: [a, b], over: false, len: R(70, 120), t: 0, turn: 0 };
+    [a, b].forEach((s, i) => { const slot = P.slots[i]; slot.who = s; life.claim(slot.key, s); s.cardsTo = slot; if (s.trip.phase === "home") leave(s); });
+    return true;
+  }
+  function cardsSit(s, T) {
+    T.st = "cards"; T.t = 0; T.next = R(3, 6); play(s, "idle", 1);
+    if (!s.hand) { s.hand = new THREE.Group(); for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(cardGeo, cardMat); c.position.set((k - 1) * 0.012, 0.03, k * 0.002); c.rotation.z = (1 - k) * 0.35; s.hand.add(c); } scene.add(s.hand); }
+    s.hand.visible = true;
+  }
+  function cardsStep(s, T, sd) {
+    const g = game, other = g?.players.find((q) => q !== s);
+    lpawOf(s, lpaw); s.hand.position.copy(lpaw); s.hand.quaternion.copy(s.o.quaternion).multiply(q0.setFromAxisAngle(V(1, 0, 0), -0.5)); s.hand.scale.setScalar(s.sc / 2);
+    if (!g || g.over) {                               // the game's over: down off the table and home
+      if (s.dozing) { s.dozing = s.asleep = false; s.eyes(false); s.yawn = 1e-3; }
+      if (s.once) return;
+      s.hand.visible = false; T.st = "done"; play(s, "hang_walk", 1, -2); T.yaw = T.slot.yaw;
+      return move(s, T, T.slot.p.clone(), 3.5, 0.12, -0.5, () => { T.slot.who = null; life.release(T.slot.key, s); if (g && g.players.every((q) => q.trip.st === "done" || q.trip.phase !== "eat")) { pile.forEach((c) => (c.visible = false)); game = null; } goHome(s); });
+    }
+    if (s.dozing) {                                   // nodded off mid-game
+      s.dozeT -= sd; if (s.dozeT < 0 || s.squish > 0.9) { s.dozing = s.asleep = false; s.eyes(false); s.yawn = 1e-3; T.next = R(2, 4); }
+      return;
+    }
+    if (other?.trip.st !== "cards") return;           // wait for the other to sit down
+    g.t += sd / 2; if (g.t > g.len) g.over = true;
+    if (s.once) {                                     // laying a card: at the reach's far end it goes onto the pile, then back to sitting
+      if (!T.laid && s.act.time > 1.7) { T.laid = true; const c = pile.find((q) => !q.visible) ?? (pile.length < 8 ? (pile.push(new THREE.Mesh(cardGeo, cardMat)), pile.at(-1)) : pile[0]); scene.add(c); c.visible = true;
+        const mid = T.slot.food.at.clone().lerp(g.P.c.clone().setY(T.slot.food.at.y), 0.6); c.position.set(mid.x + R(-0.03, 0.03), T.slot.food.at.y - 0.022 + pile.filter((q) => q.visible).length * 0.002, mid.z + R(-0.03, 0.03)); c.rotation.set(-Math.PI / 2, 0, R(0, 6.3)); }
+      if (s.act.time > 2.3) { s.once = null; play(s, "idle", 0.9); g.turn = 1 - g.players.indexOf(s); T.next = R(4, 8); }
+      return;
+    }
+    if (g.turn !== g.players.indexOf(s)) { if (other.dozing && T.t % 7 < sd) s.nod = 1; return; }   // its turn? (a nod at a sleeping partner)
+    T.next -= sd;
+    if (T.next < 0 && !other.dozing) {
+      if (R(0, 1) < 0.18) { s.dozing = true; s.asleep = true; s.eyes(true); s.dozeT = R(10, 22); g.turn = 1 - g.turn; return; }   // dozes off instead
+      T.laid = false; playOnce(s, "eat", 0.8, () => {});
     }
   }
   function chew(s, T) {
@@ -832,7 +890,11 @@ if (qs.get("campsloths") !== "0") {
         if (spot.name === "seat") smoreStep(s, sd);
         napStep(s, sd, s.spot.guest ? () => leave(s) : undefined);
         s.errand -= sd;
-        if (s.errand < 0 && !s.smore && !s.wave && !s.dozing && !s.once) { if (out < MAX_OUT) { leave(s); out++; } else s.errand = R(6, 15); }
+        if (s.errand < 0 && !s.smore && !s.wave && !s.dozing && !s.once) {
+          const mate = R(0, 1) < 0.2 && out < MAX_OUT - 1 && camp.find((q) => q !== s && q.trip.phase === "home" && !q.dozing && !q.smore && !q.spot.guest && q.spot.name !== "hammock");
+          if (mate && s.spot.name !== "hammock" && startCards(s, mate)) out += 2;
+          else if (out < MAX_OUT) { leave(s); out++; } else s.errand = R(6, 15);
+        }
       } else if (T.phase === "walk") walkStep(s, T, sd);
       else if (T.phase === "greet") {                // sit up, face each other, say hello, carry on
         const o = T.with.o.position, pos = s.o.position;
@@ -933,6 +995,7 @@ if (qs.get("campsloths") !== "0") {
     fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
     nap: (s) => { if (!s.dozing) doze(s); },
     guests: () => guests.map((g) => g.key),
+    cards: (s) => { const mate = camp.find((q) => q !== s && q.trip.phase === "home" && !q.spot.guest && q.spot.name !== "hammock"); return mate && s.trip.phase === "home" && startCards(s, mate); },
     napTrip: (s, key) => { if (s.trip.phase !== "home" || s.spot.guest) return; const g = guests.find((q) => q.key === key); if (g && !claims.get(key)) { s.napTo = g; leave(s); } }, wake: (s) => { if (s.dozing) s.dozeIn > 0 ? (s.dozeIn = 0.01, s.dozeT = 0) : (s.dozeT = 0); },
     yawn: (s) => { s.yawn = 1e-3; }, stretch: (s) => { const [c, ts] = homeClip(s); playOnce(s, "stretch", 1.2, () => play(s, c, 1.5, ts)); } };
 }

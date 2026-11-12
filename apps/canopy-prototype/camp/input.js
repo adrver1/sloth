@@ -47,14 +47,11 @@ $("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointerc
 addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.deltaY * 0.02, -20, 6); resize(); }, { passive: true });
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
 function boop(s) { s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
-let friends = 0;
+// feeding (Adriaen 2026-11-12: every camp sloth is already your friend, so no friend counter or "new friend"; and eating
+// shows no words or emojis): a flower flies from you to its mouth, it nods and munches it (slothLife's mouth)
 function feed(s) {
   const f = sprite("🌺", 96); f.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(f);
-  fx.push({ s: f, fly: { from: f.position.clone(), to: s.p.clone().add(V(0, -0.15, 0)) }, t: 0, life: 0.9, done() {
-    s.nod = 2.4; burst(s.p.clone().add(V(0, 0.2, 0)), "💗", 5, 1.6, 80);
-    if (!s.friend) { s.friend = true; friends++; dispatchEvent(new CustomEvent("sloth-befriended", { detail: { id: sloths.indexOf(s) } }));   /* stand-in until the activities' befriend(s) */ flowerCrown(s); $("score").textContent = `💗 ${friends} friend${friends > 1 ? "s" : ""}`; toast(friends === COUNT ? "Everyone's your friend! 🌸" : "New friend! 🌸"); }
-    else burst(s.p.clone().add(V(0, 0.45, 0)), "nom nom", 1, 1.4, 60);
-  } });
+  fx.push({ s: f, fly: { from: f.position.clone(), to: s.head.getWorldPosition(V()) }, t: 0, life: 0.9, done() { s.nod = 2.4; s.munch = 2.6; } });
 }
 
 // ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
