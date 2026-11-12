@@ -73,7 +73,7 @@ def materials():
         bark=(0.3, 0.21, 0.14), bark2=(0.24, 0.17, 0.11), wood=(0.68, 0.52, 0.36), endgrain=(0.78, 0.62, 0.42), chip=(0.82, 0.68, 0.48),
         handle=(0.62, 0.45, 0.28), steel=(0.32, 0.33, 0.35), edge=(0.7, 0.71, 0.72),
         tin=(0.55, 0.56, 0.58), pan=(0.16, 0.16, 0.17), plate=(0.92, 0.92, 0.88), honey=(0.86, 0.56, 0.12), lid=(0.72, 0.2, 0.16),
-        rubber=(0.2, 0.36, 0.2), sole=(0.1, 0.09, 0.08), cuff=(0.14, 0.27, 0.15), mud=(0.3, 0.21, 0.13), inside=(0.08, 0.08, 0.07),
+        rubber=(0.2, 0.36, 0.2), coffee=(0.2, 0.11, 0.06), sole=(0.1, 0.09, 0.08), cuff=(0.14, 0.27, 0.15), mud=(0.3, 0.21, 0.13), inside=(0.08, 0.08, 0.07),
         enamel=(0.97, 0.96, 0.92), rim=(0.16, 0.24, 0.45), cover=(0.5, 0.16, 0.13), page=(0.93, 0.9, 0.8), ink=(0.55, 0.52, 0.46), ribbon=(0.85, 0.7, 0.2)).items()}
 
 
@@ -383,17 +383,46 @@ def page(w, d, side, M, lift):
     return quad(q if side > 0 else q[::-1], M["page"])
 
 
+def mug(M, at):
+    """The enamel mug, trimmed (Adriaen 2026-11-12): an 8-sided body with no bottom, the blue rim painted as a band at
+    the top, coffee as one flat octagon, and a 6 x 3 handle loop (96 triangles instead of 244)."""
+    x0, y0, z0 = at
+    r, h, n = 0.042, 0.085, 8
+    bm = bmesh.new()
+    ring = lambda rr, zz: [bm.verts.new((x0 + rr * math.cos(2 * math.pi * (i + 0.5) / n), y0 + rr * math.sin(2 * math.pi * (i + 0.5) / n), z0 + zz)) for i in range(n)]  # noqa: E731
+    lo, band, hi = ring(r, 0), ring(r, h - 0.008), ring(r, h)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((lo[i], lo[j], band[j], band[i])).material_index = 0
+        bm.faces.new((band[i], band[j], hi[j], hi[i])).material_index = 1
+    cof = ring(r * 0.86, h - 0.004)
+    bm.faces.new(cof).material_index = 2                                 # the coffee, just under the rim
+    for i in range(n):                                                   # the rim: a ring from the outside down to the coffee
+        j = (i + 1) % n
+        bm.faces.new((hi[i], hi[j], cof[j], cof[i])).material_index = 1
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    for f in bm.faces:
+        if f.calc_center_median().z > z0 + h - 0.006 and f.normal.z < 0:
+            f.normal_flip()
+    me = bpy.data.meshes.new("mug")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("mug", me)
+    bpy.context.collection.objects.link(o)
+    for k in ("enamel", "rim", "coffee"):
+        me.materials.append(M[k])
+    hd = torus(0.026, 0.006, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=6, minor=3)
+    for pl in hd.data.polygons:
+        pl.use_smooth = False
+    return join([o, hd], "mug")
+
+
 def seat_things(M):
     """An enamel mug and an open book on the seat's flat top (log along X, top at SEAT_TOP)."""
     z = SEAT_TOP
     p = []
     mx, my = -0.42, 0.05
-    p.append(cyl(0.042, 0.085, at=(mx, my, z + 0.0425), m=M["enamel"], verts=16))
-    p.append(quad([(mx + 0.036 * math.cos(a), my + 0.036 * math.sin(a), z + 0.081) for a in (0, 1.571, 3.142, 4.712)], M["rim"]))   # dark coffee inside
-    p[-1].modifiers.new("r", "SUBSURF").levels = 1
-    p.append(torus(0.042, 0.004, at=(mx, my, z + 0.085), m=M["rim"], major=16, minor=3))
-    h = torus(0.026, 0.006, at=(mx + 0.048, my, z + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=10, minor=4)
-    p.append(h)
+    p.append(mug(M, (mx, my, z)))
     k0 = mark(p, 0, "Enamel mug")
     # the book: a cover a little bigger than the pages, open face up, a ribbon hanging off the end
     bx, by, yaw = 0.18, -0.02, 0.25
@@ -648,10 +677,10 @@ def kitchen_things(M):
     p = []
     # the pan: a shallow 8-sided dish leaning against the back wall, handle sticking up out of the crate
     pan = cyl(0.12, 0.035, at=(0, 0, 0), m=M["pan"], verts=8, r2=0.1, smooth=False)
-    handle = rod((0.115, 0, 0.01), (0.3, 0, 0.03), 0.012, M["pan"], verts=4)
+    handle = rod((0, 0.115, 0.01), (0, 0.3, 0.03), 0.012, M["pan"], verts=4)
     pj = join([pan, handle], "pan")
-    pj.rotation_euler = (math.radians(-70), 0, math.radians(90))   # the dish faces the front, the handle points up
-    pj.location = (-0.08, 0.07, 0.16)
+    pj.rotation_euler = (math.radians(75), 0, 0)                  # stood on its rim, dish to the front, handle up and out
+    pj.location = (-0.08, 0.06, 0.14)
     p.append(pj)
     k0 = mark(p, 0, "Frying pan")
     # plates stacked on the floor of the crate, front right
