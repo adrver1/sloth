@@ -419,13 +419,34 @@ if (qs.get("campsloths") !== "0") {
   // or crate place, a bed, a seat) is claimed by whoever uses it, so no one sits or lies on someone else; anyone walking
   // about registers as a mover, and the sloths steer round movers as they do round each other and you. Shared with the
   // camp's other characters (the operator) through window.__campLife.
-  const claims = new Map(), movers = [];
+  const claims = new Map(), movers = [], hosts = new Map();
   const life = window.__campLife = {
     claim(place, who) { const h = claims.get(place); if (h && h !== who) return false; claims.set(place, who); return true; },
     release(place, who) { if (!who || claims.get(place) === who) claims.delete(place); },
     holder: (place) => claims.get(place),
     addMover(obj, r) { movers.push([obj, r]); },
     removeMover(obj) { const i = movers.findIndex((m) => m[0] === obj); if (i >= 0) movers.splice(i, 1); },
+    // borrowing a sloth for a while (the operator picks one up to cuddle or play): only one on the ground, or Sunny on its
+    // log. While lent its phase is "held": its life step, errands and greetings stop; its clip, blinks and fur keep going.
+    path: (from, to) => findPath(from, to),
+    lend(s, who, opt = {}) {
+      const ph = s.trip?.phase; if (!camp.includes(s) || !(["rest", "walk", "greet"].includes(ph) || (ph === "home" && s.spot.name === "seat"))) return false;
+      if (s.trip.slot?.key && s.trip.slot.who === s) { s.trip.slot.who = null; life.release(s.trip.slot.key, s); }
+      stopSmore(s); s.dozing = s.asleep = false; s.eyes(false); s.once = null;
+      life.release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.release("log:0", s); s.spot.home = false;
+      scene.attach(s.o); s.trip = { phase: "held", t: 0, yaw: 0, who }; if (opt.asleep) { s.asleep = true; s.eyes(true); } return true;
+    },
+    giveBack(s, at, yaw) {
+      if (s.trip?.phase !== "held") return;
+      if (s.asleep) { s.asleep = false; s.eyes(false); }
+      scene.attach(s.o); s.o.position.set(at.x, 0, at.z); s.o.quaternion.setFromAxisAngle(UP, yaw); s.o.scale.setScalar(s.sc);
+      s.trip = { phase: "rest", t: 0, yaw, dur: R(1.5, 3) }; play(s, "idle", 0.6);
+    },
+    sloths: camp,
+    // a place someone else is using may still take a sloth too (a bed or seat the operator is in: they nap or cuddle
+    // together): its user registers a host; join(place, s) asks it, and the host takes the sloth with lend() if it says yes
+    host(place, fn) { hosts.set(place, fn); },
+    join(place, s) { const fn = hosts.get(place); return !!fn && !!fn(s); },
     movers: () => [...camp.filter((o) => GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * o.sc]), ...movers.map(([o, r]) => [o.position, r]), [camera.position, 0.3]],
   };
   // Eating (Adriaen 2026-11-12: "have them pick up the food item and eat it; crawl on top of the table or reach into the
@@ -500,7 +521,8 @@ if (qs.get("campsloths") !== "0") {
   const qWorld = new THREE.Quaternion();
   const turnTo = (T, want, k) => { let d = want - T.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; T.yaw += d * Math.min(1, k); return Math.abs(d); };
   function atHome(s, first) {
-    s.trip.phase = "home"; s.spot.home = true; life.claim(`${s.spot.name}:${s.name}`, s);   // e.g. "seat:Sunny", "jeep:Mango"
+    if (s.spot.guest) { s.trip.phase = "home"; s.spot.home = true; s.errand = 1e9; doze(s, R(60, 120)); s.dozeIn = 1.2; if (s.spot.car) setTimeout(() => window.__jeep?.close("P"), 1500); return; }   // a nap trip: straight to sleep
+    s.trip.phase = "home"; s.spot.home = true; life.claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.claim("log:0", s);   // e.g. "seat:Sunny", "jeep:Mango"
     s.errand = first ? R(4, 45) : R(35, 80) * (s.spot.asleep || s.spot.car ? 1.6 : 1);
     if (s.spot.car && !first) setTimeout(() => window.__jeep?.close("P"), 1500);
   }
@@ -524,7 +546,7 @@ if (qs.get("campsloths") !== "0") {
       () => { const yaw = (spot.climbYaw ?? climbYaw) + Math.PI; toGround(s, spot.door.clone().add(V(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(0.3)), yaw, then); }));
   }
   function leave(s) {
-    const spot = s.spot, J = window.__jeep; spot.home = false; s.trip = { phase: "glide", t: 0, yaw: 0 }; life.release(`${spot.name}:${s.name}`, s);
+    const spot = s.spot, J = window.__jeep; spot.home = false; s.trip = { phase: "glide", t: 0, yaw: 0 }; life.release(`${spot.name}:${s.name}`, s); if (spot.name === "seat") life.release("log:0", s);
     if (s.asleep) { s.asleep = false; s.eyes(false); }
     s.dozing = false; s.yawn = 0; if (s.mouth) s.mouth.visible = false;
     const go = () => errand(s);
@@ -552,6 +574,9 @@ if (qs.get("campsloths") !== "0") {
     play(s, "walk", 1.5, WALK_TS);
   }
   function errand(s) {                                // a place at the table or the crate with a fruit there (or a wander)
+    if (s.ownSpot) { life.release(s.spot.key, s); s.spot.who = null; s.spot = s.ownSpot; s.ownSpot = null; return goHome(s); }   // back from a nap trip
+    if (s.napTo) { const g = s.napTo; s.napTo = null; life.claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; return goHome(s); }
+    if (!s.food && R(0, 1) < 0.3 && napTrip(s)) return;
     if (s.food) {                                     // a bowl you set down (activities' "camp-food"): eat from it there
       const at = s.food; s.food = null; const u = V(at.x, 0, at.z).normalize(), g = V(at.x, 0, at.z).addScaledVector(u, 0.9);
       const slot = { name: "bowl", p: g, u, yaw: Math.atan2(u.x, u.z), clip: "eat", who: s, h: 0, food: { at: at.clone().setY(at.y + 0.05), mesh: null, bowl: true } };
@@ -715,8 +740,8 @@ if (qs.get("campsloths") !== "0") {
   // just slow right down; the tent one lays its head down. They wake on their own or when booped or fed; sitting ones
   // then have a big stretch, the others a yawn. The hammock napper sleeps all day. No errands or s'mores while asleep.
   const homeClip = (s) => s.trip?.phase === "rest" ? ["idle", 1] : !s.spot ? ["cling", 0.6] : [s.spot.clip, s.spot.clip === "cling" ? 0.6 : 1];
-  const dozeClip = (s) => s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
-  const canStretch = (s) => s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name);
+  const dozeClip = (s) => s.spot?.guest ? [s.spot.clip, s.spot.clip === "nap" ? 1 : 1] : s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
+  const canStretch = (s) => s.trip?.phase === "rest" || (["seat", "jeep"].includes(s.spot?.name) && s.spot.clip !== "curl");
   function doze(s, dur = R(50, 110)) { s.dozing = true; s.yawn = 1e-3; s.dozeIn = 2.4; s.dozeT = dur; }
   function wake(s, after) {
     s.dozing = false; s.asleep = false; s.eyes(false); s.napT = R(20, 45);
@@ -755,9 +780,47 @@ if (qs.get("campsloths") !== "0") {
   { let tris = 0; for (const s of camp) s.o.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh && m.geometry) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
     console.info(`camp sloths: ${camp.length} named (${camp.map((s) => s.name).join(", ")}), traits ${tris} triangles in all; s'mores stick 8 + marshmallow 12`); }
 
+  // nap trips (Adriaen 2026-11-12: "room for multiple sloths in the bed in the tent, much cozier than the ground; room for
+  // multiple in the hammock, they can cuddle together; more seats in the car a sleepy sloth could sleep in"): now and then
+  // an errand is a nap somewhere cozy instead of food. The sloth goes there by its route (as if it were its home), sleeps
+  // a long while, then leaves the same way and goes home. Two in the bed or the hammock lie side by side. A place the
+  // operator is using may still take it (life.join), else it picks another.
+  const guests = [];
+  {
+    const H = spots.find((q) => q.name === "hammock"), Jp = spots.find((q) => q.name === "jeep"), Tp = spots.find((q) => q.name === "tent");
+    if (H) guests.push({ ...H, key: "hammock:1", at: V(-0.42, 0.72 - PIV + 0.04, 0.02), asleep: false, guest: true, home: false, who: null });
+    if (Jp && window.__jeep?.seat) guests.push({ ...Jp, key: "jeep:P", at: Jp.parent.worldToLocal(window.__jeep.seat.clone()), yaw: Math.PI, clip: "curl", scale: 2.2, guest: true, home: false, who: null });
+    if (Tp) {                                         // the bed along the tent's left wall (campLife.js), tent frame: x -0.92, z -1.2 .. 0.4
+      const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = Tp.parent.localToWorld(V(x, 0, z)); ray.set(V(w.x, 1.2, w.z), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? h.point.y : 0.3; };
+      for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = -0.92 + dx, z = -0.45; guests.push({ ...Tp, key: `bed:${i}`, at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, guest: true, home: false, who: null }); }
+    }
+  }
   const wild = sloths.filter((s) => s.wild);
+  function napTrip(s) {                               // a cozy place free (or shared with the operator); false if none
+    const own = s.spot, ok = guests.filter((g) => !(g.name === own.name && own.name !== "tent") && (s.sc < 2.0 || g.name !== "hammock"));
+    let pick = ok[Math.floor(R(0, ok.length))]; if (!pick) return false;
+    const b0 = claims.get("bed:0"); if (pick.key === "bed:1" && b0 && !camp.includes(b0)) pick = guests.find((g) => g.key === "bed:0");   // he lies along the whole bed
+    const h = claims.get(pick.key);
+    if (h && camp.includes(h)) return false;
+    if (h) { walkTo(s, pick.via ?? pick.door, () => { if (!life.join(pick.key, s)) goHome(s); }); return true; }   // he's in it: ask to join him
+    life.claim(pick.key, s); s.ownSpot = own; s.spot = pick; pick.who = s;
+    goHome(s); return true;
+  }
+
+  // you on a log seat by the fire (linger.js) hold it as "log:<i>" (Seat_<i>), so no one sits on you
+  let mySeat = -1;
+  const LOGS = [0, 1, 2].map((i) => scene.getObjectByName(`Seat_${i}`));
+  function seatWatch() {
+    const st = window.__me?.seat; let i = -1;
+    if (st) { let best = 1.2; LOGS.forEach((o, k) => { if (o) { const d = Math.hypot(o.position.x - st.pos.x, o.position.z - st.pos.z); if (d < best) { best = d; i = k; } } }); }
+    if (i === mySeat) return;
+    if (mySeat >= 0) life.release(`log:${mySeat}`, "player");
+    if (i >= 0) life.claim(`log:${i}`, "player");
+    mySeat = i;
+  }
   campStep = (dt) => {
     if (!POIS) pois();
+    seatWatch();
     const fast = window.__campFast || 1, sd = dt * fast, J = window.__jeep;
     let out = camp.filter((s) => s.trip.phase !== "home").length;
     for (const s of camp) {
@@ -767,7 +830,7 @@ if (qs.get("campsloths") !== "0") {
       if (s.once && s.act.time >= s.act.getClip().duration - 0.02) { const f = s.once; s.once = null; f(); }   // a stretch or a bite done
       if (T.phase === "home") {
         if (spot.name === "seat") smoreStep(s, sd);
-        napStep(s, sd);
+        napStep(s, sd, s.spot.guest ? () => leave(s) : undefined);
         s.errand -= sd;
         if (s.errand < 0 && !s.smore && !s.wave && !s.dozing && !s.once) { if (out < MAX_OUT) { leave(s); out++; } else s.errand = R(6, 15); }
       } else if (T.phase === "walk") walkStep(s, T, sd);
@@ -868,7 +931,9 @@ if (qs.get("campsloths") !== "0") {
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
   window.__lab = { camp, GROUND, leave, goHome, wander, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
     fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
-    nap: (s) => { if (!s.dozing) doze(s); }, wake: (s) => { if (s.dozing) s.dozeIn > 0 ? (s.dozeIn = 0.01, s.dozeT = 0) : (s.dozeT = 0); },
+    nap: (s) => { if (!s.dozing) doze(s); },
+    guests: () => guests.map((g) => g.key),
+    napTrip: (s, key) => { if (s.trip.phase !== "home" || s.spot.guest) return; const g = guests.find((q) => q.key === key); if (g && !claims.get(key)) { s.napTo = g; leave(s); } }, wake: (s) => { if (s.dozing) s.dozeIn > 0 ? (s.dozeIn = 0.01, s.dozeT = 0) : (s.dozeT = 0); },
     yawn: (s) => { s.yawn = 1e-3; }, stretch: (s) => { const [c, ts] = homeClip(s); playOnce(s, "stretch", 1.2, () => play(s, c, 1.5, ts)); } };
 }
 // the move lab opens from the settings menu (Adriaen: "add the move lab in the artifact too"), or straight away with ?lab
