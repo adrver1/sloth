@@ -454,7 +454,7 @@ def body(M, style):
     apply_all(hood_r)
     G["Hood"] = [piece(shell, hood_r)]
     cut(shell, hood_r)
-    cut(shell, prism([(FRONT + 0.06, SILL + 0.3), (-0.45, SILL + 0.3), (-0.45, BELT - 0.13), (FRONT + 0.06, BELT - 0.13)], W - 0.16, M["inside"]))
+    cut(shell, prism([(FRONT + 0.06, SILL + 0.2), (-0.45, SILL + 0.2), (-0.45, BELT - 0.13), (FRONT + 0.06, BELT - 0.13)], W - 0.16, M["inside"]))
     # window openings, so the glass can be see-through: the windscreen and rear side windows in the body, the front side
     # windows in the doors, the back window in the back door (cut after the doors, which keeps the booleans clean).
     # Their reveals take the inside colour.
@@ -541,10 +541,11 @@ def body(M, style):
     G["Lamps"] = []
     PROP_AT["Lamps"] = (0, FRONT - 0.03, 0.83)
     G["Map"], G["Compass"] = hood_map(M)   # loose props on the bonnet, their own nodes (they ride on the hood: finish())
-    p.append(box((0.5, 0.42, 0.26), at=(0, -1.0, SILL + 0.45), m=M["under"], bevel=0.015))          # the engine: block,
-    p.append(box((0.4, 0.32, 0.05), at=(0, -1.0, SILL + 0.605), m=M["trim"]))                        # rocker cover,
-    p.append(cyl(0.12, 0.07, at=(-0.2, -0.66, SILL + 0.6), m=M["chrome"], verts=10))                # air filter
-    p.append(box((0.2, 0.15, 0.16), at=(0.46, -0.66, SILL + 0.4), m=M["trim"]))                     # and battery
+    # the engine, everything at least 3 cm under the closed hood (its underside is at BELT - 0.135 = 0.925)
+    p.append(box((0.5, 0.42, 0.2), at=(0, -1.0, SILL + 0.3), m=M["under"], bevel=0.015))           # the engine: block,
+    p.append(box((0.4, 0.32, 0.04), at=(0, -1.0, SILL + 0.42), m=M["trim"]))                         # rocker cover (top 0.89),
+    p.append(cyl(0.12, 0.05, at=(-0.2, -0.66, SILL + 0.415), m=M["chrome"], verts=10))              # air filter (top 0.89)
+    p.append(box((0.2, 0.15, 0.14), at=(0.46, -0.66, SILL + 0.27), m=M["trim"]))                     # and battery (top 0.79)
     grille_z = (0.7, 0.95)
     p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"], bevel=0.02))
     for k in range(3):                                   # three horizontal bars (its own face, no maker's grille)
