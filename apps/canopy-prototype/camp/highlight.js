@@ -62,7 +62,7 @@ export function createHighlight(scene, renderer, { width = 2.5 } = {}) {
     p.glow.renderOrder = 2; parts.set(mesh, p); return p;
   }
   // the meshes under an object (an object, a list of objects, or null for nothing)
-  const meshesOf = (objs) => { const out = []; for (const o of [objs ?? []].flat()) o.traverse((m) => { if (m.isMesh && !m.userData.fur && m.material?.visible !== false && !m.material?.transparent) out.push(m);   // not the fur shells or glass }); return out; };
+  const meshesOf = (objs) => { const out = []; for (const o of [objs ?? []].flat()) o.traverse((m) => { if (m.isMesh && !m.userData.fur && m.material?.visible !== false && !m.material?.transparent) out.push(m); }); return out; };   // not the fur shells or glass
   let key = null;
   return {
     set(objs) {
