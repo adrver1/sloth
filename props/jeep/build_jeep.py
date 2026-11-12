@@ -341,9 +341,11 @@ def lift(objs, z):
 
 
 def headlight(x, y, z, r, M, ring="chrome"):
+    """A chrome ring on the body and the lens: one flat 12-gon in the ring (its own list, for the Lamps node the page
+    lights up at night). The ring hides the small gap between the lens and the body."""
     p = [torus(r, r * 0.16, at=(x, y, z), rot=(math.pi / 2, 0, 0), m=M[ring], major=12, minor=3)]
-    p.append(cyl(r * 0.92, 0.04, at=(x, y + 0.005, z), rot=(math.pi / 2, 0, 0), m=M["lamp"], verts=12))
-    return p
+    lens = poly([(x + r * 0.95 * math.cos(t * math.pi / 6), y, z + r * 0.95 * math.sin(t * math.pi / 6)) for t in range(12)], M["lamp"], (x, y - 1, z))
+    return p, [lens]
 
 
 # ------------------------------------------------------------------ the shared body
@@ -525,6 +527,12 @@ def body(M, style):
         p.append(bl)
         p.append(box((0.03, 0.02, 0.03), at=tuple(on_glass(x + 0.36, 0.11, 0.024)), rot=(tilt, 0, 0), m=M["trim"]))   # the clip joining them
     # front: a recessed grille with three bars, round headlights, indicators, bumper
+    # the cabin light: a flat lens under the roof between the front seats, its own node so the page can switch it on
+    cz = ROOF - 0.056
+    G["CabinLight"] = [poly([(-0.09, 0.2, cz), (0.09, 0.2, cz), (0.09, 0.3, cz), (-0.09, 0.3, cz)], M["lamp"], (0, 0.25, 0))]
+    PROP_AT["CabinLight"] = (0, 0.25, cz)
+    G["Lamps"] = []
+    PROP_AT["Lamps"] = (0, FRONT - 0.03, 0.83)
     G["Map"], G["Compass"] = hood_map(M)   # loose props on the bonnet, their own nodes so the page can move them
     grille_z = (0.7, 0.95)
     p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"], bevel=0.02))
@@ -532,7 +540,8 @@ def body(M, style):
         p.append(box((0.78, 0.03, 0.035), at=(0, FRONT - 0.02, grille_z[0] + 0.06 + k * 0.065), m=M["bar"], bevel=0.008))
     hr = 0.15 if toy else 0.115
     for s in (-1, 1):
-        p += headlight(s * 0.6, FRONT - 0.03, 0.83, hr, M)
+        ring, lens = headlight(s * 0.6, FRONT - 0.03, 0.83, hr, M)
+        p += ring; G["Lamps"] += lens
         p.append(box((0.12, 0.03, 0.05), at=(s * 0.6, FRONT - 0.02, 0.62), m=M["amber"], bevel=0.01))
     p.append(box((W + 0.08, 0.2, 0.18), at=(0, FRONT - 0.06, SILL + 0.06), m=M["bumper"], bevel=0.05 if toy else 0.025))
     p.append(box((0.4, 0.02, 0.12), at=(0, FRONT - 0.165, SILL + 0.06), m=M["plate"], bevel=0.01))
@@ -856,7 +865,7 @@ def build(style, samples, do_preview, preview_samples):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--style", default="all", choices=[*STYLES, "all"])
+    ap.add_argument("--style", default="expedition", choices=[*STYLES, "all"])
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--preview-samples", type=int, default=48)
     ap.add_argument("--no-preview", action="store_true")
