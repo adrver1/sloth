@@ -5,26 +5,6 @@
   "lanterns",
   "moon"
  ],
- "jeep_channels": [
-  "headlights",
-  "cabin"
- ],
- "door_patch": {
-  "x0": -5.2063,
-  "z0": -9.4172,
-  "size": 5.991,
-  "doors": [
-   "P",
-   "D",
-   "B"
-  ],
-  "keys": [
-   0.25,
-   0.5,
-   0.75,
-   1.0
-  ]
- },
  "colour": {
   "fire": [
    1.0,
@@ -45,19 +25,8 @@
    0.55,
    0.65,
    1.0
-  ],
-  "headlights": [
-   1.0,
-   0.8,
-   0.62
-  ],
-  "cabin": [
-   1.0,
-   0.89,
-   0.66
   ]
  },
  "encoding": "light / 4, gamma 2.2",
- "ground_open_day": 1.8552,
- "ktx2": true
+ "ground_open_day": 1.8552
 }
