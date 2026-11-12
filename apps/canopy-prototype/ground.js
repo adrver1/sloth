@@ -193,9 +193,10 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   const shadeMesh = new THREE.Mesh(shadeUv.translate(0, 0.012, 0), shadeMat); shadeMesh.renderOrder = 3;
   clearing.visible = false;
 
-  // ---------------------------------------------------------------- plant atlas: tuft, tall grass, wildflowers, clover (2 x 2 cells of 128)
+  // ---------------------------------------------------------------- plant atlas (4 x 2 cells of 128): tuft, tall grass, wildflowers, clover;
+  // then the clearing-edge accents (review B6): heliconia with red bracts, a bromeliad, a dark fern for framing, ground orchids
   const leaf = S.leaf.map((c) => "#" + new THREE.Color(c).lerp(new THREE.Color(0xd8e0a0), 0.3).getHexString());   // a bit lighter than the canopy, like the lawn
-  const atlas = canvasTex(256, 256, (g) => {
+  const atlas = canvasTex(512, 256, (g) => {
     const Q = (a, b) => a + Math.random() * (b - a);
     const blade = (x0, y0, len, lean, w, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(x0 - w, y0); g.quadraticCurveTo(x0 + lean * 0.4, y0 - len * 0.6, x0 + lean, y0 - len); g.quadraticCurveTo(x0 + lean * 0.4 + w * 0.3, y0 - len * 0.6, x0 + w, y0); g.closePath(); g.fill(); };
     const cell = (cx, cy, f) => { g.save(); g.beginPath(); g.rect(cx + 2, cy + 2, 124, 124); g.clip(); g.translate(cx, cy); f(); g.restore(); };
@@ -205,7 +206,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
       for (let i = 0; i < 4; i++) { const x = 64 + Q(-24, 24), top = Q(6, 20), lean = Q(-12, 12); g.strokeStyle = leaf[1]; g.lineWidth = 1.2; g.beginPath(); g.moveTo(64, 128); g.quadraticCurveTo(x, 60, x + lean, top + 14); g.stroke();
         g.fillStyle = "#d8c88a"; for (let k = 0; k < 7; k++) { g.beginPath(); g.ellipse(x + lean + (k % 2 ? 1.6 : -1.6), top + k * 3, 1.1, 2.4, k % 2 ? 0.5 : -0.5, 0, 7); g.fill(); } }
     });
-    cell(0, 128, () => {                                                                                                                                                 // wildflowers
+    cell(256, 0, () => {                                                                                                                                                 // wildflowers
       for (let i = 0; i < 10; i++) blade(64 + Q(-18, 18), 128, Q(30, 60), Q(-20, 20), 2.2, leaf[i % 4]);
       const kinds = [["#ffffff", "#ffd23a"], ["#ff8fb3", "#ffe08a"], ["#ffd23a", "#e8a020"], ["#b79cff", "#fff1a8"], ["#ffffff", "#ffd23a"]];
       for (let i = 0; i < 6; i++) {
@@ -215,10 +216,48 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
         g.fillStyle = mid; g.beginPath(); g.arc(x, y, 3.6, 0, 7); g.fill();
       }
     });
-    cell(128, 128, () => {                                                                                                                                               // clover and low leaves
+    cell(384, 0, () => {                                                                                                                                                 // clover and low leaves
       for (let i = 0; i < 16; i++) { const x = 64 + Q(-44, 44), y = Q(70, 120); g.strokeStyle = leaf[2]; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, 128); g.lineTo(x, y); g.stroke();
         g.fillStyle = leaf[i % 4]; for (let k = 0; k < 3; k++) { const a = -1.57 + (k - 1) * 1.1; g.beginPath(); g.ellipse(x + Math.cos(a) * 6, y + Math.sin(a) * 6, 6, 5, a, 0, 7); g.fill(); } }
       for (let i = 0; i < 4; i++) { const x = 64 + Q(-36, 36), y = Q(56, 80); g.fillStyle = "#fff6f0"; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); g.fillStyle = "#ffc8d8"; g.beginPath(); g.arc(x, y + 2, 4, 0, 3.14); g.fill(); }
+    });
+    const dk = ["#2f5a26", "#3d6a2f", "#24481f", "#4a7a34"];   // the forest's darker greens for the big edge plants
+    const paddle = (x0, y0, len, ang, w, col) => {   // a broad leaf on a stem, with a pale midrib
+      const ex = x0 + Math.sin(ang) * len, ey = y0 - Math.cos(ang) * len, mx = (x0 + ex) / 2, my = (y0 + ey) / 2, nx = Math.cos(ang) * w, ny = Math.sin(ang) * w;
+      g.fillStyle = col; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx + nx, my + ny, ex, ey); g.quadraticCurveTo(mx - nx, my - ny, x0, y0); g.fill();
+      g.strokeStyle = "rgba(220,235,180,.35)"; g.lineWidth = 1; g.beginPath(); g.moveTo(x0, y0); g.lineTo(ex, ey); g.stroke();
+    };
+    cell(0, 128, () => {                                                                                                                                                 // heliconia: paddle leaves and a stalk of red bracts
+      for (let i = 0; i < 5; i++) { const x = 64 + Q(-14, 14), a = Q(-0.7, 0.7), L = Q(60, 100); g.strokeStyle = dk[1]; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x, 128); g.lineTo(x + Math.sin(a) * L * 0.35, 128 - L * 0.35); g.stroke();
+        paddle(x + Math.sin(a) * L * 0.35, 128 - L * 0.35, L * 0.7, a, Q(11, 15), dk[i % 4]); }
+      const sx = 64 + Q(-8, 8); g.strokeStyle = "#5a7a2a"; g.lineWidth = 2.5; g.beginPath(); g.moveTo(sx, 128); g.lineTo(sx + 2, 22); g.stroke();
+      for (let k = 0; k < 6; k++) { const y = 34 + k * 13, d = k % 2 ? 1 : -1, x = sx + 1;   // alternating boat-shaped bracts, red with yellow lips
+        g.fillStyle = "#d8261c"; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + d * 16, y + 2, x + d * 21, y - 12); g.quadraticCurveTo(x + d * 8, y - 4, x, y - 6); g.fill();
+        g.fillStyle = "#ffcf3a"; g.beginPath(); g.ellipse(x + d * 19, y - 10, 3, 1.6, d * -0.7, 0, 7); g.fill(); }
+    });
+    cell(128, 128, () => {                                                                                                                                               // bromeliad: a rosette of straps and a pink spike
+      for (let i = 0; i < 16; i++) { const a = -1.35 + (i / 15) * 2.7 + Q(-0.08, 0.08), L = Q(46, 70) * (1 - 0.25 * Math.abs(a));
+        g.strokeStyle = i % 3 ? dk[i % 4] : "#6e8a3a"; g.lineWidth = Q(6, 8); g.lineCap = "round"; g.beginPath(); g.moveTo(64, 124); g.quadraticCurveTo(64 + Math.sin(a) * L * 0.5, 124 - L * 0.7, 64 + Math.sin(a) * L * 1.05, 124 - L * 0.55 * Math.cos(a) - 8); g.stroke(); }
+      g.fillStyle = "#e0306a"; g.beginPath(); g.moveTo(56, 100); g.quadraticCurveTo(64, 30, 72, 100); g.fill();
+      g.fillStyle = "#ff7fa6"; for (let k = 0; k < 7; k++) { g.beginPath(); g.ellipse(64 + (k % 2 ? 4 : -4), 52 + k * 7, 4, 2.2, k % 2 ? 0.6 : -0.6, 0, 7); g.fill(); }
+      g.fillStyle = "#b2a0ff"; for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(64 + (k % 2 ? 6 : -6), 56 + k * 10, 1.8, 0, 7); g.fill(); }
+    });
+    cell(256, 128, () => {                                                                                                                                               // a dark fern: arching fronds of small leaflets
+      for (let f = 0; f < 7; f++) { const a = -1.1 + (f / 6) * 2.2 + Q(-0.1, 0.1), L = Q(80, 118), bend = a * 0.6;
+        const pt = (t) => [64 + Math.sin(a) * L * t + Math.sin(bend) * L * 0.35 * t * t, 128 - Math.cos(a) * L * t + L * 0.45 * t * t * Math.abs(Math.sin(a))];
+        g.strokeStyle = dk[2]; g.lineWidth = 1.6; g.beginPath(); for (let t = 0; t <= 1.001; t += 0.1) { const [x, y] = pt(t); t ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+        g.fillStyle = dk[f % 4]; for (let t = 0.18; t < 0.98; t += 0.055) { const [x, y] = pt(t), [x2, y2] = pt(t + 0.02), d = Math.atan2(y2 - y, x2 - x), w = 11 * (1 - t) + 3;
+          for (const s of [1, -1]) { g.beginPath(); g.ellipse(x + Math.cos(d + s * 1.3) * w * 0.5, y + Math.sin(d + s * 1.3) * w * 0.5, w * 0.55, 2.2, d + s * 1.3, 0, 7); g.fill(); } } }
+    });
+    cell(384, 128, () => {                                                                                                                                               // ground orchids: low leaves, arching stems of flowers
+      for (let i = 0; i < 6; i++) paddle(64 + Q(-10, 10), 126, Q(26, 40), Q(-1.2, 1.2), 6, dk[i % 4]);
+      const kinds = [["#f2b4ff", "#a640c8"], ["#ffffff", "#e050a0"], ["#ffd6e8", "#c83070"]];
+      for (let st = 0; st < 3; st++) { const [pet, lip] = kinds[st], a = Q(-0.5, 0.5), L = Q(70, 100);
+        const pt = (t) => [64 + Math.sin(a) * L * t + (a > 0 ? 1 : -1) * 22 * t * t, 128 - L * t + 18 * t * t];
+        g.strokeStyle = "#5a7a2a"; g.lineWidth = 1.4; g.beginPath(); for (let t = 0; t <= 1.001; t += 0.1) { const [x, y] = pt(t); t ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+        for (let t = 0.6; t <= 1.001; t += 0.13) { const [x, y] = pt(t);
+          g.fillStyle = pet; for (let k = 0; k < 5; k++) { const b = (k / 5) * 6.28 - 1.57; g.beginPath(); g.ellipse(x + Math.cos(b) * 4.5, y + Math.sin(b) * 4.5, 4.2, 2.4, b, 0, 7); g.fill(); }
+          g.fillStyle = lip; g.beginPath(); g.ellipse(x, y + 2.5, 2.6, 3.2, 0, 0, 7); g.fill(); } }
     });
   });
 
@@ -237,6 +276,9 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   const nearThing = (x, z) => Math.max(0, ...spots.map(([c, r]) => 1 - Math.abs(Math.hypot(x - c.x, z - c.z) - r - 0.25) / 0.45));   // hugging a prop's foot
   const patches = Array.from({ length: 7 }, () => { const a = R(0, 6.28), r = R(3.2, RC - 1); return [Math.cos(a) * r, Math.sin(a) * r, R(0.8, 1.5)]; });
   const flowerField = (x, z) => Math.max(0, ...patches.map(([px_, pz, pr]) => 1 - Math.hypot(x - px_, z - pz) / pr));
+  // ground plants grow in clumps, not evenly sprinkled (review B6): small clump centres, and the odds rise near one
+  const clumps = Array.from({ length: 46 }, () => { const a = R(0, 6.28), r = Math.sqrt(rnd()) * (RC + 0.4); return [Math.cos(a) * r, Math.sin(a) * r, R(0.35, 0.8)]; });
+  const clump = (x, z) => 0.3 + 1.1 * Math.max(0, ...clumps.map(([cx, cz, cr]) => 1 - Math.hypot(x - cx, z - cz) / cr));
   const want = { 0: Math.round(650 * k), 1: Math.round(130 * k), 2: Math.round(170 * k), 3: Math.round(140 * k) };
   const pick = [];
   for (const type of [1, 2, 0, 3]) {
@@ -246,20 +288,39 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
       const dirt = sample(x, z, 0), lush = sample(x, z, 1), edge = smooth(RC - 2.5, RC, r), hug = nearThing(x, z);
       if (inside(x, z, type === 1 ? 0.1 : 0) || bare(x, z) || trackDist(x, z) < 1.1) continue;   // bare: kept clear, e.g. under the tent's planks
       let p;
-      if (type === 0) p = (0.18 + 0.7 * edge + 0.5 * hug + 0.3 * lush) * (1 - smooth(0.25, 0.5, dirt)) + 0.35 * smooth(0.15, 0.3, dirt) * (1 - smooth(0.3, 0.45, dirt));   // and along path edges
+      if (type === 0) p = ((0.18 + 0.7 * edge + 0.5 * hug + 0.3 * lush) * (1 - smooth(0.25, 0.5, dirt)) + 0.35 * smooth(0.15, 0.3, dirt) * (1 - smooth(0.3, 0.45, dirt))) * clump(x, z);   // and along path edges
       else if (type === 1) p = (0.9 * smooth(RC - 2, RC, r) + 0.7 * hug) * (1 - smooth(0.2, 0.35, dirt));
       else if (type === 2) p = (0.9 * flowerField(x, z) + 0.25 * hug + 0.12 * edge) * (1 - smooth(0.2, 0.35, dirt));
-      else p = (0.25 + 0.4 * lush) * (1 - edge) * (1 - smooth(0.15, 0.3, dirt));
+      else p = (0.25 + 0.4 * lush) * (1 - edge) * (1 - smooth(0.15, 0.3, dirt)) * clump(x, z);
       if (rnd() > p) continue;
       const size = type === 0 ? R(0.22, 0.42) * (1 + 0.4 * edge) : type === 1 ? R(0.55, 0.95) : type === 2 ? R(0.28, 0.45) : R(0.13, 0.22);
       pick.push([x, z, type, size]); n++;
+    }
+  }
+  // the clearing's edge: clusters of heliconia, bromeliads and orchids among dark ferns, so the green rim has some colour in it;
+  // more ferns alone around the rim frame the view (review B6)
+  {
+    const groups = [[4, 6, 6], [5, 7, 6], [4, 5, 6], [7, 6, 6], [4, 7, 5], [5, 6, 6]], nG = Math.round(9 * Math.min(k, 1.2));
+    const ok = (x, z) => !inside(x, z, 0.15) && !bare(x, z) && trackDist(x, z) > 1.3;
+    const SZ = { 4: [0.95, 1.4], 5: [0.38, 0.55], 6: [0.7, 1.15], 7: [0.42, 0.6] };
+    let placed = 0;
+    for (let tries = 0; tries < 400 && placed < nG; tries++) {
+      const a = R(0, 6.28), r = R(RC - 1.9, RC + 0.3), cx = Math.cos(a) * r, cz = Math.sin(a) * r;
+      if (!ok(cx, cz) || pick.some((p) => p[2] >= 4 && Math.hypot(p[0] - cx, p[1] - cz) < 2.2)) continue;
+      const kinds = groups[placed % groups.length]; placed++;
+      for (let i = 0; i < 6; i++) { const t = kinds[i % 3], b = R(0, 6.28), d = R(0, 0.75), x = cx + Math.cos(b) * d, z = cz + Math.sin(b) * d;
+        if (ok(x, z)) pick.push([x, z, t, R(...SZ[t])]); }
+    }
+    for (let n = 0, tries = 0; tries < 2000 && n < Math.round(46 * k); tries++) {
+      const a = R(0, 6.28), r = R(RC - 1.2, RC + 0.6), x = Math.cos(a) * r, z = Math.sin(a) * r;
+      if (ok(x, z)) { pick.push([x, z, 6, R(0.75, 1.3)]); n++; }
     }
   }
   const im = new THREE.InstancedMesh(card, null, pick.length);
   const cellA = new Float32Array(pick.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
   pick.forEach(([x, z, type, size], i) => {
     q.setFromAxisAngle(up, R(0, 6.28)); m4.compose(new THREE.Vector3(x, 0, z), q, new THREE.Vector3(size * (type === 3 ? 1.6 : 1.1), size, size * (type === 3 ? 1.6 : 1.1))); im.setMatrixAt(i, m4);
-    const dry = 1 - sample(x, z, 1); im.setColorAt(i, col.setRGB(1, 1, 1).lerp(new THREE.Color(1.15, 1.08, 0.75), type < 2 ? dry * 0.5 : 0).multiplyScalar(R(0.8, 1.05)));
+    const dry = 1 - sample(x, z, 1); im.setColorAt(i, col.setRGB(1, 1, 1).lerp(new THREE.Color(1.15, 1.08, 0.75), type < 2 ? dry * 0.5 : 0).multiplyScalar(type === 6 ? R(0.6, 0.85) : R(0.8, 1.05)));
     cellA[i] = type;
   });
   card.setAttribute("aCell", new THREE.InstancedBufferAttribute(cellA, 1));
@@ -267,7 +328,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   pmat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR }; sh.uniforms.uGN = uGN; sh.uniforms.uGJ = uGJ; sh.uniforms.uGNon = uGNon; bindLight(sh);
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade, uGN, uGJ; attribute float aCell; varying float vShade; varying vec4 vGN; varying vec2 vGJ;")
-      .replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * 0.5 + vec2(mod(aCell, 2.0), 1.0 - floor(aCell / 2.0)) * 0.5;")
+      .replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * vec2(0.25, 0.5) + vec2(mod(aCell, 4.0) * 0.25, (1.0 - floor(aCell / 4.0)) * 0.5);")
       .replace("#include <begin_vertex>", `#include <begin_vertex>
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.6 + ip.x * 1.3 + ip.z * 1.7) + 0.4 * sin(uTime * 3.1 + ip.x * 3.0);
@@ -281,7 +342,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   };
   im.material = pmat; im.frustumCulled = false; scene.add(im);
   own.add(floor).add(shadeMesh).add(im);
-  const counts = [0, 1, 2, 3].map((t) => pick.filter((p) => p[2] === t).length);
+  const counts = [0, 1, 2, 3, 4, 5, 6, 7].map((t) => pick.filter((p) => p[2] === t).length);
   // the baked map (props/shadow/bake_ground_shadow.py, Cycles: soft sun + sky occlusion) wins; the live render above is the fallback
   // for prop sets and jeeps that have no bake yet
   let shadowBaked = false;
@@ -308,5 +369,5 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
-  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
+  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }
