@@ -583,13 +583,14 @@ if (qs.get("campsloths") !== "0") {
     if (s.ownSpot) { life.release(s.spot.key, s); s.spot.who = null; s.spot = s.ownSpot; s.ownSpot = null; return goHome(s); }   // back from a nap trip
     if (s.cardsTo) { const slot = s.cardsTo; s.cardsTo = null; return walkTo(s, slot.p, () => { startEat(s, slot); s.trip.cards = true; }); }
     if (s.napTo) { const g = s.napTo; s.napTo = null; life.claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; return goHome(s); }
-    if (!s.food && R(0, 1) < 0.3 && napTrip(s)) return;
+    const want = s.wantFood; s.wantFood = false;   // the lab's Get food
+    if (!want && !s.food && R(0, 1) < 0.3 && napTrip(s)) return;
     if (s.food) {                                     // a bowl you set down (activities' "camp-food"): eat from it there
       const at = s.food; s.food = null; const u = V(at.x, 0, at.z).normalize(), g = V(at.x, 0, at.z).addScaledVector(u, 0.9);
       const slot = { name: "bowl", p: g, u, yaw: Math.atan2(u.x, u.z), clip: "eat", who: s, h: 0, food: { at: at.clone().setY(at.y + 0.05), mesh: null, bowl: true } };
       return walkTo(s, g, () => startEat(s, slot));
     }
-    if (s.spot.car && window.__jeep?.node?.getObjectByName("Hood") && (s.fixNext || R(0, 1) < 0.45) && life.claim("jeep:hood", s)) { s.fixNext = false; return fixEngine(s); }
+    if (s.spot.car && window.__jeep?.node?.getObjectByName("Hood") && (s.fixNext || (!s.wantFood && R(0, 1) < 0.45)) && life.claim("jeep:hood", s)) { s.fixNext = false; return fixEngine(s); }
     const free = pois().flatMap((P) => P.slots.filter((q) => !q.who && !claims.has(q.key) && q.food.mesh.visible && !q.food.back && (q.name === "table" || s.sc > 1.6)));   // the small ones can't reach over the crate's rim
     if (!free.length) return wander(s);
     const slot = free[Math.floor(R(0, free.length))]; slot.who = s; life.claim(slot.key, s);
@@ -996,10 +997,10 @@ if (qs.get("campsloths") !== "0") {
     if (s) { s.food = at.clone(); leave(s); }
   });
   window.__spots = spots; window.__sloth = (i) => sloths[i]; window.__camp.sloths = camp;
-  window.__errand = (name) => { const s = camp.find((q) => q.name === name); if (s && s.trip.phase === "home") leave(s); return s; };
+  window.__errand = (name) => { const s = camp.find((q) => q.name === name); if (s && s.trip.phase === "home") { s.wantFood = true; leave(s); } return s; };
   window.__path = findPath;
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
-  window.__lab = { camp, GROUND, leave, goHome, wander, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
+  window.__lab = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
     fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
     nap: (s) => { if (!s.dozing) doze(s); },
     guests: () => guests.map((g) => g.key),
