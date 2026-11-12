@@ -10,7 +10,7 @@ import { blockers } from "./campProps.js";
 // between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge, its
 // passenger side (local +X, the camper's ladder) toward the fire. Its three doors open and close when you tap them:
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
-// uses window.__jeep: open/close/isOpen("P" | "D" | "B"), seat (passenger cushion top), sill (passenger door sill),
+// uses window.__jeep: open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
 // cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions.
 let jeepStep = () => {}, jeepTap = () => false;
 if (JEEP !== "none") {
@@ -30,8 +30,9 @@ if (JEEP !== "none") {
   if (far) { far.position.copy(jeep.position); far.rotation.copy(jeep.rotation); }
   for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
   if (JEEP === "camper") blockers.push([at.clone().addScaledVector(out, -2.3), 0.4]);   // the ladder foot
-  const D3 = { P: ["DoorP", -1.2], D: ["DoorD", 1.2], B: ["BackDoor", 1.75] }, doors = {};   // how far each swings (rad), as in build_jeep.py
-  for (const [k, [n, open]] of Object.entries(D3)) { const o = jeep.getObjectByName(n); if (o) doors[k] = { o, open, cur: 0, want: 0 }; }
+  // how far each swings (rad) and about which axis, as in build_jeep.py; H is the hood (Adriaen 2026-11-12), hinged at the windscreen
+  const D3 = { P: ["DoorP", -1.2, "y"], D: ["DoorD", 1.2, "y"], B: ["BackDoor", 1.75, "y"], H: ["Hood", -1.15, "x"] }, doors = {};
+  for (const [k, [n, open, axis]] of Object.entries(D3)) { const o = jeep.getObjectByName(n); if (o) doors[k] = { o, open, axis, cur: 0, want: 0 }; }
   const world = (n) => jeep.getObjectByName(n)?.getWorldPosition(V()) ?? at.clone();
   const local = (x, y, z) => jeep.localToWorld(V(x, y, z));
   const boot = jeep.getObjectByName("Boot")?.position ?? V(0, 0.78, -1.06);
@@ -59,12 +60,12 @@ if (JEEP !== "none") {
   }
   let cab = 0, lastCab = -1;
   const lightStep = (dt) => {
-    const cWant = Object.values(doors).some((d) => d.cur !== 0) ? 1 : 0;
+    const cWant = ["P", "D", "B"].some((k) => doors[k] && doors[k].cur !== 0) ? 1 : 0;   // the cabin doors, not the hood
     cab += (cWant - cab) * Math.min(1, dt * 4);
     if (cabinL) { cabinL.material = cab > 0.02 ? cabOn : jm; cabOn.color.copy(OFF).lerp(CL, cab); }
     glow.material.opacity = 0.55 * cab; glow.visible = cab > 0.02;
     if (window.__lights) { window.__lights.cabin = cabSpot ? 0 : cab;   // live: the spot light instead of the bake
-      for (const k of ["P", "D", "B"]) window.__lights.doors[k] = doors[k] ? doors[k].o.rotation.y / doors[k].open : 0; }   // each door's spill (bakedlight.js), by its actual swing
+      for (const k of ["P", "D", "B"]) window.__lights.doors[k] = doors[k] ? doors[k].o.rotation[doors[k].axis] / doors[k].open : 0; }   // each door's spill (bakedlight.js), by its actual swing
     if (cabSpot) { cabSpot.intensity = 6 * cab;
       if (Object.values(doors).some((d) => d.cur !== d.want) || Math.abs(cab - lastCab) > 0.01) { renderer.shadowMap.needsUpdate = true; lastCab = cab; } }
   };
@@ -73,7 +74,7 @@ if (JEEP !== "none") {
       if (d.cur === d.want) continue;
       const step = dt * 1.8; d.cur += Math.max(-step, Math.min(step, d.want - d.cur));
       const k = d.cur / d.open, e = k * k * (3 - 2 * k);                // ease in and out
-      d.o.rotation.y = d.open * e;
+      d.o.rotation[d.axis] = d.open * e;
     }
     lightStep(dt);
     if (far) {
