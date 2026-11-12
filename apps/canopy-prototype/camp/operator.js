@@ -577,7 +577,9 @@ const tail = document.createElement("i"); tail.style.cssText = "position:absolut
 const say = document.createElement("span"); bubble.append(say, tail); if (ON) document.body.append(bubble);
 const talkSt = { t: 0, smile: 0 };
 function talk() {
-  const txt = line(); say.textContent = txt; talkSt.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); talkSt.smile = talkSt.t + 3;
+  // its size is fixed when it appears: a fixed-position box shrinks to fit the room left of the screen edge, so as he moved
+  // toward an edge the text re-wrapped (Adriaen: hard to read). Measure it free, then pin the width.
+  const txt = line(); say.textContent = txt; bubble.style.width = ""; bubble.style.left = "0px"; bubble.style.width = bubble.offsetWidth + 1 + "px"; talkSt.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); talkSt.smile = talkSt.t + 3;
   if (!op.sleeping) { const a = acts.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.setEffectiveWeight(1); a.play(); }
 }
 function talkStep(dt) {
@@ -588,7 +590,7 @@ function talkStep(dt) {
   if (!on && bubble.style.opacity === "0") return;
   const v = B.head.getWorldPosition(V()).add(V(0, 0.34, 0)).project(camera);
   if (v.z > 1) { bubble.style.opacity = 0; return; }
-  bubble.style.left = THREE.MathUtils.clamp((v.x + 1) / 2 * innerWidth, 140, innerWidth - 140) + "px";
+  const half = bubble.offsetWidth / 2 + 8; bubble.style.left = THREE.MathUtils.clamp((v.x + 1) / 2 * innerWidth, half, innerWidth - half) + "px";   // kept whole on screen
   bubble.style.top = THREE.MathUtils.clamp((1 - v.y) / 2 * innerHeight, 120, innerHeight - 60) + "px";
 }
 // what a tap finds: an invisible column round him (the skinned mesh is too costly to ray-test); no glow, like the sloths
