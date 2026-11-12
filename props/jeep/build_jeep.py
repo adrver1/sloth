@@ -641,6 +641,31 @@ def toy():
     return finish(p, G)
 
 
+def jerry_can(x, y, z, m):
+    """An upright jerry can, thin across X: a side profile with the spout corner cut off, a three-handle bridge on top
+    with real holes (one concave prism), the X pressed into each side painted as two darker strips, and a spout cap."""
+    L, H, T = 0.35, 0.40, 0.17
+    body = prism([(y - L / 2, z), (y + L / 2, z), (y + L / 2, z + H), (y - L / 2 + 0.075, z + H), (y - L / 2, z + H - 0.07)], T, m, x0=x)
+    b = y + L / 2 - 0.005                    # handle bridge, from the back corner forward, three holes under it
+    legs = [(b, b - 0.04), (b - 0.095, b - 0.13), (b - 0.185, b - 0.22)]
+    prof = [(legs[-1][1], z + H), (legs[-1][1], z + H + 0.07), (b, z + H + 0.07)]
+    for i, (y0, y1) in enumerate(legs):
+        prof += [(y0, z + H), (y1, z + H)]
+        if i < len(legs) - 1:
+            prof += [(y1, z + H + 0.04), (legs[i + 1][0], z + H + 0.04)]
+    handle = prism(prof[:-1], 0.05, m, x0=x)   # the last point would repeat the first
+    dark = mat(m.name + "_press", tuple(c * 0.72 for c in m["base"]))
+    parts = [body, handle]
+    for s in (-1, 1):                        # the pressed X on each face
+        xs = x + s * (T / 2 + 0.002)
+        for (y0, z0), (y1, z1) in (((y - L / 2 + 0.05, z + 0.05), (y + L / 2 - 0.05, z + H - 0.08)), ((y - L / 2 + 0.05, z + H - 0.08), (y + L / 2 - 0.05, z + 0.05))):
+            d = Vector((0, y1 - y0, z1 - z0)); n = Vector((0, -d.z, d.y)).normalized() * 0.012
+            pts = [(xs, y0 - n.y, z0 - n.z), (xs, y1 - n.y, z1 - n.z), (xs, y1 + n.y, z1 + n.z), (xs, y0 + n.y, z0 + n.z)]
+            parts.append(quad(pts, dark, (x + s, y, z + H / 2)))
+    parts.append(cyl(0.024, 0.045, at=(x, y - L / 2 + 0.03, z + H - 0.03), rot=(math.pi / 4, 0, 0), m=dark, verts=6))
+    return parts
+
+
 def expedition():
     M = mats("ex", paint=(0.36, 0.39, 0.25), paint2=(0.36, 0.39, 0.25), bar=(0.36, 0.39, 0.25), bumper=(0.12, 0.12, 0.12), flare=(0.1, 0.1, 0.1),
              rim=(0.6, 0.52, 0.38), rack=(0.09, 0.09, 0.09), can=(0.6, 0.12, 0.08), can2=(0.3, 0.33, 0.2), crate=(0.62, 0.48, 0.32),
@@ -672,9 +697,7 @@ def expedition():
         y = -0.2 + k * 1.75 / 6
         p.append(rod((-0.7, y, z), (0.7, y, z), 0.016, M["rack"], verts=4))
     for k, (x, cm) in enumerate(((-0.42, "can"), (-0.14, "can2"))):
-        p.append(box((0.17, 0.48, 0.34), at=(x, 1.2, z + 0.19), m=M[cm], bevel=0.02))
-        p.append(box((0.04, 0.04, 0.06), at=(x, 1.0, z + 0.38), m=M[cm]))
-        p.append(box((0.175, 0.03, 0.2), at=(x, 1.3, z + 0.2), m=M[cm], bevel=0.008))
+        p += jerry_can(x, 1.2, z + 0.02, M[cm])
     p.append(box((0.62, 0.55, 0.3), at=(0.25, 0.85, z + 0.17), m=M["crate"], bevel=0.02))
     p.append(box((0.03, 0.57, 0.31), at=(0.25, 0.85, z + 0.17), m=M["strap"]))
     # a shovel on the rear door
