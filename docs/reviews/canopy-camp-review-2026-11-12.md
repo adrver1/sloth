@@ -6,7 +6,7 @@ This is an audit only; no app code changed. Numbers come from `tools/camp-probe.
 
 Rules this review respects: fewest triangles that still look good, quads and cards with painted textures over modelled detail, tris reported per item; all light, shadow and ground bakes run only in the GPU thread through `props/bake_all.py` (items that touch a bake or its output are marked **GPU thread**); fur keeps 3 shells on secondary animals; keep every sloth style and sticker variant.
 
-**Status (2026-11-12):** Adriaen agreed with all findings, including archiving decided options (M6). Sound (B5) waits until the visuals are finished.
+**Status (2026-11-12):** Adriaen agreed with all findings, including archiving decided options (M6). Sound (B5) waits until the visuals are finished. Done the same day: P1 (KTX2 maps, 1K on phones), P2 (parallel loads, compileAsync, loading card), P3, P4 (leaf wedges), P8, B2 (seat tops, bamboo), the phone menu and hint, M2 (the camp's code is now `apps/canopy-prototype/camp/`, one module per part, see camp.html's comment), M6 (looks and old prop sets archived; Cabin is live only).
 
 ## The ten things to do first
 
