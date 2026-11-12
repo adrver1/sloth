@@ -4,6 +4,7 @@ import { camera, uTime } from "./core.js";
 import { keys, stickV } from "./hud.js";
 import { GLADE, GLADE_R, PATH_W, RC, V, d0, polyDist, sloPath, t0, track } from "./forest.js";
 import { blockers } from "./campProps.js";
+import { groundHeight } from "./terrain.js";
 
 // ================================================================ the player: first person, on the clearing floor
 const EYE = 1.55, SPEED = 1.7;
@@ -47,7 +48,7 @@ function step(dt) {
   me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
   if (me.vel.length() > 0.05) { moving = true; const p = me.pos.clone().addScaledVector(me.vel, dt); collide(p); me.pos.copy(p); }
   if (moving) me.walkT += dt;
-  const feet = me.pos;
+  const feet = me.pos; feet.y = groundHeight(feet.x, feet.z);   // level in the camp and on the paths; the rim rises a little at the edge
   const bob = moving ? Math.sin(me.walkT * 7) * 0.03 : 0;
   camera.position.set(feet.x, feet.y + EYE + bob, feet.z);
   look.set(-Math.sin(me.yaw) * Math.cos(me.pitch), Math.sin(me.pitch), -Math.cos(me.yaw) * Math.cos(me.pitch)).add(camera.position);

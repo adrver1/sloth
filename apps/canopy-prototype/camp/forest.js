@@ -1,6 +1,7 @@
 // Canopy Camp forest: bark with baked AO and moss, the layout (clearing, sloth path and glade, the jeep's track), the clearing floor,
 // the two big mossy trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants.
 import * as THREE from "three";
+import { addMound, groundHeight, initTerrain } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
 import { D, JEEP, LOOK, R, S, canvasTex, hex, leafMat, qs, rnd, scene, setSeed, sstep } from "./core.js";
 
@@ -67,6 +68,7 @@ const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                      
 const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
 const nearPath = () => false;
+initTerrain({ RC, pathDist, jeepDist, hero: HERO });   // the bowl rim, the hummocks and the mounds (terrain.js); level where people walk
 // the jeep's track: the jeep is parked at JEEP_AT along the clearing edge (facing JEEP_TAN) and came in on a muddy track
 // cut through the forest wall behind it. trackDist() thins trunks, leaves and ferns off the track (scaled to zero, so the
 // seeded layout of everything else stays the same).
@@ -190,7 +192,7 @@ for (const [k, c] of HERO.entries()) {
   }
   // lianas from the low branches down to the ground
   for (let i = 0; i < 3; i++) {
-    const b = branchCurves[branchCurves.length - 9 + i], p0 = b.getPointAt(R(0.55, 0.95)), p1 = p0.clone().multiplyScalar(1.08).setY(0), mid = p0.clone().lerp(p1, 0.5).addScaledVector(V(p0.x, 0, p0.z).normalize(), 0.4);
+    const b = branchCurves[branchCurves.length - 9 + i], p0 = b.getPointAt(R(0.55, 0.95)), p1 = p0.clone().multiplyScalar(1.08), _y = p1.setY(groundHeight(p1.x, p1.z)), mid = p0.clone().lerp(p1, 0.5).addScaledVector(V(p0.x, 0, p0.z).normalize(), 0.4);
     woodGeos.push(bake(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 8, 0.025, 3), 0, 7));
   }
 }
@@ -214,9 +216,10 @@ const wall = [];
     if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
     wall.push([x, z, R(0.6, 1.4)]);
   }
+  for (const [x, z, s] of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);   // each tree on its own root mound
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
-  wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1); w[3] = keep ? 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
-    m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), ry), V(s * keep, sy * keep, s * keep)); im.setMatrixAt(i, m); });
+  wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1), y0 = groundHeight(x, z) - 0.15; w[3] = keep ? y0 + 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
+    w[4] = y0; m.compose(V(x, y0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), ry), V(s * keep, sy * keep, s * keep)); im.setMatrixAt(i, m); });
   scene.add(im);
 }
 // leaves and ferns go in as 8 wedges round the clearing, one InstancedMesh each, so three.js culls the wedges behind you:
@@ -251,10 +254,10 @@ if (LOOK === "moss") {
   leafGeo = new THREE.IcosahedronGeometry(0.5, 1); leafM = new THREE.MeshToonMaterial({ gradientMap: grad }); leafM.onBeforeCompile = leafMat({}, 0.03).onBeforeCompile; perClump = Math.round(8 * D.leaves); leafScale = [0.6, 1.1];
 } else { leafGeo = new THREE.IcosahedronGeometry(0.5, 0); leafM = leafMat({}, 0.02); perClump = Math.round(5 * D.leaves); leafScale = [0.6, 1.1]; }
 const clumps = [];
-for (const [x, z, s] of wall) for (let k = 0; k < 2; k++) { const y = 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s, x, z, s]); }
+for (const [x, z, s, , y0] of wall) for (let k = 0; k < 2; k++) { const y = y0 + 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s, x, z, s]); }
 for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); clumps.push([p.x, p.y + (c.low ? 1.2 : 0.9), p.z, R(0.6, 0.9)]); }
 for (const h of HERO) for (let k = 0; k < 18; k++) { const a = R(0, 6.28), r = R(0, 4.5); clumps.push([h.x + Math.cos(a) * r, TOP + R(-2, 1.5), h.z + Math.sin(a) * r, R(1.3, 1.9), h.x, h.z, 0]); }   // the big trees' crowns
-for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = Math.cos(a) * r, z = Math.sin(a) * r; clumps.push([x, R(0.4, 2.8), z, R(0.7, 1.2)]); }   // a thick leafy edge at eye height all round the clearing
+for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = Math.cos(a) * r, z = Math.sin(a) * r, y = R(0.4, 2.8); clumps.push([x, y + groundHeight(x, z), z, R(0.7, 1.2)]); }   // a thick leafy edge at eye height all round the clearing
 const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump);
 {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
@@ -338,6 +341,7 @@ if (track) {
     if (Math.hypot(p.x, p.z) < RC - 0.5) continue;
     for (const k of [-1, 1]) vc.push([p.x + side.x * k * Q2(2.2, 3.2), Q2(0.5, 2.6), p.z + side.z * k * Q2(2.2, 3.2), Q2(0.7, 1.2)]);
   }
+  for (const v of vc) v[1] += groundHeight(v[0], v[2]);   // on the banks beside the track
   const vm = new THREE.InstancedMesh(leafGeo, leafM, vc.length * perClump), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
   for (const [x, y, z, r] of vc) for (let k = 0; k < perClump; k++) {
     const u = V(Q2(-1, 1), Q2(-0.5, 0.8), Q2(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q2(0, 1)));
@@ -366,9 +370,9 @@ if (track) {
   const spots = [];
   for (let i = 0; i < 2000 && spots.length < Math.round(260 * D.ferns); i++) { const a = R(0, 6.28), r = RC - 0.6 + Math.pow(rnd(), 1.6) * 12, x = Math.cos(a) * r, z = Math.sin(a) * r; if (!nearPath(x, z, 0.2, 1.1)) spots.push([x, z]); }
   const im = new THREE.InstancedMesh(g, mat, spots.length), m = new THREE.Matrix4(), c = new THREE.Color();
-  spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 ? 0 : 1); m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6.28)), V(s, s, s)); im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
+  spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 ? 0 : 1); m.compose(V(x, groundHeight(x, z) - 0.03, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6.28)), V(s, s, s)); im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
   addSectors(im);
 }
 
 
-export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, flatCol, merge, polyDist, sloPath, t0, track, trackDist, woodMat };
+export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, flatCol, jeepDist, merge, pathDist, polyDist, sloPath, t0, track, trackDist, woodMat };

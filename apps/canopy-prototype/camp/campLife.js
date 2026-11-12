@@ -10,16 +10,19 @@ import { FLOOR_OVERLAYS, RC, V, clearing, track, trackDist } from "./forest.js";
 import { FIRE_CARDS, SOUP_POT, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, uNight } from "./campProps.js";
 import { burst, sloths } from "./sloths.js";
 import { me } from "./player.js";
-import "./deadwood.js";   // before the ground, so its plants grow round the log, stump and dead trunk
+import "./deadwood.js";
+import { FAR, groundHeight, vnoise } from "./terrain.js";
+import { ground as forestFloor } from "./sky.js";   // before the ground, so its plants grow round the log, stump and dead trunk
 
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
 // wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
 // the baked ground (props/ground/bake_ground.py) for the sets that have one; others paint their wear map live
 const groundBake = await PRE.groundMask;
-const groundLife = createGround({ baked: groundBake,  scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
+const groundLife = createGround({ baked: groundBake, height: groundHeight, far: FAR, forestMap: forestFloor.material.map, noise: vnoise, scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
     bare: PROPS === "picked" ? (x, z) => { const [a, b] = tentLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; } : undefined,   // no grass in the tent or through its planks
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
+forestFloor.visible = false;   // one ground now: the clearing, the bowl's rim and the forest floor (camp/terrain.js)
 for (const m of FLOOR_OVERLAYS) groundLife.shadeOn(m.material);
 if (window.__cabinLive) {   // Cabin: live: the floor and every baked prop take the cabin light's shadow
   window.__cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;

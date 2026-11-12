@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { S, canvasTex, scene } from "./core.js";
 import { HERO, JEEP_AT, RC, V, trackDist } from "./forest.js";
 import { blockers } from "./campProps.js";
+import { groundHeight } from "./terrain.js";
 
 let s = 9173; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);   // own stream: the shared one sets the rest of the layout
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss), grey = new THREE.Color(0xb3ab9c), wood = new THREE.Color(0xc9a77a), ring = new THREE.Color(0x8a6440), fungus = new THREE.Color(0xe0782a), fungusRim = new THREE.Color(0xf6c060);
@@ -69,6 +70,8 @@ for (const [rad, need] of [[RC - 1.3, 1.4], [RC - 1.4, 0.6], [RC + 0.2, 0.5]]) {
     if (ok(x, z, need) && spots.every((q) => Math.hypot(q.x - x, q.z - z) > 5)) { spots.push(V(x, 0, z)); break; } }
 }
 const parts = [], tris = {}, layout = [];
+// seated on the ground (camp/terrain.js): each piece moves up or down by the height under it, a little sunk
+const lift = (from, c) => { const y = groundHeight(c.x, c.z) - 0.03; for (const g of parts.slice(from)) g.translate(0, y, 0); return y; };
 const count = (name, from) => { tris[name] = parts.slice(from).reduce((n, g) => n + g.attributes.position.count / 3, 0); };
 
 // the fallen log: lying along the edge, half sunk, one end broken off; moss along its back
@@ -81,7 +84,7 @@ if (spots[0]) { const c = spots[0], yaw = Math.atan2(c.z, c.x) + Math.PI / 2 + R
   const ax = V(Math.cos(yaw), 0, Math.sin(yaw)), side = V(-ax.z, 0, ax.x);
   for (let i = 0; i < 3; i++) { const t = R(-0.9, 0.9), sd = i % 2 ? 1 : -1; shelf(parts, c.clone().addScaledVector(ax, t).addScaledVector(side, sd * r * 0.98).setY(r * 0.75 + R(-0.05, 0.08)), side.clone().multiplyScalar(sd), R(0.12, 0.16)); }
   for (const t of [-0.9, 0, 0.9]) blockers.push([c.clone().addScaledVector(ax, t), 0.35]);
-  layout.push({ name: "FallenLog", x: c.x, z: c.z, yaw, L, r }); count("log", from);
+  layout.push({ name: "FallenLog", x: c.x, z: c.z, y: lift(from, c), yaw, L, r }); count("log", from);
 }
 // the stump: a cut stump with flared roots and a ringed top
 if (spots[1]) { const c = spots[1], r = 0.36, h = 0.48, from = parts.length;
@@ -91,7 +94,7 @@ if (spots[1]) { const c = spots[1], r = 0.36, h = 0.48, from = parts.length;
   parts.push(paint(g, { y0: 0, y1: h, cap: (x, y, z, nx, ny) => ny > 0.8 ? (Math.hypot(x, z) < 0.02 ? 1 : 0.2) : -1, uv: [2, 0.5] }).translate(c.x, 0, c.z));
   const out = c.clone().normalize().negate();
   for (let i = 0; i < 2; i++) { const a = Math.atan2(out.z, out.x) + (i ? 0.7 : -0.6), d = V(Math.cos(a), 0, Math.sin(a)); shelf(parts, c.clone().addScaledVector(d, r * 1.02).setY(0.18 + i * 0.14), d, R(0.12, 0.15)); }
-  blockers.push([c.clone(), r + 0.1]); layout.push({ name: "Stump", x: c.x, z: c.z, r, h }); count("stump", from);
+  blockers.push([c.clone(), r + 0.1]); layout.push({ name: "Stump", x: c.x, z: c.z, y: lift(from, c), r, h }); count("stump", from);
 }
 // the dead trunk: a bleached snag, snapped off at the top, a broken limb, fungus climbing it
 if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
@@ -103,7 +106,22 @@ if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
   parts.push(paint(limb, { bleach: 0.8, moss: 0.3, y0: 0, y1: 2.5 }).rotateY(R(0, 6.28)).translate(c.x, 0, c.z));
   const out = c.clone().normalize().negate();
   for (let i = 0; i < 4; i++) { const a = Math.atan2(out.z, out.x) + R(-0.8, 0.8), d = V(Math.cos(a), 0, Math.sin(a)), y = 0.5 + i * 0.42 + R(-0.1, 0.1), rr = 0.34 - y * 0.03; shelf(parts, c.clone().addScaledVector(d, rr).setY(y), d, R(0.13, 0.19)); }
-  blockers.push([c.clone(), 0.45]); layout.push({ name: "DeadTrunk", x: c.x, z: c.z, H }); count("deadTrunk", from);
+  blockers.push([c.clone(), 0.45]); layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);
+}
+// roots (forest-ground note 2b): low half-round roots spreading 1.5 to 2.6 m from both big trees over the ground, across the sloths'
+// way down, so the trees sit in the ground instead of on it. 16 triangles each, in the same draw and bark as the deadwood.
+{ const from = parts.length;
+  for (const [k, h] of HERO.entries()) for (let i = 0, n = k ? 8 : 10; i < n; i++) {
+    const a = (i / n) * 6.28 + R(-0.25, 0.25), L = R(1.5, 2.6), r0 = R(0.11, 0.15), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), bend = R(-0.35, 0.35);
+    const P = [], U = [], I = [];
+    for (let j = 0; j <= 2; j++) { const t = j / 2, rad = r0 * (1 - 0.75 * t), c = h.clone().addScaledVector(dir, 0.9 + t * L).addScaledVector(side, bend * t * t);
+      for (let q = 0; q <= 4; q++) { const th = (q / 4) * Math.PI, x = c.x + side.x * Math.cos(th) * rad, z = c.z + side.z * Math.cos(th) * rad;
+        P.push(x, groundHeight(x, z) - 0.015 - 0.04 * t * t + Math.sin(th) * rad * 0.7, z); U.push(q / 4, t * L * 1.5); } }
+    for (let j = 0; j < 2; j++) for (let q = 0; q < 4; q++) { const b = j * 5 + q; I.push(b, b + 5, b + 1, b + 1, b + 5, b + 6); }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2)); g.setIndex(I);
+    parts.push(paint(g, { moss: 0.8, y0: -2, y1: -1 }));
+  }
+  count("roots", from);
 }
 const geo = merge(parts), mesh = new THREE.Mesh(geo, deadMat); mesh.name = "Deadwood"; scene.add(mesh);
 tris.total = geo.attributes.position.count / 3;
