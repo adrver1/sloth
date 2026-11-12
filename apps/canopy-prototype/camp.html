@@ -41,7 +41,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 <div id="toast"></div>
 <div class="bar">
   <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
-  <button id="props">Props</button><button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="rest">Rest 🌙</button>
+  <button id="props">Props</button><button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="cabin">Cabin</button><button id="rest">Rest 🌙</button>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
@@ -52,6 +52,7 @@ import { furify } from "./fur.js";
 import { createAtmosphere } from "./atmosphere.js";
 import { createActivities } from "./activities.js";
 import { createGround } from "./ground.js";
+import { LIGHT_GLSL, LIGHT_MIX, bindLight, stepLight, liveChunk } from "./bakedlight.js";
 
 const qs = new URLSearchParams(location.search);
 const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
@@ -79,6 +80,11 @@ const LMS = ["2k", "1k"], LMNAME = { "4k": "4K map", "2k": "2K map", "1k": "1K m
 const LMSET = [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.includes(store.get("canopy-lm")) ? store.get("canopy-lm") : "2k";
 $("lm").textContent = "Light: " + LMNAME[LMSET];
 $("lm").style.display = PROPS === "picked" ? "" : "none";
+// the jeep's cabin light: baked (four keyframes per door, with bounce light) or live (one shadowed spot light, exact at any
+// opening, no bounce), to compare (Adriaen 2026-11-12). ?cabin=live|baked overrides.
+const CABIN = ["live", "baked"].includes(qs.get("cabin")) ? qs.get("cabin") : store.get("canopy-cabin") === "live" ? "live" : "baked";
+$("cabin").textContent = "Cabin: " + CABIN;
+$("cabin").onclick = () => { store.set("canopy-cabin", CABIN === "live" ? "baked" : "live"); const u = new URL(location.href); u.searchParams.delete("cabin"); location.replace(u); };
 $("lm").onclick = () => { store.set("canopy-lm", LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 $("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
@@ -648,39 +654,36 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 const SLOTH = await glb("models/sloth.txt");
-// ---------------------------------------------------------------- the camp's baked light: one light map for every camp prop, the picked set and the lived-in props
-// (props/camp/bake_camp_lightmap.py, Adriaen 2026-11-12: all light baked in one place). RGB = night light / 4 (sRGB), A = day AO,
-// on each prop's second UV set (TEXCOORD_1). By day the surface colour (texture or vertex colour) is darkened by the AO and lit live;
-// at night it is toned 1 - exp(-6.4 x colour x light), unlit, faded in with uNight. COLOR_0 alpha 0 marks faces that glow at night.
+// ---------------------------------------------------------------- the camp's baked light (props/camp/bake_camp_lightmap.py: the whole scene, ground and props,
+// baked as one; Adriaen 2026-11-12). On each prop's second UV set (TEXCOORD_1):
+//   camp_lm_<k>.png      one channel per light: fire, stove, lanterns, moon (bakedlight.js colours, flickers and mixes them)
+//   camp_lm_sun_<k>.png  R where the sun reaches (scales the live sun), G sky occlusion (scales the live sky light)
+// By day the props are lit live (sun and sky, shaded by the bake) plus a share of the warm lights; at night they show all four
+// lights, baked, unlit, faded in with uNight. COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 // The lightMap slot (intensity 0) only gives the shader its sampler and UV; it adds no light. Light button: 2K or 1K (4K: ?lm=4k, local only).
-const uNight = { value: 0 }, uFlick = { value: 1 };
-const LMTEX = await new THREE.TextureLoader().loadAsync(`models/camp_lm_${LMSET}.png`).catch(() => new THREE.TextureLoader().loadAsync("models/camp_lm_2k.png"));
-LMTEX.flipY = false; LMTEX.colorSpace = THREE.SRGBColorSpace; LMTEX.channel = 1; LMTEX.anisotropy = 4;
-// and where the sun reaches each prop (1 = sunlit), baked in the same scene as the ground's shadows, so the props shade each other
-const LMSUN = await new THREE.TextureLoader().loadAsync(`models/camp_lm_sun_${LMSET}.png`).catch(() => new THREE.TextureLoader().loadAsync("models/camp_lm_sun_2k.png")).catch(() => null);
-if (LMSUN) { LMSUN.flipY = false; LMSUN.colorSpace = THREE.NoColorSpace; LMSUN.channel = 1; }
-// the night tone, shared with ground.js: 1 - exp(-x) on the brightness, keeping the light's hue, so the fire's warm glow
-// stays orange up close instead of washing out to white
-const NIGHT_TONE = "vec3 nightTone(vec3 x) { float l = max(dot(x, vec3(0.2126, 0.7152, 0.0722)), 1e-4); return min(x * (1.0 - exp(-l)) / l, vec3(1.0)); }\n";
+const uNight = { value: 0 };
+const lmLoad = async (n) => { const L = new THREE.TextureLoader(); const t = await L.loadAsync(`models/${n}_${LMSET}.png`).catch(() => L.loadAsync(`models/${n}_2k.png`));
+  t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
+const [LMTEX, LMSUN] = await Promise.all([lmLoad("camp_lm"), lmLoad("camp_lm_sun")]);
 const lnight = (mat) => {
   const prev = mat.onBeforeCompile;
   mat.lightMap = LMTEX; mat.lightMapIntensity = 0;
   mat.onBeforeCompile = (sh, r) => {
     prev?.call(mat, sh, r);
-    sh.uniforms.uNight = uNight; sh.uniforms.uFlick = uFlick; sh.uniforms.uSun = { value: LMSUN };
-    sh.fragmentShader = "uniform float uNight, uFlick; uniform sampler2D uSun;\n" + NIGHT_TONE + sh.fragmentShader
-      .replace("#include <lights_fragment_begin>", THREE.ShaderChunk.lights_fragment_begin.replace("getDirectionalLightInfo( directionalLight, directLight );",
-        "getDirectionalLightInfo( directionalLight, directLight );\n" + (LMSUN ? "directLight.color *= texture2D(uSun, vLightMapUv).r;" : "")))   // the sun's baked shadow
-      .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse *= 0.32 + 0.68 * lmT.a;")      // sky occlusion on the sky light only
+    bindLight(sh); sh.uniforms.uNight = uNight; sh.uniforms.uSun = { value: LMSUN };
+    sh.fragmentShader = "uniform float uNight; uniform sampler2D uSun;\n" + LIGHT_GLSL + sh.fragmentShader
+      .replace("#include <lights_fragment_begin>", liveChunk().replace("getDirectionalLightInfo( directionalLight, directLight );",
+        "getDirectionalLightInfo( directionalLight, directLight );\ndirectLight.color *= sunT.r;"))   // the sun's baked shadow
+      .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse *= 0.32 + 0.68 * sunT.g;")   // sky occlusion on the sky light only
       .replace("#include <color_fragment>", `#include <color_fragment>
-  vec3 baseC = diffuseColor.rgb; vec4 lmT = texture2D(lightMap, vLightMapUv);
+  vec3 baseC = diffuseColor.rgb; vec4 lmQ = lmDecode(texture2D(lightMap, vLightMapUv)); vec4 sunT = texture2D(uSun, vLightMapUv);
   #ifdef USE_COLOR_ALPHA
   float glowK = 1.0 - vColor.a;
   #else
   float glowK = 0.0;
   #endif`)
-      .replace("#include <opaque_fragment>", `vec3 nightC = mix(nightTone(6.4 * baseC * lmT.rgb), min(baseC * 1.15, vec3(1.0)), glowK);
-  outgoingLight = mix(outgoingLight, nightC * uFlick, uNight);
+      .replace("#include <opaque_fragment>", LIGHT_MIX("baseC", "lmQ", "lmDecode2(sunT.ba)", "uNight", "vec3(0.0)", true) + `
+  outgoingLight = mix(outgoingLight, min(baseC * 1.15, vec3(1.0)), glowK * uNight);
 #include <opaque_fragment>`);
   };
   mat.customProgramCacheKey = () => "lmap-" + mat.uuid;
@@ -823,7 +826,18 @@ if (JEEP !== "none") {
     r.addColorStop(0, "rgba(255,226,168,1)"); r.addColorStop(1, "rgba(255,226,168,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.position.set(0, 1.45, -0.25); glow.scale.setScalar(1.1); glow.visible = false; jeep.add(glow);
-  let hl = 0, cab = 0, manual = null, wasNight = false;
+  // Cabin: live: one spot light under the roof aimed down (83 degree half-angle), shadowed by the jeep only; its shadow map is
+  // redrawn only while a door moves or the light fades, and every prop and the floor take its shadow
+  let cabSpot = null;
+  if (CABIN === "live") {
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
+    cabSpot = new THREE.SpotLight(0xffe3a8, 0, 9, 1.45, 0.4, 2); cabSpot.position.set(0, 1.62, -0.25); cabSpot.target.position.set(0, 0, -0.25);
+    cabSpot.castShadow = true; cabSpot.shadow.mapSize.set(512, 512); cabSpot.shadow.camera.near = 0.05; cabSpot.shadow.camera.far = 9; cabSpot.shadow.bias = -0.002;
+    jeep.add(cabSpot, cabSpot.target);
+    jeep.traverse((m) => { if (m.isMesh && !m.name.startsWith("Glass")) { m.castShadow = true; m.receiveShadow = true; } });
+    window.__cabinLive = { receive: (o) => o.traverse((m) => { if (m.isMesh) m.receiveShadow = true; }) };
+  }
+  let hl = 0, cab = 0, manual = null, wasNight = false, lastCab = -1;
   const lightStep = (dt) => {
     const night = uNight.value > 0.4; if (night !== wasNight) { manual = null; wasNight = night; }
     const hWant = (manual ?? night) ? 1 : 0, cWant = Object.values(doors).some((d) => d.cur !== 0) ? 1 : 0;
@@ -832,7 +846,10 @@ if (JEEP !== "none") {
     if (cabinL) { cabinL.material = cab > 0.02 ? cabOn : jm; cabOn.color.copy(OFF).lerp(CL, cab); }
     beamM.opacity = 0.11 * hl; for (const b of beams) b.visible = hl > 0.02;
     glow.material.opacity = 0.55 * cab; glow.visible = cab > 0.02;
-    if (window.__lights) { window.__lights.headlights = hl; window.__lights.cabin = cab; }
+    if (window.__lights) { window.__lights.headlights = hl; window.__lights.cabin = cabSpot ? 0 : cab;   // live: the spot light instead of the bake
+      for (const k of ["P", "D", "B"]) window.__lights.doors[k] = doors[k] ? doors[k].o.rotation.y / doors[k].open : 0; }   // each door's spill (bakedlight.js), by its actual swing
+    if (cabSpot) { cabSpot.intensity = 6 * cab;
+      if (Object.values(doors).some((d) => d.cur !== d.want) || Math.abs(cab - lastCab) > 0.01) { renderer.shadowMap.needsUpdate = true; lastCab = cab; } }
   };
   jeepStep = (dt) => {
     for (const d of Object.values(doors)) {
@@ -1304,6 +1321,9 @@ const groundBake = await new Promise((ok) => { const im = new Image(); im.onload
 const groundLife = createGround({ baked: groundBake,  scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
     bare: PROPS === "picked" ? (x, z) => { const [a, b] = tentLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; } : undefined,   // no grass in the tent or through its planks
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
+if (window.__cabinLive) {   // Cabin: live: the floor and every baked prop take the cabin light's shadow
+  window.__cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;
+}
 window.__ground = groundLife;
 // the walk-in tent (picked props; build_camp.py wall_tent, keep in step): walls stop you, the doorway lets you in,
 // the bed and the stove are in the way. tentLocal gives (a: ahead of tentAt toward the fire, b: across).
@@ -1375,7 +1395,7 @@ renderer.setAnimationLoop(() => {
   flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
   fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
   acts.update(dt, uTime.value);
-  uNight.value = dusk; uFlick.value = 0.92 + 0.08 * fl; pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
+  uNight.value = dusk; stepLight(fl, uTime.value); pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
   lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {

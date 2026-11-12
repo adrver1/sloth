@@ -6,13 +6,12 @@
 // Plants: crossed-quad cards (4 tris each) from one painted atlas, all in one instanced draw, swaying in the vertex shader.
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
 import * as THREE from "three";
+import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "./bakedlight.js";   // the camp's baked lights, one channel each
 
 const canvasTex = (w, h, draw, srgb = true) => {
   const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
   const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 };
-// the night tone, as camp.html: 1 - exp(-x) on the brightness, keeping the light's hue
-const NIGHT_TONE = "vec3 nightTone(vec3 x) { float l = max(dot(x, vec3(0.2126, 0.7152, 0.0722)), 1e-4); return min(x * (1.0 - exp(-l)) / l, vec3(1.0)); }\n";
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77 }) {
@@ -145,14 +144,15 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     bakedSoil = new THREE.TextureLoader().load(baked.soil); bakedSoil.flipY = false; bakedSoil.anisotropy = 4;   // sRGB, decoded in the shader like the dirt tile
   }
   // the baked night light on the ground (props/camp/bake_camp_lightmap.py: fire, lanterns, stove and moon, with the props' and the
-  // jeep's shadows), toned like the props': 1 - exp(-6.4 x surface colour x light), faded in with uNight; uGNon = 0 until it loads
-  const uGN = { value: null }, uGNon = { value: 0 };
+  // jeep's shadows), one channel per light, coloured and mixed as on the props (bakedlight.js), the warm ones a little by day too; uGNon = 0 until it loads
+  const uGN = { value: null }, uGJ = { value: null }, uGDP = { value: null }, uGDD = { value: null }, uGDB = { value: null }, uGNon = { value: 0 };   // uGD: the cabin light's spill through each door (patch round the jeep)   // uGJ: the jeep's headlights (R) and cabin light (G)
   const mat = new THREE.MeshLambertMaterial({ map: grassMap });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGNon });
+    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGJ, uGDP, uGDD, uGDB, uGNon }); bindLight(sh);
     if (baked) sh.defines = { ...sh.defines, BAKED: 1 };
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil, uGN; uniform float uR, uNight, uGNon; vec3 albedoG;\n" + NIGHT_TONE)
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB; uniform float uR, uNight, uGNon; vec3 albedoG;\n" + LIGHT_GLSL)
+      .replace("#include <lights_fragment_begin>", liveChunk())   // keeps the live cabin light's share apart (Cabin: live)
       .replace("#include <map_fragment>", `#include <map_fragment>
         float rr = length(vG);
         float h = fract(sin(dot(floor(vG * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
@@ -173,7 +173,8 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
         #endif
         albedoG = diffuseColor.rgb;
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`)
-      .replace("#include <opaque_fragment>", `outgoingLight = mix(outgoingLight, nightTone(6.4 * albedoG * texture2D(uGN, vG / (2.0 * uR) + 0.5).rgb), uNight * uGNon);
+      .replace("#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, vG / (2.0 * uR) + 0.5)) * uGNon; vec2 gj = lmDecode2(texture2D(uGJ, vG / (2.0 * uR) + 0.5).rg) * uGNon;
+        vec2 du = lmDoorUv(vG); vec3 gd = all(greaterThan(du, vec2(0.0))) && all(lessThan(du, vec2(1.0))) ? vec3(doorKey(lmDecode(texture2D(uGDP, du)), uLD.x), doorKey(lmDecode(texture2D(uGDD, du)), uLD.y), doorKey(lmDecode(texture2D(uGDB, du)), uLD.z)) * uGNon : vec3(0.0);${LIGHT_MIX("albedoG", "gq", "gj", "(uNight * uGNon)", "gd", true)}
 #include <opaque_fragment>`);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
@@ -258,17 +259,18 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   card.setAttribute("aCell", new THREE.InstancedBufferAttribute(cellA, 1));
   const pmat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide });
   pmat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR }; sh.uniforms.uGN = uGN; sh.uniforms.uGNon = uGNon;
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade, uGN; attribute float aCell; varying float vShade; varying vec3 vGN;")
+    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR }; sh.uniforms.uGN = uGN; sh.uniforms.uGJ = uGJ; sh.uniforms.uGNon = uGNon; bindLight(sh);
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade, uGN, uGJ; attribute float aCell; varying float vShade; varying vec4 vGN; varying vec2 vGJ;")
       .replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * 0.5 + vec2(mod(aCell, 2.0), 1.0 - floor(aCell / 2.0)) * 0.5;")
       .replace("#include <begin_vertex>", `#include <begin_vertex>
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.6 + ip.x * 1.3 + ip.z * 1.7) + 0.4 * sin(uTime * 3.1 + ip.x * 3.0);
         transformed.xz += vec2(w * 0.06, w * 0.035) * position.y * position.y;
         vShade = texture2D(uShade, ip.xz / (2.0 * uR) + 0.5).r;
-        vGN = texture2D(uGN, ip.xz / (2.0 * uR) + 0.5).rgb;`);   // the plants take the ground's night light where they stand
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight, uGNon; varying float vShade; varying vec3 vGN; vec3 albedoP;\n" + NIGHT_TONE)
-      .replace("#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, nightTone(6.4 * albedoP * vGN), uNight * uGNon);\n#include <opaque_fragment>")
+        vGN = pow(texture2D(uGN, ip.xz / (2.0 * uR) + 0.5), vec4(2.2));
+        vGJ = pow(texture2D(uGJ, ip.xz / (2.0 * uR) + 0.5).rg, vec2(2.2));`);   // the plants take the ground's night light where they stand
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight, uGNon; varying float vShade; varying vec4 vGN; varying vec2 vGJ; vec3 albedoP;\n" + LIGHT_GLSL)
+      .replace("#include <opaque_fragment>", LIGHT_MIX("albedoP", "(vGN * uGNon)", "(vGJ * uGNon)", "(uNight * uGNon)") + "\n#include <opaque_fragment>")
       .replace("#include <map_fragment>", "#include <map_fragment>\nalbedoP = diffuseColor.rgb;\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
   };
   im.material = pmat; im.frustumCulled = false; scene.add(im);
@@ -280,8 +282,12 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
     shadowBaked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; }, undefined, () => {});
   let nightBaked = false;
-  if (nightMap) new THREE.TextureLoader().load(nightMap, (t) => { t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  if (nightMap) new THREE.TextureLoader().load(nightMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4;
     uGN.value = t; uGNon.value = 1; nightBaked = true; }, undefined, () => {});
+  uGJ.value = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); uGJ.value.needsUpdate = true;   // no jeep light until its map loads
+  for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings
+    if (nightMap) new THREE.TextureLoader().load(nightMap.replace("camp_ground_night_", `camp_ground_door${k}_`), (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; u.value = t; }, undefined, () => {}); }
+  if (nightMap) new THREE.TextureLoader().load(nightMap.replace("camp_ground_night_", "camp_ground_jeep_"), (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; uGJ.value = t; }, undefined, () => {});
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
   return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
