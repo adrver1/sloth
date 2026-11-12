@@ -675,10 +675,13 @@ def jerry_can(x, y, z, m):
     return parts
 
 
+EXPEDITION_COLOURS = dict(paint=(0.36, 0.39, 0.25), paint2=(0.36, 0.39, 0.25), bar=(0.36, 0.39, 0.25), bumper=(0.12, 0.12, 0.12), flare=(0.1, 0.1, 0.1),
+                          rim=(0.6, 0.52, 0.38), rack=(0.09, 0.09, 0.09), can=(0.6, 0.12, 0.08), can2=(0.3, 0.33, 0.2), crate=(0.62, 0.48, 0.32),
+                          strap=(0.82, 0.5, 0.12), rope=(0.7, 0.62, 0.45))
+
+
 def expedition():
-    M = mats("ex", paint=(0.36, 0.39, 0.25), paint2=(0.36, 0.39, 0.25), bar=(0.36, 0.39, 0.25), bumper=(0.12, 0.12, 0.12), flare=(0.1, 0.1, 0.1),
-             rim=(0.6, 0.52, 0.38), rack=(0.09, 0.09, 0.09), can=(0.6, 0.12, 0.08), can2=(0.3, 0.33, 0.2), crate=(0.62, 0.48, 0.32),
-             strap=(0.82, 0.5, 0.12), rope=(0.7, 0.62, 0.45))
+    M = mats("ex", **EXPEDITION_COLOURS)
     p, R, G = body(M, "expedition")
     # steel bumper with a winch and a pair of tow hooks
     p.append(box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"], bevel=0.02))
@@ -832,6 +835,63 @@ def doors(objs, opened):
     bpy.context.view_layer.update()
 
 
+def jeep_lod(M):
+    """The Expedition seen from beyond about 12 m: the same outline in as few triangles as read at that distance. Body and
+    cabin as two plain prisms (no arch cuts: the flares and wheels cover them), windows as dark quads on the outside,
+    8-sided wheels with no lugs, the bumpers, grille and lamps as boxes and flat polygons, the snorkel, and the roof rack
+    as a slab with the cans and the box on it. One object, its own AO bake; the page swaps it in for the full jeep."""
+    R, zc = 0.37, 0.37
+    yf, yr = -WB / 2 - 0.03, WB / 2 - 0.03
+    lower = prism([(FRONT, SILL), (REAR, SILL), (REAR, BELT), (-0.42, BELT), (FRONT + 0.06, BELT - 0.05), (FRONT, BELT - 0.12)], W, M["paint"])
+    for y in (yf, yr):                                   # wheel arches, coarse (the flares cover the edge)
+        cut(lower, cyl(R + 0.08, W + 0.4, at=(0, y, zc), rot=(0, math.pi / 2, 0), m=M["paint"], verts=10))
+    p = [lower, prism([(-0.42, BELT - 0.01), (REAR - 0.01, BELT - 0.01), (REAR - 0.03, ROOF), (-0.16, ROOF)], W - 0.04, M["paint2"], taper=0.93)]
+    g = M["glass"]
+    s0, s1 = Vector((0, -0.42, BELT)), Vector((0, -0.16, ROOF)); up = (s1 - s0).normalized(); nrm = Vector((0, -up.z, up.y)) * 0.012
+    a, b = s0 + up * 0.07 + nrm, s1 - up * 0.06 + nrm
+    p.append(quad([(-0.64, a.y, a.z), (0.64, a.y, a.z), (0.62, b.y, b.z), (-0.62, b.y, b.z)], g, (0, -5, BELT)))     # windscreen
+    zt, zb = ROOF - 0.07, BELT + 0.06
+    for sd in (-1, 1):
+        wx = lambda z: sd * ((W - 0.04) / 2 * (1 - 0.07 * (z - BELT) / (ROOF - BELT)) + 0.012)
+        p.append(quad([(wx(zb), -0.24, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), -0.07, zt)], g, (sd * 5, 0.6, 1.3)))   # one strip of side glass
+    p.append(quad([(-0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zt), (-0.5, REAR + 0.012, zt)], g, (0, 5, 1.3)))
+    for y in (yf, yr):                                   # wheels: tyre, rim face, hub; open on the inside (never seen)
+        for sd in (-1, 1):
+            x, h = sd * (W / 2 - 0.1), 0.125
+            p.append(lathe([(R * 0.9, -h * sd, "tyre"), (R, -h * 0.6 * sd, "tyre"), (R, h * 0.6 * sd, "tyre"), (R * 0.9, h * sd, "tyre"), (R * 0.62, h * sd, "rim"), (R * 0.25, h * sd, "hub"), (0, h * sd, "hub")],
+                           8, (x, y, zc), True, M, "wheel_lod"))
+            fl = torus(R + 0.1, 0.045, at=(sd * (W / 2 + 0.01), y, zc), rot=(0, math.pi / 2, 0), m=M["flare"], major=10, minor=3)   # flare: the top half of a flattened ring
+            apply_all(fl)
+            for v in fl.data.vertices:
+                v.co.x *= 2.2
+            p.append(upper_half(fl, zc - 0.12))
+    p.append(box((W + 0.08, 0.2, 0.18), at=(0, FRONT - 0.06, SILL + 0.06), m=M["bumper"]))
+    p.append(box((W + 0.08, 0.2, 0.18), at=(0, REAR + 0.05, SILL + 0.06), m=M["bumper"]))
+    p.append(box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"]))                  # winch
+    p.append(quad([(-0.41, FRONT - 0.006, 0.7), (0.41, FRONT - 0.006, 0.7), (0.41, FRONT - 0.006, 0.95), (-0.41, FRONT - 0.006, 0.95)], M["grille"], (0, -5, 0.8)))
+    for sd in (-1, 1):
+        hx, hy, hz, r = sd * 0.6, FRONT - 0.008, 0.83, 0.115
+        p.append(poly([(hx + r * math.cos(t * math.pi / 4), hy, hz + r * math.sin(t * math.pi / 4)) for t in range(8)], M["lamp"], (hx, -5, hz)))
+        p.append(quad([(sd * 0.71, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.89), (sd * 0.71, REAR + 0.012, 0.89)], M["red"], (0, 5, 0.8)))
+        p.append(box((0.06, 0.18, 0.16), at=(sd * (W / 2 + 0.06), -0.28, BELT + 0.17), m=M["trim"]))   # mirror
+    sr = R * 0.98                                        # the spare wheel on the back door
+    p.append(lathe([(sr * 0.9, 0, "tyre"), (sr, 0.05, "tyre"), (sr, 0.19, "tyre"), (sr * 0.9, 0.24, "tyre"), (sr * 0.62, 0.24, "rim"), (sr * 0.25, 0.24, "hub"), (0, 0.24, "hub")], 8, (0.06, REAR + 0.02, 0.98), False, M, "spare_lod"))
+    p.append(duct([(0.85, -1.3, BELT - 0.12), (0.85, -0.62, BELT - 0.12), (0.8, -0.31, ROOF - 0.03)], [(0.07, 0.15), (0.07, 0.15), (0.075, 0.085)], M["rack"]))
+    p.append(box((0.14, 0.27, 0.1), at=(0.79, -0.37, ROOF + 0.03), rot=(-0.12, 0, 0), m=M["rack"]))
+    z = ROOF + 0.12                                      # roof rack: the outer frame and three cross bars, square, with its load
+    for sd in (-1, 1):
+        p.append(box((0.04, 1.78, 0.04), at=(sd * 0.7, 0.67, z), m=M["rack"]))
+    for y in (-0.2, 0.67, 1.55):
+        p.append(box((1.44, 0.04, 0.03), at=(0, y, z), m=M["rack"]))
+    hz = lambda y: BELT - 0.05 * (-0.42 - y) / (-0.42 - FRONT - 0.06) + 0.007          # the map on the bonnet, as hood_map() lays it
+    mp = lambda u, v: (-0.2 + u * math.cos(0.1) - v * math.sin(0.1), -0.98 + u * math.sin(0.1) + v * math.cos(0.1))
+    p.append(quad([(*mp(u, v), hz(mp(u, v)[1])) for u, v in ((-0.5, -0.37), (0.5, -0.37), (0.5, 0.37), (-0.5, 0.37))], mat("map_paper", (0.93, 0.88, 0.72)), (0, -1, 3)))
+    for x, cm in ((-0.42, "can"), (-0.14, "can2")):
+        p.append(box((0.17, 0.35, 0.44), at=(x, 1.2, z + 0.24), m=M[cm]))
+    p.append(box((0.62, 0.55, 0.3), at=(0.25, 0.85, z + 0.17), m=M["crate"]))
+    return join(p, "JeepLOD")
+
+
 def build(style, samples, do_preview, preview_samples):
     reset()
     EMPTIES.clear()
@@ -860,6 +920,18 @@ def build(style, samples, do_preview, preview_samples):
     print("  per object: " + ", ".join(f"{n} {sum(len(pl.vertices) - 2 for pl in o.data.polygons)}" for n, o in objs.items()))
     for e in EMPTIES:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
+    if style == "expedition":                            # the far LOD, in its own scene and bake (it would shade the full jeep)
+        shots = preview(style, objs, preview_samples) if do_preview else []
+        reset(); EMPTIES.clear()
+        M = mats("ex", **EXPEDITION_COLOURS)
+        lod = jeep_lod(M); apply_all(lod)
+        mud_mask(lod); bake([lod], samples); mud(lod)
+        lpath = os.path.join(HERE, "jeep_expedition_lod.glb")
+        bpy.ops.object.select_all(action="DESELECT"); lod.select_set(True)
+        bpy.ops.export_scene.gltf(filepath=lpath, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
+                                  export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
+        print(f"  JeepLOD: {sum(len(pl.vertices) - 2 for pl in lod.data.polygons)} triangles, {os.path.getsize(lpath) // 1024} KB -> {lpath}")
+        return shots
     return preview(style, objs, preview_samples) if do_preview else []
 
 
