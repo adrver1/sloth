@@ -12,6 +12,8 @@
 // Triangle budget: carried and burning logs 24 each; the canister 12; the surface disc 12; a bowl 24; bubbles, sparks and
 // the carried vegetable are single quads.
 import * as THREE from "three";
+import { makeCanister } from "./camp/canister.js";
+const CAN = new URLSearchParams(location.search).get("can") ?? "jerry";   // PROTOTYPE: which water carrier (camp/canister.js)
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const NEAR = 2.5;                          // tap range
@@ -66,7 +68,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   let held = null; const hand = new THREE.Group(); hand.position.set(0.36, -0.36, -0.85); hand.scale.setScalar(0.55); camera.add(hand);
   const inHand = {
     log: new THREE.Mesh(logGeo, logMat),
-    water: new THREE.Mesh(canGeo, canMat),
+    water: makeCanister(CAN),
     veg: new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1 })),
     bowl: new THREE.Group(),
   };
@@ -175,7 +177,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       if (room > bd) { bd = room; best = p; } }
     return best;
   })();
-  const canister = new THREE.Mesh(canGeo, canMat); canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister); addBlocker?.(canAt, 0.2);
+  const canister = makeCanister(CAN); window.__canTris = canister.userData.tris; canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister); addBlocker?.(canAt, 0.2);
   thing("canister", canAt, 0.3, () => !held && soup.stage === "empty", () => { hold("water"); canister.visible = false; toast("Got the water 💧"); },
     () => held ? full : soup.stage !== "empty" ? "Water's in already" : null, [canister]);
   // the kitchen crate: one vegetable at a time, a different one each time
