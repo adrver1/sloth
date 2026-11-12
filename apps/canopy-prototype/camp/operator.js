@@ -562,7 +562,10 @@ const LINES = {
 // the lines still to come are kept in the camp save (camp/save.js; Adriaen: a reload carries on where he left off); lines no longer in LINES drop out
 const bag = (() => { try { const b = { ...(load("operator")?.lines || {}) }; for (const k in b) b[k] = Array.isArray(b[k]) ? b[k].filter((l) => LINES[k]?.includes(l)) : []; return b; } catch { return {}; } })();
 function line() {
-  const k = op.sleeping ? "sleep" : (LINES[op.kind] && Math.random() < 0.35 ? op.kind : "awake");
+  // an activity's own lines only once he is actually at it (the bowl, the book, the mug, his hands at the fire, a sloth in his
+  // hands), not on the walk there; asleep, only the sleepy ones; otherwise the general lines
+  const doing = { eat: !!op.eat, read: op.ik?.book > 0.4, drink: !!op.inHand && op.inHand === mug, warm: op.kind === "warm" && !!op.ik?.R, play: !!op.carry }[op.kind];
+  const k = op.sleeping ? "sleep" : (doing && Math.random() < 0.35 ? op.kind : "awake");
   if (!bag[k]?.length) bag[k] = [...LINES[k]].sort(() => Math.random() - 0.5);
   const l = bag[k].pop(); save("operator", { lines: bag }); return l;
 }
