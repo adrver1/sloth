@@ -77,7 +77,7 @@ function allTargets() {
   const out = [];
   for (const [k, make] of extra) out.push(target(k, make));
   for (const t of acts.things) if (t.look) out.push(target(t, () => ({ look: t.look, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
-    ready: () => acts.ready(t), options: () => [[t.name === "fire" ? "Add the log 🔥" : "Take a log 🪵", () => acts.tap({ thing: t })]] })));
+    ready: () => acts.ready(t), options: () => [[acts.label?.(t) ?? "Use it", () => acts.tap({ thing: t })]] })));   // only ever the one thing a tap does now (activities.js label)
   for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
     ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => [["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]] })));
   for (const d of window.__jeep?.doors ?? []) out.push(target(d, () => {
@@ -131,9 +131,10 @@ function placeMenu() {
 function tap(x, y) {
   if (menuFor) { closeMenu(); return; }                  // a tap anywhere else closes the menu
   const t = targetAt(x, y);
-  if (t) { openMenu(t); return; }
-  if (lit && coarse) { lit.at(to).center; to.project(camera);   // a finger: a tap near the lit thing opens its menu
+  if (t && !t.quiet) { openMenu(t); return; }
+  if (lit && coarse) { lit.at(to).center; to.project(camera);   // a finger: a tap near the lit thing opens its menu, before a sloth sitting behind it
     if (Math.hypot((to.x + 1) / 2 * innerWidth - x, (1 - to.y) / 2 * innerHeight - y) < 0.22 * Math.min(innerWidth, innerHeight)) { openMenu(lit); return; } }
+  if (t) { openMenu(t); return; }
   const h = pickAt(x, y, hit), a = acts.pick(ray);       // out of reach, or a chore that isn't ready: say why
   if (a && (!h || a.distance < h.distance)) { acts.tap(a); return; }
   if (h || pickAt(x, y, allTargets().flatMap((t) => t.picks))) toast("Get a bit closer");

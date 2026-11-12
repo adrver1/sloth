@@ -234,6 +234,16 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
         b.s.position.y = -0.03 * Math.min(1, b.t / 90); b.s.visible = b.t < 90;
         if (b.t > 120) { scene.remove(b.g); b.seat.bowl = null; bowlsOut.splice(i, 1); } }
     },
+    // the words on the tap menu (camp/input.js): what a tap on t does now, with what you are carrying
+    label(t) {
+      const VN = ["carrot", "potato", "onion", "mushroom"];
+      if (t.name === "woodpile") return "Take a log 🪵";
+      if (t.name === "canister") return "Take the water 💧";
+      if (t.name === "crate") { const n = (vegNow + 1) % VEG.length; return `Take a ${VN[n]} ${VEG[n]}`; }
+      if (t.name.startsWith("seat")) return "Set the bowl down 🍲";
+      if (t.name === "fire") return held === "log" ? "Put the log on the fire 🔥" : held === "water" ? "Pour the water in the pot 💧" : held === "veg" ? `Add the ${VN[vegNow]} to the pot ${VEG[vegNow]}` : "Fill a bowl of soup 🍲";
+      return "Use it";
+    },
     get held() { return held; }, burning, level, things, soup, seats,
     ready(t) { return t.when() && flat(me.pos, t.at) <= NEAR + 0.6; },   // the highlight lights a thing only when a tap would use it
   };
