@@ -8,7 +8,7 @@ import { $, D, DETAIL, R, S, camera, qs, renderer, scene, sun, uTime } from "./c
 import { stickV } from "./hud.js";
 import { dome, moon, nightDome, sky, uSkyDusk } from "./sky.js";
 import { GLADE, RC, V, sloPath } from "./forest.js";
-import { fireLight, flames, glowTex, lanternGlow, lanterns, motes, pools, rayMat, uNight } from "./campProps.js";
+import { fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight } from "./campProps.js";
 import { jeepStep } from "./jeep.js";
 import { SL, SLOTH_WARM, campStep, fx, slothLife, sloths } from "./sloths.js";
 import { collide, me, step } from "./player.js";
@@ -70,7 +70,7 @@ renderer.setAnimationLoop(() => {
   { const W = SLOTH_WARM, n = Math.min(lanternGlow.length, WARM_N - 1);   // the sloths' night glow: lanterns, then the fire
     for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
     W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk; } pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
-  lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
+  LANTERNS.update(uTime.value, dusk);
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
     scene.fog.color.copy(DAY.fog).lerp(DUSK, dusk); scene.fog.density = DAY.dens * (1 + 0.6 * dusk);

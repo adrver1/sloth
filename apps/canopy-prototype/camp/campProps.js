@@ -4,29 +4,28 @@ import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import "./forest.js";   // run after the module before it, as one script did
 import { D, LIVED, PRE, PROPS, R, S, canvasTex, scene, sun, uTime } from "./core.js";
-import { A0, HERO, RC, V, d0, flatCol, merge, t0, woodMat } from "./forest.js";
+import { A0, HERO, RC, V, d0, t0 } from "./forest.js";
+import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
-const camp = [], lanternGlow = [];
+const lanternGlow = [];   // where each lantern's light is (lanterns.js): the ground pools and the sloths' night glow
 {
   // the layout: the log seats round the fire (the gap faces the gate), the tent, the hammock posts and the snack table
   const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
   const hA = d0.clone().multiplyScalar(-1.5).addScaledVector(t0, -4.6), hB = hA.clone().addScaledVector(d0, -2.6).addScaledVector(t0, -1.2);
   const tb = d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.2);
-  // lantern string from the tent ridge across to the hammock post
-  const l0 = tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8), l1 = hA.clone().setY(2.5);   // picked: tied to the walk-in tent's front A-frame
-  for (let i = 1; i < 9; i++) { const t = i / 9, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45; lanternGlow.push(p); }
-  const str = []; for (let i = 0; i <= 20; i++) { const t = i / 20, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45 - 0.06; str.push(p); }
-  camp.push(flatCol(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(str), 24, 0.01, 3), 0x5a4636));
-  scene.add(new THREE.Mesh(merge(camp), woodMat));
-  window.__camp = { tentAt, hA, hB, tb, string: str };   // string: the lantern string's points (a sloth hangs from it)
+  // the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame and the hammock's near
+  // post up to the big tree behind the fire
+  const l0 = tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8);   // tied to the walk-in tent's front A-frame
+  var LANTERN_LAYOUT = lanternLayout({ l0, post: hA.clone().setY(2.35), tree: HERO[0] });
+  window.__camp = { tentAt, hA, hB, tb, string: LANTERN_LAYOUT.strings[0], strings: LANTERN_LAYOUT.strings };   // string(s): the lantern strings' points (a sloth hangs from one)
   // collision circles for walking round the camp
   var blockers = [[V(0, 0, 0), 0.9], Object.assign([tentAt.clone().multiplyScalar(1 + 0.275 / tentAt.length()), 1.9], { tent: true }), [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
   for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; blockers.push([V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1), 0.75]); }
 }
-// lanterns and the fire: bright sprites, no real-time shadows; one warm point light for the fire glow
+// the lanterns (lanterns.js) and the fire: glow sprites, no real-time shadows; one warm point light for the fire glow
 const glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
-const lanterns = lanternGlow.map((p, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: [0xffd27a, 0xffa3c0, 0xfff1b0][i % 3], blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 })); s.position.copy(p); s.scale.setScalar(0.32); scene.add(s); return s; });
+const LANTERNS = createLanterns({ scene, layout: LANTERN_LAYOUT, glowTex }); lanternGlow.push(...LANTERNS.lights);
 const flames = [0, 1, 2].map((i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: [0xffb347, 0xff7a3d, 0xffe08a][i], blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); s.position.set(0, 0.45 + i * 0.12, 0); scene.add(s); return s; });
 const fireLight = new THREE.PointLight(0xff9a4a, D.fx ? 6 : 0, 7, 1.6); fireLight.position.set(0, 0.9, 0); scene.add(fireLight);
 
@@ -97,13 +96,12 @@ const lnight = (mat) => {
   const P = await PRE.props, { tentAt, hA, hB, tb } = window.__camp;
   const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
   P.scene.traverse((m) => { if (m.isMesh) m.material = lamL; });
-  // the picked set holds each copy on its own (Seat_0, Lantern_3 ...), since each is lit where it stands
+  // the picked set holds each copy on its own (Seat_0, Seat_1 ...), since each is lit where it stands
   const put = (n, x, z, yaw, y = 0, i = 0) => { const s = P.scene.getObjectByName(`${n}_${i}`) ?? P.scene.getObjectByName(n); if (!s) return null; const o = s.clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
   for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; put("Seat", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2, 0, i); }
   put("Tent", tentAt.x, tentAt.z, Math.atan2(-tentAt.x, -tentAt.z));
   const hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA); put("Hammock", hm.x, hm.z, -Math.atan2(hd.z, hd.x));
   put("Table", tb.x, tb.z, 0.6);
-  lanternGlow.forEach((p, i) => { put("Lantern", p.x, p.z, i, p.y + 0.02, i); lanterns[i].position.y -= 0.1; lanternGlow[i] = p.clone().setY(p.y - 0.1); });
 }
 // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
 // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
@@ -188,4 +186,4 @@ const pools = (() => {
   m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); return m;
 })();
 
-export { FIRE_CARDS, SLOTH, SOUP_POT, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, lanterns, motes, pools, rayMat, uNight };
+export { FIRE_CARDS, SLOTH, SOUP_POT, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight };
