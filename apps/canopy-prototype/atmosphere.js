@@ -1,5 +1,6 @@
 // Cozy camp atmosphere for camp.html: cheap particle effects round the fire, kept out of camp.html so the sibling threads' edits there don't collide.
 // Batch 1: smoke curling up from the fire, sparks that pop more often as you walk close, and steam from the kettle spout.
+// Later: thin smoke from the tent stove's chimney, curling out from under its rain cap.
 // Batch 2: butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
 // Each effect is one instanced draw of camera-facing quads (no point sprites, so phone GPUs' point-size caps don't matter) with a fixed pool, scaled by the detail level.
 import * as THREE from "three";
@@ -50,12 +51,15 @@ function pool(scene, n, map, blending, order) {
 
 // fire at the clearing centre; spout is the kettle spout tip in world space, or null when the props have no kettle;
 // pot = { at: the centre of the soup's surface in world space, r: its radius } for an open pot: steam rises from the whole surface instead
-export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0, 0, 0), spout = null, pot = null, sloths = [], roam = 7.5 }) {
+// chimneys: world points at the mouth of a stovepipe (the tent's, under its rain cap); thin smoke curls out sideways from under the cap and rises
+export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0, 0, 0), spout = null, pot = null, chimneys = [], sloths = [], roam = 7.5 }) {
   const k = fx > 1 ? 1.5 : fx ? 1 : 0.5;   // detail: low, medium, high
   const puff = puffTex();
   const smoke = pool(scene, Math.round(26 * k), puff, THREE.NormalBlending, 3);
   const steam = spout || pot ? pool(scene, Math.round((pot ? 22 : 16) * k), puff, THREE.NormalBlending, 4) : null;
   const sparks = pool(scene, Math.round(60 * k), sparkTex(), THREE.AdditiveBlending, 5);
+  const chim = chimneys.length ? pool(scene, Math.round(14 * k) * chimneys.length, puff, THREE.NormalBlending, 3) : null;
+  let tChim = 0;
   const DAY_SMOKE = new THREE.Color(0xd6d2cb), DUSK_SMOKE = new THREE.Color(0x4a4652);
   let tSmoke = 0, tSteam = 0, tSpark = 0, wind = 0;
 
@@ -93,6 +97,17 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
       }
     }
 
+    // chimney smoke: a small wisp every half second from under the cap, pushed out sideways, then up and away on the breeze
+    if (chim) {
+      tChim -= dt;
+      while (tChim <= 0) {
+        tChim += 7 / chim.n;
+        for (const c of chimneys) { const a = rnd(0, 6.28);
+          chim.add({ x: c.x + Math.cos(a) * 0.08, y: c.y + 0.03, z: c.z + Math.sin(a) * 0.08, vx: Math.cos(a) * 0.12, vz: Math.sin(a) * 0.12, vy: rnd(0.22, 0.32),
+            t: 0, life: rnd(5, 6.5), s0: rnd(0.08, 0.12), s1: rnd(0.7, 1.0), spin: rnd(0, 6.28), spinV: rnd(-0.3, 0.3), a: rnd(0.3, 0.4), ph: rnd(0, 6.28), size: 0, alpha: 0 }); }
+      }
+    }
+
     // move and fade
     const fade = 1 - 0.35 * dusk;   // thinner smoke at dusk, so it doesn't read as a pale fog against the dark
     const age = (P, f) => { for (let i = P.live.length - 1; i >= 0; i--) { const p = P.live[i]; p.t += dt; if (p.t >= p.life) { P.live[i] = P.live[P.live.length - 1]; P.live.pop(); continue; } f(p, p.t / p.life); } P.flush(); };
@@ -105,6 +120,11 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
       p.x += (p.vx + Math.sin(time * 9 + p.ph) * 0.25 + wind) * dt; p.z += (p.vz + Math.cos(time * 8 + p.ph) * 0.25) * dt; p.y += p.vy * dt;
       p.size = p.s0 * (1 - 0.5 * e); p.alpha = (1 - e) * (0.75 + 0.25 * Math.sin(time * 30 + p.ph));   // a little flicker
     });
+    if (chim) age(chim, (p, e) => {
+      p.vx *= 1 - dt * 1.5; p.vz *= 1 - dt * 1.5;
+      p.x += (p.vx + wind * 1.4 * e + Math.sin(time * 0.8 + p.ph) * 0.03) * dt; p.z += (p.vz + Math.cos(time * 0.7 + p.ph) * 0.03) * dt; p.y += p.vy * (1 - 0.3 * e) * dt;
+      p.spin += p.spinV * dt; p.size = p.s0 + (p.s1 - p.s0) * Math.sqrt(e); p.alpha = p.a * Math.min(1, e * 5) * (1 - e) * (1 - e) * 1.6 * fade;
+    });
     if (steam) age(steam, (p, e) => {
       p.vx *= 1 - dt * 2; p.vy += 0.25 * dt; p.x += (p.vx + wind * 0.5) * dt; p.z += p.vz * dt; p.y += p.vy * dt;
       p.spin += p.spinV * dt; p.size = p.s0 + (p.s1 - p.s0) * e; p.alpha = p.a * Math.min(1, e * 8) * (1 - e);
@@ -112,6 +132,7 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
 
     // at dusk the smoke goes grey-blue and the sparks read brighter against the dark
     smoke.mat.uniforms.tint.value.copy(DAY_SMOKE).lerp(DUSK_SMOKE, dusk);
+    if (chim) chim.mat.uniforms.tint.value.copy(smoke.mat.uniforms.tint.value);
     if (steam) steam.mat.uniforms.tint.value.setScalar(1 - 0.45 * dusk);
     sparks.mat.uniforms.tint.value.setScalar(1 + 0.4 * dusk);
     flutter.update(dt, time, dusk);
@@ -119,7 +140,7 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
   }
   const flutter = butterflies(scene, Math.round(8 * k), sloths, roam);
   const flies = fireflies(scene, Math.round(70 * k), roam);
-  return { update, flutter, stats: () => ({ smoke: smoke.live.length, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter.landed() }) };
+  return { update, flutter, stats: () => ({ smoke: smoke.live.length, chimney: chim ? chim.live.length : 0, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter.landed() }) };
 }
 
 // ---------------------------------------------------------------- butterflies: two wing quads each, hinged on the body and flapped in the shader; all in one draw
