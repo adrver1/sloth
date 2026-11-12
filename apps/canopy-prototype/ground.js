@@ -13,7 +13,7 @@ const canvasTex = (w, h, draw, srgb = true) => {
 };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, seed = 77 }) {
+export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadows = [], seed = 77 }) {
   // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
   let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
@@ -51,6 +51,22 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
   }, false);
   wear.anisotropy = 1; wear.flipY = false;   // canvas rows run with +z, like the shader's lookup
+
+  // ---------------------------------------------------------------- contact shadows (Adriaen 2026-11-12): the page has no shadow maps, so each prop
+  // gets a soft painted shadow under it, nudged away from the sun by its height. shadows: [{ x, z, ax, az (long axis), l, w (half sizes), k, h }]
+  const SUN = [0.4, -0.3];                                                    // ground offset per metre of height, from the sun at (-4, 10, 3)
+  const shade = canvasTex(512, 512, (g) => {
+    g.fillStyle = "#000"; g.fillRect(0, 0, 512, 512); g.globalCompositeOperation = "lighten";
+    const p5 = (x) => (x / (2 * RR) + 0.5) * 512;
+    for (const { x, z, ax = 1, az = 0, l, w, k = 0.5, h = 0.3 } of shadows) {
+      const cx = x + SUN[0] * h, cz = z + SUN[1] * h, sc = 512 / (2 * RR);
+      g.save(); g.translate(p5(cx), p5(cz)); g.rotate(Math.atan2(az, ax)); g.scale((l + 0.25 + 0.15 * h) * sc, (w + 0.25 + 0.15 * h) * sc);
+      const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1), v = Math.round(255 * k);
+      gr.addColorStop(0, `rgb(${v},${v},${v})`); const v2 = Math.round(v * 0.85); gr.addColorStop(0.5, `rgb(${v2},${v2},${v2})`); gr.addColorStop(1, "rgb(0,0,0)");
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, 7); g.fill(); g.restore();
+    }
+  }, false);
+  shade.flipY = false; shade.anisotropy = 1;
   const mk = wear.image.getContext("2d").getImageData(0, 0, M, M).data;
   const sample = (x, z, ch) => { const X = Math.min(M - 1, Math.max(0, Math.floor(px(x)))), Z = Math.min(M - 1, Math.max(0, Math.floor(px(z)))); return mk[(Z * M + X) * 4 + ch] / 255; };
 
@@ -90,6 +106,12 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
+  // the contact shadows as one dark see-through disc just above the floor, the jeep's track and the path (48 triangles, 1 draw)
+  const shadeMat = new THREE.MeshBasicMaterial({ color: 0x1a1408, alphaMap: shade, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
+  shadeMat.onBeforeCompile = (sh) => { sh.uniforms.uNight = night;
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight;").replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\ndiffuseColor.a *= 1.0 - 0.5 * uNight;"); };
+  const shadeUv = geo.clone(); { const p = shadeUv.attributes.position, uv = shadeUv.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / (2 * RR) + 0.5, p.getZ(i) / (2 * RR) + 0.5); }
+  const shadeMesh = new THREE.Mesh(shadeUv.translate(0, 0.012, 0), shadeMat); shadeMesh.renderOrder = 3; scene.add(shadeMesh);
   clearing.visible = false;
 
   // ---------------------------------------------------------------- plant atlas: tuft, tall grass, wildflowers, clover (2 x 2 cells of 128)
@@ -164,16 +186,17 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   card.setAttribute("aCell", new THREE.InstancedBufferAttribute(cellA, 1));
   const pmat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide });
   pmat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night;
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime; attribute float aCell;")
+    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = { value: shade }; sh.uniforms.uR = { value: RR };
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade; attribute float aCell; varying float vShade;")
       .replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * 0.5 + vec2(mod(aCell, 2.0), 1.0 - floor(aCell / 2.0)) * 0.5;")
       .replace("#include <begin_vertex>", `#include <begin_vertex>
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.6 + ip.x * 1.3 + ip.z * 1.7) + 0.4 * sin(uTime * 3.1 + ip.x * 3.0);
-        transformed.xz += vec2(w * 0.06, w * 0.035) * position.y * position.y;`);
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight;").replace("#include <map_fragment>", "#include <map_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
+        transformed.xz += vec2(w * 0.06, w * 0.035) * position.y * position.y;
+        vShade = texture2D(uShade, ip.xz / (2.0 * uR) + 0.5).r;`);
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight; varying float vShade;").replace("#include <map_fragment>", "#include <map_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
   };
   im.material = pmat; im.frustumCulled = false; scene.add(im);
   const counts = [0, 1, 2, 3].map((t) => pick.filter((p) => p[2] === t).length);
-  return { floor, plants: im, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
+  return { floor, plants: im, shade, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
 }
