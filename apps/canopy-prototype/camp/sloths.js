@@ -227,6 +227,17 @@ if (qs.get("campsloths") !== "0") {
     if (s.act) s.act.crossFadeTo(next, fade, false);
     s.act = next;
   }
+  // the vine a sloth lowers itself on (Adriaen 2026-11-12: it was a 1-pixel line, so they seemed to climb down thin air):
+  // a 5-sided open tube, 3.6 cm thick, from the branch to its paws, stretched each frame (10 triangles)
+  const VINE_GEO = new THREE.CylinderGeometry(0.016, 0.02, 1, 5, 1, true).translate(0, -0.5, 0), VINE_UP = V(0, -1, 0);
+  function makeVine(top) {
+    const m = new THREE.Mesh(VINE_GEO, new THREE.MeshLambertMaterial({ color: 0x55702c, transparent: true, opacity: 1 }));
+    m.position.copy(top); m.scale.set(1, 1e-3, 1); scene.add(m); return m;
+  }
+  function setVine(m, bottom, opacity = 1) {
+    const d = bottom.clone().sub(m.position), l = Math.max(1e-3, d.length());
+    m.quaternion.setFromUnitVectors(VINE_UP, d.divideScalar(l)); m.scale.set(1, l, 1); m.material.opacity = opacity; m.visible = opacity > 0.01;
+  }
   addEventListener("sloth-befriended", (e) => {
     const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);   // hammock, log seat, jeep, line, tent, then the two edge branches
     if (!s || s.trip || !spot) return;
@@ -236,8 +247,7 @@ if (qs.get("campsloths") !== "0") {
     const g = s.o.position.clone().setY(0), inGlade = g.distanceTo(GLADE) < GLADE_R + 0.5;
     if (!inGlade && g.length() > RC - 1) g.setLength(RC - 1);
     const route = inGlade ? sloPath.pts.slice().reverse().filter((q) => Math.hypot(q.x, q.z) > RC - 2.5).filter((_, i) => i % 3 === 0) : [];   // from the glade: back along the path
-    const vine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([s.p, s.p]), new THREE.LineBasicMaterial({ color: 0x4f6b2a }));
-    scene.add(vine);
+    const vine = makeVine(s.p);
     s.trip = { spot, phase: "down", t: 0, from: s.o.position.clone(), q: s.o.quaternion.clone(), to: g, top: s.p.clone(), vine, sc0: s.sc, route };
     play(s, "hang_walk", 1.2, 1.4);
   });
@@ -267,8 +277,7 @@ if (qs.get("campsloths") !== "0") {
           const k = Math.min(1, T.t / 10), e = k * k * (3 - 2 * k);
           const aim = T.route?.[0] || spot.door, face = Math.atan2(-(aim.x - T.to.x), -(aim.z - T.to.z));
           s.o.position.lerpVectors(T.from, T.to, e); s.o.quaternion.slerpQuaternions(T.q, q0.setFromAxisAngle(UP, face), Math.min(1, e * 1.3));
-          const pos = T.vine.geometry.attributes.position; pos.setXYZ(1, s.o.position.x, s.o.position.y + 0.25 * SL * (1 - e), s.o.position.z); pos.needsUpdate = true;
-          T.vine.material.opacity = 1 - sstep(0.85, 1, k); T.vine.material.transparent = true;
+          setVine(T.vine, V(s.o.position.x, s.o.position.y + (0.1 * s.sc + 0.05) * (1 - e), s.o.position.z), 1 - sstep(0.85, 1, k));
           if (k >= 1) { T.phase = "crawl"; T.t = 0; T.yaw = face; scene.remove(T.vine); play(s, "walk", 1.5, 2.2); }
         } else if (T.phase === "crawl") {             // a slow belly crawl, about 0.15 m/s
           const pos = s.o.position, v = 0.027 * 2.2 * s.sc;
@@ -283,8 +292,7 @@ if (qs.get("campsloths") !== "0") {
           if (spot.via && !T.passed) { /* still on its way to the door */ }
           else if (pos.distanceTo(spot.door) < 0.12 + v * sd && spot.branch) {
             T.phase = "up"; T.t = 0; T.from = pos.clone(); T.q = s.o.quaternion.clone(); T.sc0 = s.sc; pos.copy(spot.door);
-            T.vine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([spot.top, pos.clone()]), new THREE.LineBasicMaterial({ color: 0x4f6b2a, transparent: true, opacity: 0 }));
-            scene.add(T.vine); play(s, "hang_walk", 1.5, 1.4);
+            T.vine = makeVine(spot.top); play(s, "hang_walk", 1.5, 1.4);
             const yl = spot.tan.clone().setY(spot.tan.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
             const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
             T.qTo = new THREE.Quaternion().setFromRotationMatrix(rot); T.to = spot.top.clone().sub(V(0, BR.z, -BR.y).applyMatrix4(rot));
@@ -316,8 +324,7 @@ if (qs.get("campsloths") !== "0") {
           const k = Math.min(1, T.t / 12), e = k * k * (3 - 2 * k);
           s.o.position.lerpVectors(T.from, T.to, e); s.o.quaternion.slerpQuaternions(T.q, T.qTo, Math.min(1, e * 1.3));
           s.sc = T.sc0 + (spot.scale - T.sc0) * e; s.o.scale.setScalar(s.sc);
-          const vp = T.vine.geometry.attributes.position; vp.setXYZ(1, s.o.position.x, s.o.position.y + 0.25 * SL * e, s.o.position.z); vp.needsUpdate = true;
-          T.vine.material.opacity = sstep(0, 0.08, k) * (1 - sstep(0.85, 1, k));
+          setVine(T.vine, V(s.o.position.x, s.o.position.y + (0.1 * s.sc + 0.05) * e, s.o.position.z), sstep(0, 0.08, k) * (1 - sstep(0.85, 1, k)));
           if (k >= 1) { scene.remove(T.vine); T.phase = "home"; spot.home = true; play(s, "cling", 3, 0.6); }
         } else if (T.phase === "climb") {             // up the post hand over hand, about 15 s, until its arms reach the rope knot
           if (T.t < sd + 1e-6) play(s, "hang_walk", 1.2, 2.5);
