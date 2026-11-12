@@ -13,6 +13,8 @@ in several different places", and bake the whole scene as one). Run it whenever 
             models/camp_shadow_picked_<jeep>.png         ground: day shadow (sun + sky)
             models/camp_ground_night_picked_<jeep>.png   ground: night light
           and the props' GLBs/txt
+  ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), next to the PNGs, which stay as the fallback;
+          needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH
   layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (prop spots, the jeep's track, the path),
           served on :8765 by this script -> props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>)
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
@@ -21,13 +23,13 @@ import argparse, os, subprocess, sys, time, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ap = argparse.ArgumentParser()
-ap.add_argument("--only", choices=["light", "layout", "ground"], action="append")
+ap.add_argument("--only", choices=["light", "ktx", "layout", "ground"], action="append")
 ap.add_argument("--size", type=int, default=4096, help="props light map size")
 ap.add_argument("--ground-size", type=int, default=1024, help="ground light maps size")
 ap.add_argument("--samples", type=int, default=512)
 ap.add_argument("--jeep", default="expedition", help="the toy and camper are archived")
 a = ap.parse_args()
-steps = a.only or ["light", "layout", "ground"]
+steps = a.only or ["light", "ktx", "layout", "ground"]
 BLENDER = os.environ.get("BLENDER", "blender")
 GPU_RUN = os.environ.get("GPU_RUN")
 
@@ -48,6 +50,19 @@ def run(cmd, **kw):
 if "light" in steps:
     blender(os.path.join(ROOT, "props/camp/bake_camp_lightmap.py"), "--size", str(a.size), "--samples", str(a.samples),
             "--ground", str(a.ground_size), "--jeep", a.jeep)
+if "ktx" in steps:
+    import glob
+    TOKTX = os.environ.get("TOKTX", "toktx")
+    M = os.path.join(ROOT, "apps/canopy-prototype/models")
+    maps = [f for p in ("camp_lm_[12]k.png", "camp_lm_sun_[12]k.png", f"camp_ground_night_picked_{a.jeep}.png",
+                        f"camp_ground_jeep_picked_{a.jeep}.png", f"camp_ground_door[PDB]_picked_{a.jeep}.png") for f in sorted(glob.glob(os.path.join(M, p)))]
+    for f in maps:
+        out = f[:-4] + ".ktx2"
+        run([TOKTX, "--t2", "--encode", "uastc", "--uastc_quality", "2", "--uastc_rdo_l", "1.0", "--zcmp", "19",
+             "--assign_oetf", "linear", "--assign_primaries", "none", "--genmipmap", out, f])
+        print(f"  {os.path.basename(out)}: {os.path.getsize(out) // 1024} KB (png {os.path.getsize(f) // 1024} KB)", flush=True)
+    import json
+    jf = os.path.join(M, "camp_lights.json"); j = json.load(open(jf)); j["ktx2"] = True; json.dump(j, open(jf, "w"), indent=1)   # tells the page to try .ktx2
 if "layout" in steps:
     srv = subprocess.Popen([sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:

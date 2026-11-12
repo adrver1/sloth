@@ -52,7 +52,7 @@ import { furify } from "./fur.js";
 import { createAtmosphere } from "./atmosphere.js";
 import { createActivities } from "./activities.js";
 import { createGround } from "./ground.js";
-import { LIGHT_GLSL, LIGHT_MIX, bindLight, stepLight, liveChunk } from "./bakedlight.js";
+import { LIGHT_GLSL, LIGHT_MIX, bindLight, stepLight, liveChunk, initKtx, loadLightMap } from "./bakedlight.js";
 
 const qs = new URLSearchParams(location.search);
 const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
@@ -77,7 +77,8 @@ $("props").onclick = () => { store.set("canopy-props2", PROPSETS[(PROPSETS.index
 const JEEP = qs.get("jeep") === "none" ? "none" : "expedition";
 // the picked props' baked light: a 2K or 1K light map, or the older vertex colours (?lm=4k also works locally; 4k is too big to publish)
 const LMS = ["2k", "1k"], LMNAME = { "4k": "4K map", "2k": "2K map", "1k": "1K map" };
-const LMSET = [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.includes(store.get("canopy-lm")) ? store.get("canopy-lm") : "2k";
+const LMSET = [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.includes(store.get("canopy-lm")) ? store.get("canopy-lm")
+  : matchMedia("(pointer: coarse)").matches ? "1k" : "2k";   // phones start on the 1K maps (review P1: hard to tell apart at phone size, a quarter of the memory)
 $("lm").textContent = "Light: " + LMNAME[LMSET];
 $("lm").style.display = PROPS === "picked" ? "" : "none";
 // the jeep's cabin light: baked (four keyframes per door, with bounce light) or live (one shadowed spot light, exact at any
@@ -315,6 +316,7 @@ function jeepDist(x, z) {
 }
 
 // ---------------------------------------------------------------- clearing floor
+const FLOOR_OVERLAYS = [];   // the path and track ribbons drawn on the floor: they take the ground's contact shadow (groundLife.shadeOn)
 const grass = canvasTex(256, 256, (g, w, h) => {
   g.fillStyle = hex(new THREE.Color(S.leaf[3]).lerp(new THREE.Color(0xd8e0a0), LOOK === "low" ? 0.1 : 0.25).getHex()); g.fillRect(0, 0, w, h);
   if (LOOK !== "low") for (let i = 0; i < 1400; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.2, 0.6); g.lineWidth = 1.5; const x = R(0, w), y = R(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-2, 2), y - R(3, 8)); g.stroke(); }
@@ -348,7 +350,7 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: earth, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
-  m.renderOrder = 1; scene.add(m);
+  m.renderOrder = 1; scene.add(m); FLOOR_OVERLAYS.push(m);
 }
 
 // ---------------------------------------------------------------- the jeep's track: a dirt road out through the forest, and muddy tyre ruts up to its wheels
@@ -365,7 +367,7 @@ if (track) {
     g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
     tex.wrapT = THREE.RepeatWrapping;
     const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }));
-    mesh.renderOrder = order; scene.add(mesh);
+    mesh.renderOrder = order; scene.add(mesh); FLOOR_OVERLAYS.push(mesh);
   };
   const mud = LOOK === "low" ? ["#9a7a52", "#7d6040", "#5c4530"] : ["#8a6c4a", "#6b5038", "#4a3626"];
   const dirt = canvasTex(128, 512, (g, w, h) => {
@@ -662,7 +664,8 @@ const SLOTH = await glb("models/sloth.txt");
 // lights, baked, unlit, faded in with uNight. COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 // The lightMap slot (intensity 0) only gives the shader its sampler and UV; it adds no light. Light button: 2K or 1K (4K: ?lm=4k, local only).
 const uNight = { value: 0 };
-const lmLoad = async (n) => { const L = new THREE.TextureLoader(); const t = await L.loadAsync(`models/${n}_${LMSET}.png`).catch(() => L.loadAsync(`models/${n}_2k.png`));
+initKtx(renderer);
+const lmLoad = async (n) => { const t = await loadLightMap(`models/${n}_${LMSET}.png`).catch(() => loadLightMap(`models/${n}_2k.png`));
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
 const [LMTEX, LMSUN] = await Promise.all([lmLoad("camp_lm"), lmLoad("camp_lm_sun")]);
 const lnight = (mat) => {
@@ -686,7 +689,10 @@ const lnight = (mat) => {
   outgoingLight = mix(outgoingLight, min(baseC * 1.15, vec3(1.0)), glowK * uNight);
 #include <opaque_fragment>`);
   };
-  mat.customProgramCacheKey = () => "lmap-" + mat.uuid;
+  // one program for every material whose shader code comes out the same (review P3: keyed by uuid, each compiled its own);
+  // the hooks chained before and after this one (the laundry's swing) are part of the code, so their source is in the key
+  const own = mat.onBeforeCompile;
+  mat.customProgramCacheKey = () => ["lmap", prev ? prev.toString() : "", mat.onBeforeCompile === own ? "" : mat.onBeforeCompile.toString()].join("|");
   return mat;
 };
 if (PROPS !== "code") {
@@ -1307,6 +1313,7 @@ const groundBake = await new Promise((ok) => { const im = new Image(); im.onload
 const groundLife = createGround({ baked: groundBake,  scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
     bare: PROPS === "picked" ? (x, z) => { const [a, b] = tentLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; } : undefined,   // no grass in the tent or through its planks
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
+for (const m of FLOOR_OVERLAYS) groundLife.shadeOn(m.material);
 if (window.__cabinLive) {   // Cabin: live: the floor and every baked prop take the cabin light's shadow
   window.__cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;
 }
