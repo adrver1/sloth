@@ -1279,24 +1279,11 @@ function feed(s) {
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
 // wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
-const groundLife = createGround({ scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
+// the baked ground (props/ground/bake_ground.py) for the sets that have one; others paint their wear map live
+const groundBake = await new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: `models/camp_ground_${PROPS}.jpg` }); im.onerror = () => ok(null); im.src = `models/camp_ground_${PROPS}_mask.png`; });
+const groundLife = createGround({ baked: groundBake,  scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
     bare: PROPS === "picked" ? (x, z) => { const [a, b] = tentLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; } : undefined,   // no grass in the tent or through its planks
-    shadows: campShadows() });
-// soft contact shadows under the props (Adriaen 2026-11-12: nothing cast a shadow): half sizes l x w along (ax, az), darkness k, height h
-function campShadows() {
-  const out = [], { tentAt, hA, hB, tb } = window.__camp, sh = (c, ax, az, l, w, k, h) => out.push({ x: c.x, z: c.z, ax, az, l, w, k, h });
-  if (JEEP !== "none") sh(JEEP_AT, JEEP_TAN.x, JEEP_TAN.z, 1.9, 0.95, 0.8, 0.5);
-  const hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA);
-  sh(hm, hd.x, hd.z, hd.length() / 2 - 0.6, 0.38, 0.55, 1.0); sh(hA, 1, 0, 0.12, 0.12, 0.5, 0.6); sh(hB, 1, 0, 0.12, 0.12, 0.5, 0.6);
-  const ta = tentAt.length(), back = tentAt.clone().multiplyScalar(1 + 0.275 / ta);
-  if (PROPS !== "code") sh(back, -tentAt.z / ta, tentAt.x / ta, 1.45, 1.25, 0.6, 0.5);
-  sh(tb, 1, 0, 0.6, 0.6, 0.6, 0.35);
-  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15, c = V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1); sh(c, -Math.sin(a), Math.cos(a), 0.7, 0.25, 0.6, 0.2); }
-  if (typeof WOODPILE !== "undefined" && WOODPILE) sh(WOODPILE, 1, 0, 0.75, 0.55, 0.45, 0.3);
-  if (typeof WOODPILE !== "undefined" && WOODPILE) sh(V(4.55, 0, 1.7), 1, 0, 0.35, 0.3, 0.45, 0.25);   // the kitchen crate (lived props)
-  if (window.__laundry) for (const p of [window.__laundry.a, window.__laundry.b]) sh(p, 1, 0, 0.1, 0.1, 0.45, 0.5);
-  return out;
-}
+    shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png` });   // baked ground shadows; for a set with no bake, ground.js renders them live
 window.__ground = groundLife;
 // the walk-in tent (picked props; build_camp.py wall_tent, keep in step): walls stop you, the doorway lets you in,
 // the bed and the stove are in the way. tentLocal gives (a: ahead of tentAt toward the fire, b: across).
@@ -1345,6 +1332,7 @@ if (qs.has("pos")) { const [x, z] = qs.get("pos").split(",").map(Number); me.pos
 if (qs.has("yaw")) me.yaw = +qs.get("yaw"); if (qs.has("pitch")) me.pitch = +qs.get("pitch");
 const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
 window.__stats = {};
+let shadowTick = -1, shadowN = -1;
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
   step(dt);
@@ -1375,6 +1363,8 @@ renderer.setAnimationLoop(() => {
   }
   if (motes) motes.rotation.y += dt * 0.02;
   atmo.update(dt, uTime.value, dusk);
+  // sun shadows (ground.js castShadows): re-cast whenever the props in the clearing change, checked each second for the first half minute while they load
+  if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }
   renderer.render(scene, camera);
   frames++; acc += raw;
   if (acc >= 1) {

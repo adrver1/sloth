@@ -13,7 +13,7 @@ const canvasTex = (w, h, draw, srgb = true) => {
 };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadows = [], seed = 77 }) {
+export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, baked = null, seed = 77 }) {
   // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
   let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
@@ -50,23 +50,73 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     for (const [c, r] of spots) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
   }, false);
+  if (baked) { const g = wear.image.getContext("2d"); g.globalCompositeOperation = "copy"; g.drawImage(baked.mask, 0, 0, M, M); wear.needsUpdate = true; }   // the baked wear map (props/ground/bake_ground.py) for the plants' lookups
   wear.anisotropy = 1; wear.flipY = false;   // canvas rows run with +z, like the shader's lookup
 
-  // ---------------------------------------------------------------- contact shadows (Adriaen 2026-11-12): the page has no shadow maps, so each prop
-  // gets a soft painted shadow under it, nudged away from the sun by its height. shadows: [{ x, z, ax, az (long axis), l, w (half sizes), k, h }]
-  const SUN = [0.4, -0.3];                                                    // ground offset per metre of height, from the sun at (-4, 10, 3)
-  const shade = canvasTex(512, 512, (g) => {
-    g.fillStyle = "#000"; g.fillRect(0, 0, 512, 512); g.globalCompositeOperation = "lighten";
-    const p5 = (x) => (x / (2 * RR) + 0.5) * 512;
-    for (const { x, z, ax = 1, az = 0, l, w, k = 0.5, h = 0.3 } of shadows) {
-      const cx = x + SUN[0] * h, cz = z + SUN[1] * h, sc = 512 / (2 * RR);
-      g.save(); g.translate(p5(cx), p5(cz)); g.rotate(Math.atan2(az, ax)); g.scale((l + 0.25 + 0.15 * h) * sc, (w + 0.25 + 0.15 * h) * sc);
-      const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1), v = Math.round(255 * k);
-      gr.addColorStop(0, `rgb(${v},${v},${v})`); const v2 = Math.round(v * 0.85); gr.addColorStop(0.5, `rgb(${v2},${v2},${v2})`); gr.addColorStop(1, "rgb(0,0,0)");
-      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, 7); g.fill(); g.restore();
-    }
-  }, false);
-  shade.flipY = false; shade.anisotropy = 1;
+  // ---------------------------------------------------------------- shadows (Adriaen 2026-11-12): the page has no shadow maps, so castShadows(renderer)
+  // renders every standing prop once from the sun into a texture, softened, and the ground and plants read it. Two passes kept with a max blend:
+  // the sun's direction, and straight down for a fainter contact darkening under each thing. Nothing per frame; call it again when props are added.
+  const SUN = new THREE.Vector3(-4, 10, 3), SM = 1024;
+  const rtOpt = { type: THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, depthBuffer: false };
+  const silRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt), tmpRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt), outRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt);
+  const shade = outRT.texture;
+  const uDir = { value: new THREE.Vector3() }, uK = { value: 0 };
+  const silMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthTest: false, depthWrite: false, fog: false,
+    blending: THREE.CustomBlending, blendEquation: THREE.MaxEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor });
+  silMat.onBeforeCompile = (sh) => { sh.uniforms.uDir = uDir; sh.uniforms.uK = uK; sh.uniforms.uR = { value: RR };
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform vec3 uDir; uniform float uK, uR; varying float vK;")
+      .replace("#include <project_vertex>", `vec4 wp = vec4(transformed, 1.0);
+        #ifdef USE_INSTANCING
+          wp = instanceMatrix * wp;
+        #endif
+        wp = modelMatrix * wp; float hy = max(wp.y, 0.0);
+        vec2 g = wp.xz - uDir.xz * (hy / uDir.y);                       // where the ray through this point toward the sun meets the ground
+        vK = uK * (1.0 - 0.45 * smoothstep(0.2, 2.8, hy));            // higher parts cast fainter shadows (more sky gets under them)
+        gl_Position = vec4(g.x / uR, g.y / uR, 0.0, 1.0);`);
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying float vK;").replace("vec4 diffuseColor = vec4( diffuse, opacity );", "vec4 diffuseColor = vec4(vec3(vK), 1.0);"); };
+  const blurMat = new THREE.ShaderMaterial({ uniforms: { uT: { value: null }, uD: { value: new THREE.Vector2() } }, depthTest: false, depthWrite: false,
+    vertexShader: "varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+    fragmentShader: `uniform sampler2D uT; uniform vec2 uD; varying vec2 vUv;
+      void main() { float s = 0.0; float w[5] = float[](0.204, 0.180, 0.124, 0.066, 0.028);
+        s += texture2D(uT, vUv).r * w[0]; for (int i = 1; i < 5; i++) s += (texture2D(uT, vUv + uD * float(i)).r + texture2D(uT, vUv - uD * float(i)).r) * w[i];
+        gl_FragColor = vec4(vec3(s), 1.0); }` });
+  const quad = new THREE.Mesh(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3)), blurMat);
+  quad.frustumCulled = false; const qScene = new THREE.Scene(); qScene.add(quad);
+  const SHADOW_LAYER = 7, cam = new THREE.Camera(); cam.layers.set(SHADOW_LAYER);
+  const own = new Set();                                                      // the ground's own meshes never cast
+  const shown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+  const living = (o) => { for (; o && o !== scene; o = o.parent) if (o.isBone || o.isSkinnedMesh || o.children.some((c) => c.isSkinnedMesh)) return true; return false; };   // the sloths and what they wear
+  const bb = new THREE.Box3(), cc = new THREE.Vector3();
+  function casters() {
+    const out = [];
+    scene.updateMatrixWorld();
+    scene.traverse((o) => {
+      if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh || own.has(o) || !o.geometry) return;
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!m || !m.visible || m.transparent || m.blending !== THREE.NormalBlending || !shown(o)) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      bb.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); bb.getCenter(cc);
+      if (bb.max.y < 0.08 || bb.max.y > 4.5 || Math.hypot(cc.x, cc.z) > RR || living(o.parent)) return;   // flat ground bits, the trees, far things, the sloths
+      out.push(o);
+    });
+    return out;
+  }
+  function castShadows(renderer) {
+    const list = casters(), was = renderer.getRenderTarget(), bg = scene.background, ov = scene.overrideMaterial, ac = renderer.autoClear, cl = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha();
+    for (const o of list) o.layers.enable(SHADOW_LAYER);
+    scene.background = null; scene.overrideMaterial = silMat; renderer.autoClear = false; renderer.setClearColor(0x000000, 1);
+    renderer.setRenderTarget(silRT); renderer.clear();
+    uDir.value.copy(SUN).normalize(); uK.value = 0.62; renderer.render(scene, cam);    // the sun
+    uDir.value.set(0, 1, 0); uK.value = 0.4; renderer.render(scene, cam);                // contact darkening right under
+    scene.overrideMaterial = ov; scene.background = bg;
+    for (const o of list) o.layers.disable(SHADOW_LAYER);
+    const px = 1.6 / SM;                                                      // ~6 cm a tap: soft edges, poles stay visible
+    blurMat.uniforms.uT.value = silRT.texture; blurMat.uniforms.uD.value.set(px, 0); renderer.setRenderTarget(tmpRT); renderer.render(qScene, cam0);
+    blurMat.uniforms.uT.value = tmpRT.texture; blurMat.uniforms.uD.value.set(0, px); renderer.setRenderTarget(outRT); renderer.render(qScene, cam0);
+    renderer.setRenderTarget(was); renderer.autoClear = ac; renderer.setClearColor(cl, ca);
+    return list.length;
+  }
+  const cam0 = new THREE.Camera();
   const mk = wear.image.getContext("2d").getImageData(0, 0, M, M).data;
   const sample = (x, z, ch) => { const X = Math.min(M - 1, Math.max(0, Math.floor(px(x)))), Z = Math.min(M - 1, Math.max(0, Math.floor(px(z)))); return mk[(Z * M + X) * 4 + ch] / 255; };
 
@@ -87,11 +137,17 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   // ---------------------------------------------------------------- the floor: one disc in world coordinates, grass and dirt blended by the wear map
   const geo = new THREE.CircleGeometry(RR, 48).rotateX(-Math.PI / 2).translate(0, 0.012, 0);
   const grassMap = clearing.material.map;
+  let bakedMask = null, bakedSoil = null;
+  if (baked) {
+    bakedMask = new THREE.CanvasTexture(baked.mask); bakedMask.flipY = false; bakedMask.colorSpace = THREE.NoColorSpace;
+    bakedSoil = new THREE.TextureLoader().load(baked.soil); bakedSoil.flipY = false; bakedSoil.anisotropy = 4;   // sRGB, decoded in the shader like the dirt tile
+  }
   const mat = new THREE.MeshLambertMaterial({ map: grassMap });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uMask: { value: wear }, uDirt: { value: dirtTex }, uR: { value: RR }, uNight: night });
+    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night });
+    if (baked) sh.defines = { ...sh.defines, BAKED: 1 };
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt; uniform float uR, uNight;")
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil; uniform float uR, uNight;")
       .replace("#include <map_fragment>", `#include <map_fragment>
         float rr = length(vG);
         float h = fract(sin(dot(floor(vG * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
@@ -99,14 +155,22 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
         vec4 mk = texture2D(uMask, vG / (2.0 * uR) + 0.5);
         vec3 dt = sRGBTransferEOTF(texture2D(uDirt, vG * 0.45)).rgb;
         vec3 gr = diffuseColor.rgb * mix(vec3(1.18, 1.1, 0.82), vec3(0.72, 0.9, 0.62), mk.g);   // dry and pale ... lush and deep
+        #ifdef BAKED
+          // baked soil (props/ground/bake_ground.py): its own colour, ash and litter; the tiled dirt adds a little grain up close
+          float d = mk.r;
+          vec3 c = mix(gr, sRGBTransferEOTF(texture2D(uSoil, vG / (2.0 * uR) + 0.5)).rgb * mix(1.0, dot(dt, vec3(1.0)) / dot(sRGBTransferEOTF(textureLod(uDirt, vec2(0.5), 10.0)).rgb, vec3(1.0)), 0.3), d);
+          diffuseColor.rgb = c;
+        #else
         float d = 0.92 * smoothstep(0.3, 0.7, mk.r + (dot(dt, vec3(0.33)) - 0.25) * 0.6);
         vec3 c = mix(gr, dt, d);
         float ashy = 1.0 - smoothstep(1.0, 1.6, rr);                         // grey ash by the fire, dark wet mud elsewhere
         diffuseColor.rgb = mix(c * (1.0 - 0.45 * mk.b * d), mix(c, vec3(0.30, 0.28, 0.26) * (0.8 + 0.4 * dot(dt, vec3(0.33))), 0.85 * mk.b), ashy);
+        #endif
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
   // the contact shadows as one dark see-through disc just above the floor, the jeep's track and the path (48 triangles, 1 draw)
+  const uShade = { value: shade };
   const shadeMat = new THREE.MeshBasicMaterial({ color: 0x1a1408, alphaMap: shade, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
   shadeMat.onBeforeCompile = (sh) => { sh.uniforms.uNight = night;
     sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight;").replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\ndiffuseColor.a *= 1.0 - 0.5 * uNight;"); };
@@ -186,7 +250,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   card.setAttribute("aCell", new THREE.InstancedBufferAttribute(cellA, 1));
   const pmat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide });
   pmat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = { value: shade }; sh.uniforms.uR = { value: RR };
+    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR };
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade; attribute float aCell; varying float vShade;")
       .replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * 0.5 + vec2(mod(aCell, 2.0), 1.0 - floor(aCell / 2.0)) * 0.5;")
       .replace("#include <begin_vertex>", `#include <begin_vertex>
@@ -197,6 +261,14 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight; varying float vShade;").replace("#include <map_fragment>", "#include <map_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
   };
   im.material = pmat; im.frustumCulled = false; scene.add(im);
+  own.add(floor).add(shadeMesh).add(im);
   const counts = [0, 1, 2, 3].map((t) => pick.filter((p) => p[2] === t).length);
-  return { floor, plants: im, shade, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
+  // the baked map (props/shadow/bake_ground_shadow.py, Cycles: soft sun + sky occlusion) wins; the live render above is the fallback
+  // for prop sets and jeeps that have no bake yet
+  let shadowBaked = false;
+  if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
+    shadowBaked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; }, undefined, () => {});
+  const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
+  const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
+  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
 }
