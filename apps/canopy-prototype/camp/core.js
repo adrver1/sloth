@@ -69,6 +69,8 @@ const lmLoad = async (n) => { const t = await loadLightMap(`models/${n}_${LMSET}
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
 const PRE = {
   sloth: pre(glb("models/sloth.txt")),
+  operator: qs.get("op") !== "0" ? pre(glb("models/operator.txt")) : null,                 // the bearded operator (camp/operator.js)
+  operatorAnims: qs.get("op") !== "0" ? pre(glb("models/operator_anims.txt")) : null,
   lm: pre(Promise.all([lmLoad("camp_lm"), lmLoad("camp_lm_sun")])),
   props: pre(glb("models/camp_picked_lm.txt")),
   lived: LIVED ? pre(glb("models/lived.txt")) : null,
