@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { createAtmosphere } from "../atmosphere.js";
 import { createActivities } from "../activities.js";
 import "./player.js";   // run after the module before it, as one script did
-import { D, JEEP, LOOK, PRE, PROPS, S, camera, renderer, scene, uTime } from "./core.js";
+import { D, JEEP, LIVED, LOOK, PRE, PROPS, S, camera, renderer, scene, uTime } from "./core.js";
 import { toast } from "./hud.js";
 import { FLOOR_OVERLAYS, RC, V, clearing, track, trackDist } from "./forest.js";
 import { FIRE_CARDS, SOUP_POT, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, uNight } from "./campProps.js";
@@ -52,8 +52,9 @@ const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !=
 window.__atmo = atmo;
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
 const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !== "undefined" ? WOODPILE : null, woodTex: typeof WOOD_TEX !== "undefined" ? WOOD_TEX : null, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
-  spots: () => window.__spots || [], addBlocker: (c, r) => blockers.push([c, r]),
-  looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fire: ["Ring", "Fire"] })   // what lights up when you can use it (camp/highlight.js)
+  pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, table: window.__camp.tb, crate: LIVED ? V(4.55, 0, 1.7) : null, blockers, sloths,
+  addBlocker: (c, r) => blockers.push([c, r]),
+  looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
     .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)) });
 window.__acts = acts;
 
