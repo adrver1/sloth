@@ -140,6 +140,7 @@ const PRE = {
   laundry: LIVED ? pre(glb("models/laundry.txt")) : null,
   fire: NEWFIRE ? pre(glb("models/fire.txt")) : null,
   jeep: JEEP !== "none" ? pre(glb(`models/jeep_${JEEP}.txt`)) : null,
+  jeepLod: JEEP === "expedition" ? pre(glb("models/jeep_expedition_lod.txt").catch(() => null)) : null,
   groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: `models/camp_ground_${PROPS}.jpg` }); im.onerror = () => ok(null); im.src = `models/camp_ground_${PROPS}_mask.png`; })),
 };
 const scene = new THREE.Scene();
@@ -881,7 +882,7 @@ if (JEEP !== "none") {
   // full jeep (6,002 triangles, 12 draws), never while a door is open. Only the jeep's own meshes are hidden, so a sloth sitting
   // in it (parented to the jeep) stays.
   const jeepMeshes = []; jeep.traverse((m) => { if (m.isMesh) jeepMeshes.push(m); });
-  const far = (await glb("models/jeep_expedition_lod.txt").catch(() => null))?.scene;
+  const far = (await PRE.jeepLod)?.scene;
   let isFar = false;
   if (far) { far.traverse((m) => { if (m.isMesh) m.material = jm; }); far.visible = false; scene.add(far); }
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
