@@ -7,6 +7,20 @@
 // GAIN.cabin and GAIN.doors, 0..1), dims or brightens any of them live, and adds the warm ones a little by day (they
 // show in the shade; the sun drowns them in the open). window.__lights is GAIN, to tune live.
 import * as THREE from "three";
+import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
+
+// the light maps ship as KTX2 (UASTC + zstd, props/bake_all.py --only ktx): about half the download of the PNGs and a quarter
+// of the GPU memory; a map with no .ktx2 next to it (or a browser that can't take it) falls back to its .png
+let ktx = null;
+export function initKtx(renderer) {
+  ktx = new KTX2Loader().setTranscoderPath("https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/libs/basis/").detectSupport(renderer);
+}
+export async function loadLightMap(png) {
+  let t = null;
+  if (ktx) t = await ktx.loadAsync(png.replace(/\.png$/, ".ktx2")).catch(() => null);
+  t ??= await new THREE.TextureLoader().loadAsync(png);
+  t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;   // data, decoded in the shaders
+}
 
 const C = (r, g, b) => new THREE.Vector3(r, g, b);
 export const LIGHT = {
