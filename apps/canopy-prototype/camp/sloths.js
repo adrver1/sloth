@@ -464,6 +464,10 @@ if (qs.get("campsloths") !== "0") {
     play(s, "walk", 1.5, WALK_TS);
   }
   function errand(s) {                                // the table or the crate, whichever has a free place (or a wander)
+    if (s.food) {                                     // a bowl you set down (activities' "camp-food"): eat it there
+      const at = s.food; s.food = null; const g = V(at.x, 0, at.z); g.setLength(g.length() + 0.9);
+      return walkTo(s, g, () => { Object.assign(s.trip, { phase: "eat", t: 0, poi: { c: at }, slot: { who: null }, got: true, nom: false }); play(s, "reach", 1.2); });
+    }
     const free = pois().flatMap((P) => P.slots.filter((q) => !q.who).map((q) => [P, q]));
     if (!free.length) return wander(s);
     const [P, slot] = free[Math.floor(R(0, free.length))]; slot.who = s;
@@ -653,6 +657,12 @@ if (qs.get("campsloths") !== "0") {
     H.zz.forEach((z, i) => { const k = (T / 2.4 + i / 3) % 1; if (napper) napper.head.getWorldPosition(z.position).add(V(0.1 * Math.sin(k * 6), 0.25 + 0.6 * k, 0));
       z.material.opacity = napper?.asleep ? Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85) : 0; z.scale.set(0.3 + 0.35 * k, (0.3 + 0.35 * k) / 4, 1); });
   };
+  // food you put out (activities.js, window event "camp-food" {kind, at}): the nearest sloth at home comes over to eat it
+  addEventListener("camp-food", (e) => {
+    const at = e.detail?.at; if (!at) return;
+    const s = camp.filter((q) => q.trip.phase === "home" && !q.smore && !q.wave).sort((a, b) => a.p.distanceTo(at) - b.p.distanceTo(at))[0];
+    if (s) { s.food = at.clone(); leave(s); }
+  });
   window.__spots = spots; window.__sloth = (i) => sloths[i]; window.__camp.sloths = camp;
   window.__errand = (name) => { const s = camp.find((q) => q.name === name); if (s && s.trip.phase === "home") leave(s); return s; };
   window.__path = findPath;
