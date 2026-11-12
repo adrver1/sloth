@@ -1,6 +1,7 @@
 # Publishes Canopy Camp (apps/canopy-prototype) to GitHub Pages on every push to
-# the camp integration branch, the way desk-at-night's old pages.yml did for the
-# control room. The camp is plain static files (models and light maps are
+# main that touches the camp, the way desk-at-night's old pages.yml did for the
+# control room. Camp threads merge into claude/project-thread-otpcew first; a PR
+# from there to main publishes. The camp is plain static files (models and light maps are
 # committed, three.js loads from jsDelivr), so nothing is built: the folder is
 # copied as it is and a root index.html forwards to camp.html.
 # Site: https://adrver1.github.io/sloth/ (camp at canopy-prototype/camp.html)
@@ -8,9 +9,10 @@ name: Deploy camp
 
 on:
   push:
-    branches: [claude/project-thread-otpcew]
+    branches: [main]
     paths:
       - apps/canopy-prototype/**
+      - apps/karaoke/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -31,7 +33,7 @@ jobs:
       - name: Lay out the site
         run: |
           mkdir -p _site
-          cp -r apps/canopy-prototype _site/canopy-prototype
+          cp -rL apps/canopy-prototype _site/canopy-prototype   # -L: canopy-prototype/karaoke is a link to apps/karaoke (the karaoke trip)
           sha=$(git rev-parse --short HEAD)
           cat > _site/index.html <<HTML
           <!doctype html><meta charset="utf-8"><title>Canopy Camp</title>

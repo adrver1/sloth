@@ -17,6 +17,7 @@ import { opStep } from "./operator.js";
 import { aimStep, boop, feed, resize } from "./input.js";
 import { weather } from "./weather.js";
 import { lingerStep } from "./linger.js";
+import { tripStep } from "./trip.js";
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
@@ -75,7 +76,7 @@ await renderer.compileAsync(scene, camera).catch(() => {});
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
-  lingerStep(dt); step(dt);
+  lingerStep(dt); step(dt); tripStep(dt);   // the karaoke trip's cut scene takes the camera after the player has moved
   for (const s of sloths) {
     s.mixer.update(dt);
     slothLife(s, dt);
