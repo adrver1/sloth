@@ -77,7 +77,7 @@ function allTargets() {
   const out = [];
   for (const t of acts.things) if (t.look) out.push(target(t, () => ({ look: t.look, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
     ready: () => acts.ready(t), options: () => [[t.name === "fire" ? "Add the log 🔥" : "Take a log 🪵", () => acts.tap({ thing: t })]] })));
-  for (const s of sloths) out.push(target(s, () => ({ look: s.o, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
+  for (const s of sloths) out.push(target(s, () => ({ look: s.lit ?? s.o, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
     ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => [["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]] })));
   for (const d of window.__jeep?.doors ?? []) out.push(target(d, () => {
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
