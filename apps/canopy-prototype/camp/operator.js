@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import "./sloths.js";   // run after the module before it, as one script did
 import { PRE, R, camera, qs, scene, uTime } from "./core.js";
+import { load, save } from "./save.js";
 import { A0, RC, V } from "./forest.js";
 import { SLOTH, SOUP_POT, blockers, uNight } from "./campProps.js";
 import { addTarget } from "./input.js";
@@ -558,11 +559,12 @@ const LINES = {
   play: ["Look at them! Pure joy. Just like you.", "Want a turn? They love you."],
   sleep: ["Mmm... love you too...", "Zz... you're doing fine... zz", "Mm... sleep well, friend..."],
 };
-const bag = {};
-function line(kind) {
+// the lines still to come are kept in the camp save (camp/save.js; Adriaen: a reload carries on where he left off); lines no longer in LINES drop out
+const bag = (() => { try { const b = { ...(load("operator")?.lines || {}) }; for (const k in b) b[k] = Array.isArray(b[k]) ? b[k].filter((l) => LINES[k]?.includes(l)) : []; return b; } catch { return {}; } })();
+function line() {
   const k = op.sleeping ? "sleep" : (LINES[op.kind] && Math.random() < 0.35 ? op.kind : "awake");
   if (!bag[k]?.length) bag[k] = [...LINES[k]].sort(() => Math.random() - 0.5);
-  return bag[k].pop();
+  const l = bag[k].pop(); save("operator", { lines: bag }); return l;
 }
 const bubble = document.createElement("div");
 bubble.style.cssText = "position:fixed;left:0;top:0;z-index:3;pointer-events:none;transform:translate(-50%,-100%) scale(.85);opacity:0;transition:opacity .35s,transform .35s;" +
