@@ -220,6 +220,32 @@ const domeGeo = new THREE.SphereGeometry(30, 40, 10, 0, Math.PI * 2, 0, Math.PI 
 { const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / 60, 0.5 - p.getZ(i) / 60); }
 const dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
 dome.position.y = 27; scene.add(dome);
+// the night sky (camp review B1, Adriaen 2026-11-12): a second dome, deep blue to near black at the rim, with stars and a few faint
+// wisps, faded in over the day dome with dusk; and the moon, a soft disc with a halo, up in the canopy gap where the start view sees
+// it (one sprite each, no fog). Same dome geometry, so 2 draws more at night only.
+const nightTex = canvasTex(1024, 1024, (g, w, h) => {
+  let s4 = 777; const Q = (a, b) => { s4 = (s4 * 16807) % 2147483647; return a + (s4 / 2147483647) * (b - a); };
+  const c = w / 2, gr = g.createRadialGradient(c, c, 0, c, c, c);
+  gr.addColorStop(0, "#0d1a33"); gr.addColorStop(0.6, "#122440"); gr.addColorStop(1, "#0b1622"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 700; i++) {                                     // stars: many faint, a few bright with a glint
+    const a = Q(0, 6.28), r = Math.sqrt(Q(0, 1)) * c * 0.95, x = c + Math.cos(a) * r, y = c + Math.sin(a) * r, b = Q(0, 1) ** 3;
+    g.fillStyle = `rgba(${220 + Q(0, 35) | 0},${225 + Q(0, 30) | 0},255,${0.25 + 0.75 * b})`; g.beginPath(); g.arc(x, y, 0.6 + b * 1.6, 0, 7); g.fill();
+    if (b > 0.7) { const s = g.createRadialGradient(x, y, 0, x, y, 7); s.addColorStop(0, "rgba(200,215,255,.35)"); s.addColorStop(1, "rgba(200,215,255,0)"); g.fillStyle = s; g.fillRect(x - 7, y - 7, 14, 14); }
+  }
+  for (let i = 0; i < 7; i++) { const x = Q(0.2, 0.8) * w, y = Q(0.2, 0.8) * h, rr = Q(60, 140);   // thin moonlit wisps
+    const b = g.createRadialGradient(x, y, 0, x, y, rr); b.addColorStop(0, "rgba(120,140,185,.16)"); b.addColorStop(1, "rgba(120,140,185,0)"); g.fillStyle = b; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+});
+const nightDome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: nightTex, side: THREE.BackSide, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+nightDome.position.y = 27; nightDome.visible = false; nightDome.renderOrder = -1; scene.add(nightDome);
+const moonTex = canvasTex(128, 128, (g, w) => {
+  const c = w / 2, h = g.createRadialGradient(c, c, 0, c, c, c); h.addColorStop(0, "rgba(220,230,255,.55)"); h.addColorStop(0.28, "rgba(190,205,250,.28)"); h.addColorStop(1, "rgba(160,180,240,0)");
+  g.fillStyle = h; g.fillRect(0, 0, w, w);
+  const d = g.createRadialGradient(c - 4, c - 4, 0, c, c, w * 0.16); d.addColorStop(0, "#fbfcff"); d.addColorStop(0.85, "#e4e9f6"); d.addColorStop(1, "#cdd5ea");
+  g.fillStyle = d; g.beginPath(); g.arc(c, c, w * 0.16, 0, 7); g.fill();
+  g.fillStyle = "rgba(150,160,190,.25)"; for (const [x, y, r] of [[-5, -3, 4], [4, 5, 3], [6, -6, 2.4], [-2, 7, 2]]) { g.beginPath(); g.arc(c + x, c + y, r, 0, 7); g.fill(); }   // maria
+});
+const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: moonTex, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+moon.scale.setScalar(9); moon.visible = false; moon.renderOrder = -1; scene.add(moon);
 scene.background = new THREE.Color(S.sky[0]);
 const gTex = canvasTex(256, 256, (g, w, h) => {
   g.fillStyle = hex(new THREE.Color(S.leaf[2]).lerp(new THREE.Color(S.bark[1]), 0.45).getHex()); g.fillRect(0, 0, w, h);
@@ -1342,7 +1368,12 @@ const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !==
 window.__acts = acts;
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
 const hemiL = scene.children.find((o) => o.isHemisphereLight);
-const DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity }, DUSK = new THREE.Color(0x34405a);
+const DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity, sky: hemiL.color.clone(), ground: hemiL.groundColor.clone(), sunC: sun.color.clone(), dens: scene.fog.density };
+// night (camp review B1): deep blue-teal fog and backdrop, the forest in cool moonlight and near-black under the canopy, so the
+// fire, the lanterns and the tent are the only warm colours. Warm near, cool far.
+const DUSK = new THREE.Color(0x0e1c2b), NIGHT_SKY = new THREE.Color(0x4a66a0), NIGHT_GROUND = new THREE.Color(0x0f1612), MOONC = new THREE.Color(0x9fb4e6), BACK_NIGHT = new THREE.Color(0.08, 0.12, 0.22);
+// the moon: up in the canopy gap, in front of you as you start (you face the fire), a little to the side
+{ const f = me.pos.clone().setY(0).negate().normalize(), sd = V(-f.z, 0, f.x); moon.position.copy(f.multiplyScalar(11)).addScaledVector(sd, 3).setY(21); }
 let dusk = 0, duskTo = 0;
 const flies = (() => {
   const n = 120, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const a = R(0, 6.28), r = R(2, RC + 6); p.set([Math.cos(a) * r, R(0.4, 7), Math.sin(a) * r], i * 3); }
@@ -1385,8 +1416,11 @@ renderer.setAnimationLoop(() => {
   lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
-    scene.fog.color.copy(DAY.fog).lerp(DUSK, dusk); hemiL.intensity = DAY.hemi * (1 - 0.6 * dusk); sun.intensity = DAY.sun * (1 - 0.85 * dusk);
-    sky.material.color.setScalar(1 - 0.65 * dusk); dome.material.color.setRGB(1 - 0.7 * dusk, 1 - 0.66 * dusk, 1 - 0.5 * dusk); scene.background.set(S.sky[0]).multiplyScalar(1 - 0.7 * dusk); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
+    scene.fog.color.copy(DAY.fog).lerp(DUSK, dusk); scene.fog.density = DAY.dens * (1 + 0.6 * dusk);
+    hemiL.intensity = DAY.hemi * (1 - 0.72 * dusk); hemiL.color.copy(DAY.sky).lerp(NIGHT_SKY, dusk); hemiL.groundColor.copy(DAY.ground).lerp(NIGHT_GROUND, dusk);
+    sun.intensity = DAY.sun * (1 - 0.8 * dusk); sun.color.copy(DAY.sunC).lerp(MOONC, dusk);                      // the sun turns into cool moonlight
+    sky.material.color.setRGB(1, 1, 1).lerp(BACK_NIGHT, dusk); dome.material.color.setScalar(1 - 0.75 * dusk); scene.background.set(S.sky[0]).lerp(DUSK, dusk);
+    nightDome.visible = moon.visible = dusk > 0.01; nightDome.material.opacity = Math.min(1, dusk * 1.3); moon.material.opacity = Math.max(0, dusk * 1.5 - 0.5); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
     if (typeof rayMat !== "undefined") rayMat.opacity = S.rays * (1 - dusk);
   }
   if (motes) motes.rotation.y += dt * 0.02;
