@@ -6,6 +6,8 @@ This is an audit only; no app code changed. Numbers come from `tools/camp-probe.
 
 Rules this review respects: fewest triangles that still look good, quads and cards with painted textures over modelled detail, tris reported per item; all light, shadow and ground bakes run only in the GPU thread through `props/bake_all.py` (items that touch a bake or its output are marked **GPU thread**); fur keeps 3 shells on secondary animals; keep every sloth style and sticker variant.
 
+**Status (2026-11-12):** Adriaen agreed with all findings, including archiving decided options (M6). Sound (B5) waits until the visuals are finished.
+
 ## The ten things to do first
 
 | # | Item | Area | Gain |
@@ -18,7 +20,7 @@ Rules this review respects: fewest triangles that still look good, quads and car
 | 6 | A real night: deep blue sky and fog, moon and stars in the canopy gap, warm vs. cool contrast | Cozy | The biggest mood change for little work |
 | 7 | Bring a sloth into the start view, and give the sloths small idle life | Fun | The heroes are 7 m up and barely visible on a phone |
 | 8 | Phone HUD: fold the 8 dev buttons into one ⚙ menu; move the hint off the fire | Fun | Frees the top quarter of the phone screen |
-| 9 | Sound: fire crackle, rainforest bed, night insects (Adriaen checks by ear) | Cozy | The single largest coziness multiplier |
+| 9 | Sound: fire crackle, rainforest bed, night insects (Adriaen checks by ear). **Deferred until the visuals are done (Adriaen, 2026-11-12)** | Cozy | The single largest coziness multiplier |
 | 10 | Split `camp.html` into one module per thread, and publish only from `main` | Maintain | Six threads stop colliding in one 126 KB file |
 
 ## The scene as a whole
