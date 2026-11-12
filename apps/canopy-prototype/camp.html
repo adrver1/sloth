@@ -478,6 +478,20 @@ const wall = [];
     m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), ry), V(s * keep, sy * keep, s * keep)); im.setMatrixAt(i, m); });
   scene.add(im);
 }
+// leaves and ferns go in as 8 wedges round the clearing, one InstancedMesh each, so three.js culls the wedges behind you:
+// an InstancedMesh is culled as a whole, so before this every leaf was drawn every frame (camp review P4, 2026-11-12).
+// Instances scaled to nothing (kept off the track and the path) are dropped. Same geometry and material as before.
+function addSectors(im, n = 8) {
+  const m = new THREE.Matrix4(), p = V(), c = new THREE.Color(), groups = Array.from({ length: n }, () => []);
+  for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, m); if (Math.abs(m.determinant()) < 1e-9) continue;
+    p.setFromMatrixPosition(m); groups[Math.floor((Math.atan2(p.z, p.x) / (2 * Math.PI) + 0.5) * n) % n].push(i); }
+  for (const g of groups) {
+    if (!g.length) continue;
+    const s = new THREE.InstancedMesh(im.geometry, im.material, g.length);
+    g.forEach((i, j) => { im.getMatrixAt(i, m); s.setMatrixAt(j, m); if (im.instanceColor) { im.getColorAt(i, c); s.setColorAt(j, c); } });
+    s.computeBoundingSphere(); scene.add(s);
+  }
+}
 let leafGeo, leafM, perClump, leafScale;
 if (LOOK === "moss") {
   const tex = canvasTex(256, 256, (g, w, h) => {
@@ -513,7 +527,7 @@ const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump)
     leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
 }
-scene.add(leaves);
+addSectors(leaves);
 // crowns on branches: a forked limb from the trunk into every leaf clump, and a spreading crown of limbs, twigs and leaves on
 // top of each forest tree, so the treetops are wood and leaves, not floating leaves (one draw for the wood, one for the new
 // leaves; their own random stream, so the seeded layout stays the same). Twigs scale with the detail level.
@@ -571,7 +585,7 @@ scene.add(leaves);
     m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); lm.setMatrixAt(i, m);
     lm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
-  scene.add(lm);
+  addSectors(lm);
 }
 // bushes along both verges of the jeep's track, so the walk out feels like a lane through the jungle
 // (their own random stream, so the seeded layout of everything else stays the same)
@@ -591,7 +605,7 @@ if (track) {
     m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.setMatrixAt(i, m);
     vm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
-  scene.add(vm);
+  addSectors(vm);
 }
 // ferns and undergrowth in a thick band round the clearing
 {
@@ -612,7 +626,7 @@ if (track) {
   for (let i = 0; i < 2000 && spots.length < Math.round(260 * D.ferns); i++) { const a = R(0, 6.28), r = RC - 0.6 + Math.pow(rnd(), 1.6) * 12, x = Math.cos(a) * r, z = Math.sin(a) * r; if (!nearPath(x, z, 0.2, 1.1)) spots.push([x, z]); }
   const im = new THREE.InstancedMesh(g, mat, spots.length), m = new THREE.Matrix4(), c = new THREE.Color();
   spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 ? 0 : 1); m.compose(V(x, 0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6.28)), V(s, s, s)); im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
-  scene.add(im);
+  addSectors(im);
 }
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
