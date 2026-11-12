@@ -61,7 +61,7 @@ const bowl = (() => {   // an enamel bowl 20 cm across (Adriaen: bigger), open, 
 })();
 const spoon = (() => {   // a tin spoon: a flat handle (12 tris) and its bowl (6), along +Y from the grip
   const g = new THREE.Group(), m = lam(0xc9c4b8), h = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.13, 0.004), m); h.position.y = 0.045;
-  const b = new THREE.Mesh(new THREE.CircleGeometry(0.02, 6), m); b.material.side = THREE.DoubleSide; b.position.y = 0.12; b.rotation.x = -Math.PI / 2; b.scale.set(0.8, 1.2, 1); g.add(h, b); return g;
+  const b = new THREE.Mesh(new THREE.CircleGeometry(0.02, 6), m); b.material.side = THREE.DoubleSide; b.position.set(0, 0.125, 0.004); b.scale.set(0.8, 1.2, 1); g.add(h, b); return g;   // the head in the handle's plane, its hollow to +Z
 })();
 const mug = (() => {   // a tin mug, 8 sides, open top, bottom cap (22 tris), and a handle (2 tris)
   const g = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.036, 0.09, 8, 1, true), lam(0xd8d2c4)); m.material.side = THREE.DoubleSide; m.position.y = 0.045;
@@ -69,13 +69,13 @@ const mug = (() => {   // a tin mug, 8 sides, open top, bottom cap (22 tris), an
   const h = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.055), lam(0xbdb6a6)); h.material.side = THREE.DoubleSide; h.position.set(0.052, 0.05, 0); h.rotation.x = Math.PI / 2;
   g.add(m, bot, h); return g;
 })();
-const book = (() => {   // open book: two cover quads and two page quads (8 tris), its spine along its local X... laid along Y here
+const book = (() => {   // open book: two cover quads and two page quads (8 tris), spine along Y, pages facing +Z (the reader), halves cupped toward him
   const g = new THREE.Group(), pages = (() => { const c = document.createElement("canvas"); c.width = 64; c.height = 32; const x = c.getContext("2d");
     x.fillStyle = "#f1ead8"; x.fillRect(0, 0, 64, 32); x.fillStyle = "#b9b09a"; for (let y = 5; y < 28; y += 3) { x.fillRect(4, y, 24, 1); x.fillRect(36, y, 24, 1); } x.fillStyle = "#cfc6b0"; x.fillRect(31, 0, 2, 32);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
   const W = 0.15, H = 0.22, open = 0.3;                 // a hardback, 30 cm open (Adriaen: bigger)
   for (const side of [-1, 1]) {
-    const leaf = new THREE.Group(); leaf.rotation.y = side * open;
+    const leaf = new THREE.Group(); leaf.rotation.y = -side * open;   // outer edges toward the reader, the spine away (Adriaen: it bent the wrong way)
     const p = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: pages }));
     const uv = p.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, side < 0 ? uv.getX(i) * 0.5 : 0.5 + uv.getX(i) * 0.5);
     p.position.set(side * W / 2, 0, 0.004);
@@ -105,6 +105,18 @@ function reach(side, target, pole, w = 1) {            // two-bone reach: put th
   const ca = (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), a = Math.acos(Math.min(1, Math.max(-1, ca)));
   const u = dir.clone().multiplyScalar(Math.cos(a)).addScaledVector(perp, Math.sin(a));
   aimBone(up, u); const elbow = s.clone().addScaledVector(u, l1); aimBone(fo, goal.clone().sub(elbow).normalize());
+}
+// turn a hand so its fingers point along world dir `fingers` with the palm facing world dir `palm` (by w). The rig's hands: fingers
+// along +Y, the palm on local (1,0,-1) for the left hand and (-1,0,-1) for the right, the thumb and index side on (±1,0,1)
+const PALM = { L: V(1, 0, -1).normalize(), R: V(-1, 0, -1).normalize() }, THUMB = { L: V(1, 0, 1).normalize(), R: V(-1, 0, 1).normalize() };
+const mA = new THREE.Matrix4(), mB = new THREE.Matrix4(), qh = new THREE.Quaternion();
+function handQuat(side, fingers, palm) {               // the world rotation of that hand pose
+  const y = fingers.clone().normalize(), p = palm.clone().addScaledVector(y, -palm.dot(y)).normalize(), c = V().crossVectors(y, p);
+  const yl = UP, pl = PALM[side], cl = V().crossVectors(yl, pl);
+  mA.makeBasis(y, p, c); mB.makeBasis(yl, pl, cl).transpose(); return new THREE.Quaternion().setFromRotationMatrix(mA.multiply(mB));
+}
+function turnHand(side, q, w = 1) {                    // after the arm's reach: set the hand's world rotation q
+  const h = B["hand" + side]; h.parent.getWorldQuaternion(qh).invert().multiply(q); h.quaternion.slerp(qh, w);
 }
 // character space (x his left-right, y up, z: -1 ahead, +1 behind) to world, for the pose he is in now
 const cs = (x, y, z) => V(x, y, z).applyMatrix4(root.matrixWorld);
@@ -412,7 +424,7 @@ function unhost() { for (const k of hosted) life().host?.(k, null); hosted.clear
 
 // ---------------------------------------------------------------- each frame
 const zz = ON ? (() => { const z = sprite("z", 110); z.material.depthTest = true; z.material.opacity = 0; scene.add(z); return z; })() : null;
-const REST = ON ? ["neck", "head", "chest", "upper_armR", "forearmR", "upper_armL", "forearmL"].map((n) => [B[n], B[n].quaternion.clone()]) : [];
+const REST = ON ? ["neck", "head", "chest", "upper_armR", "forearmR", "upper_armL", "forearmL", "handR", "handL"].map((n) => [B[n], B[n].quaternion.clone()]) : [];
 let blinkT = 2, zk = 0, it = null, lookT = 0;
 function opStep(dt) {
   if (!ON) return;
@@ -450,8 +462,12 @@ function opStep(dt) {
     const sway = Math.sin(uTime.value * 0.7) * 0.012, c = cs(sway, 0.9, -0.34);
     book.position.copy(c); book.quaternion.copy(root.quaternion).multiply(tq.setFromEuler(new THREE.Euler(-0.62, 0, 0.03 * Math.sin(uTime.value * 0.5)))); book.visible = k.book > 0.4;
     book.updateMatrixWorld(true);
-    const e = k.book * k.book * (3 - 2 * k.book), edge = (sd) => V(sd * 0.13, -0.07, -0.03).applyMatrix4(book.matrixWorld);   // the outer lower corner of each half, from behind
-    reach("R", edge(1), csDir(1, -1, 0.2), e); reach("L", edge(-1), csDir(-1, -1, 0.2), e);
+    // a hand behind each half at its lower outer corner, palm flat on the cover, fingers up and in along its back
+    const e = k.book * k.book * (3 - 2 * k.book), bq = book.getWorldQuaternion(tq).clone(), bd = (x, y, z) => V(x, y, z).applyQuaternion(bq);
+    for (const [sd, S] of [[1, "R"], [-1, "L"]]) {
+      reach(S, V(sd * 0.11, -0.09, 0).applyMatrix4(book.matrixWorld), csDir(sd, -1, 0.2), e);
+      turnHand(S, handQuat(S, bd(-sd * 0.45, 1, 0), bd(-sd * 0.3, 0, 1)), e);
+    }
   }
   if (k?.hug > 0 && op.buddy) {                        // his arms round the sloth on his lap (or on his chest)
     const b = op.buddy.o, c = b.getWorldPosition(V()).addScaledVector(V(0, 1, 0).applyQuaternion(b.getWorldQuaternion(tq)), 0.09 * (op.buddy.sc || 2)), side = csDir(1, 0, 0), fr = csDir(0, 0, -1);
@@ -467,17 +483,23 @@ function opStep(dt) {
     }
     B.chest.rotateX(breathe * 4);
   }
-  if (op.eat) {                                        // soup: the bowl held in his left hand in front of him, his right spooning from it to his mouth
+  if (op.eat) {                                        // soup: the bowl on his left palm in front of him, his right spooning from it to his mouth
     const e = op.eat, at = op.seated ? cs(0.02, 0.74, -0.3) : cs(0.02, 1.0, -0.33);
     bowl.position.copy(at); bowl.quaternion.copy(root.quaternion);
-    reach("L", at.clone().addScaledVector(csDir(1, 0, 0), -0.06).addScaledVector(UP, -0.02), csDir(-1, -0.7, 0.3), 1);
+    // the left hand flat under the bowl, palm up, fingers forward and across (the bowl's foot on the palm)
+    const fL = csDir(0.55, 0, -0.85), qL = handQuat("L", fL, UP);
+    reach("L", at.clone().addScaledVector(fL, -0.045).addScaledVector(UP, -0.025), csDir(-1, -0.7, 0.3), 1); turnHand("L", qL);
     // one spoonful about every 4 s: dip, lift to the lips, back down (only once he sits; walking he holds the bowl in both hands)
     const ph = (e.t % 4) / 4, sm = (a, b) => THREE.MathUtils.smoothstep(ph, a, b), up = e.spoon * (sm(0.3, 0.5) - sm(0.62, 0.82));
-    const dip = at.clone().addScaledVector(csDir(1, 0, 0), 0.05).addScaledVector(UP, 0.05 - 0.02 * Math.sin(Math.min(1, ph / 0.3) * Math.PI)).addScaledVector(csDir(0, 0, 1), 0.03);
-    const lips = B.head.getWorldPosition(V()).addScaledVector(csDir(0, 0, -1), 0.17).addScaledVector(csDir(1, 0, 0), 0.04).addScaledVector(UP, -0.1);
-    reach("R", dip.lerp(lips, up), csDir(1, -0.8, 0.3), 1);
-    const h = B.handR; h.getWorldPosition(spoon.position); spoon.quaternion.copy(root.quaternion).multiply(qc.setFromEuler(new THREE.Euler(-1.1 + 0.6 * up, 0.5, 0)));
-    spoon.position.addScaledVector(csDir(0, 0, -1), 0.02);
+    // the spoon held overhand like a pencil, between thumb and index: its tip in the soup, then at his lips, the hollow kept level
+    const tipDip = at.clone().addScaledVector(csDir(1, 0, 0), 0.03).addScaledVector(UP, 0.045 - 0.02 * Math.sin(Math.min(1, ph / 0.3) * Math.PI));
+    const lips = B.head.getWorldPosition(V()).addScaledVector(csDir(0, 0, -1), 0.13).addScaledVector(csDir(1, 0, 0), 0.01).addScaledVector(UP, -0.09);
+    const d = csDir(-0.5, -0.75, -0.45).normalize().lerp(csDir(-0.7, 0.1, 0.7).normalize(), up).normalize();   // grip to tip
+    const qR = handQuat("R", d.clone().add(csDir(0, 0.6, -0.4).multiplyScalar(1 - up)).addScaledVector(UP, 0.25 * up).normalize(),   // fingers over the bowl, the spoon angled down from them
+       csDir(-0.4, -1, 0).lerp(csDir(-0.3, -0.6, 0.6), up)), thumb = THUMB.R.clone().applyQuaternion(qR), fR = UP.clone().applyQuaternion(qR);
+    const tip = tipDip.lerp(lips, up), grip = tip.clone().addScaledVector(d, -0.14);
+    reach("R", grip.clone().addScaledVector(fR, -0.06).addScaledVector(thumb, -0.02), csDir(1, -0.8, 0.3), 1); turnHand("R", qR);
+    spoon.position.copy(grip); { const z = UP.clone().addScaledVector(d, -UP.dot(d)).normalize(); spoon.quaternion.setFromRotationMatrix(mA.makeBasis(V().crossVectors(d, z), d, z)); }   // +Y along d, the hollow (+Z) up
     op.look = op.seated ? -0.28 * (1 - up) : 0;
   }
   if (op.inHand) {                                     // the bowl or mug in his right hand: at the palm, upright, tipped toward him at the sip
