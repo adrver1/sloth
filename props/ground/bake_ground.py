@@ -59,10 +59,19 @@ def path(pts, w, k):
 
 warp = 1.1 * (n_mid - 0.5) + 0.5 * (n_fine - 0.5)
 W = 1 - ss(1.7, 3.7, rf + 1.3 * (n_big - 0.5) + warp)        # the trampled ring round the fire and the seats
+HM = L.get("hammock")                                         # the hammock's two posts, [[x, z], [x, z]]
+on_hm = lambda x, z: HM and min(math.hypot(x - hx, z - hz) for hx, hz in HM) < 0.05
 for x, z, r in L["spots"]:                                    # round each thing you use
     W = np.maximum(W, 0.8 * (1 - ss(0.05, 0.7 + 0.25 * r, np.hypot(X - x, Z - z) - r + warp * 0.8)))
     Lr = math.hypot(x, z)
-    if Lr > 2.2: W = np.maximum(W, path(wobbly((x / Lr * 2.4, z / Lr * 2.4), (x / Lr * (Lr - r * 0.7), z / Lr * (Lr - r * 0.7)), rng.uniform(-0.5, 0.5)), 0.5, 0.85))
+    if Lr > 2.2 and not on_hm(x, z): W = np.maximum(W, path(wobbly((x / Lr * 2.4, z / Lr * 2.4), (x / Lr * (Lr - r * 0.7), z / Lr * (Lr - r * 0.7)), rng.uniform(-0.5, 0.5)), 0.5, 0.85))
+if HM:                                                        # under the hammock (Adriaen 2026-11-12: "that's where people enter from"):
+    (ax, az), (bx, bz) = HM                                   # a worn patch along it, scuffed deepest under the middle where you sit
+    mx, mz = (ax + bx) / 2, (az + bz) / 2; Lm = math.hypot(mx, mz)
+    fx_, fz_ = -mx / Lm * 0.3, -mz / Lm * 0.3                 # pulled a little toward the fire: you get in from that side
+    u = np.clip(((X - ax) * (bx - ax) + (Z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2), 0, 1)
+    W = np.maximum(W, path([np.array([ax + fx_ * 0.5, az + fz_ * 0.5]), np.array([mx + fx_, mz + fz_]), np.array([bx + fx_ * 0.5, bz + fz_ * 0.5])], 1.0, 0.95) * (0.75 + 0.25 * np.sin(u * math.pi)))
+    W = np.maximum(W, path(wobbly((mx / Lm * 2.4, mz / Lm * 2.4), (mx + fx_ * 2, mz + fz_ * 2), rng.uniform(-0.3, 0.3)), 0.75, 0.95))   # one path from the fire to it
 if L.get("entry"):
     ex, ez = L["entry"]; Le = math.hypot(ex, ez)
     W = np.maximum(W, path(wobbly((ex / Le * 2.6, ez / Le * 2.6), (ex * 1.05, ez * 1.05), rng.uniform(-0.4, 0.4)), 0.65, 0.9))
@@ -70,7 +79,7 @@ if L.get("glade"):                                           # the footpath to t
     g = [p for p in L["glade"] if math.hypot(*p) < R + 0.5]
     if g:
         gx, gz = g[0]; Lg = math.hypot(gx, gz)
-        W = np.maximum(W, path(wobbly((gx / Lg * 2.4, gz / Lg * 2.4), g[0], 0.3) + [np.array(p) for p in g], 0.55, 0.85))
+        W = np.maximum(W, path(wobbly((gx / Lg * 2.4, gz / Lg * 2.4), g[0], 0.3) + [np.array(p) for p in g], 0.7, 0.95))   # well trodden: the sloths' tree is down it
 if L.get("tent"):                                            # tent door to the fire
     tx, tz = L["tent"]; Lt = math.hypot(tx, tz)
     W = np.maximum(W, path(wobbly((tx / Lt * (Lt - 1.7), tz / Lt * (Lt - 1.7)), (tx / Lt * 2.4, tz / Lt * 2.4), 0.2), 0.6, 0.9))
