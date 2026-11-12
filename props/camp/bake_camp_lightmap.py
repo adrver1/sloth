@@ -236,6 +236,21 @@ for o in jall:
         jeep.append(o)
 DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}         # camp.html: node, open angle (rad, about up)
 doors = {k: next(o for o in jall if o.name.split(".")[0] == n) for k, (n, _) in DOORS.items()}
+# the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
+# saved it (props/bake_all.py runs that step first); plain cylinders are enough for their shadows
+import json as _json
+_lay = os.path.join(ROOT, "props", "shadow", "layout_picked.json")
+for d in (_json.load(open(_lay)).get("deadwood", []) if os.path.exists(_lay) else []):
+    if d["name"] == "FallenLog":
+        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
+        o = bpy.context.object; o.rotation_mode = "ZYX"; o.rotation_euler = (0, math.pi / 2, d["yaw"])
+    elif d["name"] == "Stump":
+        bpy.ops.mesh.primitive_cylinder_add(vertices=9, radius=d["r"], depth=d["h"], location=B(d["x"], d["h"] / 2, d["z"]))
+    elif d["name"] == "DeadTrunk":
+        bpy.ops.mesh.primitive_cylinder_add(vertices=7, radius=0.27, depth=d["H"], location=B(d["x"], d["H"] / 2, d["z"]))
+    else:
+        continue
+    bpy.context.object.name = d["name"]; jeep.append(bpy.context.object)   # with the jeep: an occluder, removed before export
 RR = 9.8
 bpy.ops.mesh.primitive_plane_add(size=2 * RR, location=(0, 0, 0))
 ground = bpy.context.object; ground.name = "Ground"
