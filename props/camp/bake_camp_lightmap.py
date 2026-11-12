@@ -99,11 +99,15 @@ def comb(sa, sb, base=(0, 0)): return (base[0] + d0[0] * sa + t0[0] * sb, base[1
 tentAt = comb(-4.2, 2.4); hA = comb(-1.5, -4.6); hB = comb(-2.6, -1.2, hA); tb = comb(1.6, 3.2)
 _tl = math.hypot(*tentAt)
 l0 = (tentAt[0] - tentAt[0] / _tl * 1.12, 2.8, tentAt[1] - tentAt[1] / _tl * 1.12)
-l1 = (hA[0], 2.5, hA[1])
+# the lantern strings, as lanterns.js (review B3, Adriaen 2026-11-12): a V from the tent's A-frame and the hammock's near post up
+# to the big tree behind the fire (RC + 0.4 out along d0), tied 1 m in from its centre at 4.6 m; four lanterns on each, and
+# each lantern's light 0.12 m below where it hangs. The lanterns sway, so they are drawn by the page and not baked.
+_tree = (d0[0] * (9 + 0.4 - 1.0), 4.6, d0[1] * (9 + 0.4 - 1.0))
 lanterns = []
-for i in range(1, 9):
-    t = i / 9; p = [l0[k] + (l1[k] - l0[k]) * t for k in range(3)]; p[1] -= math.sin(math.pi * t) * 0.45
-    lanterns.append(p)
+for e in (l0, (hA[0], 2.35, hA[1])):
+    for i in range(1, 5):
+        t = i / 5 * 0.8; p = [e[k] + (_tree[k] - e[k]) * t for k in range(3)]; p[1] -= math.sin(math.pi * t) * 0.5
+        lanterns.append(p)
 seat_at = [(math.cos(A0 + math.pi + (i - 1) * 1.15) * 2.1, math.sin(A0 + math.pi + (i - 1) * 1.15) * 2.1,
             -(A0 + math.pi + (i - 1) * 1.15) + math.pi / 2) for i in range(3)]
 TENT = (tentAt[0], tentAt[1], math.atan2(-tentAt[0], -tentAt[1]))
@@ -147,10 +151,6 @@ picked.append(place(objs["Tent"], "Tent", *TENT, copy=False))
 hm = ((hA[0] + hB[0]) / 2, (hA[1] + hB[1]) / 2); hd = (hB[0] - hA[0], hB[1] - hA[1])
 picked.append(place(objs["Hammock"], "Hammock", hm[0], hm[1], -math.atan2(hd[1], hd[0]), copy=False))
 picked.append(place(objs["Table"], "Table", tb[0], tb[1], 0.6, copy=False))
-for i, p in enumerate(lanterns):
-    o = place(objs["Lantern"], f"Lantern_{i}", p[0], p[2], i, p[1] + 0.02)
-    o.visible_shadow = False                     # the jar would trap its own light
-    picked.append(o)
 bpy.data.objects.remove(objs["Seat"]); bpy.data.objects.remove(objs["Lantern"])
 
 
