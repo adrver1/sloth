@@ -35,6 +35,9 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 .bar { justify-content: flex-end; }
 .bar .menu { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .bar .menu[hidden] { display: none; }
+.bar .time { pointer-events: auto; display: flex; align-items: center; gap: 8px; font: 600 13px var(--display); background: rgb(255 248 238 / .85); border-radius: 999px; padding: 4px 12px; box-shadow: 0 2px 0 rgb(138 90 59 / .2); }
+.bar .time input { width: 150px; accent-color: var(--pink); }
+.bar .time span { min-width: 3em; font-variant-numeric: tabular-nums; }
 /* the hint sits low on the left (above the stick on a phone), clear of the fire in the middle of the view */
 #q { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); max-width: min(330px, calc(100% - 32px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transition: opacity 1s; text-align: left; font-size: 13px; line-height: 1.35; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .55); pointer-events: none; }
 body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
@@ -54,8 +57,8 @@ body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 <div id="toast"></div>
 <div id="load"><div class="card"><b>🦥</b><span>Getting the camp ready…</span><div class="bar2"><i id="loadbar"></i></div></div></div>
 <div class="bar">
-  <button id="rest">Rest 🌙</button><button id="menu" aria-label="Settings" aria-expanded="false">⚙️</button>
-  <div class="menu" id="opts" hidden><button id="detail">Detail: Medium</button><button id="lm">Light</button></div>
+  <button id="menu" aria-label="Settings" aria-expanded="false">⚙️</button>
+  <div class="menu" id="opts" hidden><label class="time">🕐 <input type="range" id="time" min="0" max="23.75" step="0.25" aria-label="Time of day"><span id="clock">12:00</span></label><button id="cycle">Day cycle: off</button><button id="detail">Detail: Medium</button><button id="lm">Light</button></div>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <!-- the camp's code is in camp/ (camp review M2), one module per part, run in order by camp/main.js:

@@ -448,6 +448,13 @@ def body(M, style):
         r = make(); apply_all(r)
         G[name].append(piece(shell, r))
         cut(shell, r)
+    # the hood (Adriaen 2026-11-12: a sloth can open it and work on the engine): the bonnet's top skin, front lip included,
+    # cut out as its own piece hinged at the foot of the windscreen, and an engine bay hollowed out under it
+    hood_r = prism([(FRONT - 0.01, BELT - 0.135), (-0.43, BELT - 0.135), (-0.43, BELT + 0.03), (FRONT - 0.01, BELT + 0.03)], W - 0.06, M["paint"])
+    apply_all(hood_r)
+    G["Hood"] = [piece(shell, hood_r)]
+    cut(shell, hood_r)
+    cut(shell, prism([(FRONT + 0.06, SILL + 0.2), (-0.45, SILL + 0.2), (-0.45, BELT - 0.13), (FRONT + 0.06, BELT - 0.13)], W - 0.16, M["inside"]))
     # window openings, so the glass can be see-through: the windscreen and rear side windows in the body, the front side
     # windows in the doors, the back window in the back door (cut after the doors, which keeps the booleans clean).
     # Their reveals take the inside colour.
@@ -533,7 +540,12 @@ def body(M, style):
     PROP_AT["CabinLight"] = (0, 0.25, cz)
     G["Lamps"] = []
     PROP_AT["Lamps"] = (0, FRONT - 0.03, 0.83)
-    G["Map"], G["Compass"] = hood_map(M)   # loose props on the bonnet, their own nodes so the page can move them
+    G["Map"], G["Compass"] = hood_map(M)   # loose props on the bonnet, their own nodes (they ride on the hood: finish())
+    # the engine, everything at least 3 cm under the closed hood (its underside is at BELT - 0.135 = 0.925)
+    p.append(box((0.5, 0.42, 0.2), at=(0, -1.0, SILL + 0.3), m=M["under"], bevel=0.015))           # the engine: block,
+    p.append(box((0.4, 0.32, 0.04), at=(0, -1.0, SILL + 0.42), m=M["trim"]))                         # rocker cover (top 0.89),
+    p.append(cyl(0.12, 0.05, at=(-0.2, -0.66, SILL + 0.415), m=M["chrome"], verts=10))              # air filter (top 0.89)
+    p.append(box((0.2, 0.15, 0.14), at=(0.46, -0.66, SILL + 0.27), m=M["trim"]))                     # and battery (top 0.79)
     grille_z = (0.7, 0.95)
     p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"], bevel=0.02))
     for k in range(3):                                   # three horizontal bars (its own face, no maker's grille)
@@ -581,6 +593,7 @@ def body(M, style):
 # hinge of each door (x, y) and how far it opens (radians about Z); the page reads the same from the node positions
 HINGES = {"DoorP": ((W / 2 + 0.01, -0.33), -1.2), "DoorD": ((-W / 2 - 0.01, -0.33), 1.2), "BackDoor": ((-0.67, REAR + 0.02), 1.75)}
 EMPTIES = []
+HOOD_HINGE, HOOD_OPEN = (0, -0.43, BELT + 0.03), -1.15                      # the hood swings up about X (the page does the same)
 
 
 def finish(p, G):
@@ -590,7 +603,9 @@ def finish(p, G):
         if name.startswith("Glass"):
             continue
         o = join(parts, name)
-        if name in PROP_AT:
+        if name == "Hood":                                             # hinged at the foot of the windscreen
+            bpy.context.scene.cursor.location = HOOD_HINGE
+        elif name in PROP_AT:
             bpy.context.scene.cursor.location = PROP_AT[name]
         else:
             (hx, hy), _ = HINGES[name]
@@ -598,6 +613,9 @@ def finish(p, G):
         bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.context.view_layer.objects.active = o
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
         out[name] = o
+    for name in ("Map", "Compass"):                                    # the map and compass lie on the hood and lift with it
+        if name in out and "Hood" in out:
+            out[name].parent = out["Hood"]; out[name].matrix_parent_inverse = out["Hood"].matrix_world.inverted()
     for name, door in (("Glass", None), ("GlassP", "DoorP"), ("GlassD", "DoorD"), ("GlassB", "BackDoor")):
         o = join(G[name], name)
         if door:                                                       # rides on its door
@@ -832,6 +850,8 @@ def preview(style, objs, samples):
 def doors(objs, opened):
     for name, (_, ang) in HINGES.items():
         objs[name].rotation_euler.z = ang if opened else 0.0
+    if "Hood" in objs:                                     # baked open too, so the engine bay gets daylight
+        objs["Hood"].rotation_euler.x = HOOD_OPEN if opened else 0.0
     bpy.context.view_layer.update()
 
 

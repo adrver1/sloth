@@ -73,7 +73,7 @@ $("c").addEventListener("pointerleave", () => (hover = null));
 const targets = new Map(), byPick = new Map();
 function target(key, make) { let t = targets.get(key); if (!t) { t = make(); targets.set(key, t); for (const o of t.picks) byPick.set(o, t); } return t; }
 const SLOTH_REACH = 7, DOOR_REACH = 4;
-const DOOR_NAME = { P: "door", D: "door", B: "boot" };
+const DOOR_NAME = { P: "door", D: "door", B: "boot", H: "hood" };
 function allTargets() {
   const out = [];
   for (const t of acts.things) if (t.look) out.push(target(t, () => ({ look: t.look, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
