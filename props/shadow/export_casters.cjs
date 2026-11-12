@@ -27,7 +27,8 @@ const [props = "picked", jeep = "expedition"] = process.argv.slice(2), root = pa
     const L = window.__ground.layout, tent = window.__camp.tentAt;
     const layout = { ...L, glade: (window.__glade?.path || []).map((p) => [p.x, p.z]), tent: tent ? [tent.x, tent.z] : null,
       hammock: window.__camp?.hA ? [[window.__camp.hA.x, window.__camp.hA.z], [window.__camp.hB.x, window.__camp.hB.z]] : null,
-      deadwood: window.__deadwood?.layout || [] };   // the fallen log, stump and dead trunk: occluders in props/camp/bake_camp_lightmap.py
+      deadwood: window.__deadwood?.layout || [],   // each with y: seated on the terrain
+      height: window.__terrainGrid?.(128) || null };   // camp/terrain.js: the ground's height, 128 x 128 over 60 m (rows +z), for the bake's ground mesh   // the fallen log, stump and dead trunk: occluders in props/camp/bake_camp_lightmap.py
     return { names, layout, b64: btoa(Array.from(new Uint8Array(buf), (c) => String.fromCharCode(c)).join("")) };
   });
   const f = path.join(__dirname, `casters_${props}_${jeep}.glb`); fs.writeFileSync(f, Buffer.from(out.b64, "base64"));

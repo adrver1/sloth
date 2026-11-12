@@ -80,12 +80,18 @@ if L.get("glade"):                                           # the footpath to t
     if g:
         gx, gz = g[0]; Lg = math.hypot(gx, gz)
         W = np.maximum(W, path(wobbly((gx / Lg * 2.4, gz / Lg * 2.4), g[0], 0.3) + [np.array(p) for p in g], 0.7, 0.95))   # well trodden: the sloths' tree is down it
+WET = []                                                     # low spots on the paths where water stands: darker, damp soil
+if L.get("glade"):
+    g = [p for p in L["glade"] if math.hypot(*p) < R + 0.5]
+    if g: gx, gz = g[0]; Lg = math.hypot(gx, gz); WET.append((gx / Lg * (RC - 1.4), gz / Lg * (RC - 1.4), 0.75))
 if L.get("tent"):                                            # tent door to the fire
     tx, tz = L["tent"]; Lt = math.hypot(tx, tz)
     W = np.maximum(W, path(wobbly((tx / Lt * (Lt - 1.7), tz / Lt * (Lt - 1.7)), (tx / Lt * 2.4, tz / Lt * 2.4), 0.2), 0.6, 0.9))
 if L.get("track"):                                           # the jeep's tyres wore the grass along its track
     t = [p for p in L["track"] if math.hypot(*p) < R + 1]
-    if len(t) > 1: W = np.maximum(W, path(t, 1.3, 0.55))
+    if len(t) > 1:                                           # two ruts with a grass strip down the middle (forest-ground note, 3)
+        T = np.array(t, float); d = np.gradient(T, axis=0); d /= np.linalg.norm(d, axis=1, keepdims=True) + 1e-9; nrm = np.stack([-d[:, 1], d[:, 0]], 1)
+        for k in (-0.62, 0.62): W = np.maximum(W, path(list(T + nrm * k), 0.42, 0.85))
 
 # bare ground: a hard-ish threshold on noisy wear, then grain, so edges break into trampled patches and tufts survive in the dirt
 Wn = W + 0.22 * (n_mid - 0.5) + 0.28 * (n_fine - 0.5) + 0.18 * (n_grain - 0.5)
@@ -93,6 +99,8 @@ bare = ss(0.42, 0.56, Wn)
 bare *= 1 - 0.85 * (ss(0.72, 0.8, n_grain) * (1 - ss(0.75, 0.95, W)))        # surviving grass tufts in the lighter-worn dirt
 bare *= 1 - ss(R - 1.2, R - 0.2, rf)
 
+wetS = np.zeros_like(W)
+for wx, wz, wr in WET: wetS = np.maximum(wetS, 1 - ss(wr * 0.35, wr, np.hypot(X - wx, Z - wz) + 0.35 * (n_mid - 0.5)))
 # soil colour
 dusty, damp, dark = np.array([0.56, 0.46, 0.35]), np.array([0.45, 0.35, 0.26]), np.array([0.30, 0.23, 0.17])
 m = ss(0.15, 0.85, 0.6 * n_col + 0.4 * n_col2)[..., None]
@@ -107,6 +115,8 @@ char = (ss(0.72, 0.78, n_grain) * ash)[..., None]
 soil = soil * (1 - ash[..., None]) + ashc * ash[..., None]
 soil = soil * (1 - char) + np.array([0.09, 0.08, 0.075]) * char
 soil = soil * (0.93 + 0.14 * n_grain[..., None])                               # fine grain
+soil = soil * (1 + 0.07 * ss(0.85, 0.98, W))[..., None]                         # packed paler in the middle of the paths
+soil = soil * (1 - 0.38 * wetS * (1 - ash))[..., None]                          # damp where water stands
 img = Image.fromarray((np.clip(soil, 0, 1) * 255).astype(np.uint8), "RGB")
 cov = Image.fromarray((bare * 255).astype(np.uint8), "L")
 dr, dc = ImageDraw.Draw(img), ImageDraw.Draw(cov)
@@ -120,6 +130,14 @@ for _ in range(int(2 * R * 2 * R * 5)):
     r = rng.uniform(0.006, 0.02) * S; cx, cy = px(x, z); g = int(rng.uniform(105, 175)); col = (g, int(g * 0.97), int(g * 0.92))
     dr.ellipse([cx - r + r * 0.35, cy - r * 0.8 - r * 0.3, cx + r + r * 0.35, cy + r * 0.8 - r * 0.3], fill=(55, 42, 32))
     dr.ellipse([cx - r, cy - r * 0.8, cx + r, cy + r * 0.8], fill=col)
+# pebbles kicked aside: more of them along the edges of the paths and the worn ground
+for _ in range(int(2 * R * 2 * R * 6)):
+    x, z = rng.uniform(-R, R, 2); i, j = int((z + R) / (2 * R) * N), int((x + R) / (2 * R) * N)
+    b = bare[min(i, N - 1), min(j, N - 1)]
+    if not (0.3 < b < 0.8) or ash[min(i, N - 1), min(j, N - 1)] > 0.3: continue
+    r = rng.uniform(0.008, 0.026) * S; cx, cy = px(x, z); g = int(rng.uniform(110, 180)); col = (g, int(g * 0.97), int(g * 0.9))
+    dr.ellipse([cx - r + r * 0.35, cy - r * 0.8 - r * 0.3, cx + r + r * 0.35, cy + r * 0.8 - r * 0.3], fill=(55, 42, 32))
+    dr.ellipse([cx - r, cy - r * 0.8, cx + r, cy + r * 0.8], fill=col); dc.ellipse([cx - r, cy - r * 0.8, cx + r, cy + r * 0.8], fill=255)
 # twigs
 for _ in range(int(2 * R * 2 * R * 0.5)):
     x, z = rng.uniform(-R, R, 2); i, j = int((z + R) / (2 * R) * N), int((x + R) / (2 * R) * N)
@@ -151,6 +169,6 @@ out = os.path.join(ROOT, "apps/canopy-prototype/models")
 img = img.filter(ImageFilter.SMOOTH)
 img.save(os.path.join(out, f"camp_ground_{a.props}.jpg"), quality=86, optimize=True)
 covA = np.asarray(cov).astype(np.float32) / 255
-mask = np.stack([covA, np.clip(lush, 0, 1), np.maximum(ash, wet)], -1)
+mask = np.stack([covA, np.clip(lush, 0, 1), np.maximum(np.maximum(ash, wet), wetS)], -1)
 Image.fromarray((mask * 255).astype(np.uint8), "RGB").resize((N // 2, N // 2), Image.BILINEAR).save(os.path.join(out, f"camp_ground_{a.props}_mask.png"), optimize=True)
 for f in (f"camp_ground_{a.props}.jpg", f"camp_ground_{a.props}_mask.png"): print(f, os.path.getsize(os.path.join(out, f)) // 1024, "KB")

@@ -4,10 +4,11 @@ import { camera, uTime } from "./core.js";
 import { keys, stickV } from "./hud.js";
 import { GLADE, GLADE_R, PATH_W, RC, V, d0, polyDist, sloPath, t0, track } from "./forest.js";
 import { blockers } from "./campProps.js";
+import { groundHeight } from "./terrain.js";
 
 // ================================================================ the player: first person, on the clearing floor
 const EYE = 1.55, SPEED = 1.7;
-const me = { vel: V(), mode: "ground", pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), s: 0, yaw: 0, pitch: 0.08, target: null, holding: false, walkT: 0, lastDrag: -9, mark: null };
+const me = { vel: V(), mode: "ground", pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), s: 0, yaw: 0, pitch: 0.08, target: null, holding: false, walkT: 0, lastDrag: -9, mark: null, seat: null, sitK: 0 };   // seat: { pos, yaw } while sitting by the fire (linger.js); sitK eases 0..1
 me.yaw = Math.atan2(-d0.x, -d0.z);       // face the fire and the big tree behind it
 const look = V();
 // the first stretch of the jeep's track is walkable: past the clearing edge you stay within WALK_W of its centre line,
@@ -44,12 +45,15 @@ function step(dt) {
   const ax = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + stickV.x;
   const az = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) - stickV.y;
   const wish = fwd.clone().multiplyScalar(az).addScaledVector(right, ax); if (wish.lengthSq() > 1) wish.normalize();
-  me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
-  if (me.vel.length() > 0.05) { moving = true; const p = me.pos.clone().addScaledVector(me.vel, dt); collide(p); me.pos.copy(p); }
+  if (me.seat && wish.lengthSq() > 0.01) me.seat = null;   // walking stands you up
+  me.sitK += Math.sign((me.seat ? 1 : 0) - me.sitK) * Math.min(Math.abs((me.seat ? 1 : 0) - me.sitK), dt * 1.6);
+  if (me.seat) { me.vel.set(0, 0, 0); me.pos.lerp(me.seat.pos, 1 - Math.exp(-4 * dt)); }
+  else me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
+  if (!me.seat && me.vel.length() > 0.05) { moving = true; const p = me.pos.clone().addScaledVector(me.vel, dt); collide(p); me.pos.copy(p); }
   if (moving) me.walkT += dt;
-  const feet = me.pos;
+  const feet = me.pos; feet.y = groundHeight(feet.x, feet.z);   // level in the camp and on the paths; the rim rises a little at the edge
   const bob = moving ? Math.sin(me.walkT * 7) * 0.03 : 0;
-  camera.position.set(feet.x, feet.y + EYE + bob, feet.z);
+  camera.position.set(feet.x, feet.y + EYE - 0.72 * me.sitK * me.sitK * (3 - 2 * me.sitK) + bob, feet.z);   // seated: eye at about 0.83 m
   look.set(-Math.sin(me.yaw) * Math.cos(me.pitch), Math.sin(me.pitch), -Math.cos(me.yaw) * Math.cos(me.pitch)).add(camera.position);
   camera.lookAt(look);
 }

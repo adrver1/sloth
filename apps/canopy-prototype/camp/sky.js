@@ -128,4 +128,4 @@ const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 40), new THREE.MeshLa
 ground.rotation.x = -Math.PI / 2; scene.add(ground);
 
 
-export { dome, moon, nightDome, sky, uSkyDusk };
+export { dome, ground, moon, nightDome, sky, uSkyDusk };   // ground: the old forest-floor disc, hidden once the one ground mesh (ground.js) is up
