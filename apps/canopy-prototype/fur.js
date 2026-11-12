@@ -4,6 +4,9 @@
 // Usage: import { furify } from "./fur.js"; furify(clonedSlothScene) (4 layers; ?fur=0 on the page turns it off).
 // { lambert: true } shades body and shells with MeshLambertMaterial instead of the GLB's physical / standard ones (Canopy
 // Camp, review 2026-11-12: cheaper, and matches the Lambert props). Each sloth's shell mesh is in root.userData.furShells.
+// { warm } (with lambert): uniforms { uWarm (float), uWarmPos (vec3[WARM_N]), uWarmK (float[WARM_N]) } for a warm glow from
+// nearby lanterns and the fire at night, falling off with distance (the camp's lights are baked, so without it the sloths
+// go black next to a lit lantern).
 import * as THREE from "three";
 
 const FUR = [[0x8f, 0x7c, 0x62], [0x6a, 0x58, 0x44]];   // palette fur swatches (light, dark)
@@ -41,18 +44,24 @@ float vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
              mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
 float strands(vec3 p, float s){ vec3 q = p * vec3(s, s * 0.22, s); return 0.6 * vn(q) + 0.4 * vn(q * 2.3 + 7.1); }
 `;
-function patch(mat, frag, decl = "", nrm = "", pos = "", fdecl = "") {
+export const WARM_N = 10;
+const WARM_GLSL = `uniform float uWarm; uniform vec3 uWarmPos[${WARM_N}]; uniform float uWarmK[${WARM_N}]; varying vec3 vWPos;
+vec3 warmAt(vec3 p) { float a = 0.0; for (int i = 0; i < ${WARM_N}; i++) { vec3 d = uWarmPos[i] - p; a += uWarmK[i] / (1.0 + dot(d, d) * 2.5); }
+  return vec3(1.0, 0.66, 0.36) * a * uWarm; }`;
+function patch(mat, frag, decl = "", nrm = "", pos = "", fdecl = "", warm = null) {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl)
+      .replace("#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl + (warm ? "\nvarying vec3 vWPos;" : ""))
       .replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\n" + nrm)
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFur = furMask; vObj = position;\n" + pos);
+    if (warm) sh.vertexShader = sh.vertexShader.replace("#include <project_vertex>", "#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;");
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl)
+      .replace("#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl + (warm ? WARM_GLSL : ""))
       .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag);
-    Object.assign(sh.uniforms, mat.userData.u || {});
+    if (warm) sh.fragmentShader = sh.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>");
+    Object.assign(sh.uniforms, mat.userData.u || {}, warm || {});
   };
-  mat.customProgramCacheKey = () => "fur" + mat.type + frag + pos;
+  mat.customProgramCacheKey = () => "fur" + mat.type + !!warm + frag + pos;
   return mat;
 }
 const BASE = `
@@ -93,30 +102,30 @@ function shellGeo(geo, shells) {
   return out;
 }
 const shellMats = new Map();   // one material per (map, length), shared by every sloth
-function shellMat(map, len, lambert = false) {
-  const k = map.uuid + len + lambert;
+function shellMat(map, len, lambert = false, warm = null) {
+  const k = map.uuid + len + lambert + !!warm;
   if (shellMats.has(k)) return shellMats.get(k);
   const mat = lambert ? new THREE.MeshLambertMaterial({ map, alphaTest: 0.5 }) : new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0, alphaTest: 0.5 });
   mat.userData.u = { uLen: { value: len } };
   patch(mat, SHELL, "attribute float furLayer; uniform float uLen; varying float uT;", "objectNormal = furNormal;",
-    "uT = furLayer;\ntransformed += normalize(furNormal) * uLen * uT * furMask;\ntransformed.y -= uLen * 0.5 * uT * uT * furMask;", "varying float uT;\n");
+    "uT = furLayer;\ntransformed += normalize(furNormal) * uLen * uT * furMask;\ntransformed.y -= uLen * 0.5 * uT * uT * furMask;", "varying float uT;\n", warm);
   shellMats.set(k, mat);
   return mat;
 }
 const baseMats = new Map();
 
 export const FUR_ON = !/[?&]fur=0\b/.test(location.search);   // ?fur=0: the original flat sloth, kept as a backup
-export function furify(root, { shells = 4, length = 0.0075, lambert = false } = {}) {
+export function furify(root, { shells = 4, length = 0.0075, lambert = false, warm = null } = {}) {
   if (!FUR_ON) return root;
   const meshes = [];
   root.traverse((m) => m.isSkinnedMesh && !m.userData.fur && meshes.push(m));
   for (const m of meshes) {
     const map = m.material.map;
     prepare(m.geometry, map);
-    const bk = m.material.uuid + lambert;
-    if (!baseMats.has(bk)) baseMats.set(bk, patch(lambert ? new THREE.MeshLambertMaterial({ map, color: m.material.color }) : m.material.clone(), BASE));
+    const bk = m.material.uuid + lambert + !!warm;
+    if (!baseMats.has(bk)) baseMats.set(bk, patch(lambert ? new THREE.MeshLambertMaterial({ map, color: m.material.color }) : m.material.clone(), BASE, "", "", "", "", lambert && warm));
     m.material = baseMats.get(bk);
-    const sh = new THREE.SkinnedMesh(shellGeo(m.geometry, shells), shellMat(map, length, lambert));
+    const sh = new THREE.SkinnedMesh(shellGeo(m.geometry, shells), shellMat(map, length, lambert, lambert && warm));
     sh.bind(m.skeleton, m.bindMatrix);
     sh.frustumCulled = false;
     sh.userData.fur = true;

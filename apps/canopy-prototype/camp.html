@@ -48,7 +48,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { furify } from "./fur.js";
+import { furify, WARM_N } from "./fur.js";
 import { createAtmosphere } from "./atmosphere.js";
 import { createActivities } from "./activities.js";
 import { createGround } from "./ground.js";
@@ -923,6 +923,9 @@ let tinted = false;
 // padded bounding sphere so off-screen sloths are culled; an 8x6 tap sphere; and a little life: they blink now and
 // then, and turn their heads to look at you when you come close (LOOK_NEAR).
 const FUR_NEAR = 8, LOOK_NEAR = 4.5;
+// at night the camp's light is baked into the props, so the sloths take a warm glow from the lanterns and the fire nearby
+// (fur.js warm; set each frame in the loop: lantern positions, the fire, and uWarm = dusk with the fire's flicker)
+const SLOTH_WARM = { uWarm: { value: 0 }, uWarmPos: { value: Array.from({ length: WARM_N }, () => V(0, -99, 0)) }, uWarmK: { value: new Array(WARM_N).fill(0) } };
 const FACE = (() => {                                  // which way the face points in the head bone's frame (the sloth faces -Z at rest)
   SLOTH.scene.updateMatrixWorld(true); const h = SLOTH.scene.getObjectByName("head");
   return V(0, 0, -1).applyQuaternion(h.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(SLOTH.scene.getWorldQuaternion(new THREE.Quaternion())));
@@ -949,7 +952,7 @@ function eyeKit(o) {                                   // per sloth: its own cop
 }
 function hang(p, dir, sc = SL) {                      // a sloth under a branch at p, its head toward dir
   const o = clone(SLOTH.scene); o.scale.setScalar(sc);
-  furify(o, { shells: D.shells, lambert: qs.get("slothmat") !== "old" });   // ?slothmat=old: the GLB's physical material, as before
+  furify(o, { shells: D.shells, lambert: qs.get("slothmat") !== "old", warm: SLOTH_WARM });   // ?slothmat=old: the GLB's physical material, as before
   o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur) { m.geometry.computeBoundingSphere(); m.boundingSphere = m.geometry.boundingSphere.clone(); m.boundingSphere.radius *= 2; } });
   o.traverse((m) => { if (m.userData.fur) { const b = m.parent.children.find((q) => q.isSkinnedMesh && !q.userData.fur); m.boundingSphere = b.boundingSphere.clone(); m.frustumCulled = true; } });
   if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
@@ -1490,7 +1493,10 @@ renderer.setAnimationLoop(() => {
   flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
   fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
   acts.update(dt, uTime.value);
-  uNight.value = dusk; stepLight(fl, uTime.value); pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
+  uNight.value = dusk; stepLight(fl, uTime.value);
+  { const W = SLOTH_WARM, n = Math.min(lanternGlow.length, WARM_N - 1);   // the sloths' night glow: lanterns, then the fire
+    for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
+    W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk; } pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
   lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
