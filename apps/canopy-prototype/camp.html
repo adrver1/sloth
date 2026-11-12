@@ -55,7 +55,7 @@ body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 <div id="load"><div class="card"><b>🦥</b><span>Getting the camp ready…</span><div class="bar2"><i id="loadbar"></i></div></div></div>
 <div class="bar">
   <button id="rest">Rest 🌙</button><button id="menu" aria-label="Settings" aria-expanded="false">⚙️</button>
-  <div class="menu" id="opts" hidden><button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="props">Props</button></div>
+  <div class="menu" id="opts" hidden><button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="props">Props</button><button id="cabin">Cabin</button></div>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
@@ -71,7 +71,7 @@ import { LIGHT_GLSL, LIGHT_MIX, bindLight, stepLight, liveChunk, initKtx, loadLi
 const qs = new URLSearchParams(location.search);
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
 // they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
-// "Canopy camp: archive the looks and Cabin live". Their branches below are dead code until the forest moves to its own module.
+// "Canopy camp: start every download at once" (the looks were archived there). Their branches below are dead code until the forest moves to its own module.
 const LOOK = "moss";
 const $ = (id) => document.getElementById(id);
 // settings: one ⚙️ button opens the detail, light-map and prop-set choices (the old row took a quarter of a phone screen)
@@ -97,8 +97,11 @@ const LMSET = [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.include
   : matchMedia("(pointer: coarse)").matches ? "1k" : "2k";   // phones start on the 1K maps (review P1: hard to tell apart at phone size, a quarter of the memory)
 $("lm").textContent = "Light: " + LMNAME[LMSET];
 $("lm").style.display = PROPS === "picked" ? "" : "none";
-// the jeep's cabin light is baked (four keyframes per door, with bounce light). The live spot-light version it was compared
-// with was archived on 2026-11-12 (camp review), with the Cabin button.
+// the jeep's cabin light: baked (four keyframes per door, with bounce light) or live (one shadowed spot light, exact at any
+// opening, no bounce), to compare (Adriaen 2026-11-12). ?cabin=live|baked overrides. The button sits in the ⚙️ menu.
+const CABIN = ["live", "baked"].includes(qs.get("cabin")) ? qs.get("cabin") : store.get("canopy-cabin") === "live" ? "live" : "baked";
+$("cabin").textContent = "Cabin: " + CABIN;
+$("cabin").onclick = () => { store.set("canopy-cabin", CABIN === "live" ? "baked" : "live"); const u = new URL(location.href); u.searchParams.delete("cabin"); location.replace(u); };
 $("lm").onclick = () => { store.set("canopy-lm", LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 $("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
@@ -895,7 +898,7 @@ if (JEEP !== "none") {
   const local = (x, y, z) => jeep.localToWorld(V(x, y, z));
   const boot = jeep.getObjectByName("Boot")?.position ?? V(0, 0.78, -1.06);
   // the cabin light (Adriaen 2026-11-12): on while any door stands open. CabinLight is its lens (unlit when on); the light it
-  // throws is baked (bakedlight.js, scaled by window.__lights.cabin and .doors, set here).
+  // throws is baked (bakedlight.js, scaled by window.__lights.cabin and .doors, set here) or live (Cabin button).
   // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the Lamps lenses stay as plain parts.
   const cabinL = jeep.getObjectByName("CabinLight");
   const cabOn = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
@@ -905,14 +908,27 @@ if (JEEP !== "none") {
     r.addColorStop(0, "rgba(255,226,168,1)"); r.addColorStop(1, "rgba(255,226,168,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.position.set(0, 1.45, -0.25); glow.scale.setScalar(1.1); glow.visible = false; jeep.add(glow);
-  let cab = 0;
+  // Cabin: live: one spot light under the roof aimed down (83 degree half-angle), shadowed by the jeep only; its shadow map is
+  // redrawn only while a door moves or the light fades, and every prop and the floor take its shadow
+  let cabSpot = null;
+  if (CABIN === "live") {
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
+    cabSpot = new THREE.SpotLight(0xffe3a8, 0, 9, 1.45, 0.4, 2); cabSpot.position.set(0, 1.62, -0.25); cabSpot.target.position.set(0, 0, -0.25);
+    cabSpot.castShadow = true; cabSpot.shadow.mapSize.set(512, 512); cabSpot.shadow.camera.near = 0.05; cabSpot.shadow.camera.far = 9; cabSpot.shadow.bias = -0.002;
+    jeep.add(cabSpot, cabSpot.target);
+    jeep.traverse((m) => { if (m.isMesh && !m.name.startsWith("Glass")) { m.castShadow = true; m.receiveShadow = true; } });
+    window.__cabinLive = { receive: (o) => o.traverse((m) => { if (m.isMesh) m.receiveShadow = true; }) };
+  }
+  let cab = 0, lastCab = -1;
   const lightStep = (dt) => {
     const cWant = Object.values(doors).some((d) => d.cur !== 0) ? 1 : 0;
     cab += (cWant - cab) * Math.min(1, dt * 4);
     if (cabinL) { cabinL.material = cab > 0.02 ? cabOn : jm; cabOn.color.copy(OFF).lerp(CL, cab); }
     glow.material.opacity = 0.55 * cab; glow.visible = cab > 0.02;
-    if (window.__lights) { window.__lights.cabin = cab;
+    if (window.__lights) { window.__lights.cabin = cabSpot ? 0 : cab;   // live: the spot light instead of the bake
       for (const k of ["P", "D", "B"]) window.__lights.doors[k] = doors[k] ? doors[k].o.rotation.y / doors[k].open : 0; }   // each door's spill (bakedlight.js), by its actual swing
+    if (cabSpot) { cabSpot.intensity = 6 * cab;
+      if (Object.values(doors).some((d) => d.cur !== d.want) || Math.abs(cab - lastCab) > 0.01) { renderer.shadowMap.needsUpdate = true; lastCab = cab; } }
   };
   jeepStep = (dt) => {
     for (const d of Object.values(doors)) {
@@ -1440,6 +1456,9 @@ const groundLife = createGround({ baked: groundBake,  scene, RC, blockers, clear
     bare: PROPS === "picked" ? (x, z) => { const [a, b] = tentLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; } : undefined,   // no grass in the tent or through its planks
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
 for (const m of FLOOR_OVERLAYS) groundLife.shadeOn(m.material);
+if (window.__cabinLive) {   // Cabin: live: the floor and every baked prop take the cabin light's shadow
+  window.__cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;
+}
 window.__ground = groundLife;
 // the walk-in tent (picked props; build_camp.py wall_tent, keep in step): walls stop you, the doorway lets you in,
 // the bed and the stove are in the way. tentLocal gives (a: ahead of tentAt toward the fire, b: across).
