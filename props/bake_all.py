@@ -30,7 +30,7 @@ ap.add_argument("--ground-size", type=int, default=1024, help="ground light maps
 ap.add_argument("--samples", type=int, default=512)
 ap.add_argument("--jeep", default="expedition", help="the toy and camper are archived")
 a = ap.parse_args()
-steps = a.only or ["light", "ktx", "layout", "ground"]
+steps = a.only or ["layout", "light", "ktx", "ground"]   # layout first: the light bake reads the deadwood from it
 BLENDER = os.environ.get("BLENDER", "blender")
 GPU_RUN = os.environ.get("GPU_RUN")
 
@@ -48,6 +48,17 @@ def run(cmd, **kw):
     print(f"  done in {time.time() - t:.0f} s", flush=True)
 
 
+if "layout" in steps:
+    srv = subprocess.Popen([sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(50):
+            try:
+                urllib.request.urlopen("http://localhost:8765/", timeout=1); break
+            except OSError:
+                time.sleep(0.2)
+        run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), "picked", a.jeep])
+    finally:
+        srv.terminate()
 if "light" in steps:
     blender(os.path.join(ROOT, "props/camp/bake_camp_lightmap.py"), "--size", str(a.size), "--samples", str(a.samples),
             "--ground", str(a.ground_size), "--jeep", a.jeep)
@@ -67,17 +78,6 @@ if "ktx" in steps:
         os.remove(out)
     import json
     jf = os.path.join(M, "camp_lights.json"); j = json.load(open(jf)); j["ktx2"] = True; json.dump(j, open(jf, "w"), indent=1)   # tells the page to try .ktx2
-if "layout" in steps:
-    srv = subprocess.Popen([sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    try:
-        for _ in range(50):
-            try:
-                urllib.request.urlopen("http://localhost:8765/", timeout=1); break
-            except OSError:
-                time.sleep(0.2)
-        run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), "picked", a.jeep])
-    finally:
-        srv.terminate()
 if "ground" in steps:
     env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}     # PYTHONPATH may hold Blender's own libraries
     run([sys.executable, os.path.join(ROOT, "props/ground/bake_ground.py"), "--props", "picked"], env=env)
