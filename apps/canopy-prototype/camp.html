@@ -55,7 +55,7 @@ body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 <div id="load"><div class="card"><b>🦥</b><span>Getting the camp ready…</span><div class="bar2"><i id="loadbar"></i></div></div></div>
 <div class="bar">
   <button id="rest">Rest 🌙</button><button id="menu" aria-label="Settings" aria-expanded="false">⚙️</button>
-  <div class="menu" id="opts" hidden><button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="props">Props</button><button id="cabin">Cabin</button></div>
+  <div class="menu" id="opts" hidden><button id="detail">Detail: Medium</button><button id="lm">Light</button></div>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
@@ -74,7 +74,7 @@ const qs = new URLSearchParams(location.search);
 // "Canopy camp: start every download at once" (the looks were archived there). Their branches below are dead code until the forest moves to its own module.
 const LOOK = "moss";
 const $ = (id) => document.getElementById(id);
-// settings: one ⚙️ button opens the detail, light-map and prop-set choices (the old row took a quarter of a phone screen)
+// settings: one ⚙️ button opens the detail and light-map choices (the old row took a quarter of a phone screen)
 $("menu").onclick = () => { const o = $("opts"); o.hidden = !o.hidden; $("menu").setAttribute("aria-expanded", String(!o.hidden)); };
 
 // detail level, kept per viewer: how many leaves, ferns, fur shells and effects, and the resolution cap
@@ -84,11 +84,10 @@ const DETAIL = LEVELS.includes(qs.get("detail")) ? qs.get("detail") : LEVELS.inc
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
             medium: { leaves: 1, ferns: 1, fx: 1, shells: 3, pr: 1.75, aa: LOOK !== "moss" },
             high: { leaves: 1.6, ferns: 1.7, fx: 1.5, shells: 4, pr: 2, aa: true } }[DETAIL];
-const PROPSETS = ["picked", "storybook", "rustic", "jungle", "code"], PNAME = { picked: "Our camp", storybook: "Storybook", rustic: "Rustic", jungle: "Jungle", code: "Old shapes" };
-const PROPS = PROPSETS.includes(qs.get("props")) ? qs.get("props") : PROPSETS.includes(store.get("canopy-props2")) ? store.get("canopy-props2") : "picked";
+// the props: "Our camp" (the picked set) only. Storybook, Rustic, Jungle and the first code-drawn shapes are archived in
+// props/camp/archive/ (camp review, Adriaen 2026-11-12); PROPS stays so the checks below read the same.
+const PROPS = "picked";
 $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
-$("props").textContent = "Props: " + PNAME[PROPS];
-$("props").onclick = () => { store.set("canopy-props2", PROPSETS[(PROPSETS.indexOf(PROPS) + 1) % PROPSETS.length]); location.reload(); };
 // the jeep: the Expedition (Adriaen 2026-11-12; the Toy and Camper styles are in props/jeep/archive/); ?jeep=none hides it
 const JEEP = qs.get("jeep") === "none" ? "none" : "expedition";
 // the picked props' baked light: a 2K or 1K light map, or the older vertex colours (?lm=4k also works locally; 4k is too big to publish)
@@ -97,11 +96,7 @@ const LMSET = [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.include
   : matchMedia("(pointer: coarse)").matches ? "1k" : "2k";   // phones start on the 1K maps (review P1: hard to tell apart at phone size, a quarter of the memory)
 $("lm").textContent = "Light: " + LMNAME[LMSET];
 $("lm").style.display = PROPS === "picked" ? "" : "none";
-// the jeep's cabin light: baked (four keyframes per door, with bounce light) or live (one shadowed spot light, exact at any
-// opening, no bounce), to compare (Adriaen 2026-11-12). ?cabin=live|baked overrides. The button sits in the ⚙️ menu.
-const CABIN = ["live", "baked"].includes(qs.get("cabin")) ? qs.get("cabin") : store.get("canopy-cabin") === "live" ? "live" : "baked";
-$("cabin").textContent = "Cabin: " + CABIN;
-$("cabin").onclick = () => { store.set("canopy-cabin", CABIN === "live" ? "baked" : "live"); const u = new URL(location.href); u.searchParams.delete("cabin"); location.replace(u); };
+const CABIN = "live";   // the jeep's cabin light is live (one shadowed spot light): it looked much better than the bake (Adriaen 2026-11-12)
 $("lm").onclick = () => { store.set("canopy-lm", LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 $("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
@@ -129,7 +124,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 // ---------------------------------------------------------------- downloads, all started at once (camp review P2, 2026-11-12)
 // Every model, the light maps and the ground mask start loading here, while the forest below is grown, instead of one after
 // another further down. Each section awaits its own entry in PRE (null when it isn't shown). The loading card counts them.
-const LIVED = (PROPS === "picked" || PROPS === "rustic") && qs.get("lived") !== "0", NEWFIRE = PROPS === "picked" && qs.get("fire") !== "old";
+const LIVED = qs.get("lived") !== "0";   // ?lived=0 hides the lived-in props to compare
 let loadN = 0, loadDone = 0;
 const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
 initKtx(renderer);
@@ -138,10 +133,10 @@ const lmLoad = async (n) => { const t = await loadLightMap(`models/${n}_${LMSET}
 const PRE = {
   sloth: pre(glb("models/sloth.txt")),
   lm: pre(Promise.all([lmLoad("camp_lm"), lmLoad("camp_lm_sun")])),
-  props: PROPS !== "code" ? pre(glb(PROPS === "picked" ? "models/camp_picked_lm.txt" : `models/camp_${PROPS}.txt`)) : null,
+  props: pre(glb("models/camp_picked_lm.txt")),
   lived: LIVED ? pre(glb("models/lived.txt")) : null,
   laundry: LIVED ? pre(glb("models/laundry.txt")) : null,
-  fire: NEWFIRE ? pre(glb("models/fire.txt")) : null,
+  fire: pre(glb("models/fire.txt")),
   jeep: JEEP !== "none" ? pre(glb(`models/jeep_${JEEP}.txt`)) : null,
   jeepLod: JEEP === "expedition" ? pre(glb("models/jeep_expedition_lod.txt").catch(() => null)) : null,
   groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: `models/camp_ground_${PROPS}.jpg` }); im.onerror = () => ok(null); im.src = `models/camp_ground_${PROPS}_mask.png`; })),
@@ -492,7 +487,6 @@ function tube(curve, r0, r1, segs, rad) {
 }
 scene.add(new THREE.Mesh(merge(woodGeos), barkMat));
 
-const plankCol = new THREE.Color(S.bark[0]).lerp(new THREE.Color(0xd9b88a), LOOK === "low" ? 0.55 : 0.4);
 
 // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
 const wall = [];
@@ -662,37 +656,12 @@ if (track) {
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
 const camp = [], lanternGlow = [];
 {
-  const CODE = PROPS === "code";   // the first rough shapes, kept to compare; otherwise the Blender props load below
-  const stone = 0x9a9488, log = S.bark[0], canvasC = 0xf3e6c8, flap = 0xe3a6a0;
-  for (let i = 0; i < 9; i++) { const a = (i / 9) * 6.28; CODE && camp.push(flatCol(new THREE.IcosahedronGeometry(0.17, 0).scale(1, 0.7, 1).translate(Math.cos(a) * 0.62, 0.08, Math.sin(a) * 0.62), stone, R(0.8, 1.1))); }
-  for (let i = 0; i < 4; i++) { const g = new THREE.CylinderGeometry(0.06, 0.07, 0.8, 6).rotateZ(Math.PI / 2 - 0.35).rotateY(i * 1.57).translate(0, 0.22, 0); CODE && camp.push(flatCol(g, log, 0.8)); }
-  // three log seats round the fire, the gap faces the gate
-  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15, g = new THREE.CylinderGeometry(0.22, 0.24, 1.5, 9).rotateZ(Math.PI / 2).rotateY(-a + Math.PI / 2).translate(Math.cos(a) * 2.1, 0.22, Math.sin(a) * 2.1); CODE && camp.push(flatCol(g, log)); }
-  // tent: a triangular prism
-  const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4), tentA = Math.atan2(-tentAt.z, -tentAt.x);
-  const tent = new THREE.CylinderGeometry(1.25, 1.25, 2.4, 3, 1).rotateX(Math.PI / 2).rotateZ(Math.PI / 2 + Math.PI / 6 * 0 + Math.PI).scale(1, 1.05, 1);
-  tent.rotateZ(Math.PI); tent.translate(0, 0.62, 0); tent.rotateY(-tentA + Math.PI / 2); tent.translate(tentAt.x, 0, tentAt.z); CODE && camp.push(flatCol(tent, canvasC));
-  const door = new THREE.CircleGeometry(0.55, 3).rotateZ(Math.PI / 2).translate(0, 0.5, 1.22).rotateY(-tentA + Math.PI / 2).translate(tentAt.x, 0, tentAt.z); CODE && camp.push(flatCol(door, flap));
-  // hammock between two posts
+  // the layout: the log seats round the fire (the gap faces the gate), the tent, the hammock posts and the snack table
+  const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
   const hA = d0.clone().multiplyScalar(-1.5).addScaledVector(t0, -4.6), hB = hA.clone().addScaledVector(d0, -2.6).addScaledVector(t0, -1.2);
-  for (const h of [hA, hB]) CODE && camp.push(flatCol(new THREE.CylinderGeometry(0.07, 0.09, 2.6, 6).translate(h.x, 1.3, h.z), log, 0.85));
-  {
-    const n = 16, m = 5, pos = [], hx = hB.clone().sub(hA), len = hx.length(); hx.normalize(); const hz = V(-hx.z, 0, hx.x);
-    for (let i = 0; i <= n; i++) for (let j = 0; j <= m; j++) { const u = i / n, v = j / m - 0.5, w = Math.sin(Math.PI * u);
-      const p = hA.clone().addScaledVector(hx, u * len).addScaledVector(hz, v * 0.9 * (0.35 + 0.65 * w)); p.y = 1.6 - 0.75 * w - 0.12 * w * (1 - 4 * v * v); pos.push(p.x, p.y, p.z); }
-    const idx = []; for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) { const a = i * (m + 1) + j; idx.push(a, a + 1, a + m + 1, a + 1, a + m + 2, a + m + 1); }
-    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
-    const g2 = g.clone(); g2.setIndex(idx.slice().reverse());           // both sides
-    CODE && camp.push(flatCol(g, 0xe9a0b8), flatCol(g2, 0xe9a0b8, 0.85));
-    CODE && camp.push(flatCol(new THREE.SphereGeometry(0.2, 8, 6).scale(1.4, 0.6, 1).translate(hA.x + hx.x * 0.6, 1.0, hA.z + hx.z * 0.6), 0xfff6e6));   // pillow
-  }
-  // snack table: a stump with a plank top, a leaf bowl and hibiscus flowers
   const tb = d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.2);
-  CODE && camp.push(flatCol(new THREE.CylinderGeometry(0.35, 0.42, 0.62, 9).translate(tb.x, 0.31, tb.z), log), flatCol(new THREE.CylinderGeometry(0.62, 0.62, 0.07, 12).translate(tb.x, 0.65, tb.z), plankCol));
-  CODE && camp.push(flatCol(new THREE.SphereGeometry(0.22, 10, 6, 0, 6.28, Math.PI / 2, Math.PI / 2).translate(tb.x + 0.15, 0.85, tb.z), S.leaf[0]));
-  for (let i = 0; i < 5; i++) CODE && camp.push(flatCol(new THREE.IcosahedronGeometry(0.07, 0).translate(tb.x - 0.2 + R(-0.2, 0.2), 0.72, tb.z + R(-0.3, 0.3)), [0xff6f91, 0xff9eb5, 0xffd66e][i % 3]));
   // lantern string from the tent ridge across to the hammock post
-  const l0 = PROPS === "picked" ? tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8) : tentAt.clone().setY(2.6), l1 = hA.clone().setY(2.5);   // picked: tied to the walk-in tent's front A-frame
+  const l0 = tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8), l1 = hA.clone().setY(2.5);   // picked: tied to the walk-in tent's front A-frame
   for (let i = 1; i < 9; i++) { const t = i / 9, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45; lanternGlow.push(p); }
   const str = []; for (let i = 0; i <= 20; i++) { const t = i / 20, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45 - 0.06; str.push(p); }
   camp.push(flatCol(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(str), 24, 0.01, 3), 0x5a4636));
@@ -772,13 +741,12 @@ const lnight = (mat) => {
   mat.customProgramCacheKey = () => ["lmap", prev ? prev.toString() : "", mat.onBeforeCompile === own ? "" : mat.onBeforeCompile.toString()].join("|");
   return mat;
 };
-if (PROPS !== "code") {
+{
   const P = await PRE.props, { tentAt, hA, hB, tb } = window.__camp;
-  const lam = new THREE.MeshLambertMaterial({ vertexColors: true }), lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
-  P.scene.traverse((m) => { if (m.isMesh) m.material = m.geometry.attributes.uv1 ? lamL : lam; });   // the other prop sets keep their vertex-colour AO
+  const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
+  P.scene.traverse((m) => { if (m.isMesh) m.material = lamL; });
   // the picked set holds each copy on its own (Seat_0, Lantern_3 ...), since each is lit where it stands
   const put = (n, x, z, yaw, y = 0, i = 0) => { const s = P.scene.getObjectByName(`${n}_${i}`) ?? P.scene.getObjectByName(n); if (!s) return null; const o = s.clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
-  put("Fire", 0, 0, 0);                                   // the picked set has none: the lived fire set below is its fire
   for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; put("Seat", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2, 0, i); }
   put("Tent", tentAt.x, tentAt.z, Math.atan2(-tentAt.x, -tentAt.z));
   const hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA); put("Hammock", hm.x, hm.z, -Math.atan2(hd.z, hd.x));
@@ -817,11 +785,10 @@ if (LIVED) {
 // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
 // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
 // textured quad per link). The flames are three crossed cards with an animated flame shader instead of the old glow blobs;
-// the embers are unlit so they glow. Our camp only; the other prop sets keep their old fire. ?fire=old shows the old one.
+// the embers are unlit so they glow. (The first fire, rough rocks and split logs under a kettle, is archived with the rustic set.)
 var FIRE_CARDS = [];
-if (NEWFIRE) {
+{
   const F = await PRE.fire, fm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true })), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
-  const old = scene.getObjectByName("Fire"); if (old) old.visible = false;
   flames.forEach((f) => (f.visible = false));
   fireLight.position.y = 0.4;                                    // inside the fire, below the pot (it hangs higher than the old kettle)
   for (const n of ["Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain"]) {
@@ -898,7 +865,7 @@ if (JEEP !== "none") {
   const local = (x, y, z) => jeep.localToWorld(V(x, y, z));
   const boot = jeep.getObjectByName("Boot")?.position ?? V(0, 0.78, -1.06);
   // the cabin light (Adriaen 2026-11-12): on while any door stands open. CabinLight is its lens (unlit when on); the light it
-  // throws is baked (bakedlight.js, scaled by window.__lights.cabin and .doors, set here) or live (Cabin button).
+  // throws is live: one shadowed spot light (cabSpot), redrawn while a door moves; it replaced the baked keyframes.
   // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the Lamps lenses stay as plain parts.
   const cabinL = jeep.getObjectByName("CabinLight");
   const cabOn = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
