@@ -110,7 +110,11 @@ const campSave = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY) 
 const RIDERS = CAMP ? (campSave()?.parts?.trip?.riders ?? (new URLSearchParams(location.search).get("riders") || "Hibi,Bandit,Pip").split(",")).slice(0, 3) : [];
 function backToCamp() {
   try { const d = campSave() ?? { v: 1, parts: {} }; d.parts = d.parts ?? {}; d.parts.trip = { state: "back", riders: RIDERS, at: Date.now() }; d.at = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch {}
-  location.href = "../camp.html";
+  // back to the page that sent us: the camp passes its own address (?back=), since the camp page isn't called camp.html everywhere
+  // (in the artifact it is the artifact's own page); only an address on this same site is followed
+  let to = "../camp.html";
+  try { const b = new URL(new URLSearchParams(location.search).get("back") || "", location.href); if (b.origin === location.origin) to = b.href; } catch {}
+  location.href = to;
 }
 
 // ---------------------------------------------------------------- the songs
