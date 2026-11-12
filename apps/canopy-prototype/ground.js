@@ -305,8 +305,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     uGN.value = t; uGNon.value = 1; nightBaked = true; }).catch(() => {});
   uGJ.value = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); uGJ.value.needsUpdate = true;   // no jeep light until its map loads
   for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings
-    if (nightMap) loadLightMap(nightMap.replace("camp_ground_night_", `camp_ground_door${k}_`)).then((t) => { u.value = t; }).catch(() => {}); }
-  if (nightMap) loadLightMap(nightMap.replace("camp_ground_night_", "camp_ground_jeep_")).then((t) => { uGJ.value = t; }).catch(() => {});
+  }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
   return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };

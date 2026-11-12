@@ -41,7 +41,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 <div id="toast"></div>
 <div class="bar">
   <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
-  <button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="cabin">Cabin</button><button id="rest">Rest 🌙</button>
+  <button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="rest">Rest 🌙</button>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
@@ -80,11 +80,7 @@ const LMSET = [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.include
   : matchMedia("(pointer: coarse)").matches ? "1k" : "2k";   // phones start on the 1K maps (review P1: hard to tell apart at phone size, a quarter of the memory)
 $("lm").textContent = "Light: " + LMNAME[LMSET];
 $("lm").style.display = PROPS === "picked" ? "" : "none";
-// the jeep's cabin light: baked (four keyframes per door, with bounce light) or live (one shadowed spot light, exact at any
-// opening, no bounce), to compare (Adriaen 2026-11-12). ?cabin=live|baked overrides.
-const CABIN = ["live", "baked"].includes(qs.get("cabin")) ? qs.get("cabin") : store.get("canopy-cabin") === "live" ? "live" : "baked";
-$("cabin").textContent = "Cabin: " + CABIN;
-$("cabin").onclick = () => { store.set("canopy-cabin", CABIN === "live" ? "baked" : "live"); const u = new URL(location.href); u.searchParams.delete("cabin"); location.replace(u); };
+const CABIN = "live";   // the jeep's cabin light is live (one shadowed spot light): it looked much better than the bake (Adriaen 2026-11-12)
 $("lm").onclick = () => { store.set("canopy-lm", LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 $("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
@@ -818,7 +814,7 @@ if (JEEP !== "none") {
   const local = (x, y, z) => jeep.localToWorld(V(x, y, z));
   const boot = jeep.getObjectByName("Boot")?.position ?? V(0, 0.78, -1.06);
   // the cabin light (Adriaen 2026-11-12): on while any door stands open. CabinLight is its lens (unlit when on); the light it
-  // throws is baked (bakedlight.js, scaled by window.__lights.cabin and .doors, set here) or live (Cabin button).
+  // throws is live: one shadowed spot light (cabSpot), redrawn while a door moves; it replaced the baked keyframes.
   // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the Lamps lenses stay as plain parts.
   const cabinL = jeep.getObjectByName("CabinLight");
   const cabOn = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
