@@ -1,7 +1,8 @@
 // Canopy Camp move lab (camp.html?lab, Adriaen 2026-11-12: "a little move lab where I can inspect the animations for flaws
 // visually"). A panel over the camp: pick one of the seven camp sloths, start any of its moves (leave for food, wander, go
 // home, s'more, wave, everyone out), slow it down, pause and step, follow it with an orbit camera (drag to turn round it,
-// pinch or wheel to zoom), see the path it plans, and scrub any clip frame by frame on it. Loaded only with ?lab.
+// pinch or wheel to zoom), see the path it plans, and scrub any clip frame by frame on it. Opened from the ⚙️ menu (Move lab)
+// or with ?lab; the ✕ closes it and gives back your own view, the normal speed and the live clips.
 import * as THREE from "three";
 import { camera, scene } from "./core.js";
 import { V } from "./forest.js";
@@ -14,6 +15,7 @@ css.textContent = `
   background: rgb(255 248 238 / .94); border-radius: 16px; box-shadow: 0 3px 0 rgb(138 90 59 / .2); font: 500 13px var(--display); color: var(--ink); z-index: 4; touch-action: manipulation; }
 @media (max-width: 700px) { #lab { left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: auto; top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }
 body.lab #q { display: none; } body.lab.follow #stick { display: none; }
+#lab[hidden] { display: none; }
 #lab summary { padding: 8px 12px; font-weight: 700; cursor: pointer; list-style: none; }
 #lab summary::-webkit-details-marker { display: none; }
 #lab .in { padding: 0 12px 12px; display: grid; gap: 8px; }
@@ -27,7 +29,7 @@ body.lab #q { display: none; } body.lab.follow #stick { display: none; }
 #lab .lbl { font-weight: 600; color: var(--soft); font-size: 11.5px; min-width: 42px; }`;
 document.head.appendChild(css);
 const box = document.createElement("details"); box.id = "lab"; box.open = true;
-box.innerHTML = `<summary>🧪 Move lab</summary><div class="in">
+box.innerHTML = `<summary>🧪 Move lab <button id="labClose" style="float:right;padding:2px 9px" aria-label="Close the move lab">✕</button></summary><div class="in">
   <div class="row"><select id="labWho"></select><button id="labFollow" class="on">Follow</button><button id="labPath" class="on">Path</button></div>
   <div class="row"><button data-do="leave">Get food</button><button data-do="wander">Wander</button><button data-do="home">Go home</button>
     <button data-do="smore">S'more</button><button data-do="wave">Wave</button><button data-do="all">Everyone out</button></div>
@@ -35,7 +37,7 @@ box.innerHTML = `<summary>🧪 Move lab</summary><div class="in">
   <div class="row"><span class="lbl">Clip</span><select id="labClip"><option value="">(live)</option></select><button id="labBack">Back to life</button></div>
   <div class="row"><input type="range" id="labT" min="0" max="1" step="0.001" value="0" disabled></div>
   <div class="read" id="labRead"></div></div>`;
-document.body.appendChild(box); document.body.classList.add("lab", "follow");
+document.body.appendChild(box); box.hidden = true;
 for (const e of ["pointerdown", "pointerup", "pointermove", "wheel"]) box.addEventListener(e, (ev) => ev.stopPropagation());
 const $ = (id) => document.getElementById(id);
 const who = $("labWho"), clipSel = $("labClip"), slider = $("labT"), read = $("labRead");
@@ -45,6 +47,7 @@ for (const n of ["idle", "walk", "cling", "hang_walk", "nap", "reach", "curl", "
 let sel = cs[0], follow = true, showPath = true, speed = 1, stepLeft = 0, scrub = null, dist = 1.6 + cs[0].sc * 0.4;
 const pick = () => (sel = cs[+who.value]);
 who.onchange = () => { endScrub(); pick(); dist = 1.6 + sel.sc * 0.4; };
+$("labClose").onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggle(); };
 $("labFollow").onclick = (e) => { follow = !follow; e.target.classList.toggle("on", follow); document.body.classList.toggle("follow", follow); };
 $("labPath").onclick = (e) => { showPath = !showPath; e.target.classList.toggle("on", showPath); };
 const setSpeed = (v) => { speed = v; window.__campFast = v; box.querySelectorAll("[data-sp]").forEach((b) => b.classList.toggle("on", +b.dataset.sp === v)); };
@@ -79,7 +82,7 @@ addEventListener("wheel", (e) => { if (follow) dist = THREE.MathUtils.clamp(dist
 const pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff3d7f, depthTest: false }));
 pathLine.renderOrder = 9; pathLine.frustumCulled = false; scene.add(pathLine);
 const tgt = V(), wp = V();
-window.__labStep = (dt) => {
+const labStep = (dt) => {
   if (stepLeft > 0 && --stepLeft === 0) window.__campFast = 0; else if (stepLeft > 0) window.__campFast = 1;
   const s = sel, T = s.trip;
   pathLine.visible = showPath && T.phase === "walk" && T.path?.length > 0;
@@ -98,3 +101,11 @@ window.__labStep = (dt) => {
     b.disabled = d === "leave" ? ph !== "home" : d === "wander" || d === "home" ? !L.GROUND.has(ph) || ph === "greet" : d === "smore" ? s.spot.name !== "seat" || ph !== "home" : false;
   });
 };
+
+// open and close: closed, the panel is hidden, nothing is driven and you have your own view back
+export function toggle() {
+  const open = box.hidden; box.hidden = !open;
+  document.body.classList.toggle("lab", open); document.body.classList.toggle("follow", open && follow);
+  if (open) { window.__labStep = labStep; setSpeed(1); return; }
+  endScrub(); setSpeed(1); window.__campFast = 1; window.__labStep = null; pathLine.visible = false;
+}

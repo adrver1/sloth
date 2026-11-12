@@ -669,7 +669,10 @@ if (qs.get("campsloths") !== "0") {
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
   window.__lab = { camp, GROUND, leave, goHome, wander, clipOf, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; } };
 }
-if (qs.has("lab")) import("./lab.js");
+// the move lab opens from the settings menu (Adriaen: "add the move lab in the artifact too"), or straight away with ?lab
+{ const b = document.createElement("button"); b.textContent = "Move lab 🧪"; document.getElementById("opts")?.appendChild(b);
+  b.onclick = () => { import("./lab.js").then((m) => m.toggle()); const o = document.getElementById("opts"); o.hidden = true; document.getElementById("menu")?.setAttribute("aria-expanded", "false"); }; }
+if (qs.has("lab")) import("./lab.js").then((m) => m.toggle());
 const COUNT = sloths.length;
 
 // sprites: words, hearts, flowers
