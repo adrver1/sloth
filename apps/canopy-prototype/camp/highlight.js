@@ -1,7 +1,7 @@
 // Canopy Camp highlight: lights up the thing you can use right now (the wood pile, the fire) with a thin warm outline and a
 // soft glow on its faces, instead of a hint icon floating over it. Taken from desk-at-night's free mode (web/src/highlight.js):
 // the outline is the inverted-hull trick (the object's back faces pushed out a fixed number of pixels along smoothed normals,
-// so it is the same width near and far) and the glow an additive rim pass. No new geometry and no postprocessing: while
+// so it is the same width near and far) and the glow an additive rim pass. Skinned meshes (the sloths) get skinned copies. No new geometry and no postprocessing: while
 // something is lit it is drawn twice more (outline, glow), and nothing extra otherwise.
 import * as THREE from "three";
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
@@ -12,9 +12,16 @@ const outlineMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, transparent: true, fog: false,
   uniforms: { uColor: { value: COLOR }, uWidth: { value: 2.5 }, uRes: { value: new THREE.Vector2(1, 1) }, uAlpha: { value: 1 } },
   vertexShader: `uniform float uWidth; uniform vec2 uRes;
+    #include <common>
+    #include <skinning_pars_vertex>
     void main() {
-      vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      vec2 dir = (projectionMatrix * vec4(normalize(normalMatrix * normal), 0.0)).xy;
+      #include <skinbase_vertex>
+      #include <begin_vertex>
+      #include <beginnormal_vertex>
+      #include <skinnormal_vertex>
+      #include <skinning_vertex>
+      vec4 clip = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+      vec2 dir = (projectionMatrix * vec4(normalize(normalMatrix * objectNormal), 0.0)).xy;
       dir = length(dir) > 1e-5 ? normalize(dir) : vec2(0.0);
       clip.xy += dir * uWidth * 2.0 / uRes * clip.w;
       gl_Position = clip;
@@ -26,7 +33,15 @@ const glowMat = new THREE.ShaderMaterial({
   polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
   uniforms: { uColor: { value: COLOR }, uK: { value: 0 } },
   vertexShader: `varying float vRim;
-    void main() { vec4 v = modelViewMatrix * vec4(position, 1.0); vRim = 1.0 - abs(dot(normalize(normalMatrix * normal), normalize(-v.xyz))); gl_Position = projectionMatrix * v; }`,
+    #include <common>
+    #include <skinning_pars_vertex>
+    void main() {
+      #include <skinbase_vertex>
+      #include <begin_vertex>
+      #include <beginnormal_vertex>
+      #include <skinnormal_vertex>
+      #include <skinning_vertex>
+      vec4 v = modelViewMatrix * vec4(transformed, 1.0); vRim = 1.0 - abs(dot(normalize(normalMatrix * objectNormal), normalize(-v.xyz))); gl_Position = projectionMatrix * v; }`,
   fragmentShader: `uniform vec3 uColor; uniform float uK; varying float vRim; void main() { gl_FragColor = vec4(uColor * uK * (0.35 + 0.65 * vRim * vRim), 1.0); }`,
 });
 
@@ -39,13 +54,15 @@ export function createHighlight(scene, renderer, { width = 2.5 } = {}) {
     let p = parts.get(mesh); if (p) return p;
     const g = mesh.geometry, hull = new THREE.BufferGeometry().setAttribute("position", g.getAttribute("position"));
     if (g.index) hull.setIndex(g.index);
-    const welded = mergeVertices(hull, 1e-4); welded.computeVertexNormals();
-    p = { outline: new THREE.Mesh(welded, outlineMat), glow: new THREE.Mesh(g, glowMat) };
+    const welded = mesh.isSkinnedMesh ? g : mergeVertices(hull, 1e-4); if (!mesh.isSkinnedMesh) welded.computeVertexNormals();   // a sloth: its own skinned geometry and smooth normals
+    const Make = mesh.isSkinnedMesh ? THREE.SkinnedMesh : THREE.Mesh;
+    p = { outline: new Make(welded, outlineMat), glow: new Make(g, glowMat) };
+    if (mesh.isSkinnedMesh) for (const m of [p.outline, p.glow]) m.bind(mesh.skeleton, mesh.bindMatrix);
     for (const m of [p.outline, p.glow]) { m.matrixAutoUpdate = false; m.frustumCulled = false; m.visible = false; group.add(m); }
     p.glow.renderOrder = 2; parts.set(mesh, p); return p;
   }
   // the meshes under an object (an object, a list of objects, or null for nothing)
-  const meshesOf = (objs) => { const out = []; for (const o of [objs ?? []].flat()) o.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh) out.push(m); }); return out; };
+  const meshesOf = (objs) => { const out = []; for (const o of [objs ?? []].flat()) o.traverse((m) => { if (m.isMesh && !m.userData.fur) out.push(m); }); return out; };   // skinned too (a sloth's body), not fur shells
   let key = null;
   return {
     set(objs) {

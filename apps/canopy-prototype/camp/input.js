@@ -75,9 +75,14 @@ $("c").addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") h
 $("c").addEventListener("pointerleave", () => (hover = null));
 function aimStep(dt) {
   let best = null;
-  if (hover) { if (!looks.size) { pickAt(hover.x, hover.y, []); const a = acts.pick(ray); if (a && acts.ready(a.thing)) best = a.thing; } else best = lit; }   // a mouse: what it is over (kept while dragging)
+  if (hover) { if (!looks.size) { const h = pickAt(hover.x, hover.y, hit), a = acts.pick(ray); if (a && acts.ready(a.thing) && (!h || a.distance < h.distance)) best = a.thing; else if (h && h.distance < 7) best = { look: h.object.userData.s.lit }; } else best = lit; }   // a mouse: what it is over (kept while dragging); a sloth lights up when a tap would boop it
   else {
     camera.getWorldDirection(fwd); let bestA = AIM;
+    for (const box of hit) {                          // the sloths you could boop or feed (within reach, as tap() asks)
+      to.subVectors(box.position, camera.position); const d = to.length(); if (d > 7) continue;
+      const ang = fwd.angleTo(to) - Math.asin(Math.min(1, 0.42 / d));
+      if (ang < bestA) { bestA = ang; best = { look: box.userData.s.lit }; }
+    }
     for (const t of acts.things) {
       if (!t.look || !acts.ready(t)) continue;
       to.subVectors(t.box.position, camera.position); const d = to.length(), r = t.box.geometry.parameters.radius;

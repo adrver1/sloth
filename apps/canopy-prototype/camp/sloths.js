@@ -57,6 +57,7 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
   const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(p).add(V(0, -0.25, 0)); scene.add(box);
   const s = { o, mixer, box, p, sc, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false, shells: o.userData.furShells || [], eyes: eyeKit(o), blink: R(1, 6), look: 0,
     arm: [o.getObjectByName("upper_armR") || o.getObjectByName("upper_arm.R"), o.getObjectByName("forearmR") || o.getObjectByName("forearm.R")], gaze: 0, waveCD: 0, wave: 0 };
+  s.lit = []; o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur && !s.lit.length) s.lit.push(m); });   // what lights up when a tap would boop it (camp/highlight.js)
   box.userData.s = s; sloths.push(s); hit.push(box);
 }
 const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), va = V(), vb = V();
