@@ -642,12 +642,12 @@ def toy():
 
 
 def jerry_can(x, y, z, m):
-    """An upright jerry can, thin across X: a side profile with the spout corner cut off, a three-handle bridge on top
-    with real holes (one concave prism), the X pressed into each side painted as two darker strips, and a spout cap."""
+    """An upright jerry can, thin across X: a side profile with the spout corner cut off, a carry handle on top
+    with a real hole (one concave prism), the X pressed into each side painted as two darker strips, and a spout cap."""
     L, H, T = 0.35, 0.40, 0.17
     body = prism([(y - L / 2, z), (y + L / 2, z), (y + L / 2, z + H), (y - L / 2 + 0.075, z + H), (y - L / 2, z + H - 0.07)], T, m, x0=x)
-    b = y + L / 2 - 0.005                    # handle bridge, from the back corner forward, three holes under it
-    legs = [(b, b - 0.04), (b - 0.095, b - 0.13), (b - 0.185, b - 0.22)]
+    b = y + L / 2 - 0.02                     # one carry handle: a loop on two legs with a single hole under it
+    legs = [(b, b - 0.035), (b - 0.165, b - 0.2)]
     prof = [(legs[-1][1], z + H), (legs[-1][1], z + H + 0.07), (b, z + H + 0.07)]
     for i, (y0, y1) in enumerate(legs):
         prof += [(y0, z + H), (y1, z + H)]
