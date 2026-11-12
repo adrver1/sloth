@@ -99,10 +99,11 @@ function slothLife(s, dt) {                            // after the clip: fur by
   }
   if (s.wave && s.arm[1]) {                            // upper arm up and out beside the head, the forearm swinging slowly side to side
     const k = s.wave, e = sstep(0, 0.9, k) * (1 - sstep(WAVE_S - 0.9, WAVE_S, k));
+    const left = s.spot?.name === "seat" && s.armL?.[1], arm = left ? s.armL : s.arm, sg = left ? -1 : 1;   // Sunny waves with its left: the right holds the s'more stick (Adriaen)
     s.o.getWorldQuaternion(oq);
-    aimBone(s.arm[0], wa.set(0.55, 0.8, -0.25).normalize().applyQuaternion(oq), e);
+    aimBone(arm[0], wa.set(0.55 * sg, 0.8, -0.25).normalize().applyQuaternion(oq), e);
     const sw = Math.sin((k - 0.9) * 2 * Math.PI * 0.55) * 0.5 * sstep(0.6, 1.2, k);
-    aimBone(s.arm[1], wf.set(0.15 + sw, 1, -0.2).normalize().applyQuaternion(oq), e);
+    aimBone(arm[1], wf.set((0.15 + sw) * sg, 1, -0.2).normalize().applyQuaternion(oq), e);
   }
   // asleep (a doze, below): the head sinks; the curled-up clip already tucks it, so less then
   s.droop += ((s.dozing && s.asleep ? 1 : 0) - s.droop) * Math.min(1, dt * 0.8);
@@ -117,7 +118,7 @@ function slothLife(s, dt) {                            // after the clip: fur by
 // muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.
 const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();
   g.fillStyle = "#e07a8a"; g.beginPath(); g.ellipse(32, 48, 16, 11, 0, 0, 7); g.fill(); });
-const mouthMat = new THREE.MeshBasicMaterial({ map: mouthTex, alphaTest: 0.5 }), mouthGeo = new THREE.PlaneGeometry(0.026, 0.026);
+const mouthMat = new THREE.MeshBasicMaterial({ map: mouthTex, alphaTest: 0.5 }), mouthGeo = new THREE.PlaneGeometry(0.036, 0.034);
 function mouthOf(s) {                                 // also opens and closes as it chews (eating, below)
   if (!s.mouth) { s.mouth = new THREE.Mesh(mouthGeo, mouthMat); s.mouth.position.set(0, 0.046, -0.1); s.mouth.rotation.set(-0.15, Math.PI, 0); s.mouth.visible = false; s.head.add(s.mouth); }
   return s.mouth;
@@ -650,7 +651,7 @@ if (qs.get("campsloths") !== "0") {
   // triangles each) with one painted texture, a fan of 3 per player and a pile of at most 8: 44 triangles while they play.
   const cardTex = canvasTex(64, 96, (g) => { g.fillStyle = "#fff8ee"; g.fillRect(0, 0, 64, 96); g.strokeStyle = "#c9a27a"; g.lineWidth = 4; g.strokeRect(3, 3, 58, 90);
     g.fillStyle = "#e0566f"; g.beginPath(); g.moveTo(32, 66); g.bezierCurveTo(4, 44, 18, 22, 32, 38); g.bezierCurveTo(46, 22, 60, 44, 32, 66); g.fill(); });
-  const cardMat = new THREE.MeshLambertMaterial({ map: cardTex, side: THREE.DoubleSide }), cardGeo = new THREE.PlaneGeometry(0.036, 0.054);
+  const cardMat = new THREE.MeshLambertMaterial({ map: cardTex, side: THREE.DoubleSide }), cardGeo = new THREE.PlaneGeometry(0.055, 0.08);
   const pile = []; let game = null;
   const lpaw = V(), qL = new THREE.Quaternion();
   function lpawOf(s, out) { s.armL[0].getWorldPosition(shoulder); s.armL[1].getWorldPosition(elbow); return out.copy(UP).applyQuaternion(s.armL[1].getWorldQuaternion(qL)).multiplyScalar(shoulder.distanceTo(elbow) * 0.82).add(elbow); }
@@ -663,12 +664,12 @@ if (qs.get("campsloths") !== "0") {
   }
   function cardsSit(s, T) {
     T.st = "cards"; T.t = 0; T.next = R(3, 6); play(s, "idle", 1);
-    if (!s.hand) { s.hand = new THREE.Group(); for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(cardGeo, cardMat); c.position.set((k - 1) * 0.012, 0.03, k * 0.002); c.rotation.z = (1 - k) * 0.35; s.hand.add(c); } scene.add(s.hand); }
+    if (!s.hand) { s.hand = new THREE.Group(); for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(cardGeo, cardMat); c.position.set((k - 1) * 0.016, 0.04, k * 0.002); c.rotation.z = (1 - k) * 0.35; s.hand.add(c); } scene.add(s.hand); }
     s.hand.visible = true;
   }
   function cardsStep(s, T, sd) {
     const g = game, other = g?.players.find((q) => q !== s);
-    lpawOf(s, lpaw); s.hand.position.copy(lpaw); s.hand.quaternion.copy(s.o.quaternion).multiply(q0.setFromAxisAngle(V(1, 0, 0), -0.5)); s.hand.scale.setScalar(s.sc / 2);
+    lpawOf(s, lpaw); s.hand.position.copy(lpaw).y += 0.05 * s.sc / 2; s.hand.quaternion.copy(s.o.quaternion).multiply(q0.setFromAxisAngle(V(1, 0, 0), 0.35)); s.hand.scale.setScalar(s.sc / 2);   // held up before it, faces toward it
     if (!g || g.over) {                               // the game's over: down off the table and home
       if (s.dozing) { s.dozing = s.asleep = false; s.eyes(false); s.yawn = 1e-3; }
       if (s.once) return;
@@ -683,7 +684,8 @@ if (qs.get("campsloths") !== "0") {
     g.t += sd / 2; if (g.t > g.len) g.over = true;
     if (s.once) {                                     // laying a card: at the reach's far end it goes onto the pile, then back to sitting
       if (!T.laid && s.act.time > 1.7) { T.laid = true; const c = pile.find((q) => !q.visible) ?? (pile.length < 8 ? (pile.push(new THREE.Mesh(cardGeo, cardMat)), pile.at(-1)) : pile[0]); scene.add(c); c.visible = true;
-        const mid = T.slot.food.at.clone().lerp(g.P.c.clone().setY(T.slot.food.at.y), 0.6); c.position.set(mid.x + R(-0.03, 0.03), T.slot.food.at.y - 0.022 + pile.filter((q) => q.visible).length * 0.002, mid.z + R(-0.03, 0.03)); c.rotation.set(-Math.PI / 2, 0, R(0, 6.3)); }
+        const u = g.P.slots[0].u, mid = g.P.c.clone().add(V(-u.z, 0, u.x).multiplyScalar(0.22));   // beside the fruit plate, between them
+        c.position.set(mid.x + R(-0.03, 0.03), T.slot.h + 0.004 + pile.filter((q) => q.visible).length * 0.002, mid.z + R(-0.03, 0.03)); c.rotation.set(-Math.PI / 2, 0, R(0, 6.3)); }
       if (s.act.time > 2.3) { s.once = null; play(s, "idle", 0.9); g.turn = 1 - g.players.indexOf(s); T.next = R(4, 8); }
       return;
     }
@@ -706,16 +708,21 @@ if (qs.get("campsloths") !== "0") {
   }
   // during an eat clip: from the grab the food is in its paw, and it gets a bite smaller each time the mouth closes (the
   // clip's head bobs nine times a clip, four while it holds it to its mouth, 3.2 to 6.8 s); a painted mouth opens and shuts
+  const mouthW = V();
   function chewStep(s, mesh, from, t0) {
     const t = s.act.time; if (t < t0) return;
     pawOf(s, paw); mesh.position.lerpVectors(from, paw, sstep(t0, t0 + 0.35, t));
+    mouthOf(s).getWorldPosition(mouthW); mesh.position.lerp(mouthW, 0.75 * sstep(2.8, 3.3, t) * (1 - sstep(6.6, 7.0, t)));   // right up to its lips while it bites
     const bites = t < 3.2 ? 0 : Math.floor((t - 3.2) / (8 / 9)), base = mesh.userData.base;
     if (base) mesh.scale.copy(base).multiplyScalar(1 - 0.22 * bites);
     mesh.visible = bites < 4;
     const m = mouthOf(s), open = t > 3.0 && t < 6.9 ? Math.max(0, Math.sin(2 * Math.PI * 9 * (t / 8 - 0.4) + 0.6)) : 0;
-    m.visible = open > 0.08; m.scale.set(0.75, Math.max(0.01, open * 0.65), 1);
+    m.visible = open > 0.08; m.scale.set(0.9, Math.max(0.01, open), 1);
   }
-  function wander(s) { walkTo(s, wanderPoint(), () => { Object.assign(s.trip, { phase: "rest", t: 0, dur: R(5, 9), nap: R(0, 1) < 0.55 }); play(s, "idle", 1.2); }); }
+  function wander(s) {
+    const lg = ["log:1", "log:2"].find((k) => claims.get(k) === "operator" && hosts.has(k));   // he's on a log: now and then go and sit with him
+    if (lg && R(0, 1) < 0.25) { const o = scene.getObjectByName(`Seat_${lg[4]}`); if (o) { const c = o.position.clone().setY(0); return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!life.join(lg, s)) goHome(s); }); } }
+    walkTo(s, wanderPoint(), () => { Object.assign(s.trip, { phase: "rest", t: 0, dur: R(5, 9), nap: R(0, 1) < 0.55 }); play(s, "idle", 1.2); }); }
   function goHome(s) {
     const spot = s.spot;
     walkTo(s, spot.via ?? spot.door, () => {
@@ -872,8 +879,9 @@ if (qs.get("campsloths") !== "0") {
     const st = window.__me?.seat; let i = -1;
     if (st) { let best = 1.2; LOGS.forEach((o, k) => { if (o) { const d = Math.hypot(o.position.x - st.pos.x, o.position.z - st.pos.z); if (d < best) { best = d; i = k; } } }); }
     if (i === mySeat) return;
-    if (mySeat >= 0) life.release(`log:${mySeat}`, "player");
-    if (i >= 0) life.claim(`log:${i}`, "player");
+    const key = (k) => k === 0 ? "log:0:left" : `log:${k}`;   // Sunny's bench: you sit to its left (linger.js), Sunny keeps "log:0"
+    if (mySeat >= 0) life.release(key(mySeat), "player");
+    if (i >= 0) life.claim(key(i), "player");
     mySeat = i;
   }
   campStep = (dt) => {
