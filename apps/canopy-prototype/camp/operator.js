@@ -190,8 +190,13 @@ function* walkTo(to, { near = 0.12 } = {}) {
     }
     want.normalize();
     let speed = WALK * Math.min(1, dist / 0.4 + 0.35);
-    if (block) { speed = 0; waited += dt; if (waited > 2.5) want.add(V(-block[1], 0, block[0])).normalize(); } else waited = 0;   // someone in the way: wait, then step round
-    if (block && waited > 2.5) speed = WALK * 0.5;
+    // someone in the way: a short pause, then he steps round them and walks on past (Adriaen: he queued behind slow sloths,
+    // and they waited for him too, so a jam formed); he keeps to the side he started overtaking on
+    if (block) { waited += dt; if (waited < 0.6) speed = 0; else { op.pass = { side: op.pass?.side ?? 1, t: 1.6, d: block }; } } else waited = 0;
+    if (op.pass && waited >= 0.6 || op.pass?.t > 0 && !block) {   // overtaking: committed to the side step for 1.6 s, then back on his line
+      op.pass.t -= dt; want.addScaledVector(V(-op.pass.d[1], 0, op.pass.d[0]), 1.4 * op.pass.side * Math.min(1, op.pass.t + 0.4)).normalize(); speed = WALK * 0.8;
+      if (op.pass.t <= 0 && !block) op.pass = null;
+    }
     const turn = turnToward(yawTo(want), dt, 3.2); if (turn > 1.2) speed *= 0.3;
     const fwd = csDir(0, 0, -1).setY(0).normalize();
     const was = p.clone(); p.addScaledVector(fwd, speed * dt); p.y = groundAt(p.x, p.z);
@@ -642,7 +647,7 @@ if (ON) {
     talk, tapCol, clearSpot, line: () => say.textContent, tapAt: () => op.scr,
     sim: (sec) => { for (let t = 0; t < sec; t += 0.05) opStep(0.05); return window.__op.state(); },   // run his life ahead (checks)
     tris: () => { let n = 0; root.traverse((m) => { if (m.isMesh) n += m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3; }); return n; },
-    jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); Object.assign(op, { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null }); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0);
+    jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); Object.assign(op, { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null, pass: null }); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0);
       it = (function* () { op.kind = k; yield* DO[k](); op.kind = "idle"; yield* lifeLoop(); })(); it.next(); } };
 }
 
