@@ -172,6 +172,7 @@ function* walkTo(to, { near = 0.12 } = {}) {
   play("walk", 0.3, { speed: 0.9 });
   while (pts.length) {
     const dt = yield, p = root.position, goal = pts[0], d = tmp.set(goal.x - p.x, 0, goal.z - p.z), dist = d.length();
+    if (talkSt.t > 0 && !op.carry) { yield* listen(); play("walk", 0.3, { speed: 0.9 }); continue; }   // spoken to: stop, turn to you, then walk on
     if (dist < (pts.length > 1 ? 0.3 : near)) { pts.shift(); continue; }
     const want = d.normalize().clone();
     // keep clear of blockers (unless the goal is inside one: a seat, the bed) and of everyone walking about
@@ -199,6 +200,12 @@ function* walkTo(to, { near = 0.12 } = {}) {
     if (stuck > 3) { pts.splice(0, pts.length, ...pathTo(to)); stuck = 0; }
   }
   play("idle", 0.4);
+}
+function* listen() {                                   // stop and turn to you while you talk, then a moment before going on
+  play("idle", 0.3);
+  yield* face(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)));
+  while (talkSt.t > 0) { const dt = yield; turnToward(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2); }
+  yield* wait(0.6);
 }
 function* face(yaw) {                                  // turn on the spot with small steps (the walk clip, slow), easing in and out
   let d = Math.abs(Math.atan2(Math.sin(yaw - root.rotation.y), Math.cos(yaw - root.rotation.y))); if (d < 0.05) return;
@@ -511,12 +518,26 @@ function opStep(dt) {
   }
   // the head: a look down at a book or a sloth, round the camp, or at you when you're near and he's awake
   const camD = camera.position.distanceTo(root.position);
-  if (!op.sleeping && !op.lying && (camD < 4 && op.look > -0.3 || talkSt.t > 0 && camD < 8)) {
-    lookT = Math.min(1, lookT + dt * 2);
-    const to = camera.position.clone().sub(B.head.getWorldPosition(V())).normalize(), f = csDir(0, 0, -1);
-    if (to.dot(f) > -0.1) aimBone(B.neck, to.clone().lerp(UP, 0.82).normalize(), 0.5 * lookT), aimBone(B.head, to.clone().lerp(UP, 0.6).normalize(), 0.4 * lookT);
+  // While you talk to him he looks at you as far as a neck can turn: up to about 75° either side of where his body faces, then
+  // held at that limit; with you behind him (past 120°) he doesn't try (Adriaen: don't break his neck). Otherwise a glance
+  // when you're near.
+  const talking = talkSt.t > 0 || talkSt.smile > 1.5;
+  if (!op.sleeping && !op.lying && (camD < 4 && op.look > -0.3 || talking && camD < 9)) {
+    const hp = B.head.getWorldPosition(V()), to = camera.position.clone().sub(hp), f = csDir(0, 0, -1).setY(0).normalize();
+    let a = Math.atan2(to.x, to.z) - Math.atan2(f.x, f.z); a = Math.atan2(Math.sin(a), Math.cos(a));
+    const ok = Math.abs(a) < 2.1;
+    lookT = ok ? Math.min(1, lookT + dt * 2) : Math.max(0, lookT - dt * 2);
+    if (lookT > 0) {
+      const lim = 1.3, ca = THREE.MathUtils.clamp(a, -lim, lim), hz = Math.hypot(to.x, to.z), dir = f.clone().applyAxisAngle(UP, ca).multiplyScalar(hz).setY(to.y).normalize();
+      const w = talking ? 1 : 0.8;
+      aimBone(B.neck, dir.clone().lerp(UP, 0.8).normalize(), 0.55 * lookT * w); aimBone(B.head, dir.clone().lerp(UP, 0.55).normalize(), 0.5 * lookT * w);
+    }
   } else lookT = Math.max(0, lookT - dt * 2);
-  if (op.look) B.head.rotateX(op.look * 0.6), B.neck.rotateX(op.look * 0.3);
+  const down = talking ? op.look * Math.max(0, 1 - lookT) : op.look;   // he looks up from his bowl or book to you
+  if (down) B.head.rotateX(down * 0.6), B.neck.rotateX(down * 0.3);
+  // standing about with his hands free when you talk to him: he turns to you (walking, listen() stops him first)
+  if (talking && !op.seated && !op.lying && cur === acts.idle && !op.ik && !op.eat && !op.inHand && !op.carry)
+    turnToward(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2);
   // a wave back when you keep looking at him for 3 s (standing about, not busy)
   if (op.kind === "stroll" && cur === acts.idle && camD < 9) {
     const v = root.position.clone().add(V(0, 1.5, 0)).project(camera);
