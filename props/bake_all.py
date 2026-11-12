@@ -13,7 +13,8 @@ in several different places", and bake the whole scene as one). Run it whenever 
             models/camp_shadow_picked_<jeep>.png         ground: day shadow (sun + sky)
             models/camp_ground_night_picked_<jeep>.png   ground: night light
           and the props' GLBs/txt
-  ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), next to the PNGs, which stay as the fallback;
+  ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), base64 in <map>.ktx2.txt next to the PNGs (artifacts
+          don't serve .ktx2), which stay as the fallback;
           needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH
   layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (prop spots, the jeep's track, the path),
           served on :8765 by this script -> props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>)
@@ -60,7 +61,10 @@ if "ktx" in steps:
         out = f[:-4] + ".ktx2"
         run([TOKTX, "--t2", "--encode", "uastc", "--uastc_quality", "2", "--uastc_rdo_l", "1.0", "--zcmp", "19",
              "--assign_oetf", "linear", "--assign_primaries", "none", "--genmipmap", out, f])
-        print(f"  {os.path.basename(out)}: {os.path.getsize(out) // 1024} KB (png {os.path.getsize(f) // 1024} KB)", flush=True)
+        import base64   # artifacts don't serve .ktx2: the page loads them base64 from .ktx2.txt, like the models
+        with open(out, "rb") as fi, open(out + ".txt", "w") as fo: fo.write(base64.b64encode(fi.read()).decode())
+        print(f"  {os.path.basename(out)}: {os.path.getsize(out) // 1024} KB, as text {os.path.getsize(out + '.txt') // 1024} KB (png {os.path.getsize(f) // 1024} KB)", flush=True)
+        os.remove(out)
     import json
     jf = os.path.join(M, "camp_lights.json"); j = json.load(open(jf)); j["ktx2"] = True; json.dump(j, open(jf, "w"), indent=1)   # tells the page to try .ktx2
 if "layout" in steps:

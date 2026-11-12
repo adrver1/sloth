@@ -18,7 +18,9 @@ export function initKtx(renderer) {
 }
 export async function loadLightMap(png) {
   let t = null;
-  if (ktx && (await META).ktx2) t = await ktx.loadAsync(png.replace(/\.png$/, ".ktx2")).catch(() => null);   // only once the bake wrote them
+  // artifacts don't serve .ktx2, so the maps ship base64 in .ktx2.txt files like the models (still well under the PNGs)
+  if (ktx && (await META).ktx2) t = await fetch(png.replace(/\.png$/, ".ktx2.txt")).then((r) => (r.ok ? r.text() : Promise.reject()))
+    .then((b64) => new Promise((ok, no) => ktx.parse(Uint8Array.from(atob(b64.trim()), (c) => c.charCodeAt(0)).buffer, ok, no))).catch(() => null);   // only once the bake wrote them
   t ??= await new THREE.TextureLoader().loadAsync(png);
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;   // data, decoded in the shaders
 }
