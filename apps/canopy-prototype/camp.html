@@ -845,7 +845,10 @@ if (JEEP !== "none") {
     if (cabinL) { cabinL.material = cab > 0.02 ? cabOn : jm; cabOn.color.copy(OFF).lerp(CL, cab); }
     beamM.opacity = 0.11 * hl; for (const b of beams) b.visible = hl > 0.02;
     glow.material.opacity = 0.55 * cab; glow.visible = cab > 0.02;
-    if (window.__lights) { window.__lights.headlights = hl; window.__lights.cabin = cab; }
+    if (window.__lights) {                            // gains for bakedlight.js: headlights, cabin light, and each door's spill by how far it is open (0 to 1)
+      const f = (k) => doors[k] ? Math.abs(doors[k].cur / doors[k].open) : 0;
+      window.__lights.headlights = hl; window.__lights.cabin = cab; window.__lights.doors = { passenger: f("P"), driver: f("D"), back: f("B") };
+    }
   };
   jeepStep = (dt) => {
     for (const d of Object.values(doors)) {
