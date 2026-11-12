@@ -2,9 +2,9 @@
 // props/camp/bake_camp_lightmap.py bakes the whole scene once and keeps each light on its own channel, in white,
 // as light / 4 with gamma 2.2 (models/camp_lights.json has the colours):
 //   camp_lm / camp_ground_night   R fire, G stove, B lanterns, A moon (+ night sky)
-//   camp_lm_sun (B, A) / camp_ground_jeep (R, G)   the jeep's headlights and cabin light
+//   camp_lm_sun A / camp_ground_jeep G   the jeep's cabin light (B / R held the headlights, dropped 2026-11-12)
 // so the page colours them, flickers the fire and the stove on their own, switches the jeep's lights (the jeep code sets
-// GAIN.headlights / GAIN.cabin, 0..1), dims or brightens any of them live, and adds the warm ones a little by day (they
+// GAIN.cabin and GAIN.doors, 0..1), dims or brightens any of them live, and adds the warm ones a little by day (they
 // show in the shade; the sun drowns them in the open). window.__lights is GAIN, to tune live.
 import * as THREE from "three";
 
@@ -12,13 +12,13 @@ const C = (r, g, b) => new THREE.Vector3(r, g, b);
 export const LIGHT = {
   uLCol: { value: [C(1.0, 0.5, 0.2), C(1.0, 0.55, 0.15), C(1.0, 0.72, 0.38), C(0.55, 0.65, 1.0), C(1.0, 0.8, 0.62), C(1.0, 0.89, 0.66)] },   // fire, stove, lanterns, moon, headlights, cabin
   uLK: { value: new THREE.Vector4(1, 1, 1, 1) },      // fire, stove, lanterns, moon strength this frame (flicker x gain)
-  uLJ: { value: new THREE.Vector2(0, 0) },            // headlights, cabin (0 = off)
+  uLJ: { value: new THREE.Vector2(0, 0) },            // (unused, cabin): the cabin light (0 = off)
   uLD: { value: new THREE.Vector3(0, 0, 0) },         // how far each door is open (passenger, driver, back): picks its spill keyframes
   uGP: { value: new THREE.Vector3(-5.2, -9.4, 6) },  // that spill's ground patch: x0, z0, size (models/camp_lights.json)
   uLDay: { value: 0.5 },                               // how much of the warm camp lights shows by day
 };
 export const GAIN = { fire: 1, stove: 1, lanterns: 1, moon: 1, day: 0.5, headlights: 0, cabin: 0, cabinBoost: 3, doors: { P: 0, D: 0, B: 0 } };   // doors: how far each is open, 0..1
-fetch("models/camp_lights.json").then((r) => r.json()).then((j) => [...j.channels, ...(j.jeep_channels || [])].forEach((g, i) => LIGHT.uLCol.value[i].set(...j.colour[g])) || (j.door_patch && LIGHT.uGP.value.set(j.door_patch.x0, j.door_patch.z0, j.door_patch.size))).catch(() => {});
+fetch("models/camp_lights.json").then((r) => r.json()).then((j) => [...j.channels, ...(j.jeep_channels || [])].forEach((g, i) => j.colour[g] && LIGHT.uLCol.value[i].set(...j.colour[g])) || (j.door_patch && LIGHT.uGP.value.set(j.door_patch.x0, j.door_patch.z0, j.door_patch.size))).catch(() => {});
 
 // GLSL: decode texels, the camp's night light, its warm lights alone, the jeep's lights, and the hue-keeping tone
 export const LIGHT_GLSL = `
@@ -27,7 +27,7 @@ vec4 lmDecode(vec4 t) { return pow(t, vec4(2.2)); }
 vec2 lmDecode2(vec2 t) { return pow(t, vec2(2.2)); }
 vec3 lmNight(vec4 q) { q *= uLK; return uLCol[0] * q.x + uLCol[1] * q.y + uLCol[2] * q.z + uLCol[3] * q.w; }
 vec3 lmWarm(vec4 q) { q *= uLK; return uLCol[0] * q.x + uLCol[1] * q.y + uLCol[2] * q.z; }
-vec3 lmJeep(vec2 j) { j *= uLJ; return uLCol[4] * j.x + uLCol[5] * j.y; }
+vec3 lmJeep(vec2 j) { return uLCol[5] * j.y * uLJ.y; }   // the cabin light (the .x channel held the headlights, dropped)
 vec3 lmDoors(vec3 d) { return uLCol[5] * (d.x + d.y + d.z) * uLJ.y; }   // d: each door's spill, from doorKey
 // a door's spill at opening f (0..1) from its four baked openings (RGBA = a quarter, half, three quarters, full open)
 float doorKey(vec4 k, float f) { f *= 4.0; return f < 1.0 ? k.x * f : f < 2.0 ? mix(k.x, k.y, f - 1.0) : f < 3.0 ? mix(k.y, k.z, f - 2.0) : mix(k.z, k.w, min(f - 3.0, 1.0)); }
@@ -53,7 +53,7 @@ export function bindLight(sh) { Object.assign(sh.uniforms, LIGHT); }
 export function stepLight(fl, t) {
   const st = 0.85 + 0.15 * Math.sin(t * 5.1) * Math.sin(t * 2.3 + 1.7);       // the stove: slower, from behind its door
   LIGHT.uLK.value.set(GAIN.fire * fl, GAIN.stove * st, GAIN.lanterns, GAIN.moon);
-  LIGHT.uLJ.value.set(GAIN.headlights, GAIN.cabin * GAIN.cabinBoost);   // the cabin's 15 W bake reads dim: boosted, doors included (lmDoors uses uLJ.y)
+  LIGHT.uLJ.value.set(0, GAIN.cabin * GAIN.cabinBoost);   // the cabin's 15 W bake reads dim: boosted, doors included (lmDoors uses uLJ.y)
   LIGHT.uLD.value.set(GAIN.doors.P, GAIN.doors.D, GAIN.doors.B);
   LIGHT.uLDay.value = GAIN.day;
 }
