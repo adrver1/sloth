@@ -426,7 +426,7 @@ def rustic():
     return out
 
 
-STOVE = (1.0, 0.85, 0.42)        # the stove's fire, in the tent's own frame (bake_camp_night.py puts a light there)
+STOVE = (1.0, 0.85, 0.42)        # the stove's fire, in the tent's own frame (bake_camp_lightmap.py puts a light there)
 
 
 def wall_tent():
