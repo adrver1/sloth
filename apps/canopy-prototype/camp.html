@@ -847,7 +847,7 @@ if (JEEP !== "none") {
     glow.material.opacity = 0.55 * cab; glow.visible = cab > 0.02;
     if (window.__lights) {                            // gains for bakedlight.js: headlights, cabin light, and each door's spill by how far it is open (0 to 1)
       const f = (k) => doors[k] ? Math.abs(doors[k].cur / doors[k].open) : 0;
-      window.__lights.headlights = hl; window.__lights.cabin = cab; window.__lights.doors = { passenger: f("P"), driver: f("D"), back: f("B") };
+      window.__lights.headlights = hl; window.__lights.cabin = cab; window.__lights.doors = { P: f("P"), D: f("D"), B: f("B") };
     }
   };
   jeepStep = (dt) => {
