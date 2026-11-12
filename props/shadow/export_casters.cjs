@@ -4,6 +4,7 @@
 //   node props/shadow/export_casters.cjs [props=picked] [jeep=expedition]
 // Opens camp.html in headless Chromium, takes ground.js's casters() (standing opaque props in the clearing; no trees, no sloths),
 // bakes each one's world matrix into its geometry and writes props/shadow/casters_<props>_<jeep>.glb (geometry only).
+// With the default jeep it also writes layout_<props>.json (prop spots, the track, the glade path) for props/ground/bake_ground.py.
 const { chromium } = require("playwright"), fs = require("fs"), path = require("path");
 const [props = "picked", jeep = "expedition"] = process.argv.slice(2), root = path.resolve(__dirname, "../..");
 (async () => {
@@ -23,8 +24,11 @@ const [props = "picked", jeep = "expedition"] = process.argv.slice(2), root = pa
       geo.applyMatrix4(o.matrixWorld); const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial()); m.name = o.name || "part"; g.add(m); names.push(m.name);
     }
     const buf = await new GLTFExporter().parseAsync(g, { binary: true });
-    return { names, b64: btoa(Array.from(new Uint8Array(buf), (c) => String.fromCharCode(c)).join("")) };
+    const L = window.__ground.layout, tent = window.__camp.tentAt;
+    const layout = { ...L, glade: (window.__glade?.path || []).map((p) => [p.x, p.z]), tent: tent ? [tent.x, tent.z] : null };
+    return { names, layout, b64: btoa(Array.from(new Uint8Array(buf), (c) => String.fromCharCode(c)).join("")) };
   });
   const f = path.join(__dirname, `casters_${props}_${jeep}.glb`); fs.writeFileSync(f, Buffer.from(out.b64, "base64"));
+  if (jeep === "expedition") fs.writeFileSync(path.join(__dirname, `layout_${props}.json`), JSON.stringify(out.layout));   // for props/ground/bake_ground.py
   console.log(`${out.names.length} casters -> ${f}\n${out.names.join(", ")}`); await b.close();
 })();

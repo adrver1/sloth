@@ -13,7 +13,7 @@ const canvasTex = (w, h, draw, srgb = true) => {
 };
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, seed = 77 }) {
+export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, baked = null, seed = 77 }) {
   // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
   let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
@@ -50,6 +50,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     for (const [c, r] of spots) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
   }, false);
+  if (baked) { const g = wear.image.getContext("2d"); g.globalCompositeOperation = "copy"; g.drawImage(baked.mask, 0, 0, M, M); wear.needsUpdate = true; }   // the baked wear map (props/ground/bake_ground.py) for the plants' lookups
   wear.anisotropy = 1; wear.flipY = false;   // canvas rows run with +z, like the shader's lookup
 
   // ---------------------------------------------------------------- shadows (Adriaen 2026-11-12): the page has no shadow maps, so castShadows(renderer)
@@ -136,11 +137,17 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   // ---------------------------------------------------------------- the floor: one disc in world coordinates, grass and dirt blended by the wear map
   const geo = new THREE.CircleGeometry(RR, 48).rotateX(-Math.PI / 2).translate(0, 0.012, 0);
   const grassMap = clearing.material.map;
+  let bakedMask = null, bakedSoil = null;
+  if (baked) {
+    bakedMask = new THREE.CanvasTexture(baked.mask); bakedMask.flipY = false; bakedMask.colorSpace = THREE.NoColorSpace;
+    bakedSoil = new THREE.TextureLoader().load(baked.soil); bakedSoil.flipY = false; bakedSoil.anisotropy = 4;   // sRGB, decoded in the shader like the dirt tile
+  }
   const mat = new THREE.MeshLambertMaterial({ map: grassMap });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uMask: { value: wear }, uDirt: { value: dirtTex }, uR: { value: RR }, uNight: night });
+    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night });
+    if (baked) sh.defines = { ...sh.defines, BAKED: 1 };
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt; uniform float uR, uNight;")
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil; uniform float uR, uNight;")
       .replace("#include <map_fragment>", `#include <map_fragment>
         float rr = length(vG);
         float h = fract(sin(dot(floor(vG * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
@@ -148,10 +155,17 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
         vec4 mk = texture2D(uMask, vG / (2.0 * uR) + 0.5);
         vec3 dt = sRGBTransferEOTF(texture2D(uDirt, vG * 0.45)).rgb;
         vec3 gr = diffuseColor.rgb * mix(vec3(1.18, 1.1, 0.82), vec3(0.72, 0.9, 0.62), mk.g);   // dry and pale ... lush and deep
+        #ifdef BAKED
+          // baked soil (props/ground/bake_ground.py): its own colour, ash and litter; the tiled dirt adds a little grain up close
+          float d = mk.r;
+          vec3 c = mix(gr, sRGBTransferEOTF(texture2D(uSoil, vG / (2.0 * uR) + 0.5)).rgb * mix(1.0, dot(dt, vec3(1.0)) / dot(sRGBTransferEOTF(textureLod(uDirt, vec2(0.5), 10.0)).rgb, vec3(1.0)), 0.3), d);
+          diffuseColor.rgb = c;
+        #else
         float d = 0.92 * smoothstep(0.3, 0.7, mk.r + (dot(dt, vec3(0.33)) - 0.25) * 0.6);
         vec3 c = mix(gr, dt, d);
         float ashy = 1.0 - smoothstep(1.0, 1.6, rr);                         // grey ash by the fire, dark wet mud elsewhere
         diffuseColor.rgb = mix(c * (1.0 - 0.45 * mk.b * d), mix(c, vec3(0.30, 0.28, 0.26) * (0.8 + 0.4 * dot(dt, vec3(0.33))), 0.85 * mk.b), ashy);
+        #endif
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
@@ -251,9 +265,10 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   const counts = [0, 1, 2, 3].map((t) => pick.filter((p) => p[2] === t).length);
   // the baked map (props/shadow/bake_ground_shadow.py, Cycles: soft sun + sky occlusion) wins; the live render above is the fallback
   // for prop sets and jeeps that have no bake yet
-  let baked = false;
+  let shadowBaked = false;
   if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
-    baked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; }, undefined, () => {});
-  const cast = (renderer) => baked ? 0 : castShadows(renderer);
-  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => baked, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
+    shadowBaked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; }, undefined, () => {});
+  const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
+  const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
+  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3] } };
 }

@@ -1240,7 +1240,9 @@ function feed(s) {
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
 // wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
-const groundLife = createGround({ scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
+// the baked ground (props/ground/bake_ground.py) for the sets that have one; others paint their wear map live
+const groundBake = await new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: `models/camp_ground_${PROPS}.jpg` }); im.onerror = () => ok(null); im.src = `models/camp_ground_${PROPS}_mask.png`; });
+const groundLife = createGround({ baked: groundBake,  scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
     bare: PROPS === "picked" ? (x, z) => { const [a, b] = tentLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; } : undefined,   // no grass in the tent or through its planks
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png` });   // baked ground shadows; for a set with no bake, ground.js renders them live
 window.__ground = groundLife;
