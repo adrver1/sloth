@@ -52,7 +52,9 @@ const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !=
 window.__atmo = atmo;
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
 const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !== "undefined" ? WOODPILE : null, woodTex: typeof WOOD_TEX !== "undefined" ? WOOD_TEX : null, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
-  spots: () => window.__spots || [], addBlocker: (c, r) => blockers.push([c, r]) });
+  spots: () => window.__spots || [], addBlocker: (c, r) => blockers.push([c, r]),
+  looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fire: ["Ring", "Fire"] })   // what lights up when you can use it (camp/highlight.js)
+    .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)) });
 window.__acts = acts;
 
 export { acts, atmo, groundLife };

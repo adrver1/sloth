@@ -1,13 +1,13 @@
 // Camp activities for camp.html (thread "Plan camp activities", plan in project files canopy-hide-and-seek/activities-plan.md).
 // Kept out of camp.html so the sibling threads' edits there don't collide; camp.html only wires taps and the frame loop in.
-// Calm by design: no timer, no score, no fail. Walk up to a thing, a soft hint bobs over it, tap it. You carry one thing at a time.
+// Calm by design: no timer, no score, no fail. Walk up to a thing, it lights up when you can use it (camp/highlight.js), tap it. You carry one thing at a time.
 // Chunk 1: wood on the fire. Take a log from the wood pile, carry it to the fire and tap: the fire flares for about a minute,
 // then settles over a few minutes and never goes out. Up to three logs burn at once. The camp sloth nearest the fire blinks happily.
-// Triangle budget: the carried log and each burning log are 6-sided cylinders (24 tris); hints and sparks are single quads.
+// Triangle budget: the carried log and each burning log are 6-sided cylinders (24 tris); sparks are single quads.
 import * as THREE from "three";
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
-const NEAR = 2.5, SEE = 5;                 // tap range, and how far off a hint starts to show
+const NEAR = 2.5;                          // tap range
 const HOLD = 60, SETTLE = 180, MAX_LOGS = 3;
 
 const canvasTex = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
@@ -16,11 +16,8 @@ const barkTex = canvasTex(64, 32, (g, w, h) => { g.fillStyle = "#6b4a32"; g.fill
   for (let y = 3; y < h; y += 5) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (y % 2 ? 1 : -1)); g.stroke(); } });
 const logGeo = new THREE.CylinderGeometry(0.055, 0.06, 0.6, 6, 1);   // 24 tris with caps
 const logMat = new THREE.MeshLambertMaterial({ map: barkTex });
-// the hint: a soft cream disc with a little paw-tap, drawn once
-const hintTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 4, 32, 32, 30); r.addColorStop(0, "rgba(255,248,238,.95)"); r.addColorStop(0.6, "rgba(255,248,238,.75)"); r.addColorStop(1, "rgba(255,248,238,0)");
-  g.fillStyle = r; g.fillRect(0, 0, 64, 64); g.font = "28px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("👆", 32, 34); });
 
-export function createActivities({ scene, camera, me, woodPile, woodTex, fire = V(0, 0, 0), fireCards = [], flames = [], fireLight, glowTex, burst, toast, spots = () => [], addBlocker }) {
+export function createActivities({ scene, camera, me, woodPile, woodTex, fire = V(0, 0, 0), fireCards = [], flames = [], fireLight, glowTex, burst, toast, spots = () => [], addBlocker, looks = {} }) {
   if (!camera.parent) scene.add(camera);
   // logs painted like the props thread's stack: its atlas (props/lived/wood_stack.jpg) has log ends on the top half and the logs
   // seen from above bottom right, so the sides take one log's strip (mirrored round, so no seam) and the caps one round end
@@ -32,10 +29,11 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   }   // so things held in your hand (children of the camera) are drawn
   // the wood pile: the props thread's pile when it is there, else a plain stack of the same logs in the same spot
   const pileAt = woodPile ? woodPile.clone() : V(-0.55, 0, -3.15);
+  let stand = null;
   if (!woodPile) {
     const yaw = Math.atan2(-pileAt.x, -pileAt.z), g = new THREE.Group();
     [[-0.13, 0.06], [0, 0.06], [0.13, 0.06], [-0.065, 0.17], [0.065, 0.17], [0, 0.28]].forEach(([x, y]) => { const l = new THREE.Mesh(logGeo, logMat); l.rotation.z = Math.PI / 2; l.rotation.y = Math.PI / 2; l.position.set(x, y, 0); g.add(l); });
-    g.position.copy(pileAt); g.rotation.y = yaw; scene.add(g); addBlocker?.(pileAt, 0.5);
+    g.position.copy(pileAt); g.rotation.y = yaw; scene.add(g); stand = g; addBlocker?.(pileAt, 0.5);
   }
 
   // what you carry, shown low in the bottom right of the view
@@ -67,15 +65,15 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     s.live = true; s.t = 0; s.life = 0.8 + Math.random() * 0.8; s.o.visible = true; s.o.position.set(fire.x + Math.cos(a) * 0.1, 0.45, fire.z + Math.sin(a) * 0.1); s.v.set(Math.cos(a) * out, 1.4 + Math.random() * 1.4, Math.sin(a) * out); s.o.scale.setScalar(0.07);
   }
 
-  // things you can tap: an invisible sphere each, a hint sprite, when it applies, and what a tap does
+  // things you can tap: an invisible sphere each, when it applies, what a tap does, and what lights up (looks[name]: the
+  // props' own objects, so the highlight hugs the real wood pile; the stand-in stack when there is none)
   const things = [], hitList = [];
-  function thing(name, at, r, hintY, when, act) {
+  function thing(name, at, r, when, act, look) {
     const box = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(at).setY(at.y + r * 0.6); scene.add(box);
-    const hint = new THREE.Sprite(new THREE.SpriteMaterial({ map: hintTex, depthWrite: false, transparent: true, opacity: 0 })); hint.scale.setScalar(0.28); hint.position.copy(at).setY(hintY); hint.renderOrder = 4; scene.add(hint);
-    const t = { name, at, box, hint, when, act }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
+    const t = { name, at, box, when, act, look: looks[name] ?? look ?? null }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
   }
-  thing("woodpile", pileAt, 0.55, 0.85, () => !held, () => { hold("log"); toast("Got a log 🪵"); });
-  thing("fire", fire, 0.6, 1.5, () => held === "log", () => {
+  thing("woodpile", pileAt, 0.55, () => !held, () => { hold("log"); toast("Got a log 🪵"); }, stand);
+  thing("fire", fire, 0.6, () => held === "log", () => {
     if (burning.length >= MAX_LOGS) { toast("The fire is roaring already 🔥"); return; }
     hold(null); addLog();
   });
@@ -93,10 +91,6 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       return true;
     },
     update(dt, time) {
-      // hints: fade in as you come near a thing you can use now, bob gently
-      for (const t of things) { const d = flat(me.pos, t.at), on = t.when() ? THREE.MathUtils.clamp((SEE - d) / (SEE - NEAR), 0, 1) : 0;
-        t.hint.material.opacity += (on * 0.95 - t.hint.material.opacity) * Math.min(1, dt * 5); t.hint.visible = t.hint.material.opacity > 0.02;
-        t.hint.position.y = t.hint.userData.y0 ??= t.hint.position.y; t.hint.position.y += Math.sin(time * 2.4) * 0.04; }
       // the held log sways a little as you walk
       hand.userData.t = (hand.userData.t || 0) + dt; hand.position.x = 0.1 + 0.26 * Math.min(1, camera.aspect);   // stays in view on a narrow phone
       hand.position.y = -0.36 + Math.sin(me.walkT * 7) * 0.01 + (1 - Math.min(1, hand.userData.t * 4)) * -0.2;
@@ -114,5 +108,6 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
         s.o.material.opacity = 1; s.o.scale.setScalar(0.07 * (1 - s.t / s.life)); if (s.t > s.life) { s.live = false; s.o.visible = false; } }
     },
     get held() { return held; }, burning, level, things,
+    ready(t) { return t.when() && flat(me.pos, t.at) <= NEAR + 0.6; },   // the highlight lights a thing only when a tap would use it
   };
 }
