@@ -33,6 +33,7 @@ box.innerHTML = `<summary>🧪 Move lab <button id="labClose" style="float:right
   <div class="row"><select id="labWho"></select><button id="labFollow" class="on">Follow</button><button id="labPath" class="on">Path</button></div>
   <div class="row"><button data-do="leave">Get food</button><button data-do="wander">Wander</button><button data-do="home">Go home</button>
     <button data-do="smore">S'more</button><button data-do="wave">Wave</button><button data-do="all">Everyone out</button></div>
+  <div class="row"><button data-do="nap">Nap</button><button data-do="wake">Wake</button><button data-do="yawn">Yawn</button><button data-do="stretch">Stretch</button></div>
   <div class="row"><span class="lbl">Speed</span>${[0, 0.25, 0.5, 1, 2, 4].map((v) => `<button data-sp="${v}">${v ? v + "×" : "Pause"}</button>`).join("")}<button id="labStep">Step ▸</button></div>
   <div class="row"><span class="lbl">Clip</span><select id="labClip"><option value="">(live)</option></select><button id="labBack">Back to life</button></div>
   <div class="row"><input type="range" id="labT" min="0" max="1" step="0.001" value="0" disabled></div>
@@ -42,7 +43,7 @@ for (const e of ["pointerdown", "pointerup", "pointermove", "wheel"]) box.addEve
 const $ = (id) => document.getElementById(id);
 const who = $("labWho"), clipSel = $("labClip"), slider = $("labT"), read = $("labRead");
 cs.forEach((s, i) => who.add(new Option(`${s.name} (${s.spot.name})`, i)));
-for (const n of ["idle", "walk", "cling", "hang_walk", "nap", "reach", "curl", "drive", "peek", "titanic"]) if (L.clipOf(n)) clipSel.add(new Option(n, n));
+for (const n of ["idle", "walk", "cling", "hang_walk", "nap", "reach", "curl", "drive", "peek", "titanic", "stretch", "eat", "eat_high"]) if (L.clipOf(n)) clipSel.add(new Option(n, n));
 
 let sel = cs[0], follow = true, showPath = true, speed = 1, stepLeft = 0, scrub = null, dist = 1.6 + cs[0].sc * 0.4;
 const pick = () => (sel = cs[+who.value]);
@@ -61,6 +62,10 @@ box.querySelectorAll("[data-do]").forEach((b) => (b.onclick = () => {
   if (d === "home" && L.GROUND.has(ph) && ph !== "greet") L.goHome(s);
   if (d === "smore") L.smore(s);
   if (d === "wave") L.wave(s);
+  if (d === "nap") L.nap(s);
+  if (d === "wake") L.wake(s);
+  if (d === "yawn") L.yawn(s);
+  if (d === "stretch" && (ph === "home" || ph === "rest")) L.stretch(s);
   if (d === "all") for (const q of cs) if (q.trip.phase === "home") L.leave(q);
 }));
 // the clip scrubber: everything paused, the chosen clip held on the sloth at the slider's time
@@ -94,11 +99,11 @@ const labStep = (dt) => {
     camera.lookAt(tgt);
   }
   const a = scrub ? scrub.a : s.act;
-  read.textContent = `${s.name}: ${T.phase}${T.phase === "walk" ? ` · ${T.path.length} pts left` : ""}\nclip ${a?.getClip().name ?? "-"} ${a ? a.time.toFixed(2) + " / " + a.getClip().duration.toFixed(2) + " s" : ""} × ${a?.timeScale.toFixed(2) ?? ""}\n` +
+  read.textContent = `${s.name}: ${T.phase}${T.st ? "/" + T.st : ""}${s.dozing ? " · asleep" : ""}${T.phase === "walk" ? ` · ${T.path.length} pts left` : ""}\nclip ${a?.getClip().name ?? "-"} ${a ? a.time.toFixed(2) + " / " + a.getClip().duration.toFixed(2) + " s" : ""} × ${a?.timeScale.toFixed(2) ?? ""}\n` +
     `at ${s.o.getWorldPosition(wp).toArray().map((v) => v.toFixed(2)).join(", ")} · size ${s.sc.toFixed(2)}`;
   box.querySelectorAll("[data-do]").forEach((b) => {
     const ph = T.phase, d = b.dataset.do;
-    b.disabled = d === "leave" ? ph !== "home" : d === "wander" || d === "home" ? !L.GROUND.has(ph) || ph === "greet" : d === "smore" ? s.spot.name !== "seat" || ph !== "home" : false;
+    b.disabled = d === "leave" ? ph !== "home" : d === "wander" || d === "home" ? !L.GROUND.has(ph) || ph === "greet" : d === "smore" ? s.spot.name !== "seat" || ph !== "home" : d === "nap" ? !!s.dozing || (ph !== "home" && ph !== "rest") || !!s.spot.asleep : d === "wake" ? !s.dozing : d === "stretch" ? !(ph === "home" || ph === "rest") : false;
   });
 };
 
