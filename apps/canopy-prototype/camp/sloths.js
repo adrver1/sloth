@@ -9,6 +9,7 @@ import { D, PROPS, R, S, camera, canvasTex, qs, scene, sstep, uTime } from "./co
 import { A0, HERO, RC, V, branchCurves } from "./forest.js";
 import { SLOTH, blockers } from "./campProps.js";
 import { CAST } from "./cast.js";
+import { load, save } from "./save.js";
 
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
 const sloths = [], hit = [];
@@ -876,6 +877,34 @@ if (qs.get("campsloths") !== "0") {
     goHome(s); return true;
   }
 
+  // the camp remembers (Adriaen 2026-11-12: "can we also save the state of the sloths?"): who is asleep and for how long
+  // still, who is away napping in the bed, the hammock or the jeep, and when each will next nod off. Kept in the shared
+  // camp save (save.js, part "sloths"), written when it changes. A sloth out on an errand comes back at home; one on its
+  // way to a nap trip wakes up there, asleep.
+  const snap = (s) => ({ nap: s.spot?.guest ? s.spot.key : null, sleep: s.dozing ? Math.max(5, Math.round(s.dozeT + Math.max(0, s.dozeIn))) : 0, napT: Math.round(s.napT) });
+  const doSleep = (s, d) => { doze(s, d.sleep); s.yawn = 0; s.dozeIn = 0.01; };
+  {
+    const got = load("sloths");
+    for (const d of got?.camp || []) {
+      const s = camp.find((q) => q.name === d.name); if (!s) continue;
+      if (Number.isFinite(d.napT)) s.napT = d.napT;
+      const g = d.nap && guests.find((q) => q.key === d.nap);
+      if (g && !claims.get(g.key)) {                  // back in the cozy spot it was napping in
+        life.release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.release("log:0", s);
+        s.spot.home = false; life.claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; placeHome(s);
+      }
+      if (d.sleep > 0 && !s.spot.asleep) doSleep(s, d);
+    }
+    (got?.wild || []).forEach((d, i) => { if (wild[i] && d.sleep > 0) doSleep(wild[i], d); else if (wild[i] && Number.isFinite(d.napT)) wild[i].napT = d.napT; });
+  }
+  let saveT = 0, saved = "";
+  function keep(dt) {
+    const now = performance.now(); if (now < saveT) return; saveT = now + 2000;
+    const data = { camp: camp.map((s) => ({ name: s.name, ...snap(s) })), wild: wild.map(snap) };
+    const j = JSON.stringify({ ...data, camp: data.camp.map(({ napT, ...r }) => r), wild: data.wild.map(({ napT, ...r }) => r) });   // only a change in who sleeps where writes
+    if (j !== saved) { saved = j; save("sloths", data); }
+  }
+
   // you on a log seat by the fire (linger.js) hold it as "log:<i>" (Seat_<i>), so no one sits on you
   let mySeat = -1;
   const LOGS = [0, 1, 2].map((i) => scene.getObjectByName(`Seat_${i}`));
@@ -890,7 +919,7 @@ if (qs.get("campsloths") !== "0") {
   }
   campStep = (dt) => {
     if (!POIS) pois();
-    seatWatch();
+    seatWatch(); keep(dt);
     const fast = window.__campFast || 1, sd = dt * fast, J = window.__jeep;
     let out = camp.filter((s) => s.trip.phase !== "home").length;
     for (const s of camp) {
