@@ -1248,6 +1248,7 @@ const groundLife = createGround({ baked: groundBake,  scene, RC, blockers, clear
 window.__ground = groundLife;
 // the walk-in tent (picked props; build_camp.py wall_tent, keep in step): walls stop you, the doorway lets you in,
 // the bed and the stove are in the way. tentLocal gives (a: ahead of tentAt toward the fire, b: across).
+function tentAt3(bx, by, y) { const t = window.__camp.tentAt, L = t.length(), fx_ = -t.x / L, fz_ = -t.z / L; return V(t.x + bx * fz_ - by * fx_, y, t.z - bx * fx_ - by * fz_); }   // a point in the tent's own (Blender) frame
 function tentLocal(x, z) { const t = window.__camp.tentAt, L = t.length(), fx_ = -t.x / L, fz_ = -t.z / L, dx = x - t.x, dz = z - t.z; return [dx * fx_ + dz * fz_, dx * fz_ - dz * fx_]; }
 if (PROPS === "picked") {
   const t = window.__camp.tentAt, L = t.length(), fx_ = -t.x / L, fz_ = -t.z / L;
@@ -1267,7 +1268,8 @@ if (PROPS === "picked") {
     scene.add(m); return m; };
   amber(1.6, 0.035, true); amber(0.5, 0.42, false);
 }
-const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null, sloths, roam: RC - 1.5 });
+const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null,
+  chimneys: PROPS === "picked" ? [tentAt3(1.0, 0.97, 3.32)] : [], sloths, roam: RC - 1.5 });   // the tent stove's pipe mouth (build_camp.py wall_tent: STOVE, pipe top Z0 + H + 0.62)
 window.__atmo = atmo;
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
 const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !== "undefined" ? WOODPILE : null, woodTex: typeof WOOD_TEX !== "undefined" ? WOOD_TEX : null, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
