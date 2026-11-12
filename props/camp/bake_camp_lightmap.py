@@ -243,7 +243,7 @@ _lay = os.path.join(ROOT, "props", "shadow", "layout_picked.json")
 for d in (_json.load(open(_lay)).get("deadwood", []) if os.path.exists(_lay) else []):
     if d["name"] == "FallenLog":
         bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
-        o = bpy.context.object; o.rotation_mode = "ZYX"; o.rotation_euler = (0, math.pi / 2, d["yaw"])
+        o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, d["yaw"])   # lie along x, then yaw
     elif d["name"] == "Stump":
         bpy.ops.mesh.primitive_cylinder_add(vertices=9, radius=d["r"], depth=d["h"], location=B(d["x"], d["h"] / 2, d["z"]))
     elif d["name"] == "DeadTrunk":
