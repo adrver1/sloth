@@ -3,6 +3,7 @@
 import { WARM_N, furify } from "../fur.js";
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import "./jeep.js";   // run after the module before it, as one script did
 import { D, PROPS, R, S, camera, canvasTex, qs, scene, sstep, uTime } from "./core.js";
 import { A0, HERO, RC, V, branchCurves } from "./forest.js";
@@ -556,16 +557,43 @@ if (qs.get("campsloths") !== "0") {
       const slot = { name: "bowl", p: g, u, yaw: Math.atan2(u.x, u.z), clip: "eat", who: s, h: 0, food: { at: at.clone().setY(at.y + 0.05), mesh: null, bowl: true } };
       return walkTo(s, g, () => startEat(s, slot));
     }
+    if (s.spot.car && window.__jeep?.node?.getObjectByName("Hood") && (s.fixNext || R(0, 1) < 0.45) && life.claim("jeep:hood", s)) { s.fixNext = false; return fixEngine(s); }
     const free = pois().flatMap((P) => P.slots.filter((q) => !q.who && !claims.has(q.key) && q.food.mesh.visible && !q.food.back && (q.name === "table" || s.sc > 1.6)));   // the small ones can't reach over the crate's rim
     if (!free.length) return wander(s);
     const slot = free[Math.floor(R(0, free.length))]; slot.who = s; life.claim(slot.key, s);
     walkTo(s, slot.p, () => startEat(s, slot));
   }
+  // the jeep's engine (Adriaen 2026-11-12: "a sloth can occasionally open the hood, take out a spanner and work on the
+  // engine"): the jeep's own sloth goes round to the front, opens the hood, climbs up onto the front of the engine bay and
+  // works at the engine with a spanner (its paw dipping and turning, the eat clip held round its grab), then climbs down,
+  // shuts the hood and goes home. Spanner: two boxes, 24 triangles, shown only while it works.
+  const spanner = new THREE.Mesh(mergeGeometries([new THREE.BoxGeometry(0.012, 0.13, 0.006).translate(0, 0.065, 0), new THREE.BoxGeometry(0.04, 0.022, 0.007).translate(0, 0.135, 0)]), new THREE.MeshLambertMaterial({ color: 0x9aa3ab }));
+  spanner.visible = false; scene.add(spanner);
+  function fixEngine(s) {
+    const J = window.__jeep, n = J.node, front = n.localToWorld(V(0.3, 0, 2.35)).setY(0);
+    walkTo(s, front, () => { Object.assign(s.trip, { phase: "fix", st: "turn", t: 0, front, sit: n.localToWorld(V(0.25, 0.94, 1.5)) }); play(s, "idle", 1); J.open("H"); });
+  }
+  function fixStep(s, T, sd) {
+    const J = window.__jeep, n = J.node, back = yawOf(n);   // facing the windscreen from the front (the jeep looks along its +Z)
+    if (T.st === "turn") {
+      turnTo(T, back, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+      if (!J.isOpen("H")) J.open("H"); else if (T.t > 2.5) { T.yaw = back; play(s, "hang_walk", 1, 2); move(s, T, T.sit, 4, 0.15, -0.5, () => { T.st = "reach"; T.t = 0; play(s, "eat", 0.8); }); }
+    } else if (T.st === "move") eatStep(s, T, sd);
+    else if (T.st === "reach") { if (s.act.time > 1.5) { T.st = "work"; T.t = 0; s.act.paused = true; } }
+    else if (T.st === "work") {                      // the paw dips and turns at the engine, now and then a look at its work
+      s.act.time = 1.85 + 0.28 * Math.sin(T.t * 3.2) * (0.6 + 0.4 * Math.sin(T.t * 0.7));
+      if (T.t > 0.3) { spanner.visible = true; pawOf(s, paw); spanner.position.copy(paw); spanner.quaternion.copy(s.arm[1].getWorldQuaternion(qPaw)); spanner.scale.setScalar(s.sc / 2.4); }
+      if (Math.sin(T.t * 0.9) > 0.97 && !s.nod) s.nod = 0.8;
+      if (T.t > 14) { spanner.visible = false; s.act.paused = false; T.st = "down"; T.t = 0; play(s, "idle", 1); }
+    } else if (T.st === "down") {
+      if (T.t > 1.2) { play(s, "hang_walk", 1, -2); move(s, T, T.front, 4, 0.15, -0.5, () => { J.close("H"); life.release("jeep:hood", s); goHome(s); }); }
+    }
+  }
   function startEat(s, slot) { Object.assign(s.trip, { phase: "eat", st: "turn", t: 0, slot }); play(s, "idle", 1); }
   // a move inside the eat phase: from where it is to `to` over dur s, lifted by `lift` in the middle, tipped back by `tip`
   function move(s, T, to, dur, lift, tip, then) { T.mv = { fp: s.o.position.clone(), to, dur, lift, tip, then }; T.st = "move"; T.t = 0; }
   function eatStep(s, T, sd) {
-    const slot = T.slot, F = slot.food;
+    const slot = T.slot, F = slot?.food;
     if (T.st === "turn") {                           // face the fruit, then up onto the table or up against the crate
       if (turnTo(T, slot.yaw, sd * 2) < 0.05 || T.t > 3) {
         const sit = sitFor(slot, s.sc);
@@ -748,7 +776,8 @@ if (qs.get("campsloths") !== "0") {
         turnTo(T, Math.atan2(-(o.x - pos.x), -(o.z - pos.z)), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
         if (!T.said && T.t > 0.9) { T.said = true; s.nod = 1.2; s.squish = 0.5; if (T.lead) burst(pos.clone().lerp(o, 0.5).setY(0.75), HELLO[Math.floor(R(0, HELLO.length))], 1, 1.8, 64); }
         if (T.t > 3.4) { T.phase = "walk"; play(s, "walk", 1, WALK_TS); }
-      } else if (T.phase === "eat") eatStep(s, T, sd);   // up onto the table or against the crate, picks up a fruit, eats it
+      } else if (T.phase === "eat") eatStep(s, T, sd);
+      else if (T.phase === "fix") fixStep(s, T, sd);   // up onto the table or against the crate, picks up a fruit, eats it
       else if (T.phase === "rest") {                 // a sit and a look round somewhere in the clearing; often a nap there
         if (T.nap && !T.slept && T.t > 2) { T.slept = true; doze(s, R(25, 50)); }
         if (T.slept) napStep(s, sd, () => goHome(s));
@@ -838,6 +867,7 @@ if (qs.get("campsloths") !== "0") {
   window.__path = findPath;
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
   window.__lab = { camp, GROUND, leave, goHome, wander, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
+    fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
     nap: (s) => { if (!s.dozing) doze(s); }, wake: (s) => { if (s.dozing) s.dozeIn > 0 ? (s.dozeIn = 0.01, s.dozeT = 0) : (s.dozeT = 0); },
     yawn: (s) => { s.yawn = 1e-3; }, stretch: (s) => { const [c, ts] = homeClip(s); playOnce(s, "stretch", 1.2, () => play(s, c, 1.5, ts)); } };
 }
