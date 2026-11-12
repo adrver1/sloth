@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import "./jeep.js";   // run after the module before it, as one script did
 import { D, PROPS, R, S, camera, canvasTex, qs, scene, sstep, uTime } from "./core.js";
-import { A0, GLADE, GLADE_R, RC, V, branchCurves, d0, sloPath, t0 } from "./forest.js";
+import { A0, GLADE, GLADE_R, HERO, RC, V, branchCurves, d0, sloPath, t0 } from "./forest.js";
 import { SLOTH, blockers } from "./campProps.js";
 
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
@@ -73,22 +73,24 @@ function slothLife(s, dt) {                            // after the clip: fur by
   turn.slerp(qa.identity(), 1 - Math.min(1, w)).multiply(s.head.getWorldQuaternion(new THREE.Quaternion()));
   s.head.quaternion.copy(s.head.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(turn));
 }
+const treeOf = (c) => HERO.reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
 for (const c of branchCurves.filter((c) => c.low)) {
   const t = R(0.5, 0.8), p = c.getPointAt(t), tan = c.getTangentAt(t);
   if (tan.x * p.x + tan.z * p.z > 0) tan.negate();   // head toward the middle of the clearing, so you meet its face
-  if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) hang(p, tan);
-  if (sloths.length >= (window.__camp.string ? 6 : 7)) break;
+  if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) { hang(p, tan); sloths.at(-1).perch = { curve: c, t, tree: treeOf(c) }; }
+  if (sloths.length >= (qs.get("campsloths") !== "0" && qs.get("startsloth") !== "0" ? 6 : 7)) break;
 }
-// review 2026-11-12 (B4): one sloth where you start, hanging from the lantern string between two lanterns, about 3 m
-// away and in the middle of the view, so the first thing you see is a sloth (it can be befriended like the others)
-if (window.__camp.string && qs.get("campsloths") !== "0") {
-  const st = window.__camp.string, eye = { pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), yaw: Math.atan2(-d0.x, -d0.z) }, fwd = V(-Math.sin(eye.yaw), 0, -Math.cos(eye.yaw));
-  let best = 0, bs = -2;
-  for (let i = 1; i < st.length - 1; i++) { const q = st[i].clone().sub(eye.pos).setY(0), d = q.length(), c = q.dot(fwd) / d - Math.abs(d - 3.8) * 0.15; if (c > bs) { bs = c; best = i; } }
-  const n = st.length - 1, t = (Math.min(8, Math.max(0, Math.floor(best / n * 9))) + 0.5) / 9, k = t * n, i0 = Math.floor(k);   // halfway between two lanterns
-  const p = st[i0].clone().lerp(st[Math.min(n, i0 + 1)], k - i0).setY(st[i0].y + (st[Math.min(n, i0 + 1)].y - st[i0].y) * (k - i0) - 0.02);
-  const tan = st[Math.min(n, i0 + 1)].clone().sub(st[Math.max(0, i0 - 1)]).normalize(); if (tan.dot(fwd.clone().cross(V(0, 1, 0))) > 0) tan.negate();   // side on, head to your left
-  hang(p, tan, 1.9);
+// review 2026-11-12 (B4): one sloth where you start, so the first thing you see is a sloth (it can be befriended like the
+// others). The lantern strings now rise to the big tree and only pass the middle of a phone's view far away, so it hangs
+// from the bamboo tripod over the fire instead, under the leg nearest you, head up toward the top, about 4 m ahead and
+// dead centre on any screen. Tripod as in props/lived/build_fire.py: legs meet at TOP (0, 1.75, 0), feet 0.85 out at
+// 120 degree steps from 0.3 rad (Blender x, y -> three x, -z).
+if (qs.get("campsloths") !== "0" && qs.get("startsloth") !== "0") {
+  const eye = d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), TOP = V(0, 1.75, 0);
+  const feet = [0, 1, 2].map((i) => { const a = i / 3 * 2 * Math.PI + 0.3; return V(Math.cos(a) * 0.85, 0, -Math.sin(a) * 0.85); });
+  const foot = feet.reduce((a, b) => (b.distanceTo(eye) < a.distanceTo(eye) ? b : a));
+  const p = TOP.clone().lerp(foot, 0.26), up = TOP.clone().sub(foot).normalize();
+  hang(p.addScaledVector(V(0, -1, 0), 0.03), up, 2.0); sloths.at(-1).perch = { pole: { top: TOP, foot, u: 0.26 } };
 }
 // ---------------------------------------------------------------- sloths living in the camp (thread "Bring sloths to life in camp")
 // Adriaen 2026-11-11: the camp spots stay empty until a sloth is befriended. Then that same sloth (flower crown and all)
@@ -192,15 +194,39 @@ if (qs.get("campsloths") !== "0") {
   // two low branches right at the camp's edge (Adriaen 2026-11-12, friends 6 and 7): the tips nearest the fire that are
   // clear of the wild sloths' spots. It crawls under one and hauls itself back up on a vine (the way it came down), then
   // hangs there as on its old branch.
+  // climbing (Adriaen 2026-11-12: "climb down the tree rather than a vine"): a wild sloth goes hand over hand along its
+  // branch to the trunk, turns onto the trunk and climbs down it tail first, facing the bark, then steps off onto the
+  // ground; the edge-branch friends do the same the other way. The start sloth slides down its tripod leg. Trunk radius
+  // after forest.js (1.05 at the foot to 0.6 at 15 m, with the root flare); speed is hang_walk's, 3.75x.
+  const trunkR0 = (y) => (1.05 - 0.03 * y) * (1.1 + 0.7 * Math.exp(-1.5 * y));
+  // the bark's real distance from the tree's centre on one side, measured once per climb by casting rays at the tree's wood
+  // every 20 cm up (the trunk wobbles and flares, so a formula leaves the sloth floating in front of it)
+  const ray = new THREE.Raycaster();
+  let woodMesh = null;
+  function barkProfile(tree, out, yTop) {
+    woodMesh ??= scene.children.filter((m) => m.isMesh && !m.isInstancedMesh && !m.isSkinnedMesh && !m.material.transparent && m.geometry.attributes.position.count > 2000);   // trunks, branches and other big solid meshes
+    const ys = [], rs = [];
+    for (let y = 0; y <= yTop + 0.4; y += 0.2) {   // (the first ray at 0.1 up, clear of the floor)
+      let r = trunkR0(y);
+      if (woodMesh) { ray.set(tree.clone().addScaledVector(out, 5).setY(Math.max(0.1, y)), out.clone().negate()); ray.far = 5; const h = ray.intersectObjects(woodMesh, false)[0]; if (h) r = 5 - h.distance; }
+      ys.push(y); rs.push(r);
+    }
+    return (y) => { const k = Math.max(0, Math.min(ys.length - 1.001, y / 0.2)), i = Math.floor(k); return rs[i] + (rs[i + 1] - rs[i]) * (k - i); };
+  }
+  function branchBase(c, tree) {                      // the first point along the branch clear of the bark
+    for (let t = 0; t <= 1; t += 0.02) { const p = c.getPointAt(t); if (Math.hypot(p.x - tree.x, p.z - tree.z) > trunkR0(p.y) + 0.25) return t; }
+    return 0.3;
+  }
   const tips = [];
-  for (const c of branchCurves.filter((c) => c.low)) for (const t of [0.8, 0.9, 1]) { const p = c.getPointAt(t); if (Math.hypot(p.x, p.z) < RC + 0.3) tips.push({ p, tan: c.getTangentAt(t) }); }
+  for (const c of branchCurves.filter((c) => c.low)) for (const t of [0.8, 0.9, 1]) { const p = c.getPointAt(t); if (Math.hypot(p.x, p.z) < RC + 0.3) tips.push({ p, tan: c.getTangentAt(t), c, t }); }
   tips.sort((a, b) => Math.hypot(a.p.x, a.p.z) - Math.hypot(b.p.x, b.p.z));
   for (const tip of tips) {
     if (spots.filter((q) => q.branch).length >= 2) break;
     if (sloths.some((s) => s.p.distanceTo(tip.p) < 1.2) || spots.some((q) => q.branch && q.top.distanceTo(tip.p) < 1.6)) continue;
     const tan = tip.tan.clone(); if (tan.x * tip.p.x + tan.z * tip.p.z > 0) tan.negate();   // head toward the fire, as the wild ones
-    const g = tip.p.clone().setY(0); if (g.length() > RC - 1) g.setLength(RC - 1);
-    spots.push({ name: "branch", branch: true, top: tip.p.clone(), tan, parent: scene, clip: "cling", scale: SL, door: g, ignore: 0.6 });
+    const tree = treeOf(tip.c), t0 = branchBase(tip.c, tree), out = tip.c.getPointAt(t0).sub(tree).setY(0).normalize();
+    spots.push({ name: "branch", branch: true, top: tip.p.clone(), tan, curve: tip.c, t: tip.t, t0, tree, out, parent: scene, clip: "cling", scale: SL,
+      door: tree.clone().addScaledVector(out, trunkR0(0) + 0.35), ignore: 2.2 });
   }
   const UP = V(0, 1, 0), q0 = new THREE.Quaternion(), tmp = V();
   // the hammock route, in the swing's frame (x along the span, the knots on the pivot line): up the -x post to its rope knot
@@ -222,10 +248,64 @@ if (qs.get("campsloths") !== "0") {
     return { at, q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
   }
   function play(s, name, fade, timeScale = 1) {
-    const next = s.mixer.clipAction(clipOf(name)); if (s.act === next) return;
+    const next = s.mixer.clipAction(clipOf(name)); if (s.act === next) { next.timeScale = timeScale; return; }
     next.reset(); next.timeScale = timeScale; next.play();
     if (s.act) s.act.crossFadeTo(next, fade, false);
     s.act = next;
+  }
+  // poses for climbing: hanging back-down under a branch or pole at `at`, head toward `head` (as hang() places them), and
+  // upright on a trunk at height y, facing the bark on the side `out` points to
+  function underAt(s, at, head) {
+    const yl = head.clone().setY(head.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
+    m4.makeBasis(xl, yl, zl);
+    return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
+  }
+  const trunkAt = (s, tree, out, y, R) => ({ p: tree.clone().addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y), q: new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(out.x, out.z)) });
+  const climbV = (s) => 0.015 * 3.75 * s.sc;            // m/s, with hang_walk at 3.75x so the paws keep pace
+  // two generic moves: slide (a parameter u runs to `to` at `speed` per second, posed by pose(u)) and glide (ease from where
+  // it is to a pose over dur seconds); each calls next() when done
+  function slide(s, from, to, speed, pose, next) { s.trip.phase = "slide"; s.trip.sl = { u: from, to, speed, pose, next }; }
+  function glide(s, to, dur, next) { const T = s.trip; T.phase = "glide"; T.t = 0; T.gl = { fp: s.o.position.clone(), fq: s.o.quaternion.clone(), to, dur, next }; }
+  function toGround(s, at) {                          // step off onto the ground at `at`, belly down, facing its way
+    const T = s.trip, aim = T.route?.[0] || T.spot.door, face = Math.atan2(-(aim.x - at.x), -(aim.z - at.z));
+    play(s, "walk", 2, 1);
+    glide(s, { p: at.clone().setY(0), q: new THREE.Quaternion().setFromAxisAngle(UP, face) }, 2.5, () => { T.phase = "crawl"; T.t = 0; T.yaw = face; play(s, "walk", 1.5, 2.2); });
+  }
+  function climbDown(s) {                              // from its perch to the ground, by the branch and trunk or the pole
+    const P = s.perch;
+    if (P.pole) {
+      const { top, foot } = P.pole, head = top.clone().sub(foot).normalize(), L = top.distanceTo(foot);
+      play(s, "hang_walk", 1.2, -3.75);
+      slide(s, P.pole.u, 0.8, climbV(s) / L, (u) => underAt(s, top.clone().lerp(foot, u).setY(top.y + (foot.y - top.y) * u - 0.03), head),
+        () => toGround(s, foot.clone().add(V(foot.x, 0, foot.z).setLength(0.35))));
+      return;
+    }
+    const { curve: c, t, tree } = P, t0 = branchBase(c, tree), out = c.getPointAt(t0).sub(tree).setY(0).normalize(), L = c.getLength();
+    const yTop = c.getPointAt(t0).y - 0.25 * s.sc, R = barkProfile(tree, out, yTop);
+    play(s, "hang_walk", 1.2, 3.75);
+    slide(s, t, t0, climbV(s) / L, (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u).negate()), () => {
+      play(s, "hang_walk", 1.5, -3.75);
+      glide(s, trunkAt(s, tree, out, yTop, R), 3, () => slide(s, yTop, 0, climbV(s), (y) => trunkAt(s, tree, out, y, R),
+        () => toGround(s, tree.clone().addScaledVector(out, R(0) + 0.45))));
+    });
+  }
+  function climbUp(s, spot) {                          // an edge-branch friend: up the trunk and out along the branch to its tip
+    const { curve: c, t, t0, tree, out } = spot, L = c.getLength(), yTop = c.getPointAt(t0).y - 0.25 * s.sc, R = barkProfile(tree, out, yTop);
+    play(s, "hang_walk", 1.5, 3.75);
+    glide(s, trunkAt(s, tree, out, 0.02, R), 2.5, () => slide(s, 0.02, yTop, climbV(s), (y) => trunkAt(s, tree, out, y, R), () =>
+      glide(s, underAt(s, c.getPointAt(t0), c.getTangentAt(t0)), 3, () => slide(s, t0, t, climbV(s) / L, (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u)),
+        () => { s.trip.phase = "home"; spot.home = true; play(s, "cling", 3, 0.6); }))));
+  }
+  // the vine a sloth lowers itself on (Adriaen 2026-11-12: it was a 1-pixel line, so they seemed to climb down thin air):
+  // a 5-sided open tube, 3.6 cm thick, from the branch to its paws, stretched each frame (10 triangles)
+  const VINE_GEO = new THREE.CylinderGeometry(0.016, 0.02, 1, 5, 1, true).translate(0, -0.5, 0), VINE_UP = V(0, -1, 0);
+  function makeVine(top) {
+    const m = new THREE.Mesh(VINE_GEO, new THREE.MeshLambertMaterial({ color: 0x55702c, transparent: true, opacity: 1 }));
+    m.position.copy(top); m.scale.set(1, 1e-3, 1); scene.add(m); return m;
+  }
+  function setVine(m, bottom, opacity = 1) {
+    const d = bottom.clone().sub(m.position), l = Math.max(1e-3, d.length());
+    m.quaternion.setFromUnitVectors(VINE_UP, d.divideScalar(l)); m.scale.set(1, l, 1); m.material.opacity = opacity; m.visible = opacity > 0.01;
   }
   addEventListener("sloth-befriended", (e) => {
     const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);   // hammock, log seat, jeep, line, tent, then the two edge branches
@@ -236,8 +316,8 @@ if (qs.get("campsloths") !== "0") {
     const g = s.o.position.clone().setY(0), inGlade = g.distanceTo(GLADE) < GLADE_R + 0.5;
     if (!inGlade && g.length() > RC - 1) g.setLength(RC - 1);
     const route = inGlade ? sloPath.pts.slice().reverse().filter((q) => Math.hypot(q.x, q.z) > RC - 2.5).filter((_, i) => i % 3 === 0) : [];   // from the glade: back along the path
-    const vine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([s.p, s.p]), new THREE.LineBasicMaterial({ color: 0x4f6b2a }));
-    scene.add(vine);
+    if (s.perch) { s.trip = { spot, phase: "slide", t: 0, sc0: s.sc, route }; climbDown(s); return; }   // by the tree or the pole
+    const vine = makeVine(s.p);                       // fallback for a sloth with no perch recorded: a vine
     s.trip = { spot, phase: "down", t: 0, from: s.o.position.clone(), q: s.o.quaternion.clone(), to: g, top: s.p.clone(), vine, sc0: s.sc, route };
     play(s, "hang_walk", 1.2, 1.4);
   });
@@ -267,8 +347,7 @@ if (qs.get("campsloths") !== "0") {
           const k = Math.min(1, T.t / 10), e = k * k * (3 - 2 * k);
           const aim = T.route?.[0] || spot.door, face = Math.atan2(-(aim.x - T.to.x), -(aim.z - T.to.z));
           s.o.position.lerpVectors(T.from, T.to, e); s.o.quaternion.slerpQuaternions(T.q, q0.setFromAxisAngle(UP, face), Math.min(1, e * 1.3));
-          const pos = T.vine.geometry.attributes.position; pos.setXYZ(1, s.o.position.x, s.o.position.y + 0.25 * SL * (1 - e), s.o.position.z); pos.needsUpdate = true;
-          T.vine.material.opacity = 1 - sstep(0.85, 1, k); T.vine.material.transparent = true;
+          setVine(T.vine, V(s.o.position.x, s.o.position.y + (0.1 * s.sc + 0.05) * (1 - e), s.o.position.z), 1 - sstep(0.85, 1, k));
           if (k >= 1) { T.phase = "crawl"; T.t = 0; T.yaw = face; scene.remove(T.vine); play(s, "walk", 1.5, 2.2); }
         } else if (T.phase === "crawl") {             // a slow belly crawl, about 0.15 m/s
           const pos = s.o.position, v = 0.027 * 2.2 * s.sc;
@@ -281,14 +360,7 @@ if (qs.get("campsloths") !== "0") {
           pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v * sd);
           s.sc += (spot.scale - s.sc) * Math.min(1, sd * 0.05); s.o.scale.setScalar(s.sc);
           if (spot.via && !T.passed) { /* still on its way to the door */ }
-          else if (pos.distanceTo(spot.door) < 0.12 + v * sd && spot.branch) {
-            T.phase = "up"; T.t = 0; T.from = pos.clone(); T.q = s.o.quaternion.clone(); T.sc0 = s.sc; pos.copy(spot.door);
-            T.vine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([spot.top, pos.clone()]), new THREE.LineBasicMaterial({ color: 0x4f6b2a, transparent: true, opacity: 0 }));
-            scene.add(T.vine); play(s, "hang_walk", 1.5, 1.4);
-            const yl = spot.tan.clone().setY(spot.tan.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-            const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
-            T.qTo = new THREE.Quaternion().setFromRotationMatrix(rot); T.to = spot.top.clone().sub(V(0, BR.z, -BR.y).applyMatrix4(rot));
-          }
+          else if (pos.distanceTo(spot.door) < 0.12 + v * sd && spot.branch) { pos.copy(spot.door); climbUp(s, spot); }
           else if (pos.distanceTo(spot.door) < 0.12 + v * sd && spot.climb) { T.phase = "climb"; T.t = 0; pos.copy(spot.door); }
           else if (pos.distanceTo(spot.door) < 0.12 + v * sd && spot.car) { T.phase = "door"; T.t = 0; pos.copy(spot.door); window.__jeep.open("P"); }
           else if (pos.distanceTo(spot.door) < 0.12 + v * sd) {
@@ -312,12 +384,19 @@ if (qs.get("campsloths") !== "0") {
             play(s, spot.clip, 3);
             if (spot.asleep) shutEyes(s.o);
           }
+        } else if (T.phase === "slide") {             // see slide(): along a branch, a trunk or a pole
+          const L = T.sl, step = L.speed * sd; L.u = Math.abs(L.to - L.u) <= step ? L.to : L.u + Math.sign(L.to - L.u) * step;
+          const P = L.pose(L.u); s.o.position.copy(P.p); s.o.quaternion.copy(P.q);
+          if (L.u === L.to) L.next();
+        } else if (T.phase === "glide") {             // see glide()
+          const G = T.gl, k = Math.min(1, T.t / G.dur), e = k * k * (3 - 2 * k);
+          s.o.position.lerpVectors(G.fp, G.to.p, e); s.o.quaternion.slerpQuaternions(G.fq, G.to.q, e);
+          if (k >= 1) G.next();
         } else if (T.phase === "up") {                // about 12 s: hauls itself up the vine to the branch, turning back-down under it
           const k = Math.min(1, T.t / 12), e = k * k * (3 - 2 * k);
           s.o.position.lerpVectors(T.from, T.to, e); s.o.quaternion.slerpQuaternions(T.q, T.qTo, Math.min(1, e * 1.3));
           s.sc = T.sc0 + (spot.scale - T.sc0) * e; s.o.scale.setScalar(s.sc);
-          const vp = T.vine.geometry.attributes.position; vp.setXYZ(1, s.o.position.x, s.o.position.y + 0.25 * SL * e, s.o.position.z); vp.needsUpdate = true;
-          T.vine.material.opacity = sstep(0, 0.08, k) * (1 - sstep(0.85, 1, k));
+          setVine(T.vine, V(s.o.position.x, s.o.position.y + (0.1 * s.sc + 0.05) * e, s.o.position.z), sstep(0, 0.08, k) * (1 - sstep(0.85, 1, k)));
           if (k >= 1) { scene.remove(T.vine); T.phase = "home"; spot.home = true; play(s, "cling", 3, 0.6); }
         } else if (T.phase === "climb") {             // up the post hand over hand, about 15 s, until its arms reach the rope knot
           if (T.t < sd + 1e-6) play(s, "hang_walk", 1.2, 2.5);
@@ -364,7 +443,7 @@ if (qs.get("campsloths") !== "0") {
         z.material.opacity = Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85); z.scale.set(0.3 + 0.35 * k, (0.3 + 0.35 * k) / 4, 1); });
     }
   };
-  window.__spots = spots;
+  window.__spots = spots; window.__sloth = (i) => sloths[i];
 }
 const COUNT = sloths.length;
 

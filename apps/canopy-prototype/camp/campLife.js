@@ -10,6 +10,7 @@ import { FLOOR_OVERLAYS, RC, V, clearing, track, trackDist } from "./forest.js";
 import { FIRE_CARDS, SOUP_POT, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, uNight } from "./campProps.js";
 import { burst, sloths } from "./sloths.js";
 import { me } from "./player.js";
+import "./deadwood.js";   // before the ground, so its plants grow round the log, stump and dead trunk
 
 // cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
