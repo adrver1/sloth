@@ -426,7 +426,7 @@ def rustic():
     return out
 
 
-STOVE = (1.0, 0.85, 0.42)        # the stove's fire, in the tent's own frame (bake_camp_night.py puts a light there)
+STOVE = (1.0, 0.85, 0.42)        # the stove's fire, in the tent's own frame (bake_camp_lightmap.py puts a light there)
 
 
 def wall_tent():
@@ -554,14 +554,48 @@ def wall_tent():
     p.append(box((0.01, 0.26, 0.14), at=(sx - 0.231, sy, 0.42), m=M["glow"]))                       # the fire window
     p.append(pole((sx - 0.25, sy + 0.12, 0.39), (sx - 0.25, sy + 0.12, 0.46), 0.012, M["brass"], verts=4))   # handle
     p.append(pole((sx, sy + 0.12, 0.6), (sx, sy + 0.12, 0.7), 0.09, M["iron"], verts=8))               # pipe collar
-    p.append(cyl(0.085, 0.13, at=(sx + 0.02, sy - 0.17, 0.685), m=M["tin"], verts=8))                 # kettle on the top plate
-    p.append(rod((sx - 0.07, sy - 0.17, 0.72), (sx - 0.15, sy - 0.17, 0.76), 0.012, M["tin"], verts=4))   # its spout
+    p += stove_kettle(M, (sx + 0.02, sy - 0.17, 0.62))                                                  # kettle on the top plate
     p.append(pole((sx, sy + 0.12, 0.6), (sx, sy + 0.12, Z0 + H + 0.62), 0.065, M["pipe"], verts=8))
-    bpy.ops.mesh.primitive_cone_add(radius1=0.14, radius2=0.0, depth=0.1, vertices=8, end_fill_type="NOTHING", location=(sx, sy + 0.12, Z0 + H + 0.69))
-    p.append(_finish(bpy.context.object, M["pipe"]))
+    # rain cap (Adriaen 2026-11-12): a flat cone held 6 cm over the pipe's mouth on two thin legs, closed underneath so
+    # it reads from the ground (8 + 6 + 2 x 6 = 26 tris); the smoke (atmosphere.js) comes out under it
+    top = Z0 + H + 0.62
+    bpy.ops.mesh.primitive_cone_add(radius1=0.15, radius2=0.0, depth=0.07, vertices=8, end_fill_type="NGON", location=(sx, sy + 0.12, top + 0.095))
+    p.append(_finish(bpy.context.object, M["pipe"], smooth=False))
+    for a in (0.0, math.pi):
+        lx, ly = math.cos(a) * 0.055, math.sin(a) * 0.055
+        p.append(rod((sx + lx, sy + 0.12 + ly, top - 0.03), (sx + lx * 1.4, sy + 0.12 + ly * 1.4, top + 0.065), 0.006, M["iron"], verts=3))
     t = join(p, "Tent")
     t["coarse"] = True
     return t
+
+def stove_kettle(M, at):
+    """The kettle on the tent stove (Adriaen 2026-11-12: not one solid chunk, as light as the enamel mug): an 8-sided
+    lathe, base to belly to shoulder, a darker lid ring and knob, a tapered 4-sided spout and a 3-part bail handle.
+    No bottom (it stands on the plate). About 84 triangles."""
+    import bmesh
+    x0, y0, z0 = at
+    n, prof = 8, [(0.072, 0.0), (0.085, 0.05), (0.07, 0.095), (0.048, 0.11), (0.014, 0.122), (0.0, 0.135)]
+    bm = bmesh.new()
+    rings = [[bm.verts.new((x0 + r * math.cos(2 * math.pi * (i + 0.5) / n), y0 + r * math.sin(2 * math.pi * (i + 0.5) / n), z0 + z)) for i in range(n)] if r else
+             [bm.verts.new((x0, y0, z0 + z))] for r, z in prof]
+    for k in range(len(rings) - 1):
+        a, b = rings[k], rings[k + 1]
+        for i in range(n):
+            j = (i + 1) % n
+            f = bm.faces.new((a[i], a[j], b[0]) if len(b) == 1 else (a[i], a[j], b[j], b[i]))
+            f.material_index = 1 if k >= 3 else 0                     # the lid ring and knob in dark iron
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    me = bpy.data.meshes.new("kettle"); bm.to_mesh(me); bm.free()
+    o = bpy.data.objects.new("kettle", me); bpy.context.collection.objects.link(o)
+    me.materials.append(M["tin"]); me.materials.append(M["iron"])
+    for pl in me.polygons: pl.use_smooth = True
+    out = [o]
+    sp = cyl(0.016, 0.11, m=M["tin"], verts=4, r2=0.008)            # the spout, tapering up and out
+    sp.location = (x0 - 0.1, y0, z0 + 0.075); sp.rotation_euler = (0, -0.9, 0); out.append(sp)
+    hy = 0.0                                                          # the bail handle: up, across, down, over the lid
+    pts = [(x0 + 0.06, y0 + hy, z0 + 0.095), (x0 + 0.045, y0 + hy, z0 + 0.19), (x0 - 0.045, y0 + hy, z0 + 0.19), (x0 - 0.06, y0 + hy, z0 + 0.095)]
+    for a, b in zip(pts, pts[1:]): out.append(rod(a, b, 0.005, M["iron"], verts=3))
+    return out
 
 def tripod_kettle(M):
     """A bamboo tripod over the fire with a kettle on a cord (jungle materials)."""
