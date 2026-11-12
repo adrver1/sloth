@@ -35,6 +35,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
 
   // things in the camp (not the big trees at the edge), from the collision circles
   const spots = blockers.filter(([c, r]) => Math.hypot(c.x, c.z) < RC - 1 && r < 1.6 && Math.hypot(c.x, c.z) > 0.01);
+  const used = spots.filter((b) => !b.wild);   // what people use gets worn dirt and a path; the deadwood (wild) only gets plants round it (Adriaen 2026-11-12)
   const entry = trackPts.find((p) => Math.hypot(p.x, p.z) > RC - 0.6);        // where the jeep's track meets the clearing
 
   // ---------------------------------------------------------------- wear map: R dirt, G lushness (0.5 neutral), B ash / wet mud
@@ -49,12 +50,12 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     g.globalCompositeOperation = "lighter";
     const dirt = (x, z, r, a) => blob(x, z, r, `rgba(255,0,0,${a})`);
     dirt(0, 0, 3.3, 0.8); dirt(0, 0, 2.2, 0.7);                                  // round the fire and the seats
-    for (const [c, r] of spots) dirt(c.x, c.z, r + R(0.6, 0.9), 0.75);            // in front of and round each thing you use
+    for (const [c, r] of used) dirt(c.x, c.z, r + R(0.6, 0.9), 0.75);            // in front of and round each thing you use
     const path = (a, b, w) => {                                                     // a worn footpath: a wobbly line, soft edges
       const n = Math.max(6, Math.round(a.distanceTo(b) / 0.4)), side = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize(), bend = R(-0.5, 0.5);
       for (let k = 0; k <= n; k++) { const t = k / n, p = a.clone().lerp(b, t).addScaledVector(side, Math.sin(t * Math.PI) * bend + R(-0.06, 0.06)); dirt(p.x, p.z, w * R(0.85, 1.15), 0.32); }
     };
-    for (const [c, r] of spots) { const d = c.clone().setY(0), L = d.length(); if (L > 2.2) path(d.clone().multiplyScalar(2.4 / L), d.clone().multiplyScalar((L - r * 0.7) / L), 0.55); }
+    for (const [c, r] of used) { const d = c.clone().setY(0), L = d.length(); if (L > 2.2) path(d.clone().multiplyScalar(2.4 / L), d.clone().multiplyScalar((L - r * 0.7) / L), 0.55); }
     if (entry) path(new THREE.Vector3(entry.x, 0, entry.z).multiplyScalar(2.6 / Math.hypot(entry.x, entry.z)), new THREE.Vector3(entry.x, 0, entry.z), 0.6);   // to the track
     // break it up: grass islands in the dirt, ragged edges
     g.globalCompositeOperation = "source-over";
@@ -62,7 +63,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     // ash right round the fire, wet mud by the table, the jeep and the track
     g.globalCompositeOperation = "lighter";
     blob(0, 0, 1.25, "rgba(0,0,255,.75)");
-    for (const [c, r] of spots) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
+    for (const [c, r] of used) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
   }, false);
   if (baked) { const g = wear.image.getContext("2d"); g.globalCompositeOperation = "copy"; g.drawImage(baked.mask, 0, 0, M, M); wear.needsUpdate = true; }   // the baked wear map (props/ground/bake_ground.py) for the plants' lookups
@@ -481,6 +482,6 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings
   }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
-  const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
+  const layout = { RR, RC, spots: used.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
   return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }

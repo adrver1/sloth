@@ -40,7 +40,7 @@ export function groundHeight(x, z) {
   }
   // kept level where people walk: the glade path and glade (ribbon 0.75 m each side) and the jeep's track (1.35 m), plus a
   // ground-mesh cell, then a bank about 3 m wide
-  const open = Math.min(ss(2.0, 5.0, L.pathDist(x, z)), ss(2.6, 5.6, L.jeepDist(x, z)));
+  const open = Math.min(ss(3.0, 6.0, L.pathDist(x, z)), ss(3.4, 6.4, L.jeepDist(x, z)));   // level a full mesh cell past the ribbons and the glade's grass disc, so the bank never slopes up through them
   return dip + (bowl + humm + mound) * open;
 }
 export function heightGrid(n = 128) {
