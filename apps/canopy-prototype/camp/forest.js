@@ -123,13 +123,13 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
     g.globalCompositeOperation = "destination-in"; g.fillStyle = e; g.fillRect(0, 0, w, h);
   });
   earth.wrapT = THREE.RepeatWrapping;
-  for (const [curve, fade] of [[sloPath.curve, (t, L, r) => sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 1.2, L, t * L))],   // takes over from the baked ground's path at the clearing edge, fades out into the glade
-    [tripPath.curve, (t, L) => sstep(0, 1.6, t * L) * (1 - sstep(L - 2.5, L, t * L))]]) {   // the trip path: in from the glade's grass, lost in the trees at its end
+  for (const [curve, half, fade] of [[sloPath.curve, 0.75, (t, L, r) => sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 1.2, L, t * L))],   // takes over from the baked ground's path at the clearing edge, fades out into the glade
+    [tripPath.curve, 1.25, (t, L) => sstep(0, 1.6, t * L) * (1 - sstep(L - 2.5, L, t * L))]]) {   // the trip path: wide enough for two walking hand in hand (Adriaen 2026-11-12), in from the glade's grass, lost in the trees at its end
   const n = 40, pos = [], uv = [], col = [], idx = [], L = curve.getLength();
   for (let i = 0; i <= n; i++) {
     const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
     const a = fade(t, L, r);
-    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * 0.75); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
+    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * half); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
     if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));

@@ -162,16 +162,16 @@ function place(o, s, off = 0) { const f = frameAt(s); o.position.copy(f.p).addSc
 function cutStep(dt) {
   const c = cut; c.t += dt; const t = c.t, s = S0 + t * SPEED;
   for (const k of [c.op, c.pony]) { k.rest.forEach(([n, q]) => n.quaternion.copy(q)); k.mixer.setTime(t * 0.9 + (k === c.pony ? 0.04 : 0)); }   // in step, as people holding hands fall into
-  const f = place(c.op.o, s);
+  const f = place(c.op.o, s, 0.28);   // the two of them walk in the middle of the path
   const inward = f.side.dot(V(-f.p.x, 0, -f.p.z)) > 0 ? 1 : -1;   // +1 when side points back toward the camp
-  place(c.pony.o, s + 0.05, -0.56);                              // she walks close on his left (side is his right), holding his hand (Adriaen 2026-11-12)
-  const fw = frameAt(s - 1.62); c.w.position.copy(fw.p).addScaledVector(fw.side, 0.2); c.w.rotation.set(0, Math.atan2(-fw.d.z, fw.d.x), 0);   // the wagon's +X along the path, a little to his right so the handle comes up beside his hip
+  place(c.pony.o, s + 0.05, -0.28);                              // she walks close on his left (side is his right), holding his hand (Adriaen 2026-11-12)
+  const fw = frameAt(s - 1.62); c.w.position.copy(fw.p).addScaledVector(fw.side, 0.48); c.w.rotation.set(0, Math.atan2(-fw.d.z, fw.d.x), 0);   // the wagon's +X along the path, a little to his right so the handle comes up beside his hip
   c.w.rotation.z = Math.sin(t * 5.6) * 0.008; c.w.position.y += Math.abs(Math.sin(t * 5.6)) * 0.008;   // a little rattle on the path
   for (const wh of c.w.userData.wheels) wh.rotation.y = -s / 0.13;
   scene.updateMatrixWorld(true);
   reach(c.op.B, "R", c.w.localToWorld(c.w.userData.tip.clone()), V(0, -0.4, 0).addScaledVector(f.d, -1));   // he pulls with his right hand hanging a little behind his hip, arm nearly straight, elbow back (Adriaen: the bent-up arm looked painful)
   { // and holds hers with his left: both hands meet halfway between them, low and a little ahead, swinging gently with the stride
-    const hold = f.p.clone().addScaledVector(f.side, -0.28).addScaledVector(f.d, 0.12 + 0.05 * Math.sin(t * 0.9 * Math.PI * 2)).setY(f.p.y + 0.86);
+    const hold = f.p.clone().addScaledVector(f.side, 0).addScaledVector(f.d, 0.12 + 0.05 * Math.sin(t * 0.9 * Math.PI * 2)).setY(f.p.y + 0.86);
     reach(c.op.B, "L", hold, V(0, -1, 0).addScaledVector(f.side, -0.5)); reach(c.pony.B, "R", hold, V(0, -1, 0).addScaledVector(f.side, 0.5));
   }
   { const k = Math.sin(t * 0.7); c.pony.B.neck.rotation.y += k > 0 ? 0.5 * k : 0.25 * k; c.pony.B.head.rotation.y += k > 0 ? 0.35 * k : 0.2 * k; }   // she looks back at the sloths, then over at him
