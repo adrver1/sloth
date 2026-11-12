@@ -415,6 +415,34 @@ def drive(t, limbs):
     return pose
 
 
+def peek(t, limbs):
+    """t 0..1 round the loop: lying on its belly (the tent doorway in Canopy
+    Camp), chin on its paws folded in front, peeking out: the head lifts a
+    little and looks slowly one way, holds, the other way, holds, with a
+    curious tilt, then sinks back onto its paws. Slow breaths."""
+    w = 2 * math.pi * t
+    breath = math.sin(4 * w)
+    look = math.sin(w)
+    look = math.copysign(abs(look) ** 0.5, look)                # lingers at each side
+    up = 0.5 - 0.5 * math.cos(2 * w)                          # head up while looking, down between
+    off = (0.0, 0.0, 0.026 + 0.0015 * breath)
+    spec = [(X, WALK_PITCH + 1.5 * breath)]
+    pose = {"body": (off, spec), "head": [(X, 74 + 10 * up), (Z, 38 * look * up), (Y, 10 * look * up)]}
+    for key, (a, b) in limbs.items():
+        kind, tag = key.split(".")
+        side = 1 if tag == "R" else -1
+        root = _point(off, spec, a)
+        if kind == "arm":   # stretched ahead either side of the chin, paws flat, claws showing
+            reach = (b - a).length
+            target = Vector((side * 0.03, root.y + 0.8 * reach, 0.006))
+            pole = Vector((side * 1.0, -0.3, 0.6))
+        else:               # stretched out behind, splayed a little
+            target = Vector((root.x + side * 0.05, root.y - 0.04, 0.004))
+            pole = Vector((side * 1.0, 0.3, 0.6))
+        pose[key] = (target, pole)
+    return pose
+
+
 def reach(t, limbs):
     """t 0..1 round the loop: sitting up as idle and very slowly reaching
     the right paw out ahead and up (for the kettle in Canopy Camp), leaning
@@ -445,7 +473,8 @@ def clips(limbs):
             "nap": [(k * 9, nap(k / 16, limbs)) for k in range(17)],
             "reach": [(k * 8, reach(k / 24, limbs)) for k in range(25)],
             "curl": [(k * 9, curl(k / 16, limbs)) for k in range(17)],
-            "drive": [(k * 6, drive(k / 24, limbs)) for k in range(25)]}
+            "drive": [(k * 6, drive(k / 24, limbs)) for k in range(25)],
+            "peek": [(k * 12, peek(k / 24, limbs)) for k in range(25)]}
 
 
 def add_clips(arm_ob, limbs):
