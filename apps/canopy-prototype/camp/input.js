@@ -14,7 +14,7 @@ const coarse = matchMedia("(pointer: coarse)").matches || qs.has("touch");
 const stick = $("stick"); let stickId = null;
 stick.hidden = !coarse;
 document.body.classList.toggle("touch", coarse);   // the hint moves up above the stick
-if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click what lights up to see what you can do";
+if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
 function hideHelp() { setTimeout(() => ($("q").style.opacity = 0), 3000); }
 function stickMove(e) {
   const r = stick.getBoundingClientRect(), v = new THREE.Vector2(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2).divideScalar(r.width / 2);
@@ -61,7 +61,8 @@ function feed(s) {
 // With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,
 // within AIM of it, so you only have to look roughly at it. Only things in reach light up. Tapping a lit thing opens a small
 // menu of what you can do with it (Adriaen 2026-11-12): Boop / Feed for a sloth, Open / Close for a jeep door, the chore for
-// the wood pile and the fire. A hold on a sloth still feeds it straight away.
+// the wood pile and the fire. Sloths never light up (Adriaen: too many, too distracting), but a tap on one still opens
+// its menu, and a hold still feeds it straight away.
 const glow = createHighlight(scene, renderer, { width: coarse ? 3.5 : 3 });
 const AIM = 0.45, fwd = new THREE.Vector3(), to = new THREE.Vector3(), box3 = new THREE.Box3(), sph = new THREE.Sphere();
 let hover = null, lit = null, menuFor = null;
@@ -77,7 +78,7 @@ function allTargets() {
   const out = [];
   for (const t of acts.things) if (t.look) out.push(target(t, () => ({ look: t.look, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
     ready: () => acts.ready(t), options: () => [[t.name === "fire" ? "Add the log 🔥" : "Take a log 🪵", () => acts.tap({ thing: t })]] })));
-  for (const s of sloths) out.push(target(s, () => ({ look: s.lit ?? s.o, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
+  for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
     ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => [["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]] })));
   for (const d of window.__jeep?.doors ?? []) out.push(target(d, () => {
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
@@ -95,11 +96,11 @@ function targetAt(x, y) {
 function aimStep(dt) {
   let best = null;
   if (menuFor) best = menuFor.ready() ? menuFor : (closeMenu(), null);
-  else if (hover) best = looks.size ? lit : targetAt(hover.x, hover.y);   // a mouse: what it is over (kept while dragging)
+  else if (hover) { best = looks.size ? lit : targetAt(hover.x, hover.y); if (best?.quiet) best = null; }   // a mouse: what it is over (kept while dragging)
   else {
     camera.getWorldDirection(fwd); let bestA = AIM;
     for (const t of allTargets()) {
-      if (!t.ready()) continue;
+      if (t.quiet || !t.ready()) continue;
       const S = t.at(to); to.sub(camera.position); const d = to.length();
       const ang = fwd.angleTo(to) - Math.asin(Math.min(1, S.radius / d));
       if (ang < bestA) { bestA = ang; best = t; }
