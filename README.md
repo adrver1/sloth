@@ -16,6 +16,7 @@ This work started in the desk-at-night repo (thread "Make fun extras with the sl
 | `apps/fur-options/` | **Sloth Fur Options.** The fur looks; 4 merged shell layers was the pick. | https://claude.ai/artifact/GNGvhQsK1cAjVCh1jdyLzA |
 | `stickers/renderer/` | The sticker renderer page and its scripts (still and animated, 512×512 WebP). | |
 | `stickers/packs/` | The finished sticker zips (furry, flat, animated, hearts) and the family sticker. | |
+| `characters/aussie_critters/` | The karaoke's Aussie crowd (platypus, wallaby, echidna, wombat): `build_critters.py` and `critter_rig.py` (idle, bop, cheer, and hop for the wallaby), plus the exported GLBs. Packed for the page with `pack_chars.mjs --own`, then base64 into `apps/karaoke/models/`. | |
 | `characters/sloth_baby/` | The sloth: `build_sloth_baby.py` and `sloth_rig.py`, plus the exported GLBs. The live look is `plush_real`. | |
 | `engine/` | The desk-at-night repo as a git submodule (shallow, branch `main`). It provides the character kit (`engine/characters/_shared`), the ponytail engineer and the bearded operator the sloth plays with, and `engine/web/scripts/pack_chars.mjs`. Nothing from it is copied here. | |
 

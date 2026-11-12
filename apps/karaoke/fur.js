@@ -2,11 +2,12 @@
 // plus N thin shells (merged into one skinned mesh, one extra draw) pushed out along smoothed normals, with strands cut out of each.
 // Only the fur swatches of the palette get fur; face mask, eyes and claws stay smooth.
 // Usage: import { furify } from "./fur.js"; furify(clonedSlothScene) (4 layers; ?fur=0 on the page turns it off).
+// Other animals pass their own palette fur swatches: furify(root, { colors: [0x8a6446, 0x5e4030] }).
 import * as THREE from "three";
 
 const FUR = [[0x8f, 0x7c, 0x62], [0x6a, 0x58, 0x44]];   // palette fur swatches (light, dark)
 let pc, pg;
-function prepare(geo, map) {
+function prepare(geo, map, fur = FUR) {
   if (geo.userData.furReady) return;
   if (!pc) {
     const img = map.image;
@@ -19,7 +20,7 @@ function prepare(geo, map) {
   for (let i = 0; i < n; i++) {
     const x = Math.min(pc.width - 1, Math.floor(uv.getX(i) * pc.width)), y = Math.min(pc.height - 1, Math.floor(uv.getY(i) * pc.height));
     const o = (y * pc.width + x) * 4;
-    mask[i] = FUR.some((c) => Math.abs(c[0] - px[o]) + Math.abs(c[1] - px[o + 1]) + Math.abs(c[2] - px[o + 2]) < 40) ? 1 : 0;
+    mask[i] = fur.some((c) => Math.abs(c[0] - px[o]) + Math.abs(c[1] - px[o + 1]) + Math.abs(c[2] - px[o + 2]) < 40) ? 1 : 0;
   }
   // smoothed normals: average the flat normals of every vertex at the same spot, so shells don't split at facets
   const key = (i) => `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
@@ -104,13 +105,13 @@ function shellMat(map, len) {
 const baseMats = new Map();
 
 export const FUR_ON = !/[?&]fur=0\b/.test(location.search);   // ?fur=0: the original flat sloth, kept as a backup
-export function furify(root, { shells = 4, length = 0.0075 } = {}) {
+export function furify(root, { shells = 4, length = 0.0075, colors = null } = {}) {
   if (!FUR_ON) return root;
   const meshes = [];
   root.traverse((m) => m.isSkinnedMesh && !m.userData.fur && meshes.push(m));
   for (const m of meshes) {
     const map = m.material.map;
-    prepare(m.geometry, map);
+    prepare(m.geometry, map, colors ? colors.map((h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255]) : FUR);
     if (!baseMats.has(m.material.uuid)) baseMats.set(m.material.uuid, patch(m.material.clone(), BASE));
     m.material = baseMats.get(m.material.uuid);
     const sh = new THREE.SkinnedMesh(shellGeo(m.geometry, shells), shellMat(map, length));
