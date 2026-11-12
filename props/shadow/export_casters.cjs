@@ -26,6 +26,7 @@ const [props = "picked", jeep = "expedition"] = process.argv.slice(2), root = pa
     const buf = await new GLTFExporter().parseAsync(g, { binary: true });
     const L = window.__ground.layout, tent = window.__camp.tentAt;
     const layout = { ...L, glade: (window.__glade?.path || []).map((p) => [p.x, p.z]), tent: tent ? [tent.x, tent.z] : null,
+      hammock: window.__camp?.hA ? [[window.__camp.hA.x, window.__camp.hA.z], [window.__camp.hB.x, window.__camp.hB.z]] : null,
       deadwood: window.__deadwood?.layout || [] };   // the fallen log, stump and dead trunk: occluders in props/camp/bake_camp_lightmap.py
     return { names, layout, b64: btoa(Array.from(new Uint8Array(buf), (c) => String.fromCharCode(c)).join("")) };
   });
