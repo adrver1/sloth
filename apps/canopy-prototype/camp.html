@@ -253,6 +253,32 @@ const domeGeo = new THREE.SphereGeometry(30, 40, 10, 0, Math.PI * 2, 0, Math.PI 
 { const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / 60, 0.5 - p.getZ(i) / 60); }
 const dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
 dome.position.y = 27; scene.add(dome);
+// the night sky (camp review B1, Adriaen 2026-11-12): a second dome, deep blue to near black at the rim, with stars and a few faint
+// wisps, faded in over the day dome with dusk; and the moon, a soft disc with a halo, up in the canopy gap where the start view sees
+// it (one sprite each, no fog). Same dome geometry, so 2 draws more at night only.
+const nightTex = canvasTex(1024, 1024, (g, w, h) => {
+  let s4 = 777; const Q = (a, b) => { s4 = (s4 * 16807) % 2147483647; return a + (s4 / 2147483647) * (b - a); };
+  const c = w / 2, gr = g.createRadialGradient(c, c, 0, c, c, c);
+  gr.addColorStop(0, "#0d1a33"); gr.addColorStop(0.6, "#122440"); gr.addColorStop(1, "#0b1622"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 700; i++) {                                     // stars: many faint, a few bright with a glint
+    const a = Q(0, 6.28), r = Math.sqrt(Q(0, 1)) * c * 0.95, x = c + Math.cos(a) * r, y = c + Math.sin(a) * r, b = Q(0, 1) ** 3;
+    g.fillStyle = `rgba(${220 + Q(0, 35) | 0},${225 + Q(0, 30) | 0},255,${0.25 + 0.75 * b})`; g.beginPath(); g.arc(x, y, 0.6 + b * 1.6, 0, 7); g.fill();
+    if (b > 0.7) { const s = g.createRadialGradient(x, y, 0, x, y, 7); s.addColorStop(0, "rgba(200,215,255,.35)"); s.addColorStop(1, "rgba(200,215,255,0)"); g.fillStyle = s; g.fillRect(x - 7, y - 7, 14, 14); }
+  }
+  for (let i = 0; i < 7; i++) { const x = Q(0.2, 0.8) * w, y = Q(0.2, 0.8) * h, rr = Q(60, 140);   // thin moonlit wisps
+    const b = g.createRadialGradient(x, y, 0, x, y, rr); b.addColorStop(0, "rgba(120,140,185,.16)"); b.addColorStop(1, "rgba(120,140,185,0)"); g.fillStyle = b; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+});
+const nightDome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: nightTex, side: THREE.BackSide, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+nightDome.position.y = 27; nightDome.visible = false; nightDome.renderOrder = -1; scene.add(nightDome);
+const moonTex = canvasTex(128, 128, (g, w) => {
+  const c = w / 2, h = g.createRadialGradient(c, c, 0, c, c, c); h.addColorStop(0, "rgba(220,230,255,.55)"); h.addColorStop(0.28, "rgba(190,205,250,.28)"); h.addColorStop(1, "rgba(160,180,240,0)");
+  g.fillStyle = h; g.fillRect(0, 0, w, w);
+  const d = g.createRadialGradient(c - 4, c - 4, 0, c, c, w * 0.16); d.addColorStop(0, "#fbfcff"); d.addColorStop(0.85, "#e4e9f6"); d.addColorStop(1, "#cdd5ea");
+  g.fillStyle = d; g.beginPath(); g.arc(c, c, w * 0.16, 0, 7); g.fill();
+  g.fillStyle = "rgba(150,160,190,.25)"; for (const [x, y, r] of [[-5, -3, 4], [4, 5, 3], [6, -6, 2.4], [-2, 7, 2]]) { g.beginPath(); g.arc(c + x, c + y, r, 0, 7); g.fill(); }   // maria
+});
+const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: moonTex, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+moon.scale.setScalar(9); moon.visible = false; moon.renderOrder = -1; scene.add(moon);
 scene.background = new THREE.Color(S.sky[0]);
 const gTex = canvasTex(256, 256, (g, w, h) => {
   g.fillStyle = hex(new THREE.Color(S.leaf[2]).lerp(new THREE.Color(S.bark[1]), 0.45).getHex()); g.fillRect(0, 0, w, h);
@@ -667,7 +693,7 @@ const camp = [], lanternGlow = [];
   const str = []; for (let i = 0; i <= 20; i++) { const t = i / 20, p = l0.clone().lerp(l1, t); p.y -= Math.sin(Math.PI * t) * 0.45 - 0.06; str.push(p); }
   camp.push(flatCol(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(str), 24, 0.01, 3), 0x5a4636));
   scene.add(new THREE.Mesh(merge(camp), woodMat));
-  window.__camp = { tentAt, hA, hB, tb };
+  window.__camp = { tentAt, hA, hB, tb, string: str };   // string: the lantern string's points (a sloth hangs from it)
   // collision circles for walking round the camp
   var blockers = [[V(0, 0, 0), 0.9], Object.assign([tentAt.clone().multiplyScalar(1 + 0.275 / tentAt.length()), 1.9], { tent: true }), [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
   for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; blockers.push([V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1), 0.75]); }
@@ -851,7 +877,15 @@ if (JEEP !== "none") {
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
   const glassM = new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false });   // see-through, a little tinted
   jeep.traverse((m) => { if (m.isMesh) { m.material = m.name.startsWith("Glass") ? glassM : jm; if (m.name.startsWith("Glass")) m.renderOrder = 2; } });
+  // far away (camp review P7): beyond about 12 m the 880-triangle JeepLOD (props/jeep/build_jeep.py jeep_lod) stands in for the
+  // full jeep (6,002 triangles, 12 draws), never while a door is open. Only the jeep's own meshes are hidden, so a sloth sitting
+  // in it (parented to the jeep) stays.
+  const jeepMeshes = []; jeep.traverse((m) => { if (m.isMesh) jeepMeshes.push(m); });
+  const far = (await glb("models/jeep_expedition_lod.txt").catch(() => null))?.scene;
+  let isFar = false;
+  if (far) { far.traverse((m) => { if (m.isMesh) m.material = jm; }); far.visible = false; scene.add(far); }
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
+  if (far) { far.position.copy(jeep.position); far.rotation.copy(jeep.rotation); }
   for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
   if (JEEP === "camper") blockers.push([at.clone().addScaledVector(out, -2.3), 0.4]);   // the ladder foot
   const D3 = { P: ["DoorP", -1.2], D: ["DoorD", 1.2], B: ["BackDoor", 1.75] }, doors = {};   // how far each swings (rad), as in build_jeep.py
@@ -887,6 +921,11 @@ if (JEEP !== "none") {
       d.o.rotation.y = d.open * e;
     }
     lightStep(dt);
+    if (far) {
+      const d = camera.position.distanceTo(jeep.position), shut = Object.values(doors).every((q) => q.cur === 0);
+      const want = shut && d > (isFar ? 11.5 : 12.5);   // a little hysteresis so it doesn't flicker at the edge
+      if (want !== isFar) { isFar = want; far.visible = want; for (const m of jeepMeshes) m.visible = !want; }
+    }
   };
   const meshes = []; for (const d of Object.values(doors)) d.o.traverse((m) => { if (m.isMesh) { m.userData.door = d; meshes.push(m); } });
   jeepTap = (x, y) => {
@@ -906,24 +945,82 @@ if (JEEP !== "none") {
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
 const sloths = [], hit = [];
 let tinted = false;
-function hang(p, dir) {                               // a sloth under a branch at p, its head toward dir
-  const o = clone(SLOTH.scene); o.scale.setScalar(SL);
-  o.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
-  furify(o, { shells: D.shells });
+// review 2026-11-12 (P5, B4): Lambert body and fur like the camp; fur shells only within FUR_NEAR of the camera; a fixed
+// padded bounding sphere so off-screen sloths are culled; an 8x6 tap sphere; and a little life: they blink now and
+// then, and turn their heads to look at you when you come close (LOOK_NEAR).
+const FUR_NEAR = 8, LOOK_NEAR = 4.5;
+const FACE = (() => {                                  // which way the face points in the head bone's frame (the sloth faces -Z at rest)
+  SLOTH.scene.updateMatrixWorld(true); const h = SLOTH.scene.getObjectByName("head");
+  return V(0, 0, -1).applyQuaternion(h.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(SLOTH.scene.getWorldQuaternion(new THREE.Quaternion())));
+})();
+let palette = null;
+function eyeKit(o) {                                   // per sloth: its own copy of the meshes' UVs with the eyes open and shut
+  const kit = [];
+  o.traverse((m) => {
+    if (!m.isSkinnedMesh || !m.material.map) return;
+    if (!palette) { const img = m.material.map.image, cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      const g = cv.getContext("2d"); g.drawImage(img, 0, 0); palette = { w: cv.width, h: cv.height, px: g.getImageData(0, 0, cv.width, cv.height).data }; }
+    const { w, h, px } = palette;
+    m.geometry = m.geometry.clone(); const uv = m.geometry.attributes.uv, kind = [];
+    for (let i = 0; i < uv.count; i++) {
+      const k = (Math.min(h - 1, Math.floor(uv.getY(i) * h)) * w + Math.min(w - 1, Math.floor(uv.getX(i) * w))) * 4, r = px[k], gg = px[k + 1], b = px[k + 2];
+      kind.push(r < 40 && gg < 40 && b < 45 ? "eye" : r > 235 && gg > 235 && b > 230 ? "eye" : r < 75 && r > gg && gg > b ? "patch" : "");
+    }
+    const pi = kind.indexOf("patch"); if (pi < 0) return;
+    const shut = new THREE.BufferAttribute(new Float32Array(uv.count * 2), 2);
+    for (let i = 0; i < uv.count; i++) shut.setXY(i, kind[i] === "eye" ? uv.getX(pi) : uv.getX(i), kind[i] === "eye" ? uv.getY(pi) : uv.getY(i));
+    kit.push([m.geometry, uv, shut]);
+  });
+  return (closed) => kit.forEach(([g, open, shut]) => { g.attributes.uv = closed ? shut : open; });
+}
+function hang(p, dir, sc = SL) {                      // a sloth under a branch at p, its head toward dir
+  const o = clone(SLOTH.scene); o.scale.setScalar(sc);
+  furify(o, { shells: D.shells, lambert: qs.get("slothmat") !== "old" });   // ?slothmat=old: the GLB's physical material, as before
+  o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur) { m.geometry.computeBoundingSphere(); m.boundingSphere = m.geometry.boundingSphere.clone(); m.boundingSphere.radius *= 2; } });
+  o.traverse((m) => { if (m.userData.fur) { const b = m.parent.children.find((q) => q.isSkinnedMesh && !q.userData.fur); m.boundingSphere = b.boundingSphere.clone(); m.frustumCulled = true; } });
   if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
   const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
   act.play(); act.time = R(0, 4); act.timeScale = 0.6;
   const yl = dir.clone().setY(dir.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
   const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
-  o.quaternion.setFromRotationMatrix(rot); o.position.copy(p).sub(V(0, BR.z, -BR.y).applyMatrix4(rot)); scene.add(o);
-  const box = new THREE.Mesh(new THREE.SphereGeometry(0.42), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(p).add(V(0, -0.25, 0)); scene.add(box);
-  const s = { o, mixer, box, p, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false }; box.userData.s = s; sloths.push(s); hit.push(box);
+  o.quaternion.setFromRotationMatrix(rot); o.position.copy(p).sub(V(0, BR.z * sc / SL, -BR.y * sc / SL).applyMatrix4(rot)); scene.add(o);
+  const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(p).add(V(0, -0.25, 0)); scene.add(box);
+  const s = { o, mixer, box, p, sc, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false, shells: o.userData.furShells || [], eyes: eyeKit(o), blink: R(1, 6), look: 0 };
+  box.userData.s = s; sloths.push(s); hit.push(box);
+}
+const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), va = V(), vb = V();
+function slothLife(s, dt) {                            // after the clip: fur by distance, blinks, and a look at you when you're close
+  s.head.getWorldPosition(va); const d = va.distanceTo(camera.position);
+  const far = d > FUR_NEAR; if (s.shells[0] && s.shells[0].visible === far) s.shells.forEach((m) => (m.visible = !far));
+  if (!s.asleep) {
+    s.blink -= dt;
+    if (s.blink < 0) { s.eyes(true); if (s.blink < -0.14) { s.eyes(false); s.blink = R(2.5, 7); } }
+  }
+  const T = s.trip, want = !s.asleep && d < LOOK_NEAR && (!T || T.phase === "home") ? 1 : 0;
+  s.look += (want - s.look) * Math.min(1, dt * 1.5);
+  if (s.look < 0.01) return;
+  const hq = s.head.getWorldQuaternion(qa), face = vb.copy(FACE).applyQuaternion(hq), to = camera.position.clone().sub(va).normalize();
+  const turn = qb.setFromUnitVectors(face, to), ang = 2 * Math.acos(Math.min(1, Math.abs(turn.w)));
+  const w = s.look * 0.75 * Math.min(1, 1.2 / Math.max(ang, 1e-3));   // at most about 70 degrees, three quarters of the way
+  turn.slerp(qa.identity(), 1 - Math.min(1, w)).multiply(s.head.getWorldQuaternion(new THREE.Quaternion()));
+  s.head.quaternion.copy(s.head.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(turn));
 }
 for (const c of branchCurves.filter((c) => c.low)) {
   const t = R(0.5, 0.8), p = c.getPointAt(t), tan = c.getTangentAt(t);
   if (tan.x * p.x + tan.z * p.z > 0) tan.negate();   // head toward the middle of the clearing, so you meet its face
   if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) hang(p, tan);
-  if (sloths.length >= 7) break;
+  if (sloths.length >= (window.__camp.string ? 6 : 7)) break;
+}
+// review 2026-11-12 (B4): one sloth where you start, hanging from the lantern string between two lanterns, about 3 m
+// away and in the middle of the view, so the first thing you see is a sloth (it can be befriended like the others)
+if (window.__camp.string && qs.get("campsloths") !== "0") {
+  const st = window.__camp.string, eye = { pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), yaw: Math.atan2(-d0.x, -d0.z) }, fwd = V(-Math.sin(eye.yaw), 0, -Math.cos(eye.yaw));
+  let best = 0, bs = -2;
+  for (let i = 1; i < st.length - 1; i++) { const q = st[i].clone().sub(eye.pos).setY(0), d = q.length(), c = q.dot(fwd) / d - Math.abs(d - 3.8) * 0.15; if (c > bs) { bs = c; best = i; } }
+  const n = st.length - 1, t = (Math.min(8, Math.max(0, Math.floor(best / n * 9))) + 0.5) / 9, k = t * n, i0 = Math.floor(k);   // halfway between two lanterns
+  const p = st[i0].clone().lerp(st[Math.min(n, i0 + 1)], k - i0).setY(st[i0].y + (st[Math.min(n, i0 + 1)].y - st[i0].y) * (k - i0) - 0.02);
+  const tan = st[Math.min(n, i0 + 1)].clone().sub(st[Math.max(0, i0 - 1)]).normalize(); if (tan.dot(fwd.clone().cross(V(0, 1, 0))) > 0) tan.negate();   // side on, head to your left
+  hang(p, tan, 1.9);
 }
 // ---------------------------------------------------------------- sloths living in the camp (thread "Bring sloths to life in camp")
 // Adriaen 2026-11-11: the camp spots stay empty until a sloth is befriended. Then that same sloth (flower crown and all)
@@ -937,21 +1034,11 @@ let hammockSway = null, campStep = () => {};
 if (qs.get("campsloths") !== "0") {
   const { hA, hB } = window.__camp, hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA), hYaw = -Math.atan2(hd.z, hd.x);
   const clipOf = (n) => SLOTH.animations.find((a) => a.name === n);
-  function shutEyes(o) {                              // asleep: the eyes and their glints take the dark patch colour round them (own copy of the mesh)
-    o.traverse((m) => {
-      if (!m.isSkinnedMesh || !m.material.map) return;          // the fur shells too, or their tips keep the glint
-      const img = m.material.map.image, cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
-      const g = cv.getContext("2d"); g.drawImage(img, 0, 0); const px = g.getImageData(0, 0, cv.width, cv.height).data;
-      m.geometry = m.geometry.clone(); const uv = m.geometry.attributes.uv, kind = [];
-      for (let i = 0; i < uv.count; i++) {
-        const k = (Math.min(cv.height - 1, Math.floor(uv.getY(i) * cv.height)) * cv.width + Math.min(cv.width - 1, Math.floor(uv.getX(i) * cv.width))) * 4, r = px[k], gg = px[k + 1], b = px[k + 2];
-        kind.push(r < 40 && gg < 40 && b < 45 ? "eye" : r > 235 && gg > 235 && b > 230 ? "eye" : r < 75 && r > gg && gg > b ? "patch" : "");
-      }
-      const pi = kind.indexOf("patch"); if (pi < 0) return;
-      const pu = uv.getX(pi), pv = uv.getY(pi);
-      kind.forEach((k, i) => k === "eye" && uv.setXY(i, pu, pv));
-    });
+  function shutEyes(o) {                              // asleep: the eyes (and their glints on the fur) take the dark patch colour round them
+    const s = sloths.find((q) => q.o === o); if (!s) return;
+    s.asleep = true; s.eyes(true);
   }
+
   // the hammock: the sling and its ropes swing about the line between the rope knots on the posts (1.75 m up);
   // the posts and the leaves on top stay put. The same swing turns the group the napper lies in.
   const PIV = 1.75, sway = { value: 0 };
@@ -1075,7 +1162,7 @@ if (qs.get("campsloths") !== "0") {
   addEventListener("sloth-befriended", (e) => {
     const s = sloths[e.detail?.id], spot = spots.find((p) => !p.who);   // hammock, log seat, jeep, line, tent, then the two edge branches
     if (!s || s.trip || !spot) return;
-    spot.who = s; s.sc = SL;
+    spot.who = s; s.sc ??= SL;
     s.act = s.mixer.existingAction(clipOf("cling"));
     // down: lower itself on a vine to the ground right under its branch (kept inside the clearing)
     const g = s.o.position.clone().setY(0), inGlade = g.distanceTo(GLADE) < GLADE_R + 0.5;
@@ -1083,7 +1170,7 @@ if (qs.get("campsloths") !== "0") {
     const route = inGlade ? sloPath.pts.slice().reverse().filter((q) => Math.hypot(q.x, q.z) > RC - 2.5).filter((_, i) => i % 3 === 0) : [];   // from the glade: back along the path
     const vine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([s.p, s.p]), new THREE.LineBasicMaterial({ color: 0x4f6b2a }));
     scene.add(vine);
-    s.trip = { spot, phase: "down", t: 0, from: s.o.position.clone(), q: s.o.quaternion.clone(), to: g, top: s.p.clone(), vine, sc0: SL, route };
+    s.trip = { spot, phase: "down", t: 0, from: s.o.position.clone(), q: s.o.quaternion.clone(), to: g, top: s.p.clone(), vine, sc0: s.sc, route };
     play(s, "hang_walk", 1.2, 1.4);
   });
   // steer round the fire, tent, posts, seats, table and trees (the blockers you walk round), sliding along them
@@ -1381,7 +1468,13 @@ const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !==
 window.__acts = acts;
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
 const hemiL = scene.children.find((o) => o.isHemisphereLight);
-const DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity }, DUSK = new THREE.Color(0x34405a);
+const DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity, sky: hemiL.color.clone(), ground: hemiL.groundColor.clone(), sunC: sun.color.clone(), dens: scene.fog.density };
+// night (camp review B1): deep blue-teal fog and backdrop, the forest in cool moonlight and near-black under the canopy, so the
+// fire, the lanterns and the tent are the only warm colours. Warm near, cool far. The sky light from below is warm firelight off
+// the ground, so the undersides of things (a sloth overhead) catch a little glow instead of going black.
+const DUSK = new THREE.Color(0x0e1c2b), NIGHT_SKY = new THREE.Color(0x4a66a0), NIGHT_GROUND = new THREE.Color(0x4a2c16), MOONC = new THREE.Color(0x9fb4e6), BACK_NIGHT = new THREE.Color(0.08, 0.12, 0.22);
+// the moon: up in the canopy gap, in front of you as you start (you face the fire), a little to the side
+{ const f = me.pos.clone().setY(0).negate().normalize(), sd = V(-f.z, 0, f.x); moon.position.copy(f.multiplyScalar(11)).addScaledVector(sd, 3).setY(21); }
 let dusk = 0, duskTo = 0;
 const flies = (() => {
   const n = 120, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const a = R(0, 6.28), r = R(2, RC + 6); p.set([Math.cos(a) * r, R(0.4, 7), Math.sin(a) * r], i * 3); }
@@ -1408,6 +1501,7 @@ renderer.setAnimationLoop(() => {
   step(dt);
   for (const s of sloths) {
     s.mixer.update(dt);
+    slothLife(s, dt);
     if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; const sc = s.sc || SL; s.o.scale.set(sc * (1 + k), sc * (1 - k), sc * (1 + k)); }
     if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
   }
@@ -1427,8 +1521,11 @@ renderer.setAnimationLoop(() => {
   lanterns.forEach((s, i) => { s.material.opacity = 0.45 + 0.5 * dusk; s.position.y = lanternGlow[i].y + Math.sin(uTime.value * 1.2 + i) * 0.015; });
   dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
   if (dusk || duskTo) {
-    scene.fog.color.copy(DAY.fog).lerp(DUSK, dusk); hemiL.intensity = DAY.hemi * (1 - 0.6 * dusk); sun.intensity = DAY.sun * (1 - 0.85 * dusk);
-    sky.material.color.setScalar(1 - 0.65 * dusk); dome.material.color.setRGB(1 - 0.7 * dusk, 1 - 0.66 * dusk, 1 - 0.5 * dusk); scene.background.set(S.sky[0]).multiplyScalar(1 - 0.7 * dusk); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
+    scene.fog.color.copy(DAY.fog).lerp(DUSK, dusk); scene.fog.density = DAY.dens * (1 + 0.6 * dusk);
+    hemiL.intensity = DAY.hemi * (1 - 0.72 * dusk); hemiL.color.copy(DAY.sky).lerp(NIGHT_SKY, dusk); hemiL.groundColor.copy(DAY.ground).lerp(NIGHT_GROUND, dusk);
+    sun.intensity = DAY.sun * (1 - 0.62 * dusk); sun.color.copy(DAY.sunC).lerp(MOONC, dusk);                      // the sun turns into cool moonlight
+    sky.material.color.setRGB(1, 1, 1).lerp(BACK_NIGHT, dusk); dome.material.color.setScalar(1 - 0.75 * dusk); scene.background.set(S.sky[0]).lerp(DUSK, dusk);
+    nightDome.visible = moon.visible = dusk > 0.01; nightDome.material.opacity = Math.min(1, dusk * 1.3); moon.material.opacity = Math.max(0, dusk * 1.5 - 0.5); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
     if (typeof rayMat !== "undefined") rayMat.opacity = S.rays * (1 - dusk);
   }
   if (motes) motes.rotation.y += dt * 0.02;

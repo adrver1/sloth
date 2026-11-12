@@ -2,6 +2,8 @@
 // plus N thin shells (merged into one skinned mesh, one extra draw) pushed out along smoothed normals, with strands cut out of each.
 // Only the fur swatches of the palette get fur; face mask, eyes and claws stay smooth.
 // Usage: import { furify } from "./fur.js"; furify(clonedSlothScene) (4 layers; ?fur=0 on the page turns it off).
+// { lambert: true } shades body and shells with MeshLambertMaterial instead of the GLB's physical / standard ones (Canopy
+// Camp, review 2026-11-12: cheaper, and matches the Lambert props). Each sloth's shell mesh is in root.userData.furShells.
 import * as THREE from "three";
 
 const FUR = [[0x8f, 0x7c, 0x62], [0x6a, 0x58, 0x44]];   // palette fur swatches (light, dark)
@@ -50,7 +52,7 @@ function patch(mat, frag, decl = "", nrm = "", pos = "", fdecl = "") {
       .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag);
     Object.assign(sh.uniforms, mat.userData.u || {});
   };
-  mat.customProgramCacheKey = () => "fur" + frag + pos;
+  mat.customProgramCacheKey = () => "fur" + mat.type + frag + pos;
   return mat;
 }
 const BASE = `
@@ -91,10 +93,10 @@ function shellGeo(geo, shells) {
   return out;
 }
 const shellMats = new Map();   // one material per (map, length), shared by every sloth
-function shellMat(map, len) {
-  const k = map.uuid + len;
+function shellMat(map, len, lambert = false) {
+  const k = map.uuid + len + lambert;
   if (shellMats.has(k)) return shellMats.get(k);
-  const mat = new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0, alphaTest: 0.5 });
+  const mat = lambert ? new THREE.MeshLambertMaterial({ map, alphaTest: 0.5 }) : new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0, alphaTest: 0.5 });
   mat.userData.u = { uLen: { value: len } };
   patch(mat, SHELL, "attribute float furLayer; uniform float uLen; varying float uT;", "objectNormal = furNormal;",
     "uT = furLayer;\ntransformed += normalize(furNormal) * uLen * uT * furMask;\ntransformed.y -= uLen * 0.5 * uT * uT * furMask;", "varying float uT;\n");
@@ -104,20 +106,22 @@ function shellMat(map, len) {
 const baseMats = new Map();
 
 export const FUR_ON = !/[?&]fur=0\b/.test(location.search);   // ?fur=0: the original flat sloth, kept as a backup
-export function furify(root, { shells = 4, length = 0.0075 } = {}) {
+export function furify(root, { shells = 4, length = 0.0075, lambert = false } = {}) {
   if (!FUR_ON) return root;
   const meshes = [];
   root.traverse((m) => m.isSkinnedMesh && !m.userData.fur && meshes.push(m));
   for (const m of meshes) {
     const map = m.material.map;
     prepare(m.geometry, map);
-    if (!baseMats.has(m.material.uuid)) baseMats.set(m.material.uuid, patch(m.material.clone(), BASE));
-    m.material = baseMats.get(m.material.uuid);
-    const sh = new THREE.SkinnedMesh(shellGeo(m.geometry, shells), shellMat(map, length));
+    const bk = m.material.uuid + lambert;
+    if (!baseMats.has(bk)) baseMats.set(bk, patch(lambert ? new THREE.MeshLambertMaterial({ map, color: m.material.color }) : m.material.clone(), BASE));
+    m.material = baseMats.get(bk);
+    const sh = new THREE.SkinnedMesh(shellGeo(m.geometry, shells), shellMat(map, length, lambert));
     sh.bind(m.skeleton, m.bindMatrix);
     sh.frustumCulled = false;
     sh.userData.fur = true;
     m.parent.add(sh);
+    (root.userData.furShells ??= []).push(sh);
   }
   return root;
 }
