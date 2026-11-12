@@ -8,6 +8,7 @@ import { jeepTap } from "./jeep.js";
 import { COUNT, burst, flowerCrown, fx, hit, sloths, sprite } from "./sloths.js";
 import { me } from "./player.js";
 import { acts } from "./campLife.js";
+import { createHighlight } from "./highlight.js";
 
 // ---------------------------------------------------------------- input
 const coarse = matchMedia("(pointer: coarse)").matches || qs.has("touch");
@@ -48,6 +49,8 @@ addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.del
 function tap(x, y) {
   const h = pickAt(x, y, hit), a = acts.pick(ray);            // camp activities (activities.js) win when they are nearer than a sloth
   if (a && (!h || a.distance < h.distance)) { acts.tap(a); return; }
+  if (!h && lit && coarse) { to.copy(lit.box.position).project(camera);   // a finger: a tap near the lit thing uses it
+    if (Math.hypot((to.x + 1) / 2 * innerWidth - x, (1 - to.y) / 2 * innerHeight - y) < 0.22 * Math.min(innerWidth, innerHeight)) { acts.tap({ thing: lit }); return; } }
   if (!h) { jeepTap(x, y); return; }
   if (h.distance < 7) boop(h.object.userData.s); else toast("Get a bit closer");
 }
@@ -63,6 +66,28 @@ function feed(s) {
   } });
 }
 
+// ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
+// With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,
+// within AIM of it, so you only have to look roughly at the wood pile. Only things a tap would use right now light up.
+const glow = createHighlight(scene, renderer, { width: coarse ? 3.5 : 3 });
+const AIM = 0.45, fwd = new THREE.Vector3(), to = new THREE.Vector3(); let hover = null, lit = null;
+$("c").addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") hover = { x: e.clientX, y: e.clientY }; });
+$("c").addEventListener("pointerleave", () => (hover = null));
+function aimStep(dt) {
+  let best = null;
+  if (hover) { if (!looks.size) { pickAt(hover.x, hover.y, []); const a = acts.pick(ray); if (a && acts.ready(a.thing)) best = a.thing; } else best = lit; }   // a mouse: what it is over (kept while dragging)
+  else {
+    camera.getWorldDirection(fwd); let bestA = AIM;
+    for (const t of acts.things) {
+      if (!t.look || !acts.ready(t)) continue;
+      to.subVectors(t.box.position, camera.position); const d = to.length(), r = t.box.geometry.parameters.radius;
+      const ang = fwd.angleTo(to) - Math.asin(Math.min(1, r / d));
+      if (ang < bestA) { bestA = ang; best = t; }
+    }
+  }
+  lit = best; glow.set(best?.look ?? null); glow.update(dt);
+}
+
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
 
-export { boop, feed, resize };
+export { aimStep, boop, feed, resize };

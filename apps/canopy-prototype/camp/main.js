@@ -13,7 +13,7 @@ import { jeepStep } from "./jeep.js";
 import { SL, SLOTH_WARM, campStep, fx, slothLife, sloths } from "./sloths.js";
 import { collide, me, step } from "./player.js";
 import { acts, atmo, groundLife } from "./campLife.js";
-import { boop, feed, resize } from "./input.js";
+import { aimStep, boop, feed, resize } from "./input.js";
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
@@ -65,7 +65,7 @@ renderer.setAnimationLoop(() => {
   const fl = 0.85 + 0.15 * Math.sin(uTime.value * 13) * Math.sin(uTime.value * 7.3);
   flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
   fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
-  acts.update(dt, uTime.value);
+  acts.update(dt, uTime.value); aimStep(dt);
   uNight.value = dusk; stepLight(fl, uTime.value);
   { const W = SLOTH_WARM, n = Math.min(lanternGlow.length, WARM_N - 1);   // the sloths' night glow: lanterns, then the fire
     for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
