@@ -8,13 +8,19 @@ import { me } from "./player.js";
 import { addTarget } from "./input.js";
 
 const seats = [0, 1, 2].map((i) => scene.getObjectByName(`Seat_${i}`)).filter(Boolean);
+// where you sit on a log: its middle, a little to its back edge. Seat_0 is Sunny's bench (sloths.js "seat", just right of its
+// middle as you face the fire), so there you always shift 0.55 m to the left and leave Sunny room (Adriaen 2026-11-12)
+function seatSpot(o) {
+  const c = o.position.clone().setY(0), a = Math.atan2(c.z, c.x), pos = c.clone().multiplyScalar(1 + 0.12 / c.length());
+  if (o.name === "Seat_0") pos.addScaledVector(new THREE.Vector3(-Math.sin(a), 0, Math.cos(a)), 0.55);
+  return { pos, yaw: Math.atan2(pos.x, pos.z) };   // facing the fire in the middle
+}
 const box = new THREE.Box3(), sph = new THREE.Sphere();
 let drift = 0;
 for (const o of seats) {
   const picks = []; o.traverse((m) => m.isMesh && picks.push(m));
   const at = (v) => { box.setFromObject(o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
-  const c = o.position.clone().setY(0), pos = c.clone().multiplyScalar(1 + 0.12 / c.length());   // on the log, a little to its back edge
-  const yaw = Math.atan2(c.x, c.z);                                                                   // facing the fire in the middle
+  const { pos, yaw } = seatSpot(o);
   const sitHere = () => { me.seat = { pos, yaw }; me.yaw = yaw; me.pitch = -0.12; me.lastDrag = -9; drift = 0; };
   addTarget(o, () => ({ look: o, picks, at,
     ready: () => me.seat?.pos === pos || at(new THREE.Vector3()).center.distanceTo(me.pos) < 3.2,
@@ -29,5 +35,5 @@ function step(dt) {
   let d = yaw - me.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
   const k = 1 - Math.exp(-0.8 * dt * drift); me.yaw += d * k; me.pitch += (pitch - me.pitch) * k;
 }
-window.__sit = (i = 0) => { const t = seats[i]; if (t) { const c = t.position.clone().setY(0); me.seat = { pos: c.multiplyScalar(1 + 0.12 / c.length()), yaw: Math.atan2(t.position.x, t.position.z) }; me.yaw = me.seat.yaw; me.pitch = -0.12; me.pos.copy(me.seat.pos); me.sitK = 1; } };   // checks
+window.__sit = (i = 0) => { const t = seats[i]; if (t) { me.seat = seatSpot(t); me.yaw = me.seat.yaw; me.pitch = -0.12; me.pos.copy(me.seat.pos); me.sitK = 1; } };   // checks
 export { step as lingerStep };
