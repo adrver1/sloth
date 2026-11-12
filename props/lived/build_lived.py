@@ -295,30 +295,68 @@ def wood_stack(M, samples):
     return o
 
 
+def capless(o, a, b, keep_end=True):
+    """Drop a rod's caps that nobody sees: the one at a (in the ground or the stump), and the one at b unless keep_end."""
+    apply_all(o)
+    d = (Vector(b) - Vector(a)).normalized()
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    gone = [f for f in bm.faces if abs(f.normal.dot(d)) > 0.98 and (not keep_end or (f.calc_center_median() - Vector(a)).dot(d) < 0.01)]
+    bmesh.ops.delete(bm, geom=gone, context="FACES")
+    bm.to_mesh(o.data)
+    bm.free()
+    return o
+
+
+def ring_top(r, at, n, M):
+    """A sawn top as one flat octagon fan with two growth rings painted in by alternating face colours (40 triangles,
+    instead of modelled ring tori)."""
+    x0, y0, z = at
+    bm = bmesh.new()
+    c = bm.verts.new((x0, y0, z))
+    rings = [[bm.verts.new((x0 + rr * math.cos(2 * math.pi * (i + 0.5) / n), y0 + rr * math.sin(2 * math.pi * (i + 0.5) / n), z)) for i in range(n)] for rr in (r * 0.38, r * 0.7, r)]
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((c, rings[0][i], rings[0][j])).material_index = 0
+        bm.faces.new((rings[0][i], rings[1][i], rings[1][j], rings[0][j])).material_index = 1
+        bm.faces.new((rings[1][i], rings[2][i], rings[2][j], rings[1][j])).material_index = 0
+    me = bpy.data.meshes.new("ringtop")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("ringtop", me)
+    bpy.context.collection.objects.link(o)
+    me.materials.append(M["endgrain"])
+    me.materials.append(M["wood"])
+    return o
+
+
 def wood_pile(M):
-    """Everything in the wood pile but the stack itself (see wood_stack)."""
+    """Everything in the wood pile but the stack itself (see wood_stack). Trimmed to about 180 triangles (camp review,
+    2026-11-12): 5-sided posts, an 8-sided stump with its rings as face colours, capless roots, chips as single quads."""
     p = []
     # two posts at the ends keep the stack from rolling
     for s in (-1, 1):
-        p.append(rough_up(rod((s * 0.52, 0, -0.02), (s * 0.54, 0.02, 0.55), 0.035, M["bark2"], verts=8), 0.004, 12))
+        a, b = (s * 0.52, 0, -0.02), (s * 0.54, 0.02, 0.55)
+        p.append(capless(rod(a, b, 0.035, M["bark2"], verts=5), a, b))
     k0 = mark(p, 0, "End posts")
-    # the chopping stump beside it, with the hatchet left in, and a half-split log waiting on the ground
+    # the chopping stump beside it, with the hatchet left in
     sx, sy = 1.0, -0.15
-    stump = rough_up(cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=8, r2=None, smooth=False), 0.01, 10)   # 8 flat sides
-    p.append(stump)
-    p.append(cyl(0.205, 0.012, at=(sx, sy, 0.424), m=M["endgrain"], verts=8, smooth=False))
-    for k in range(3):
-        p.append(torus(0.05 + k * 0.05, 0.003, at=(sx, sy, 0.43), m=M["wood"], major=8, minor=3))
+    stump = cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=8, r2=None, smooth=False)
+    p.append(capless(rough_up(stump, 0.01, 10), (sx, sy, 0), (sx, sy, 0.42), keep_end=False))
+    p.append(ring_top(0.215, (sx, sy, 0.421), 8, M))
     for k in range(4):                              # roots flaring into the ground
-        a = k / 4 * 2 * math.pi + 0.4
-        p.append(rod((sx + math.cos(a) * 0.17, sy + math.sin(a) * 0.17, 0.05), (sx + math.cos(a) * 0.27, sy + math.sin(a) * 0.27, -0.03), 0.045, M["bark"], verts=5))
+        t = k / 4 * 2 * math.pi + 0.4
+        a = (sx + math.cos(t) * 0.17, sy + math.sin(t) * 0.17, 0.05)
+        b = (sx + math.cos(t) * 0.27, sy + math.sin(t) * 0.27, -0.03)
+        p.append(capless(rod(a, b, 0.045, M["bark"], verts=4), a, b, keep_end=False))
     k0 = mark(p, k0, "Chopping stump")
     p.append(hatchet(M, (sx + 0.03, sy - 0.02, 0.505), yaw=-0.5, lean=0.85))   # the blade bitten in about 2 cm
     k0 = mark(p, k0, "Hatchet")
-    for k in range(14):                             # chips round the stump
-        a, d = rng.uniform(0, 2 * math.pi), rng.uniform(0.3, 0.6)
-        p.append(box((rng.uniform(0.03, 0.06), rng.uniform(0.015, 0.03), 0.006), at=(sx + math.cos(a) * d, sy + math.sin(a) * d, 0.004),
-                     rot=(rng.uniform(-0.2, 0.2), rng.uniform(-0.2, 0.2), rng.uniform(0, 3.14)), m=M["chip" if k % 3 else "wood"]))
+    for k in range(10):                             # chips round the stump: one flat quad each
+        t, d = rng.uniform(0, 2 * math.pi), rng.uniform(0.3, 0.6)
+        cx, cy, w, h, yaw = sx + math.cos(t) * d, sy + math.sin(t) * d, rng.uniform(0.03, 0.06), rng.uniform(0.015, 0.03), rng.uniform(0, 3.14)
+        c, sn = math.cos(yaw), math.sin(yaw)
+        p.append(quad([(cx + u * c - v * sn, cy + u * sn + v * c, 0.006) for u, v in ((-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2))], M["chip" if k % 3 else "wood"]))
     mark(p, k0, "Wood chips")
     return join(p, "WoodPile")
 

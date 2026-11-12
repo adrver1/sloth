@@ -50,18 +50,29 @@ def materials():
 
 
 def stone(r, at, scale, m, sr=None):
-    """A low-poly fire stone: an ico sphere with one subdivision, pushed about with its own random lumps (pass `sr` for
-    a stone of its own shape), its top half flattened a little."""
+    """A low-poly fire stone in 16 triangles (camp review 2026-11-12): six lumpy points round its middle, a flat-ish top of
+    three and one point underneath, each pushed about by its own random; smooth shaded, so it reads as a worn pebble and
+    not a crystal (the flat-shaded 12-triangle bipyramid looked like quartz)."""
     sr = sr or rng
-    f = [sr.uniform(3, 8) for _ in range(4)] + [sr.uniform(0, 6.28) for _ in range(2)]
-    bpy.ops.mesh.primitive_ico_sphere_add(radius=r, subdivisions=1, location=at)
-    o = bpy.context.object
+    bm = bmesh.new()
+    for i in range(6):
+        t = (i + sr.uniform(-0.25, 0.25)) / 6 * 2 * math.pi
+        k = sr.uniform(0.85, 1.12)
+        bm.verts.new((math.cos(t) * r * k, math.sin(t) * r * k, sr.uniform(-0.1, 0.1) * r))
+    t0 = sr.uniform(0, 2 * math.pi)
+    for i in range(3):
+        t = t0 + i * 2 * math.pi / 3
+        bm.verts.new((math.cos(t) * r * 0.5, math.sin(t) * r * 0.5, r * sr.uniform(0.45, 0.6)))
+    bm.verts.new((0, 0, -r * 0.6))
+    bmesh.ops.convex_hull(bm, input=list(bm.verts))
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    me = bpy.data.meshes.new("stone")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("stone", me)
+    bpy.context.collection.objects.link(o)
     o.scale = scale
-    for v in o.data.vertices:
-        n = v.co.normalized()
-        v.co *= 1 + 0.3 * (0.5 * math.sin(n.x * f[0] + n.y * f[1] + f[4]) + 0.3 * math.sin(n.y * f[2] - n.z * f[3] + f[5]) + 0.2 * sr.uniform(-1, 1))
-        if v.co.z > 0:
-            v.co.z *= 0.8
+    o.location = at
     return _finish(o, m)
 
 
@@ -76,47 +87,45 @@ def log(a, b, r, M, burnt=0.35, verts=7):
 
 
 def ring(M):
-    """The ring of stones (sooty on the inside) and the ash bed inside it, shared by all fires."""
+    """The ring of stones (sooty on the inside) and the ash bed inside it. Trimmed (camp review 2026-11-12): 13 stones of
+    16 triangles, the soot painted on their inner faces, a 12-sided ash mound and an 8-sided char patch (about 180)."""
     p = []
-    # stones gathered by hand: mixed sizes and shapes, uneven gaps, a lumpy oval ring with stones pushed in or out,
-    # each one facing and tipping its own way (some lying flat, some on edge)
+    # stones gathered by hand: mixed sizes, uneven gaps, a lumpy oval ring with stones pushed in or out, each one
+    # facing and tipping its own way (some lying flat, some on edge); a little more ordered than wild (Adriaen)
     sr = random.Random(11)
     w1, w2 = sr.uniform(0, 6.28), sr.uniform(0, 6.28)
     a, stones = sr.uniform(0, 1), []
     while a < 2 * math.pi - 0.35:
-        big = sr.random() < 0.3
-        r = sr.uniform(0.15, 0.2) if big else sr.uniform(0.08, 0.14)
+        big = sr.random() < 0.35
+        r = sr.uniform(0.16, 0.21) if big else sr.uniform(0.11, 0.15)
         stones.append((a, r))
-        a += r * sr.uniform(1.7, 2.6) / 0.62
+        a += r * sr.uniform(1.8, 2.3) / 0.62
     for i, (a, r) in enumerate(stones):
         d = 0.6 + 0.045 * math.sin(2 * a + w1) + 0.03 * math.sin(3 * a + w2) + sr.uniform(-0.05, 0.05)
         on_edge = sr.random() < 0.3
-        sc = (sr.uniform(0.9, 1.7), sr.uniform(0.6, 1.1), sr.uniform(0.9, 1.25) if on_edge else sr.uniform(0.45, 0.8))
-        s = stone(r, (math.cos(a) * d, math.sin(a) * d, r * sc[2] * sr.uniform(0.15, 0.45)), sc, M["stone" if sr.random() < 0.65 else "stone2"], sr)
-        s.rotation_euler = (sr.uniform(-0.35, 0.35), sr.uniform(-0.35, 0.35), sr.uniform(0, 2 * math.pi))
+        sc = (sr.uniform(0.9, 1.6), sr.uniform(0.65, 1.0), sr.uniform(0.9, 1.2) if on_edge else sr.uniform(0.5, 0.8))
+        s = stone(r, (math.cos(a) * d, math.sin(a) * d, r * sc[2] * sr.uniform(0.3, 0.55)), sc, M["stone" if sr.random() < 0.65 else "stone2"], sr)
+        s.rotation_euler = (sr.uniform(-0.3, 0.3), sr.uniform(-0.3, 0.3), sr.uniform(0, 2 * math.pi))
         p.append(s)
-    for k in range(3):                                             # a few small ones tucked in the gaps or propped on a neighbour
-        a0, r0 = stones[sr.randrange(len(stones))]
-        a = a0 + sr.uniform(0.15, 0.3)
-        d = 0.62 + sr.uniform(-0.05, 0.1)
-        s = stone(sr.uniform(0.06, 0.085), (math.cos(a) * d, math.sin(a) * d, sr.choice((0.03, r0 * 0.55))), (1.2, 0.9, 0.7), M["stone2"], sr)
-        s.rotation_euler = (sr.uniform(-0.5, 0.5), sr.uniform(-0.5, 0.5), sr.uniform(0, 3))
-        p.append(s)
-    for i in range(4):                                             # soot smudges on some of the inner faces
-        a = stones[(i * 3 + 1) % len(stones)][0]
-        p.append(stone(0.06, (math.cos(a) * 0.52, math.sin(a) * 0.52, 0.05), (0.7, 1.2, 0.6), M["soot"]))
-    bpy.ops.mesh.primitive_circle_add(vertices=20, radius=0.5, fill_type="TRIFAN", location=(0, 0, 0.012))
+    for o in p:                                                    # soot on the faces that look into the fire
+        apply_all(o)
+        o.data.materials.append(M["soot"])
+        c = sum((v.co for v in o.data.vertices), Vector()) / len(o.data.vertices)
+        inward = Vector((-c.x, -c.y, 0)).normalized()
+        for f in o.data.polygons:
+            if f.normal.dot(inward) > 0.55 and f.center.z < 0.2:
+                f.material_index = 1
+    bpy.ops.mesh.primitive_circle_add(vertices=12, radius=0.5, fill_type="NGON", location=(0, 0, 0.012))
     ash = _finish(bpy.context.object, M["ash"], smooth=False)
-    for v in ash.data.vertices:                                    # a gentle mound with a ragged edge, not a perfect disc
+    for v in ash.data.vertices:                                    # a ragged edge, not a perfect disc
         k = 1 + 0.18 * math.sin(3 * math.atan2(v.co.y, v.co.x) + 1) + sr.uniform(-0.1, 0.1)
         v.co.x *= k
         v.co.y *= k * 0.92
-        v.co.z += 0.03 * (1 - min(1, Vector((v.co.x, v.co.y, 0)).length / 0.5))
     p.append(ash)
-    bpy.ops.mesh.primitive_circle_add(vertices=14, radius=0.3, fill_type="TRIFAN", location=(0, 0, 0.03))
+    bpy.ops.mesh.primitive_circle_add(vertices=8, radius=0.3, fill_type="NGON", location=(0, 0, 0.025))
     char = _finish(bpy.context.object, M["char"], smooth=False)
     for v in char.data.vertices:
-        k = 1 + sr.uniform(-0.25, 0.25) * min(1, v.co.xy.length / 0.3)
+        k = 1 + sr.uniform(-0.25, 0.25)
         v.co.x *= k * 1.1
         v.co.y *= k
     p.append(char)
@@ -271,44 +280,62 @@ def bail(half_w, z_pivot, rise, m, r=0.005):
     return [rod(pts[i], pts[i + 1], r, m, verts=4) for i in range(10)], pts[5]
 
 
+def ribbon_arch(pts, w, m):
+    """A thin wire as two crossed flat strips along the points (4 triangles a segment), instead of a round rod."""
+    bm = bmesh.new()
+    for off in (Vector((w, 0, 0)), None):
+        for i in range(len(pts) - 1):
+            a, b = pts[i], pts[i + 1]
+            o = off if off is not None else (b - a).cross(Vector((1, 0, 0))).normalized() * w
+            bm.faces.new([bm.verts.new(v) for v in (a - o, b - o, b + o, a + o)])
+    me = bpy.data.meshes.new("wire")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("wire", me)
+    bpy.context.collection.objects.link(o)
+    return _finish(o, m, smooth=False)
+
+
+def flat(n, r, at, m, sx=1.0, yaw=0.0):
+    """A small flat n-gon lying on the soup (a carrot coin, a potato bit, a pea, a herb leaf, a swirl)."""
+    c, sn = math.cos(yaw), math.sin(yaw)
+    pts = []
+    for i in range(n):
+        t = 2 * math.pi * (i + 0.5) / n
+        x, y = math.cos(t) * r * sx, math.sin(t) * r
+        pts.append((at[0] + x * c - y * sn, at[1] + x * sn + y * c, at[2]))
+    me = bpy.data.meshes.new("bit")
+    me.from_pydata(pts, [], [tuple(range(n))])
+    o = bpy.data.objects.new("bit", me)
+    bpy.context.collection.objects.link(o)
+    return _finish(o, m, smooth=False)
+
+
 def pot(M):
-    """The open iron pot: a lathed body with a rolled rim and an inside wall, the soup surface with chunks in it, three feet,
-    two lugs and the bail. Returns the pot and the top of the bail (where the chain hooks on)."""
-    prof = [(0.0, 0.0), (0.09, 0.0), (0.15, 0.04), (0.165, 0.09), (0.158, 0.14), (0.168, 0.152), (0.166, 0.162),   # outside up to the rim
-            (0.152, 0.158), (0.146, 0.12)]                                                                      # over the lip, down the inside
-    p = [lathe(prof, 12, M["iron"], z0=POT_Z)]
-    soup = lathe([(0.0, SOUP.z - POT_Z), (0.147, SOUP.z - POT_Z - 0.004)], 12, M["soup"], z0=POT_Z)
-    p.append(soup)
-    for i in range(9):                                             # chunks bobbing in it: carrot coins, potato cubes, peas, herbs
+    """The open iron pot, trimmed (camp review 2026-11-12, about 230 triangles): a 10-sided lathe with a rolled rim and
+    the inside wall only down to the soup, the soup with flat bits on it, three feet, two lugs and a wire bail of
+    crossed strips. Returns the pot and the top of the bail (where the chain hooks on)."""
+    sz = SOUP.z - POT_Z
+    prof = [(0.0, 0.0), (0.1, 0.0), (0.155, 0.05), (0.163, 0.13), (0.168, 0.158),   # outside up to the rim
+            (0.152, 0.158), (0.147, sz - 0.004)]                                   # over the lip, down to the soup
+    p = [lathe(prof, 10, M["iron"], z0=POT_Z)]
+    p.append(lathe([(0.0, sz), (0.148, sz - 0.004)], 10, M["soup"], z0=POT_Z))
+    for i in range(9):                                             # bits in the soup: carrot coins, potato, peas, herbs
         a, d = rng.uniform(0, 2 * math.pi), 0.11 * math.sqrt(rng.uniform(0.05, 1))
         at = (math.cos(a) * d, math.sin(a) * d, SOUP.z + 0.002)
         kind = ("carrot", "potato", "pea", "carrot", "potato", "herb", "pea", "carrot", "herb")[i]
-        if kind == "carrot":
-            o = cyl(0.018, 0.008, at=at, m=M["carrot"], verts=6)
-            o.rotation_euler = (rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3), 0)
-        elif kind == "potato":
-            o = box((0.024, 0.022, 0.016), at=at, m=M["potato"])
-            o.rotation_euler = (rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3), rng.uniform(0, 3))
-        elif kind == "pea":
-            bpy.ops.mesh.primitive_ico_sphere_add(radius=0.009, subdivisions=1, location=at)
-            o = _finish(bpy.context.object, M["pea"], smooth=False)
-        else:
-            o = box((0.022, 0.008, 0.003), at=(at[0], at[1], at[2] + 0.001), m=M["herb"])
-            o.rotation_euler.z = rng.uniform(0, 3)
-        p.append(o)
+        n, r, sx = {"carrot": (6, 0.018, 1), "potato": (4, 0.015, 1.2), "pea": (4, 0.009, 1), "herb": (4, 0.012, 2.2)}[kind]
+        p.append(flat(n, r, at, M[kind], sx, rng.uniform(0, 3)))
     for k in range(4):                                             # a few lighter swirls on the surface
         a = k / 4 * 2 * math.pi + 0.4
-        bpy.ops.mesh.primitive_circle_add(vertices=6, radius=0.022, fill_type="TRIFAN", location=(math.cos(a) * 0.07, math.sin(a) * 0.07, SOUP.z + 0.001))
-        o = bpy.context.object
-        o.scale = (1.6, 0.7, 1)
-        o.rotation_euler.z = a + 1.2
-        p.append(_finish(o, M["soup2"], smooth=False))
+        p.append(flat(4, 0.022, (math.cos(a) * 0.07, math.sin(a) * 0.07, SOUP.z + 0.001), M["soup2"], 1.6, a + 1.2))
     for k in range(3):                                             # three stubby feet
         a = k / 3 * 2 * math.pi
-        p.append(cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, POT_Z), m=M["iron"], verts=6))
+        p.append(cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, POT_Z), m=M["iron"], verts=4))
     pivot = POT_Z + 0.15
-    wires, peak = bail(0.175, pivot, 0.17, M["iron"], r=0.006)
-    p += wires
+    pts = [Vector((0, -0.175 * math.cos(t), pivot + 0.17 * math.sin(t))) for t in [k / 6 * math.pi for k in range(7)]]
+    p.append(ribbon_arch(pts, 0.006, M["iron"]))
+    peak = pts[3]
     for s in (-1, 1):                                              # the lugs the bail turns in
         p.append(box((0.03, 0.02, 0.03), at=(0, s * 0.168, pivot), m=M["iron"]))
     return join(p, "Pot"), peak
