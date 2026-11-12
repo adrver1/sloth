@@ -1,0 +1,249 @@
+<!doctype html>
+<!-- THROWAWAY PROTOTYPE (karaoke trip, 2026-11-12). Question: which wagon and sign read best, and does the letterboxed cut scene
+     (the bearded operator pulls the wagon, the ponytail engineer walks beside him, the sloths sway and sing in it) look right?
+     ?v=a|b|c picks the wagon + sign pair, ?shot=sign|cut|wide the view, ?t=<seconds> freezes the moment. Delete once a pick is built. -->
+<meta charset="utf-8">
+<title>Karaoke Trip Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+html, body { margin: 0; height: 100%; overflow: hidden; background: #2a2440; font-family: "Trebuchet MS", system-ui, sans-serif; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.bar { position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .6s; z-index: 2; }
+.bar.top { top: 0 } .bar.bot { bottom: 0 }
+body.cut .bar { height: 11vh; }
+.ask { position: fixed; left: 50%; bottom: 14vh; transform: translateX(-50%); width: min(340px, calc(100vw - 32px)); box-sizing: border-box;
+  background: rgb(255 249 240 / .94); color: #4a2f3d; border-radius: 20px; padding: 16px 18px; text-align: center; box-shadow: 0 8px 30px rgb(0 0 0 / .3); z-index: 3; }
+.ask h2 { margin: 0 0 4px; font-size: 21px; } .ask p { margin: 0 0 12px; font-size: 14px; color: #7a5a6a; }
+.ask button { font: 600 16px inherit; border: 0; border-radius: 999px; padding: 10px 18px; margin: 0 4px; }
+.ask .yes { background: #ff6fa6; color: #fff; } .ask .no { background: #eadfe4; color: #4a2f3d; }
+.tag { position: fixed; top: 12px; left: 16px; z-index: 4; color: #fff; background: rgb(0 0 0 / .45); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+</style>
+<canvas id="c"></canvas>
+<div class="bar top"></div><div class="bar bot"></div>
+<div class="ask" id="ask" hidden><h2>Go to karaoke? 🎤</h2><p>Hibi, Bandit and Pip want to come along</p><button class="yes">Yes, let's go!</button><button class="no">Not now</button></div>
+<div class="tag" id="tag"></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "./fur.js";
+import { CAST } from "./camp/cast.js";
+
+const qs = new URLSearchParams(location.search), VAR = qs.get("v") || "a", SHOT = qs.get("shot") || "cut", T_FIX = qs.has("t") ? +qs.get("t") : null;
+const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const lam = (c, o = {}) => new THREE.MeshLambertMaterial({ color: c, ...o });
+const tex = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+const tris = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) { const g = m.geometry; n += (g.index ? g.index.count : g.attributes.position.count) / 3; } }); return n; };
+const report = {};
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("c"), antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(40, 1, 0.05, 200);
+scene.background = new THREE.Color(0x8f86b8); scene.fog = new THREE.Fog(0x8f86b8, 8, 34);
+scene.add(new THREE.HemisphereLight(0xffe2c4, 0x3c4a2c, 1.6));
+const sun = new THREE.DirectionalLight(0xffb27a, 1.6); sun.position.set(-6, 8, 5); scene.add(sun);
+
+// ---------------------------------------------------------------- the forest path at dusk (stand-in for the real camp forest)
+const grass = tex(256, 256, (g, w, h) => { g.fillStyle = "#5b7a3a"; g.fillRect(0, 0, w, h); for (let i = 0; i < 900; i++) { g.fillStyle = `hsl(${85 + Math.random() * 30},${35 + Math.random() * 20}%,${22 + Math.random() * 16}%)`; g.fillRect(Math.random() * w, Math.random() * h, 2, 5); } });
+grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(18, 18);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), lam(0xffffff, { map: grass })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+// the trodden path: one ribbon, worn earth in the middle and a grass strip down the centre, soft edges painted into its alpha
+const dirt = tex(64, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, w, 0);
+  gr.addColorStop(0, "rgba(120,92,60,0)"); gr.addColorStop(0.2, "rgba(120,92,60,1)"); gr.addColorStop(0.44, "rgba(128,100,66,1)"); gr.addColorStop(0.5, "rgba(98,112,60,.8)");
+  gr.addColorStop(0.56, "rgba(128,100,66,1)"); gr.addColorStop(0.8, "rgba(120,92,60,1)"); gr.addColorStop(1, "rgba(120,92,60,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(70,52,34,${Math.random() * .5})`; g.fillRect(8 + Math.random() * 48, Math.random() * h, 2, 2); } });
+dirt.wrapT = THREE.RepeatWrapping; dirt.repeat.set(1, 14);
+const path = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 70), lam(0xffffff, { map: dirt, transparent: true, depthWrite: false }));
+path.rotation.set(-Math.PI / 2, 0, Math.PI / 2); path.position.y = 0.01; scene.add(path);
+// trunks (6 sides each) and leaf crowns kept off the path; one dead mossy log
+const bark = lam(0x6b5240), leaf = lam(0x3f6b34, { flatShading: true }), leaf2 = lam(0x4f7d3a, { flatShading: true });
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < 70; i++) {
+  const x = -30 + rnd() * 60, z = (rnd() < 0.5 ? -1 : 1) * (2.2 + rnd() * 14), r = 0.15 + rnd() * 0.25, h = 6 + rnd() * 6;
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.7, r, h, 6), bark); t.position.set(x, h / 2, z); scene.add(t);
+  const c = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6 + rnd() * 1.4, 0), rnd() < 0.5 ? leaf : leaf2); c.position.set(x, h + 0.4, z); c.scale.y = 0.7; scene.add(c);
+}
+for (let i = 0; i < 40; i++) { const f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.35 + rnd() * 0.3, 0), leaf2); f.position.set(-30 + rnd() * 60, 0.15, (rnd() < 0.5 ? -1 : 1) * (1.1 + rnd() * 3)); f.scale.y = 0.6; scene.add(f); }
+// a warm glow far ahead: the stage's lights through the trees
+for (let i = 0; i < 9; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,220,170,1)"); r.addColorStop(1, "rgba(255,140,190,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }), fog: false, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  s.position.set(22 + i * 0.6, 2.2 + Math.sin(i * 1.7) * 0.6, -0.8 + (i % 3) * 0.8); s.scale.setScalar(0.7); s.material.opacity = 0.55; scene.add(s); }
+
+// ---------------------------------------------------------------- the three wagons
+const wood = lam(0xa8743f), woodD = lam(0x6e4a28), red = lam(0xe0473c), redD = lam(0xb33429), cream = lam(0xfff1d6), wick = lam(0xc99a5b);
+function openBox(w, h, d, mat) {   // a bed with no lid: 5 quads, 10 tris
+  const g = new THREE.Group(), add = (pw, ph, x, y, z, rx, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), mat); m.material.side = THREE.DoubleSide; m.position.set(x, y, z); m.rotation.set(rx, ry, 0); g.add(m); };
+  add(w, d, 0, 0, 0, -Math.PI / 2, 0); add(w, h, 0, h / 2, d / 2, 0, 0); add(w, h, 0, h / 2, -d / 2, 0, 0); add(d, h, w / 2, h / 2, 0, 0, Math.PI / 2); add(d, h, -w / 2, h / 2, 0, 0, Math.PI / 2); return g;
+}
+const wheelTex = (rim, spoke, hub) => tex(128, 128, (g) => { g.fillStyle = rim; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill(); g.fillStyle = spoke; g.beginPath(); g.arc(64, 64, 50, 0, 7); g.fill();
+  g.strokeStyle = rim; g.lineWidth = 9; for (let a = 0; a < 6; a++) { g.beginPath(); g.moveTo(64, 64); g.lineTo(64 + 50 * Math.cos(a), 64 + 50 * Math.sin(a)); g.stroke(); } g.fillStyle = hub; g.beginPath(); g.arc(64, 64, 13, 0, 7); g.fill(); });
+function wheel(r, w, side, seg, capMap) {   // a cylinder whose caps carry the painted spokes
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, seg), [side, new THREE.MeshLambertMaterial({ map: capMap }), new THREE.MeshLambertMaterial({ map: capMap })]);
+  m.rotation.x = Math.PI / 2; return m;
+}
+function box(w, h, d, m) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); }
+// each wagon is built facing +X (the way they walk); handleTip() is the world point the operator's hand holds
+function wagonA() {   // A: a red toy wagon, four small wheels, a long handle with a T grip
+  const g = new THREE.Group(), bed = openBox(1.0, 0.22, 0.62, red); bed.position.y = 0.2; g.add(bed);
+  const rim = cream.clone(); const stripe = box(1.01, 0.04, 0.63, cream); stripe.position.y = 0.4; // painted lip
+  const wt = wheelTex("#2e2a2a", "#e9e2d0", "#e0473c");
+  for (const [x, z] of [[0.36, 0.33], [-0.36, 0.33], [0.36, -0.33], [-0.36, -0.33]]) { const w = wheel(0.13, 0.05, lam(0x2e2a2a), 10, wt); w.position.set(x, 0.13, z); g.add(w); }
+  const h = box(0.97, 0.03, 0.03, redD); h.position.set(0.875, 0.51, 0); h.rotation.z = 0.69; g.add(h);
+  const grip = box(0.03, 0.03, 0.2, lam(0x2e2a2a)); grip.position.set(1.25, 0.82, 0); g.add(grip);
+  g.userData = { name: "Red toy wagon", tip: [V(1.25, 0.82, 0.0)], seats: [V(0.26, 0.21, 0.12), V(-0.12, 0.21, -0.14), V(-0.28, 0.21, 0.16)] };
+  return g;
+}
+function wagonB() {   // B: a wooden handcart, two big spoked wheels, two shafts he walks between
+  const g = new THREE.Group(), planks = tex(128, 64, (c, w, h) => { c.fillStyle = "#b07d45"; c.fillRect(0, 0, w, h); c.fillStyle = "#7a5230"; for (let y = 0; y < h; y += 16) c.fillRect(0, y, w, 2); for (let i = 0; i < 40; i++) { c.fillStyle = "rgba(90,60,30,.4)"; c.fillRect(Math.random() * w, Math.random() * h, 6, 1); } });
+  const bed = openBox(1.05, 0.3, 0.7, lam(0xffffff, { map: planks })); bed.position.y = 0.3; g.add(bed);
+  const wt2 = wheelTex("#6e4a28", "#3a2f22", "#2a1d10");
+  for (const z of [0.42, -0.42]) { const w = wheel(0.34, 0.06, woodD, 10, wt2); w.position.set(-0.05, 0.34, z); g.add(w); }
+  for (const z of [0.26, -0.26]) { const s = box(1.0, 0.035, 0.035, woodD); s.position.set(0.95, 0.65, z); s.rotation.z = 0.42; g.add(s); }
+  const leg = box(0.03, 0.3, 0.03, woodD); leg.position.set(0.48, 0.15, 0); g.add(leg);
+  g.userData = { name: "Wooden handcart", tip: [V(1.4, 0.85, 0.26), V(1.4, 0.85, -0.26)], seats: [V(0.28, 0.31, 0.14), V(-0.1, 0.31, -0.16), V(-0.32, 0.31, 0.15)] };
+  return g;
+}
+function wagonC() {   // C: a woven basket on log-slice wheels, with a bent-stick arch of party bunting
+  const g = new THREE.Group(), weave = tex(128, 64, (c, w, h) => { c.fillStyle = "#c99a5b"; c.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 8) for (let x = (y / 8 % 2) * 8; x < w; x += 16) { c.fillStyle = "#a87a40"; c.fillRect(x, y, 8, 8); } });
+  weave.wrapS = THREE.RepeatWrapping; weave.repeat.set(3, 1);
+  const bask = new THREE.Mesh(new THREE.LatheGeometry([V(0.001, 0), V(0.42, 0.0), V(0.5, 0.3)], 8), lam(0xffffff, { map: weave, side: THREE.DoubleSide })); bask.scale.set(1.15, 1, 0.75); bask.position.y = 0.17; g.add(bask);
+  const slice = tex(64, 64, (c) => { c.fillStyle = "#6b4a2a"; c.beginPath(); c.arc(32, 32, 31, 0, 7); c.fill(); c.fillStyle = "#e3c08a"; c.beginPath(); c.arc(32, 32, 26, 0, 7); c.fill(); c.strokeStyle = "#b98c55"; c.lineWidth = 1.5; for (let r = 5; r < 26; r += 5) { c.beginPath(); c.arc(32, 32, r, 0, 7); c.stroke(); } });
+  for (const [x, z] of [[0.34, 0.36], [-0.34, 0.36], [0.34, -0.36], [-0.34, -0.36]]) { const w = wheel(0.15, 0.07, lam(0x6b4a2a), 8, slice); w.position.set(x, 0.15, z); g.add(w); }
+  const h = box(0.97, 0.03, 0.03, woodD); h.position.set(0.85, 0.51, 0); h.rotation.z = 0.69; g.add(h);
+  const grip = box(0.03, 0.03, 0.18, woodD); grip.position.set(1.22, 0.82, 0); g.add(grip);
+  // the arch: one bent stick (a thin open tube, 6 x 4) and a string of 8 pennants (8 tris)
+  const arch = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(V(0.45, 0.45, 0), V(0, 1.25, 0), V(-0.45, 0.45, 0)), 6, 0.015, 4, false), woodD); g.add(arch);
+  const pen = [], cols = [0xff6fa6, 0xffd166, 0x8fd3ff, 0xb79cff];
+  for (let i = 0; i < 8; i++) { const t = 0.1 + i * 0.8 / 7, p = new THREE.QuadraticBezierCurve3(V(0.45, 0.45, 0), V(0, 1.25, 0), V(-0.45, 0.45, 0)).getPoint(t);
+    const geo = new THREE.BufferGeometry().setFromPoints([V(-0.04, 0, 0), V(0.04, 0, 0), V(0, -0.09, 0)]); geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, lam(cols[i % 4], { side: THREE.DoubleSide })); m.position.copy(p); m.rotation.y = Math.PI / 2; g.add(m); }
+  g.userData = { name: "Basket cart with bunting", tip: [V(1.22, 0.82, 0)], seats: [V(0.24, 0.2, 0.12), V(-0.1, 0.2, -0.15), V(-0.26, 0.2, 0.14)] };
+  return g;
+}
+
+// ---------------------------------------------------------------- the three signs
+const signTex = (draw, w = 256, h = 128) => tex(w, h, draw);
+function signA() {   // A: an arrow board on a post, "Karaoke" painted on with a note
+  const g = new THREE.Group(), post = box(0.08, 1.3, 0.08, woodD); post.position.y = 0.65; g.add(post);
+  const t = signTex((c, w, h) => { c.fillStyle = "#c08a50"; c.beginPath(); c.moveTo(6, 14); c.lineTo(w - 50, 14); c.lineTo(w - 6, h / 2); c.lineTo(w - 50, h - 14); c.lineTo(6, h - 14); c.closePath(); c.fill();
+    c.strokeStyle = "#7a5230"; c.lineWidth = 5; c.stroke(); c.fillStyle = "#5a3a20"; c.font = "bold 44px Trebuchet MS"; c.fillText("Karaoke ♪", 22, 80); });
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lam(0xffffff, { map: t, alphaTest: 0.5, side: THREE.DoubleSide })); board.position.set(0, 1.12, 0.05); g.add(board);
+  g.userData = { name: "Arrow board on a post" }; return g;
+}
+function signB() {   // B: a round board shaped like a microphone, on a post
+  const g = new THREE.Group(), post = box(0.07, 1.0, 0.07, woodD); post.position.y = 0.5; g.add(post);
+  const t = signTex((c, w, h) => { c.fillStyle = "#d7d3e6"; c.beginPath(); c.arc(w / 2, 70, 58, 0, 7); c.fill(); c.strokeStyle = "#8f8aa8"; c.lineWidth = 6; c.stroke();
+    c.strokeStyle = "#a9a4c2"; c.lineWidth = 3; for (let x = 82; x < 180; x += 14) { c.beginPath(); c.moveTo(x, 20); c.lineTo(x, 120); c.stroke(); }
+    c.fillStyle = "#ff6fa6"; c.fillRect(w / 2 - 22, 126, 44, 120); c.fillStyle = "#fff"; c.font = "bold 30px Trebuchet MS"; c.textAlign = "center"; c.fillText("♪", w / 2, 82); c.fillStyle = "#ff6fa6"; c.font = "bold 22px Trebuchet MS"; c.fillText("SING!", w / 2, 60); }, 256, 256);
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.75), lam(0xffffff, { map: t, alphaTest: 0.5, side: THREE.DoubleSide })); board.position.set(0, 1.25, 0.05); g.add(board);
+  g.userData = { name: "Microphone board" }; return g;
+}
+function signC() {   // C: a plank hung from a low branch on two ropes, heart fairy lights painted round its edge
+  const g = new THREE.Group();
+  const br = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 2.2, 5), bark); br.rotation.z = Math.PI / 2 - 0.12; br.position.set(0, 2.25, 0); g.add(br);
+  const t = signTex((c, w, h) => { c.fillStyle = "#b8834a"; c.fillRect(8, 20, w - 16, h - 40); c.strokeStyle = "#7a5230"; c.lineWidth = 4; c.strokeRect(8, 20, w - 16, h - 40);
+    c.fillStyle = "#5a3a20"; c.font = "bold 36px Trebuchet MS"; c.textAlign = "center"; c.fillText("♪ Karaoke ♪", w / 2, 78);
+    for (let x = 16; x < w; x += 24) { c.fillStyle = x % 48 ? "#ff8fc0" : "#ffd166"; c.font = "16px Trebuchet MS"; c.fillText("♥", x, 16); } });
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.45), lam(0xffffff, { map: t, transparent: true, side: THREE.DoubleSide })); board.position.set(0, 1.55, 0); g.add(board);
+  for (const x of [-0.36, 0.36]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.62, 3), lam(0xd8c49a)); r.position.set(x, 1.95, 0); g.add(r); }
+  g.userData = { name: "Plank on ropes from a branch" }; return g;
+}
+
+// ---------------------------------------------------------------- the cast
+async function glb(url) { const txt = (await (await fetch(url)).text()).trim(); const bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0)); return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err)); }
+const [OP, ANIM, HER, SLOTH] = await Promise.all([glb("models/operator.txt"), glb("models/operator_anims.txt"), glb("../karaoke/models/her.txt"), glb("models/sloth.txt")]);
+function person(src, x, z) {   // both share the kit rig, so his walk clip drives her too
+  const o = clone(src.scene); o.traverse((m) => { if (m.isMesh) { const map = m.material.map; m.material = new THREE.MeshLambertMaterial({ map, flatShading: true }); m.frustumCulled = false; } });
+  const B = {}; o.traverse((n) => { if (n.isBone) B[n.name] = n; });
+  const mixer = new THREE.AnimationMixer(o), walk = mixer.clipAction(ANIM.animations.find((a) => a.name === "walk")); walk.play();
+  o.rotation.y = -Math.PI / 2; o.position.set(x, 0, z); scene.add(o); return { o, B, mixer, walk };
+}
+const op = person(OP, 0, 0), her = person(HER, 0.75, -0.65);
+her.walk.time = 0.45; her.walk.timeScale = 1.02;
+report.operator = tris(op.o); report.ponytail = tris(her.o);
+
+const WAGON = { a: wagonA, b: wagonB, c: wagonC }[VAR](), SIGN = { a: signA, b: signB, c: signC }[VAR]();
+scene.add(WAGON); report.wagon = tris(WAGON); report.sign = tris(SIGN);
+SIGN.position.set(4, 0, 1.15); SIGN.rotation.y = -Math.PI / 2 + 0.5; if (SHOT === "sign") scene.add(SIGN);
+
+const RIDERS = ["Hibi", "Bandit", "Pip"].map((n) => CAST.find((c) => c.name === n));
+const sloths = RIDERS.map((c, i) => {
+  const o = clone(SLOTH.scene); const sc = 1.9 * (c.scale || 1); o.scale.setScalar(sc);
+  furify(o, { shells: 3, lambert: true });
+  const head = o.getObjectByName("head"); c.dress?.(head, o);
+  const mixer = new THREE.AnimationMixer(o), a = mixer.clipAction(SLOTH.animations.find((q) => q.name === "drive")); a.play(); a.timeScale = 0;
+  const g = new THREE.Group(); g.add(o); o.rotation.y = -Math.PI / 2 + (i - 1) * 0.5; WAGON.add(g); g.position.copy(WAGON.userData.seats[i]);
+  const B = {}; o.traverse((n) => { if (n.isBone) B[n.name] = n; });
+  return { o, g, mixer, B, ph: i * 1.3 };
+});
+report.slothEach = tris(sloths[1].o);
+
+// notes rising over the wagon: 6 sprites (2 tris each), recycled
+const noteTex = ["♪", "♫", "♥"].map((ch, i) => tex(64, 64, (c) => { c.font = "bold 50px Trebuchet MS"; c.textAlign = "center"; c.textBaseline = "middle"; c.lineWidth = 6; c.strokeStyle = "#fff"; c.strokeText(ch, 32, 34); c.fillStyle = ["#ff5f9e", "#8a5cff", "#ff8a3d"][i]; c.fillText(ch, 32, 34); }));
+const notes = Array.from({ length: 6 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex[i % 3], transparent: true, depthWrite: false, fog: false })); s.scale.setScalar(0.22); scene.add(s); return { s, ph: i / 6 }; });
+
+// ---------------------------------------------------------------- posing
+const _a = V(), _b = V(), _c = V(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
+function aim(bone, child, target) { bone.updateWorldMatrix(true, true); const bp = bone.getWorldPosition(_a), cp = child.getWorldPosition(_b);
+  _q.setFromUnitVectors(cp.sub(bp).normalize(), _c.copy(target).sub(bp).normalize()); bone.getWorldQuaternion(_q2); bone.parent.getWorldQuaternion(_q3);
+  bone.quaternion.copy(_q3.invert().multiply(_q.multiply(_q2))); bone.updateWorldMatrix(false, true); }
+function reach(B, side, target, pole) { const up = B["upper_arm" + side], fo = B["forearm" + side], ha = B["hand" + side]; up.updateWorldMatrix(true, true);
+  const S = up.getWorldPosition(V()), L1 = S.distanceTo(fo.getWorldPosition(V())), L2 = fo.getWorldPosition(V()).distanceTo(ha.getWorldPosition(V()));
+  const d0 = target.clone().sub(S); const d = Math.min(d0.length(), (L1 + L2) * 0.999), n = d0.normalize(), a = (L1 * L1 - L2 * L2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+  const p = pole.clone().sub(n.clone().multiplyScalar(pole.dot(n))).normalize(); aim(up, fo, S.clone().add(n.clone().multiplyScalar(a)).add(p.multiplyScalar(h))); aim(fo, ha, S.clone().add(n.multiplyScalar(d))); }
+
+const snap = (o) => { const L = []; o.traverse((n) => n.isBone && L.push([n, n.quaternion.clone()])); return () => L.forEach(([n, q]) => n.quaternion.copy(q)); };
+op.rest = snap(op.o); her.rest = snap(her.o); for (const s of sloths) { s.mixer.setTime(0.2); s.rest = snap(s.o); }
+const SPEED = 0.9;   // m/s, an easy stroll
+function pose(t) {
+  const x = SHOT === "sign" ? -4 : t * SPEED;
+  op.o.position.x = x; her.o.position.x = x + 0.75;
+  op.rest(); her.rest(); for (const s of sloths) s.rest();
+  op.mixer.setTime(t * 0.9); her.mixer.setTime(t * 0.9 + 0.45);
+  WAGON.position.set(x - 1.55, 0, 0);
+  if (VAR === "b") WAGON.position.x = x - 1.45;
+  WAGON.rotation.z = Math.sin(t * 5.6) * 0.008; WAGON.position.y = Math.abs(Math.sin(t * 5.6)) * 0.008;   // a little rattle on the path
+  scene.updateMatrixWorld(true);
+  const tips = WAGON.userData.tip.map((p) => WAGON.localToWorld(p.clone()));
+  // he pulls with his right hand behind him (both hands on the two shafts for B); she looks over at the sloths and waves now and then
+  reach(op.B, "R", tips.find((p) => p.z >= 0) || tips[0], V(0, -1, 0.4));
+  if (tips.length > 1) reach(op.B, "L", tips[1], V(0, -1, -0.4));
+  const wave = Math.max(0, Math.sin(t * 0.9));
+  if (qs.has("wave") && wave > 0.3) reach(her.B, "R", her.o.localToWorld(V(0.3, 1.6 + 0.08 * Math.sin(t * 7), 0.15)), V(0, 0, -1));
+  her.B.neck.rotation.y += 0.4; her.B.head.rotation.y += 0.35;
+  // the sloths: sway side to side on the beat (out of step with each other a little), paws up, heads bobbing, mouths singing
+  for (const s of sloths) {
+    const b = t * 2.6 + s.ph;
+    s.g.rotation.x = Math.sin(b) * 0.18; s.g.position.y = WAGON.userData.seats[sloths.indexOf(s)].y + 0.1 + Math.abs(Math.sin(b)) * 0.02;
+    s.B.head.rotation.z += Math.sin(b + 0.6) * 0.25; s.B.head.rotation.x += -0.15 + Math.sin(b * 2) * 0.08;
+    for (const [side, sg] of [["L", 1], ["R", -1]]) { const u = s.B["upper_arm" + side]; u.rotation.z += sg * (1.1 + 0.25 * Math.sin(b * 2 + sg)); u.rotation.x += -0.5; }
+  }
+  for (const n of notes) { const k = (t * 0.35 + n.ph) % 1, i = notes.indexOf(n);
+    n.s.position.set(WAGON.position.x + 0.3 - k * 0.6 + Math.sin(k * 9 + i) * 0.15, 0.95 + k * 1.0, (i % 3 - 1) * 0.25); n.s.material.opacity = Math.min(1, k * 5, (1 - k) * 3); }
+}
+
+// ---------------------------------------------------------------- shots
+const tag = document.getElementById("tag");
+function frameCam(t) {
+  const asp = innerWidth / innerHeight, x = t * SPEED - 0.8;
+  if (SHOT === "sign") {   // first person, a few steps before the sign, looking along the path
+    camera.fov = asp < 1 ? 62 : 48; camera.position.set(1.4, 1.55, 0.2); camera.lookAt(4, 1.05, 0.9);
+    document.getElementById("ask").hidden = false;
+  } else if (SHOT === "cut") {   // side-on tracking shot, letterboxed
+    document.body.classList.add("cut");
+    const dist = asp < 1 ? 4.2 / asp : 6.2; camera.fov = 34;
+    camera.position.set(x + 0.2, 1.25, dist); camera.lookAt(x - 0.3, 0.85, 0);
+  } else {   // wide: three-quarter from ahead, low, as the group comes toward you
+    document.body.classList.add("cut");
+    camera.fov = asp < 1 ? 60 : 40; camera.position.set(x + 4.2, 1.8, 3.4); camera.lookAt(x - 0.5, 0.7, 0);
+  }
+  camera.aspect = asp; camera.updateProjectionMatrix();
+}
+function resize() { renderer.setSize(innerWidth, innerHeight, false); }
+addEventListener("resize", resize); resize();
+tag.textContent = `${VAR.toUpperCase()}: ${WAGON.userData.name} + ${SIGN.userData.name}`;
+const t0 = performance.now();
+function loop() { const t = T_FIX ?? (performance.now() - t0) / 1000; pose(t); frameCam(t); renderer.render(scene, camera); if (T_FIX == null) requestAnimationFrame(loop); else window.__ready = true; }
+loop();
+window.__report = report; window.__dbg = () => [op, her].map((c) => [c.B.hips.getWorldPosition(V()).toArray().map(v=>+v.toFixed(2)), c.B.handR.getWorldPosition(V()).toArray().map(v=>+v.toFixed(2))]); console.log('dbg', JSON.stringify(window.__dbg()), JSON.stringify(WAGON.userData.tip.map((p) => WAGON.localToWorld(p.clone()).toArray()))); console.log("tris", JSON.stringify(report));
+</script>
