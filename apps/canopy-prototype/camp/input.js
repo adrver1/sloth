@@ -73,9 +73,12 @@ $("c").addEventListener("pointerleave", () => (hover = null));
 const targets = new Map(), byPick = new Map();
 function target(key, make) { let t = targets.get(key); if (!t) { t = make(); targets.set(key, t); for (const o of t.picks) byPick.set(o, t); } return t; }
 const SLOTH_REACH = 7, DOOR_REACH = 4;
-const DOOR_NAME = { P: "door", D: "door", B: "boot" };
+const DOOR_NAME = { P: "door", D: "door", B: "boot", H: "hood" };
+const extra = [];   // targets other modules add (linger.js: the log seats), as [key, make] like target() takes
+const addTarget = (key, make) => extra.push([key, make]);
 function allTargets() {
   const out = [];
+  for (const [k, make] of extra) out.push(target(k, make));
   for (const t of acts.things) if (t.look) out.push(target(t, () => ({ look: t.look, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
     ready: () => acts.ready(t), options: () => [[t.name === "fire" ? "Add the log 🔥" : "Take a log 🪵", () => acts.tap({ thing: t })]] })));
   for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
@@ -141,4 +144,4 @@ function tap(x, y) {
 
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
 
-export { aimStep, boop, feed, resize };
+export { addTarget, aimStep, boop, feed, resize };

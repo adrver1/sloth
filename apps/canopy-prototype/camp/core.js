@@ -110,4 +110,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, CABIN, D, DETAIL, JEEP, LIVED, LOOK, PRE, PROPS, R, S, camera, canvasTex, hex, leafMat, qs, renderer, rnd, scene, setSeed, sstep, sun, uTime };
+export { $, CABIN, D, DETAIL, JEEP, LIVED, LOOK, PRE, PROPS, R, S, camera, canvasTex, hex, leafMat, qs, renderer, rnd, scene, setSeed, sstep, store, sun, uTime };
