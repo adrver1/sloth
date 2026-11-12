@@ -540,24 +540,25 @@ function opStep(dt) {
 }
 
 // ---------------------------------------------------------------- talking to you: tap him for a few warm words
-// (Adriaen: words of encouragement and love). He looks at you while he speaks, his jaw moves (the talk clip) and he smiles
+// (Adriaen: words of encouragement and love, to his life partner "bonita"). He looks at you while he speaks, his jaw moves (the talk clip) and he smiles
 // after. A speech bubble over his head; lines come from a shuffled bag, so none repeats until all have been said.
-const LINES = {
+const LINES = {   // spoken to his life partner, "bonita" (Adriaen, 2026-11-12)
   awake: [
-    "You're doing great, you know that?", "I'm really glad you're here.", "Proud of you. Truly.", "You matter more than you think.",
-    "Whatever today was, you made it through. That counts.", "Be gentle with yourself today.", "Small steps are still steps.",
-    "You're loved, exactly as you are.", "Thanks for stopping by. It made my day.", "Take your time. Nobody rushes in this camp.",
-    "You've got this. And if not, we'll figure it out together.", "The world's a bit warmer with you in it.",
-    "Breathe in... and out. There you go.", "You don't have to carry it all at once.", "I believe in you. Always have.",
-    "The sloths like you. So do I.", "Rest is part of the work too.", "You're braver than you feel right now.",
-    "Look how far you've come.", "It's okay to not be okay. I'm right here.",
+    "You're doing great, bonita. You know that?", "I'm so glad it's you I get to share this with.", "Proud of you. Always, bonita.",
+    "You mean more to me than you know.", "Whatever today was, you made it through. I'm right here.", "Be gentle with yourself today, my love.",
+    "Small steps are still steps. I'll walk them with you.", "I love you, exactly as you are.", "My favourite part of the day? Seeing you.",
+    "Take your time, bonita. Nobody rushes in our camp.", "You've got this. And if not, we'll figure it out together.",
+    "The world's a bit warmer with you in it. Mine especially.", "Breathe in... and out. There you go, bonita.",
+    "You don't have to carry it all alone. That's what I'm for.", "I believe in you. Always have.", "The sloths adore you. Not as much as I do.",
+    "Rest a little, my love. You've earned it.", "You're braver than you feel right now, bonita.", "Look how far you've come. I'm so proud.",
+    "It's okay to not be okay. I'm right here, always.",
   ],
-  eat: ["There's plenty of soup. Help yourself, friend.", "Good food, good company. That's you, by the way."],
-  read: ["This book is good, but you're better company.", "Every good story has a hard chapter. Yours gets better."],
-  drink: ["Pull up a log. You're always welcome here.", "A warm drink and a kind word. Have both."],
-  warm: ["Come warm your hands. You deserve it.", "The fire's nice, but you light up the camp more."],
-  play: ["Look at them! Pure joy. Just like you.", "Want a turn? They love you."],
-  sleep: ["Mmm... love you too...", "Zz... you're doing fine... zz", "Mm... sleep well, friend..."],
+  eat: ["I saved you the best bowl, bonita.", "Good food, and you beside me. That's all I need."],
+  read: ["This book is good, but you're my favourite story.", "Every story has a hard chapter. Ours only gets better."],
+  drink: ["Come sit with me, bonita. I made enough for two.", "A warm drink and you. Perfect evening."],
+  warm: ["Come warm your hands with me, my love.", "The fire's nice, but you light up the whole camp."],
+  play: ["Look at them, bonita! They get that smile from you.", "Want a turn? They love you almost as much as I do."],
+  sleep: ["Mmm... love you too, bonita...", "Zz... you're doing fine, my love... zz", "Mm... come here... sleep well, bonita..."],
 };
 // the lines still to come are kept in the camp save (camp/save.js; Adriaen: a reload carries on where he left off); lines no longer in LINES drop out
 const bag = (() => { try { const b = { ...(load("operator")?.lines || {}) }; for (const k in b) b[k] = Array.isArray(b[k]) ? b[k].filter((l) => LINES[k]?.includes(l)) : []; return b; } catch { return {}; } })();
