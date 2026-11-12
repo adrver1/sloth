@@ -242,12 +242,12 @@ import json as _json
 _lay = os.path.join(ROOT, "props", "shadow", "layout_picked.json")
 for d in (_json.load(open(_lay)).get("deadwood", []) if os.path.exists(_lay) else []):
     if d["name"] == "FallenLog":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
+        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], d.get("y", 0) + d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
         o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, d["yaw"])   # lie along x, then yaw
     elif d["name"] == "Stump":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=9, radius=d["r"], depth=d["h"], location=B(d["x"], d["h"] / 2, d["z"]))
+        bpy.ops.mesh.primitive_cylinder_add(vertices=9, radius=d["r"], depth=d["h"], location=B(d["x"], d.get("y", 0) + d["h"] / 2, d["z"]))
     elif d["name"] == "DeadTrunk":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=7, radius=0.27, depth=d["H"], location=B(d["x"], d["H"] / 2, d["z"]))
+        bpy.ops.mesh.primitive_cylinder_add(vertices=7, radius=0.27, depth=d["H"], location=B(d["x"], d.get("y", 0) + d["H"] / 2, d["z"]))
     else:
         continue
     bpy.context.object.name = d["name"]; jeep.append(bpy.context.object)   # with the jeep: an occluder, removed before export

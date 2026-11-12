@@ -15,15 +15,27 @@ const canvasTex = (w, h, draw, srgb = true) => {
   const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
   const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 };
+// value noise on an integer lattice, the same as camp/terrain.js vnoise (an integer hash, so the page and the shader agree), and the
+// big colour patches it drives: drier and yellower, or bluer and greener, 5 to 10 m across; the plants take the same tint as the ground
+const NOISE_GLSL = `
+  float hs(int i, int j) { uint h = uint(i) * 374761393u + uint(j) * 668265263u; h = (h ^ (h >> 13u)) * 1274126177u; h ^= h >> 16u; return float(h) / 4294967296.0; }
+  float vnoise(vec2 p) { vec2 i = floor(p), f = p - i, u = f * f * (3.0 - 2.0 * f); int x = int(i.x), y = int(i.y);
+    float a = hs(x, y), b = hs(x + 1, y), c = hs(x, y + 1), d = hs(x + 1, y + 1); return a + (b - a) * u.x + (c - a) * u.y + (a - b - c + d) * u.x * u.y; }
+  vec3 macroTint(float m) { return mix(vec3(1.1, 1.02, 0.74), vec3(0.8, 0.97, 0.95), m); }
+`;
+const macroTint = (m, c) => c.multiply(new THREE.Color(1.1 + (0.8 - 1.1) * m, 1.02 + (0.97 - 1.02) * m, 0.74 + (0.95 - 0.74) * m));
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77 }) {
+export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null }) {
+  // height (camp/terrain.js groundHeight): the floor, the plants and the roots follow it; far > 0 makes the floor one mesh out to far metres,
+  // the forest floor included (forestMap is its tile, 6 m across), instead of the flat clearing disc
   // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
   let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
 
   // things in the camp (not the big trees at the edge), from the collision circles
   const spots = blockers.filter(([c, r]) => Math.hypot(c.x, c.z) < RC - 1 && r < 1.6 && Math.hypot(c.x, c.z) > 0.01);
+  const used = spots.filter((b) => !b.wild);   // what people use gets worn dirt and a path; the deadwood (wild) only gets plants round it (Adriaen 2026-11-12)
   const entry = trackPts.find((p) => Math.hypot(p.x, p.z) > RC - 0.6);        // where the jeep's track meets the clearing
 
   // ---------------------------------------------------------------- wear map: R dirt, G lushness (0.5 neutral), B ash / wet mud
@@ -38,12 +50,12 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     g.globalCompositeOperation = "lighter";
     const dirt = (x, z, r, a) => blob(x, z, r, `rgba(255,0,0,${a})`);
     dirt(0, 0, 3.3, 0.8); dirt(0, 0, 2.2, 0.7);                                  // round the fire and the seats
-    for (const [c, r] of spots) dirt(c.x, c.z, r + R(0.6, 0.9), 0.75);            // in front of and round each thing you use
+    for (const [c, r] of used) dirt(c.x, c.z, r + R(0.6, 0.9), 0.75);            // in front of and round each thing you use
     const path = (a, b, w) => {                                                     // a worn footpath: a wobbly line, soft edges
       const n = Math.max(6, Math.round(a.distanceTo(b) / 0.4)), side = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize(), bend = R(-0.5, 0.5);
       for (let k = 0; k <= n; k++) { const t = k / n, p = a.clone().lerp(b, t).addScaledVector(side, Math.sin(t * Math.PI) * bend + R(-0.06, 0.06)); dirt(p.x, p.z, w * R(0.85, 1.15), 0.32); }
     };
-    for (const [c, r] of spots) { const d = c.clone().setY(0), L = d.length(); if (L > 2.2) path(d.clone().multiplyScalar(2.4 / L), d.clone().multiplyScalar((L - r * 0.7) / L), 0.55); }
+    for (const [c, r] of used) { const d = c.clone().setY(0), L = d.length(); if (L > 2.2) path(d.clone().multiplyScalar(2.4 / L), d.clone().multiplyScalar((L - r * 0.7) / L), 0.55); }
     if (entry) path(new THREE.Vector3(entry.x, 0, entry.z).multiplyScalar(2.6 / Math.hypot(entry.x, entry.z)), new THREE.Vector3(entry.x, 0, entry.z), 0.6);   // to the track
     // break it up: grass islands in the dirt, ragged edges
     g.globalCompositeOperation = "source-over";
@@ -51,7 +63,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     // ash right round the fire, wet mud by the table, the jeep and the track
     g.globalCompositeOperation = "lighter";
     blob(0, 0, 1.25, "rgba(0,0,255,.75)");
-    for (const [c, r] of spots) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
+    for (const [c, r] of used) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
   }, false);
   if (baked) { const g = wear.image.getContext("2d"); g.globalCompositeOperation = "copy"; g.drawImage(baked.mask, 0, 0, M, M); wear.needsUpdate = true; }   // the baked wear map (props/ground/bake_ground.py) for the plants' lookups
@@ -138,8 +150,58 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   });
   dirtTex.wrapS = dirtTex.wrapT = THREE.RepeatWrapping;
 
+  // ---------------------------------------------------------------- leaf litter, tiled (forest-ground note 2b): fallen leaves in the camp's
+  // browns and olives, each with its own height in alpha (0 between leaves), so the shader shows more or fewer whole leaves where litter
+  // gathers. A DataTexture, so the alpha isn't premultiplied away
+  const litterTex = (() => {
+    const W = 256, cv = document.createElement("canvas"); cv.width = cv.height = W; const g = cv.getContext("2d");
+    const hc = document.createElement("canvas"); hc.width = hc.height = W; const gh = hc.getContext("2d");
+    g.fillStyle = "#8a6438"; g.fillRect(0, 0, W, W); gh.fillStyle = "#000"; gh.fillRect(0, 0, W, W);
+    const LEAF = ["#96602a", "#b27e36", "#7a4a24", "#a06e3c", "#6c5a2e", "#8c8046", "#5e6a2c", "#c49446"];
+    let q = 4242; const Q = (a, b) => { q = (q * 16807) % 2147483647; return a + (q / 2147483647) * (b - a); };
+    for (let i = 0; i < 120; i++) {
+      const x = Q(0, W), y = Q(0, W), a = Q(0, 6.28), L = Q(7, 15), w = L * Q(0.38, 0.55), col = LEAF[i % LEAF.length], hgt = Math.round(Q(40, 255));
+      for (const dx of [-W, 0, W]) for (const dy of [-W, 0, W]) for (const [cx, fill] of [[g, col], [gh, `rgb(${hgt},${hgt},${hgt})`]]) {
+        cx.save(); cx.translate(x + dx, y + dy); cx.rotate(a); cx.fillStyle = fill; cx.beginPath(); cx.moveTo(-L, 0); cx.quadraticCurveTo(0, -w * 1.3, L, 0); cx.quadraticCurveTo(0, w * 1.3, -L, 0); cx.fill();
+        if (cx === g) { cx.strokeStyle = "rgba(60,36,16,.45)"; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(-L, 0); cx.lineTo(L * 0.9, 0); cx.stroke(); }
+        cx.restore(); }
+    }
+    const rgb = g.getImageData(0, 0, W, W).data, hh = gh.getImageData(0, 0, W, W).data, out = new Uint8Array(W * W * 4);
+    for (let i = 0; i < W * W; i++) { out[i * 4] = rgb[i * 4]; out[i * 4 + 1] = rgb[i * 4 + 1]; out[i * 4 + 2] = rgb[i * 4 + 2]; out[i * 4 + 3] = hh[i * 4]; }
+    const t = new THREE.DataTexture(out, W, W); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.generateMipmaps = true; t.anisotropy = 4; t.flipY = false; t.needsUpdate = true; return t;
+  })();
+
   // ---------------------------------------------------------------- the floor: one disc in world coordinates, grass and dirt blended by the wear map
-  const geo = new THREE.CircleGeometry(RR, 48).rotateX(-Math.PI / 2).translate(0, 0.012, 0);
+  // one ground (forest-ground note, 2026-11-12): rings round the fire, sparse in the level camp, dense over the bowl's rim and the
+  // banks of the glade path and the track, sparse again in the far forest; about 3,600 triangles, one draw, no seam with the forest
+  // floor. Each vertex sits on the height; uv is the old disc's, so the grass tiles as before
+  const geo = far ? ringGround() : new THREE.CircleGeometry(RR, 48).rotateX(-Math.PI / 2).translate(0, 0.012, 0);
+  function ringGround() {
+    const rings = [[0, 1]];
+    for (const r of [1.6, 3.2, 4.8, 6.2]) rings.push([r, 40]);
+    rings.push([7.0, 64]);
+    for (let r = 7.6; r < 15.5; r += 0.7) rings.push([r, 80]);
+    for (let r = 16.4; r < 25.5; r += 1.2) rings.push([r, 64]);
+    for (const r of [27.5, far]) rings.push([r, 48]);
+    const pos = [], uv = [], idx = [], start = [];
+    for (const [r, n] of rings) { start.push(pos.length / 3);
+      for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, x = Math.cos(a) * r, z = Math.sin(a) * r;
+        pos.push(x, height(x, z) + 0.012, z); uv.push(x / (2 * RR) + 0.5, -z / (2 * RR) + 0.5); } }
+    for (let k = 1; k < rings.length; k++) {                     // stitch ring k-1 (n1 points) to ring k (n2), walking round by angle
+      const a0 = start[k - 1], n1 = rings[k - 1][1], b0 = start[k], n2 = rings[k][1];
+      let i = 0, j = 0;
+      while (i < n1 || j < n2) {
+        const ai = (i + 1) / n1, bj = (j + 1) / n2;
+        if (n1 > 1 && (j >= n2 || (i < n1 && ai < bj))) { idx.push(a0 + (i % n1), b0 + (j % n2), a0 + ((i + 1) % n1)); i++; }
+        else { idx.push(a0 + (i % n1), b0 + (j % n2), b0 + ((j + 1) % n2)); j++; if (n1 === 1 && j >= n2) i = n1; }
+      }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+    g.computeVertexNormals();
+    if (g.attributes.normal.getY(0) < 0) { for (let t = 0; t < idx.length; t += 3) [idx[t + 1], idx[t + 2]] = [idx[t + 2], idx[t + 1]]; g.setIndex(idx); g.computeVertexNormals(); }   // face up
+    return g;
+  }
   const grassMap = clearing.material.map;
   let bakedMask = null, bakedSoil = null;
   if (baked) {
@@ -153,30 +215,81 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGJ, uGDP, uGDD, uGDB, uGNon, uShadeT: uShade, uShadeK }); bindLight(sh);
     if (baked) sh.defines = { ...sh.defines, BAKED: 1 };
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB, uShadeT; uniform float uR, uNight, uGNon, uShadeK; vec3 albedoG;\n" + LIGHT_GLSL)
+    if (far) sh.defines = { ...sh.defines, FAR: 1 };
+    if (!fx) sh.defines = { ...sh.defines, LOWFX: 1 };
+    Object.assign(sh.uniforms, { uLitter: { value: litterTex }, uForest: { value: forestMap || grassMap }, uRC: { value: RC } });
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz; vNw = normal;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB, uShadeT, uLitter, uForest; uniform float uR, uRC, uNight, uGNon, uShadeK; vec3 albedoG; float hB = 0.0;\n" + NOISE_GLSL + LIGHT_GLSL)
       .replace("#include <lights_fragment_begin>", liveChunk())   // keeps the live cabin light's share apart (Cabin: live)
+      .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
+        #ifndef LOWFX
+        {                                                                   // the painted relief (sunk paths, their lip, pebbles, litter) as a bump
+          vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx);
+          float det = dot(sx, r1) * faceDirection;
+          normal = normalize(abs(det) * normal - sign(det) * (dFdx(hB) * r1 + dFdy(hB) * r2));
+        }
+        #endif`)
       .replace("#include <map_fragment>", `#include <map_fragment>
-        float rr = length(vG);
-        float h = fract(sin(dot(floor(vG * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
-        if (h < smoothstep(uR - 1.0, uR, rr)) discard;                        // a ragged edge into the forest floor
-        vec4 mk = texture2D(uMask, vG / (2.0 * uR) + 0.5);
-        vec3 dt = sRGBTransferEOTF(texture2D(uDirt, vG * 0.45)).rgb;
-        vec3 gr = diffuseColor.rgb * mix(vec3(1.18, 1.1, 0.82), vec3(0.72, 0.9, 0.62), mk.g);   // dry and pale ... lush and deep
-        #ifdef BAKED
-          // baked soil (props/ground/bake_ground.py): its own colour, ash and litter; the tiled dirt adds a little grain up close
-          float d = mk.r;
-          vec3 c = mix(gr, sRGBTransferEOTF(texture2D(uSoil, vG / (2.0 * uR) + 0.5)).rgb * mix(1.0, dot(dt, vec3(1.0)) / dot(sRGBTransferEOTF(textureLod(uDirt, vec2(0.5), 10.0)).rgb, vec3(1.0)), 0.3), d);
-          diffuseColor.rgb = c;
-        #else
-        float d = 0.92 * smoothstep(0.3, 0.7, mk.r + (dot(dt, vec3(0.33)) - 0.25) * 0.6);
-        vec3 c = mix(gr, dt, d);
-        float ashy = 1.0 - smoothstep(1.0, 1.6, rr);                         // grey ash by the fire, dark wet mud elsewhere
-        diffuseColor.rgb = mix(c * (1.0 - 0.45 * mk.b * d), mix(c, vec3(0.30, 0.28, 0.26) * (0.8 + 0.4 * dot(dt, vec3(0.33))), 0.85 * mk.b), ashy);
+        // forest ground (2026-11-12 note): grass at two scales and big colour patches, grass and dirt blended by height so the
+        // edge is ragged, packed path centres, moss in the shade, leaf litter at the rim and against things, the forest floor beyond
+        float rr = length(vG), inD = step(rr, uR);
+        vec2 uvC = vG / (2.0 * uR) + 0.5;
+        float mN = vnoise(vG * 0.13 + vec2(3.7, -1.2)), mS = vnoise(vG * 0.9 + vec2(-4.1, 8.3));
+        #ifndef LOWFX
+          vec3 g2 = texture2D(map, vG * 0.071 * mat2(0.8, 0.6, -0.6, 0.8)).rgb * diffuse;   // a second, turned grass tile: the 3 m repeat stops showing
+          diffuseColor.rgb = mix(diffuseColor.rgb, g2, 0.5 * smoothstep(0.35, 0.65, vnoise(vG * 0.35 + 2.0)));
         #endif
+        float hg = dot(diffuseColor.rgb, vec3(1.0)) / max(1e-3, dot(textureLod(map, vec2(0.5), 10.0).rgb * diffuse, vec3(1.0))) - 1.0;   // grass height: the blades are lighter
+        vec4 mk = texture2D(uMask, uvC);
+        vec3 dt = sRGBTransferEOTF(texture2D(uDirt, vG * 0.45)).rgb, dtM = sRGBTransferEOTF(textureLod(uDirt, vec2(0.5), 10.0)).rgb;
+        float hd = dot(dt, vec3(1.0)) / dot(dtM, vec3(1.0)) - 1.0;           // dirt height: the pebbles stand up
+        vec3 gr = diffuseColor.rgb * mix(vec3(1.18, 1.1, 0.82), vec3(0.72, 0.9, 0.62), mk.g) * macroTint(mN);   // dry and pale ... lush and deep, and drier or bluer in big patches
+        float dB = mk.r, dC = mk.r;
+        #ifdef BAKED
+          dB = texture2D(uMask, uvC, 2.0).r; dC = texture2D(uMask, uvC, 4.5).r;   // the wear a little blurred, and well blurred (1 in a path's middle)
+        #endif
+        gr *= (0.84 + 0.32 * mS) * (0.78 + 0.34 * vnoise(vG * 0.33 + vec2(-6.0, 2.5)));   // mottled at 1 m and 3 m: no two patches the same
+        gr = mix(gr, gr * vec3(0.98, 0.9, 0.7) * 0.82, 0.6 * smoothstep(0.04, 0.45, dB));   // trampled, darker and browner next to the dirt
+        float shd = texture2D(uShadeT, uvC).r * inD;                          // the baked sun and sky shadow: where it's shady
+        float moss = smoothstep(0.22, 0.55, shd + 0.3 * (mS - 0.5)) * (0.3 + 0.7 * smoothstep(uR - 4.5, uR - 0.8, rr));
+        gr = mix(gr, vec3(0.085, 0.16, 0.03) * (0.75 + 0.5 * mS), 0.55 * moss);
+        float d = 0.0, centre = 0.0;
+        #ifdef BAKED
+          // baked soil (props/ground/bake_ground.py): its own colour, ash and litter. Edges: the dirt shows first between the grass
+          // blades and round the pebbles (height blend); the middle of a path is packed smooth and paler; the tiled dirt adds grain
+          d = smoothstep(0.3, 0.7, (dB - 0.5) * 2.2 + 0.5 + (hd - 1.2 * hg) * 1.4) * inD;
+          centre = smoothstep(0.8, 0.97, dC) * inD;
+          vec3 soil = sRGBTransferEOTF(texture2D(uSoil, uvC)).rgb * mix(1.0, dot(dt, vec3(1.0)) / dot(dtM, vec3(1.0)), 0.3 * (1.0 - 0.75 * centre)) * (1.0 + 0.1 * centre);
+          vec3 c = mix(gr, soil, d);
+          hB = -0.035 * smoothstep(0.15, 0.85, dB) + 0.012 * exp(-pow((dB - 0.28) / 0.14, 2.0)) + 0.004 * hd * d * (1.0 - centre);   // paths sunk a few cm, with a lip
+        #else
+          d = 0.92 * smoothstep(0.3, 0.7, mk.r + (dot(dt, vec3(0.33)) - 0.25) * 0.6);
+          vec3 c = mix(gr, dt, d);
+          float ashy = 1.0 - smoothstep(1.0, 1.6, rr);                       // grey ash by the fire, dark wet mud elsewhere
+          c = mix(c * (1.0 - 0.45 * mk.b * d), mix(c, vec3(0.30, 0.28, 0.26) * (0.8 + 0.4 * dot(dt, vec3(0.33))), 0.85 * mk.b), ashy);
+        #endif
+        // the forest floor past the rim: dark speckled earth, moss on the slopes turned from the sun, litter almost everywhere
+        float inC = 1.0 - smoothstep(uR - 1.1, uR - 0.1, rr + 0.7 * (mS - 0.5));
+        #ifdef FAR
+          vec3 fc = texture2D(uForest, vG / 6.0).rgb * macroTint(mN) * 0.9;
+          float away = smoothstep(0.02, 0.3, dot(vNw.xz, normalize(vec2(4.0, -3.0)))) * smoothstep(uR, uR + 2.0, rr);
+          fc = mix(fc, vec3(0.07, 0.14, 0.025) * (0.7 + 0.6 * mS), 0.7 * max(away, 0.6 * smoothstep(0.6, 0.8, vnoise(vG * 0.4 + 9.0))));
+          c = mix(fc, c, inC);
+        #endif
+        // leaf litter: two turned layers of painted leaves, each leaf with its own height in alpha, so a leaf shows whole or not at all
+        vec4 l1 = texture2D(uLitter, vG * 0.62);
+        #ifndef LOWFX
+          vec4 l2 = texture2D(uLitter, mat2(0.6, -0.8, 0.8, 0.6) * vG * 0.41 + 0.37); if (l2.a > l1.a) l1 = l2;
+        #endif
+        float litW = clamp(smoothstep(uRC - 3.0, uRC + 0.6, rr) * (0.55 + 0.45 * mN) + 0.3 * smoothstep(0.45, 0.75, shd), 0.0, 0.92) * (1.0 - 0.95 * d);
+        float show = smoothstep(1.0 - litW - 0.03, 1.0 - litW + 0.03, l1.a) * step(0.01, l1.a);
+        c = mix(c, sRGBTransferEOTF(vec4(l1.rgb, 1.0)).rgb * (0.85 + 0.3 * mS), show);
+        hB = hB * inD + 0.006 * show;
+        diffuseColor.rgb = c;
         albedoG = diffuseColor.rgb;
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`)
-      .replace("#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, vG / (2.0 * uR) + 0.5)) * uGNon; vec2 gj = lmDecode2(texture2D(uGJ, vG / (2.0 * uR) + 0.5).rg) * uGNon;
+      .replace("#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, uvC)) * uGNon * vec4(vec3(inD), 1.0 - 0.4 * smoothstep(uR, uR + 8.0, rr));
+        vec2 gj = lmDecode2(texture2D(uGJ, uvC).rg) * uGNon * inD;
         vec2 du = lmDoorUv(vG); vec3 gd = all(greaterThan(du, vec2(0.0))) && all(lessThan(du, vec2(1.0))) ? vec3(doorKey(lmDecode(texture2D(uGDP, du)), uLD.x), doorKey(lmDecode(texture2D(uGDD, du)), uLD.y), doorKey(lmDecode(texture2D(uGDB, du)), uLD.z)) * uGNon : vec3(0.0);${LIGHT_MIX("albedoG", "gq", "gj", "(uNight * uGNon)", "gd", true)}
         ${SHADE("vG")}
 #include <opaque_fragment>`);
@@ -289,7 +402,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
       if (inside(x, z, type === 1 ? 0.1 : 0) || bare(x, z) || trackDist(x, z) < 1.1) continue;   // bare: kept clear, e.g. under the tent's planks
       let p;
       if (type === 0) p = ((0.18 + 0.7 * edge + 0.5 * hug + 0.3 * lush) * (1 - smooth(0.25, 0.5, dirt)) + 0.35 * smooth(0.15, 0.3, dirt) * (1 - smooth(0.3, 0.45, dirt))) * clump(x, z);   // and along path edges
-      else if (type === 1) p = (0.9 * smooth(RC - 2, RC, r) + 0.7 * hug) * (1 - smooth(0.2, 0.35, dirt));
+      else if (type === 1) p = (0.9 * smooth(RC - 2, RC, r) + 0.7 * hug) * (1 - smooth(0.2, 0.35, dirt)) + 0.55 * smooth(0.04, 0.14, dirt) * (1 - smooth(0.24, 0.4, dirt));   // and the verges: nobody steps there
       else if (type === 2) p = (0.9 * flowerField(x, z) + 0.25 * hug + 0.12 * edge) * (1 - smooth(0.2, 0.35, dirt));
       else p = (0.25 + 0.4 * lush) * (1 - edge) * (1 - smooth(0.15, 0.3, dirt)) * clump(x, z);
       if (rnd() > p) continue;
@@ -319,8 +432,9 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   const im = new THREE.InstancedMesh(card, null, pick.length);
   const cellA = new Float32Array(pick.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
   pick.forEach(([x, z, type, size], i) => {
-    q.setFromAxisAngle(up, R(0, 6.28)); m4.compose(new THREE.Vector3(x, 0, z), q, new THREE.Vector3(size * (type === 3 ? 1.6 : 1.1), size, size * (type === 3 ? 1.6 : 1.1))); im.setMatrixAt(i, m4);
+    q.setFromAxisAngle(up, R(0, 6.28)); m4.compose(new THREE.Vector3(x, height(x, z), z), q, new THREE.Vector3(size * (type === 3 ? 1.6 : 1.1), size, size * (type === 3 ? 1.6 : 1.1))); im.setMatrixAt(i, m4);
     const dry = 1 - sample(x, z, 1); im.setColorAt(i, col.setRGB(1, 1, 1).lerp(new THREE.Color(1.15, 1.08, 0.75), type < 2 ? dry * 0.5 : 0).multiplyScalar(type === 6 ? R(0.6, 0.85) : R(0.8, 1.05)));
+    if (noise) { im.getColorAt(i, col); im.setColorAt(i, macroTint(noise(x * 0.13 + 3.7, z * 0.13 - 1.2), col)); }   // the ground's big colour patches
     cellA[i] = type;
   });
   card.setAttribute("aCell", new THREE.InstancedBufferAttribute(cellA, 1));
@@ -368,6 +482,6 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings
   }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
-  const layout = { RR, RC, spots: spots.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
+  const layout = { RR, RC, spots: used.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
   return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }

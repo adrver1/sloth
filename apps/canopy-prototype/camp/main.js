@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { WARM_N } from "../fur.js";
 import "./input.js";   // run after the module before it, as one script did
-import { $, D, DETAIL, R, S, camera, qs, renderer, scene, sun, uTime } from "./core.js";
+import { $, D, DETAIL, R, S, camera, qs, renderer, scene, store, sun, uTime } from "./core.js";
 import { stickV } from "./hud.js";
 import { dome, moon, nightDome, sky, uSkyDusk } from "./sky.js";
 import { GLADE, RC, V, sloPath } from "./forest.js";
@@ -14,6 +14,8 @@ import { SL, SLOTH_WARM, campStep, fx, slothLife, sloths } from "./sloths.js";
 import { collide, me, step } from "./player.js";
 import { acts, atmo, groundLife } from "./campLife.js";
 import { aimStep, boop, feed, resize } from "./input.js";
+import { weather } from "./weather.js";
+import { lingerStep } from "./linger.js";
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
@@ -25,13 +27,38 @@ const DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.in
 const DUSK = new THREE.Color(0x0e1c2b), NIGHT_SKY = new THREE.Color(0x4a66a0), NIGHT_GROUND = new THREE.Color(0x4a2c16), MOONC = new THREE.Color(0x9fb4e6), BACK_NIGHT = new THREE.Color(0.08, 0.12, 0.22);
 // the moon: up in the canopy gap, in front of you as you start (you face the fire), a little to the side
 { const f = me.pos.clone().setY(0).negate().normalize(), sd = V(-f.z, 0, f.x); moon.position.copy(f.multiplyScalar(11)).addScaledVector(sd, 3).setY(21); }
-let dusk = 0, duskTo = 0;
+let dusk = 0;
+// the time of day (Adriaen 2026-11-12: a slider in the ⚙️ menu replaces the Rest button, and the day cycle is optional).
+// Hours 0..24; the light follows the hour shown, which eases forward to the hour set (about 3 h a second), so moving the
+// slider from noon to night passes through golden hour, and from night to morning through the dawn mist. With the cycle on,
+// a day takes 12 minutes. ?time=21.5 sets the hour, ?cycle=1 starts the cycle.
+const sm = THREE.MathUtils.smoothstep, HOUR_S = 30;
+const duskOf = (h) => h >= 20.5 || h < 5.5 ? 1 : h < 7.5 ? 1 - sm(h, 5.5, 7.5) : h < 17 ? 0 : h < 19 ? 0.45 * sm(h, 17, 19) : 0.45 + 0.55 * sm(h, 19, 20.5);
+const goldOf = (h) => sm(h, 16.3, 17.6) * (1 - sm(h, 18.9, 19.8));                       // low warm sun before dusk
+const mistOf = (h) => sm(h, 5, 6.3) * (1 - sm(h, 7.8, 10.5));                            // dawn mist, burnt off by mid-morning
+let tSet = Number(qs.get("time") ?? store.get("canopy-time") ?? 12); if (!(tSet >= 0 && tSet < 24)) tSet = 12;
+let cycle = qs.has("cycle") ? qs.get("cycle") !== "0" : store.get("canopy-cycle") === "on", tShown = tSet;
+const clockText = (h) => `${String(Math.floor(h) % 24).padStart(2, "0")}:${String(Math.floor((h % 1) * 60 / 15) * 15).padStart(2, "0")}`;
+const showTime = () => { $("time").value = String(tSet); $("clock").textContent = clockText(tSet); $("cycle").textContent = "Day cycle: " + (cycle ? "on" : "off"); };
+$("time").oninput = () => { tSet = Number($("time").value); store.set("canopy-time", String(tSet)); showTime(); };
+$("cycle").onclick = () => { cycle = !cycle; store.set("canopy-cycle", cycle ? "on" : "off"); showTime(); };
+showTime();
+// golden hour and dawn mist (camp review B7): on the way to Rest the light lingers in a warm golden band (dusk 0.12 .. 0.5:
+// low amber sun, honey fog, the light shafts turn gold and brighten); on waking, a pale mist lies over the clearing and burns
+// off slowly over half a minute. Both are only colour and a few soft sprites, so nothing to bake.
+const RAIN_FOG = new THREE.Color(0x7d8c86), BACK_RAIN = new THREE.Color(0.72, 0.78, 0.8), BACK_DAWN = new THREE.Color(1.25, 1.3, 1.36), BACK_GOLD = new THREE.Color(1.15, 0.82, 0.5), GOLD_SUN = new THREE.Color(0xffa040), GOLD_FOG = new THREE.Color(0xc89a62), DAWN_FOG = new THREE.Color(0xc8ccd6), RAY_DAY = new THREE.Color(0xffffff), RAY_GOLD = new THREE.Color(0xffb050);
+let mist = 0, gold = 0, clockTick = 0;
+const mistSprites = (() => {   // low banks of mist over the clearing floor, each a big soft sprite; they follow the ground when it gets height
+  const g = new THREE.Group(), n = D.fx ? 16 : 8, mat = new THREE.SpriteMaterial({ map: glowTex, color: 0xe6ebf2, transparent: true, opacity: 0, depthWrite: false, fog: false });
+  for (let i = 0; i < n; i++) { const a = R(0, 6.28), r = Math.sqrt(R(0.05, 1)) * (RC + 1), sp = new THREE.Sprite(mat), x = Math.cos(a) * r, z = Math.sin(a) * r;
+    sp.scale.set(R(5, 8), R(1.2, 1.8), 1); sp.position.set(x, (window.__groundHeight?.(x, z) ?? 0) + R(0.35, 0.7), z); sp.userData = { a, r, w: R(0.01, 0.025) * (i % 2 ? 1 : -1) }; g.add(sp); }
+  g.visible = false; scene.add(g); return g;
+})();
 const flies = (() => {
   const n = 120, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const a = R(0, 6.28), r = R(2, RC + 6); p.set([Math.cos(a) * r, R(0.4, 7), Math.sin(a) * r], i * 3); }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(p, 3));
   const pts = new THREE.Points(g, new THREE.PointsMaterial({ map: glowTex, color: 0xd8ff7a, size: 0.14, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); scene.add(pts); return pts;
 })();
-$("rest").onclick = () => { duskTo = duskTo ? 0 : 1; $("rest").textContent = duskTo ? "Wake up ☀️" : "Rest 🌙"; };
 flies.visible = false;   // atmosphere.js draws blinking fireflies instead
 
 // ================================================================ loop, with an fps panel and a resolution safety net
@@ -47,7 +74,7 @@ await renderer.compileAsync(scene, camera).catch(() => {});
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
-  step(dt);
+  lingerStep(dt); step(dt);
   for (const s of sloths) {
     s.mixer.update(dt);
     slothLife(s, dt);
@@ -71,14 +98,21 @@ renderer.setAnimationLoop(() => {
     for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
     W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk; } pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
   LANTERNS.update(uTime.value, dusk);
-  dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
-  if (dusk || duskTo) {
-    scene.fog.color.copy(DAY.fog).lerp(DUSK, dusk); scene.fog.density = DAY.dens * (1 + 0.6 * dusk);
-    hemiL.intensity = DAY.hemi * (1 - 0.72 * dusk); hemiL.color.copy(DAY.sky).lerp(NIGHT_SKY, dusk); hemiL.groundColor.copy(DAY.ground).lerp(NIGHT_GROUND, dusk);
-    sun.intensity = DAY.sun * (1 - 0.62 * dusk); sun.color.copy(DAY.sunC).lerp(MOONC, dusk);                      // the sun turns into cool moonlight
-    sky.material.color.setRGB(1, 1, 1).lerp(BACK_NIGHT, dusk); uSkyDusk.value = Math.min(1, dusk * 1.3); dome.material.color.setScalar(1 - 0.75 * dusk); scene.background.set(S.sky[0]).lerp(DUSK, dusk);
+  if (cycle) { tSet = (tSet + dt / HOUR_S) % 24; if ((clockTick += dt) > 2) { clockTick = 0; showTime(); store.set("canopy-time", tSet.toFixed(2)); } }
+  { const ahead = (tSet - tShown + 24) % 24; tShown = (tShown + Math.min(ahead, dt * 3)) % 24; }   // always forward, like a day
+  weather.step(dt);
+  const wet = weather.wet;
+  dusk = duskOf(tShown); gold = goldOf(tShown) * (1 - wet); mist = mistOf(tShown);
+  mistSprites.visible = mist > 0.01;
+  if (mistSprites.visible) { const k = mist * (1 - dusk); mistSprites.children[0].material.opacity = 0.32 * k;
+    for (const sp of mistSprites.children) { const u = sp.userData; u.a += u.w * dt; sp.position.x = Math.cos(u.a) * u.r; sp.position.z = Math.sin(u.a) * u.r; } }
+  {
+    scene.fog.color.copy(DAY.fog).lerp(GOLD_FOG, 0.55 * gold).lerp(DUSK, dusk).lerp(DAWN_FOG, 0.5 * mist * (1 - dusk)).lerp(RAIN_FOG, 0.6 * wet * (1 - dusk)); scene.fog.density = DAY.dens * (1 + 0.6 * dusk + 0.7 * mist * (1 - dusk) + 0.5 * wet);
+    hemiL.intensity = DAY.hemi * (1 - 0.72 * dusk) * (1 - 0.2 * wet); hemiL.color.copy(DAY.sky).lerp(NIGHT_SKY, dusk); hemiL.groundColor.copy(DAY.ground).lerp(NIGHT_GROUND, dusk);
+    sun.intensity = DAY.sun * (1 - 0.62 * dusk + 0.35 * gold) * (1 - 0.5 * wet); sun.color.copy(DAY.sunC).lerp(GOLD_SUN, 0.8 * gold).lerp(MOONC, THREE.MathUtils.smoothstep(dusk, 0.35, 1));                      // the sun turns into cool moonlight
+    sky.material.color.setRGB(1, 1, 1).lerp(BACK_GOLD, 0.7 * gold).lerp(BACK_DAWN, 0.6 * mist * (1 - dusk)).lerp(BACK_RAIN, 0.5 * wet).lerp(BACK_NIGHT, dusk); uSkyDusk.value = Math.min(1, dusk * 1.3); dome.material.color.setScalar(1 - 0.75 * dusk).lerp(BACK_GOLD, 0.6 * gold); scene.background.set(S.sky[0]).lerp(DUSK, dusk);
     nightDome.visible = moon.visible = dusk > 0.01; nightDome.material.opacity = Math.min(1, dusk * 1.3); moon.material.opacity = Math.max(0, dusk * 1.5 - 0.5); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
-    if (typeof rayMat !== "undefined") rayMat.opacity = S.rays * (1 - dusk) * (0.85 + 0.15 * Math.sin(uTime.value * 0.21) * Math.sin(uTime.value * 0.13 + 1.0));   // a slow shimmer as leaves move over the gap
+    if (typeof rayMat !== "undefined") rayMat.color.copy(RAY_DAY).lerp(RAY_GOLD, gold), rayMat.opacity = S.rays * Math.max(1 - dusk, 1.8 * gold) * (1 - wet) * (0.85 + 0.15 * Math.sin(uTime.value * 0.21) * Math.sin(uTime.value * 0.13 + 1.0));   // a slow shimmer as leaves move over the gap
   }
   if (motes) motes.rotation.y += dt * 0.02;
   atmo.update(dt, uTime.value, dusk);
@@ -95,7 +129,7 @@ renderer.setAnimationLoop(() => {
     frames = 0; acc = 0;
   }
 });
-window.__me = me; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__rest = () => { duskTo = 1; dusk = 1; };
+window.__me = me; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__rest = () => { tSet = tShown = 23; showTime(); }; window.__time = (h) => { tSet = tShown = h; showTime(); };   // checks: jump straight to an hour
 window.__face = (i) => { const s = sloths[i]; const flat = V(s.p.x, 0, s.p.z); me.pos.copy(flat.clone().multiplyScalar(Math.max(0, 1 - 2.2 / flat.length()))); collide(me.pos); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
 window.__stick = (x, y) => stickV.set(x, y);
 window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
