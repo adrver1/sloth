@@ -711,6 +711,10 @@ const SLOTH = await PRE.sloth;
 // The lightMap slot (intensity 0) only gives the shader its sampler and UV; it adds no light. Light button: 2K or 1K (4K: ?lm=4k, local only).
 const uNight = { value: 0 };
 const [LMTEX, LMSUN] = await PRE.lm;   // loaded with everything else at the top (lmLoad)
+// the seat tops and the tripod's bamboo are the only light-mapped parts painted as textures, and their paintings came out far
+// lighter and more saturated than the vertex-coloured props round them (sawn wood about 202,165,118; bamboo 196,184,114),
+// so they glowed by day and at night (camp review B2). Toned down here, not in the textures, so the bake needs nothing.
+const SAWN = new THREE.Color().setRGB(0.74, 0.71, 0.68, THREE.SRGBColorSpace), BAMBOO = new THREE.Color().setRGB(0.72, 0.67, 0.6, THREE.SRGBColorSpace);   // about 150,117,80 and 141,123,68
 const lnight = (mat) => {
   const prev = mat.onBeforeCompile;
   mat.lightMap = LMTEX; mat.lightMapIntensity = 0;
@@ -756,7 +760,7 @@ if (PROPS !== "code") {
 // rustic seats (Our camp, Rustic); ?lived=0 hides them to compare.
 if (LIVED) {
   const L = await PRE.lived, lm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
-  L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, ...(m.name.startsWith("SeatTop") && { polygonOffset: true, polygonOffsetFactor: -2 }) })) : lm; });   // the stack, loose logs and seat tops are textured
+  L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, ...(m.name.startsWith("SeatTop") && { polygonOffset: true, polygonOffsetFactor: -2, color: SAWN }) })) : lm; });   // the stack, loose logs and seat tops are textured
   const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
   const wp = V(-0.55, 0, -3.15), wy = Math.atan2(-wp.x, -wp.z);
   put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); put("LooseLogs", wp.x, wp.z, wy); var WOODPILE = wp;   // the activities take logs from here
@@ -794,7 +798,7 @@ if (NEWFIRE) {
     const o = F.scene.getObjectByName(n); if (!o) continue;
     o.traverse((m) => { if (!m.isMesh) return;
       m.material = n === "Embers" ? glow : n === "Chain" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }))
-        : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map })) : fm; });   // the legs: one tube each, nodes in the texture
+        : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : fm; });   // the legs: one tube each, nodes in the texture
     scene.add(o);
   }
   var SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };              // the soup's surface; atmosphere.js lets steam rise off all of it

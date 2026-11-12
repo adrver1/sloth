@@ -6,14 +6,14 @@
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs'), http = require('http');
 const ROOT = path.resolve(__dirname, '..'), NM = ROOT + '/node_modules/three';
-const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } const ext = path.extname(f); r.writeHead(200, { 'content-type': { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json' }[ext] || 'text/plain' }); r.end(d); }); }).listen(8799);
+const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } const ext = path.extname(f); r.writeHead(200, { 'content-type': { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ktx2': 'image/ktx2' }[ext] || 'text/plain' }); r.end(d); }); }).listen(8799);
 (async () => {
   const url = process.argv[2], out = process.argv[3], vw = +(process.argv[4] || 1280), vh = +(process.argv[5] || 800);
   const args = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
   // the repo's own playwright may want a browser build that isn't installed; fall back to the preinstalled Chromium
   const b = await chromium.launch({ args }).catch(() => chromium.launch({ args, executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' }));
   const p = await b.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 1 });
-  await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (rt) => { const m = rt.request().url().match(/three@0\.186\.1\/(.*)/); rt.fulfill({ path: path.join(NM, m[1]), contentType: 'text/javascript' }); });
+  await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (rt) => { const m = rt.request().url().match(/three@0\.186\.1\/(.*)/); rt.fulfill({ path: path.join(NM, m[1]), contentType: m[1].endsWith('.wasm') ? 'application/wasm' : 'text/javascript' }); });
   await p.route(/fonts\.(googleapis|gstatic)\.com/, (rt) => rt.fulfill({ body: '', contentType: 'text/css' }));
   // count shader programs linked (each is a compile the phone pays for)
   await p.addInitScript(() => { window.__programs = 0; for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) { const f = C.prototype.linkProgram; C.prototype.linkProgram = function (...a) { window.__programs++; return f.apply(this, a); }; } });
