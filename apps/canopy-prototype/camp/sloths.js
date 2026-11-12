@@ -469,7 +469,7 @@ if (qs.get("campsloths") !== "0") {
   { const o = clone(SLOTH.scene), m = new THREE.AnimationMixer(o), arm = [o.getObjectByName("upper_armR") || o.getObjectByName("upper_arm.R"), o.getObjectByName("forearmR") || o.getObjectByName("forearm.R")];
     for (const n of ["eat", "eat_high"]) { m.stopAllAction(); const a = m.clipAction(clipOf(n)); a.play(); a.time = EAT_GRAB; m.update(0); o.updateMatrixWorld(true); GRAB[n] = pawOf({ arm }, V()); } }
   const FRUIT = [[0xffa531, [1, 0.8, 1.25]], [0xe8473a, [1, 1, 1]], [0xffd94d, [0.55, 0.55, 1.9]], [0x8a4fa8, [0.9, 1.1, 0.9]], [0x9fd36a, [1, 0.95, 1]]];   // mango, apple, banana, fig, lime
-  const fruitGeo = new THREE.IcosahedronGeometry(0.032, 0);
+  const fruitGeo = new THREE.IcosahedronGeometry(0.05, 0);   // (Adriaen: bigger)
   function fruit(m) {                                  // a new fruit (or the same mesh as a new kind)
     m ??= new THREE.Mesh(fruitGeo, new THREE.MeshLambertMaterial());
     const [c, k] = FRUIT[Math.floor(R(0, FRUIT.length))]; m.material.color.setHex(c); m.userData.base = V(...k); m.scale.copy(m.userData.base);
@@ -508,9 +508,9 @@ if (qs.get("campsloths") !== "0") {
         if (name === "table") {                       // a sloth of scale 2 sits 16 cm in from the edge; the fruit where its paw lands
           slot.h = topAt(obj, c.clone().addScaledVector(q.u, q.edge - 0.1));
           at = c.clone().addScaledVector(q.u, q.edge - 0.16).add(GRAB.eat.clone().multiplyScalar(2).applyQuaternion(yawQ(yaw)));
-          at.y = topAt(obj, at) + 0.025;
+          at.y = topAt(obj, at) + 0.04;
         } else {                                      // just inside the rim, on the things in the crate
-          at = c.clone().addScaledVector(q.u, q.edge - 0.08); at.y = 0.29;
+          at = c.clone().addScaledVector(q.u, q.edge - 0.09); at.y = 0.31;
         }
         slot.food = { at, mesh: fruit(), back: 0 }; slot.food.mesh.position.copy(at);
         slots.push(slot);
