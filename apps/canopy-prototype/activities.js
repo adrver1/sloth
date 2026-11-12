@@ -1,7 +1,7 @@
 // Camp activities for camp.html (thread "Plan camp activities", plan in project files canopy-hide-and-seek/activities-plan.md).
 // Kept out of the camp's own modules so the sibling threads' edits there don't collide; camp/campLife.js creates it, camp/input.js
 // passes taps in and camp/main.js calls update() each frame.
-// Calm by design: no timer, no score, no fail. Walk up to a thing, a soft hint bobs over it, tap it. You carry one thing at a time.
+// Calm by design: no timer, no score, no fail. Walk up to a thing, it lights up when you can use it (camp/highlight.js), tap it. You carry one thing at a time.
 // Chunk 1: wood on the fire. Take a log from the wood pile, carry it to the fire and tap: the fire flares for about a minute,
 // then settles over a few minutes and never goes out. Up to three logs burn at once. The camp sloth nearest the fire blinks happily.
 // Chunk 2: the soup pot. The pot over the fire starts empty. Carry the water canister (by the snack table) to it and pour; take
@@ -9,12 +9,12 @@
 // with empty paws to ladle a bowl, carry it to a log seat and set it down: the sloths nearby perk up (window event "camp-food").
 // One pot makes three bowls, then it is empty again. The pot model (props/lived/build_fire.py) is not touched: a flat disc at
 // the soup's surface shows it empty, water or broth, and fades away once the soup is done so the modelled soup shows.
-// Triangle budget: carried and burning logs 24 each; the canister 12; the surface disc 12; a bowl 24; hints, bubbles,
-// sparks and the carried vegetable are single quads.
+// Triangle budget: carried and burning logs 24 each; the canister 12; the surface disc 12; a bowl 24; bubbles, sparks and
+// the carried vegetable are single quads.
 import * as THREE from "three";
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
-const NEAR = 2.5, SEE = 5;                 // tap range, and how far off a hint starts to show
+const NEAR = 2.5;                          // tap range
 const HOLD = 60, SETTLE = 180, MAX_LOGS = 3;
 const COOK = 20, BOWLS = 3, VEG = ["🥕", "🥔", "🧅", "🍄"];
 
@@ -24,9 +24,6 @@ const barkTex = canvasTex(64, 32, (g, w, h) => { g.fillStyle = "#6b4a32"; g.fill
   for (let y = 3; y < h; y += 5) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (y % 2 ? 1 : -1)); g.stroke(); } });
 const logGeo = new THREE.CylinderGeometry(0.055, 0.06, 0.6, 6, 1);   // 24 tris with caps
 const logMat = new THREE.MeshLambertMaterial({ map: barkTex });
-// the hint: a soft cream disc with a little paw-tap, drawn once
-const hintTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 4, 32, 32, 30); r.addColorStop(0, "rgba(255,248,238,.95)"); r.addColorStop(0.6, "rgba(255,248,238,.75)"); r.addColorStop(1, "rgba(255,248,238,0)");
-  g.fillStyle = r; g.fillRect(0, 0, 64, 64); g.font = "28px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("👆", 32, 34); });
 // the water canister: a blue plastic jerrycan painted on a box (handle, cap and ribs in the texture), 12 tris
 const canTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = "#3f86b8"; g.fillRect(0, 0, w, h); g.fillStyle = "#2f6c97";
   for (let x = 14; x < w; x += 26) g.fillRect(x, 30, 8, h - 44);                                        // moulded ribs
@@ -45,7 +42,7 @@ const bubbleTex = canvasTex(32, 32, (g) => { g.strokeStyle = "rgba(255,244,225,.
 const emojiTex = {}; const vegTex = (e) => (emojiTex[e] ??= canvasTex(64, 64, (g) => { g.font = "48px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(e, 32, 36); }));
 const STAGE = { empty: 0x2e2824, water: 0x86a9b0, 1: 0xc8a466, 2: 0xd9852f, 3: 0xd6712a };
 
-export function createActivities({ scene, camera, me, woodPile, woodTex, fire = V(0, 0, 0), pot: potAt = null, table = null, crate = null, blockers = [], fireCards = [], flames = [], fireLight, glowTex, burst, toast, sloths = [], addBlocker }) {
+export function createActivities({ scene, camera, me, woodPile, woodTex, fire = V(0, 0, 0), pot: potAt = null, table = null, crate = null, blockers = [], fireCards = [], flames = [], fireLight, glowTex, burst, toast, sloths = [], addBlocker, looks = {} }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   // logs painted like the props thread's stack: its atlas (props/lived/wood_stack.jpg) has log ends on the top half and the logs
   // seen from above bottom right, so the sides take one log's strip (mirrored round, so no seam) and the caps one round end
@@ -57,10 +54,11 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   }
   // the wood pile: the props thread's pile when it is there, else a plain stack of the same logs in the same spot
   const pileAt = woodPile ? woodPile.clone() : V(-0.55, 0, -3.15);
+  let stand = null;
   if (!woodPile) {
     const yaw = Math.atan2(-pileAt.x, -pileAt.z), g = new THREE.Group();
     [[-0.13, 0.06], [0, 0.06], [0.13, 0.06], [-0.065, 0.17], [0.065, 0.17], [0, 0.28]].forEach(([x, y]) => { const l = new THREE.Mesh(logGeo, logMat); l.rotation.z = Math.PI / 2; l.rotation.y = Math.PI / 2; l.position.set(x, y, 0); g.add(l); });
-    g.position.copy(pileAt); g.rotation.y = yaw; scene.add(g); addBlocker?.(pileAt, 0.5);
+    g.position.copy(pileAt); g.rotation.y = yaw; scene.add(g); stand = g; addBlocker?.(pileAt, 0.5);
   }
   const nearSloth = (at, max = 4) => sloths.filter((s) => !s.wild && s.p).map((s) => [s, s.p.distanceTo(at)]).filter(([, d]) => d < max).sort((a, b) => a[1] - b[1]).map(([s]) => s);
 
@@ -141,18 +139,19 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   }
 
   // ---------------------------------------------------------------- things you can tap
-  // an invisible sphere each, a hint sprite, when it applies, what a tap does, and what to say when it doesn't apply
+  // an invisible sphere each, when it applies, what a tap does, what to say when it doesn't apply, and what lights up when
+  // it applies (looks[name]: the props' own objects, so the highlight hugs the real thing; look() may pick by what you hold)
   const things = [], hitList = [];
-  function thing(name, at, r, hintY, when, act, why = () => null) {
+  function thing(name, at, r, when, act, why = () => null, look = null) {
     const box = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(at).setY(at.y + r * 0.6); scene.add(box);
-    const hint = new THREE.Sprite(new THREE.SpriteMaterial({ map: hintTex, depthWrite: false, transparent: true, opacity: 0 })); hint.scale.setScalar(0.28); hint.position.copy(at).setY(hintY); hint.renderOrder = 4; scene.add(hint);
-    const t = { name, at, box, hint, when, act, why }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
+    const own = looks[name] ?? look ?? null;
+    const t = { name, at, box, when, act, why, get look() { return typeof own === "function" ? own() : own; } }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
   }
   const full = "Your paws are full";
-  thing("woodpile", pileAt, 0.55, 0.85, () => !held, () => { hold("log"); toast("Got a log 🪵"); }, () => held && full);
+  thing("woodpile", pileAt, 0.55, () => !held, () => { hold("log"); toast("Got a log 🪵"); }, () => held && full, stand);
   // the fire and the pot over it are one place: what a tap does there depends on what you hold
   const potWants = () => (held === "water" && soup.stage === "empty") || (held === "veg" && (soup.stage === "water" || (soup.stage === "cooking" && soup.veg < 3))) || (!held && soup.stage === "ready");
-  thing("fire", fire, 0.6, 1.5, () => held === "log" || potWants(), () => {
+  thing("fire", fire, 0.6, () => held === "log" || potWants(), () => {
     if (held === "log") { if (burning.length >= MAX_LOGS) { toast("The fire is roaring already 🔥"); return; } hold(null); addLog(); return; }
     if (held === "water") { hold(null); pour(); canister.visible = true; return; }
     if (held === "veg") { hold(null); addVeg(); return; }
@@ -166,7 +165,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     if (!held && soup.stage === "water") return "Add veg from the crate 🥕";
     if (!held && soup.stage === "cooking") return "Still cooking…";
     return null;
-  });
+  }, () => (held === "log" ? looks.fireOnly : looks.pot) ?? null);   // the fire lights up for a log, the pot for everything else
   // the water canister, on the fire side of the snack table where nothing else stands
   const tb = table || V(1.6, 0, 3.2);
   const canAt = (() => {
@@ -177,13 +176,13 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     return best;
   })();
   const canister = new THREE.Mesh(canGeo, canMat); canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister); addBlocker?.(canAt, 0.2);
-  thing("canister", canAt, 0.3, 0.6, () => !held && soup.stage === "empty", () => { hold("water"); canister.visible = false; toast("Got the water 💧"); },
-    () => held ? full : soup.stage !== "empty" ? "Water's in already" : null);
+  thing("canister", canAt, 0.3, () => !held && soup.stage === "empty", () => { hold("water"); canister.visible = false; toast("Got the water 💧"); },
+    () => held ? full : soup.stage !== "empty" ? "Water's in already" : null, [canister]);
   // the kitchen crate: one vegetable at a time, a different one each time
-  if (crate) thing("crate", crate, 0.4, 0.75, () => !held, () => { vegNow = (vegNow + 1) % VEG.length; hold("veg"); toast(`Got a ${["carrot", "potato", "onion", "mushroom"][vegNow]} ${VEG[vegNow]}`); }, () => held && full);
+  if (crate) thing("crate", crate, 0.4, () => !held, () => { vegNow = (vegNow + 1) % VEG.length; hold("veg"); toast(`Got a ${["carrot", "potato", "onion", "mushroom"][vegNow]} ${VEG[vegNow]}`); }, () => held && full, looks.crate ?? null);
   // the log seats: somewhere to set a bowl down
-  for (const seat of seats) thing("seat", seat.c.clone().setY(0), 0.6, seat.top + 0.45, () => held === "bowl" && !seat.bowl, () => { hold(null); serve(seat); },
-    () => held === "bowl" && seat.bowl ? "A bowl's there already" : null);
+  for (const seat of seats) thing(`seat${seats.indexOf(seat)}`, seat.c.clone().setY(0), 0.6, () => held === "bowl" && !seat.bowl, () => { hold(null); serve(seat); },
+    () => held === "bowl" && seat.bowl ? "A bowl's there already" : null, [seat.o]);
   const flat = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
   return {
@@ -191,7 +190,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     pick(ray) {
       const hits = ray.intersectObjects(hitList, false);
       // seats only count while you hold a bowl, so a tap on a sloth sitting on one still boops it
-      const h = hits.find((x) => x.object.userData.thing.name !== "seat" || held === "bowl");
+      const h = hits.find((x) => !x.object.userData.thing.name.startsWith("seat") || held === "bowl");
       return h ? { distance: h.distance, thing: h.object.userData.thing } : null;
     },
     tap(hit) {
@@ -202,10 +201,6 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       return true;
     },
     update(dt, time) {
-      // hints: fade in as you come near a thing you can use now, bob gently
-      for (const t of things) { const d = flat(me.pos, t.at), on = t.when() ? THREE.MathUtils.clamp((SEE - d) / (SEE - NEAR), 0, 1) : 0;
-        t.hint.material.opacity += (on * 0.95 - t.hint.material.opacity) * Math.min(1, dt * 5); t.hint.visible = t.hint.material.opacity > 0.02;
-        t.hint.position.y = t.hint.userData.y0 ??= t.hint.position.y; t.hint.position.y += Math.sin(time * 2.4) * 0.04; }
       // what you hold sways a little as you walk
       hand.userData.t = (hand.userData.t || 0) + dt; hand.position.x = 0.1 + 0.26 * Math.min(1, camera.aspect);   // stays in view on a narrow phone
       hand.position.y = -0.36 + Math.sin(me.walkT * 7) * 0.01 + (1 - Math.min(1, hand.userData.t * 4)) * -0.2;
@@ -240,5 +235,6 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
         if (b.t > 120) { scene.remove(b.g); b.seat.bowl = null; bowlsOut.splice(i, 1); } }
     },
     get held() { return held; }, burning, level, things, soup, seats,
+    ready(t) { return t.when() && flat(me.pos, t.at) <= NEAR + 0.6; },   // the highlight lights a thing only when a tap would use it
   };
 }

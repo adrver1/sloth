@@ -53,7 +53,9 @@ window.__atmo = atmo;
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
 const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !== "undefined" ? WOODPILE : null, woodTex: typeof WOOD_TEX !== "undefined" ? WOOD_TEX : null, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
   pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, table: window.__camp.tb, crate: LIVED ? V(4.55, 0, 1.7) : null, blockers, sloths,
-  addBlocker: (c, r) => blockers.push([c, r]) });
+  addBlocker: (c, r) => blockers.push([c, r]),
+  looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
+    .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)) });
 window.__acts = acts;
 
 export { acts, atmo, groundLife };
