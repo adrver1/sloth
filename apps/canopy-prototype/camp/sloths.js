@@ -468,13 +468,15 @@ if (qs.get("campsloths") !== "0") {
   const GRAB = {};                                     // where the paw is at the grab, in the sloth's own frame at scale 1
   { const o = clone(SLOTH.scene), m = new THREE.AnimationMixer(o), arm = [o.getObjectByName("upper_armR") || o.getObjectByName("upper_arm.R"), o.getObjectByName("forearmR") || o.getObjectByName("forearm.R")];
     for (const n of ["eat", "eat_high"]) { m.stopAllAction(); const a = m.clipAction(clipOf(n)); a.play(); a.time = EAT_GRAB; m.update(0); o.updateMatrixWorld(true); GRAB[n] = pawOf({ arm }, V()); } }
-  const FRUIT = [[0xffa531, [1, 0.8, 1.25]], [0xe8473a, [1, 1, 1]], [0xffd94d, [0.55, 0.55, 1.9]], [0x8a4fa8, [0.9, 1.1, 0.9]], [0x9fd36a, [1, 0.95, 1]]];   // mango, apple, banana, fig, lime
-  const fruitGeo = new THREE.IcosahedronGeometry(0.05, 0);   // (Adriaen: bigger)
+  // each fruit its real size in metres, across x up y long z (Adriaen: "appropriately sized for what they are")
+  const FRUIT = [[0xffa531, [0.08, 0.075, 0.11]], [0xe8473a, [0.08, 0.075, 0.08]], [0xffd94d, [0.036, 0.036, 0.18]], [0x8a4fa8, [0.05, 0.055, 0.05]], [0x9fd36a, [0.055, 0.05, 0.055]]];   // mango, apple, banana, fig, lime
+  const fruitGeo = new THREE.IcosahedronGeometry(0.5, 0);   // unit size, scaled to the fruit
   function fruit(m) {                                  // a new fruit (or the same mesh as a new kind)
     m ??= new THREE.Mesh(fruitGeo, new THREE.MeshLambertMaterial());
     const [c, k] = FRUIT[Math.floor(R(0, FRUIT.length))]; m.material.color.setHex(c); m.userData.base = V(...k); m.scale.copy(m.userData.base);
     m.rotation.set(0, R(0, 6.3), 0.3); m.visible = true; if (!m.parent) scene.add(m); return m;
   }
+  const restOn = (F) => F.mesh.position.copy(F.at).setY(F.at.y + F.mesh.userData.base.y / 2);   // lying on the surface at F.at
   const yawQ = (yaw) => new THREE.Quaternion().setFromAxisAngle(UP, yaw);
   function sitFor(slot, sc) {                          // where it sits so that its paw meets the fruit (scale sc)
     return slot.food.at.clone().sub(GRAB[slot.clip].clone().multiplyScalar(sc).applyQuaternion(yawQ(slot.yaw))).setY(slot.h);
@@ -508,11 +510,11 @@ if (qs.get("campsloths") !== "0") {
         if (name === "table") {                       // a sloth of scale 2 sits 16 cm in from the edge; the fruit where its paw lands
           slot.h = topAt(obj, c.clone().addScaledVector(q.u, q.edge - 0.1));
           at = c.clone().addScaledVector(q.u, q.edge - 0.16).add(GRAB.eat.clone().multiplyScalar(2).applyQuaternion(yawQ(yaw)));
-          at.y = topAt(obj, at) + 0.04;
+          at.y = topAt(obj, at);
         } else {                                      // just inside the rim, on the things in the crate
-          at = c.clone().addScaledVector(q.u, q.edge - 0.09); at.y = 0.31;
+          at = c.clone().addScaledVector(q.u, q.edge - 0.09); at.y = 0.27;
         }
-        slot.food = { at, mesh: fruit(), back: 0 }; slot.food.mesh.position.copy(at);
+        slot.food = { at, mesh: fruit(), back: 0 }; restOn(slot.food);
         slots.push(slot);
       }
       POIS.push({ name, c, slots });
@@ -642,7 +644,7 @@ if (qs.get("campsloths") !== "0") {
     } else if (T.st === "cards") cardsStep(s, T, sd);
     else if (T.st === "eat") {
       if (!F.mesh && s.act.time > EAT_GRAB - 0.1) { F.mesh = fruit(); F.mesh.position.copy(pawOf(s, paw)); }   // a bowl: the fruit comes up out of it
-      if (F.mesh) chewStep(s, F.mesh, F.at, EAT_GRAB);
+      if (F.mesh) chewStep(s, F.mesh, F.from ??= F.at.clone().setY(F.at.y + (F.mesh.userData.base?.y ?? 0) / 2), EAT_GRAB);
     }
   }
   // cards (Adriaen 2026-11-12: "sloths playing cards together, of course with the occasional dozing off"): now and then two
@@ -701,6 +703,7 @@ if (qs.get("campsloths") !== "0") {
     T.st = "eat"; T.t = 0;
     playOnce(s, T.slot.clip, 0.8, () => {            // eaten: down off the table, then on its way
       const slot = T.slot, F = slot.food; mouthOf(s).visible = false;
+      F.from = null;
       if (F.bowl) { F.mesh && scene.remove(F.mesh); F.mesh = null; } else { F.mesh.visible = false; F.back = R(25, 45); }
       const go = () => { slot.who = null; if (slot.key) life.release(slot.key, s); R(0, 1) < 0.35 ? wander(s) : goHome(s); };
       if (slot.name === "table") { play(s, "hang_walk", 1, -2); T.yaw = slot.yaw; move(s, T, slot.p.clone(), 3.5, 0.12, -0.5, go); }
@@ -978,7 +981,7 @@ if (qs.get("campsloths") !== "0") {
     for (const P of POIS ?? []) for (const q of P.slots) {   // fruit put out again a while after one is eaten
       const F = q.food; if (!F.back) continue;
       F.back = Math.max(0, F.back - sd); if (F.back > 0 || q.who) { if (!F.back) F.back = 1; continue; }
-      fruit(F.mesh).position.copy(F.at); F.mesh.scale.multiplyScalar(0.01); F.grow = 0;
+      fruit(F.mesh); restOn(F); F.mesh.scale.multiplyScalar(0.01); F.grow = 0;
     }
     for (const P of POIS ?? []) for (const q of P.slots) { const F = q.food; if (F.grow != null) { F.grow = Math.min(1, F.grow + sd); F.mesh.scale.copy(F.mesh.userData.base).multiplyScalar(Math.max(0.01, sstep(0, 1, F.grow))); if (F.grow >= 1) F.grow = null; } }
     const H = hammockSway, T = uTime.value, napper = spots[0].home ? spots[0].who : null;   // a slow swing, nudged harder for a while after a boop
