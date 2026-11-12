@@ -1,0 +1,554 @@
+<!-- PROTOTYPE (throwaway): Canopy Nooks. Question: does gliding between a few fixed nooks feel free enough to explore, while keeping the scene cheap?
+     Copied from index.html (the forest look prototype); only the sloth, camera and play parts below differ.
+     Was: Canopy Hide & Seek. Question: which forest look is lush and cute but still smooth on a phone?
+     Three looks of the same seeded tree behind #moss | #paint | #low (or ?look=). Drag to turn round the tree, pinch or wheel to zoom, tap a sloth to find it.
+     Detail button (Low / Medium / High, or ?detail=) scales leaves, ferns, fur shells, effects and resolution.
+     No real-time shadows; "baked" light is vertex colour; leaves and plants are instanced (one draw per kind). -->
+<meta charset="utf-8">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Canopy Nooks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+<style>
+:root { --cream: #fff8ee; --ink: #4a3426; --soft: #8a6a55; --pink: #ff7fa8; --leaf: #6dbb5a;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif; color-scheme: light; }
+html, body { height: 100%; margin: 0; }
+body { background: #6f8f6a; color: var(--ink); font-family: var(--display); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hud { position: fixed; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+.pill { background: rgb(255 248 238 / .9); border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 20px; box-shadow: 0 3px 0 rgb(138 90 59 / .18); font-variant-numeric: tabular-nums; }
+#perf { font-size: 12px; font-weight: 500; padding: 5px 10px; color: var(--soft); text-align: right; line-height: 1.25; border-radius: 14px; }
+.bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
+.bar a, .bar button { pointer-events: auto; font: 600 16px var(--display); color: var(--ink); background: rgb(255 248 238 / .9); border: 0; border-radius: 999px;
+  padding: 9px 16px; text-decoration: none; box-shadow: 0 3px 0 rgb(138 90 59 / .2); cursor: pointer; }
+.bar a.on { background: var(--pink); color: #fff; box-shadow: 0 3px 0 #d95c86; }
+.bar button { background: #ffe9a8; }
+#toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none;
+  font-weight: 700; font-size: 34px; color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
+#edges button { position: fixed; width: 46px; height: 46px; margin: -23px 0 0 -23px; border: 0; border-radius: 50%; background: rgb(255 248 238 / .88); box-shadow: 0 3px 0 rgb(138 90 59 / .2);
+  font-size: 22px; cursor: pointer; display: grid; place-items: center; padding: 0; }
+#edges button span { display: block; transition: transform .2s; }
+#toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+#q { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); top: calc(56px + env(safe-area-inset-top, 0px)); text-align: center; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .5); pointer-events: none; }
+</style>
+<canvas id="c"></canvas>
+<div class="hud"><div class="pill" id="score">💗 0 friends</div><div class="pill" id="perf">… fps</div></div>
+<div id="q">Drag to look around · tap a glowing leaf to glide · tap a sloth to boop, hold to feed</div>
+<div id="toast"></div>
+<div id="edges"></div>
+<div class="bar">
+  <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
+  <button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "./fur.js";
+
+const qs = new URLSearchParams(location.search);
+const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
+const LOOK = ["moss", "paint", "low"].includes(pick) ? pick : "moss";
+addEventListener("hashchange", () => location.reload());
+document.querySelectorAll(".bar a").forEach((a) => a.classList.toggle("on", a.dataset.l === LOOK));
+const $ = (id) => document.getElementById(id);
+
+// detail level, kept per viewer: how many leaves, ferns, fur shells and effects, and the resolution cap
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+const LEVELS = ["low", "medium", "high"];
+const DETAIL = LEVELS.includes(qs.get("detail")) ? qs.get("detail") : LEVELS.includes(store.get("canopy-detail")) ? store.get("canopy-detail") : "medium";
+const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
+            medium: { leaves: 1, ferns: 1, fx: 1, shells: 3, pr: 1.75, aa: LOOK !== "moss" },
+            high: { leaves: 1.6, ferns: 1.7, fx: 1.5, shells: 4, pr: 2, aa: true } }[DETAIL];
+$("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
+$("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
+
+// seeded random, so all three looks grow the same tree and hide sloths in the same spots
+let seed = Number(qs.get("seed") || 7);
+const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const R = (a, b) => a + rnd() * (b - a);
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+// ---------------------------------------------------------------- look settings (structure differs, not just colour)
+const S = {
+  moss:  { sky: ["#dfe9d2", "#a9c39a", "#5d7d58"], fog: [0x9fb592, 0.055], bark: [0x5b4636, 0x3a2c22], moss: 0x6f8f3a, mossAmt: 0.75,
+           leaf: [0x4f7f34, 0x6b9a3c, 0x3d6a2f, 0x85a845], hemi: [0xf4f0dc, 0x3b4a2a, 1.6], sun: [0xffe7c0, 2.0], rays: 0.22, motes: 260, flat: false, slothTint: 0xc9d9a6 },
+  paint: { sky: ["#fde8cf", "#cfe6c4", "#8fb889"], fog: [0xcfe0c0, 0.045], bark: [0x9a6b4c, 0x6e4a36], moss: 0x9cc46a, mossAmt: 0.45,
+           leaf: [0x7cc06a, 0x9bd27a, 0x5fae63, 0xb7dd85], hemi: [0xfff6e6, 0x6e8f62, 2.0], sun: [0xffe2b8, 1.6], rays: 0.16, motes: 160, flat: false, slothTint: 0xe2ecc4 },
+  low:   { sky: ["#bfeaff", "#d9f5e8", "#a8dca0"], fog: [0xc8eedd, 0.032], bark: [0x9b6440, 0x7a4b30], moss: 0x8bcf5a, mossAmt: 0.35,
+           leaf: [0x5cc45a, 0x7fd860, 0x45b35a, 0xa3e36a], hemi: [0xffffff, 0x7fb070, 2.2], sun: [0xfff3dc, 1.5], rays: 0, motes: 0, flat: true, slothTint: 0xdaf0c0 },
+}[LOOK];
+
+// ---------------------------------------------------------------- renderer
+const renderer = new THREE.WebGLRenderer({ canvas: $("c"), antialias: D.aa, powerPreference: "high-performance" });
+let pr = Math.min(devicePixelRatio, D.pr);
+renderer.setPixelRatio(pr);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(S.fog[0], S.fog[1]);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 60);
+scene.add(new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
+const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.set(-4, 10, 3); scene.add(sun);
+
+const uTime = { value: 0 };
+const leafMat = (opts, sway) => {
+  const m = S.flat ? new THREE.MeshLambertMaterial({ flatShading: true, ...opts }) : new THREE.MeshLambertMaterial(opts);
+  if (sway) m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = uTime;
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;")
+      .replace("#include <begin_vertex>", `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+        vec3 ip = instanceMatrix[3].xyz;
+        float w = sin(uTime * 1.4 + ip.x * 1.7 + ip.z * 1.3) + 0.5 * sin(uTime * 2.3 + ip.y * 2.1);
+        transformed += vec3(w * ${sway.toFixed(3)}, w * ${(sway * 0.4).toFixed(3)}, w * ${(sway * 0.6).toFixed(3)}) * (0.5 + position.y);
+        #endif`);
+  };
+  return m;
+};
+function canvasTex(w, h, draw) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+const hex = (n) => "#" + n.toString(16).padStart(6, "0");
+
+// ---------------------------------------------------------------- backdrop: painted forest layers in the mist (no geometry behind them)
+const back = canvasTex(1024, 256, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h); S.sky.forEach((c, i) => gr.addColorStop(i / (S.sky.length - 1), c)); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  const layers = LOOK === "low" ? 2 : 3;
+  for (let l = 0; l < layers; l++) {
+    const col = new THREE.Color(S.fog[0]).lerp(new THREE.Color(S.leaf[2]), 0.25 + l * 0.22);
+    g.fillStyle = col.getStyle();
+    for (let x = -20; x < w + 20; x += R(22, 46)) {
+      const top = h * (0.32 + l * 0.12 + R(-0.06, 0.06));
+      g.fillRect(x + 8, top, LOOK === "low" ? 6 : 4, h);                      // trunk
+      g.beginPath();
+      if (LOOK === "low") { g.moveTo(x - 14, top + 40); g.lineTo(x + 10, top - 22); g.lineTo(x + 34, top + 40); }
+      else for (let k = 0; k < 4; k++) g.ellipse(x + 10 + R(-12, 12), top + R(-8, 12), R(14, 26), R(10, 18), 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillRect(0, h * (0.62 + l * 0.1), w, h);
+  }
+});
+back.wrapS = THREE.RepeatWrapping; back.repeat.x = 3;
+const sky = new THREE.Mesh(new THREE.CylinderGeometry(30, 30, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
+sky.position.y = 10; scene.add(sky);
+const gTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = hex(new THREE.Color(S.leaf[2]).lerp(new THREE.Color(S.bark[1]), 0.45).getHex()); g.fillRect(0, 0, w, h);
+  for (let i = 0; i < (LOOK === "low" ? 0 : 900); i++) { g.fillStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.15, 0.5); g.beginPath(); g.ellipse(R(0, w), R(0, h), R(2, 8), R(1, 3), R(0, 3), 0, 7); g.fill(); }
+});
+gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping; gTex.repeat.set(10, 10);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 40), new THREE.MeshLambertMaterial({ map: gTex }));
+ground.rotation.x = -Math.PI / 2; scene.add(ground);
+
+// ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
+const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
+function bake(geo, y0, y1) {
+  if (S.flat) geo = geo.toNonIndexed();
+  geo.computeVertexNormals();
+  const p = geo.attributes.position, n = geo.attributes.normal, col = new Float32Array(p.count * 3), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const crev = 0.5 + 0.5 * Math.sin(Math.atan2(z, x) * 9 + y * 0.7 + Math.sin(y * 2.3) * 1.5);
+    c.copy(barkA).lerp(barkB, S.flat ? 0.2 : crev * 0.7);
+    const up = n.getY(i), m = sstep(0.05, 0.6, up + 0.35 * Math.sin(x * 3.1 + z * 2.7 + y * 1.9)) * S.mossAmt;
+    c.lerp(mossC, m);
+    c.multiplyScalar(0.45 + 0.55 * sstep(y0, y1, y));                       // darker near the forest floor
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  return geo;
+}
+const barkMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: S.flat });
+const woodGeos = [];
+
+// the big tree: a lumpy trunk with buttress roots
+const TOP = 10.5;
+{
+  const g = new THREE.CylinderGeometry(0.55, 0.95, TOP, S.flat ? 9 : 22, S.flat ? 10 : 40, true);
+  g.translate(0, TOP / 2, 0);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
+    const k = 1 + 0.08 * Math.sin(a * 5 + y * 0.6) + 0.05 * Math.sin(a * 11 - y * 1.3) + 0.6 * Math.exp(-y * 1.6) * (0.5 + 0.5 * Math.cos(a * 4));
+    p.setXYZ(i, x * k + Math.sin(y * 0.35) * 0.25, y, z * k);
+  }
+  woodGeos.push(bake(g, 0, 7));
+}
+// branches: tapered tubes, spiralling up; sloths hang near their tips
+const branches = [];
+seed = 1000 + Number(qs.get("seed") || 7);   // same tree and hiding spots in every look
+function tube(curve, r0, r1, segs, rad) {
+  const g = new THREE.TubeGeometry(curve, segs, 1, rad, false), p = g.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs, c = curve.getPointAt(t), r = THREE.MathUtils.lerp(r0, r1, t);
+    for (let j = 0; j <= rad; j++) { const k = i * (rad + 1) + j; v.fromBufferAttribute(p, k).sub(c).multiplyScalar(r).add(c); p.setXYZ(k, v.x, v.y, v.z); }
+  }
+  return g;
+}
+for (let i = 0; i < 9; i++) {
+  const h = 2.6 + i * 0.85 + R(-0.2, 0.2), a = i * 2.39996 + R(-0.2, 0.2), L = R(2.8, 3.8), dir = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+  const side = new THREE.Vector3(-dir.z, 0, dir.x), pts = [];
+  for (let k = 0; k <= 5; k++) {
+    const t = k / 5;
+    pts.push(dir.clone().multiplyScalar(0.4 + L * t).addScaledVector(side, Math.sin(t * 3 + i) * 0.35).setY(h + 0.9 * t - 0.75 * t * t + R(-0.05, 0.05)));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  woodGeos.push(bake(tube(curve, 0.2, 0.07, S.flat ? 8 : 20, S.flat ? 5 : 8), 0, 7));
+  branches.push(curve);
+}
+// lianas: sagging vines between branches and down to the floor
+for (let i = 0; i < 7; i++) {
+  const b = branches[i % branches.length], p0 = b.getPointAt(R(0.5, 0.95));
+  const p1 = i % 2 ? branches[(i + 3) % branches.length].getPointAt(R(0.4, 0.9)) : new THREE.Vector3(p0.x * 1.2, 0, p0.z * 1.2);
+  const mid = p0.clone().lerp(p1, 0.5); mid.y = Math.min(p0.y, p1.y) - R(0.8, 1.6);
+  woodGeos.push(bake(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 24, 0.025, 4), 0, 7));
+}
+// a ring of other trunks (one instanced draw)
+const bgTrunks = [];
+{
+  const g = bake(new THREE.CylinderGeometry(0.35, 0.6, 16, S.flat ? 6 : 10, 6, true).translate(0, 8, 0), 0, 9);
+  const im = new THREE.InstancedMesh(g, barkMat, 22), m = new THREE.Matrix4();
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2 + R(-0.12, 0.12), r = R(8, 15), s = R(0.7, 1.4);
+    m.compose(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r), new THREE.Quaternion(), new THREE.Vector3(s, R(0.8, 1.1), s));
+    im.setMatrixAt(i, m); bgTrunks.push([Math.cos(a) * r, Math.sin(a) * r, s]);
+  }
+  scene.add(im);
+}
+{
+  // merge all wood of the hero tree into one draw
+  let n = 0; for (const g of woodGeos) n += (g.index ? g.index.count : g.attributes.position.count);
+  const pos = [], nor = [], col = [];
+  for (const g0 of woodGeos) {
+    const g = g0.index ? g0.toNonIndexed() : g0;
+    pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); col.push(...g.attributes.color.array);
+  }
+  const m = new THREE.BufferGeometry();
+  m.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); m.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  scene.add(new THREE.Mesh(m, barkMat));
+}
+
+// ---------------------------------------------------------------- leaves: one instanced draw, the leaf shape is what differs per look
+let leafGeo, leafM, perClump, leafScale;
+if (LOOK === "moss") {
+  // alpha cut-out cards with painted leaf sprays
+  const tex = canvasTex(256, 256, (g, w, h) => {
+    g.translate(w / 2, h / 2);
+    for (let k = 0; k < 9; k++) {
+      g.save(); g.rotate(k * 0.7 + R(-0.2, 0.2)); g.translate(0, -R(30, 70));
+      const c = new THREE.Color(S.leaf[k % 4]).multiplyScalar(R(0.85, 1.15));
+      g.fillStyle = c.getStyle(); g.beginPath(); g.ellipse(0, 0, R(18, 26), R(40, 56), 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "rgba(255,255,220,.35)"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -45); g.lineTo(0, 45); g.stroke();
+      g.fillStyle = "rgba(0,0,0,.18)"; g.beginPath(); g.ellipse(6, 4, 10, 38, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+  });
+  leafGeo = new THREE.PlaneGeometry(1, 1); leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04); perClump = Math.round(26 * D.leaves); leafScale = [0.7, 1.15];
+} else if (LOOK === "paint") {
+  // soft rounded blobs, toon-shaded in three steps
+  const grad = new THREE.DataTexture(new Uint8Array([90, 90, 90, 255, 170, 170, 170, 255, 255, 255, 255, 255]), 3, 1);
+  grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
+  leafGeo = new THREE.IcosahedronGeometry(0.5, 1);
+  leafM = new THREE.MeshToonMaterial({ gradientMap: grad });
+  leafM.onBeforeCompile = leafMat({}, 0.03).onBeforeCompile; perClump = Math.round(9 * D.leaves); leafScale = [0.6, 1.1];
+} else {
+  leafGeo = new THREE.IcosahedronGeometry(0.5, 0); leafM = leafMat({}, 0.02); perClump = Math.round(6 * D.leaves); leafScale = [0.6, 1.1];
+}
+const clumps = [];
+for (const b of branches) for (let t = 0.3; t <= 1.0; t += 0.23) { const p = b.getPointAt(Math.min(t, 1)); clumps.push([p.x, p.y + 0.85, p.z, R(0.5, 0.8)]); }   // above the branch, so a clinging sloth peeks out below
+for (let i = 0; i < 26; i++) { const a = R(0, 6.28), r = R(0, 4); clumps.push([Math.cos(a) * r, TOP + R(-0.6, 1.2), Math.sin(a) * r, R(1.2, 1.8)]); }   // crown
+for (const [x, z, s] of bgTrunks) for (let k = 0; k < 3; k++) clumps.push([x + R(-1.5, 1.5), 13 * s + R(-1, 2), z + R(-1.5, 1.5), 2.2 * s]);       // far crowns
+const nLeaves = clumps.length * perClump;
+const leaves = new THREE.InstancedMesh(leafGeo, leafM, nLeaves);
+{
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
+  let i = 0;
+  for (const [x, y, z, r] of clumps) for (let k = 0; k < perClump; k++) {
+    const u = new THREE.Vector3(R(-1, 1), R(-0.5, 0.8), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()));
+    e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
+    const s = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33);   // fewer leaves on low detail are a bit bigger, so clumps stay full
+    m.compose(new THREE.Vector3(x + u.x, y + u.y, z + u.z), q, new THREE.Vector3(s, s, s)); leaves.setMatrixAt(i, m);
+    const shade = 0.55 + 0.45 * sstep(1, 11, y + u.y) * (0.7 + 0.3 * (u.y / r + 0.5));     // baked: darker inside and low
+    leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(shade)); i++;
+  }
+}
+scene.add(leaves);
+if (qs.has("noleaf")) leaves.visible = false;   // debug
+
+// ground plants: ferns (moss), round bushes (paint) or cones (low), one draw
+{
+  let g, mat;
+  if (LOOK === "moss") {
+    const tex = canvasTex(256, 256, (cx, w, h) => {
+      cx.translate(w / 2, h);
+      for (let f = 0; f < 7; f++) { cx.save(); cx.rotate(-1.1 + f * 0.37); cx.strokeStyle = hex(S.leaf[f % 4]); cx.lineWidth = 3;
+        cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(0, -220); cx.stroke(); cx.fillStyle = hex(S.leaf[(f + 1) % 4]);
+        for (let s = 20; s < 215; s += 13) { const l = 30 * (1 - s / 230); cx.beginPath(); cx.ellipse(-l / 2, -s, l / 2, 4, -0.4, 0, 7); cx.ellipse(l / 2, -s, l / 2, 4, 0.4, 0, 7); cx.fill(); }
+        cx.restore(); }
+    });
+    const a = new THREE.PlaneGeometry(1.4, 1.2).translate(0, 0.6, 0), b = a.clone().rotateY(Math.PI / 2);
+    g = new THREE.BufferGeometry(); const pa = [...a.toNonIndexed().attributes.position.array, ...b.toNonIndexed().attributes.position.array], ua = [...a.toNonIndexed().attributes.uv.array, ...b.toNonIndexed().attributes.uv.array];
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pa, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(ua, 2)); g.computeVertexNormals();
+    mat = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.03);
+  } else if (LOOK === "paint") { g = new THREE.IcosahedronGeometry(0.5, 2).scale(1, 0.7, 1); mat = leafM; }
+  else { g = new THREE.ConeGeometry(0.4, 1, 5).translate(0, 0.5, 0); mat = leafMat({}, 0); }
+  const N = Math.round((LOOK === "moss" ? 160 : 90) * D.ferns), im = new THREE.InstancedMesh(g, mat, N), m = new THREE.Matrix4(), c = new THREE.Color();
+  for (let i = 0; i < N; i++) {
+    const a = R(0, 6.28), r = R(1.2, 12), s = R(0.6, 1.4);
+    m.compose(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, R(0, 6.28), 0)), new THREE.Vector3(s, s, s));
+    im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.7));
+  }
+  scene.add(im);
+}
+
+// sunbeams through the canopy (additive cards) and floating motes
+if (S.rays && D.fx) {
+  const tex = canvasTex(64, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, "rgba(255,240,200,0)"); gr.addColorStop(0.5, "rgba(255,240,200,1)"); gr.addColorStop(1, "rgba(255,240,200,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    const v = g.createLinearGradient(0, 0, 0, h); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(0.2, "rgba(0,0,0,1)"); v.addColorStop(1, "rgba(0,0,0,0)"); g.globalCompositeOperation = "destination-in"; g.fillStyle = v; g.fillRect(0, 0, w, h); });
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: S.rays, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(new THREE.PlaneGeometry(R(1, 2.2), 16), mat); const a = R(0, 6.28), d = R(2, 7); r.position.set(Math.cos(a) * d, 6, Math.sin(a) * d); r.rotation.set(0, R(0, 6.28), 0.35); scene.add(r); }
+}
+let motes;
+const nMotes = Math.round(S.motes * D.fx);
+if (nMotes) {
+  const p = new Float32Array(nMotes * 3); for (let i = 0; i < nMotes; i++) p.set([R(-8, 8), R(0.5, 10), R(-8, 8)], i * 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(p, 3));
+  motes = new THREE.Points(g, new THREE.PointsMaterial({ map: canvasTex(32, 32, (g) => { const r = g.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, "#fff"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, 32, 32); }), color: 0xfff3c0, size: 0.07, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+  scene.add(motes);
+}
+
+// ---------------------------------------------------------------- sloths clinging under branches, each one the heart of a nook
+async function glb(url) {
+  const txt = (await (await fetch(url)).text()).trim(), bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
+  return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
+}
+const SLOTH = await glb("models/sloth.txt");
+const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL }, COUNT = 5;
+const sloths = [], hit = [];
+seed = 2000 + Number(qs.get("seed") || 7);
+const spots = [...branches.keys()].sort(() => rnd() - 0.5).slice(0, COUNT);
+let tinted = false;
+for (const bi of spots) {
+  const o = clone(SLOTH.scene); o.scale.setScalar(SL);
+  o.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
+  furify(o, { shells: D.shells });
+  if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
+  const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
+  act.play(); act.time = R(0, 4); act.timeScale = 0.6;
+  const curve = branches[bi], t = R(0.55, 0.8), p = curve.getPointAt(t), tan = curve.getTangentAt(t);
+  rnd(); if (tan.x * p.x + tan.z * p.z < 0) tan.negate();   // head toward the open forest, so a nook can face it
+  const yl = tan.clone().setY(tan.y * 0.5).normalize(), zl = new THREE.Vector3(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = new THREE.Vector3().crossVectors(yl, zl);
+  const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
+  o.quaternion.setFromRotationMatrix(rot);
+  o.position.copy(p).sub(new THREE.Vector3(0, BR.z, -BR.y).applyMatrix4(rot));
+  scene.add(o);
+  const box = new THREE.Mesh(new THREE.SphereGeometry(0.42), new THREE.MeshBasicMaterial({ visible: false }));
+  box.position.copy(p).add(new THREE.Vector3(0, -0.25, 0)); scene.add(box);
+  const s = { o, mixer, box, p, yl, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false };
+  box.userData.s = s; sloths.push(s); hit.push(box);
+}
+// a flower for each friend, worn on the head
+function flowerCrown(s) {
+  const c = new THREE.Group(), cols = [0xff7fa8, 0xffd66e, 0xffffff];
+  for (let k = 0; k < 7; k++) {
+    const a = (k / 7) * Math.PI * 2, f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.016, 0), new THREE.MeshLambertMaterial({ color: cols[k % 3], emissive: 0x331100 }));
+    f.position.set(Math.cos(a) * 0.058, 0, Math.sin(a) * 0.052); c.add(f);
+  }
+  c.position.set(0, 0.105, 0); c.rotation.x = -0.25; s.head.add(c);
+}
+
+// little sprites: hearts, words, flowers
+const sprite = (txt, size = 96) => {
+  const t = canvasTex(512, 128, (g) => { g.font = `600 ${size}px Fredoka, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#fff"; g.strokeStyle = "rgba(74,52,38,.55)"; g.lineWidth = 10; g.strokeText(txt, 256, 68); g.fillText(txt, 256, 68); });
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); s.scale.set(1.0, 0.25, 1); return s;
+};
+const fx = [];
+function burst(p, txt, n, life, size) { for (let i = 0; i < n; i++) { const s = sprite(txt, size); s.scale.multiplyScalar(n > 1 ? 0.45 : 0.6); s.position.copy(p); scene.add(s); fx.push({ s, v: new THREE.Vector3(R(-0.4, 0.4) * (n > 1), R(0.25, 0.55), R(-0.4, 0.4) * (n > 1)), t: 0, life }); } }
+
+// ---------------------------------------------------------------- nooks: a handful of fixed spots; the camera only ever sits in one or glides between two
+const nooks = [{ name: "Mossy roots", pos: new THREE.Vector3(6.2, 1.5, 5.4), look: new THREE.Vector3(0, 3.6, 0) }];
+const NAMES = ["Fern swing", "Liana corner", "Sleepy fork", "Sunny ledge", "Treetop lookout", "Cloud perch"];
+const byHeight = [...sloths].sort((a, b) => a.p.y - b.p.y);
+byHeight.forEach((s, i) => {
+  const out = new THREE.Vector3(s.p.x, 0, s.p.z).normalize(), side = new THREE.Vector3(-out.z, 0, out.x);
+  // in front of its face (head end of the branch), a little out from the trunk and just below: sloths hang belly up
+  const fwd = s.yl.clone().setY(0).normalize();
+  const pos = s.p.clone().addScaledVector(fwd, 1.5).addScaledVector(out, 0.5).add(new THREE.Vector3(0, -0.75, 0));
+  if (Math.hypot(pos.x, pos.z) < 1.6) pos.addScaledVector(out, 1.6 - Math.hypot(pos.x, pos.z));
+  nooks.push({ name: NAMES[i], pos, look: s.p.clone().add(new THREE.Vector3(0, -0.3, 0)), sloth: s });
+});
+// links: up and down the chain, plus the nearest other nook
+nooks.forEach((n, i) => { n.links = new Set(); if (i > 0) n.links.add(i - 1); if (i < nooks.length - 1) n.links.add(i + 1); });
+nooks.forEach((n, i) => { let best = -1, bd = 1e9; nooks.forEach((m, j) => { const d = n.pos.distanceTo(m.pos); if (j !== i && !n.links.has(j) && d < bd) { bd = d; best = j; } }); if (best >= 0 && bd < 5) { n.links.add(best); nooks[best].links.add(i); } });
+// the glide: along a sagging vine arc that swings out from the trunk
+function glidePath(a, b) {
+  const mid = a.pos.clone().lerp(b.pos, 0.5), out = new THREE.Vector3(mid.x, 0, mid.z).normalize();
+  mid.addScaledVector(out, 1.3).y -= 0.5 + a.pos.distanceTo(b.pos) * 0.08;
+  return new THREE.CatmullRomCurve3([a.pos, mid, b.pos]);
+}
+// glowing leaves to tap: one per link, a third of the way along its path
+const leafTex = canvasTex(128, 128, (g) => {
+  const r = g.createRadialGradient(64, 64, 4, 64, 64, 62); r.addColorStop(0, "rgba(255,250,200,.95)"); r.addColorStop(0.45, "rgba(255,240,160,.45)"); r.addColorStop(1, "rgba(255,240,160,0)");
+  g.fillStyle = r; g.fillRect(0, 0, 128, 128); g.font = "64px serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("🍃", 64, 68);
+});
+const markers = [];
+function showMarkers(i) {
+  for (const m of markers) scene.remove(m); markers.length = 0;
+  for (const j of nooks[i].links) {
+    const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: leafTex, transparent: true, depthWrite: false, fog: false }));
+    m.position.copy(glidePath(nooks[i], nooks[j]).getPoint(0.32)); m.scale.setScalar(0.55); m.userData.to = j; m.userData.ph = R(0, 6);
+    scene.add(m); markers.push(m);
+  }
+}
+
+// leaves that are off screen get a round arrow button at the screen edge, pointing the way
+const edgeBox = $("edges"), pv = new THREE.Vector3();
+function edges() {
+  const want = view.glide ? [] : markers;
+  while (edgeBox.children.length > want.length) edgeBox.lastChild.remove();
+  while (edgeBox.children.length < want.length) { const b = document.createElement("button"); b.innerHTML = "<span>➜</span>"; b.onclick = () => goTo(+b.dataset.to); edgeBox.append(b); }
+  want.forEach((m, i) => {
+    const b = edgeBox.children[i]; b.dataset.to = m.userData.to;
+    pv.copy(m.position).project(camera);
+    const behind = pv.z > 1, inView = !behind && Math.abs(pv.x) < 0.92 && Math.abs(pv.y) < 0.85;
+    b.hidden = inView; if (inView) return;
+    let x = pv.x, y = pv.y; if (behind) { x = -x; y = -y; }
+    const k = 1 / Math.max(Math.abs(x) / 0.86, Math.abs(y) / 0.62, 1e-3); x *= k; y *= k;
+    b.style.left = ((x + 1) / 2) * innerWidth + "px"; b.style.top = ((1 - y) / 2) * innerHeight + "px";
+    b.firstChild.style.transform = `rotate(${Math.atan2(-y, x)}rad)`;
+  });
+}
+
+// ---------------------------------------------------------------- camera: sit in a nook and look around a little, or glide
+const view = { at: 0, yaw: 0, pitch: 0, fov: 0, glide: null };
+const ease = (t) => t * t * (3 - 2 * t);
+function goTo(j) {
+  const a = nooks[view.at], b = nooks[j];
+  view.glide = { from: view.at, to: j, path: glidePath(a, b), t: 0, dur: 1.8 + a.pos.distanceTo(b.pos) * 0.22 };
+  for (const m of markers) scene.remove(m); markers.length = 0;
+}
+function arrive(j) {
+  view.at = j; view.glide = null; showMarkers(j);
+  toast(nooks[j].name);
+}
+let toastT;
+function toast(txt) { const t = $("toast"); t.textContent = txt; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1500); }
+const tmpLook = new THREE.Vector3(), base = new THREE.Vector3(), q = new THREE.Quaternion(), right = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+function placeCamera(dt) {
+  let pos, look;
+  if (view.glide) {
+    const g = view.glide; g.t = Math.min(1, g.t + dt / g.dur); const e = ease(g.t);
+    pos = g.path.getPoint(e); look = tmpLook.copy(nooks[g.from].look).lerp(nooks[g.to].look, ease(Math.min(1, e * 1.25)));
+    view.yaw *= 0.92; view.pitch *= 0.92;
+    if (g.t >= 1) arrive(g.to);
+  } else { pos = nooks[view.at].pos; look = nooks[view.at].look; }
+  camera.position.copy(pos);
+  base.copy(look).sub(pos).normalize();
+  base.applyAxisAngle(UP, view.yaw);
+  right.crossVectors(base, UP).normalize(); base.applyAxisAngle(right, view.pitch);
+  camera.lookAt(tmpLook.copy(pos).add(base));
+}
+
+// ---------------------------------------------------------------- input: drag to look, tap a leaf to glide, tap a sloth to boop, hold to feed
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pickAt(x, y, list) { ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.intersectObjects(list)[0]; }
+const ptrs = new Map(); let moved = 0, holdT = null, pinch0 = 0, fov0 = 0, fed = false;
+addEventListener("pointerdown", (e) => {
+  if (e.target.closest(".bar")) return;
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; fed = false;
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); fov0 = view.fov; clearTimeout(holdT); return; }
+  const h = !view.glide && pickAt(e.clientX, e.clientY, hit);
+  if (h) holdT = setTimeout(() => { if (moved < 10) { fed = true; feed(h.object.userData.s); } }, 550);
+});
+addEventListener("pointermove", (e) => {
+  if (!ptrs.has(e.pointerId)) return; const [px, py] = ptrs.get(e.pointerId), dx = e.clientX - px, dy = e.clientY - py; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  moved += Math.abs(dx) + Math.abs(dy);
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; view.fov = THREE.MathUtils.clamp(fov0 + (pinch0 - Math.hypot(a[0] - b[0], a[1] - b[1])) * 0.06, -18, 8); return; }
+  view.yaw = THREE.MathUtils.clamp(view.yaw + dx * 0.004, -0.85, 0.85); view.pitch = THREE.MathUtils.clamp(view.pitch - dy * 0.004, -0.45, 0.45);
+});
+addEventListener("pointerup", (e) => {
+  clearTimeout(holdT);
+  if (ptrs.has(e.pointerId) && ptrs.size === 1 && moved < 8 && !fed && !view.glide) {
+    const m = pickAt(e.clientX, e.clientY, markers); if (m) goTo(m.object.userData.to);
+    else { const h = pickAt(e.clientX, e.clientY, hit); if (h) boop(h.object.userData.s); }
+  }
+  ptrs.delete(e.pointerId);
+});
+addEventListener("pointercancel", (e) => { clearTimeout(holdT); ptrs.delete(e.pointerId); });
+addEventListener("wheel", (e) => { view.fov = THREE.MathUtils.clamp(view.fov + e.deltaY * 0.02, -18, 8); }, { passive: true });
+
+const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
+function boop(s) { s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(new THREE.Vector3(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
+let friends = 0;
+function feed(s) {
+  const f = sprite("🌺", 96); f.scale.set(1.0, 0.25, 1); f.position.copy(camera.position).add(new THREE.Vector3(0, -0.3, 0).applyQuaternion(camera.quaternion)); scene.add(f);
+  fx.push({ s: f, fly: { from: f.position.clone(), to: s.p.clone().add(new THREE.Vector3(0, -0.15, 0)) }, t: 0, life: 0.9, done() {
+    s.nod = 2.4; burst(s.p.clone().add(new THREE.Vector3(0, 0.2, 0)), "💗", 5, 1.6, 80);
+    if (!s.friend) { s.friend = true; friends++; flowerCrown(s); $("score").textContent = `💗 ${friends} friend${friends > 1 ? "s" : ""}`; toast(friends === COUNT ? "Everyone's your friend! 🌸" : "New friend! 🌸"); }
+    else burst(s.p.clone().add(new THREE.Vector3(0, 0.45, 0)), "nom nom", 1, 1.4, 60);
+  } });
+}
+
+// rest: the light slowly turns to dusk and fireflies come out; tap again for day
+const DAY = { fog: new THREE.Color(S.fog[0]), hemi: scene.children.find((o) => o.isHemisphereLight).intensity, sun: sun.intensity };
+const DUSK = { fog: new THREE.Color(0x3c4a5c) };
+let dusk = 0, duskTo = 0;
+const hemiL = scene.children.find((o) => o.isHemisphereLight);
+const flies = (() => {
+  const n = 90, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) p.set([R(-6, 6), R(0.5, 9), R(-6, 6)], i * 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(p, 3));
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ map: canvasTex(32, 32, (c) => { const r = c.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, "#fff"); r.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = r; c.fillRect(0, 0, 32, 32); }),
+    color: 0xd8ff7a, size: 0.12, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  scene.add(pts); return pts;
+})();
+$("rest").onclick = () => { duskTo = duskTo ? 0 : 1; $("rest").textContent = duskTo ? "Wake up ☀️" : "Rest 🌙"; };
+
+// ---------------------------------------------------------------- loop, with an fps panel and a resolution safety net
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 66 : 52) + view.fov; camera.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+if (qs.has("nook")) view.at = Math.min(nooks.length - 1, +qs.get("nook"));
+showMarkers(view.at);
+const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0, lastFov = 0;
+window.__stats = {};
+renderer.setAnimationLoop(() => {
+  const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
+  placeCamera(dt);
+  if (view.fov !== lastFov) { lastFov = view.fov; resize(); }
+  for (const s of sloths) {
+    s.mixer.update(dt);
+    if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; s.o.scale.set(SL * (1 + k), SL * (1 - k), SL * (1 + k)); }
+    if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
+  }
+  for (const m of markers) { m.userData.ph += dt * 2; m.scale.setScalar(0.5 + 0.06 * Math.sin(m.userData.ph)); }
+  edges();
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const f = fx[i]; f.t += dt;
+    if (f.fly) { const e = ease(Math.min(1, f.t / f.life)); f.s.position.lerpVectors(f.fly.from, f.fly.to, e); f.s.position.y += Math.sin(e * Math.PI) * 0.4; }
+    else { f.s.position.addScaledVector(f.v, dt); f.v.multiplyScalar(0.96); f.s.material.opacity = 1 - f.t / f.life; }
+    if (f.t > f.life) { scene.remove(f.s); fx.splice(i, 1); f.done?.(); }
+  }
+  dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
+  if (dusk || duskTo) {
+    scene.fog.color.copy(DAY.fog).lerp(DUSK.fog, dusk); hemiL.intensity = DAY.hemi * (1 - 0.6 * dusk); sun.intensity = DAY.sun * (1 - 0.85 * dusk);
+    sky.material.color.setScalar(1 - 0.65 * dusk); flies.material.opacity = dusk; flies.rotation.y += dt * 0.03;
+    for (const a of flies.geometry.attributes.position.array.keys()) if (a % 3 === 1) flies.geometry.attributes.position.array[a] += Math.sin(uTime.value + a) * dt * 0.08;
+    flies.geometry.attributes.position.needsUpdate = true;
+  }
+  if (motes) motes.rotation.y += dt * 0.02;
+  renderer.render(scene, camera);
+  frames++; acc += raw;
+  if (acc >= 1) {
+    const fps = frames / acc, i = renderer.info.render;
+    slow = fps < 45 ? slow + 1 : 0;
+    if (slow >= 2 && pr > 1) { pr = Math.max(1, pr - 0.25); renderer.setPixelRatio(pr); resize(); slow = 0; }
+    Object.assign(window.__stats, { fps: Math.round(fps), calls: i.calls, tris: i.triangles, pr, detail: DETAIL });
+    $("perf").innerHTML = `${Math.round(fps)} fps<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
+    frames = 0; acc = 0;
+  }
+});
+window.__view = view; window.__markers = markers; window.__camera = camera; window.__nooks = nooks; window.__goTo = goTo; window.__boop = (i) => boop(nooks[i].sloth); window.__feed = (i) => feed(nooks[i].sloth); window.__rest = () => $("rest").click();
+window.__ready = true;
+</script>
