@@ -249,7 +249,7 @@ print(f"  scene: {len(receivers)} props, {len(jeep)} jeep parts, ground {2 * RR}
 # on its own in white (its share of light, bounces included), so the page can colour, flicker, dim and mix them live
 LIGHTS = {                                                       # name: colour (the page applies it), objects
     "fire": [(1.0, 0.50, 0.20), []], "stove": [(1.0, 0.55, 0.15), []], "lanterns": [(1.0, 0.72, 0.38), []], "moon": [(0.55, 0.65, 1.0), []],
-    "headlights": [(1.0, 0.80, 0.62), []], "cabin": [(1.0, 0.89, 0.66), []]}       # the jeep's (positions from build_jeep.py's frame)
+    "cabin": [(1.0, 0.89, 0.66), []]}                                      # the jeep's (headlights dropped, Adriaen 2026-11-12)       # the jeep's (positions from build_jeep.py's frame)
 day_l = []
 def point(group, name, at, watts, r):
     L = bpy.data.lights.new(name, "POINT"); L.color = (1, 1, 1); L.energy = watts; L.shadow_soft_size = r
@@ -266,13 +266,6 @@ bpy.context.collection.objects.link(mo); LIGHTS["moon"][1].append(mo)
 bpy.context.view_layer.update()
 sc_ = bpy.context.scene
 JM = jroot.matrix_world                                                                  # build_jeep.py frame: front -Y, up +Z
-for x in (-0.6, 0.6):                                                                    # low-beam headlights: 40 degree cones, dipped 0.1 rad
-    L = bpy.data.lights.new(f"Headlight{x:+.1f}", "SPOT"); L.color = (1, 1, 1); L.energy = 600; L.spot_size = math.radians(40)
-    L.spot_blend = 0.5; L.shadow_soft_size = 0.06
-    o = bpy.data.objects.new(L.name, L)
-    o.location = JM @ Vector((x, -1.69, 0.83))                                     # just in front of the lens (body front face y -1.62)
-    aim = JM.to_3x3() @ Vector((0, -math.cos(0.1), -math.sin(0.1)))
-    o.rotation_euler = aim.to_track_quat("-Z", "Y").to_euler(); bpy.context.collection.objects.link(o); LIGHTS["headlights"][1].append(o)
 L = bpy.data.lights.new("CabinLight", "AREA"); L.color = (1, 1, 1); L.energy = 15; L.shape = "RECTANGLE"; L.size = 0.18; L.size_y = 0.10
 o = bpy.data.objects.new("CabinLight", L); o.matrix_world = JM @ __import__("mathutils").Matrix.Translation((0, 0.25, 1.644))   # faces down
 bpy.context.collection.objects.link(o); LIGHTS["cabin"][1].append(o)
@@ -415,7 +408,7 @@ save(np.stack([enc(lit[g]) for g in G], -1).astype(np.float32), "camp_lm")
 so_ = sunopen[..., :3].mean(-1); sd_ = sundirect[..., :3].mean(-1)
 sv = np.where(so_ > 0.02, np.clip(sd_ / np.maximum(so_, 1e-6), 0, 1), 1.0)   # surfaces facing away: the page's N . L hides them anyway
 print(f"  sun: mean visibility {sv[so_ > 0.02].mean():.2f}")
-save(np.stack([sv, np.clip(ao[..., 0], 0, 1), enc(lit["headlights"]), enc(lit["cabin"])], -1).astype(np.float32), "camp_lm_sun")   # B, A: the jeep's lights
+save(np.stack([sv, np.clip(ao[..., 0], 0, 1), np.zeros_like(sv), enc(lit["cabin"])], -1).astype(np.float32), "camp_lm_sun")   # B: free (was headlights), A: the cabin light
 # ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
 from PIL import Image
 import json
@@ -424,7 +417,7 @@ shadow = np.clip(1 - gd / open_, 0, 1)[::-1]
 Image.fromarray((shadow * 255 + 0.5).astype(np.uint8), "L").save(os.path.join(MODELS, f"camp_shadow_picked_{a.jeep}.png"), optimize=True)
 gn = (np.stack([enc(glit[g]) for g in G], -1)[::-1] * 255 + 0.5).astype(np.uint8)
 Image.fromarray(np.ascontiguousarray(gn), "RGBA").save(os.path.join(MODELS, f"camp_ground_night_picked_{a.jeep}.png"), optimize=True)
-gj = (np.stack([enc(glit["headlights"]), enc(glit["cabin"]), np.zeros_like(glit["cabin"])], -1)[::-1] * 255 + 0.5).astype(np.uint8)
+gj = (np.stack([np.zeros_like(glit["cabin"]), enc(glit["cabin"]), np.zeros_like(glit["cabin"])], -1)[::-1] * 255 + 0.5).astype(np.uint8)
 Image.fromarray(np.ascontiguousarray(gj), "RGB").save(os.path.join(MODELS, f"camp_ground_jeep_picked_{a.jeep}.png"), optimize=True)
 # the door spill: a 6 m patch of ground round the jeep, one image per door, RGBA = the four openings; row 0 = page z0
 PS, px0, pz0 = 6.0, -2.2 - 3.0, -6.4 - 3.0
@@ -434,7 +427,7 @@ for k in DOORS:
     Image.fromarray(np.ascontiguousarray((patch * 255 + 0.5).astype(np.uint8)), "RGBA").resize((256, 256), Image.LANCZOS).save(
         os.path.join(MODELS, f"camp_ground_door{k}_picked_{a.jeep}.png"), optimize=True)
 door_patch = {"x0": round(-RR + c0 / N * 2 * RR, 4), "z0": round(-RR + r0 / N * 2 * RR, 4), "size": round(n / N * 2 * RR, 4), "doors": list(DOORS), "keys": list(KEYS)}
-json.dump({"channels": G, "jeep_channels": ["headlights", "cabin"], "door_patch": door_patch, "colour": {g: LIGHTS[g][0] for g in LIGHTS}, "encoding": "light / 4, gamma 2.2",
+json.dump({"channels": G, "jeep_channels": ["none", "cabin"], "door_patch": door_patch, "colour": {g: LIGHTS[g][0] for g in LIGHTS}, "encoding": "light / 4, gamma 2.2",
            "ground_open_day": round(float(open_), 4)}, open(os.path.join(MODELS, "camp_lights.json"), "w"), indent=1)
 print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}; " + ", ".join(f"{g} max {glit[g].max():.2f}" for g in G))
 
