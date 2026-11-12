@@ -35,6 +35,12 @@ Clips, baked into the .glb as named glTF animations:
     curl    curled up asleep sitting (a car seat): bent forward over its
             drawn-up knees, head tucked down on them, arms wrapped round,
             breathing slowly                               (loop, 6 s)
+    stretch sitting up, a big waking stretch, both arms up over the head,
+            leaning back; starts and ends as idle            (once, 4 s)
+    eat     sitting up, the right paw reaches out and down for food, brings
+            it to the mouth, the left paw helps hold it while the head bobs
+            chewing; starts and ends as idle                 (once, 8 s)
+    eat_high the same, reaching up over a rim and down into a box  (once, 8 s)
     reach   sitting up, slowly stretching the right arm out ahead and a
             little up (for the kettle over the camp fire), leaning after
             it, claws wiggling at the top, then drawing it back
@@ -464,6 +470,71 @@ def reach(t, limbs):
     return pose
 
 
+def stretch(t, limbs):
+    """t 0..1, played once: sitting up, a big slow waking stretch. Both arms
+    reach up over the head and a little out, the body draws itself up and
+    leans back, the head tips back, the paws tremble at full stretch, then
+    it all settles back to sitting (the idle pose at both ends)."""
+    w = math.pi * t
+    e = math.sin(w) ** 2                    # 0 at both ends, 1 in the middle
+    e = e * e * (3 - 2 * e)
+    shake = 0.003 * math.sin(14 * w) * e ** 3
+    off = (0.0, 0.0, 0.008 * e)
+    spec = [(X, 8 * e)]
+    rb = _rot(spec)
+    pose = {"body": (off, spec), "head": [(X, 18 * e), (Z, 4 * math.sin(2 * w))]}
+    for key in limbs:
+        kind, tag = key.split(".")
+        if kind != "arm":
+            continue
+        side = 1 if tag == "R" else -1
+        a, b = limbs[key]
+        n = (b - a).length
+        root, rest = _point(off, spec, a), _point(off, spec, b)
+        up = root + (rb @ Vector((side * 0.35, -0.05, 1.0)).normalized()) * 0.97 * n + Vector((side * shake, 0.0, 0.0))
+        pose[key] = (rest.lerp(up, e), rb @ Vector((side * 1.0, -0.3, 0.1)))
+    return pose
+
+
+def eat(t, limbs, high=False):
+    """t 0..1, played once (8 s): sitting up, the right paw reaches slowly out
+    ahead and down (to the table top or into the crate in Canopy Camp), the
+    claws close on something, the paw brings it up to the mouth, the left
+    paw comes up to help hold it and the head bobs as it chews, then both
+    paws settle back to sitting (the idle pose at both ends). high: reaching
+    up over a rim and down into it (eat_high, the kitchen crate)."""
+    def ss(a, b, x):
+        x = min(1.0, max(0.0, (x - a) / (b - a)))
+        return x * x * (3 - 2 * x)
+    out_e = ss(0.0, 0.2, t) * (1 - ss(0.26, 0.4, t))          # paw out at the food
+    up_e = ss(0.27, 0.4, t) * (1 - ss(0.85, 1.0, t))          # paw (and food) at the mouth
+    left_e = ss(0.34, 0.44, t) * (1 - ss(0.83, 0.97, t))      # the left paw helping hold it
+    chew_e = ss(0.4, 0.45, t) * (1 - ss(0.8, 0.85, t))
+    chew = math.sin(2 * math.pi * 9 * (t - 0.4)) * chew_e    # nine bites over the hold
+    grab = math.sin(math.pi * ss(0.19, 0.27, t))              # a little dip as the claws close
+    off = (0.0, 0.006 * out_e, 0.002 * up_e)
+    spec = [(X, (6 if high else -14) * out_e + 3 * up_e), (Y, -5 * out_e)]
+    rb = _rot(spec)
+    pose = {"body": (off, spec),
+            "head": [(X, -10 * out_e + 6 * up_e + 5 * chew), (Z, 4 * out_e + 3 * math.sin(2 * math.pi * 3 * t) * chew_e)]}
+    mouth = _point(off, spec, (0.0, 0.112, 0.178)) + Vector((0.0, 0.0, 0.004 * chew))
+    for key in ("arm.R", "arm.L"):
+        side = 1 if key[-1] == "R" else -1
+        a, b = limbs[key]
+        n = (b - a).length
+        root, rest = _point(off, spec, a), _point(off, spec, b)
+        pole = rb @ Vector((side * 1.0, -0.3, -0.8))
+        if side > 0:
+            d = Vector((0.1, 0.9, 0.36)) if high else Vector((0.15, 0.95, -0.35))
+            out = root + (rb @ d.normalized()) * 0.97 * n + Vector((0.0, 0.0, -(0.03 if high else 0.01) * grab))
+            p = rest.lerp(out, out_e)
+            p = p.lerp(mouth + Vector((0.012, 0.0, -0.006)), up_e)
+        else:
+            p = rest.lerp(mouth + Vector((-0.016, -0.004, -0.012)), left_e)
+        pose[key] = (p, pole)
+    return pose
+
+
 def clips(limbs):
     return {"idle": [(k * 12, idle(k / 8)) for k in range(9)],
             "walk": [(k * WALK_CYCLE // 24, walk(k / 24, limbs)) for k in range(25)],
@@ -474,7 +545,10 @@ def clips(limbs):
             "reach": [(k * 8, reach(k / 24, limbs)) for k in range(25)],
             "curl": [(k * 9, curl(k / 16, limbs)) for k in range(17)],
             "drive": [(k * 6, drive(k / 24, limbs)) for k in range(25)],
-            "peek": [(k * 12, peek(k / 24, limbs)) for k in range(25)]}
+            "peek": [(k * 12, peek(k / 24, limbs)) for k in range(25)],
+            "stretch": [(k * 6, stretch(k / 16, limbs)) for k in range(17)],
+            "eat": [(k * 4, eat(k / 48, limbs)) for k in range(49)],
+            "eat_high": [(k * 4, eat(k / 48, limbs, True)) for k in range(49)]}
 
 
 def add_clips(arm_ob, limbs):
