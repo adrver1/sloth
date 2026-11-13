@@ -172,6 +172,7 @@ function* walkTo(to, { near = 0.12 } = {}) {
   play("walk", 0.3, { speed: 0.9 });
   while (pts.length) {
     const dt = yield, p = root.position, goal = pts[0], d = tmp.set(goal.x - p.x, 0, goal.z - p.z), dist = d.length();
+    if (talkSt.t > 0 && !op.carry) { yield* listen(); play("walk", 0.3, { speed: 0.9 }); continue; }   // spoken to: stop, turn to you, then walk on
     if (dist < (pts.length > 1 ? 0.3 : near)) { pts.shift(); continue; }
     const want = d.normalize().clone();
     // keep clear of blockers (unless the goal is inside one: a seat, the bed) and of everyone walking about
@@ -199,6 +200,12 @@ function* walkTo(to, { near = 0.12 } = {}) {
     if (stuck > 3) { pts.splice(0, pts.length, ...pathTo(to)); stuck = 0; }
   }
   play("idle", 0.4);
+}
+function* listen() {                                   // stop and turn to you while you talk, then a moment before going on
+  play("idle", 0.3);
+  yield* face(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)));
+  while (talkSt.t > 0) { const dt = yield; turnToward(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2); }
+  yield* wait(0.6);
 }
 function* face(yaw) {                                  // turn on the spot with small steps (the walk clip, slow), easing in and out
   let d = Math.abs(Math.atan2(Math.sin(yaw - root.rotation.y), Math.cos(yaw - root.rotation.y))); if (d < 0.05) return;
@@ -511,12 +518,26 @@ function opStep(dt) {
   }
   // the head: a look down at a book or a sloth, round the camp, or at you when you're near and he's awake
   const camD = camera.position.distanceTo(root.position);
-  if (!op.sleeping && !op.lying && (camD < 4 && op.look > -0.3 || talkSt.t > 0 && camD < 8)) {
-    lookT = Math.min(1, lookT + dt * 2);
-    const to = camera.position.clone().sub(B.head.getWorldPosition(V())).normalize(), f = csDir(0, 0, -1);
-    if (to.dot(f) > -0.1) aimBone(B.neck, to.clone().lerp(UP, 0.82).normalize(), 0.5 * lookT), aimBone(B.head, to.clone().lerp(UP, 0.6).normalize(), 0.4 * lookT);
+  // While you talk to him he looks at you as far as a neck can turn: up to about 75° either side of where his body faces, then
+  // held at that limit; with you behind him (past 120°) he doesn't try (Adriaen: don't break his neck). Otherwise a glance
+  // when you're near.
+  const talking = talkSt.t > 0 || talkSt.smile > 1.5;
+  if (!op.sleeping && !op.lying && (camD < 4 && op.look > -0.3 || talking && camD < 9)) {
+    const hp = B.head.getWorldPosition(V()), to = camera.position.clone().sub(hp), f = csDir(0, 0, -1).setY(0).normalize();
+    let a = Math.atan2(to.x, to.z) - Math.atan2(f.x, f.z); a = Math.atan2(Math.sin(a), Math.cos(a));
+    const ok = Math.abs(a) < 2.1;
+    lookT = ok ? Math.min(1, lookT + dt * 2) : Math.max(0, lookT - dt * 2);
+    if (lookT > 0) {
+      const lim = 1.3, ca = THREE.MathUtils.clamp(a, -lim, lim), hz = Math.hypot(to.x, to.z), dir = f.clone().applyAxisAngle(UP, ca).multiplyScalar(hz).setY(to.y).normalize();
+      const w = talking ? 1 : 0.8;
+      aimBone(B.neck, dir.clone().lerp(UP, 0.8).normalize(), 0.55 * lookT * w); aimBone(B.head, dir.clone().lerp(UP, 0.55).normalize(), 0.5 * lookT * w);
+    }
   } else lookT = Math.max(0, lookT - dt * 2);
-  if (op.look) B.head.rotateX(op.look * 0.6), B.neck.rotateX(op.look * 0.3);
+  const down = talking ? op.look * Math.max(0, 1 - lookT) : op.look;   // he looks up from his bowl or book to you
+  if (down) B.head.rotateX(down * 0.6), B.neck.rotateX(down * 0.3);
+  // standing about with his hands free when you talk to him: he turns to you (walking, listen() stops him first)
+  if (talking && !op.seated && !op.lying && cur === acts.idle && !op.ik && !op.eat && !op.inHand && !op.carry)
+    turnToward(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2);
   // a wave back when you keep looking at him for 3 s (standing about, not busy)
   if (op.kind === "stroll" && cur === acts.idle && camD < 9) {
     const v = root.position.clone().add(V(0, 1.5, 0)).project(camera);
@@ -540,29 +561,33 @@ function opStep(dt) {
 }
 
 // ---------------------------------------------------------------- talking to you: tap him for a few warm words
-// (Adriaen: words of encouragement and love). He looks at you while he speaks, his jaw moves (the talk clip) and he smiles
+// (Adriaen: words of encouragement and love, to his life partner "bonita"). He looks at you while he speaks, his jaw moves (the talk clip) and he smiles
 // after. A speech bubble over his head; lines come from a shuffled bag, so none repeats until all have been said.
-const LINES = {
+const LINES = {   // spoken to his life partner, "bonita" (Adriaen, 2026-11-12)
   awake: [
-    "You're doing great, you know that?", "I'm really glad you're here.", "Proud of you. Truly.", "You matter more than you think.",
-    "Whatever today was, you made it through. That counts.", "Be gentle with yourself today.", "Small steps are still steps.",
-    "You're loved, exactly as you are.", "Thanks for stopping by. It made my day.", "Take your time. Nobody rushes in this camp.",
-    "You've got this. And if not, we'll figure it out together.", "The world's a bit warmer with you in it.",
-    "Breathe in... and out. There you go.", "You don't have to carry it all at once.", "I believe in you. Always have.",
-    "The sloths like you. So do I.", "Rest is part of the work too.", "You're braver than you feel right now.",
-    "Look how far you've come.", "It's okay to not be okay. I'm right here.",
+    "You're doing great, bonita. You know that?", "I'm so glad it's you I get to share this with.", "Proud of you. Always, bonita.",
+    "You mean more to me than you know.", "Whatever today was, you made it through. I'm right here.", "Be gentle with yourself today, my love.",
+    "Small steps are still steps. I'll walk them with you.", "I love you, exactly as you are.", "My favourite part of the day? Seeing you.",
+    "Take your time, bonita. Nobody rushes in our camp.", "You've got this. And if not, we'll figure it out together.",
+    "The world's a bit warmer with you in it. Mine especially.", "Breathe in... and out. There you go, bonita.",
+    "You don't have to carry it all alone. That's what I'm for.", "I believe in you. Always have.", "The sloths adore you. Not as much as I do.",
+    "Rest a little, my love. You've earned it.", "You're braver than you feel right now, bonita.", "Look how far you've come. I'm so proud.",
+    "It's okay to not be okay. I'm right here, always.",
   ],
-  eat: ["There's plenty of soup. Help yourself, friend.", "Good food, good company. That's you, by the way."],
-  read: ["This book is good, but you're better company.", "Every good story has a hard chapter. Yours gets better."],
-  drink: ["Pull up a log. You're always welcome here.", "A warm drink and a kind word. Have both."],
-  warm: ["Come warm your hands. You deserve it.", "The fire's nice, but you light up the camp more."],
-  play: ["Look at them! Pure joy. Just like you.", "Want a turn? They love you."],
-  sleep: ["Mmm... love you too...", "Zz... you're doing fine... zz", "Mm... sleep well, friend..."],
+  eat: ["I saved you the best bowl, bonita.", "Good food, and you beside me. That's all I need."],
+  read: ["This book is good, but you're my favourite story.", "Every story has a hard chapter. Ours only gets better."],
+  drink: ["Come sit with me, bonita. I made enough for two.", "A warm drink and you. Perfect evening."],
+  warm: ["Come warm your hands with me, my love.", "The fire's nice, but you light up the whole camp."],
+  play: ["Look at them, bonita! They get that smile from you.", "Want a turn? They love you almost as much as I do."],
+  sleep: ["Mmm... love you too, bonita...", "Zz... you're doing fine, my love... zz", "Mm... come here... sleep well, bonita..."],
 };
 // the lines still to come are kept in the camp save (camp/save.js; Adriaen: a reload carries on where he left off); lines no longer in LINES drop out
 const bag = (() => { try { const b = { ...(load("operator")?.lines || {}) }; for (const k in b) b[k] = Array.isArray(b[k]) ? b[k].filter((l) => LINES[k]?.includes(l)) : []; return b; } catch { return {}; } })();
 function line() {
-  const k = op.sleeping ? "sleep" : (LINES[op.kind] && Math.random() < 0.35 ? op.kind : "awake");
+  // an activity's own lines only once he is actually at it (the bowl, the book, the mug, his hands at the fire, a sloth in his
+  // hands), not on the walk there; asleep, only the sleepy ones; otherwise the general lines
+  const doing = { eat: !!op.eat, read: op.ik?.book > 0.4, drink: !!op.inHand && op.inHand === mug, warm: op.kind === "warm" && !!op.ik?.R, play: !!op.carry }[op.kind];
+  const k = op.sleeping ? "sleep" : (doing && Math.random() < 0.35 ? op.kind : "awake");
   if (!bag[k]?.length) bag[k] = [...LINES[k]].sort(() => Math.random() - 0.5);
   const l = bag[k].pop(); save("operator", { lines: bag }); return l;
 }
@@ -573,7 +598,9 @@ const tail = document.createElement("i"); tail.style.cssText = "position:absolut
 const say = document.createElement("span"); bubble.append(say, tail); if (ON) document.body.append(bubble);
 const talkSt = { t: 0, smile: 0 };
 function talk() {
-  const txt = line(); say.textContent = txt; talkSt.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); talkSt.smile = talkSt.t + 3;
+  // its size is fixed when it appears: a fixed-position box shrinks to fit the room left of the screen edge, so as he moved
+  // toward an edge the text re-wrapped (Adriaen: hard to read). Measure it free, then pin the width.
+  const txt = line(); say.textContent = txt; bubble.style.width = ""; bubble.style.left = "0px"; bubble.style.width = bubble.offsetWidth + 1 + "px"; talkSt.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); talkSt.smile = talkSt.t + 3;
   if (!op.sleeping) { const a = acts.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.setEffectiveWeight(1); a.play(); }
 }
 function talkStep(dt) {
@@ -584,7 +611,7 @@ function talkStep(dt) {
   if (!on && bubble.style.opacity === "0") return;
   const v = B.head.getWorldPosition(V()).add(V(0, 0.34, 0)).project(camera);
   if (v.z > 1) { bubble.style.opacity = 0; return; }
-  bubble.style.left = THREE.MathUtils.clamp((v.x + 1) / 2 * innerWidth, 140, innerWidth - 140) + "px";
+  const half = bubble.offsetWidth / 2 + 8; bubble.style.left = THREE.MathUtils.clamp((v.x + 1) / 2 * innerWidth, half, innerWidth - half) + "px";   // kept whole on screen
   bubble.style.top = THREE.MathUtils.clamp((1 - v.y) / 2 * innerHeight, 120, innerHeight - 60) + "px";
 }
 // what a tap finds: an invisible column round him (the skinned mesh is too costly to ray-test); no glow, like the sloths
