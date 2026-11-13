@@ -16,6 +16,7 @@ import { opStep } from "./operator.js";
 import { aimStep, boop, feed, resize } from "./input.js";
 import { weather } from "./weather.js";
 import { lingerStep } from "./linger.js";
+import { audioStep } from "./audio.js";
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
@@ -117,6 +118,7 @@ renderer.setAnimationLoop(() => {
   }
   if (motes) motes.rotation.y += dt * 0.02;
   atmo.update(dt, uTime.value, dusk);
+  audioStep(dt, dusk);
   // sun shadows (ground.js castShadows): re-cast whenever the props in the clearing change, checked each second for the first half minute while they load
   if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }
   renderer.render(scene, camera);
