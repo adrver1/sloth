@@ -31,7 +31,7 @@ Where each prop and light stands comes from the page itself: the "place" block t
 writes into props/shadow/layout_picked.json.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 """
-import argparse, base64, json, math, os, shutil, sys, tempfile, time
+import argparse, atexit, base64, json, math, os, shutil, sys, tempfile, time
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -60,8 +60,13 @@ import build_fire  # noqa: E402
 import build_laundry  # noqa: E402
 import build_lived  # noqa: E402
 from lib.bake import flat_colours  # noqa: E402
-from lib.export import export_glb, reset  # noqa: E402
+from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.mesh import apply_all  # noqa: E402
+
+
+# where the page stands each prop and light (step 2 uses it): checked before the minutes of building in step 1
+LAYOUT = json.load(open(os.path.join(ROOT, "props", "shadow", "layout_picked.json")))
+PL = LAYOUT.get("place") or sys.exit("layout_picked.json has no place block: run props/bake_all.py --only layout first")
 
 
 def flat(objs):
@@ -76,11 +81,13 @@ def flat(objs):
 # straight into this scene would give every object a different atlas. The scratch folder keeps a failed or
 # --unwrap-only run from leaving half-made props/lived/*.glb behind; step 4 writes those.
 SCRATCH = tempfile.mkdtemp(prefix="camp_lived_")
-for name, mod, build in (("lived", build_lived, lambda path: build_lived.build(32, colour=flat, path=path)),
-                         ("fire", build_fire, lambda path: build_fire.build(colour=flat, path=path)),
-                         ("laundry", build_laundry, lambda path: build_laundry.build(colour=flat, path=path))):
-    build(os.path.join(SCRATCH, f"{name}.glb"))
-    print(f"  built {mod.__name__} (flat colours)")
+atexit.register(shutil.rmtree, SCRATCH, True)      # gone however the run ends (ignore_errors=True)
+build_lived.build(32, colour=flat, path=os.path.join(SCRATCH, "lived.glb"))
+print("  built build_lived (flat colours)")
+build_fire.build(colour=flat, path=os.path.join(SCRATCH, "fire.glb"))
+print("  built build_fire (flat colours)")
+build_laundry.build(colour=flat, path=os.path.join(SCRATCH, "laundry.glb"))
+print("  built build_laundry (flat colours)")
 
 
 def B(x, y, z):            # three.js -> Blender
@@ -88,9 +95,8 @@ def B(x, y, z):            # three.js -> Blender
 
 
 # ---- 2. layout: where the page stands each prop and light, [x, z, yaw] in three.js metres, as the layout step read it from
-# the live page (props/shadow/export_casters.cjs -> layout_picked.json "place"; props/bake_all.py runs that step first)
-LAYOUT = json.load(open(os.path.join(ROOT, "props", "shadow", "layout_picked.json")))
-PL = LAYOUT.get("place") or sys.exit("layout_picked.json has no place block: run props/bake_all.py --only layout first")
+# the live page (props/shadow/export_casters.cjs -> layout_picked.json "place", read at the top; props/bake_all.py runs
+# that step first)
 seat_at = [tuple(v) for v in PL["seats"]]
 TENT, HAMMOCK, TABLE, JEEP = (tuple(PL[k]) for k in ("tent", "hammock", "table", "jeep"))
 # the lanterns sway, so the page draws them and they are not baked; their lights are. The page's light is 0.125 m below
@@ -115,7 +121,7 @@ reset()
 objs = build_camp.picked()
 for name, o in objs.items():
     apply_all(o); o.location = (0, 0, 0)
-    n = build_camp.BUDGET["picked"].get(name); t = sum(len(p.vertices) - 2 for p in o.data.polygons)
+    n = build_camp.BUDGET["picked"].get(name); t = tris(o)
     if n and t > n:
         bpy.context.view_layer.objects.active = o
         d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
@@ -168,12 +174,11 @@ for sname, table in PLACE.items():
             me.color_attributes[0].name = "Col"
         meshes.append(o)
     sets[sname] = meshes
-shutil.rmtree(SCRATCH)
 lived = sets["lived"]
 for i, (x, z, yaw) in enumerate(seat_at):
     lived.append(place(top, f"SeatTop_{i}", x, z, yaw, copy=i < 2))
 receivers = picked + [o for s in sets.values() for o in s if o.name != "Embers"]
-tris = {o.name: sum(len(p.vertices) - 2 for p in o.data.polygons) for o in picked + [o for s in sets.values() for o in s]}
+counts = {o.name: tris(o) for o in picked + [o for s in sets.values() for o in s]}
 
 # ---- 3a. the atlas: TEXCOORD_0 stays (texture UVs, or a dummy), LM is TEXCOORD_1, packed jointly
 for o in receivers:
@@ -410,4 +415,4 @@ for sname, meshes in sets.items():
     for o in meshes:
         o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)
     export(meshes, os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
-print(f"camp light: {len(tris)} objects, {sum(tris.values())} triangles, {time.time() - T0:.0f} s")
+print(f"camp light: {len(counts)} objects, {sum(counts.values())} triangles, {time.time() - T0:.0f} s")

@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import _finish, apply_all, ball, cyl, join, rod, torus  # noqa: E402
+from lib.mesh import apply_all, ball, cyl, join, rod, torus, with_material  # noqa: E402
 from lib.mesh import box as _box  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
@@ -77,7 +77,7 @@ def prism(poly_yz, width, m, taper=1.0, x0=0.0):
     me.validate()
     o = bpy.data.objects.new("prism", me)
     bpy.context.collection.objects.link(o)
-    _finish(o, m, smooth=False)
+    with_material(o, m, smooth=False)
     me.update()
     outward(o)
     return o
@@ -159,7 +159,7 @@ def panel(a, b, c, d, m, t=0.012):
     me.validate()
     o = bpy.data.objects.new("panel", me)
     bpy.context.collection.objects.link(o)
-    _finish(o, m, smooth=False)
+    with_material(o, m, smooth=False)
     outward(o)
     return o
 

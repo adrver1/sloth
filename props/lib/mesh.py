@@ -10,7 +10,7 @@ import bmesh
 from mathutils import Vector
 
 
-def _finish(o, m, smooth=True):
+def with_material(o, m, smooth=True):
     """Give o its material and (by default) smooth shading."""
     o.data.materials.append(m)
     if smooth:
@@ -36,7 +36,7 @@ def cyl(r, h, at=(0, 0, 0), rot=(0, 0, 0), m=None, verts=16, r2=None, smooth=Tru
         bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=h, vertices=verts, end_fill_type=fill, location=at, rotation=rot)
     else:
         bpy.ops.mesh.primitive_cone_add(radius1=r, radius2=r2, depth=h, vertices=verts, end_fill_type=fill, location=at, rotation=rot)
-    return _finish(bpy.context.object, m, smooth)
+    return with_material(bpy.context.object, m, smooth)
 
 
 def rod(a, b, r, m, verts=8, caps=True):
@@ -53,14 +53,14 @@ def ball(r, at=(0, 0, 0), scale=(1, 1, 1), m=None, seg=16, rot=(0, 0, 0)):
     bpy.ops.mesh.primitive_uv_sphere_add(radius=r, segments=seg, ring_count=max(6, seg // 2), location=at, rotation=rot)
     o = bpy.context.object
     o.scale = scale
-    return _finish(o, m)
+    return with_material(o, m)
 
 
 def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
     bpy.ops.mesh.primitive_cube_add(size=1, location=at, rotation=rot)
     o = bpy.context.object
     o.scale = size
-    _finish(o, m, smooth=False)
+    with_material(o, m, smooth=False)
     if bevel:
         apply_all(o)
         mod = o.modifiers.new("b", "BEVEL")
@@ -70,7 +70,7 @@ def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
 
 def torus(R, r, at=(0, 0, 0), rot=(0, 0, 0), m=None, major=24, minor=8):
     bpy.ops.mesh.primitive_torus_add(major_radius=R, minor_radius=r, major_segments=major, minor_segments=minor, location=at, rotation=rot)
-    return _finish(bpy.context.object, m)
+    return with_material(bpy.context.object, m)
 
 
 def quad(corners, m):
@@ -79,7 +79,7 @@ def quad(corners, m):
     me.from_pydata(corners, [], [(0, 1, 2, 3)])
     o = bpy.data.objects.new("quad", me)
     bpy.context.collection.objects.link(o)
-    return _finish(o, m, smooth=False)
+    return with_material(o, m, smooth=False)
 
 
 def bevel(o, w, seg=2):

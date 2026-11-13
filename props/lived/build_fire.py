@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import _finish, apply_all, box, cyl, join, obj_from_bm, rod, rough_up, torus  # noqa: E402
+from lib.mesh import apply_all, box, cyl, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
 
 rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
@@ -69,7 +69,7 @@ def stone(r, at, scale, m, sr=None):
     o = obj_from_bm(bm, "stone")
     o.scale = scale
     o.location = at
-    return _finish(o, m)
+    return with_material(o, m)
 
 
 def log(a, b, r, M, burnt=0.35, verts=7):
@@ -112,14 +112,14 @@ def ring(M):
             if f.normal.dot(inward) > 0.55 and f.center.z < 0.2:
                 f.material_index = 1
     bpy.ops.mesh.primitive_circle_add(vertices=12, radius=0.5, fill_type="NGON", location=(0, 0, 0.012))
-    ash = _finish(bpy.context.object, M["ash"], smooth=False)
+    ash = with_material(bpy.context.object, M["ash"], smooth=False)
     for v in ash.data.vertices:                                    # a ragged edge, not a perfect disc
         k = 1 + 0.18 * math.sin(3 * math.atan2(v.co.y, v.co.x) + 1) + sr.uniform(-0.1, 0.1)
         v.co.x *= k
         v.co.y *= k * 0.92
     p.append(ash)
     bpy.ops.mesh.primitive_circle_add(vertices=8, radius=0.3, fill_type="NGON", location=(0, 0, 0.025))
-    char = _finish(bpy.context.object, M["char"], smooth=False)
+    char = with_material(bpy.context.object, M["char"], smooth=False)
     for v in char.data.vertices:
         k = 1 + sr.uniform(-0.25, 0.25)
         v.co.x *= k * 1.1
@@ -189,7 +189,7 @@ def embers(n, spread, M, z=0.04):
                                         location=(math.cos(a) * d, math.sin(a) * d, z), rotation=(0, 0, rng.uniform(0, 6.3)))   # a low glowing lump: 5 triangles
         o = bpy.context.object
         o.scale = (1, rng.uniform(0.7, 1.2), 1)
-        p.append(_finish(o, M["ember" if i % 3 else "ember2"], smooth=False))
+        p.append(with_material(o, M["ember" if i % 3 else "ember2"], smooth=False))
     return p
 
 
@@ -245,7 +245,7 @@ def lathe(profile, segs, m, z0=0.0):
     bmesh.ops.spin(bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1), angle=2 * math.pi, steps=segs, use_duplicate=False)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
     o = obj_from_bm(bm, "lathe")
-    return _finish(o, m)
+    return with_material(o, m)
 
 
 def curve_rod(pts, r0, r1, m, verts=8):
@@ -272,7 +272,7 @@ def ribbon_arch(pts, w, m):
             o = off if off is not None else (b - a).cross(Vector((1, 0, 0))).normalized() * w
             bm.faces.new([bm.verts.new(v) for v in (a - o, b - o, b + o, a + o)])
     o = obj_from_bm(bm, "wire")
-    return _finish(o, m, smooth=False)
+    return with_material(o, m, smooth=False)
 
 
 def flat(n, r, at, m, sx=1.0, yaw=0.0):
@@ -287,7 +287,7 @@ def flat(n, r, at, m, sx=1.0, yaw=0.0):
     me.from_pydata(pts, [], [tuple(range(n))])
     o = bpy.data.objects.new("bit", me)
     bpy.context.collection.objects.link(o)
-    return _finish(o, m, smooth=False)
+    return with_material(o, m, smooth=False)
 
 
 def pot(M):

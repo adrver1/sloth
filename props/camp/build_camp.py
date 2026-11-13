@@ -33,9 +33,9 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset  # noqa: E402
+from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import _finish, apply_all, ball, bevel, box, cyl, drop_faces, join, rod, rough_up, torus  # noqa: E402
+from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
 STYLES = ("storybook", "rustic", "jungle", "picked")
@@ -50,7 +50,7 @@ def rock(r, at, scale, m, rough=0.35, detail=2):
     for v in o.data.vertices:
         n = v.co.normalized()
         v.co *= 1 + rough * (0.5 * math.sin(n.x * 5.1 + n.y * 3.3) + 0.3 * math.sin(n.y * 7.7 - n.z * 4.1) + 0.2 * rng.uniform(-1, 1))
-    return _finish(o, m)
+    return with_material(o, m)
 
 
 def bamboo(a, b, r, m, node_m, nodes=None):
@@ -115,7 +115,7 @@ def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
     bpy.context.collection.objects.link(o)
     o.location = at
     o.rotation_euler = (roll, -pitch, yaw)
-    _finish(o, m)
+    with_material(o, m)
     sol = o.modifiers.new("s", "SOLIDIFY")
     sol.thickness = 0.008
     return o
@@ -292,13 +292,13 @@ def rustic_tent(M):
             faces.append((a, a + 2 * ny + 1, a + 2 * ny + 2, a + 1))
     me = bpy.data.meshes.new("roof")
     me.from_pydata(verts, [], faces)
-    roof = bpy.data.objects.new("roof", me); bpy.context.collection.objects.link(roof); _finish(roof, M["canvas"])
+    roof = bpy.data.objects.new("roof", me); bpy.context.collection.objects.link(roof); with_material(roof, M["canvas"])
     roof.modifiers.new("s", "SOLIDIFY").thickness = 0.025
     p = [roof]
     def gable(x, tris, m):
         me = bpy.data.meshes.new("gable")
         me.from_pydata([v for t in tris for v in t], [], [(3 * k, 3 * k + 1, 3 * k + 2) for k in range(len(tris))])
-        g = bpy.data.objects.new("gable", me); bpy.context.collection.objects.link(g); _finish(g, m, False)
+        g = bpy.data.objects.new("gable", me); bpy.context.collection.objects.link(g); with_material(g, m, False)
         g.modifiers.new("s", "SOLIDIFY").thickness = 0.02
         return g
     xb, xf = L / 2 - 0.01, -L / 2 + 0.01
@@ -343,7 +343,7 @@ def rustic_lantern(M):
          cyl(0.072, 0.03, at=(0, 0, -0.05), m=M["tin"], verts=6, r2=0.05, smooth=False)]
     hq = bpy.data.meshes.new("handle")
     hq.from_pydata([(-0.05, 0, -0.035), (0.05, 0, -0.035), (0.03, 0, 0.0), (-0.03, 0, 0.0)], [], [(0, 1, 2, 3)])
-    ho = bpy.data.objects.new("handle", hq); bpy.context.collection.objects.link(ho); _finish(ho, M["tin"], False)
+    ho = bpy.data.objects.new("handle", hq); bpy.context.collection.objects.link(ho); with_material(ho, M["tin"], False)
     p.append(ho)
     for o in p[:2]:                                    # the jar's top and the lid's bottom are hidden inside each other
         drop_faces(o, lambda f: abs(f.normal.z) > 0.9 and -0.07 < f.center.z < -0.055)
@@ -363,7 +363,7 @@ def rustic_table(M):
     p.append(drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda f: f.normal.z < -0.9))
     for k in range(3):
         bpy.ops.mesh.primitive_ico_sphere_add(radius=0.045, subdivisions=1, location=(-0.25 + k * 0.05, -0.05 + 0.02 * (k % 2), 0.74))
-        p.append(_finish(bpy.context.object, M["red"], smooth=False))
+        p.append(with_material(bpy.context.object, M["red"], smooth=False))
     return join(p, "Table")
 
 
@@ -504,7 +504,7 @@ def wall_tent():
     # it reads from the ground (8 + 6 + 2 x 6 = 26 tris); the smoke (atmosphere.js) comes out under it
     top = Z0 + H + 0.62
     bpy.ops.mesh.primitive_cone_add(radius1=0.15, radius2=0.0, depth=0.07, vertices=8, end_fill_type="NGON", location=(sx, sy + 0.12, top + 0.095))
-    p.append(_finish(bpy.context.object, M["pipe"], smooth=False))
+    p.append(with_material(bpy.context.object, M["pipe"], smooth=False))
     for a in (0.0, math.pi):
         lx, ly = math.cos(a) * 0.055, math.sin(a) * 0.055
         p.append(rod((sx + lx, sy + 0.12 + ly, top - 0.03), (sx + lx * 1.4, sy + 0.12 + ly * 1.4, top + 0.065), 0.006, M["iron"], verts=3))
@@ -528,8 +528,7 @@ def stove_kettle(M, at):
             f = bm.faces.new((a[i], a[j], b[0]) if len(b) == 1 else (a[i], a[j], b[j], b[i]))
             f.material_index = 1 if k >= 3 else 0                     # the lid ring and knob in dark iron
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    me = bpy.data.meshes.new("kettle"); bm.to_mesh(me); bm.free()
-    o = bpy.data.objects.new("kettle", me); bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "kettle"); me = o.data
     me.materials.append(M["tin"]); me.materials.append(M["iron"])
     for pl in me.polygons: pl.use_smooth = True
     out = [o]
@@ -677,12 +676,12 @@ BUDGET = {"picked": {"Table": 1400, "Seat": 500, "Lantern": 200}}
 def lean(objs, budget):
     for name, n in budget.items():
         o = objs.get(name)
-        tris = sum(len(p.vertices) - 2 for p in o.data.polygons) if o else 0
-        if not tris or tris <= n:
+        t = tris(o) if o else 0
+        if not t or t <= n:
             continue
         bpy.context.view_layer.objects.active = o
         d = o.modifiers.new("lean", "DECIMATE")
-        d.decimate_type = "COLLAPSE"; d.ratio = n / tris; d.use_collapse_triangulate = True
+        d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=d.name)
 
 
