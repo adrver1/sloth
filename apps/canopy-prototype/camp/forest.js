@@ -71,7 +71,14 @@ const tripPath = (() => {
   const curve = new THREE.CatmullRomCurve3([P(0, rg + GLADE_R - 1.4), P(0.02, rg + GLADE_R + 0.6), P(0.06, rg + GLADE_R + 2.4), P(0.13, rg + GLADE_R + 3.5), P(0.24, rg + GLADE_R + 3.9), P(0.37, rg + GLADE_R + 3.7)]);
   return { curve, pts: curve.getSpacedPoints(40) };
 })();
-const pathLane = (x, z) => Math.min(polyDist(sloPath.pts, x, z)[0], polyDist(tripPath.pts, x, z)[0]);   // the paths themselves
+// the link between them (Adriaen 2026-11-13: the path stopped at the big glade tree and went on out of sight behind it, so it
+// was easy to miss): from the end of the glade path round the tree, on the side the sign is, to the start of the trip path
+const gladeLink = (() => {
+  const u = GLADE.clone().normalize(), w = V(-u.z, 0, u.x), C = (a, b) => GLADE.clone().addScaledVector(u, a).addScaledVector(w, b);
+  const curve = new THREE.CatmullRomCurve3([sloPath.curve.getPointAt(1 - 0.9 / sloPath.curve.getLength()).setY(0), sloPath.curve.getPointAt(1).setY(0), C(-2.2, 1.3), C(-0.4, 2.35), C(1.5, 1.9), tripPath.curve.getPointAt(0).setY(0), tripPath.curve.getPointAt(0.06).setY(0)]);
+  return { curve, pts: curve.getSpacedPoints(30) };
+})();
+const pathLane = (x, z) => Math.min(polyDist(sloPath.pts, x, z)[0], polyDist(tripPath.pts, x, z)[0], polyDist(gladeLink.pts, x, z)[0]);   // the paths themselves
 const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
 const nearPath = () => false;
@@ -123,13 +130,15 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
     g.globalCompositeOperation = "destination-in"; g.fillStyle = e; g.fillRect(0, 0, w, h);
   });
   earth.wrapT = THREE.RepeatWrapping;
-  for (const [curve, half, fade] of [[sloPath.curve, 0.75, (t, L, r) => sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 1.2, L, t * L))],   // takes over from the baked ground's path at the clearing edge, fades out into the glade
-    [tripPath.curve, 1.25, (t, L) => sstep(0, 1.6, t * L) * (1 - sstep(L - 2.5, L, t * L))]]) {   // the trip path: wide enough for two walking hand in hand (Adriaen 2026-11-12), in from the glade's grass, lost in the trees at its end
+  for (const [curve, half, fade] of [[sloPath.curve, 0.75, (t, L, r) => sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 0.9, L, t * L))],   // takes over from the baked ground's path at the clearing edge, and hands over to the link
+    [gladeLink.curve, (t) => 0.75 + 0.5 * sstep(0.3, 0.85, t), (t, L) => sstep(0, 0.9, t * L)],   // round the glade tree, widening into the trip path: one unbroken path
+    [tripPath.curve, 1.25, (t, L) => 1 - sstep(L - 2.5, L, t * L)]]) {   // the trip path: wide enough for two walking hand in hand (Adriaen 2026-11-12), lost in the trees at its end
   const n = 40, pos = [], uv = [], col = [], idx = [], L = curve.getLength();
   for (let i = 0; i <= n; i++) {
     const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
     const a = fade(t, L, r);
-    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * half); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
+    const hw = typeof half === "function" ? half(t) : half;
+    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * hw); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
     if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
