@@ -1,7 +1,7 @@
 // Canopy Camp weather (camp review B7): warm rain. A box of falling streaks round the camera (one draw of line segments),
 // kept off the tent and its planks so you can shelter there, and the light it brings: grey-green fog, a dimmer sun, no
 // shafts. Weather is set in the ⚙️ menu: Clear, Rain, or Changing (a shower every few minutes). ?weather=rain sets it.
-// main.js reads weather.wet (0 dry .. 1 pouring) for the light. No sound (cloud sessions can't hear it).
+// main.js steps it each frame and hands weather.wet (0 dry .. 1 pouring) to daylight.js for the light; audio.js makes the rain's sound.
 import * as THREE from "three";
 import { $, D, KEYS, OPT, camera, scene, store } from "./core.js";
 import { rand } from "./util.js";
