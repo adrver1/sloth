@@ -142,7 +142,8 @@ if (track) {
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
     g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
     tex.wrapT = THREE.RepeatWrapping;
-    const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }));
+    const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2,
+      forceSinglePass: true }));   // flat on the ground, so one draw shows the same as three.js's two passes for see-through two-sided materials
     mesh.renderOrder = order; scene.add(mesh); FLOOR_OVERLAYS.push(mesh);
   };
   const mud = LOOK === "low" ? ["#9a7a52", "#7d6040", "#5c4530"] : ["#8a6c4a", "#6b5038", "#4a3626"];
