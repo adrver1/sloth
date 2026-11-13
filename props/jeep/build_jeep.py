@@ -28,7 +28,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import reset  # noqa: E402
+from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
 from lib.mesh import _finish, apply_all, ball, cyl, join, rod, torus  # noqa: E402
 from lib.mesh import box as _box  # noqa: E402
@@ -929,15 +929,8 @@ def build(style, samples, do_preview, preview_samples):
     if style == "expedition":
         for o in objs.values():
             mud(o)
-    path = os.path.join(HERE, f"jeep_{style}.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in [*objs.values(), *EMPTIES]:
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
-    tris = sum(len(pl.vertices) - 2 for o in objs.values() for pl in o.data.polygons)
-    print(f"{style}: {tris} triangles, {os.path.getsize(path) // 1024} KB -> {path}")
-    print("  per object: " + ", ".join(f"{n} {sum(len(pl.vertices) - 2 for pl in o.data.polygons)}" for n, o in objs.items()))
+    path = export_glb([*objs.values(), *EMPTIES], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False)
+    print(f"{style} -> {path}")
     for e in EMPTIES:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
     if style == "expedition":                            # the far LOD, in its own scene and bake (it would shade the full jeep)
@@ -946,11 +939,8 @@ def build(style, samples, do_preview, preview_samples):
         M = mats("ex", **EXPEDITION_COLOURS)
         lod = jeep_lod(M); apply_all(lod)
         mud_mask(lod); bake([lod], samples, apply=False); mud(lod)
-        lpath = os.path.join(HERE, "jeep_expedition_lod.glb")
-        bpy.ops.object.select_all(action="DESELECT"); lod.select_set(True)
-        bpy.ops.export_scene.gltf(filepath=lpath, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                                  export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
-        print(f"  JeepLOD: {sum(len(pl.vertices) - 2 for pl in lod.data.polygons)} triangles, {os.path.getsize(lpath) // 1024} KB -> {lpath}")
+        lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False)
+        print(f"  JeepLOD -> {lpath}")
         return shots
     return preview(style, objs, preview_samples) if do_preview else []
 

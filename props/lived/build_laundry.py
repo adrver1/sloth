@@ -13,20 +13,19 @@ sloth-life thread builds that sloth).
 
 One GLB (props/lived/laundry.glb), z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin.
 """
-import math
 import os
 import sys
 
-import bpy
+import bpy  # noqa: F401  (bmesh needs bpy loaded first)
 import bmesh  # noqa: E402
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import reset  # noqa: E402
-from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, join, rod  # noqa: E402
+from lib.export import export_glb, reset  # noqa: E402
+from lib.materials import image_material, mat  # noqa: E402
+from lib.mesh import apply_all, join, obj_from_bm, rod  # noqa: E402
 
 L = 3.0            # post to post
 H = 1.62           # where the line is tied on the posts
@@ -96,19 +95,8 @@ def textured(name, quads, img):
         f = bm.faces.new([bm.verts.new(c) for c in corners])
         for lp, (u, v) in zip(f.loops, ((u0, v1), (u1, v1), (u1, v0), (u0, v0))):
             lp[uv].uv = (u / 512, 1 - v / 256)
-    me = bpy.data.meshes.new(name)
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new(name, me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new(name)
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(img)
-    bsdf = m.node_tree.nodes["Principled BSDF"]
-    m.node_tree.links.new(tx.outputs["Color"], bsdf.inputs["Base Color"])
-    m.node_tree.links.new(tx.outputs["Alpha"], bsdf.inputs["Alpha"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, name)
+    o.data.materials.append(image_material(name, img, alpha=True))
     return o
 
 
@@ -159,17 +147,9 @@ def build(colour=None):
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
     cl = cloth(img)
-    path = os.path.join(HERE, "laundry.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in (po, cl):
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
-                              export_image_format="AUTO")
-    for o in (po, cl):
-        print(f"  {o.name}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
+    path = export_glb([po, cl], os.path.join(HERE, "laundry.glb"), image_format="AUTO")
     print(f"hang point (local, three.js): x {line_x(HANG_T):.3f}, y {line_z(HANG_T):.3f}, z 0")
-    print(f"laundry: {os.path.getsize(path) // 1024} KB -> {path}")
+    print(f"laundry -> {path}")
 
 
 if __name__ == "__main__":

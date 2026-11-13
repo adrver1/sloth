@@ -1,6 +1,6 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
-drop_faces, capless), and object plumbing (apply_all, join). Z up, metres; every helper links what it
+drop_faces, capless), and object plumbing (apply_all, join, obj_from_bm). Z up, metres; every helper links what it
 makes into the current scene's collection and returns it.
 """
 import math
@@ -16,6 +16,16 @@ def _finish(o, m, smooth=True):
     if smooth:
         for p in o.data.polygons:
             p.use_smooth = True
+    return o
+
+
+def obj_from_bm(bm, name):
+    """A new object named name holding bm's mesh (bm is freed), linked into the scene."""
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
     return o
 
 

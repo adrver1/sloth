@@ -56,7 +56,7 @@ THIN = ("LaundryCloth", "Chain")
 sys.path.insert(0, HERE); sys.path.insert(0, LIVED); sys.path.insert(0, os.path.join(ROOT, "props"))
 import build_camp  # noqa: E402
 from lib.bake import flat_colours  # noqa: E402
-from lib.export import reset  # noqa: E402
+from lib.export import export_glb, reset  # noqa: E402
 from lib.mesh import apply_all  # noqa: E402
 
 
@@ -408,15 +408,9 @@ print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
 def export(objs, path, txt, image_format="AUTO"):
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
-                              export_image_format=image_format)
+    export_glb(objs, path, image_format=image_format)
     with open(path, "rb") as f, open(os.path.join(MODELS, txt), "w") as g:
         g.write(base64.b64encode(f.read()).decode())
-    print(f"  {os.path.basename(path)}: {os.path.getsize(path) // 1024} KB")
 
 
 export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
@@ -424,6 +418,4 @@ for sname, meshes in sets.items():
     for o in meshes:
         o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)
     export(meshes, os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
-for k, v in tris.items():
-    print(f"  {k}: {v} triangles")
 print(f"camp light: {len(tris)} objects, {sum(tris.values())} triangles, {time.time() - T0:.0f} s")

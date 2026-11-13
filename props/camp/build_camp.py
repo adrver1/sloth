@@ -32,7 +32,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import reset  # noqa: E402
+from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
 from lib.mesh import _finish, apply_all, ball, bevel, box, cyl, drop_faces, join, rod, rough_up, torus  # noqa: E402
 
@@ -643,14 +643,8 @@ def build(style, samples):
         o.location = (0, 0, 0)
     bake(list(objs.values()), samples, split=True)     # the archived styles split long edges for the AO
     lean(objs, BUDGET.get(style, {}))
-    path = os.path.join(HERE, "archive", f"camp_{style}.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs.values():
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
-    tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in objs.values())
-    print(f"{style}: {tris} triangles, {os.path.getsize(path) // 1024} KB -> {path}")
+    path = export_glb(list(objs.values()), os.path.join(HERE, "archive", f"camp_{style}.glb"), texcoords=False)
+    print(f"{style} -> {path}")
 
 
 if __name__ == "__main__":

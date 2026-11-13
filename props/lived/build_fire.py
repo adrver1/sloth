@@ -26,9 +26,9 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import reset  # noqa: E402
-from lib.materials import mat  # noqa: E402
-from lib.mesh import _finish, apply_all, box, cyl, join, rod, rough_up, torus  # noqa: E402
+from lib.export import export_glb, reset  # noqa: E402
+from lib.materials import image_material, mat  # noqa: E402
+from lib.mesh import _finish, apply_all, box, cyl, join, obj_from_bm, rod, rough_up, torus  # noqa: E402
 
 rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
@@ -64,11 +64,7 @@ def stone(r, at, scale, m, sr=None):
     bm.verts.new((0, 0, -r * 0.6))
     bmesh.ops.convex_hull(bm, input=list(bm.verts))
     bmesh.ops.triangulate(bm, faces=bm.faces[:])
-    me = bpy.data.meshes.new("stone")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("stone", me)
-    bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "stone")
     o.scale = scale
     o.location = at
     return _finish(o, m)
@@ -178,17 +174,8 @@ def tripod_legs():
         cap = bm.faces.new(hi[:n])
         for lp in cap.loops:
             lp[uv].uv = (0.5, 0.01)                                # the node colour
-    me = bpy.data.meshes.new("TripodLegs")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("TripodLegs", me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new("TripodLegs")
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(img)
-    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, "TripodLegs")
+    o.data.materials.append(image_material("TripodLegs", img))
     return o
 
 
@@ -255,11 +242,7 @@ def lathe(profile, segs, m, z0=0.0):
     es = [bm.edges.new((vs[i], vs[i + 1])) for i in range(len(vs) - 1)]
     bmesh.ops.spin(bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1), angle=2 * math.pi, steps=segs, use_duplicate=False)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
-    me = bpy.data.meshes.new("lathe")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("lathe", me)
-    bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "lathe")
     return _finish(o, m)
 
 
@@ -286,11 +269,7 @@ def ribbon_arch(pts, w, m):
             a, b = pts[i], pts[i + 1]
             o = off if off is not None else (b - a).cross(Vector((1, 0, 0))).normalized() * w
             bm.faces.new([bm.verts.new(v) for v in (a - o, b - o, b + o, a + o)])
-    me = bpy.data.meshes.new("wire")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("wire", me)
-    bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "wire")
     return _finish(o, m, smooth=False)
 
 
@@ -373,19 +352,8 @@ def chain(bottom, top):
         f = bm.faces.new(c)
         for l, u in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
             l[uv].uv = u
-    me = bpy.data.meshes.new("Chain")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("Chain", me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new("Chain")
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(tex_path)
-    bsdf = m.node_tree.nodes["Principled BSDF"]
-    m.node_tree.links.new(tx.outputs["Color"], bsdf.inputs["Base Color"])
-    m.node_tree.links.new(tx.outputs["Alpha"], bsdf.inputs["Alpha"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, "Chain")
+    o.data.materials.append(image_material("Chain", tex_path, alpha=True))
     return o
 
 
@@ -407,17 +375,9 @@ def build(samples=32, colour=None):
             o.data.uv_layers.remove(o.data.uv_layers[0])
     ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
     objs += [ch, tripod_legs()]
-    path = os.path.join(HERE, "fire.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
-                              export_image_format="AUTO")
-    for o in objs:
-        print(f"  {o.name}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
+    path = export_glb(objs, os.path.join(HERE, "fire.glb"), image_format="AUTO")
     print(f"soup surface (three.js): (0, {SOUP.z:.3f}, 0)")
-    print(f"fire: {os.path.getsize(path) // 1024} KB -> {path}")
+    print(f"fire -> {path}")
 
 
 if __name__ == "__main__":
