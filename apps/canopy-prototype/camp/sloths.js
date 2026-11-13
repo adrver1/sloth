@@ -872,7 +872,7 @@ if (qs.get("campsloths") !== "0") {
   // nod off). A nap trip that runs out does the same and then gets up.
   function rouse(s, back) {
     s.dozing = s.asleep = false; s.eyes(false); s.dozeIn = 0; s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
-    s.roused = { t: 0, dur: R(7, 15), back, wave: R(0, 1) < 0.5, waved: false };
+    s.roused = { t: 0, dur: R(4, 8), back, wave: R(0, 1) < 0.5, waved: false };
     const [c, ts] = homeClip(s);
     if (canStretch(s)) playOnce(s, "stretch", 1.5, () => play(s, c, 1.5, ts)); else { s.yawn = 1e-3; play(s, c, 2, ts); }
   }
