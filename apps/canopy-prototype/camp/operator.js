@@ -660,9 +660,20 @@ function opStep(dt) {
     const g = B.handR.getWorldPosition(V()), d = tip.sub(g); stick.position.copy(g); stick.scale.set(1, d.length() + 0.06, 1); stick.quaternion.setFromUnitVectors(UP, d.normalize());
   }
   if (op.veg) B.handR.getWorldPosition(veg.position).addScaledVector(V(0, 1, 0).applyQuaternion(B.handR.getWorldQuaternion(tq)), 0.07);
+  // food you gave him (gift, below; Adriaen 2026-11-13: "they eat without hands"): his free hand comes out to take it, then
+  // lifts it to his mouth a bite at a time and goes down again when it's gone
+  if (talkSt.hand) {
+    const H = talkSt.hand, S = H.side, sd = S === "R" ? 1 : -1, F = talkSt.food;
+    const out = cs(0.16 * sd, op.seated ? 0.95 : 1.15, -0.4), lips = mouthAt(V()).add(V(0, -0.075, 0)).addScaledVector(csDir(0, 0, -1), 0.02).addScaledVector(csDir(sd, 0, 0), 0.02);
+    const bite = F ? Math.max(0, Math.sin(F.t / 0.5 * Math.PI * 2 - 1)) : 0;   // in to the lips for each bite, a little away between
+    lips.addScaledVector(csDir(0, -0.4, -1), 0.05 * (1 - bite));
+    const toLips = F ? THREE.MathUtils.smoothstep(F.t, 0, 0.4) : H.down > 0 ? 1 : 0, w = H.down > 0 ? H.down / 0.5 : Math.min(1, H.t / 0.4);
+    reach(S, out.lerp(lips, toLips), csDir(sd, -0.8, 0.3), w);
+    H.t += dt; if (!F && !talkSt.fly && H.down <= 0) H.down = 0.5; if (H.down > 0) { H.down -= dt; if (H.down <= 0) talkSt.hand = null; }
+  }
   // little things he does while standing or sitting about with his hands free (Adriaen 2026-11-13: more organic): scratch his
   // beard, stretch, look round, point something out up in the trees, shift his weight; at dusk and night rub his hands, yawn
-  const handsFree = !op.ik && !op.eat && !op.inHand && !op.carry && !op.pail && !op.stir && !op.veg && !op.lying && !op.sleeping && !op.lean && !op.footLock === !op.seated;
+  const handsFree = !talkSt.hand && !op.ik && !op.eat && !op.inHand && !op.carry && !op.pail && !op.stir && !op.veg && !op.lying && !op.sleeping && !op.lean && !op.footLock === !op.seated;
   const still = cur === acts.idle || cur === acts.seated_idle;
   fidCD -= dt;
   if (!op.fid && handsFree && still && talkSt.t <= 0 && fidCD < 0) { const kind = pickFid(); op.fid = { kind, t: 0, k: 0, T: FID_T[kind] }; fidCD = R(5, 12); }
@@ -782,12 +793,16 @@ const talkSt = { t: 0, smile: 0 };
 function talk() { speak(line()); }
 // food you hand him (camp activities: a vegetable or a bowl of soup): it flies to his mouth, he munches, then thanks you
 const mouthAt = (out) => B.head.getWorldPosition(out).addScaledVector(csDir(0, 0, -1), 0.12).add(V(0, 0.025, 0));
+const palmAt = (S, out) => B["hand" + S].getWorldPosition(out).addScaledVector(V(0, 1, 0).applyQuaternion(B["hand" + S].getWorldQuaternion(tq)), 0.07);
+// the hand that's free: the right unless it holds something; none while eating soup, reading, cuddling or lying down
+const freeHand = () => op.eat || op.ik?.book || op.ik?.hug || op.carry || op.lying || op.sleeping || op.ik?.L ? null : op.inHand || op.pail || op.stir || op.veg || op.ik?.R ? "L" : "R";
 function gift() {
   const f = window.__acts?.give?.(); if (!f) return;
   // the modelled food (camp/food.js) flies from your hand to his mouth, stays at his lips and gets a bite smaller each
   // munch (talkStep), then he thanks you
   const s = f.make(); s.position.copy(f.from); scene.add(s);
-  const fly = { from: s.position.clone(), to: mouthAt(V()) }; talkSt.fly = fly;   // talkStep keeps "to" on his mouth as he moves
+  const side = freeHand(); talkSt.hand = side ? { side, t: 0, down: 0 } : null; op.fid = null;
+  const fly = { from: s.position.clone(), to: side ? palmAt(side, V()) : mouthAt(V()) }; talkSt.fly = fly;   // talkStep keeps "to" on his hand (or mouth) as he moves
   fx.push({ s, fly, t: 0, life: 0.9, done() {
     talkSt.fly = null;
     scene.add(s); talkSt.food = { m: s, t: 0 };
@@ -805,8 +820,9 @@ function talkStep(dt) {
   { const v = B.chest.getWorldPosition(V()).project(camera); op.scr = [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }   // checks (__op.tapAt)
   talkSt.t = Math.max(0, talkSt.t - dt); talkSt.smile = Math.max(0, talkSt.smile - dt);
   talkSt.munch = Math.max(0, (talkSt.munch || 0) - dt);
-  if (talkSt.fly) mouthAt(talkSt.fly.to);
-  if (talkSt.food) { const F = talkSt.food; F.t += dt; mouthAt(F.m.position); F.m.scale.copy(F.m.userData.base).multiplyScalar(Math.max(0.1, 1 - 0.24 * Math.floor(F.t / 0.5)));
+  const hd = talkSt.hand?.side;
+  if (talkSt.fly) hd ? palmAt(hd, talkSt.fly.to) : mouthAt(talkSt.fly.to);
+  if (talkSt.food) { const F = talkSt.food; F.t += dt; if (hd) palmAt(hd, F.m.position).lerp(mouthAt(V()), 0.35 * THREE.MathUtils.smoothstep(F.t, 0.2, 0.4)); else mouthAt(F.m.position); F.m.scale.copy(F.m.userData.base).multiplyScalar(Math.max(0.1, 1 - 0.24 * Math.floor(F.t / 0.5)));
     if (F.t > 2.1) { scene.remove(F.m); talkSt.food = null; } }
   if (talkSt.t <= 0 && !talkSt.munch && acts.talk.isRunning() && acts.talk.getEffectiveWeight() > 0.99) acts.talk.fadeOut(0.3);
   const on = talkSt.t > 0; bubble.style.opacity = on ? 1 : 0; bubble.style.transform = `translate(-50%,-100%) scale(${on ? 1 : 0.85})`;

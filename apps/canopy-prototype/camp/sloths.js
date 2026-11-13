@@ -106,6 +106,8 @@ function slothLife(s, dt) {                            // after the clip: fur by
     const sw = Math.sin((k - 0.9) * 2 * Math.PI * 0.55) * 0.5 * sstep(0.6, 1.2, k);
     aimBone(arm[1], wf.set((0.15 + sw) * sg, 1, -0.2).normalize().applyQuaternion(oq), e);
   }
+  if (s.gift && !s.gift.clip && s.arm[1]) giftArm(s);
+  else if (s.armRest) { s.arm[0].quaternion.copy(s.armRest[0]); s.arm[1].quaternion.copy(s.armRest[1]); s.armRest = null; }   // the clip may not write a still bone again
   // asleep (a doze, below): the head sinks; the curled-up clip already tucks it, so less then
   s.droop += ((s.dozing && s.asleep ? 1 : 0) - s.droop) * Math.min(1, dt * 0.8);
   if (s.droop > 0.01) s.head.rotation.x -= (s.act?.getClip().name === "curl" ? 0.12 : 0.4) * s.droop;
@@ -117,6 +119,24 @@ function slothLife(s, dt) {                            // after the clip: fur by
 }
 // a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
 // muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.
+// a gift eaten away from the eat clip (giftFly, in the life code below): a two-bone reach of the right arm, out in front to
+// take it, then up to the lips; the paw is at 0.82 of the forearm (pawOf)
+const gS = V(), gE = V(), gGoal = V(), gDir = V(), gPerp = V(), gM = V();
+function giftArm(s) {
+  const G = s.gift, t = G.t, w = sstep(0, 0.5, t) * (1 - sstep(3.6, 4.2, t)); if (!s.armRest) s.armRest = [s.arm[0].quaternion.clone(), s.arm[1].quaternion.clone()];
+  if (w <= 0) return;
+  const [up, fo] = s.arm; up.getWorldPosition(gS); fo.getWorldPosition(gE);
+  const l1 = gS.distanceTo(gE), l2 = l1 * 0.82, face = vb.copy(FACE).applyQuaternion(s.head.getWorldQuaternion(qa));
+  mouthOf(s).getWorldPosition(gM);
+  const bite = Math.max(0, Math.sin((t - 1.2) / 0.6 * Math.PI * 2));   // the paw in to the lips at each bite
+  const take = gM.clone().addScaledVector(face, 1.1 * l1).addScaledVector(UPV, -0.6 * l1), lips = gM.clone().addScaledVector(face, (0.35 - 0.12 * bite) * l1).addScaledVector(UPV, -0.25 * l1);
+  gGoal.copy(take).lerp(lips, sstep(0.8, 1.3, t));
+  const d = Math.min(Math.max(gS.distanceTo(gGoal), 0.01), (l1 + l2) * 0.999);
+  gDir.copy(gGoal).sub(gS).normalize(); gPerp.set(0, -1, 0).addScaledVector(gDir, gDir.y).normalize();   // the elbow down
+  const a = Math.acos(THREE.MathUtils.clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1));
+  aimBone(up, gDir.clone().multiplyScalar(Math.cos(a)).addScaledVector(gPerp, Math.sin(a)), w);
+  up.updateMatrixWorld(true); fo.getWorldPosition(gE); aimBone(fo, gGoal.clone().sub(gE).normalize(), w);
+}
 const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();
   g.fillStyle = "#e07a8a"; g.beginPath(); g.ellipse(32, 48, 16, 11, 0, 0, 7); g.fill(); });
 const mouthMat = new THREE.MeshBasicMaterial({ map: mouthTex, alphaTest: 0.5 }), mouthGeo = new THREE.PlaneGeometry(0.036, 0.034);
@@ -764,13 +784,18 @@ if (qs.get("campsloths") !== "0") {
     if (t < EAT_GRAB) { pawOf(s, paw); const k = sstep(EAT_GRAB - 0.9, EAT_GRAB, t); G.mesh.position.lerpVectors(G.from, paw, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.25; G.land.copy(paw); }
     else chewStep(s, G.mesh, G.land, EAT_GRAB);
   }
-  // anywhere else: it flies to its mouth in 0.9 s, then shrinks a bite at a time while the mouth munches
+  // anywhere else (hanging, lying, on the move): its right paw comes up (giftArm, after the clip), the food flies into it,
+  // the paw lifts it to its lips and it shrinks a bite at a time while the mouth munches; then the paw goes back
+  // (Adriaen 2026-11-13: "they eat without hands")
   function giftFly(s, dt) {
-    const G = s.gift; G.t += dt; mouthOf(s).getWorldPosition(mouthW);
-    if (G.t < 0.9) { const k = sstep(0, 0.9, G.t); G.mesh.position.lerpVectors(G.from, mouthW, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.3; return; }
-    if (!G.at) { G.at = true; s.nod = 2.4; s.munch = 2.6; }
-    G.mesh.position.copy(mouthW); G.mesh.scale.copy(G.mesh.userData.base ?? V(1, 1, 1)).multiplyScalar(Math.max(0.1, 1 - 0.22 * Math.floor((G.t - 0.9) / 0.6)));
-    if (G.t > 3.4) { scene.remove(G.mesh); s.gift = null; }
+    const G = s.gift; G.t += dt; mouthOf(s).getWorldPosition(mouthW); pawOf(s, paw);
+    if (G.t < 0.9) { const k = sstep(0, 0.9, G.t); G.mesh.position.lerpVectors(G.from, paw, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.3; return; }
+    if (G.t < 3.6) {
+      if (!G.at && G.t > 1.2) { G.at = true; s.nod = 0.8; s.munch = 2.4; }
+      G.mesh.position.copy(paw).lerp(mouthW, 0.45 * sstep(0.9, 1.3, G.t));
+      G.mesh.scale.copy(G.mesh.userData.base ?? V(1, 1, 1)).multiplyScalar(Math.max(0.1, 1 - 0.22 * Math.max(0, Math.floor((G.t - 1.2) / 0.6))));
+    } else if (G.mesh.parent) scene.remove(G.mesh);
+    if (G.t > 4.2) s.gift = null;
   }
   function wander(s) {
     const lg = ["log:1", "log:2"].find((k) => claims.get(k) === "operator" && hosts.has(k));   // he's on a log: now and then go and sit with him
@@ -804,17 +829,31 @@ if (qs.get("campsloths") !== "0") {
     let slow = 1;
     const others = camp.filter((o) => o !== s && GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * (s.sc + o.sc) + 0.1, o]);
     others.push([camera.position, 0.45, null], ...movers.map(([o, r]) => [o.position, r + 0.18 * s.sc + 0.1, null]));
+    // giving way (Adriaen 2026-11-13: "wayfinding needs a bit of work", a sloth was walking into a log seat): it steps
+    // aside to the right of anyone ahead, or to the left when the right is a blocker; someone sitting in a seat or a bed
+    // (inside a blocker the path already goes round) is left out, so the operator on his log doesn't push it into the log
+    const path0 = dir.clone(); let side = 0;
     for (const [p, near, o] of others) {
       const dx = p.x - pos.x, dz = p.z - pos.z, d = Math.hypot(dx, dz);
       if (d > near + 0.6) continue;
       if (o && d < 0.95 && s.greetCD <= 0 && o.greetCD <= 0) { greet(s, o); return; }
-      const ahead = (dx * dir.x + dz * dir.z) / Math.max(d, 1e-4); if (ahead <= 0) continue;
-      const w = Math.min(1.5, (near + 0.6 - d) / 0.6) * ahead * 1.4; const rx = -dir.z, rz = dir.x; dir.x += rx * w; dir.z += rz * w; dir.normalize();   // to the right
+      if (!o && !isFree(p)) continue;
+      const ahead = (dx * path0.x + dz * path0.z) / Math.max(d, 1e-4); if (ahead <= 0) continue;
+      side += Math.min(1.5, (near + 0.6 - d) / 0.6) * ahead * 1.4;
       if (d < near) slow = Math.min(slow, 0.25);
+    }
+    if (side > 0) {
+      const step = 0.18 + 0.12 * s.sc, tryDir = (sg) => V(path0.x - path0.z * side * sg, 0, path0.z + path0.x * side * sg).normalize();
+      const r = tryDir(1), l = tryDir(-1), ok = (d) => isFree(V(pos.x + d.x * step, 0, pos.z + d.z * step));
+      if (ok(r)) dir.copy(r); else if (ok(l)) dir.copy(l); else slow = Math.min(slow, 0.25);   // boxed in: on along its path, slowly
     }
     const off = turnTo(T, Math.atan2(-dir.x, -dir.z), sd * 2.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
     const v = CRAWL * s.sc * sd * slow * (off > 1 ? 0.3 : 1);
-    pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v); pos.y = 0;
+    const was = pos.clone(); pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v); pos.y = 0;
+    if (!isFree(pos) && isFree(was) && (T.path.length > 1 || isFree(aim))) {   // about to walk into something: slide along its path line instead
+      pos.copy(was).addScaledVector(path0, v); if (!isFree(pos)) { pos.copy(was); T.stuck = (T.stuck || 0) + sd; }
+      if (T.stuck > 1.5) { T.stuck = 0; T.path = findPath(pos, T.path[T.path.length - 1]); }   // a fresh path from here
+    }
     if (T.path.length === 1 && dist < 0.1 + v) { pos.x = aim.x; pos.z = aim.z; T.arrive(); }
   }
   const HELLO = ["👋", "💗", "hi!", "*slow wave*"];
@@ -1098,7 +1137,7 @@ if (qs.get("campsloths") !== "0") {
   window.__errand = (name) => { const s = camp.find((q) => q.name === name); if (s && s.trip.phase === "home") { s.wantFood = true; leave(s); } return s; };
   window.__path = findPath;
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
-  window.__lab = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
+  window.__lab = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, walkTo, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
     fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
     nap: (s) => { if (!s.dozing) doze(s); },
     guests: () => guests.map((g) => g.key),
