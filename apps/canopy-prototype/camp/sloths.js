@@ -569,11 +569,30 @@ if (qs.get("campsloths") !== "0") {
     glide(s, postPose(spot, top), 3, () => slide(s, top, 0, 0.015 * HW_POST * s.sc, (y) => postPose(spot, y),
       () => { const yaw = (spot.climbYaw ?? climbYaw) + Math.PI; toGround(s, spot.door.clone().add(V(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(0.3)), yaw, then); }));
   }
+  // out of the tent bed (Adriaen 2026-11-13: "add a climb out of bed animation", not a glide): turn to the open side and
+  // crawl to the edge, reach down over it nose first, step down onto the floor, then off to the door. Tent frame: the bed
+  // lies along the left wall at x -0.92 (about 0.6 wide), the floor 0.02 up, +z out of the door.
+  function bedOut(s, spot, go) {
+    const z = spot.at.z, top = spot.at.y, side = -Math.PI / 2, Q = (yaw, pitch = 0) => new THREE.Quaternion().setFromAxisAngle(UP, yaw).multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), pitch));
+    play(s, "walk", 1.2, WALK_TS);
+    glide(s, { p: V(-0.62, top, z), q: Q(side) }, 2.4, () =>                                   // round and to the edge
+      glide(s, { p: V(-0.5, top - 0.06, z), q: Q(side, -0.55) }, 1.2, () =>                    // paws over, nose down
+        glide(s, { p: V(-0.36, 0.02, z), q: Q(side, -0.3) }, 1.4, () =>                       // down onto the floor
+          glide(s, { p: V(-0.25, 0.02, z + 0.05), q: Q(side + 0.4) }, 1.0, () => {            // level again, turning to the door
+            const door = spot.door, away = Math.atan2(-(door.x - s.o.getWorldPosition(tmp).x), -(door.z - tmp.z));
+            scene.attach(s.o); play(s, "walk", 1, WALK_TS);
+            glide(s, { p: door.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, away) }, 2.2, () => {
+              const out = Math.atan2(-(spot.via.x - door.x), -(spot.via.z - door.z)); s.trip.yaw = out;
+              glide(s, { p: spot.via.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, out) }, door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = out; go(); });
+            });
+          }))));
+  }
   function leave(s) {
     const spot = s.spot, J = window.__jeep; spot.home = false; s.trip = { phase: "glide", t: 0, yaw: 0 }; life.release(`${spot.name}:${s.name}`, s); if (spot.name === "seat") life.release("log:0", s);
     if (s.asleep) { s.asleep = false; s.eyes(false); }
-    s.dozing = false; s.yawn = 0; if (s.mouth) s.mouth.visible = false;
+    s.dozing = false; s.yawn = 0; s.roused = null; if (s.mouth) s.mouth.visible = false;
     const go = () => errand(s);
+    if (spot.bed) return bedOut(s, spot, go);
     if (spot.branch) return climbDown(s, go);
     if (spot.line) {                                  // hand over hand back along the line to post a, then down it
       const L = LL.a.distanceTo(LL.b);
@@ -841,17 +860,30 @@ if (qs.get("campsloths") !== "0") {
   // awake between, and yawns and stretches like the rest (Adriaen 2026-11-13). No errands or s'mores while asleep.
   const homeClip = (s) => s.trip?.phase === "rest" ? ["idle", 1] : !s.spot ? ["cling", 0.6] : [s.spot.clip, s.spot.clip === "cling" ? 0.6 : 1];
   const dozeClip = (s) => s.spot?.guest || s.spot?.asleep ? [s.spot.clip, s.spot.clip === "nap" ? 1 : 1] : s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
-  const canStretch = (s) => s.trip?.phase === "rest" || (["seat", "jeep", "hammock"].includes(s.spot?.name) && !s.spot.guest && s.spot.clip !== "curl");
+  const canStretch = (s) => s.trip?.phase === "rest" || (["seat", "jeep", "hammock"].includes(s.spot?.name) && s.spot.clip !== "curl") || (s.spot?.guest && s.spot.name === "tent");   // sitting, or lying where it can sit up (hammock, bed)
   function doze(s, dur = s.spot?.asleep && s.trip?.phase === "home" ? R(90, 180) : R(50, 110)) { s.dozing = true; s.yawn = 1e-3; s.dozeIn = 2.4; s.dozeT = dur; }
   function wake(s, after) {
     s.dozing = false; s.asleep = false; s.eyes(false); s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
     const [c, ts] = homeClip(s), back = after ?? (() => play(s, c, 1.5, ts));
     if (canStretch(s)) playOnce(s, "stretch", 1.5, back); else { s.yawn = 1e-3; play(s, c, 2, ts); after?.(); }
   }
+  // woken (Adriaen 2026-11-13: "they don't have to start moving just because they're booped"): a stretch where it can sit up,
+  // else a yawn; often a slow wave at you; a while awake where it is; then, two times in three, back to sleep (a yawn and
+  // nod off). A nap trip that runs out does the same and then gets up.
+  function rouse(s, back) {
+    s.dozing = s.asleep = false; s.eyes(false); s.dozeIn = 0; s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
+    s.roused = { t: 0, dur: R(7, 15), back, wave: R(0, 1) < 0.5, waved: false };
+    const [c, ts] = homeClip(s);
+    if (canStretch(s)) playOnce(s, "stretch", 1.5, () => play(s, c, 1.5, ts)); else { s.yawn = 1e-3; play(s, c, 2, ts); }
+  }
   function napStep(s, sd, after) {
     if (s.dozing) {
       if (s.dozeIn > 0) { s.dozeIn -= sd; if (s.dozeIn <= 0) { s.asleep = true; s.eyes(true); const [c, ts] = dozeClip(s); play(s, c, 2.5, ts); } }
-      else { s.dozeT -= sd; if (s.dozeT < 0 || s.squish > 0.9 || s.nod > 2) wake(s, after); }
+      else { s.dozeT -= sd; if (s.squish > 0.9 || s.nod > 2) rouse(s, R(0, 1) < 2 / 3); else if (s.dozeT < 0) after ? rouse(s, false) : wake(s); }
+    } else if (s.roused) {                            // awake in its place for a bit: maybe a wave at you, then back to sleep or off
+      const r = s.roused; r.t += sd;
+      if (r.wave && !r.waved && r.t > 3.5 && !s.once && !s.yawn) { r.waved = true; s.wave = 1e-3; s.waveCD = 15; }
+      if (r.t > r.dur && !s.once && !s.wave && !s.yawn) { s.roused = null; if (r.back) doze(s); else after?.(); }
     } else if (!after) { s.napT -= sd; if (s.napT < 0 && !s.smore && !s.wave && !s.once) doze(s); }
   }
   // z's rising off each sleeper, three at a time like the hammock napper's (Adriaen 2026-11-13: "sleeping sloths should have
@@ -894,7 +926,7 @@ if (qs.get("campsloths") !== "0") {
     if (Jp && window.__jeep?.seat) guests.push({ ...Jp, key: "jeep:P", at: Jp.parent.worldToLocal(window.__jeep.seat.clone()), yaw: Math.PI, clip: "curl", scale: 2.2, guest: true, home: false, who: null });
     if (Tp) {                                         // the bed along the tent's left wall (campLife.js), tent frame: x -0.92, z -1.2 .. 0.4
       const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = Tp.parent.localToWorld(V(x, 0, z)); ray.set(V(w.x, 1.2, w.z), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? h.point.y : 0.3; };
-      for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = -0.92 + dx, z = -0.45; guests.push({ ...Tp, key: `bed:${i}`, at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, guest: true, home: false, who: null }); }
+      for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = -0.92 + dx, z = -0.45; guests.push({ ...Tp, bed: true, key: `bed:${i}`, at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, guest: true, home: false, who: null }); }
     }
   }
   const wild = sloths.filter((s) => s.wild);
@@ -964,7 +996,7 @@ if (qs.get("campsloths") !== "0") {
         if (spot.name === "seat") smoreStep(s, sd);
         napStep(s, sd, s.spot.guest ? () => leave(s) : undefined);
         s.errand -= sd;
-        if (s.errand < 0 && !s.smore && !s.wave && !s.dozing && !s.once) {
+        if (s.errand < 0 && !s.smore && !s.wave && !s.dozing && !s.roused && !s.once) {
           const mate = R(0, 1) < 0.2 && out < MAX_OUT - 1 && camp.find((q) => q !== s && q.trip.phase === "home" && !q.dozing && !q.smore && !q.spot.guest && q.spot.name !== "hammock");
           if (mate && s.spot.name !== "hammock" && startCards(s, mate)) out += 2;
           else if (out < MAX_OUT) { leave(s); out++; } else s.errand = R(6, 15);
