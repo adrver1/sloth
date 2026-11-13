@@ -89,7 +89,7 @@ function allTargets() {
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
     const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
-      options: () => [[(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };
+      options: () => [...(window.__car?.doorOptions?.(d) ?? []), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };   // car.js: Get in / Get out on the driver's door
   }));
   return out;
 }
@@ -130,7 +130,7 @@ function closeMenu() { menuFor = null; menu.style.display = "none"; }
 function placeMenu() {
   const S = menuFor.at(to); to.y += S.radius * 0.8; to.project(camera);
   if (to.z > 1) { closeMenu(); return; }   // behind you
-  const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, 130, innerHeight - 40);
+  const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, Math.max(130, menu.offsetHeight + 60), innerHeight - 40);   // a tall menu (the clock's) stays on screen
   menu.style.left = x + "px"; menu.style.top = y + "px";
 }
 function tap(x, y) {

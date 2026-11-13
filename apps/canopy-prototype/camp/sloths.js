@@ -759,8 +759,10 @@ if (qs.get("campsloths") !== "0") {
     const lg = ["log:1", "log:2"].find((k) => claims.get(k) === "operator" && hosts.has(k));   // he's on a log: now and then go and sit with him
     if (lg && R(0, 1) < 0.25) { const o = scene.getObjectByName(`Seat_${lg[4]}`); if (o) { const c = o.position.clone().setY(0); return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!life.join(lg, s)) goHome(s); }); } }
     walkTo(s, wanderPoint(), () => { Object.assign(s.trip, { phase: "rest", t: 0, dur: R(5, 9), nap: R(0, 1) < 0.55 }); play(s, "idle", 1.2); }); }
+  const youDrive = () => claims.get("jeep:driver") === "player";   // you in the jeep's driver seat (jeepSeat.js): its sloth waits
   function goHome(s) {
     const spot = s.spot;
+    if (spot.car && youDrive()) return wander(s);   // a wander and a sit, then it tries again
     walkTo(s, spot.via ?? spot.door, () => {
       if (!spot.via) return arriveDoor(s);
       const T = s.trip, yaw = Math.atan2(-(spot.door.x - spot.via.x), -(spot.door.z - spot.via.z)); T.yaw = yaw;
@@ -776,6 +778,7 @@ if (qs.get("campsloths") !== "0") {
     const spot = s.spot, T = s.trip; s.o.position.copy(spot.door);
     if (spot.branch) return climbUp(s, spot);
     if (spot.climb) { T.phase = "climb"; T.t = 0; return; }
+    if (spot.car && youDrive()) return wander(s);   // you got in while it was on its way
     if (spot.car) { T.phase = "door"; T.t = 0; window.__jeep.open("P"); return; }
     settleIn(s, 2.5);
   }
@@ -901,7 +904,7 @@ if (qs.get("campsloths") !== "0") {
   }
   const wild = sloths.filter((s) => s.wild);
   function napTrip(s) {                               // a cozy place free (or shared with the operator); false if none
-    const own = s.spot, ok = guests.filter((g) => !(g.name === own.name && own.name !== "tent") && (s.sc < 2.0 || g.name !== "hammock"));
+    const own = s.spot, ok = guests.filter((g) => !(g.car && youDrive()) && !(g.name === own.name && own.name !== "tent") && (s.sc < 2.0 || g.name !== "hammock"));
     let pick = ok[Math.floor(R(0, ok.length))]; if (!pick) return false;
     const b0 = claims.get("bed:0"); if (pick.key === "bed:1" && b0 && !camp.includes(b0)) pick = guests.find((g) => g.key === "bed:0");   // he lies along the whole bed
     const h = claims.get(pick.key);
