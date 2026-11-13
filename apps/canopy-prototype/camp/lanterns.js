@@ -4,7 +4,9 @@
 // each, a candle in each jar. By day they are plain glass and tin; from dusk the glass glows with a warm gradient, the
 // candle burns and a soft glow sprite shows round each. They sway slowly. Page-lit (no light map: they move), drawn in
 // five draws for all eight: tin and cords, glass, candles, flames, glows.
-// The same layout is mirrored in props/camp/bake_camp_lightmap.py (the baked lantern light); keep them in step.
+// The light bake (props/camp/bake_camp_lightmap.py) reads where each lantern's light is from the "place" block that
+// props/shadow/export_casters.cjs writes from this page; only the drop below the hang point is still a copy there (the bake's
+// 0.12 m against JAR_Y's 0.125 m, review props-07).
 import * as THREE from "three";
 
 const SAG = 0.5, PER = 4, TREE_Y = 4.6, TREE_IN = 1.0;   // string sag (m), lanterns per string, tie height and how far in from the tree's centre

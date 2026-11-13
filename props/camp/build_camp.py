@@ -4,7 +4,8 @@ Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three 
     storybook  chunky and rounded: pebble fire ring, bell tent with a pennant, striped hammock, paper lanterns
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
     jungle     a rainforest hideout: bamboo tripod and kettle, a leaf-thatched lean-to, bamboo bench, gourd lanterns
-    picked     the set in use: rustic, with a canvas wall tent with planks before the door, the jungle tripod and kettle over the rustic fire and the jungle hammock
+    picked     the set in use: the rustic seat, lantern and table, a canvas wall tent with planks before the door, and the
+               jungle hammock on plain posts (the fire, tripod and pot are props/lived/build_fire.py)
 
 Storybook, Rustic and Jungle (and the first pre-light-map picked GLB) are archived (camp review, Adriaen 2026-11-12): their
 GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, one function
@@ -13,7 +14,7 @@ props/bake_all.py, on the GPU); this script's own AO bake only remakes an archiv
 
     .venv/bin/python props/camp/build_camp.py --style rustic --samples 64     # -> props/camp/archive/camp_rustic.glb
 
-Each style is one GLB (props/camp/camp_<style>.glb) holding six objects, each at its own origin, standing on
+Each archived style is one GLB (props/camp/archive/camp_<style>.glb) holding six objects, each at its own origin, standing on
 z = 0 with its front toward -Y (three.js +Z): Fire, Seat, Tent, Hammock, Lantern, Table. The page places them.
 Light is baked: Cycles ambient occlusion (with a ground plane, so props darken where they meet the ground)
 times each part's base colour goes into one colour attribute, so the page draws them with a plain Lambert
