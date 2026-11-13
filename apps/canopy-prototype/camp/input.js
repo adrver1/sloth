@@ -49,10 +49,13 @@ const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
 function boop(s) { s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
 // feeding (Adriaen 2026-11-12: every camp sloth is already your friend, so no friend counter or "new friend"; and eating
 // shows no words or emojis): a flower flies from you to its mouth, it nods and munches it (slothLife's mouth)
-function feed(s) {
-  const f = sprite("🌺", 96); f.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(f);
+function feed(s, emoji = "🌺") {
+  const f = sprite(emoji, 96); f.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(f);
   fx.push({ s: f, fly: { from: f.position.clone(), to: s.head.getWorldPosition(V()) }, t: 0, life: 0.9, done() { s.nod = 2.4; s.munch = 2.6; } });
 }
+
+// giving it what you carry (a vegetable or a bowl of soup from the pot): it leaves your hand, flies to its mouth and it munches
+function give(s) { const f = acts.give?.(); if (f) feed(s, f.emoji); }
 
 // ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
 // With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,
@@ -79,7 +82,7 @@ function allTargets() {
   for (const t of acts.things) if (t.look) out.push(target(t, () => ({ look: t.look, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
     ready: () => acts.ready(t), options: () => [[acts.label?.(t) ?? "Use it", () => acts.tap({ thing: t })]] })));   // only ever the one thing a tap does now (activities.js label)
   for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
-    ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => [["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]] })));
+    ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food?.(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })));
   for (const d of window.__jeep?.doors ?? []) out.push(target(d, () => {
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
     const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
