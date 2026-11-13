@@ -2,7 +2,6 @@
 import * as THREE from "three";
 import { GAIN } from "../bakedlight.js";
 import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
-import { pickAt, toast } from "./hud.js";
 import { V, canvasTex, ease } from "./util.js";
 import { JEEP_AT, JEEP_OUT, JEEP_TAN } from "./layout.js";
 import { blockers } from "./campProps.js";
@@ -15,7 +14,7 @@ import { blockers } from "./campProps.js";
 // cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
 // jeepSeat.js adds sitting in the front seats to the same object: sit(side), stand(), seatedIn(), seatBusy(side).
 // cabinLive.receive(object): that object takes the cabin light's shadow (campLife.js gives it the floor and the baked props).
-let jeepStep = () => {}, jeepTap = () => false, jeepApi = null, cabinLive = null;
+let jeepStep = () => {}, jeepApi = null, cabinLive = null;
 if (JEEP !== "none") {
   const J = await PRE.jeep, at = JEEP_AT, out = JEEP_OUT, tan = JEEP_TAN;
   const jeep = J.scene;
@@ -85,12 +84,6 @@ if (JEEP !== "none") {
       if (want !== isFar) { isFar = want; far.visible = want; for (const m of jeepMeshes) m.visible = !want; }
     }
   };
-  const meshes = []; for (const d of Object.values(doors)) d.o.traverse((m) => { if (m.isMesh) { m.userData.door = d; meshes.push(m); } });
-  jeepTap = (x, y) => {
-    const h = pickAt(x, y, meshes); if (!h) return false;
-    if (h.distance > 6) { toast("Get a bit closer"); return true; }
-    const d = h.object.userData.door; d.want = d.want ? 0 : d.open; return true;
-  };
   jeepApi = {
     node: jeep,
     doors: Object.entries(doors).map(([k, d]) => ({ k, o: d.o, toggle: () => (d.want = d.want ? 0 : d.open), get open() { return d.want !== 0; } })),   // for the highlight and its menu (input.js)
@@ -100,7 +93,7 @@ if (JEEP !== "none") {
     lights: { get cabin() { return cab; } },
     cargoSlots: [[-0.3, -0.75], [0.3, -0.75], [-0.3, -1.3], [0.3, -1.3]].map(([x, z]) => local(x, boot.y, z)),
   };
-  window.__jeep = jeepApi;   // alias: sloths.js and input.js read it (and the open PRs' car.js, jeepSeat.js)
+  window.__jeep = jeepApi;   // alias: sloths.js, input.js, car.js and audio.js read it; props/shadow/export_casters.cjs takes the jeep's place from it
 }
 
-export { cabinLive, jeepApi, jeepStep, jeepTap };
+export { cabinLive, jeepApi, jeepStep };

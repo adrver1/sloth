@@ -5,7 +5,7 @@ import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
 import { D, JEEP, LOOK, OPT, R, S, hex, leafMat, rnd, scene, setSeed } from "./core.js";
 import { V, canvasTex, lcg, polyDist, rand, sstep } from "./util.js";
-import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_HALF, PATH_W, RC, TRACK_HALF, d0, pathDist, pathLane, sloPath, t0 } from "./layout.js";
+import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
@@ -331,6 +331,6 @@ if (track) {
 
 
 export { FLOOR_OVERLAYS, branchCurves, clearing, track, trackDist };
-// back-compat: input.js, main.js, operator.js, player.js and sloths.js still import these from here, and car.js, clock.js, radio.js and
-// jeepSeat.js (open PR #16) import V (their home is layout.js, and util.js for V and polyDist)
-export { A0, GLADE, GLADE_R, HERO, PATH_W, RC, V, d0, polyDist, sloPath, t0 };
+// back-compat, for the files the open PRs change: operator.js and sloths.js still import A0 and RC from here, sloths.js HERO,
+// and car.js, input.js, operator.js, radio.js and sloths.js V (their home is layout.js, and util.js for V)
+export { A0, HERO, RC, V };
