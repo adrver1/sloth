@@ -22,11 +22,11 @@ import bmesh  # noqa: E402
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_camp  # noqa: E402
-from build_camp import apply_all, bake, join, mat, reset, rod  # noqa: E402
-
-build_camp.densify = lambda o, *_: apply_all(o)   # no face splitting for the bake: plain faces shade fine at this size
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import reset  # noqa: E402
+from lib.materials import mat  # noqa: E402
+from lib.mesh import apply_all, join, rod  # noqa: E402
 
 L = 3.0            # post to post
 H = 1.62           # where the line is tied on the posts
@@ -147,13 +147,15 @@ def posts():
     return join(p, "LaundryPosts")
 
 
-def build():
+def build(colour=None):
+    """Build the laundry line in a fresh scene, light the posts (colour(objs); by default their own AO bake, no face
+    splitting: plain faces shade fine at this size) and write laundry.glb."""
     reset()
     img = os.path.join(HERE, "laundry.png")
     atlas(img)
     po = posts()
     apply_all(po)
-    bake([po], 32)
+    (colour or (lambda objs: bake(objs, 32)))([po])
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
     cl = cloth(img)

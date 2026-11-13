@@ -23,55 +23,25 @@ import argparse
 import math
 import os
 import random
+import sys
 
 import bpy
 import bmesh
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import reset  # noqa: E402
+from lib.materials import mat  # noqa: E402
+from lib.mesh import _finish, apply_all, ball, bevel, box, cyl, drop_faces, join, rod, rough_up, torus  # noqa: E402
+
 HAMMOCK_SPAN = 2.86
 STYLES = ("storybook", "rustic", "jungle", "picked")
 rng = random.Random(7)
 
 
-# ------------------------------------------------------------------ helpers
-def reset():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-
-
-def mat(name, rgb):
-    m = bpy.data.materials.get(name)
-    if m is None:
-        m = bpy.data.materials.new(name)
-        m.diffuse_color = (*rgb, 1)
-        m["base"] = list(rgb)
-    return m
-
-
-def _finish(o, m, smooth=True):
-    o.data.materials.append(m)
-    if smooth:
-        for p in o.data.polygons:
-            p.use_smooth = True
-    return o
-
-
-def cyl(r, h, at=(0, 0, 0), rot=(0, 0, 0), m=None, verts=16, r2=None, smooth=True):
-    """A cylinder (or cone when r2 is given) of height h centred on at."""
-    if r2 is None:
-        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=h, vertices=verts, location=at, rotation=rot)
-    else:
-        bpy.ops.mesh.primitive_cone_add(radius1=r, radius2=r2, depth=h, vertices=verts, location=at, rotation=rot)
-    return _finish(bpy.context.object, m, smooth)
-
-
-def ball(r, at=(0, 0, 0), scale=(1, 1, 1), m=None, seg=16, rot=(0, 0, 0)):
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=r, segments=seg, ring_count=max(6, seg // 2), location=at, rotation=rot)
-    o = bpy.context.object
-    o.scale = scale
-    return _finish(o, m)
-
-
+# ------------------------------------------------------------------ helpers (the shared ones are in props/lib)
 def rock(r, at, scale, m, rough=0.35, detail=2):
     bpy.ops.mesh.primitive_ico_sphere_add(radius=r, subdivisions=detail, location=at)
     o = bpy.context.object
@@ -80,51 +50,6 @@ def rock(r, at, scale, m, rough=0.35, detail=2):
         n = v.co.normalized()
         v.co *= 1 + rough * (0.5 * math.sin(n.x * 5.1 + n.y * 3.3) + 0.3 * math.sin(n.y * 7.7 - n.z * 4.1) + 0.2 * rng.uniform(-1, 1))
     return _finish(o, m)
-
-
-def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=at, rotation=rot)
-    o = bpy.context.object
-    o.scale = size
-    _finish(o, m, smooth=False)
-    if bevel:
-        apply_all(o)
-        mod = o.modifiers.new("b", "BEVEL")
-        mod.width, mod.segments = bevel, 2
-    return o
-
-
-def torus(R, r, at=(0, 0, 0), rot=(0, 0, 0), m=None, major=24, minor=8):
-    bpy.ops.mesh.primitive_torus_add(major_radius=R, minor_radius=r, major_segments=major, minor_segments=minor, location=at, rotation=rot)
-    return _finish(bpy.context.object, m)
-
-
-def bevel(o, w, seg=2):
-    apply_all(o)
-    mod = o.modifiers.new("b", "BEVEL")
-    mod.width, mod.segments, mod.limit_method = w, seg, "ANGLE"
-    return o
-
-
-def rough_up(o, amt, freq=4.0, axis_mask=(1, 1, 1)):
-    """Bumpy bark or rock: push vertices along their normals by a cheap 3D noise."""
-    apply_all(o)
-    me = o.data
-    for v in me.vertices:
-        p = v.co
-        n = math.sin(p.x * freq * 1.7 + p.y * freq * 0.9) * math.sin(p.z * freq * 2.3 + p.x * freq) + 0.5 * math.sin(p.y * freq * 4.1 - p.z * freq * 3.2)
-        v.co += Vector((v.normal.x * axis_mask[0], v.normal.y * axis_mask[1], v.normal.z * axis_mask[2])) * amt * n
-    return o
-
-
-def rod(a, b, r, m, verts=8):
-    """A cylinder from point a to point b."""
-    a, b = Vector(a), Vector(b)
-    d = b - a
-    o = cyl(r, d.length, at=(a + b) / 2, m=m, verts=verts)
-    o.rotation_mode = "QUATERNION"
-    o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
-    return o
 
 
 def bamboo(a, b, r, m, node_m, nodes=None):
@@ -224,40 +149,6 @@ def sag_sheet(span, width, depth, at, m_a, m_b=None, stripes=0, thick=0.012, nx=
         p.use_smooth = True
     sol = o.modifiers.new("s", "SOLIDIFY")
     sol.thickness = thick
-    return o
-
-
-def drop_faces(o, test):
-    """Delete the faces nobody sees (caps buried in the ground or inside another part); test(face) says which."""
-    apply_all(o)
-    bm = bmesh.new()
-    bm.from_mesh(o.data)
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if test(type("F", (), {"normal": f.normal, "center": f.calc_center_median()}))], context="FACES")
-    bm.to_mesh(o.data)
-    bm.free()
-    return o
-
-
-def apply_all(o):
-    bpy.ops.object.select_all(action="DESELECT")
-    o.select_set(True)
-    bpy.context.view_layer.objects.active = o
-    for mod in list(o.modifiers):
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-
-
-def join(objs, name):
-    for o in objs:
-        apply_all(o)
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
-        o.select_set(True)
-    bpy.context.view_layer.objects.active = objs[0]
-    bpy.ops.object.join()
-    o = bpy.context.object
-    o.name = name
-    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     return o
 
 
@@ -535,11 +426,7 @@ def wall_tent():
     p = [body]
     # frame: open-ended poles (no caps anyone would see)
     def pole(a, b, r, m, verts=6):
-        a, b = Vector(a), Vector(b); d = b - a
-        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=d.length, vertices=verts, end_fill_type="NOTHING", location=(a + b) / 2)
-        o = bpy.context.object; o.rotation_mode = "QUATERNION"
-        o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
-        return _finish(o, m)
+        return rod(a, b, r, m, verts=verts, caps=False)
     rz = Z0 + H + 0.05
     p.append(pole((0, yf - 0.45, rz), (0, yb + 0.45, rz), 0.05, M["pole"]))                            # ridge pole
     # a wide A-frame of crossed shear poles at each end (as in the second photo); the eave poles rest on them, lashed on
@@ -601,7 +488,6 @@ def stove_kettle(M, at):
     """The kettle on the tent stove (Adriaen 2026-11-12: not one solid chunk, as light as the enamel mug): an 8-sided
     lathe, base to belly to shoulder, a darker lid ring and knob, a tapered 4-sided spout and a 3-part bail handle.
     No bottom (it stands on the plate). About 84 triangles."""
-    import bmesh
     x0, y0, z0 = at
     n, prof = 8, [(0.072, 0.0), (0.085, 0.05), (0.07, 0.095), (0.048, 0.11), (0.014, 0.122), (0.0, 0.135)]
     bm = bmesh.new()
@@ -714,74 +600,6 @@ def jungle(plain_posts=False):
 
 
 # ------------------------------------------------------------------ bake and export
-def densify(o, edge=0.13):
-    """Split long edges so baked AO per vertex has room to vary."""
-    apply_all(o)
-    bpy.ops.object.mode_set(mode="EDIT")
-    for _ in range(3):
-        bpy.ops.mesh.select_all(action="DESELECT")
-        bpy.ops.object.mode_set(mode="OBJECT")
-        n = 0
-        for e in o.data.edges:
-            a, b = o.data.vertices[e.vertices[0]].co, o.data.vertices[e.vertices[1]].co
-            if (a - b).length > edge:
-                e.select = True; n += 1
-        bpy.ops.object.mode_set(mode="EDIT")
-        if not n:
-            break
-        bpy.ops.mesh.subdivide(number_cuts=1)
-    bpy.ops.object.mode_set(mode="OBJECT")
-
-
-def bake(objs, samples):
-    sc = bpy.context.scene
-    sc.render.engine = "CYCLES"
-    sc.cycles.device = "CPU"
-    sc.cycles.samples = samples
-    sc.world = sc.world or bpy.data.worlds.new("w")
-    bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
-    ground = bpy.context.object
-    for o in objs:
-        if not o.get("coarse"):                         # "coarse": keep the modelled detail, AO only at the existing vertices
-            densify(o, o.get("ao_edge", 0.13))          # "ao_edge": a coarser split for that object
-        ao = o.data.color_attributes.new("AO", "FLOAT_COLOR", "CORNER")
-        o.data.color_attributes.active_color = ao
-    for o in objs:
-        bpy.ops.object.select_all(action="DESELECT")
-        o.select_set(True)
-        bpy.context.view_layer.objects.active = o
-        o.data.color_attributes.active_color = o.data.color_attributes["AO"]
-        sc.render.bake.target = "VERTEX_COLORS"
-        sc.world.light_settings.distance = 0.6
-        bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
-    bpy.data.objects.remove(ground)
-    # colour = base colour x soft AO, into the attribute the exporter writes as COLOR_0
-    for o in objs:
-        me = o.data
-        ao = me.color_attributes["AO"]
-        col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        bases = [Vector(m["base"]) for m in me.materials]
-        for poly in me.polygons:
-            base = bases[poly.material_index]
-            for li in poly.loop_indices:
-                a = ao.data[li].color[0]
-                k = 0.32 + 0.68 * a
-                col.data[li].color = (base.x * k, base.y * k, base.z * k, 1)
-        me.color_attributes.remove(ao)
-        me.color_attributes.active_color = me.color_attributes["Col"]
-        # one plain material that uses the colour attribute
-        m = bpy.data.materials.new("Baked")
-        m.use_nodes = True
-        nt = m.node_tree
-        bsdf = nt.nodes.get("Principled BSDF")
-        ca = nt.nodes.new("ShaderNodeVertexColor")
-        ca.layer_name = "Col"
-        nt.links.new(ca.outputs["Color"], bsdf.inputs["Base Color"])
-        bsdf.inputs["Roughness"].default_value = 0.9
-        me.materials.clear()
-        me.materials.append(m)
-
-
 def picked():
     """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent; the jungle woven hammock,
     on plain octagon posts with painted nodes and no leaves on top (2026-11-11). The fire is props/lived/build_fire.py."""
@@ -823,7 +641,7 @@ def build(style, samples):
     for o in objs.values():
         apply_all(o)
         o.location = (0, 0, 0)
-    bake(list(objs.values()), samples)
+    bake(list(objs.values()), samples, split=True)     # the archived styles split long edges for the AO
     lean(objs, BUDGET.get(style, {}))
     path = os.path.join(HERE, "archive", f"camp_{style}.glb")
     bpy.ops.object.select_all(action="DESELECT")

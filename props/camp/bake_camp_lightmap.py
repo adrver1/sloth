@@ -6,7 +6,7 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
     blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --samples 512
     # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 4096
 
-1. Runs props/lived/build_lived.py, build_fire.py and build_laundry.py with build_camp.bake swapped for a flat one, so
+1. Runs props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours (lib.bake.flat_colours), so
    their vertex colours are plain base colours (no AO of their own) and their GLBs carry no light.
 2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the lived GLBs, and stands everything where
    camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
@@ -53,34 +53,21 @@ T0 = time.time()
 GLOW = ("ru_glass", "wt_glow")
 THIN = ("LaundryCloth", "Chain")
 
-sys.path.insert(0, HERE); sys.path.insert(0, LIVED)
+sys.path.insert(0, HERE); sys.path.insert(0, LIVED); sys.path.insert(0, os.path.join(ROOT, "props"))
 import build_camp  # noqa: E402
+from lib.bake import flat_colours  # noqa: E402
+from lib.export import reset  # noqa: E402
+from lib.mesh import apply_all  # noqa: E402
 
 
-def flat_bake(objs, samples=0):
-    """Stands in for build_camp.bake: plain base colours into Col (alpha 0 where it glows), one vertex-colour material."""
-    for o in objs:
-        me = o.data
-        for c in list(me.color_attributes):
-            me.color_attributes.remove(me.color_attributes[c.name])
-        col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        for poly in me.polygons:
-            m = me.materials[poly.material_index] if me.materials else None
-            base = Vector(m["base"]) if m and "base" in m else Vector((0.5, 0.5, 0.5))
-            al = 0.0 if m and m.name.split(".")[0] in GLOW else 1.0
-            for li in poly.loop_indices:
-                col.data[li].color = (base.x, base.y, base.z, al)
-        me.color_attributes.active_color = col
-        m = bpy.data.materials.new("Baked"); m.use_nodes = True
-        nt = m.node_tree; ca = nt.nodes.new("ShaderNodeVertexColor"); ca.layer_name = "Col"
-        nt.links.new(ca.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
-        me.materials.clear(); me.materials.append(m)
+def flat(objs):
+    """The props' own colours for this bake: plain base colours into Col (alpha 0 where it glows), no light of their own."""
+    flat_colours(objs, GLOW)
 
-
-build_camp.bake = flat_bake
 
 # ---- 1. the lived builders, with flat colours
-for name, call in (("build_lived", lambda g: g["build"](32, None)), ("build_fire", lambda g: g["build"]()), ("build_laundry", lambda g: g["build"]())):
+for name, call in (("build_lived", lambda g: g["build"](32, None, colour=flat)), ("build_fire", lambda g: g["build"](colour=flat)),
+                   ("build_laundry", lambda g: g["build"](colour=flat))):
     path = os.path.join(LIVED, name + ".py")
     g = {"__name__": name, "__file__": path}
     exec(compile(open(path, encoding="utf-8").read(), path, "exec"), g)
@@ -122,18 +109,18 @@ PLACE = {
     "laundry": {"LaundryPosts": LAUNDRY, "LaundryCloth": LAUNDRY},
 }
 
-build_camp.reset()
+reset()
 objs = build_camp.picked()
 if "Fire" in objs:                                # older picked() builds still made the old fire: the lived fire set replaces it
     bpy.data.objects.remove(objs.pop("Fire"))
 for name, o in objs.items():
-    build_camp.apply_all(o); o.location = (0, 0, 0)
+    apply_all(o); o.location = (0, 0, 0)
     n = build_camp.BUDGET["picked"].get(name); t = sum(len(p.vertices) - 2 for p in o.data.polygons)
     if n and t > n:
         bpy.context.view_layer.objects.active = o
         d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=d.name)
-flat_bake(list(objs.values()))
+flat(list(objs.values()))
 
 
 def place(src, name, x, z, yaw, y=0.0, copy=True):

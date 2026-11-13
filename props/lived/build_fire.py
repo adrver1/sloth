@@ -24,13 +24,11 @@ import bmesh  # noqa: E402
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
-sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_lived  # noqa: E402  (shared helpers; its light densify is replaced below)
-import build_camp  # noqa: E402
-from build_camp import (apply_all, bake, bamboo, box, painted_bamboo, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
-
-build_camp.densify = lambda o, *_: apply_all(o)   # no face splitting for the AO bake: the fire and pot are small enough that the plain faces shade fine
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import reset  # noqa: E402
+from lib.materials import mat  # noqa: E402
+from lib.mesh import _finish, apply_all, box, cyl, join, rod, rough_up, torus  # noqa: E402
 
 rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
@@ -391,7 +389,9 @@ def chain(bottom, top):
     return o
 
 
-def build(samples=32):
+def build(samples=32, colour=None):
+    """Build the fire set in a fresh scene, light it (colour(objs); by default its own AO bake at samples, no face
+    splitting: the fire and pot are small enough that the plain faces shade fine) and write fire.glb."""
     reset()
     M = materials()
     ring_o, trip = ring(M), tripod(M)
@@ -401,7 +401,7 @@ def build(samples=32):
     for o in objs:
         apply_all(o)
         o.location = (0, 0, 0)
-    bake(objs, samples)
+    (colour or (lambda objs: bake(objs, samples)))(objs)
     for o in objs:
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])

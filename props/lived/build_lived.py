@@ -28,33 +28,14 @@ import bmesh  # noqa: E402  (needs bpy loaded first)
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_camp  # noqa: E402
-from build_camp import (apply_all, bake, box, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import reset  # noqa: E402
+from lib.materials import mat  # noqa: E402
+from lib.mesh import apply_all, box, capless, cyl, join, quad, rod, rough_up, torus  # noqa: E402
 
 rng = random.Random(11)
 SEAT_TOP = 0.361
-
-
-def densify(o, area=0.01, edge=0.08, rounds=2):
-    """Split only the bigger faces (as the jeep does), so small props stay light. The mug and book are too small for
-    the extra shading to show, so they keep their plain faces."""
-    apply_all(o)
-    if o.name == "SeatThings":
-        return
-    for _ in range(rounds):
-        bm = bmesh.new()
-        bm.from_mesh(o.data)
-        edges = {e for f in bm.faces if f.calc_area() > area for e in f.edges if e.calc_length() > edge}
-        if edges:
-            bmesh.ops.subdivide_edges(bm, edges=list(edges), cuts=1, use_grid_fill=True)
-        bm.to_mesh(o.data)
-        bm.free()
-        if not edges:
-            break
-
-
-build_camp.densify = lambda o, *_: apply_all(o)   # bake() calls it: no face splitting (the low-triangle rule), plain faces shade fine
 
 
 PARTS = []          # piece names; each face carries its piece's index in the "part" attribute, for the triangle breakdown
@@ -346,19 +327,6 @@ def _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H):
     return o
 
 
-def capless(o, a, b, keep_end=True):
-    """Drop a rod's caps that nobody sees: the one at a (in the ground or the stump), and the one at b unless keep_end."""
-    apply_all(o)
-    d = (Vector(b) - Vector(a)).normalized()
-    bm = bmesh.new()
-    bm.from_mesh(o.data)
-    gone = [f for f in bm.faces if abs(f.normal.dot(d)) > 0.98 and (not keep_end or (f.calc_center_median() - Vector(a)).dot(d) < 0.01)]
-    bmesh.ops.delete(bm, geom=gone, context="FACES")
-    bm.to_mesh(o.data)
-    bm.free()
-    return o
-
-
 def ring_top(r, at, n, M):
     """A sawn top as one flat octagon fan with two growth rings painted in by alternating face colours (40 triangles,
     instead of modelled ring tori)."""
@@ -454,15 +422,6 @@ def loose_logs(logs=None, name="LooseLogs"):
     bpy.context.collection.objects.link(o)
     me.materials.append(bpy.data.materials["WoodStack"])           # the stack's own material and image, exported once
     return o
-
-
-def quad(corners, m):
-    """One flat face (a page, a line of print, a ribbon)."""
-    me = bpy.data.meshes.new("quad")
-    me.from_pydata(corners, [], [(0, 1, 2, 3)])
-    o = bpy.data.objects.new("quad", me)
-    bpy.context.collection.objects.link(o)
-    return _finish(o, m, smooth=False)
 
 
 def page(w, d, side, M, lift):
@@ -786,7 +745,9 @@ def kitchen_things(M):
     return join(p, "KitchenThings")
 
 
-def build(samples, parts_out=None):
+def build(samples, parts_out=None, colour=None):
+    """Build the lived props in a fresh scene, light them (colour(objs); by default their own AO bake at samples) and
+    write lived.glb."""
     reset()
     M = materials()
     stack = wood_stack(M, max(samples, 48))
@@ -799,7 +760,7 @@ def build(samples, parts_out=None):
         apply_all(o)
         o.location = (0, 0, 0)
         o.name = k
-    bake(list(objs.values()), samples)
+    (colour or (lambda objs: bake(objs, samples)))(list(objs.values()))
     for o in objs.values():                   # baked props need no UVs; only the stack is textured
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
