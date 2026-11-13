@@ -38,6 +38,26 @@ const surfTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 
 const bubbleTex = canvasTex(32, 32, (g) => { g.strokeStyle = "rgba(255,244,225,.95)"; g.lineWidth = 3; g.beginPath(); g.arc(16, 16, 11, 0, 7); g.stroke(); g.fillStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.arc(16, 16, 9, 0, 7); g.fill(); });
 const STAGE = { empty: 0x2e2824, water: 0x86a9b0, 1: 0xc8a466, 2: 0xd9852f, 3: 0xd6712a };
 
+// the fruit plate (a white plate of three tomatoes, Blender (-0.2, -0.05), radius 0.14) is part of the Table model
+// (props/camp/build_camp.py, the picked set, joins it in), so the highlight lit the whole table (Adriaen 2026-11-13: light up
+// just the bowl). Split it off here: the triangles over the plank tops within 17 cm of the plate's middle go into their own mesh, a child of the table with the same material, attributes and light map
+// (a new index on the shared buffers). No triangles added, one more draw.
+function splitBowl(T) {
+  if (!T.isMesh || !T.geometry.index || T.getObjectByName("FruitBowl")) return T.getObjectByName("FruitBowl") ?? null;
+  const g = T.geometry, idx = g.index.array, pos = g.attributes.position, keep = [], bowl = [];
+  for (let i = 0; i < idx.length; i += 3) {
+    let x = 0, y = 0, z = 0; for (let k = 0; k < 3; k++) { x += pos.getX(idx[i + k]) / 3; y += pos.getY(idx[i + k]) / 3; z += pos.getZ(idx[i + k]) / 3; }
+    (y > 0.675 && Math.hypot(x + 0.2, z - 0.05) < 0.17 ? bowl : keep).push(idx[i], idx[i + 1], idx[i + 2]);
+  }
+  if (!bowl.length) return null;
+  const b = new THREE.BufferGeometry(); for (const k in g.attributes) b.setAttribute(k, g.attributes[k]);
+  b.setIndex(bowl); g.setIndex(keep);
+  // bounds from the indexed corners only (three's own would take every vertex of the shared buffer, so the whole table)
+  const box = new THREE.Box3(); for (const i of bowl) box.expandByPoint(V().fromBufferAttribute(pos, i));
+  b.boundingBox = box; b.boundingSphere = box.getBoundingSphere(new THREE.Sphere());
+  const m = new THREE.Mesh(b, T.material); m.name = "FruitBowl"; T.add(m); return m;
+}
+
 export function createActivities({ scene, camera, me, woodPile, woodTex, fire = V(0, 0, 0), pot: potAt = null, table = null, crate = null, blockers = [], fireCards = [], flames = [], fireLight, glowTex, burst, toast, sloths = [], addBlocker, looks = {} }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   // logs painted like the props thread's stack: its atlas (props/lived/wood_stack.jpg) has log ends on the top half and the logs
@@ -200,14 +220,15 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     () => held ? full : soup.stage !== "empty" ? "Water's in already" : null, [canister]);
   // the kitchen crate: one vegetable at a time, a different one each time
   if (crate) thing("crate", crate, 0.4, () => !held || held === "veg", () => { if (held) { putBack(); return; } vegNow = (vegNow + 1) % VEG.length; hold("veg"); toast(`Got a ${VN[vegNow]} ${VEG[vegNow]}`); }, () => held && full, looks.crate ?? null);
-  // the leaf bowl on the snack table (part of the Table model, props/camp/build_camp.py): one fruit at a time to give to a
+  // the fruit plate on the snack table (split off the Table model, splitBowl above): one fruit at a time to give to a
   // sloth or the operator (Adriaen 2026-11-13: veg from the crate, fruit from the fruit bowl)
   const tableObj = scene.getObjectByName("Table");
+  const fruitBowl = tableObj && splitBowl(tableObj);
   if (tableObj) {
     tableObj.updateMatrixWorld(true);
-    const bowlAt = tableObj.localToWorld(V(0.12, 0.73, -0.02));   // the bowl's middle (Blender (0.12, 0.02, 0.73), z up)
+    const bowlAt = fruitBowl ? fruitBowl.localToWorld(fruitBowl.geometry.boundingBox.getCenter(V())) : tableObj.localToWorld(V(-0.2, 0.72, 0.05));   // the plate's middle
     thing("fruitbowl", bowlAt, 0.28, () => !held || held === "fruit", () => { if (held) { putBack(); return; } fruitNow = (fruitNow + 1) % FN.length; hold("fruit"); toast(`Got ${/^[aeiou]/.test(FN[fruitNow]) ? "an" : "a"} ${FN[fruitNow]} ${FE[fruitNow]}`.trim()); },
-      () => held && full, [tableObj]);
+      () => held && full, [fruitBowl ?? tableObj]);
   }
   // the log seats: somewhere to set a bowl down
   for (const seat of seats) thing(`seat${seats.indexOf(seat)}`, seat.c.clone().setY(0), 0.6, () => held === "bowl" && !seat.bowl, () => { hold(null); serve(seat); },
