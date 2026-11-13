@@ -6,12 +6,11 @@ const lam = (c) => new THREE.MeshLambertMaterial({ color: c });
 // head bone frame (measured from the skinned mesh): head spans y 0.02..0.137, x ±0.078, z -0.092 (face) .. 0.049 (back);
 // the neck is at y 0..0.015 (half width 0.045, z -0.04..0.033). Accessories hang off the head bone, the cape off the body bone.
 const tex = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
-const leafTex = (col, vein, banana) => tex(256, 128, (g, w, h) => {
+const leafTex = (col, vein) => tex(256, 128, (g, w, h) => {
   g.fillStyle = col; g.beginPath(); g.moveTo(4, h / 2);
-  if (banana) { g.lineTo(18, 10); for (let x = 18; x <= w - 18; x += 12) g.lineTo(x + 6, 6 + (x % 24 ? 4 : 0)); g.lineTo(w - 6, h / 2); for (let x = w - 18; x >= 18; x -= 12) g.lineTo(x, h - 6 - (x % 24 ? 4 : 0)); }
-  else g.bezierCurveTo(w * 0.3, -h * 0.15, w * 0.8, h * 0.05, w - 4, h / 2), g.bezierCurveTo(w * 0.8, h * 0.95, w * 0.3, h * 1.15, 4, h / 2);
+  g.bezierCurveTo(w * 0.3, -h * 0.15, w * 0.8, h * 0.05, w - 4, h / 2), g.bezierCurveTo(w * 0.8, h * 0.95, w * 0.3, h * 1.15, 4, h / 2);
   g.closePath(); g.fill(); g.strokeStyle = vein; g.lineWidth = 5; g.beginPath(); g.moveTo(4, h / 2); g.lineTo(w - 6, h / 2); g.stroke(); g.lineWidth = 2.5;
-  for (let x = 30; x < w - 20; x += banana ? 10 : 34) for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(x, h / 2); g.lineTo(x + (banana ? 4 : 26), h / 2 + sg * h * 0.42); g.stroke(); }
+  for (let x = 30; x < w - 20; x += 34) for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(x, h / 2); g.lineTo(x + 26, h / 2 + sg * h * 0.42); g.stroke(); }
 });
 const texMat = (t, o = {}) => new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide, ...o });
 function bentPlane(w, l, sw, sl, bend) { const g = new THREE.PlaneGeometry(l, w, sl, sw), p = g.attributes.position; for (let i = 0; i < p.count; i++) bend(p, i); g.computeVertexNormals(); return g; }

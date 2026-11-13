@@ -1,6 +1,5 @@
 // Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize.
 import * as THREE from "three";
-import "./campLife.js";   // run after the module before it, as one script did
 import { $, R, camera, qs, renderer, scene, uTime } from "./core.js";
 import { keys, pickAt, ray, stickV, toast } from "./hud.js";
 import { V } from "./forest.js";

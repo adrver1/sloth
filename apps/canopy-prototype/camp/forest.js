@@ -25,13 +25,6 @@ function bake(geo, y0, y1) {
 }
 const barkMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: S.flat });
 const woodGeos = [];
-const woodMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: S.flat });
-const flatCol = (geo, hexc, dark = 1) => {          // a plain colour baked into vertex colours, so props can merge into one draw
-  const g = geo.index ? geo.toNonIndexed() : geo; g.computeVertexNormals();
-  const c = new THREE.Color(hexc).multiplyScalar(dark), n = g.attributes.position.count, a = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) a.set([c.r, c.g, c.b], i * 3);
-  g.setAttribute("color", new THREE.BufferAttribute(a, 3)); return g;
-};
 function merge(geos) {                               // position, normal, colour only; one draw for many parts
   const pos = [], nor = [], col = [];
   for (const g0 of geos) { const g = g0.index ? g0.toNonIndexed() : g0; pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); col.push(...g.attributes.color.array); }
@@ -67,7 +60,6 @@ function polyDist(pts, x, z) {                         // distance from (x, z) t
 const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
 const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
-const nearPath = () => false;
 initTerrain({ RC, pathDist, jeepDist, hero: HERO });   // the bowl rim, the hummocks and the mounds (terrain.js); level where people walk
 // the jeep's track: the jeep is parked at JEEP_AT along the clearing edge (facing JEEP_TAN) and came in on a muddy track
 // cut through the forest wall behind it. trackDist() thins trunks, leaves and ferns off the track (scaled to zero, so the
@@ -369,11 +361,11 @@ if (track) {
   } else if (LOOK === "paint") { g = new THREE.IcosahedronGeometry(0.5, 2).scale(1, 0.7, 1); mat = leafM; }
   else { g = new THREE.ConeGeometry(0.4, 1, 5).translate(0, 0.5, 0); mat = leafMat({}, 0); }
   const spots = [];
-  for (let i = 0; i < 2000 && spots.length < Math.round(260 * D.ferns); i++) { const a = R(0, 6.28), r = RC - 0.6 + Math.pow(rnd(), 1.6) * 12, x = Math.cos(a) * r, z = Math.sin(a) * r; if (!nearPath(x, z, 0.2, 1.1)) spots.push([x, z]); }
+  for (let i = 0; i < 2000 && spots.length < Math.round(260 * D.ferns); i++) { const a = R(0, 6.28), r = RC - 0.6 + Math.pow(rnd(), 1.6) * 12, x = Math.cos(a) * r, z = Math.sin(a) * r; spots.push([x, z]); }
   const im = new THREE.InstancedMesh(g, mat, spots.length), m = new THREE.Matrix4(), c = new THREE.Color();
   spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 ? 0 : 1); m.compose(V(x, groundHeight(x, z) - 0.03, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6.28)), V(s, s, s)); im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
   addSectors(im);
 }
 
 
-export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, flatCol, jeepDist, merge, pathDist, polyDist, sloPath, t0, track, trackDist, woodMat };
+export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, polyDist, sloPath, t0, track, trackDist };

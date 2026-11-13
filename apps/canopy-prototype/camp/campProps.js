@@ -2,7 +2,6 @@
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
-import "./forest.js";   // run after the module before it, as one script did
 import { D, LIVED, PRE, PROPS, R, S, canvasTex, scene, sun, uTime } from "./core.js";
 import { A0, HERO, RC, V, d0, t0 } from "./forest.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";

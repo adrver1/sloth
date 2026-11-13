@@ -3,7 +3,6 @@ import { createGround } from "../ground.js";
 import * as THREE from "three";
 import { createAtmosphere } from "../atmosphere.js";
 import { createActivities } from "../activities.js";
-import "./player.js";   // run after the module before it, as one script did
 import { D, JEEP, LIVED, LOOK, PRE, PROPS, S, camera, renderer, scene, uTime } from "./core.js";
 import { toast } from "./hud.js";
 import { FLOOR_OVERLAYS, RC, V, clearing, track, trackDist } from "./forest.js";
@@ -14,7 +13,7 @@ import "./deadwood.js";
 import { FAR, groundHeight, vnoise } from "./terrain.js";
 import { ground as forestFloor } from "./sky.js";   // before the ground, so its plants grow round the log, stump and dead trunk
 
-// cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, kettle steam; the kettle hangs over the fire in the picked and jungle props
+// cozy atmosphere (atmosphere.js): fire smoke, sparks when you walk close, steam off the soup pot
 // and butterflies by day that land on the sloths' noses, and blinking fireflies at dusk (they replace the old even firefly cloud, kept hidden)
 // wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
 // the baked ground (props/ground/bake_ground.py) for the sets that have one; others paint their wear map live
@@ -50,7 +49,7 @@ if (PROPS === "picked") {
     scene.add(m); return m; };
   amber(1.6, 0.035, true); amber(0.5, 0.42, false);
 }
-const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: typeof SOUP_POT !== "undefined" ? SOUP_POT : null, spout: typeof SOUP_POT === "undefined" && (PROPS === "picked" || PROPS === "jungle") ? V(0.2, 0.67, 0) : null,
+const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: SOUP_POT,
   chimneys: PROPS === "picked" ? [tentAt3(1.0, 0.97, 3.32)] : [], sloths, roam: RC - 1.5 });   // the tent stove's pipe mouth (build_camp.py wall_tent: STOVE, pipe top Z0 + H + 0.62)
 window.__atmo = atmo;
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks

@@ -3,7 +3,6 @@
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { WARM_N } from "../fur.js";
-import "./input.js";   // run after the module before it, as one script did
 import { $, D, DETAIL, R, S, camera, qs, renderer, scene, store, sun, uTime } from "./core.js";
 import { stickV } from "./hud.js";
 import { dome, moon, nightDome, sky, uSkyDusk } from "./sky.js";

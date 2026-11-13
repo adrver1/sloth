@@ -97,5 +97,3 @@ export function makeFood(kind) {
   const m = new THREE.Mesh(geos[kind] ??= MAKE[kind](), mat);
   m.name = `food_${kind}`; m.userData.kind = kind; m.userData.base = new THREE.Vector3(1, 1, 1); return m;
 }
-export const foodTris = (kind) => { const g = geos[kind] ??= MAKE[kind](); return (g.index ? g.index.count : g.attributes.position.count) / 3; };
-export const FOOD_KINDS = Object.keys(MAKE);

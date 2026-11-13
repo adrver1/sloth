@@ -126,4 +126,3 @@ if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
 const geo = merge(parts), mesh = new THREE.Mesh(geo, deadMat); mesh.name = "Deadwood"; scene.add(mesh);
 tris.total = geo.attributes.position.count / 3;
 window.__deadwood = { layout, tris };   // for the GPU thread's ground-shadow bake (props/bake_all.py) and the tris report
-export { mesh as deadwood };
