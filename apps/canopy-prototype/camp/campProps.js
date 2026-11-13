@@ -20,8 +20,12 @@ const lanternGlow = [];   // where each lantern's light is (lanterns.js): the gr
   var LANTERN_LAYOUT = lanternLayout({ l0, post: hA.clone().setY(2.35), tree: HERO[0] });
   window.__camp = { tentAt, hA, hB, tb, string: LANTERN_LAYOUT.strings[0], strings: LANTERN_LAYOUT.strings };   // string(s): the lantern strings' points (a sloth hangs from one)
   // collision circles for walking round the camp
-  var blockers = [[V(0, 0, 0), 0.9], Object.assign([tentAt.clone().multiplyScalar(1 + 0.275 / tentAt.length()), 1.9], { tent: true }), [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
-  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; blockers.push([V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1), 0.75]); }
+  // blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking
+  // (.walk, player.js): the fire ring stops you at its stones, and each log seat is a thin capsule along the log, so there is
+  // a ring to walk round the fire between them (Adriaen 2026-11-13: the old circles walled the fire in)
+  var blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Object.assign([tentAt.clone().multiplyScalar(1 + 0.275 / tentAt.length()), 1.9], { tent: true }), [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
+  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15, c = V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1), t = V(-Math.sin(a), 0, Math.cos(a));
+    blockers.push(Object.assign([c, 0.75], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
 }
 // the lanterns (lanterns.js) and the fire: glow sprites, no real-time shadows; one warm point light for the fire glow
 const glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
