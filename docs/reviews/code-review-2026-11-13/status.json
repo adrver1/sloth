@@ -1,5 +1,5 @@
 {
- "as_of": "section C part 1, 2026-11-13",
+ "as_of": "section C round 2, 2026-11-13",
  "statuses": [
   "fixed",
   "partly fixed",
@@ -27,21 +27,29 @@
   "boot-03": {
    "status": "partly fixed",
    "commits": [
-    "16996b7"
+    "16996b7",
+    "ae20b20",
+    "30a3173"
    ],
-   "note": "the 7 duplicate bare imports are gone; the 2 unneeded ones and the order comment remain"
+   "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
   },
   "boot-04": {
    "status": "partly fixed",
    "commits": [
-    "2626429"
+    "2626429",
+    "d6fbceb",
+    "00f93fb",
+    "ae20b20"
    ],
-   "note": "the APIs are exports; sloths.js, operator.js and input.js still read the window aliases (PR #14), and the modules that came in with PRs #15 and #16 are next"
+   "note": "the APIs are exports and every module outside the open PRs (#14, #20, #21) imports them (main.js imports groundHeight); sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read the window aliases, and the debug hooks are not in one place yet"
   },
   "boot-06": {
-   "status": "planned",
-   "commits": [],
-   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+   "status": "partly fixed",
+   "commits": [
+    "4b4c73f",
+    "7bece27"
+   ],
+   "note": "fire, pools, motes, sun shadows, the day clock and the palette are step functions in their owners; the sloths' squish and nod, the flying emojis and the glow uniforms wait for PR #14 (sloths.js); the one-frame dusk lag is kept on purpose, since moving it changes behaviour"
   },
   "boot-12": {
    "status": "fixed",
@@ -53,9 +61,10 @@
   "boot-17": {
    "status": "partly fixed",
    "commits": [
-    "4ddc16e"
+    "4ddc16e",
+    "ea8bc13"
    ],
-   "note": "OPT and KEYS in core.js; main.js, input.js and sloths.js still parse their own"
+   "note": "OPT and KEYS in core.js, now with time, cycle, pos, yaw and pitch; input.js (touch), sloths.js (campsloths, slothmat, lab), operator.js (op) and audio.js (sound, station, its storage key) parse their own until the open PRs (#14, #20, #21) land"
   },
   "boot-18": {
    "status": "fixed",
@@ -72,9 +81,11 @@
   "boot-20": {
    "status": "partly fixed",
    "commits": [
-    "16996b7"
+    "16996b7",
+    "633be43",
+    "8778d7f"
    ],
-   "note": "highlight lit getter removed; player.js leftovers remain"
+   "note": "highlight lit getter, player.js leftovers and core.js's pr variable removed; input.js's unused imports and its 'lit.at(to).center' wait for PR #14"
   },
   "crosscut-01": {
    "status": "fixed",
@@ -94,16 +105,21 @@
   "crosscut-03": {
    "status": "partly fixed",
    "commits": [
-    "2626429"
+    "2626429",
+    "d6fbceb",
+    "00f93fb",
+    "ae20b20",
+    "4615035"
    ],
-   "note": "the APIs are exports; sloths.js, operator.js and input.js still read the window aliases (PR #14), and the modules that came in with PRs #15 and #16 are next"
+   "note": "the APIs are exports and every module outside the open PRs (#14, #20, #21) imports them; sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read __camp, __jeep, __laundry, __acts, __campLife, __me, __car and __op (core.js lists who reads which)"
   },
   "crosscut-04": {
    "status": "partly fixed",
    "commits": [
-    "4ddc16e"
+    "4ddc16e",
+    "4615035"
    ],
-   "note": "the globals are listed in core.js and two unused hooks are gone; the rest sit in files that wait for PR #14"
+   "note": "the globals are listed in core.js (now with the car's, the radio's and the sound's) and two unused hooks are gone; the rest sit in files that wait for the open PRs (#14, #20, #21)"
   },
   "crosscut-05": {
    "status": "waiting on Adriaen",
@@ -113,16 +129,21 @@
   "crosscut-06": {
    "status": "partly fixed",
    "commits": [
-    "16996b7"
+    "16996b7",
+    "ae20b20",
+    "30a3173"
    ],
-   "note": "the 7 duplicate bare imports are gone; the 2 unneeded ones and the order comment remain"
+   "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
   },
   "crosscut-07": {
    "status": "partly fixed",
    "commits": [
-    "16996b7"
+    "16996b7",
+    "633be43",
+    "4615035",
+    "8778d7f"
    ],
-   "note": "forest.js and food.js parts done; jeepTap, player.js and sloths.js leftovers remain"
+   "note": "forest.js, food.js, player.js and jeep.js (jeepTap, the camper's ladder) done; sloths.js's COUNT, flowerCrown and friend, and input.js's import of them, wait for PR #14"
   },
   "crosscut-08": {
    "status": "waiting on Adriaen",
@@ -132,16 +153,21 @@
   "crosscut-09": {
    "status": "partly fixed",
    "commits": [
-    "5dab33a"
+    "5dab33a",
+    "d6fbceb",
+    "00f93fb",
+    "633be43"
    ],
-   "note": "camp/util.js; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
+   "note": "camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack (its distance rounds differently from polyDist); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js wait for the open PRs (#14, #20, #21)"
   },
   "crosscut-10": {
    "status": "partly fixed",
    "commits": [
-    "1eaa862"
+    "1eaa862",
+    "d6fbceb",
+    "8778d7f"
    ],
-   "note": "camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
+   "note": "camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js wait for the open PRs (#14, #20, #21)"
   },
   "crosscut-13": {
    "status": "fixed",
@@ -151,17 +177,21 @@
    "note": ""
   },
   "crosscut-14": {
-   "status": "planned",
-   "commits": [],
-   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+   "status": "partly fixed",
+   "commits": [
+    "4b4c73f",
+    "7bece27"
+   ],
+   "note": "main.js's inline blocks moved to their owners where the owner is not in an open PR, and its import list is the stated build order; init(ctx) per module, a frame registry, the core.js split and the sloths' pieces remain"
   },
   "crosscut-15": {
    "status": "partly fixed",
    "commits": [
     "d720668",
-    "4ddc16e"
+    "4ddc16e",
+    "ea8bc13"
    ],
-   "note": "one table of URL options, storage keys and window globals in core.js; the README copy remains"
+   "note": "one table of URL options, storage keys and window globals in core.js, now with time, cycle and the start view; the README copy remains, and the options the files in the open PRs (#14, #20, #21) parse themselves"
   },
   "crosscut-17": {
    "status": "waiting on Adriaen",
@@ -397,9 +427,11 @@
   "operator-12": {
    "status": "partly fixed",
    "commits": [
-    "1eaa862"
+    "1eaa862",
+    "d6fbceb",
+    "8778d7f"
    ],
-   "note": "camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
+   "note": "camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js wait for the open PRs (#14, #20, #21)"
   },
   "operator-16": {
    "status": "planned",
@@ -581,9 +613,12 @@
   "world-15": {
    "status": "partly fixed",
    "commits": [
-    "5dab33a"
+    "5dab33a",
+    "d6fbceb",
+    "00f93fb",
+    "633be43"
    ],
-   "note": "camp/util.js; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
+   "note": "camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack (its distance rounds differently from polyDist); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js wait for the open PRs (#14, #20, #21)"
   },
   "world-16": {
    "status": "fixed",
@@ -591,6 +626,28 @@
     "1eaa862"
    ],
    "note": "camp/layout.js"
+  },
+  "boot-05": {
+   "status": "fixed",
+   "commits": [
+    "7bece27"
+   ],
+   "note": "daytime.js has the slider and the day clock, the new daylight.js the palette, the mist and the moon; main.js calls their steps"
+  },
+  "boot-22": {
+   "status": "partly fixed",
+   "commits": [
+    "bdaa1c7"
+   ],
+   "note": "header and module list rewritten, the two dead link selectors removed; merging the two .bar rules, folding .pill into #perf and the spacer span remain (they are live rules: they need a look on a phone)"
+  },
+  "crosscut-16": {
+   "status": "partly fixed",
+   "commits": [
+    "bdaa1c7",
+    "7bece27"
+   ],
+   "note": "camp.html's header and module list and main.js's header say what is there; the comment fixes in sloths.js, bakedlight.js, ground.js and atmosphere.js remain"
   }
  }
 }
