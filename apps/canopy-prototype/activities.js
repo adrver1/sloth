@@ -9,9 +9,10 @@
 // with empty paws to ladle a bowl, carry it to a log seat and set it down: the sloths nearby perk up (window event "camp-food").
 // One pot makes three bowls, then it is empty again. The pot model (props/lived/build_fire.py) is not touched: a flat disc at
 // the soup's surface shows it empty, water or broth, and fades away once the soup is done so the modelled soup shows.
-// Triangle budget: carried and burning logs 24 each; the canister 12; the surface disc 12; a bowl 24; bubbles, sparks and
+// Triangle budget: carried and burning logs 24 each; the water pail 60; the surface disc 12; a bowl 24; bubbles, sparks and
 // the carried vegetable are single quads.
 import * as THREE from "three";
+import { makePail } from "./camp/canister.js";
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const NEAR = 2.5;                          // tap range
@@ -24,13 +25,7 @@ const barkTex = canvasTex(64, 32, (g, w, h) => { g.fillStyle = "#6b4a32"; g.fill
   for (let y = 3; y < h; y += 5) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (y % 2 ? 1 : -1)); g.stroke(); } });
 const logGeo = new THREE.CylinderGeometry(0.055, 0.06, 0.6, 6, 1);   // 24 tris with caps
 const logMat = new THREE.MeshLambertMaterial({ map: barkTex });
-// the water canister: a blue plastic jerrycan painted on a box (handle, cap and ribs in the texture), 12 tris
-const canTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = "#3f86b8"; g.fillRect(0, 0, w, h); g.fillStyle = "#2f6c97";
-  for (let x = 14; x < w; x += 26) g.fillRect(x, 30, 8, h - 44);                                        // moulded ribs
-  g.fillStyle = "#24577a"; g.fillRect(0, 0, w, 18); g.fillStyle = "#e9e2cf"; g.fillRect(w / 2 - 14, 2, 28, 12);   // top band and a cream cap
-  g.fillStyle = "rgba(255,255,255,.25)"; g.fillRect(6, 24, 6, h - 34); });
-const canGeo = new THREE.BoxGeometry(0.2, 0.3, 0.12); canGeo.translate(0, 0.15, 0);
-const canMat = new THREE.MeshLambertMaterial({ map: canTex });
+// the water: a wooden pail (camp/canister.js, 60 tris)
 // a little enamel bowl of soup: an open 8-sided cup (16 tris) with the soup as an 8-sided disc inside (8 tris)
 const bowlGeo = new THREE.CylinderGeometry(0.075, 0.048, 0.05, 8, 1, true); bowlGeo.translate(0, 0.025, 0);
 const bowlMat = new THREE.MeshLambertMaterial({ color: 0xf2ead8, side: THREE.DoubleSide });   // cream enamel, so it reads on the wooden seats
@@ -66,11 +61,11 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   let held = null; const hand = new THREE.Group(); hand.position.set(0.36, -0.36, -0.85); hand.scale.setScalar(0.55); camera.add(hand);
   const inHand = {
     log: new THREE.Mesh(logGeo, logMat),
-    water: new THREE.Mesh(canGeo, canMat),
+    water: makePail(),
     veg: new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1 })),
     bowl: new THREE.Group(),
   };
-  inHand.water.position.set(0, -0.12, 0); inHand.water.scale.setScalar(0.9);
+  inHand.water.position.set(-0.08, -0.02, 0); inHand.water.scale.setScalar(0.9);   // the pail stays fully in view on a phone
   inHand.bowl.add(new THREE.Mesh(bowlGeo, bowlMat), new THREE.Mesh(soupGeo, soupMat)); inHand.bowl.rotation.x = 0.25; inHand.bowl.position.y = -0.05; inHand.bowl.scale.setScalar(1.6);
   for (const k in inHand) { inHand[k].visible = false; hand.add(inHand[k]); }
   inHand.log.rotation.set(1.1, 0.5, 0.9); inHand.water.rotation.set(0.15, -0.5, 0.1);
@@ -175,7 +170,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       if (room > bd) { bd = room; best = p; } }
     return best;
   })();
-  const canister = new THREE.Mesh(canGeo, canMat); canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister); addBlocker?.(canAt, 0.2);
+  const canister = makePail(); canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister); addBlocker?.(canAt, 0.2);
   thing("canister", canAt, 0.3, () => !held && soup.stage === "empty", () => { hold("water"); canister.visible = false; toast("Got the water 💧"); },
     () => held ? full : soup.stage !== "empty" ? "Water's in already" : null, [canister]);
   // the kitchen crate: one vegetable at a time, a different one each time
@@ -238,7 +233,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     label(t) {
       const VN = ["carrot", "potato", "onion", "mushroom"];
       if (t.name === "woodpile") return "Take a log 🪵";
-      if (t.name === "canister") return "Take the water 💧";
+      if (t.name === "canister") return "Take the pail of water 💧";
       if (t.name === "crate") { const n = (vegNow + 1) % VEG.length; return `Take a ${VN[n]} ${VEG[n]}`; }
       if (t.name.startsWith("seat")) return "Set the bowl down 🍲";
       if (t.name === "fire") return held === "log" ? "Put the log on the fire 🔥" : held === "water" ? "Pour the water in the pot 💧" : held === "veg" ? `Add the ${VN[vegNow]} to the pot ${VEG[vegNow]}` : "Fill a bowl of soup 🍲";
