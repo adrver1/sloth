@@ -616,10 +616,16 @@ const say = document.createElement("span"); bubble.append(say, tail); if (ON) do
 const talkSt = { t: 0, smile: 0 };
 function talk() { speak(line()); }
 // food you hand him (camp activities: a vegetable or a bowl of soup): it flies to his mouth, he munches, then thanks you
+const mouthAt = (out) => B.head.getWorldPosition(out).addScaledVector(csDir(0, 0, -1), 0.12).add(V(0, 0.025, 0));
 function gift() {
   const f = window.__acts?.give?.(); if (!f) return;
-  const s = sprite(f.emoji, 96); s.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(s);
-  fx.push({ s, fly: { from: s.position.clone(), to: B.head.getWorldPosition(V()).addScaledVector(csDir(0, 0, -1), 0.12) }, t: 0, life: 0.9, done() {
+  // the modelled food (camp/food.js) flies from your hand to his mouth, stays at his lips and gets a bite smaller each
+  // munch (talkStep), then he thanks you
+  const s = f.make(); s.position.copy(f.from); scene.add(s);
+  const fly = { from: s.position.clone(), to: mouthAt(V()) }; talkSt.fly = fly;   // talkStep keeps "to" on his mouth as he moves
+  fx.push({ s, fly, t: 0, life: 0.9, done() {
+    talkSt.fly = null;
+    scene.add(s); talkSt.food = { m: s, t: 0 };
     const a = acts.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.timeScale = 1.6; a.setEffectiveWeight(1); a.play(); talkSt.munch = 2.2; talkSt.smile = 4;   // munching
     setTimeout(() => { a.timeScale = 1; if (!bag.thanks?.length) bag.thanks = [...LINES.thanks].sort(() => Math.random() - 0.5); speak(bag.thanks.pop().replace("{food}", f.name)); }, 2200);
   } });
@@ -634,6 +640,9 @@ function talkStep(dt) {
   { const v = B.chest.getWorldPosition(V()).project(camera); op.scr = [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }   // checks (__op.tapAt)
   talkSt.t = Math.max(0, talkSt.t - dt); talkSt.smile = Math.max(0, talkSt.smile - dt);
   talkSt.munch = Math.max(0, (talkSt.munch || 0) - dt);
+  if (talkSt.fly) mouthAt(talkSt.fly.to);
+  if (talkSt.food) { const F = talkSt.food; F.t += dt; mouthAt(F.m.position); F.m.scale.copy(F.m.userData.base).multiplyScalar(Math.max(0.1, 1 - 0.24 * Math.floor(F.t / 0.5)));
+    if (F.t > 2.1) { scene.remove(F.m); talkSt.food = null; } }
   if (talkSt.t <= 0 && !talkSt.munch && acts.talk.isRunning() && acts.talk.getEffectiveWeight() > 0.99) acts.talk.fadeOut(0.3);
   const on = talkSt.t > 0; bubble.style.opacity = on ? 1 : 0; bubble.style.transform = `translate(-50%,-100%) scale(${on ? 1 : 0.85})`;
   if (!on && bubble.style.opacity === "0") return;
@@ -657,7 +666,7 @@ if (ON) {
   window.__op = { root, op, acts, mixer, go: (k) => { op.next = k; },
     dbg: () => ({ inHand: op.inHand && [op.inHand === bowl ? 'bowl' : 'mug', op.inHand.visible, op.inHand.position.toArray().map((v) => +v.toFixed(2)), !!op.inHand.parent], w: Object.entries(acts).filter(([, a]) => a.isRunning()).map(([n, a]) => n + ':' + a.getEffectiveWeight().toFixed(2) + '@' + a.time.toFixed(2)) }),
     state: () => ({ kind: op.kind, at: root.position.toArray().map((v) => +v.toFixed(2)), place: op.place, seated: op.seated, lying: op.lying, sleeping: op.sleeping, buddy: op.buddy?.name ?? null, clip: cur?.getClip().name }),
-    talk, tapCol, clearSpot, line: () => say.textContent, tapAt: () => op.scr,
+    talk, gift, tapCol, clearSpot, line: () => say.textContent, tapAt: () => op.scr,
     sim: (sec) => { for (let t = 0; t < sec; t += 0.05) opStep(0.05); return window.__op.state(); },   // run his life ahead (checks)
     tris: () => { let n = 0; root.traverse((m) => { if (m.isMesh) n += m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3; }); return n; },
     jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); Object.assign(op, { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null, pass: null }); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0);

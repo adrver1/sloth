@@ -10,14 +10,16 @@
 // One pot makes three bowls, then it is empty again. The pot model (props/lived/build_fire.py) is not touched: a flat disc at
 // the soup's surface shows it empty, water or broth, and fades away once the soup is done so the modelled soup shows.
 // Triangle budget: carried and burning logs 24 each; the water pail 60; the surface disc 12; a bowl 24; bubbles, sparks and
-// the carried vegetable are single quads.
+// the carried food comes from camp/food.js (15 to 36 each).
 import * as THREE from "three";
 import { makePail } from "./camp/canister.js";
+import { FRUIT, VEG as VEG_KINDS, makeFood } from "./camp/food.js";
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const NEAR = 2.5;                          // tap range
 const HOLD = 60, SETTLE = 180, MAX_LOGS = 3;
-const COOK = 20, BOWLS = 3, VEG = ["🥕", "🥔", "🧅", "🍄"], VN = ["carrot", "potato", "onion", "mushroom"];
+const COOK = 20, BOWLS = 3, VN = VEG_KINDS.map((v) => v[0]), VEG = VEG_KINDS.map((v) => v[1]);
+const FN = FRUIT.map((f) => f[0]), FE = FRUIT.map((f) => f[1]);
 
 const canvasTex = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
 // a bark texture for logs: dark stripes along the length, a pale cut ring at one end of the strip
@@ -34,7 +36,6 @@ const soupMat = new THREE.MeshLambertMaterial({ color: 0xd9822e });
 // the pot's surface: a soft radial shade, tinted per stage (iron, water, broth), 12 tris
 const surfTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 2, 32, 32, 32); r.addColorStop(0, "#ffffff"); r.addColorStop(0.75, "#d8d8d8"); r.addColorStop(1, "#8a8a8a"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
 const bubbleTex = canvasTex(32, 32, (g) => { g.strokeStyle = "rgba(255,244,225,.95)"; g.lineWidth = 3; g.beginPath(); g.arc(16, 16, 11, 0, 7); g.stroke(); g.fillStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.arc(16, 16, 9, 0, 7); g.fill(); });
-const emojiTex = {}; const vegTex = (e) => (emojiTex[e] ??= canvasTex(64, 64, (g) => { g.font = "48px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(e, 32, 36); }));
 const STAGE = { empty: 0x2e2824, water: 0x86a9b0, 1: 0xc8a466, 2: 0xd9852f, 3: 0xd6712a };
 
 export function createActivities({ scene, camera, me, woodPile, woodTex, fire = V(0, 0, 0), pot: potAt = null, table = null, crate = null, blockers = [], fireCards = [], flames = [], fireLight, glowTex, burst, toast, sloths = [], addBlocker, looks = {} }) {
@@ -62,15 +63,21 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   const inHand = {
     log: new THREE.Mesh(logGeo, logMat),
     water: makePail(),
-    veg: new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1 })),
+    food: new THREE.Group(),   // a vegetable or a fruit (camp/food.js), shown bigger than life so it reads in the corner
     bowl: new THREE.Group(),
   };
   inHand.water.position.set(-0.08, -0.02, 0); inHand.water.scale.setScalar(0.9);   // the pail stays fully in view on a phone
   inHand.bowl.add(new THREE.Mesh(bowlGeo, bowlMat), new THREE.Mesh(soupGeo, soupMat)); inHand.bowl.rotation.x = 0.25; inHand.bowl.position.y = -0.05; inHand.bowl.scale.setScalar(1.6);
   for (const k in inHand) { inHand[k].visible = false; hand.add(inHand[k]); }
   inHand.log.rotation.set(1.1, 0.5, 0.9); inHand.water.rotation.set(0.15, -0.5, 0.1);
-  let vegNow = 0;
-  function hold(what) { held = what; for (const k in inHand) inHand[k].visible = k === what; hand.userData.t = 0; if (what === "veg") inHand.veg.material.map = vegTex(VEG[vegNow]), inHand.veg.material.needsUpdate = true; dropBtn.style.display = what ? "block" : "none"; }
+  let vegNow = 0, fruitNow = 0;
+  inHand.food.rotation.set(0.5, 0.6, 0.35);
+  const kindNow = () => held === "veg" ? VN[vegNow] : held === "fruit" ? FN[fruitNow] : null;
+  function hold(what) {
+    held = what; for (const k in inHand) inHand[k].visible = k === what || (k === "food" && (what === "veg" || what === "fruit")); hand.userData.t = 0;
+    inHand.food.clear(); if (kindNow()) { const m = makeFood(kindNow()); m.geometry.computeBoundingSphere(); m.scale.setScalar(0.085 / m.geometry.boundingSphere.radius); inHand.food.add(m); }   // all about the same size in the corner
+    dropBtn.style.display = what ? "block" : "none";
+  }
   // Putting things back (Adriaen 2026-11-13: a vegetable taken before the pot had water left you stuck, hands full): a
   // "Put it back" pill in the corner whenever you carry something (Q or Backspace on a keyboard), and the place it came
   // from (wood pile, crate, pail spot) takes it back too. It goes back where it came from; a bowl goes back in the pot.
@@ -89,7 +96,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     if (what === "water") canister.visible = true;
     if (what === "bowl" && soup.stage === "ready" && soup.bowls > 0) soup.bowls--;
     hold(null);
-    toast(what === "log" ? "Log back on the pile 🪵" : what === "water" ? "Pail put back 💧" : what === "veg" ? `The ${VN[vegNow]} is back in the crate` : "Bowl back in the pot 🍲");
+    toast(what === "log" ? "Log back on the pile 🪵" : what === "water" ? "Pail put back 💧" : what === "veg" ? `The ${VN[vegNow]} is back in the crate` : what === "fruit" ? `The ${FN[fruitNow]} is back in the bowl` : "Bowl back in the pot 🍲");
   }
 
   // ---------------------------------------------------------------- chunk 1: the logs on the fire
@@ -176,6 +183,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     if (held === "water") return "Water's in already";
     if (held === "veg") return soup.stage === "empty" ? "Fill the pot first 💧" : "Enough veg, let it cook";
     if (held === "bowl") return "Put it on a log seat";
+    if (held === "fruit") return "Fruit is a snack: give it to someone hungry 🍎";
     if (!held && soup.stage === "empty") return "Fetch water first 💧";
     if (!held && soup.stage === "water") return "Add veg from the crate 🥕";
     if (!held && soup.stage === "cooking") return "Still cooking…";
@@ -194,7 +202,16 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   thing("canister", canAt, 0.3, () => (!held && soup.stage === "empty") || held === "water", () => { if (held) { putBack(); return; } hold("water"); canister.visible = false; toast("Got the water 💧"); },
     () => held ? full : soup.stage !== "empty" ? "Water's in already" : null, [canister]);
   // the kitchen crate: one vegetable at a time, a different one each time
-  if (crate) thing("crate", crate, 0.4, () => !held || held === "veg", () => { if (held) { putBack(); return; } vegNow = (vegNow + 1) % VEG.length; hold("veg"); toast(`Got a ${["carrot", "potato", "onion", "mushroom"][vegNow]} ${VEG[vegNow]}`); }, () => held && full, looks.crate ?? null);
+  if (crate) thing("crate", crate, 0.4, () => !held || held === "veg", () => { if (held) { putBack(); return; } vegNow = (vegNow + 1) % VEG.length; hold("veg"); toast(`Got a ${VN[vegNow]} ${VEG[vegNow]}`); }, () => held && full, looks.crate ?? null);
+  // the leaf bowl on the snack table (part of the Table model, props/camp/build_camp.py): one fruit at a time to give to a
+  // sloth or the operator (Adriaen 2026-11-13: veg from the crate, fruit from the fruit bowl)
+  const tableObj = scene.getObjectByName("Table");
+  if (tableObj) {
+    tableObj.updateMatrixWorld(true);
+    const bowlAt = tableObj.localToWorld(V(0.12, 0.73, -0.02));   // the bowl's middle (Blender (0.12, 0.02, 0.73), z up)
+    thing("fruitbowl", bowlAt, 0.28, () => !held || held === "fruit", () => { if (held) { putBack(); return; } fruitNow = (fruitNow + 1) % FN.length; hold("fruit"); toast(`Got ${/^[aeiou]/.test(FN[fruitNow]) ? "an" : "a"} ${FN[fruitNow]} ${FE[fruitNow]}`.trim()); },
+      () => held && full, [tableObj]);
+  }
   // the log seats: somewhere to set a bowl down
   for (const seat of seats) thing(`seat${seats.indexOf(seat)}`, seat.c.clone().setY(0), 0.6, () => held === "bowl" && !seat.bowl, () => { hold(null); serve(seat); },
     () => held === "bowl" && seat.bowl ? "A bowl's there already" : null, [seat.o]);
@@ -219,7 +236,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       // what you hold sways a little as you walk
       hand.userData.t = (hand.userData.t || 0) + dt; hand.position.x = 0.1 + 0.26 * Math.min(1, camera.aspect);   // stays in view on a narrow phone
       hand.position.y = -0.36 + Math.sin(me.walkT * 7) * 0.01 + (1 - Math.min(1, hand.userData.t * 4)) * -0.2;
-      if (held === "veg") inHand.veg.rotation.z = Math.sin(time * 2) * 0.1;
+      if (inHand.food.visible) inHand.food.rotation.z = 0.35 + Math.sin(time * 2) * 0.1;
       // burning logs char and shrink as they settle; the fire's size follows how many are burning
       for (let i = burning.length - 1; i >= 0; i--) { const b = burning[i]; b.t += dt; const k = b.t < HOLD ? 0 : Math.min(1, (b.t - HOLD) / SETTLE);
         b.m.material.color.setScalar(1 - 0.75 * Math.min(1, b.t / 40)); b.m.scale.set(1 - 0.5 * k, 1 - 0.7 * k, 1 - 0.5 * k);
@@ -255,14 +272,22 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       if (t.name === "canister") return held === "water" ? "Put the pail back 💧" : "Take the pail of water 💧";
       if (t.name === "crate" && held === "veg") return `Put the ${VN[vegNow]} back ${VEG[vegNow]}`;
       if (t.name === "crate") { const n = (vegNow + 1) % VEG.length; return `Take a ${VN[n]} ${VEG[n]}`; }
+      if (t.name === "fruitbowl" && held === "fruit") return `Put the ${FN[fruitNow]} back ${FE[fruitNow]}`.trim();
+      if (t.name === "fruitbowl") { const n = (fruitNow + 1) % FN.length; return `Take ${/^[aeiou]/.test(FN[n]) ? "an" : "a"} ${FN[n]} ${FE[n]}`.trim(); }
       if (t.name.startsWith("seat")) return "Set the bowl down 🍲";
       if (t.name === "fire") return held === "log" ? "Put the log on the fire 🔥" : held === "water" ? "Pour the water in the pot 💧" : held === "veg" ? `Add the ${VN[vegNow]} to the pot ${VEG[vegNow]}` : "Fill a bowl of soup 🍲";
       return "Use it";
     },
     get held() { return held; }, burning, level, things, soup, seats,
     // food in your hand can be given to a sloth or to the operator, who eat it (Adriaen 2026-11-13): what it is, and the giving
-    food() { return held === "veg" ? { emoji: VEG[vegNow], name: VN[vegNow] } : held === "bowl" ? { emoji: "🍲", name: "bowl of soup" } : null; },
-    give() { const f = this.food(); if (f) hold(null); return f; },
+    // make() gives a new mesh of it (real size, userData.base for the eater's bites); from is where it leaves your hand
+    food() {
+      const k = kindNow();
+      if (k) return { kind: k, name: k, emoji: held === "veg" ? VEG[vegNow] : FE[fruitNow], make: () => makeFood(k) };
+      if (held === "bowl") return { kind: "soup", name: "bowl of soup", emoji: "🍲", make: () => { const g = new THREE.Group(); g.add(new THREE.Mesh(bowlGeo, bowlMat), new THREE.Mesh(soupGeo, soupMat)); g.position.y = -0.025; const o = new THREE.Group(); o.add(g); o.userData.base = V(1, 1, 1); return o; } };
+      return null;
+    },
+    give() { const f = this.food(); if (!f) return null; f.from = (inHand.food.visible ? inHand.food : inHand.bowl).getWorldPosition(V()); hold(null); return f; },
     ready(t) { return t.when() && flat(me.pos, t.at) <= NEAR + 0.6; },   // the highlight lights a thing only when a tap would use it
   };
 }

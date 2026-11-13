@@ -437,7 +437,7 @@ if (qs.get("campsloths") !== "0") {
     // log. While lent its phase is "held": its life step, errands and greetings stop; its clip, blinks and fur keep going.
     path: (from, to) => findPath(from, to),
     lend(s, who, opt = {}) {
-      const ph = s.trip?.phase; if (!camp.includes(s) || !(["rest", "walk", "greet"].includes(ph) || (ph === "home" && s.spot.name === "seat"))) return false;
+      const ph = s.trip?.phase; if (!camp.includes(s) || s.gift?.clip || !(["rest", "walk", "greet"].includes(ph) || (ph === "home" && s.spot.name === "seat"))) return false;
       if (s.trip.slot?.key && s.trip.slot.who === s) { s.trip.slot.who = null; life.release(s.trip.slot.key, s); }
       stopSmore(s); s.dozing = s.asleep = false; s.eyes(false); s.once = null;
       life.release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.release("log:0", s); s.spot.home = false;
@@ -454,6 +454,18 @@ if (qs.get("campsloths") !== "0") {
     // together): its user registers a host; join(place, s) asks it, and the host takes the sloth with lend() if it says yes
     host(place, fn) { hosts.set(place, fn); },
     join(place, s) { const fn = hosts.get(place); return !!fn && !!fn(s); },
+    // food you give it (activities.js food(), a mesh from camp/food.js leaving your hand at `from`; Adriaen 2026-11-13: the
+    // food is modelled so the sloths eat it with their own eat clip). Sitting up and awake (resting in the clearing, or on
+    // its log or jeep seat): it plays eat, its paw takes the food out of the air and it bites it smaller (chewStep), and
+    // its day carries on after. Anywhere else (walking, hanging, in bed, held): it flies to its mouth and it munches it.
+    eatGift(s, mesh, from) {
+      if (s.gift) { scene.remove(s.gift.mesh); s.gift = null; }
+      mesh.position.copy(from); mesh.scale.copy(mesh.userData.base ?? V(1, 1, 1)); scene.add(mesh);
+      const sitUp = canStretch(s) && !s.asleep && !s.dozing && !s.once && !s.smore && !s.wave && !s.yawn && (s.trip.phase === "rest" ? !s.trip.slept : s.trip.phase === "home");
+      s.gift = { mesh, from: from.clone(), land: from.clone(), t: 0, clip: sitUp }; s.nod = 1.2;
+      if (sitUp) playOnce(s, "eat", 0.5, () => { scene.remove(mesh); if (s.mouth) s.mouth.visible = false; s.gift = null; const [c, ts] = homeClip(s); play(s, c, 0.9, ts); }, EAT_GRAB - 0.9);
+      return sitUp ? "eat" : "munch";
+    },
     movers: () => [...camp.filter((o) => GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * o.sc]), ...movers.map(([o, r]) => [o.position, r]), [camera.position, 0.3]],
   };
   // Eating (Adriaen 2026-11-12: "have them pick up the food item and eat it; crawl on top of the table or reach into the
@@ -724,6 +736,20 @@ if (qs.get("campsloths") !== "0") {
     const m = mouthOf(s), open = t > 3.0 && t < 6.9 ? Math.max(0, Math.sin(2 * Math.PI * 9 * (t / 8 - 0.4) + 0.6)) : 0;
     m.visible = open > 0.08; m.scale.set(0.9, Math.max(0.01, open), 1);
   }
+  // a gift (life.eatGift) while it sits up: the food floats to its paw as the paw comes up, then the eat clip's chewing
+  function giftStep(s) {
+    const G = s.gift, t = s.act.time;
+    if (t < EAT_GRAB) { pawOf(s, paw); const k = sstep(EAT_GRAB - 0.9, EAT_GRAB, t); G.mesh.position.lerpVectors(G.from, paw, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.25; G.land.copy(paw); }
+    else chewStep(s, G.mesh, G.land, EAT_GRAB);
+  }
+  // anywhere else: it flies to its mouth in 0.9 s, then shrinks a bite at a time while the mouth munches
+  function giftFly(s, dt) {
+    const G = s.gift; G.t += dt; mouthOf(s).getWorldPosition(mouthW);
+    if (G.t < 0.9) { const k = sstep(0, 0.9, G.t); G.mesh.position.lerpVectors(G.from, mouthW, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.3; return; }
+    if (!G.at) { G.at = true; s.nod = 2.4; s.munch = 2.6; }
+    G.mesh.position.copy(mouthW); G.mesh.scale.copy(G.mesh.userData.base ?? V(1, 1, 1)).multiplyScalar(Math.max(0.1, 1 - 0.22 * Math.floor((G.t - 0.9) / 0.6)));
+    if (G.t > 3.4) { scene.remove(G.mesh); s.gift = null; }
+  }
   function wander(s) {
     const lg = ["log:1", "log:2"].find((k) => claims.get(k) === "operator" && hosts.has(k));   // he's on a log: now and then go and sit with him
     if (lg && R(0, 1) < 0.25) { const o = scene.getObjectByName(`Seat_${lg[4]}`); if (o) { const c = o.position.clone().setY(0); return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!life.join(lg, s)) goHome(s); }); } }
@@ -927,7 +953,8 @@ if (qs.get("campsloths") !== "0") {
       if (fast !== 1) s.mixer.update(sd - dt);   // the clip at the same pace (slow motion and pause in the move lab too)
       T.t += sd; s.greetCD -= sd;
       if (s.once && s.act.time >= s.act.getClip().duration - 0.02) { const f = s.once; s.once = null; f(); }   // a stretch or a bite done
-      if (T.phase === "home") {
+      if (s.gift?.clip) giftStep(s);   // eating what you gave it: its day waits until it's done
+      else if (T.phase === "home") {
         if (spot.name === "seat") smoreStep(s, sd);
         napStep(s, sd, s.spot.guest ? () => leave(s) : undefined);
         s.errand -= sd;
@@ -1001,6 +1028,7 @@ if (qs.get("campsloths") !== "0") {
         if (k >= 1) atHome(s);
       }
       if (T.phase !== "home" && s.smore) stopSmore(s);
+      if (s.gift && !s.gift.clip) giftFly(s, sd);
       zStep(s, dt);
       if (spot.line && T.phase === "home") LL.brush?.(s.o.position, false, dt);   // the towel swings back
       // the hit sphere and the point hearts and words fly to follow the sloth

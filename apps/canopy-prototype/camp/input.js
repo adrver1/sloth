@@ -54,8 +54,9 @@ function feed(s, emoji = "🌺") {
   fx.push({ s: f, fly: { from: f.position.clone(), to: s.head.getWorldPosition(V()) }, t: 0, life: 0.9, done() { s.nod = 2.4; s.munch = 2.6; } });
 }
 
-// giving it what you carry (a vegetable or a bowl of soup from the pot): it leaves your hand, flies to its mouth and it munches
-function give(s) { const f = acts.give?.(); if (f) feed(s, f.emoji); }
+// giving it what you carry (a vegetable, a fruit or a bowl of soup): the modelled food (camp/food.js) leaves your hand and
+// the sloth eats it, with its eat clip when it is sitting up (camp/sloths.js life.eatGift)
+function give(s) { const f = acts.give?.(); if (!f) return; const L = window.__campLife; if (L?.eatGift) L.eatGift(s, f.make(), f.from); else feed(s, f.emoji); }
 
 // ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
 // With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,
