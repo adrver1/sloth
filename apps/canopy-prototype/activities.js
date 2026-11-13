@@ -17,7 +17,7 @@ import { makePail } from "./camp/canister.js";
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const NEAR = 2.5;                          // tap range
 const HOLD = 60, SETTLE = 180, MAX_LOGS = 3;
-const COOK = 20, BOWLS = 3, VEG = ["🥕", "🥔", "🧅", "🍄"];
+const COOK = 20, BOWLS = 3, VEG = ["🥕", "🥔", "🧅", "🍄"], VN = ["carrot", "potato", "onion", "mushroom"];
 
 const canvasTex = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
 // a bark texture for logs: dark stripes along the length, a pale cut ring at one end of the strip
@@ -231,7 +231,6 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     },
     // the words on the tap menu (camp/input.js): what a tap on t does now, with what you are carrying
     label(t) {
-      const VN = ["carrot", "potato", "onion", "mushroom"];
       if (t.name === "woodpile") return "Take a log 🪵";
       if (t.name === "canister") return "Take the pail of water 💧";
       if (t.name === "crate") { const n = (vegNow + 1) % VEG.length; return `Take a ${VN[n]} ${VEG[n]}`; }
@@ -240,6 +239,9 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       return "Use it";
     },
     get held() { return held; }, burning, level, things, soup, seats,
+    // food in your hand can be given to a sloth or to the operator, who eat it (Adriaen 2026-11-13): what it is, and the giving
+    food() { return held === "veg" ? { emoji: VEG[vegNow], name: VN[vegNow] } : held === "bowl" ? { emoji: "🍲", name: "bowl of soup" } : null; },
+    give() { const f = this.food(); if (f) hold(null); return f; },
     ready(t) { return t.when() && flat(me.pos, t.at) <= NEAR + 0.6; },   // the highlight lights a thing only when a tap would use it
   };
 }

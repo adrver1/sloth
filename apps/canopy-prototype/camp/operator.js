@@ -17,7 +17,7 @@ import { A0, RC, V } from "./forest.js";
 import { SLOTH, SOUP_POT, blockers, uNight } from "./campProps.js";
 import { addTarget } from "./input.js";
 import { me } from "./player.js";
-import { sprite } from "./sloths.js";
+import { fx, sprite } from "./sloths.js";
 import { groundHeight } from "./terrain.js";
 
 const ON = qs.get("op") !== "0";
@@ -594,6 +594,8 @@ const LINES = {   // spoken to his life partner, "bonita" (Adriaen, 2026-11-12)
   drink: ["Come sit with me, bonita. I made enough for two.", "A warm drink and you. Perfect evening."],
   warm: ["Come warm your hands with me, my love.", "The fire's nice, but you light up the whole camp."],
   play: ["Look at them, bonita! They get that smile from you.", "Want a turn? They love you almost as much as I do."],
+  thanks: ["Mm, the {food}! Thank you, bonita.", "You always know what I need, my love.", "Food tastes better from you, bonita.",
+    "Delicious. You spoil me, my love.", "Thank you, bonita. Come share it with me."],
   sleep: ["Mmm... love you too, bonita...", "Zz... you're doing fine, my love... zz", "Mm... come here... sleep well, bonita..."],
 };
 // the lines still to come are kept in the camp save (camp/save.js; Adriaen: a reload carries on where he left off); lines no longer in LINES drop out
@@ -612,16 +614,27 @@ bubble.style.cssText = "position:fixed;left:0;top:0;z-index:3;pointer-events:non
 const tail = document.createElement("i"); tail.style.cssText = "position:absolute;left:50%;bottom:-7px;width:14px;height:14px;margin-left:-7px;background:inherit;transform:rotate(45deg);border-radius:0 0 3px 0";
 const say = document.createElement("span"); bubble.append(say, tail); if (ON) document.body.append(bubble);
 const talkSt = { t: 0, smile: 0 };
-function talk() {
+function talk() { speak(line()); }
+// food you hand him (camp activities: a vegetable or a bowl of soup): it flies to his mouth, he munches, then thanks you
+function gift() {
+  const f = window.__acts?.give?.(); if (!f) return;
+  const s = sprite(f.emoji, 96); s.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(s);
+  fx.push({ s, fly: { from: s.position.clone(), to: B.head.getWorldPosition(V()).addScaledVector(csDir(0, 0, -1), 0.12) }, t: 0, life: 0.9, done() {
+    const a = acts.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.timeScale = 1.6; a.setEffectiveWeight(1); a.play(); talkSt.munch = 2.2; talkSt.smile = 4;   // munching
+    setTimeout(() => { a.timeScale = 1; if (!bag.thanks?.length) bag.thanks = [...LINES.thanks].sort(() => Math.random() - 0.5); speak(bag.thanks.pop().replace("{food}", f.name)); }, 2200);
+  } });
+}
+function speak(txt) {
   // its size is fixed when it appears: a fixed-position box shrinks to fit the room left of the screen edge, so as he moved
   // toward an edge the text re-wrapped (Adriaen: hard to read). Measure it free, then pin the width.
-  const txt = line(); say.textContent = txt; bubble.style.width = ""; bubble.style.left = "0px"; bubble.style.width = bubble.offsetWidth + 1 + "px"; talkSt.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); talkSt.smile = talkSt.t + 3;
+  say.textContent = txt; bubble.style.width = ""; bubble.style.left = "0px"; bubble.style.width = bubble.offsetWidth + 1 + "px"; talkSt.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); talkSt.smile = talkSt.t + 3;
   if (!op.sleeping) { const a = acts.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.setEffectiveWeight(1); a.play(); }
 }
 function talkStep(dt) {
   { const v = B.chest.getWorldPosition(V()).project(camera); op.scr = [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }   // checks (__op.tapAt)
   talkSt.t = Math.max(0, talkSt.t - dt); talkSt.smile = Math.max(0, talkSt.smile - dt);
-  if (talkSt.t <= 0 && acts.talk.isRunning()) acts.talk.fadeOut(0.3);
+  talkSt.munch = Math.max(0, (talkSt.munch || 0) - dt);
+  if (talkSt.t <= 0 && !talkSt.munch && acts.talk.isRunning() && acts.talk.getEffectiveWeight() > 0.99) acts.talk.fadeOut(0.3);
   const on = talkSt.t > 0; bubble.style.opacity = on ? 1 : 0; bubble.style.transform = `translate(-50%,-100%) scale(${on ? 1 : 0.85})`;
   if (!on && bubble.style.opacity === "0") return;
   const v = B.head.getWorldPosition(V()).add(V(0, 0.34, 0)).project(camera);
@@ -634,7 +647,7 @@ const tapCol = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.75, 6), n
 if (ON) {
   scene.add(tapCol); const sph = new THREE.Sphere();
   addTarget(tapCol, () => ({ look: null, quiet: true, picks: [tapCol], at: (v) => { v.copy(tapCol.position); sph.center.copy(v); sph.radius = 0.6; return sph; },
-    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => [[op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]] }));
+    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => { const f = !op.sleeping && window.__acts?.food?.(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, gift]] : []), [op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]]; } }));
 }
 
 // start: standing by the woodpile side of the fire, looking at it
