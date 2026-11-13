@@ -26,7 +26,7 @@ import { opStep } from "./operator.js";
 import { aimStep, boop, feed, resize } from "./input.js";
 import { weather } from "./weather.js";
 import { lingerStep } from "./linger.js";
-import { day, dayStep } from "./daytime.js";
+import { day, dayStep, wireTimeMenu } from "./daytime.js";
 import { clockStep } from "./clock.js";
 import { audioStep } from "./audio.js";
 import { radioStep } from "./radio.js";
@@ -35,6 +35,7 @@ import { carStep } from "./car.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
+wireTimeMenu();     // the ⚙️ menu's time slider and Day cycle button (daytime.js)
 createDaylight();   // the mist banks and the moon's place: last, after every module above has built its part (daylight.js)
 
 // ================================================================ loop, with an fps panel and a resolution safety net
