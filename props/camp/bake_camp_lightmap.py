@@ -27,7 +27,8 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
    the page places them as before; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt copies, and
    apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png.
-Layout and lights mirror camp.html (A0, tentAt, hA, hB, tb, lanternGlow, the lived PLACE table); keep them in step.
+Where each prop and light stands comes from the page itself: the "place" block the layout step (export_casters.cjs)
+writes into props/shadow/layout_picked.json.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 """
 import argparse, base64, json, math, os, shutil, sys, tempfile, time
@@ -86,75 +87,28 @@ def B(x, y, z):            # three.js -> Blender
     return Vector((x, -z, y))
 
 
-# ---- 2. layout, as camp.html
-A0 = -0.75
-d0 = (math.cos(A0), math.sin(A0)); t0 = (-d0[1], d0[0])
-def comb(sa, sb, base=(0, 0)): return (base[0] + d0[0] * sa + t0[0] * sb, base[1] + d0[1] * sa + t0[1] * sb)
-tentAt = comb(-4.2, 2.4); hA = comb(-1.5, -4.6); hB = comb(-2.6, -1.2, hA); tb = comb(1.6, 3.2)
-_tl = math.hypot(*tentAt)
-l0 = (tentAt[0] - tentAt[0] / _tl * 1.12, 2.8, tentAt[1] - tentAt[1] / _tl * 1.12)
-# the lantern strings, as lanterns.js (review B3, Adriaen 2026-11-12): a V from the tent's A-frame and the hammock's near post up
-# to the big tree behind the fire (RC + 0.4 out along d0), tied 1 m in from its centre at 4.6 m; four lanterns on each, and
-# each lantern's light 0.12 m below where it hangs. The lanterns sway, so they are drawn by the page and not baked.
-_tree = (d0[0] * (9 + 0.4 - 1.0), 4.6, d0[1] * (9 + 0.4 - 1.0))
-lanterns = []
-for e in (l0, (hA[0], 2.35, hA[1])):
-    for i in range(1, 5):
-        t = i / 5 * 0.8; p = [e[k] + (_tree[k] - e[k]) * t for k in range(3)]; p[1] -= math.sin(math.pi * t) * 0.5
-        lanterns.append(p)
-seat_at = [(math.cos(A0 + math.pi + (i - 1) * 1.15) * 2.1, math.sin(A0 + math.pi + (i - 1) * 1.15) * 2.1,
-            -(A0 + math.pi + (i - 1) * 1.15) + math.pi / 2) for i in range(3)]
-TENT = (tentAt[0], tentAt[1], math.atan2(-tentAt[0], -tentAt[1]))
-wp = (-0.55, -3.15); wy = math.atan2(-wp[0], -wp[1])
-KITCHEN = (4.55, 1.7, math.atan2(-4.55, -1.7))
-LA, LB = (1.3, 4.3), (4.0, 3.0)
-LAUNDRY = ((LA[0] + LB[0]) / 2, (LA[1] + LB[1]) / 2, math.atan2(-(LB[1] - LA[1]), LB[0] - LA[0]))
-jo = (-2.2 / math.hypot(-2.2, -6.4), -6.4 / math.hypot(-2.2, -6.4))                   # camp.html JEEP_OUT (x, z)
-jt = (-jo[1], jo[0])
-if jt[1] * jo[0] - jt[0] * jo[1] > 0:                                                 # camp.html JEEP_TAN: its right side faces the fire
-    jt = (-jt[0], -jt[1])
-JEEP = (-2.2, -6.4, math.atan2(jt[0], jt[1]))                                        # the jeep group: x, z, yaw
-sd = Vector((-4, -3, 10)).normalized()                                                  # toward the sun: page (-4, 10, 3)
-LANTERN_DROP = 0.12        # each lantern's light below where it hangs (the page has 0.125: review props-07, kept for the same bake)
-
-
-def check_layout():
-    """Compare this script's copy of the layout with the place block the page wrote (props/shadow/layout_picked.json,
-    export_casters.cjs): print every value with its difference, and stop when one is off by more than 1e-4. The
-    lantern lights' 5 mm (LANTERN_DROP) is known and reported, not fixed here: changing it changes the bake."""
-    lay = os.path.join(ROOT, "props", "shadow", "layout_picked.json")
-    place = json.load(open(lay)).get("place") if os.path.exists(lay) else None
-    if not place:
-        print("  layout check: no place block in layout_picked.json (run props/bake_all.py --only layout); not checked")
-        return
-    hm = ((hA[0] + hB[0]) / 2, (hA[1] + hB[1]) / 2); hd = (hB[0] - hA[0], hB[1] - hA[1])
-    rows = [*((f"seat {i}", seat_at[i], place["seats"][i]) for i in range(3)), ("tent", TENT, place["tent"]),
-            ("hammock", (*hm, -math.atan2(hd[1], hd[0])), place["hammock"]), ("table", (*tb, 0.6), place["table"]),
-            ("wood pile", (*wp, wy), place["woodPile"]), ("seat things", seat_at[1], place["seatThings"]),
-            ("tent side", TENT, place["tentSide"]), ("kitchen crate", KITCHEN, place["kitchen"]), ("laundry", LAUNDRY, place["laundry"]),
-            *((f"lantern light {i}", (p[0], p[1] - LANTERN_DROP, p[2]), place["lanternLights"][i]) for i, p in enumerate(lanterns)),
-            ("jeep", JEEP, place["jeep"]), ("sun (Blender)", tuple(sd), tuple(B(*place["sun"])))]
-    known = {f"lantern light {i}": (1, 0.005) for i in range(len(lanterns))}     # (component, expected bake - page)
-    print("  layout check, this script against the page (x, z, yaw; lanterns x, y, z):")
-    bad = []
-    for name, mine, page in rows:
-        d = [m - q for m, q in zip(mine, page)]
-        k = known.get(name)
-        off = max(abs(v - (k[1] if k and j == k[0] else 0)) for j, v in enumerate(d))
-        note = "  known: the page's light is 5 mm lower (review props-07), kept" if k else ""
-        print(f"    {name:16s} {' '.join(f'{v:9.5f}' for v in mine)}  diff {' '.join(f'{v:+.1e}' for v in d)}{note}")
-        if off > 1e-4:
-            bad.append(name)
-    if bad:
-        sys.exit(f"layout check: {', '.join(bad)} differ from the page by more than 1e-4; fix this script's layout first")
-
-
-check_layout()
+# ---- 2. layout: where the page stands each prop and light, [x, z, yaw] in three.js metres, as the layout step read it from
+# the live page (props/shadow/export_casters.cjs -> layout_picked.json "place"; props/bake_all.py runs that step first)
+LAYOUT = json.load(open(os.path.join(ROOT, "props", "shadow", "layout_picked.json")))
+PL = LAYOUT.get("place") or sys.exit("layout_picked.json has no place block: run props/bake_all.py --only layout first")
+seat_at = [tuple(v) for v in PL["seats"]]
+TENT, HAMMOCK, TABLE, JEEP = (tuple(PL[k]) for k in ("tent", "hammock", "table", "jeep"))
+# the lanterns sway, so the page draws them and they are not baked; their lights are. The page's light is 0.125 m below
+# each lantern's hang point (lanterns.js JAR_Y), the bake's 0.12 m: 5 mm higher (review props-07), kept so the bake
+# stays as it was
+PAGE_LANTERN_DROP, LANTERN_DROP = 0.125, 0.12
+lanterns = [(x, y + PAGE_LANTERN_DROP, z) for x, y, z in PL["lanternLights"]]        # where each lantern hangs
+# toward the sun, the page's (-4, 10, 3): kept here because the page's normalised copy differs from this one in the
+# last float bit (6e-8), and the bake must stay as it was; it stops if the two ever disagree
+sd = Vector((-4, -3, 10)).normalized()
+if (sd - B(*PL["sun"])).length > 1e-6:
+    sys.exit(f"the page's sun {PL['sun']} is not the bake's {tuple(sd)}: update sd")
+print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points (the page: {PAGE_LANTERN_DROP} m)")
 PLACE = {
-    "lived": {"WoodPile": (*wp, wy), "WoodStack": (*wp, wy), "LooseLogs": (*wp, wy), "SeatThings": seat_at[1],
-              "TentSide": TENT, "MatRoll": TENT, "KitchenCrate": KITCHEN, "KitchenThings": KITCHEN},
+    "lived": {"WoodPile": PL["woodPile"], "WoodStack": PL["woodPile"], "LooseLogs": PL["woodPile"], "SeatThings": PL["seatThings"],
+              "TentSide": PL["tentSide"], "MatRoll": PL["tentSide"], "KitchenCrate": PL["kitchen"], "KitchenThings": PL["kitchen"]},
     "fire": {n: (0, 0, 0) for n in ("Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain")},
-    "laundry": {"LaundryPosts": LAUNDRY, "LaundryCloth": LAUNDRY},
+    "laundry": {"LaundryPosts": PL["laundry"], "LaundryCloth": PL["laundry"]},
 }
 
 reset()
@@ -181,9 +135,8 @@ picked = []
 for i, (x, z, yaw) in enumerate(seat_at):
     picked.append(place(objs["Seat"], f"Seat_{i}", x, z, yaw))
 picked.append(place(objs["Tent"], "Tent", *TENT, copy=False))
-hm = ((hA[0] + hB[0]) / 2, (hA[1] + hB[1]) / 2); hd = (hB[0] - hA[0], hB[1] - hA[1])
-picked.append(place(objs["Hammock"], "Hammock", hm[0], hm[1], -math.atan2(hd[1], hd[0]), copy=False))
-picked.append(place(objs["Table"], "Table", tb[0], tb[1], 0.6, copy=False))
+picked.append(place(objs["Hammock"], "Hammock", *HAMMOCK, copy=False))
+picked.append(place(objs["Table"], "Table", *TABLE, copy=False))
 bpy.data.objects.remove(objs["Seat"]); bpy.data.objects.remove(objs["Lantern"])
 
 
@@ -267,9 +220,8 @@ for o in jall:
 DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}         # camp.html: node, open angle (rad, about up)
 doors = {k: next(o for o in jall if o.name.split(".")[0] == n) for k, (n, _) in DOORS.items()}
 # the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
-# saved it (props/bake_all.py runs that step first); plain cylinders are enough for their shadows
-_lay = os.path.join(ROOT, "props", "shadow", "layout_picked.json")
-for d in (json.load(open(_lay)).get("deadwood", []) if os.path.exists(_lay) else []):
+# saved it; plain cylinders are enough for their shadows
+for d in LAYOUT.get("deadwood", []):
     if d["name"] == "FallenLog":
         bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], d.get("y", 0) + d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
         o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, d["yaw"])   # lie along x, then yaw
