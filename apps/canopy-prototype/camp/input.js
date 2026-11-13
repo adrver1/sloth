@@ -47,17 +47,19 @@ const lookEnd = (e) => {
 $("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
 addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.deltaY * 0.02, -20, 6); resize(); }, { passive: true });
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
-function boop(s) { s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
+const told = (kind, s) => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by: "you", name: s.name } }));   // the operator may remark on it
+function boop(s) { told("boop", s); s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
 // feeding (Adriaen 2026-11-12: every camp sloth is already your friend, so no friend counter or "new friend"; and eating
 // shows no words or emojis): a flower flies from you to its mouth, it nods and munches it (slothLife's mouth)
 function feed(s, emoji = "🌺") {
+  told("feed", s);
   const f = sprite(emoji, 96); f.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(f);
   fx.push({ s: f, fly: { from: f.position.clone(), to: s.head.getWorldPosition(V()) }, t: 0, life: 0.9, done() { s.nod = 2.4; s.munch = 2.6; } });
 }
 
 // giving it what you carry (a vegetable, a fruit or a bowl of soup): the modelled food (camp/food.js) leaves your hand and
 // the sloth eats it, with its eat clip when it is sitting up (camp/sloths.js life.eatGift)
-function give(s) { const f = acts.give?.(); if (!f) return; const L = window.__campLife; if (L?.eatGift) L.eatGift(s, f.make(), f.from); else feed(s, f.emoji); }
+function give(s) { const f = acts.give?.(); if (!f) return; const L = window.__campLife; if (L?.eatGift) { told("feed", s); L.eatGift(s, f.make(), f.from); } else feed(s, f.emoji); }
 
 // ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
 // With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,
