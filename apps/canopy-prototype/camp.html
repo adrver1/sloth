@@ -5,6 +5,7 @@
      Detail button (Low / Medium / High, or ?detail=) scales leaves, ferns, fur shells, effects and resolution.
      No real-time shadows; "baked" light is vertex colour; leaves and plants are instanced (one draw per kind). -->
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>Canopy Camp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,7 +52,7 @@ body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 #load .bar2 i { display: block; height: 100%; width: 4%; background: var(--leaf); border-radius: 99px; transition: width .3s; }
 </style>
 <canvas id="c"></canvas>
-<div class="hud"><div class="pill" id="score">💗 0 friends</div><div class="pill" id="perf">… fps</div></div>
+<div class="hud"><span></span><div class="pill" id="perf">… fps</div></div>
 <div id="q">Stick to walk · drag to look<br>Tap a sloth, or anything that lights up, to see what you can do</div>
 <div class="stick" id="stick" hidden><i></i></div>
 <div id="toast"></div>
