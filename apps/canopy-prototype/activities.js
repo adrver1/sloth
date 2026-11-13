@@ -155,6 +155,8 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * pot.r * 0.8;
     b.live = true; b.t = 0; b.life = 0.5 + Math.random() * 0.7; b.big = big * (0.02 + Math.random() * 0.025); b.o.visible = true; b.o.position.set(pot.at.x + Math.cos(a) * r, pot.at.y + 0.022, pot.at.z + Math.sin(a) * r);
   }
+  // what you just did, for the operator to remark on (camp/operator.js "camp-act"); by: "you" or "operator"
+  const told = (kind, by = "you") => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by } }));
   function pour() {   // the water goes in: the surface turns to water with a burst of bubbles
     soup.stage = "water"; soup.veg = 0; surfTo.set(STAGE.water); soup.fade = 1;
     for (let i = 0; i < 8; i++) setTimeout(() => bubble(1.4), i * 70);
@@ -164,6 +166,10 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     soup.veg++; surfTo.set(STAGE[Math.min(3, soup.veg)]);
     burst(pot.at.clone().add(V(0, 0.25, 0)), "plop!", 1, 1.2, 60); for (let i = 0; i < 4; i++) bubble(1.2);
     if (soup.veg === 2 && soup.stage === "water") { soup.stage = "cooking"; soup.cook = 0; setTimeout(() => toast("The soup is bubbling 🍲"), 700); }
+  }
+  function ladle() {   // a bowl out of the pot; after the last one it is empty again
+    soup.bowls++;
+    if (soup.bowls >= BOWLS) setTimeout(() => { soup.stage = "empty"; soup.veg = 0; soup.bowls = 0; surfTo.set(STAGE.empty); surf.material.opacity = 1; soup.fade = 1; }, 400);
   }
   // the bowls on the log seats: each seat holds one; a bowl is eaten up after a while and goes
   const seats = [];
@@ -194,11 +200,10 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   // the fire and the pot over it are one place: what a tap does there depends on what you hold
   const potWants = () => (held === "water" && soup.stage === "empty") || (held === "veg" && (soup.stage === "water" || (soup.stage === "cooking" && soup.veg < 3))) || (!held && soup.stage === "ready");
   thing("fire", fire, 0.6, () => held === "log" || potWants(), () => {
-    if (held === "log") { if (burning.length >= MAX_LOGS) { toast("The fire is roaring already 🔥"); return; } hold(null); addLog(); return; }
-    if (held === "water") { hold(null); pour(); canister.visible = true; return; }
-    if (held === "veg") { hold(null); addVeg(); return; }
-    hold("bowl"); soup.bowls++; toast("Set it on a log seat 🍲");
-    if (soup.bowls >= BOWLS) setTimeout(() => { soup.stage = "empty"; soup.veg = 0; soup.bowls = 0; surfTo.set(STAGE.empty); surf.material.opacity = 1; soup.fade = 1; }, 400);
+    if (held === "log") { if (burning.length >= MAX_LOGS) { toast("The fire is roaring already 🔥"); return; } hold(null); addLog(); told("log"); return; }
+    if (held === "water") { hold(null); pour(); soup.by = "you"; canister.visible = true; told("water"); return; }
+    if (held === "veg") { hold(null); addVeg(); told("veg"); return; }
+    hold("bowl"); ladle(); toast("Set it on a log seat 🍲");
   }, () => {
     if (held === "water") return "Water's in already";
     if (held === "veg") return soup.stage === "empty" ? "Fill the pot first 💧" : "Enough veg, let it cook";
@@ -273,7 +278,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       if (soup.stage === "cooking") {
         soup.cook += dt * (1 + 0.25 * flare); const k = Math.min(1, soup.cook / COOK);
         if (Math.random() < dt * (2 + 10 * k)) bubble(0.8 + 0.6 * k);
-        if (k >= 1) { soup.stage = "ready"; soup.fade = 1; const s = nearSloth(fire, 6)[0]; if (s) { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), "*smells good*", 1, 2.2, 60); } toast("Soup's ready 🍲"); }
+        if (k >= 1) { soup.stage = "ready"; soup.fade = 1; const s = nearSloth(fire, 6)[0]; if (s) { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), "*smells good*", 1, 2.2, 60); } toast("Soup's ready 🍲"); if (soup.by === "you") told("soup"); }
       } else if (soup.stage === "ready") {
         soup.fade = Math.max(0, soup.fade - dt / 2); surf.material.opacity = soup.fade; surf.visible = soup.fade > 0.01;
         if (Math.random() < dt * 2) bubble(0.7);
@@ -306,6 +311,20 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
       return null;
     },
     give() { const f = this.food(); if (!f) return null; f.from = (inHand.food.visible ? inHand.food : inHand.bowl).getWorldPosition(V()); hold(null); return f; },
-    ready(t) { return t.when() && flat(me.pos, t.at) <= NEAR + 0.6; },   // the highlight lights a thing only when a tap would use it
+    ready(t) { return t.when() && flat(me.pos, t.at) <= NEAR + 0.6; },
+    // the operator makes the soup now and then (camp/operator.js cook): the same pot and pail, step by step; each step says
+    // whether it could be done (you may have done it first)
+    cook: {
+      pail: canAt, table: tb.clone().setY(0),
+      can: () => soup.stage === "empty" && canister.visible && held !== "water",
+      takePail() { if (!canister.visible || soup.stage !== "empty" || held === "water") return false; canister.visible = false; return true; },
+      pour() { canister.visible = true; if (soup.stage !== "empty") return false; pour(); soup.by = "operator"; return true; },
+      wantsVeg: () => soup.stage === "water" || (soup.stage === "cooking" && soup.veg < 2),
+      addVeg() { if (!this.wantsVeg()) return false; addVeg(); return true; },
+      get stage() { return soup.stage; },
+      ladle() { if (soup.stage !== "ready" || soup.bowls >= BOWLS) return false; ladle(); return true; },
+      handToYou() { if (held) return false; hold("bowl"); toast("A bowl of soup for you 🍲"); return true; },   // into your hands, if they're free
+      setDown() { const s = seats.filter((q) => !q.bowl).sort((a, b) => flat(a.c, me.pos) - flat(b.c, me.pos))[0]; if (!s) return false; serve(s); return true; },   // else on the seat nearest you
+    },   // the highlight lights a thing only when a tap would use it
   };
 }
