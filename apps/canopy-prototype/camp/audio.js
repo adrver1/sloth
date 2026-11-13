@@ -374,15 +374,39 @@ function audioStep(dt, dusk = 0) {
 }
 
 // ---------------------------------------------------------------- starting on the first gesture, pausing when hidden
+// Phones (Adriaen 2026-11-13: "can't hear anything"): iOS only lets sound start inside a real tap (touchend or click, not
+// pointerdown), and by default treats web audio as "ambient", which the silent switch mutes. So on every tap until it plays:
+// resume the context, play one silent sample, and ask for the "playback" audio session (Safari 16.4+), with a looping silent
+// <audio> element as the older way to get the same.
+let silentEl = null;
+function silentWav() {   // 0.25 s of silence as a WAV
+  const n = 2000, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
+}
+function unlock() {
+  try { if (navigator.audioSession && navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"; } catch {}
+  if (!silentEl && !navigator.audioSession) { try { silentEl = new Audio(silentWav()); silentEl.loop = true; silentEl.setAttribute("playsinline", ""); } catch {} }
+  silentEl?.play?.().catch(() => {});
+  try { const s = ac.createBufferSource(); s.buffer = ac.createBuffer(1, 1, ac.sampleRate); s.connect(ac.destination); s.start(0); } catch {}
+}
 function start() {
   if (!boot()) return false;
-  if (ac.state === "suspended" && !set.muted) ac.resume().catch(() => {});
+  if (ac.state !== "running" && !set.muted) { unlock(); ac.resume().catch(() => {}); }
   if (!started) { started = true; routeMusic(); setInterval(musicTick, 100); keep(); }   // music keeps time even when frames drop
   return true;
 }
-for (const ev of ["pointerdown", "keydown", "touchend"]) addEventListener(ev, () => start(), { capture: true, passive: true });
+// start only on events that count as a tap everywhere (iOS ignores pointerdown and touchstart for audio)
+for (const ev of ["pointerup", "keydown", "touchend", "click"]) addEventListener(ev, () => { start(); setTimeout(showHint, 600); }, { capture: true, passive: true });
+// a small pill if the sound still hasn't started after a tap (some phones and in-app browsers): tapping it starts it for sure
+const hint = document.createElement("button"); hint.textContent = "🔇 Tap for sound";
+hint.style.cssText = "position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:4;display:none;font:600 15px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";
+hint.addEventListener("pointerdown", (e) => e.stopPropagation()); hint.onclick = (e) => { e.stopPropagation(); start(); setTimeout(showHint, 400); };
+document.body.append(hint);
+function showHint() { hint.style.display = ac && !set.muted && ac.state !== "running" ? "block" : "none"; }
 document.addEventListener("click", (e) => { if (e.target.closest?.("button")) { start(); if (ac?.state === "running") SFX.tock(); } }, true);
-document.addEventListener("visibilitychange", () => { if (!ac) return; if (document.hidden) ac.suspend(); else if (started && !set.muted) ac.resume(); });
+document.addEventListener("visibilitychange", () => { if (!ac) return; if (document.hidden) ac.suspend(); else if (started && !set.muted) ac.resume().catch(() => {}); });
 
 // your chores (activities.js), heard through the message they show: a log picked up, the water pail, a vegetable, a bowl
 const toastEl = $("toast"); let toastWas = "";
@@ -408,7 +432,7 @@ const audio = {
   next() { const i = STATIONS.findIndex((x) => x.id === set.station); audio.tune(); return audio.station(i + 1); },
   tune() { if (ac?.state === "running") SFX.tune(); },
   musicFrom(o) { musicObj = o || null; routeMusic(); },
-  state: () => ({ started: !!ac && ac.state === "running", volume: set.volume, muted: set.muted, music: set.music, musicVolume: set.musicVolume, station: set.station }),
+  state: () => ({ ctx: ac?.state ?? "none", started: !!ac && ac.state === "running", volume: set.volume, muted: set.muted, music: set.music, musicVolume: set.musicVolume, station: set.station }),
   onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   play(name, pos) { if (ac?.state === "running" && SFX[name]) SFX[name](pos || null); },   // any sound by name, for other modules and checks
   levels() {   // checks: the loudness of the mix now, in dBFS, over 0.2 s
