@@ -62,7 +62,7 @@ const back = canvasTex(2048, 512, (g, w, h) => {
       m.addColorStop(0, fc(0.04)); m.addColorStop(0.55, fc(0.26)); m.addColorStop(1, fc(0.42)); g.fillStyle = m; g.fillRect(0, 0, w, h); }
   }
 });
-back.wrapS = THREE.RepeatWrapping; back.repeat.x = 2; window.__back = back;
+back.wrapS = THREE.RepeatWrapping; back.repeat.x = 2;
 const sky = new THREE.Mesh(new THREE.CylinderGeometry(30, 30, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
 sky.position.y = 10; scene.add(sky);
 // at night the backdrop's top melts into the night dome's rim colour, so there's no hard line where the two meet (Adriaen 2026-11-12)

@@ -296,14 +296,8 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
   // the contact shadows: the floor darkens itself by the shadow map (review P8: it was a see-through disc blended over the whole
-  // floor every frame); the track and path ribbons on top take the same darkening through shadeOn(). shadeMat and shadeMesh
-  // stay only as the live fallback's bookkeeping and are not drawn
+  // floor every frame); the track and path ribbons on top take the same darkening through shadeOn()
   const uShade = { value: shade }, uShadeK = { value: 1 };
-  const shadeMat = new THREE.MeshBasicMaterial({ color: 0x1a1408, alphaMap: shade, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
-  shadeMat.onBeforeCompile = (sh) => { sh.uniforms.uNight = night; sh.uniforms.uGNon = uGNon;
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight, uGNon;").replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\ndiffuseColor.a *= 1.0 - (0.5 + 0.5 * uGNon) * uNight;"); };   // with the night bake in, it fades out fully at night (below): the bake holds the night's shadows
-  const shadeUv = geo.clone(); { const p = shadeUv.attributes.position, uv = shadeUv.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / (2 * RR) + 0.5, p.getZ(i) / (2 * RR) + 0.5); }
-  const shadeMesh = new THREE.Mesh(shadeUv.translate(0, 0.012, 0), shadeMat); shadeMesh.renderOrder = 3;
   clearing.visible = false;
 
   // ---------------------------------------------------------------- plant atlas (4 x 2 cells of 128): tuft, tall grass, wildflowers, clover;
@@ -455,13 +449,13 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
       .replace("#include <map_fragment>", "#include <map_fragment>\nalbedoP = diffuseColor.rgb;\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
   };
   im.material = pmat; im.frustumCulled = false; scene.add(im);
-  own.add(floor).add(shadeMesh).add(im);
+  own.add(floor).add(im);
   const counts = [0, 1, 2, 3, 4, 5, 6, 7].map((t) => pick.filter((p) => p[2] === t).length);
   // the baked map (props/shadow/bake_ground_shadow.py, Cycles: soft sun + sky occlusion) wins; the live render above is the fallback
   // for prop sets and jeeps that have no bake yet
   let shadowBaked = false;
   if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
-    shadowBaked = true; shadeMat.alphaMap = t; shadeMat.opacity = 0.85; shadeMat.needsUpdate = true; uShade.value = t; uShadeK.value = 0.85; }, undefined, () => {});
+    shadowBaked = true; uShade.value = t; uShadeK.value = 0.85; }, undefined, () => {});
   // the same darkening for a material drawn on the floor (the track and path ribbons): its world x, z looks up the shadow map
   function shadeOn(m) {
     const prev = m.onBeforeCompile;

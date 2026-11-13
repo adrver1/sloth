@@ -106,7 +106,8 @@ if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
   parts.push(paint(limb, { bleach: 0.8, moss: 0.3, y0: 0, y1: 2.5 }).rotateY(R(0, 6.28)).translate(c.x, 0, c.z));
   const out = c.clone().normalize().negate();
   for (let i = 0; i < 4; i++) { const a = Math.atan2(out.z, out.x) + R(-0.8, 0.8), d = V(Math.cos(a), 0, Math.sin(a)), y = 0.5 + i * 0.42 + R(-0.1, 0.1), rr = 0.34 - y * 0.03; shelf(parts, c.clone().addScaledVector(d, rr).setY(y), d, R(0.13, 0.19)); }
-  blockers.push(Object.assign([c.clone(), 0.45], { wild: true }));   // wild: no worn dirt or path to it (ground.js) layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);
+  blockers.push(Object.assign([c.clone(), 0.45], { wild: true }));   // wild: no worn dirt or path to it (ground.js)
+  layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);   // was lost in the comment above: unseated, untallied, not in the bake
 }
 // roots (forest-ground note 2b): low half-round roots spreading 1.5 to 2.6 m from both big trees over the ground, across the sloths'
 // way down, so the trees sit in the ground instead of on it. 16 triangles each, in the same draw and bark as the deadwood.
@@ -126,4 +127,3 @@ if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
 const geo = merge(parts), mesh = new THREE.Mesh(geo, deadMat); mesh.name = "Deadwood"; scene.add(mesh);
 tris.total = geo.attributes.position.count / 3;
 window.__deadwood = { layout, tris };   // for the GPU thread's ground-shadow bake (props/bake_all.py) and the tris report
-export { mesh as deadwood };

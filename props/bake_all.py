@@ -16,8 +16,9 @@ in several different places", and bake the whole scene as one). Run it whenever 
   ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), base64 in <map>.ktx2.txt next to the PNGs (artifacts
           don't serve .ktx2), which stay as the fallback;
           needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH
-  layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (prop spots, the jeep's track, the path),
-          served on :8765 by this script -> props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>)
+  layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (prop spots, the jeep's track, the path,
+          the deadwood, the ground's height), served on :8765 by this script -> props/shadow/layout_picked.json (needs
+          `npm install` and CHROME=<a Chrome>); it stops the bake if the page gave an incomplete layout
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
 """
 import argparse, os, subprocess, sys, time, urllib.request
@@ -66,8 +67,8 @@ if "ktx" in steps:
     import glob
     TOKTX = os.environ.get("TOKTX", "toktx")
     M = os.path.join(ROOT, "apps/canopy-prototype/models")
-    maps = [f for p in ("camp_lm_[12]k.png", "camp_lm_sun_[12]k.png", f"camp_ground_night_picked_{a.jeep}.png",
-                        f"camp_ground_jeep_picked_{a.jeep}.png", f"camp_ground_door[PDB]_picked_{a.jeep}.png") for f in sorted(glob.glob(os.path.join(M, p)))]
+    maps = [f for p in ("camp_lm_[12]k.png", "camp_lm_sun_[12]k.png", f"camp_ground_night_picked_{a.jeep}.png")
+            for f in sorted(glob.glob(os.path.join(M, p)))]   # (the jeep's ground and door-spill maps went with its baked light)
     for f in maps:
         out = f[:-4] + ".ktx2"
         run([TOKTX, "--t2", "--encode", "uastc", "--uastc_quality", "2", "--uastc_rdo_l", "1.0", "--zcmp", "19",

@@ -1,8 +1,7 @@
 // Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize.
 import * as THREE from "three";
-import "./campLife.js";   // run after the module before it, as one script did
 import { $, R, camera, qs, renderer, scene, uTime } from "./core.js";
-import { pickAt, ray, stickV, toast } from "./hud.js";
+import { keys, pickAt, ray, stickV, toast } from "./hud.js";
 import { V } from "./forest.js";
 import { COUNT, burst, flowerCrown, fx, hit, sloths, sprite } from "./sloths.js";
 import { me } from "./player.js";
@@ -16,6 +15,8 @@ stick.hidden = !coarse;
 document.body.classList.toggle("touch", coarse);   // the hint moves up above the stick
 if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
 function hideHelp() { setTimeout(() => ($("q").style.opacity = 0), 3000); }
+// the keys the player walks by (player.js reads them); the split into modules had dropped these listeners
+addEventListener("keydown", (e) => { keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
 function stickMove(e) {
   const r = stick.getBoundingClientRect(), v = new THREE.Vector2(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2).divideScalar(r.width / 2);
   if (v.length() > 1) v.normalize(); stickV.copy(v); stick.firstElementChild.style.transform = `translate(${v.x * 37}px, ${v.y * 37}px)`;
@@ -82,7 +83,7 @@ const addTarget = (key, make) => extra.push([key, make]);
 function allTargets() {
   const out = [];
   for (const [k, make] of extra) out.push(target(k, make));
-  for (const t of acts.things) if (t.look) out.push(target(t, () => ({ look: t.look, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
+  for (const t of acts.things) if (t.look) out.push(target(t, () => ({ get look() { return t.look; }, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
     ready: () => acts.ready(t), options: () => [[acts.label?.(t) ?? "Use it", () => acts.tap({ thing: t })]] })));   // only ever the one thing a tap does now (activities.js label)
   for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
     ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food?.(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })));
@@ -90,7 +91,7 @@ function allTargets() {
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
     const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
-      options: () => [[(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };
+      options: () => [...(window.__car?.doorOptions?.(d) ?? []), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };   // car.js: Get in / Get out on the driver's door
   }));
   return out;
 }
@@ -131,7 +132,7 @@ function closeMenu() { menuFor = null; menu.style.display = "none"; }
 function placeMenu() {
   const S = menuFor.at(to); to.y += S.radius * 0.8; to.project(camera);
   if (to.z > 1) { closeMenu(); return; }   // behind you
-  const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, 130, innerHeight - 40);
+  const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, Math.max(130, menu.offsetHeight + 60), innerHeight - 40);   // a tall menu (the clock's) stays on screen
   menu.style.left = x + "px"; menu.style.top = y + "px";
 }
 function tap(x, y) {

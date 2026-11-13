@@ -1,5 +1,5 @@
 // Cozy camp atmosphere for camp.html: cheap particle effects round the fire, kept out of camp.html so the sibling threads' edits there don't collide.
-// Batch 1: smoke curling up from the fire, sparks that pop more often as you walk close, and steam from the kettle spout.
+// Batch 1: smoke curling up from the fire, sparks that pop more often as you walk close, and steam off the soup pot.
 // Later: thin smoke from the tent stove's chimney, curling out from under its rain cap.
 // Batch 2: butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
 // Each effect is one instanced draw of camera-facing quads (no point sprites, so phone GPUs' point-size caps don't matter) with a fixed pool, scaled by the detail level.
@@ -49,14 +49,14 @@ function pool(scene, n, map, blending, order) {
   };
 }
 
-// fire at the clearing centre; spout is the kettle spout tip in world space, or null when the props have no kettle;
-// pot = { at: the centre of the soup's surface in world space, r: its radius } for an open pot: steam rises from the whole surface instead
+// fire at the clearing centre; pot = { at: the centre of the soup's surface in world space, r: its radius }: steam rises from
+// the whole surface (null: no steam). The kettle and its spout steam went with the kettle (the open pot replaced it).
 // chimneys: world points at the mouth of a stovepipe (the tent's, under its rain cap); thin smoke curls out sideways from under the cap and rises
-export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0, 0, 0), spout = null, pot = null, chimneys = [], sloths = [], roam = 7.5 }) {
+export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0, 0, 0), pot = null, chimneys = [], sloths = [], roam = 7.5 }) {
   const k = fx > 1 ? 1.5 : fx ? 1 : 0.5;   // detail: low, medium, high
   const puff = puffTex();
   const smoke = pool(scene, Math.round(26 * k), puff, THREE.NormalBlending, 3);
-  const steam = spout || pot ? pool(scene, Math.round((pot ? 22 : 16) * k), puff, THREE.NormalBlending, 4) : null;
+  const steam = pot ? pool(scene, Math.round(22 * k), puff, THREE.NormalBlending, 4) : null;
   const sparks = pool(scene, Math.round(60 * k), sparkTex(), THREE.AdditiveBlending, 5);
   const chim = chimneys.length ? pool(scene, Math.round(14 * k) * chimneys.length, puff, THREE.NormalBlending, 3) : null;
   let tChim = 0;
@@ -83,17 +83,14 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
       sparks.add({ x: fire.x + rnd(-0.12, 0.12), y: fire.y + rnd(0.4, 0.6), z: fire.z + rnd(-0.12, 0.12), vx: Math.cos(a) * out, vz: Math.sin(a) * out, vy: up,
         t: 0, life: rnd(0.8, 1.7), s0: rnd(0.05, 0.08), spin: 0, a: 1, ph: rnd(0, 6.28), size: 0, alpha: 0 });
     }
-    // steam: little wisps out of the spout, then up
+    // steam: soft curls lifting off the soup, anywhere on its surface
     if (steam) {
       tSteam -= dt;
       while (tSteam <= 0) {
-        tSteam += (pot ? 2.3 : 1.8) / steam.n;
-        if (pot) {                                       // soft curls lifting off the soup, anywhere on its surface
-          const a = rnd(0, 6.28), r = Math.sqrt(Math.random()) * pot.r * 0.85;
-          steam.add({ x: pot.at.x + Math.cos(a) * r, y: pot.at.y + 0.01, z: pot.at.z + Math.sin(a) * r, vx: rnd(-0.03, 0.03), vz: rnd(-0.03, 0.03), vy: rnd(0.14, 0.24),
-            t: 0, life: rnd(1.8, 2.6), s0: pot.r * rnd(0.5, 0.8), s1: rnd(0.3, 0.42), spin: rnd(0, 6.28), spinV: rnd(-0.5, 0.5), a: rnd(0.35, 0.5), ph: rnd(0, 6.28), size: 0, alpha: 0 });
-        } else steam.add({ x: spout.x, y: spout.y, z: spout.z, vx: rnd(0.12, 0.22), vz: rnd(-0.04, 0.04), vy: rnd(0.12, 0.2),
-          t: 0, life: rnd(1.4, 1.9), s0: rnd(0.04, 0.06), s1: rnd(0.22, 0.32), spin: rnd(0, 6.28), spinV: rnd(-0.6, 0.6), a: rnd(0.45, 0.6), ph: rnd(0, 6.28), size: 0, alpha: 0 });
+        tSteam += 2.3 / steam.n;
+        const a = rnd(0, 6.28), r = Math.sqrt(Math.random()) * pot.r * 0.85;
+        steam.add({ x: pot.at.x + Math.cos(a) * r, y: pot.at.y + 0.01, z: pot.at.z + Math.sin(a) * r, vx: rnd(-0.03, 0.03), vz: rnd(-0.03, 0.03), vy: rnd(0.14, 0.24),
+          t: 0, life: rnd(1.8, 2.6), s0: pot.r * rnd(0.5, 0.8), s1: rnd(0.3, 0.42), spin: rnd(0, 6.28), spinV: rnd(-0.5, 0.5), a: rnd(0.35, 0.5), ph: rnd(0, 6.28), size: 0, alpha: 0 });
       }
     }
 

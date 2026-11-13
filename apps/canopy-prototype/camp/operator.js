@@ -10,7 +10,6 @@
 // ?op=0 leaves him out; window.__op drives him for checks (window.__op.go("read"), .state()).
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import "./sloths.js";   // run after the module before it, as one script did
 import { PRE, R, camera, qs, scene, uTime } from "./core.js";
 import { load, save } from "./save.js";
 import { A0, RC, V } from "./forest.js";

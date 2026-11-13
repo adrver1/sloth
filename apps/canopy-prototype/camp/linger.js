@@ -31,7 +31,7 @@ function step(dt) {
   if (!me.seat) return;
   const idle = uTime.value - me.lastDrag > 3; drift = Math.min(1, drift + (idle ? dt * 0.3 : -drift));
   if (drift <= 0) return;
-  const t = uTime.value, yaw = me.seat.yaw + 0.16 * Math.sin(t * 0.11) + 0.05 * Math.sin(t * 0.27), pitch = -0.13 + 0.05 * Math.sin(t * 0.08 + 1);
+  const t = uTime.value, yaw = me.seat.yaw + 0.16 * Math.sin(t * 0.11) + 0.05 * Math.sin(t * 0.27), pitch = (me.seat.pitch ?? -0.13) + 0.05 * Math.sin(t * 0.08 + 1);   // a seat may say where the gaze rests (jeepSeat.js: down at the dash)
   let d = yaw - me.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
   const k = 1 - Math.exp(-0.8 * dt * drift); me.yaw += d * k; me.pitch += (pitch - me.pitch) * k;
 }
