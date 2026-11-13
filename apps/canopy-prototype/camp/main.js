@@ -21,6 +21,7 @@ import { day } from "./daytime.js";
 import { clockStep } from "./clock.js";
 import { audioStep } from "./audio.js";
 import { radioStep } from "./radio.js";
+import { carStep } from "./car.js";
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
@@ -87,7 +88,7 @@ renderer.setAnimationLoop(() => {
   }
   campStep(dt);
   opStep(dt);
-  jeepStep(dt);
+  jeepStep(dt); carStep(dt);
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
     if (f.fly) { const e = Math.min(1, f.t / f.life), k = e * e * (3 - 2 * e); f.s.position.lerpVectors(f.fly.from, f.fly.to, k); f.s.position.y += Math.sin(k * Math.PI) * 0.4; }

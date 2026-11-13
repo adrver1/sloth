@@ -1,6 +1,6 @@
 // Canopy Camp radio (diegetic controls, Adriaen 2026-11-13): a little wooden valve radio on the snack table sets the music,
 // instead of only the ⚙️ Sound button (which stays as a fallback). It lights up like the other things you can use; a tap
-// opens the pill menu: turn it on, next station (with a burst of static), quieter, louder, turn it off. The music comes from
+// opens the pill menu (shared with the jeep's radio, car.js): turn it on, next station (with a burst of static), quieter, louder, turn it off. The music comes from
 // the radio (audio.musicFrom), so it is loudest by the table. While it plays, its dial window glows, the needle slides to
 // the station and two music notes float up.
 // Built here, painted on canvas: a box without a bottom (10), the needle (2), an aerial (6), two note cards (4): 22 triangles.
@@ -47,33 +47,35 @@ radio.name = "Radio"; scene.add(radio);
 { let n = 0; radio.traverse((m) => { if (m.isMesh || m.isSprite) n += m.isSprite ? 2 : (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); console.log(`LOG radio: ${n} tris`); }
 audio.musicFrom(radio);
 
-// the menu
+let source = radio;   // the radio the music comes from (the last one you used)
+// the menu, shared with the jeep's radio (car.js): using a radio moves the music to it
 const playing = () => { const s = audio.state(); return s.music && !s.muted; };
 const say = () => { const s = audio.station(); toast(`${s.emoji} ${s.name}`); };
+function radioOptions(src) {
+  audio.start();
+  const use = (fn) => () => { audio.musicFrom(src); source = src; fn(); };
+  if (!playing()) return [["Turn the radio on 📻", use(() => { audio.muted(false); audio.music(true); say(); })]];
+  const v = audio.musicVolume(), nx = audio.stations[(audio.stations.findIndex((s) => s.id === audio.station().id) + 1) % N];
+  return [[`Next: ${nx.name} ${nx.emoji}`, use(() => { audio.next(); say(); })],
+    ...(v > 0.12 ? [["Quieter 🔉", use(() => { audio.musicVolume(v - 0.15); toast("Quieter 🔉"); })]] : []),
+    ...(v < 0.98 ? [["Louder 🔊", use(() => { audio.musicVolume(v + 0.15); toast("Louder 🔊"); })]] : []),
+    ["Turn it off 📴", () => { audio.music(false); toast("Radio off"); }]];
+}
 {
   const picks = [radio], sph = new THREE.Sphere(), tmp = new THREE.Vector3();
   const at = (v) => { radio.getWorldPosition(v); sph.center.copy(v); sph.radius = 0.25; return sph; };
-  addTarget(radio, () => ({ look: radio, picks, at,
-    ready: () => at(tmp).center.distanceTo(me.pos) < 3.5,
-    options: () => {
-      audio.start();
-      if (!playing()) return [["Turn the radio on 📻", () => { audio.muted(false); audio.music(true); say(); }]];
-      const v = audio.musicVolume(), nx = audio.stations[(audio.stations.findIndex((s) => s.id === audio.station().id) + 1) % N];
-      return [[`Next: ${nx.name} ${nx.emoji}`, () => { audio.next(); say(); }],
-        ...(v > 0.12 ? [["Quieter 🔉", () => { audio.musicVolume(v - 0.15); toast("Quieter 🔉"); }]] : []),
-        ...(v < 0.98 ? [["Louder 🔊", () => { audio.musicVolume(v + 0.15); toast("Louder 🔊"); }]] : []),
-        ["Turn it off 📴", () => { audio.music(false); toast("Radio off"); }]];
-    } }));
+  addTarget(radio, () => ({ look: radio, picks, at, ready: () => at(tmp).center.distanceTo(me.pos) < 3.5, options: () => radioOptions(radio) }));
 }
 
 // the dial lamp, the needle and the notes follow the radio's state
 let lamp = 0, nx = 0, t = 0;
 function step(dt) {
-  t += dt; const on = playing() && audio.state().started, i = audio.stations.findIndex((s) => s.id === audio.station().id);
+  t += dt; const on = playing() && audio.state().started && source === radio, i = audio.stations.findIndex((s) => s.id === audio.station().id);
   lamp += ((on ? 1 : 0) - lamp) * Math.min(1, dt * 4); face.emissiveIntensity = 0.7 * lamp;
   const x = DIAL.x0 + (DIAL.x1 - DIAL.x0) * (i / (N - 1)); nx += (x - nx) * Math.min(1, dt * 5); needle.position.x = nx;
   notes.forEach((s, k) => { const f = (t * 0.45 + k * 0.5) % 1; s.position.set(-0.05 + k * 0.08 + Math.sin((f + k) * 6) * 0.02, H / 2 + 0.03 + f * 0.25, 0.02); s.material.opacity = lamp * Math.sin(f * Math.PI) * (0.6 + 0.4 * (audio.musicVolume() > 0.3)); });
   radio.scale.y = 1 + lamp * 0.012 * Math.max(0, Math.sin(t * 9));   // a tiny bob to the music
 }
 window.__radio = radio;
-export { step as radioStep };
+const radioSource = () => source;
+export { radioSource, playing as radioPlaying, radioOptions, step as radioStep };

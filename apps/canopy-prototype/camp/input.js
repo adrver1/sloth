@@ -88,7 +88,7 @@ function allTargets() {
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
     const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
-      options: () => [[(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };
+      options: () => [...(window.__car?.doorOptions?.(d) ?? []), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };   // car.js: Get in / Get out on the driver's door
   }));
   return out;
 }
