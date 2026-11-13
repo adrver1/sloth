@@ -13,6 +13,8 @@ One GLB (props/lived/fire.glb) with objects Ring, Tripod, Fire, Embers, Pot and 
 (three.js y up). Embers are drawn unlit on the page so they glow; the flames are animated cards made on the page. Same
 baked light as the other props (AO times base colour in a colour attribute), except the chain, which only carries its
 texture. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
+make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's fire.glb
+and its models/fire.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
 """
 import math
 import os
@@ -24,13 +26,11 @@ import bmesh  # noqa: E402
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
-sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_lived  # noqa: E402  (shared helpers; its light densify is replaced below)
-import build_camp  # noqa: E402
-from build_camp import (apply_all, bake, bamboo, box, painted_bamboo, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
-
-build_camp.densify = lambda o, *_: apply_all(o)   # no face splitting for the AO bake: the fire and pot are small enough that the plain faces shade fine
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import export_glb, reset  # noqa: E402
+from lib.materials import image_material, mat  # noqa: E402
+from lib.mesh import apply_all, box, cyl, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
 
 rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
@@ -66,14 +66,10 @@ def stone(r, at, scale, m, sr=None):
     bm.verts.new((0, 0, -r * 0.6))
     bmesh.ops.convex_hull(bm, input=list(bm.verts))
     bmesh.ops.triangulate(bm, faces=bm.faces[:])
-    me = bpy.data.meshes.new("stone")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("stone", me)
-    bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "stone")
     o.scale = scale
     o.location = at
-    return _finish(o, m)
+    return with_material(o, m)
 
 
 def log(a, b, r, M, burnt=0.35, verts=7):
@@ -116,14 +112,14 @@ def ring(M):
             if f.normal.dot(inward) > 0.55 and f.center.z < 0.2:
                 f.material_index = 1
     bpy.ops.mesh.primitive_circle_add(vertices=12, radius=0.5, fill_type="NGON", location=(0, 0, 0.012))
-    ash = _finish(bpy.context.object, M["ash"], smooth=False)
+    ash = with_material(bpy.context.object, M["ash"], smooth=False)
     for v in ash.data.vertices:                                    # a ragged edge, not a perfect disc
         k = 1 + 0.18 * math.sin(3 * math.atan2(v.co.y, v.co.x) + 1) + sr.uniform(-0.1, 0.1)
         v.co.x *= k
         v.co.y *= k * 0.92
     p.append(ash)
     bpy.ops.mesh.primitive_circle_add(vertices=8, radius=0.3, fill_type="NGON", location=(0, 0, 0.025))
-    char = _finish(bpy.context.object, M["char"], smooth=False)
+    char = with_material(bpy.context.object, M["char"], smooth=False)
     for v in char.data.vertices:
         k = 1 + sr.uniform(-0.25, 0.25)
         v.co.x *= k * 1.1
@@ -180,17 +176,8 @@ def tripod_legs():
         cap = bm.faces.new(hi[:n])
         for lp in cap.loops:
             lp[uv].uv = (0.5, 0.01)                                # the node colour
-    me = bpy.data.meshes.new("TripodLegs")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("TripodLegs", me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new("TripodLegs")
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(img)
-    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, "TripodLegs")
+    o.data.materials.append(image_material("TripodLegs", img))
     return o
 
 
@@ -202,7 +189,7 @@ def embers(n, spread, M, z=0.04):
                                         location=(math.cos(a) * d, math.sin(a) * d, z), rotation=(0, 0, rng.uniform(0, 6.3)))   # a low glowing lump: 5 triangles
         o = bpy.context.object
         o.scale = (1, rng.uniform(0.7, 1.2), 1)
-        p.append(_finish(o, M["ember" if i % 3 else "ember2"], smooth=False))
+        p.append(with_material(o, M["ember" if i % 3 else "ember2"], smooth=False))
     return p
 
 
@@ -257,12 +244,8 @@ def lathe(profile, segs, m, z0=0.0):
     es = [bm.edges.new((vs[i], vs[i + 1])) for i in range(len(vs) - 1)]
     bmesh.ops.spin(bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1), angle=2 * math.pi, steps=segs, use_duplicate=False)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
-    me = bpy.data.meshes.new("lathe")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("lathe", me)
-    bpy.context.collection.objects.link(o)
-    return _finish(o, m)
+    o = obj_from_bm(bm, "lathe")
+    return with_material(o, m)
 
 
 def curve_rod(pts, r0, r1, m, verts=8):
@@ -288,12 +271,8 @@ def ribbon_arch(pts, w, m):
             a, b = pts[i], pts[i + 1]
             o = off if off is not None else (b - a).cross(Vector((1, 0, 0))).normalized() * w
             bm.faces.new([bm.verts.new(v) for v in (a - o, b - o, b + o, a + o)])
-    me = bpy.data.meshes.new("wire")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("wire", me)
-    bpy.context.collection.objects.link(o)
-    return _finish(o, m, smooth=False)
+    o = obj_from_bm(bm, "wire")
+    return with_material(o, m, smooth=False)
 
 
 def flat(n, r, at, m, sx=1.0, yaw=0.0):
@@ -308,7 +287,7 @@ def flat(n, r, at, m, sx=1.0, yaw=0.0):
     me.from_pydata(pts, [], [tuple(range(n))])
     o = bpy.data.objects.new("bit", me)
     bpy.context.collection.objects.link(o)
-    return _finish(o, m, smooth=False)
+    return with_material(o, m, smooth=False)
 
 
 def pot(M):
@@ -375,24 +354,17 @@ def chain(bottom, top):
         f = bm.faces.new(c)
         for l, u in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
             l[uv].uv = u
-    me = bpy.data.meshes.new("Chain")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("Chain", me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new("Chain")
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(tex_path)
-    bsdf = m.node_tree.nodes["Principled BSDF"]
-    m.node_tree.links.new(tx.outputs["Color"], bsdf.inputs["Base Color"])
-    m.node_tree.links.new(tx.outputs["Alpha"], bsdf.inputs["Alpha"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, "Chain")
+    o.data.materials.append(image_material("Chain", tex_path, alpha=True))
     return o
 
 
-def build(samples=32):
-    reset()
+BAKED = ("Ring", "Tripod", "Fire", "Embers", "Pot")       # the parts that take vertex colours; Chain and TripodLegs are textured
+
+
+def make():
+    """Make the fire set in the current scene and return it as {name: object}, the BAKED parts first, all at the fire's
+    origin. No reset, no light, no export."""
     M = materials()
     ring_o, trip = ring(M), tripod(M)
     fire_o, emb = fire(M)
@@ -401,23 +373,29 @@ def build(samples=32):
     for o in objs:
         apply_all(o)
         o.location = (0, 0, 0)
-    bake(objs, samples)
+    ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
+    return {o.name: o for o in objs + [ch, tripod_legs()]}
+
+
+def build(samples=32, colour=None, path=None):
+    """Make the fire set in a fresh scene, light the BAKED parts (colour(objs); by default their own AO bake at samples,
+    no face splitting: the fire and pot are small enough that the plain faces shade fine) and write it all to path
+    (default props/lived/fire.glb)."""
+    reset()
+    every = make()
+    objs = [every[k] for k in BAKED]
+    textured = [o for k, o in every.items() if k not in BAKED]
+    for o in textured:                        # the chain and the legs never shaded the fire's AO: keep them out of it
+        o.hide_render = True
+    (colour or (lambda objs: bake(objs, samples)))(objs)
+    for o in textured:
+        o.hide_render = False
     for o in objs:
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
-    objs += [ch, tripod_legs()]
-    path = os.path.join(HERE, "fire.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
-                              export_image_format="AUTO")
-    for o in objs:
-        print(f"  {o.name}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire.glb"), image_format="AUTO")
     print(f"soup surface (three.js): (0, {SOUP.z:.3f}, 0)")
-    print(f"fire: {os.path.getsize(path) // 1024} KB -> {path}")
+    print(f"fire -> {path}")
 
 
 if __name__ == "__main__":

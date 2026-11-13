@@ -7,14 +7,12 @@
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";
+import { canvasTex, lcg, patchMaterial, rand, sstep, tris } from "./camp/util.js";
+import { SUN } from "./camp/layout.js";
 // the contact shadow on whatever sits on the floor: a dark brown laid over it by the shadow map, faded at night (the night
 // bake holds the night's shadows); xz is the point's world x, z
 const SHADE = (xz) => `outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), texture2D(uShadeT, ${xz} / (2.0 * uR) + 0.5).r * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight) * step(length(${xz}), uR));`;   // the camp's baked lights, one channel each
 
-const canvasTex = (w, h, draw, srgb = true) => {
-  const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
-  const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
-};
 // value noise on an integer lattice, the same as camp/terrain.js vnoise (an integer hash, so the page and the shader agree), and the
 // big colour patches it drives: drier and yellower, or bluer and greener, 5 to 10 m across; the plants take the same tint as the ground
 const NOISE_GLSL = `
@@ -24,13 +22,12 @@ const NOISE_GLSL = `
   vec3 macroTint(float m) { return mix(vec3(1.1, 1.02, 0.74), vec3(0.8, 0.97, 0.95), m); }
 `;
 const macroTint = (m, c) => c.multiply(new THREE.Color(1.1 + (0.8 - 1.1) * m, 1.02 + (0.97 - 1.02) * m, 0.74 + (0.95 - 0.74) * m));
-const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null }) {
   // height (camp/terrain.js groundHeight): the floor, the plants and the roots follow it; far > 0 makes the floor one mesh out to far metres,
   // the forest floor included (forestMap is its tile, 6 m across), instead of the flat clearing disc
   // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
-  let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);
+  const { rnd, R } = lcg(seed);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
 
   // things in the camp (not the big trees at the edge), from the collision circles
@@ -65,14 +62,14 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     blob(0, 0, 1.25, "rgba(0,0,255,.75)");
     for (const [c, r] of used) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
-  }, false);
+  }, { srgb: false });
   if (baked) { const g = wear.image.getContext("2d"); g.globalCompositeOperation = "copy"; g.drawImage(baked.mask, 0, 0, M, M); wear.needsUpdate = true; }   // the baked wear map (props/ground/bake_ground.py) for the plants' lookups
   wear.anisotropy = 1; wear.flipY = false;   // canvas rows run with +z, like the shader's lookup
 
   // ---------------------------------------------------------------- shadows (Adriaen 2026-11-12): the page has no shadow maps, so castShadows(renderer)
   // renders every standing prop once from the sun into a texture, softened, and the ground and plants read it. Two passes kept with a max blend:
   // the sun's direction, and straight down for a fainter contact darkening under each thing. Nothing per frame; call it again when props are added.
-  const SUN = new THREE.Vector3(-4, 10, 3), SM = 1024;
+  const SM = 1024;   // the sun: layout.js SUN, as core.js lights the scene
   const rtOpt = { type: THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, depthBuffer: false };
   const silRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt), tmpRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt), outRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt);
   const shade = outRT.texture;
@@ -140,7 +137,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   const mud = look === "low" ? ["#a88a60", "#947654", "#7a5e42"] : ["#a08460", "#8a6e4e", "#73583e"];
   const dirtTex = canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = mud[0]; g.fillRect(0, 0, w, h);
-    const Q = (a, b) => a + Math.random() * (b - a);
+    const Q = rand;
     const wrap = (f) => { for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { g.save(); g.translate(dx, dy); f(); g.restore(); } };
     if (look !== "low") for (let i = 0; i < 700; i++) { const x = Q(0, w), y = Q(0, h), rx = Q(1, 6), ry = Q(1, 4), r = Q(0, 3), c = mud[1 + (i % 2)], a = Q(0.15, 0.45); wrap(() => { g.fillStyle = c; g.globalAlpha = a; g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 7); g.fill(); }); }
     g.globalAlpha = 1;
@@ -158,7 +155,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     const hc = document.createElement("canvas"); hc.width = hc.height = W; const gh = hc.getContext("2d");
     g.fillStyle = "#8a6438"; g.fillRect(0, 0, W, W); gh.fillStyle = "#000"; gh.fillRect(0, 0, W, W);
     const LEAF = ["#96602a", "#b27e36", "#7a4a24", "#a06e3c", "#6c5a2e", "#8c8046", "#5e6a2c", "#c49446"];
-    let q = 4242; const Q = (a, b) => { q = (q * 16807) % 2147483647; return a + (q / 2147483647) * (b - a); };
+    const { R: Q } = lcg(4242);
     for (let i = 0; i < 120; i++) {
       const x = Q(0, W), y = Q(0, W), a = Q(0, 6.28), L = Q(7, 15), w = L * Q(0.38, 0.55), col = LEAF[i % LEAF.length], hgt = Math.round(Q(40, 255));
       for (const dx of [-W, 0, W]) for (const dy of [-W, 0, W]) for (const [cx, fill] of [[g, col], [gh, `rgb(${hgt},${hgt},${hgt})`]]) {
@@ -304,7 +301,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   // then the clearing-edge accents (review B6): heliconia with red bracts, a bromeliad, a dark fern for framing, ground orchids
   const leaf = S.leaf.map((c) => "#" + new THREE.Color(c).lerp(new THREE.Color(0xd8e0a0), 0.3).getHexString());   // a bit lighter than the canopy, like the lawn
   const atlas = canvasTex(512, 256, (g) => {
-    const Q = (a, b) => a + Math.random() * (b - a);
+    const Q = rand;
     const blade = (x0, y0, len, lean, w, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(x0 - w, y0); g.quadraticCurveTo(x0 + lean * 0.4, y0 - len * 0.6, x0 + lean, y0 - len); g.quadraticCurveTo(x0 + lean * 0.4 + w * 0.3, y0 - len * 0.6, x0 + w, y0); g.closePath(); g.fill(); };
     const cell = (cx, cy, f) => { g.save(); g.beginPath(); g.rect(cx + 2, cy + 2, 124, 124); g.clip(); g.translate(cx, cy); f(); g.restore(); };
     cell(0, 0, () => { for (let i = 0; i < 22; i++) blade(64 + Q(-14, 14), 128, Q(55, 118), Q(-40, 40), Q(2, 3.5), leaf[i % 4]); for (let i = 0; i < 6; i++) blade(64 + Q(-8, 8), 128, Q(40, 90), Q(-30, 30), 1.6, "#c8d88a"); });   // a grass tuft
@@ -392,13 +389,13 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     let n = 0;
     for (let tries = 0; tries < want[type] * 40 && n < want[type]; tries++) {
       const a = R(0, 6.28), r = Math.sqrt(rnd()) * (RC + 0.6), x = Math.cos(a) * r, z = Math.sin(a) * r;
-      const dirt = sample(x, z, 0), lush = sample(x, z, 1), edge = smooth(RC - 2.5, RC, r), hug = nearThing(x, z);
+      const dirt = sample(x, z, 0), lush = sample(x, z, 1), edge = sstep(RC - 2.5, RC, r), hug = nearThing(x, z);
       if (inside(x, z, type === 1 ? 0.1 : 0) || bare(x, z) || trackDist(x, z) < 1.1) continue;   // bare: kept clear, e.g. under the tent's planks
       let p;
-      if (type === 0) p = ((0.18 + 0.7 * edge + 0.5 * hug + 0.3 * lush) * (1 - smooth(0.25, 0.5, dirt)) + 0.35 * smooth(0.15, 0.3, dirt) * (1 - smooth(0.3, 0.45, dirt))) * clump(x, z);   // and along path edges
-      else if (type === 1) p = (0.9 * smooth(RC - 2, RC, r) + 0.7 * hug) * (1 - smooth(0.2, 0.35, dirt)) + 0.55 * smooth(0.04, 0.14, dirt) * (1 - smooth(0.24, 0.4, dirt));   // and the verges: nobody steps there
-      else if (type === 2) p = (0.9 * flowerField(x, z) + 0.25 * hug + 0.12 * edge) * (1 - smooth(0.2, 0.35, dirt));
-      else p = (0.25 + 0.4 * lush) * (1 - edge) * (1 - smooth(0.15, 0.3, dirt)) * clump(x, z);
+      if (type === 0) p = ((0.18 + 0.7 * edge + 0.5 * hug + 0.3 * lush) * (1 - sstep(0.25, 0.5, dirt)) + 0.35 * sstep(0.15, 0.3, dirt) * (1 - sstep(0.3, 0.45, dirt))) * clump(x, z);   // and along path edges
+      else if (type === 1) p = (0.9 * sstep(RC - 2, RC, r) + 0.7 * hug) * (1 - sstep(0.2, 0.35, dirt)) + 0.55 * sstep(0.04, 0.14, dirt) * (1 - sstep(0.24, 0.4, dirt));   // and the verges: nobody steps there
+      else if (type === 2) p = (0.9 * flowerField(x, z) + 0.25 * hug + 0.12 * edge) * (1 - sstep(0.2, 0.35, dirt));
+      else p = (0.25 + 0.4 * lush) * (1 - edge) * (1 - sstep(0.15, 0.3, dirt)) * clump(x, z);
       if (rnd() > p) continue;
       const size = type === 0 ? R(0.22, 0.42) * (1 + 0.4 * edge) : type === 1 ? R(0.55, 0.95) : type === 2 ? R(0.28, 0.45) : R(0.13, 0.22);
       pick.push([x, z, type, size]); n++;
@@ -458,15 +455,13 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     shadowBaked = true; uShade.value = t; uShadeK.value = 0.85; }, undefined, () => {});
   // the same darkening for a material drawn on the floor (the track and path ribbons): its world x, z looks up the shadow map
   function shadeOn(m) {
-    const prev = m.onBeforeCompile;
-    m.onBeforeCompile = (sh, r) => {
-      prev?.call(m, sh, r);
+    patchMaterial(m, "shade", (sh) => {
       Object.assign(sh.uniforms, { uShadeT: uShade, uShadeK, uR: { value: RR }, uNight: night, uGNon });
       sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vSW;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvSW = (modelMatrix * vec4(transformed, 1.0)).xz;");
       sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vSW; uniform sampler2D uShadeT; uniform float uShadeK, uR, uNight, uGNon;")
         .replace("#include <opaque_fragment>", SHADE("vSW") + "\n#include <opaque_fragment>");
-    };
-    m.customProgramCacheKey = () => "shade|" + (prev ? prev.toString() : ""); m.needsUpdate = true;
+    });
+    m.needsUpdate = true;
     return m;
   }
   let nightBaked = false;
@@ -477,5 +472,5 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: used.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
-  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3, plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
+  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }

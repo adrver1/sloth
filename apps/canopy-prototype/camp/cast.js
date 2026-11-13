@@ -2,11 +2,10 @@
 // trait, favourite snack and how to dress it. dress(head, root) hangs the trait off the head bone (the cape off the body
 // bone); call it after furify. Ported from names-prototype.html, where the traits were tried out side by side.
 import * as THREE from "three";
-const lam = (c) => new THREE.MeshLambertMaterial({ color: c });
+import { canvasTex, lam } from "./util.js";
 // head bone frame (measured from the skinned mesh): head spans y 0.02..0.137, x ±0.078, z -0.092 (face) .. 0.049 (back);
 // the neck is at y 0..0.015 (half width 0.045, z -0.04..0.033). Accessories hang off the head bone, the cape off the body bone.
-const tex = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
-const leafTex = (col, vein) => tex(256, 128, (g, w, h) => {
+const leafTex = (col, vein) => canvasTex(256, 128, (g, w, h) => {
   g.fillStyle = col; g.beginPath(); g.moveTo(4, h / 2);
   g.bezierCurveTo(w * 0.3, -h * 0.15, w * 0.8, h * 0.05, w - 4, h / 2), g.bezierCurveTo(w * 0.8, h * 0.95, w * 0.3, h * 1.15, 4, h / 2);
   g.closePath(); g.fill(); g.strokeStyle = vein; g.lineWidth = 5; g.beginPath(); g.moveTo(4, h / 2); g.lineTo(w - 6, h / 2); g.stroke(); g.lineWidth = 2.5;
@@ -14,7 +13,7 @@ const leafTex = (col, vein) => tex(256, 128, (g, w, h) => {
 });
 const texMat = (t, o = {}) => new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide, ...o });
 function bentPlane(w, l, sw, sl, bend) { const g = new THREE.PlaneGeometry(l, w, sl, sw), p = g.attributes.position; for (let i = 0; i < p.count; i++) bend(p, i); g.computeVertexNormals(); return g; }
-const card = (w, h, draw) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), texMat(tex(64, 64, draw)));
+const card = (w, h, draw) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), texMat(canvasTex(64, 64, draw)));
 const hibiscusCard = () => card(0.055, 0.055, (g, s) => { g.translate(s / 2, s / 2); g.fillStyle = "#ff4f86"; for (let k = 0; k < 5; k++) { g.rotate(Math.PI * 2 / 5); g.beginPath(); g.ellipse(0, -13, 10, 14, 0, 0, 7); g.fill(); }
   g.fillStyle = "#c2185b"; g.beginPath(); g.arc(0, 0, 7, 0, 7); g.fill(); g.strokeStyle = "#ffd23f"; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 0); g.lineTo(9, -12); g.stroke(); });
 
@@ -45,7 +44,7 @@ function shellFrom(o, boneName, keep, off, mat, uvOf, minW = 0.5) {
 export const CAST = [
   { name: "Hibi", trait: "flower by the ear", fav: "🌺 hibiscus", dress(h) { const f = hibiscusCard(); f.position.set(0.068, 0.11, -0.045); f.rotation.set(0, 0.45, -0.3); h.add(f); } },
   { name: "Mango", trait: "orange bandana", fav: "🥭 mango", dress(h, o) {
-    const t = tex(128, 128, (g, w, hh) => { g.fillStyle = "#ff8a1f"; g.fillRect(0, 0, w, hh); g.fillStyle = "#fff4dc"; for (let y = 6; y < hh; y += 16) for (let x = (y % 32 ? 0 : 8); x < w; x += 16) { g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); } });
+    const t = canvasTex(128, 128, (g, w, hh) => { g.fillStyle = "#ff8a1f"; g.fillRect(0, 0, w, hh); g.fillStyle = "#fff4dc"; for (let y = 6; y < hh; y += 16) for (let x = (y % 32 ? 0 : 8); x < w; x += 16) { g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); } });
     t.wrapS = t.wrapT = THREE.RepeatWrapping; const m = new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide });
     shellFrom(o, "head", (v) => v.y > (v.z < -0.02 ? 0.066 - 0.2 * (v.z + 0.02) : 0.066 - 0.9 * (v.z + 0.02)), 0.004, m, (v) => [Math.atan2(v.x, -v.z) / 1.6, v.y * 9]);
     const knot = card(0.075, 0.075, (g, s) => { g.fillStyle = "#ff8a1f"; g.strokeStyle = "#c95f0a"; g.lineWidth = 2; g.beginPath(); g.ellipse(32, 18, 9, 8, 0, 0, 7); g.fill(); g.stroke();
@@ -58,7 +57,7 @@ export const CAST = [
     const leaf = new THREE.Mesh(g, texMat(leafTex("#4caf3c", "#2f7a26"))); const hat = new THREE.Group(); hat.add(leaf); hat.rotation.set(-0.12, 0.9, 0.3); hat.position.set(0, 0.005, 0); h.add(hat);
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.005, 0.03, 5), lam(0x5a3f22)); stem.position.set(0, RR * 0.95 + C.y + 0.012, C.z + 0.01); stem.rotation.x = 0.4; hat.add(stem); } },
   { name: "Bandit", trait: "banana-leaf cape", fav: "🍌 banana", dress(h, o) {
-    const t = tex(128, 128, (g, w, hh) => { g.fillStyle = "#79c046"; g.fillRect(0, 0, w, hh); g.strokeStyle = "#4f8f2c"; g.lineWidth = 5; g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w / 2, hh); g.stroke();
+    const t = canvasTex(128, 128, (g, w, hh) => { g.fillStyle = "#79c046"; g.fillRect(0, 0, w, hh); g.strokeStyle = "#4f8f2c"; g.lineWidth = 5; g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w / 2, hh); g.stroke();
       g.lineWidth = 1.6; for (let y = -w; y < hh; y += 6) for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(w / 2, y); g.lineTo(w / 2 + sg * w / 2, y + w * 0.35); g.stroke(); }
       g.globalCompositeOperation = "destination-out"; for (let x = 0; x < w; x += 11) { g.beginPath(); g.moveTo(x, hh); g.lineTo(x + 5.5, hh - 9 - (x % 22 ? 0 : 6)); g.lineTo(x + 11, hh); g.fill(); } });
     const m = new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide });

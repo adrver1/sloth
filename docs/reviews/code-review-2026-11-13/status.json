@@ -1,5 +1,5 @@
 {
- "as_of": "main 0f5dfbf, 2026-11-13",
+ "as_of": "section C part 1, 2026-11-13",
  "statuses": [
   "fixed",
   "partly fixed",
@@ -32,9 +32,11 @@
    "note": "the 7 duplicate bare imports are gone; the 2 unneeded ones and the order comment remain"
   },
   "boot-04": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "2626429"
+   ],
+   "note": "the APIs are exports; sloths.js, operator.js and input.js still read the window aliases (PR #14), and the modules that came in with PRs #15 and #16 are next"
   },
   "boot-06": {
    "status": "planned",
@@ -49,9 +51,11 @@
    "note": ""
   },
   "boot-17": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "4ddc16e"
+   ],
+   "note": "OPT and KEYS in core.js; main.js, input.js and sloths.js still parse their own"
   },
   "boot-18": {
    "status": "fixed",
@@ -88,14 +92,18 @@
    "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
   },
   "crosscut-03": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "2626429"
+   ],
+   "note": "the APIs are exports; sloths.js, operator.js and input.js still read the window aliases (PR #14), and the modules that came in with PRs #15 and #16 are next"
   },
   "crosscut-04": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "4ddc16e"
+   ],
+   "note": "the globals are listed in core.js and two unused hooks are gone; the rest sit in files that wait for PR #14"
   },
   "crosscut-05": {
    "status": "waiting on Adriaen",
@@ -122,14 +130,18 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "crosscut-09": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "5dab33a"
+   ],
+   "note": "camp/util.js; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
   },
   "crosscut-10": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "1eaa862"
+   ],
+   "note": "camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
   },
   "crosscut-13": {
    "status": "fixed",
@@ -144,11 +156,12 @@
    "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
   },
   "crosscut-15": {
-   "status": "in progress",
+   "status": "partly fixed",
    "commits": [
-    "d720668"
+    "d720668",
+    "4ddc16e"
    ],
-   "note": "part 1 of section C, on a local branch, not merged yet; the export_casters.cjs options were fixed in d720668"
+   "note": "one table of URL options, storage keys and window globals in core.js; the README copy remains"
   },
   "crosscut-17": {
    "status": "waiting on Adriaen",
@@ -203,24 +216,29 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "genbake-14": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "fixed",
+   "commits": [
+    "8250f6d",
+    "1829576"
+   ],
+   "note": "export_casters.cjs writes a place block from the live page and the bake reads it; the hand-typed copies are gone"
   },
   "genbake-18": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "partly fixed",
+   "commits": [
+    "c473b25"
+   ],
+   "note": "the bake calls each builder's make() directly: no exec, no patching. The GLB round trip stays (through a temporary folder) because the glTF export triangulates and splits vertices, and the atlas is built on that result"
   },
   "genbake-21": {
-   "status": "in progress",
+   "status": "open",
    "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "note": "not part of section C part 1"
   },
   "genbake-22": {
-   "status": "in progress",
+   "status": "open",
    "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "note": "not part of section C part 1"
   },
   "genbake-28": {
    "status": "fixed",
@@ -235,14 +253,18 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "gencamp-01": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "fixed",
+   "commits": [
+    "550c7c9"
+   ],
+   "note": "picked() builds only the five picked props"
   },
   "gencamp-02": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "fixed",
+   "commits": [
+    "cb6f0a9"
+   ],
+   "note": "props/lib holds the helpers; no script patches another"
   },
   "gencamp-06": {
    "status": "checked, still open",
@@ -255,14 +277,18 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "gencamp-13": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "partly fixed",
+   "commits": [
+    "cb6f0a9"
+   ],
+   "note": "cyl and rod take caps=; the jeep-local duplicates (quad vs poly, lugs and nuts) remain"
   },
   "gencamp-17": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "fixed",
+   "commits": [
+    "cb6f0a9"
+   ],
+   "note": "props/lib holds the helpers; no script patches another"
   },
   "genlived-01": {
    "status": "fixed",
@@ -273,34 +299,44 @@
    "note": "the cache file was committed with the GPU bake in b700bf0"
   },
   "genlived-04": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "partly fixed",
+   "commits": [
+    "c473b25"
+   ],
+   "note": "the bake calls each builder's make() directly: no exec, no patching. The GLB round trip stays (through a temporary folder) because the glTF export triangulates and splits vertices, and the atlas is built on that result"
   },
   "genlived-06": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "fixed",
+   "commits": [
+    "cb6f0a9"
+   ],
+   "note": "props/lib holds the helpers; no script patches another"
   },
   "genlived-08": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "fixed",
+   "commits": [
+    "accd75a",
+    "2d14ac8"
+   ],
+   "note": ""
   },
   "genlived-09": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "fixed",
+   "commits": [
+    "accd75a",
+    "2d14ac8"
+   ],
+   "note": ""
   },
   "genlived-10": {
-   "status": "in progress",
+   "status": "open",
    "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "note": "a tube helper would change geometry, so it needs a rebake and a visual check"
   },
   "genlived-13": {
-   "status": "in progress",
+   "status": "open",
    "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "note": "not part of section C part 1"
   },
   "hygiene-01": {
    "status": "waiting on Adriaen",
@@ -335,9 +371,11 @@
    "note": "two docstrings fixed; the rest remain"
   },
   "hygiene-14": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (one fur.js)"
+   "status": "fixed",
+   "commits": [
+    "9561718"
+   ],
+   "note": "shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs"
   },
   "operator-07": {
    "status": "partly fixed",
@@ -357,9 +395,11 @@
    "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
   },
   "operator-12": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "1eaa862"
+   ],
+   "note": "camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
   },
   "operator-16": {
    "status": "planned",
@@ -384,29 +424,41 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "props-06": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "1eaa862"
+   ],
+   "note": "camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
   },
   "props-07": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+   "status": "partly fixed",
+   "commits": [
+    "8250f6d",
+    "1829576"
+   ],
+   "note": "the bake reads the layout from the page. The lantern light still hangs 0.12 m below its hook in the bake and 0.125 m in the page: matching them needs a pick and a rebake"
   },
   "props-08": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "fixed",
+   "commits": [
+    "2626429"
+   ],
+   "note": "exports, with the window names kept as aliases for the files that still read them"
   },
   "props-11": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (one fur.js)"
+   "status": "fixed",
+   "commits": [
+    "9561718"
+   ],
+   "note": "shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs"
   },
   "props-13": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "5dab33a",
+    "2ce6f7a"
+   ],
+   "note": "util.js patchMaterial; sloths.js and operator.js still chain their hooks by hand until PR #14 merges"
   },
   "props-16": {
    "status": "waiting on Adriaen",
@@ -466,9 +518,9 @@
    "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
   },
   "sloths-31": {
-   "status": "in progress",
+   "status": "planned",
    "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "note": "after PR #14 merges"
   },
   "sloths-32": {
    "status": "planned",
@@ -520,19 +572,25 @@
    "note": ""
   },
   "world-12": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "fixed",
+   "commits": [
+    "1eaa862"
+   ],
+   "note": "camp/layout.js"
   },
   "world-15": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "partly fixed",
+   "commits": [
+    "5dab33a"
+   ],
+   "note": "camp/util.js; the copies in sloths.js, operator.js, input.js and activities.js wait for PR #14"
   },
   "world-16": {
-   "status": "in progress",
-   "commits": [],
-   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+   "status": "fixed",
+   "commits": [
+    "1eaa862"
+   ],
+   "note": "camp/layout.js"
   }
  }
 }
