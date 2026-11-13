@@ -14,6 +14,8 @@ One GLB (props/lived/lived.glb), one object per prop, each at its own origin, st
 z = 0.361), so the page places it with the same transform as the seat it sits on. Same baked light as the camp and the
 jeep: Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
 Materials match the camp's rustic set, so the props sit with the picked camp.
+make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's lived.glb
+and its models/lived.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
 """
 import argparse
 import hashlib
@@ -28,33 +30,14 @@ import bmesh  # noqa: E402  (needs bpy loaded first)
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_camp  # noqa: E402
-from build_camp import (apply_all, bake, box, cyl, join, mat, reset, rod, rough_up, torus, _finish)  # noqa: E402
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import export_glb, report, reset  # noqa: E402
+from lib.materials import image_material, mat  # noqa: E402
+from lib.mesh import apply_all, box, capless, cyl, join, obj_from_bm, quad, rod, rough_up, torus  # noqa: E402
 
 rng = random.Random(11)
 SEAT_TOP = 0.361
-
-
-def densify(o, area=0.01, edge=0.08, rounds=2):
-    """Split only the bigger faces (as the jeep does), so small props stay light. The mug and book are too small for
-    the extra shading to show, so they keep their plain faces."""
-    apply_all(o)
-    if o.name == "SeatThings":
-        return
-    for _ in range(rounds):
-        bm = bmesh.new()
-        bm.from_mesh(o.data)
-        edges = {e for f in bm.faces if f.calc_area() > area for e in f.edges if e.calc_length() > edge}
-        if edges:
-            bmesh.ops.subdivide_edges(bm, edges=list(edges), cuts=1, use_grid_fill=True)
-        bm.to_mesh(o.data)
-        bm.free()
-        if not edges:
-            break
-
-
-build_camp.densify = lambda o, *_: apply_all(o)   # bake() calls it: no face splitting (the low-triangle rule), plain faces shade fine
 
 
 PARTS = []          # piece names; each face carries its piece's index in the "part" attribute, for the triangle breakdown
@@ -330,32 +313,8 @@ def _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H):
                 l[uv].uv = (0.375 * (y - Y0) / D, 0.5 * (z - Z0) / H)
             else:                                     # a flat top: the log tops
                 l[uv].uv = (0.375 + 0.625 * (x - X0) / W, 0.5 * (y - Y0) / D)
-    me = bpy.data.meshes.new("WoodStack")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("WoodStack", me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new("WoodStack")
-    m.use_nodes = True
-    tex = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tex.image = bpy.data.images.load(atlas_path)
-    bsdf = m.node_tree.nodes["Principled BSDF"]
-    m.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-    bsdf.inputs["Roughness"].default_value = 0.9
-    me.materials.append(m)
-    return o
-
-
-def capless(o, a, b, keep_end=True):
-    """Drop a rod's caps that nobody sees: the one at a (in the ground or the stump), and the one at b unless keep_end."""
-    apply_all(o)
-    d = (Vector(b) - Vector(a)).normalized()
-    bm = bmesh.new()
-    bm.from_mesh(o.data)
-    gone = [f for f in bm.faces if abs(f.normal.dot(d)) > 0.98 and (not keep_end or (f.calc_center_median() - Vector(a)).dot(d) < 0.01)]
-    bmesh.ops.delete(bm, geom=gone, context="FACES")
-    bm.to_mesh(o.data)
-    bm.free()
+    o = obj_from_bm(bm, "WoodStack")
+    o.data.materials.append(image_material("WoodStack", atlas_path, roughness=0.9))
     return o
 
 
@@ -371,11 +330,8 @@ def ring_top(r, at, n, M):
         bm.faces.new((c, rings[0][i], rings[0][j])).material_index = 0
         bm.faces.new((rings[0][i], rings[1][i], rings[1][j], rings[0][j])).material_index = 1
         bm.faces.new((rings[1][i], rings[2][i], rings[2][j], rings[1][j])).material_index = 0
-    me = bpy.data.meshes.new("ringtop")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("ringtop", me)
-    bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "ringtop")
+    me = o.data
     me.materials.append(M["endgrain"])
     me.materials.append(M["wood"])
     return o
@@ -447,22 +403,10 @@ def loose_logs(logs=None, name="LooseLogs"):
                 lp[uv].uv = U(ex + er * math.cos(a) * s, ey - er * math.sin(a))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
-    me = bpy.data.meshes.new(name)
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new(name, me)
-    bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, name)
+    me = o.data
     me.materials.append(bpy.data.materials["WoodStack"])           # the stack's own material and image, exported once
     return o
-
-
-def quad(corners, m):
-    """One flat face (a page, a line of print, a ribbon)."""
-    me = bpy.data.meshes.new("quad")
-    me.from_pydata(corners, [], [(0, 1, 2, 3)])
-    o = bpy.data.objects.new("quad", me)
-    bpy.context.collection.objects.link(o)
-    return _finish(o, m, smooth=False)
 
 
 def page(w, d, side, M, lift):
@@ -493,11 +437,8 @@ def mug(M, at):
     for f in bm.faces:
         if f.calc_center_median().z > z0 + h - 0.006 and f.normal.z < 0:
             f.normal_flip()
-    me = bpy.data.meshes.new("mug")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("mug", me)
-    bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "mug")
+    me = o.data
     for k in ("enamel", "rim", "coffee"):
         me.materials.append(M[k])
     hd = torus(0.026, 0.006, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=6, minor=3)
@@ -567,22 +508,13 @@ def seat_top():
     img = os.path.join(HERE, "seat_top.png")
     seat_top_texture(img)
     hx, hy, z = 0.74, 0.23, SEAT_TOP + 0.0055                  # just over the top board (1.48 x 0.46, top face at 0.366)
-    me = bpy.data.meshes.new("SeatTop")
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     f = bm.faces.new([bm.verts.new(c) for c in ((-hx, -hy, z), (hx, -hy, z), (hx, hy, z), (-hx, hy, z))])
     for lp, t in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
         lp[uv].uv = t
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("SeatTop", me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new("SeatTop")
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(img)
-    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, "SeatTop")
+    o.data.materials.append(image_material("SeatTop", img))
     return o
 
 
@@ -613,11 +545,8 @@ def boot(M, at, yaw, roll=0.0):
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     for zc in (0.022, 0.07, 0.262):
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, zc), plane_no=(0, 0, 1))
-    me = bpy.data.meshes.new("boot")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("boot", me)
-    bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "boot")
+    me = o.data
     for k in ("rubber", "mud", "inside", "sole", "cuff"):
         me.materials.append(M[k])
     for pl in me.polygons:
@@ -675,17 +604,8 @@ def mat_roll(path):
             lp[uv].uv = (0.75 + 0.235 * math.cos(t) * s, 0.5 + 0.47 * math.sin(t))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
-    me = bpy.data.meshes.new("MatRoll")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("MatRoll", me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new("MatRoll")
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(path)
-    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, "MatRoll")
+    o.data.materials.append(image_material("MatRoll", path))
     return o
 
 
@@ -746,17 +666,8 @@ def kitchen_crate():
     for pts in (((-X, -Y), (X, -Y), (x, -y), (-x, -y)), ((X, -Y), (X, Y), (x, y), (x, -y)), ((X, Y), (-X, Y), (-x, y), (x, y)), ((-X, Y), (-X, -Y), (-x, -y), (-x, y))):
         q([(p[0], p[1], Z) for p in pts], [(0.55, 0.05), (0.95, 0.05), (0.95, 0.45), (0.55, 0.45)])
     bm.verts.ensure_lookup_table()
-    me = bpy.data.meshes.new("KitchenCrate")
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new("KitchenCrate", me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new("KitchenCrate")
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(img)
-    m.node_tree.links.new(tx.outputs["Color"], m.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, "KitchenCrate")
+    o.data.materials.append(image_material("KitchenCrate", img))
     return o
 
 
@@ -786,8 +697,12 @@ def kitchen_things(M):
     return join(p, "KitchenThings")
 
 
-def build(samples, parts_out=None):
-    reset()
+BAKED = ("WoodPile", "SeatThings", "TentSide", "KitchenThings")    # the props that take vertex colours; the rest are textured
+
+
+def make(samples=32):
+    """Make the lived props in the current scene and return them as {name: object}, the BAKED ones first, each at its own
+    origin. No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
     M = materials()
     stack = wood_stack(M, max(samples, 48))
     loose = loose_logs()
@@ -799,24 +714,23 @@ def build(samples, parts_out=None):
         apply_all(o)
         o.location = (0, 0, 0)
         o.name = k
-    bake(list(objs.values()), samples)
-    for o in objs.values():                   # baked props need no UVs; only the stack is textured
+    return {**objs, "WoodStack": stack, "LooseLogs": loose, "SeatTop": top, "MatRoll": roll, "KitchenCrate": crate}
+
+
+def build(samples=32, parts_out=None, colour=None, path=None):
+    """Make the lived props in a fresh scene, light the BAKED ones (colour(objs); by default their own AO bake at samples)
+    and write them all to path (default props/lived/lived.glb)."""
+    reset()
+    every = make(samples)
+    objs = {k: every[k] for k in BAKED}
+    (colour or (lambda objs: bake(objs, samples)))(list(objs.values()))
+    for o in objs.values():                   # baked props need no UVs; only the textured ones keep theirs
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = os.path.join(HERE, "lived.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in [*objs.values(), stack, loose, top, roll, crate]:
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
-                              export_image_format="JPEG")
-    print(f"  WoodStack: {sum(len(pl.vertices) - 2 for pl in stack.data.polygons)} triangles")
-    print(f"  LooseLogs: {sum(len(pl.vertices) - 2 for pl in loose.data.polygons)} triangles")
-    print(f"  KitchenCrate: {sum(len(pl.vertices) - 2 for pl in crate.data.polygons)} triangles")
-    print(f"  MatRoll: {sum(len(pl.vertices) - 2 for pl in roll.data.polygons)} triangles")
-    print(f"  SeatTop: {sum(len(pl.vertices) - 2 for pl in top.data.polygons)} triangles (x3 seats on the page)")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived.glb"), image_format="JPEG", quiet=True)
+    report([every[k] for k in ("WoodStack", "LooseLogs", "KitchenCrate", "MatRoll", "SeatTop")], note={"SeatTop": "(x3 seats on the page)"})
     for k, o in objs.items():
-        print(f"  {k}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
+        report([o])
         part = o.data.attributes["part"]
         tris = {}
         for pl in o.data.polygons:
@@ -837,12 +751,8 @@ def build(samples, parts_out=None):
                 bm.to_mesh(c.data); bm.free()
                 c.name = n
                 split.append(c)
-        bpy.ops.object.select_all(action="DESELECT")
-        for c in split:
-            c.select_set(True)
-        bpy.ops.export_scene.gltf(filepath=parts_out, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                                  export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
-    print(f"lived: {os.path.getsize(path) // 1024} KB -> {path}")
+        export_glb(split, parts_out, texcoords=False)
+    print(f"lived -> {path}")
 
 
 if __name__ == "__main__":

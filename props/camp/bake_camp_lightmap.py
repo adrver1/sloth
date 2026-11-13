@@ -6,9 +6,9 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
     blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --samples 512
     # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 4096
 
-1. Runs props/lived/build_lived.py, build_fire.py and build_laundry.py with build_camp.bake swapped for a flat one, so
-   their vertex colours are plain base colours (no AO of their own) and their GLBs carry no light.
-2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the lived GLBs, and stands everything where
+1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
+   (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
+2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the scratch GLBs, and stands everything where
    camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
 3. Adds the jeep (an occluder) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
    one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
@@ -27,10 +27,11 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
    the page places them as before; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt copies, and
    apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png.
-Layout and lights mirror camp.html (A0, tentAt, hA, hB, tb, lanternGlow, the lived PLACE table); keep them in step.
+Where each prop and light stands comes from the page itself: the "place" block the layout step (export_casters.cjs)
+writes into props/shadow/layout_picked.json.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 """
-import argparse, base64, math, os, sys, time
+import argparse, atexit, base64, json, math, os, shutil, sys, tempfile, time
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -53,87 +54,79 @@ T0 = time.time()
 GLOW = ("ru_glass", "wt_glow")
 THIN = ("LaundryCloth", "Chain")
 
-sys.path.insert(0, HERE); sys.path.insert(0, LIVED)
+sys.path.insert(0, HERE); sys.path.insert(0, LIVED); sys.path.insert(0, os.path.join(ROOT, "props"))
 import build_camp  # noqa: E402
+import build_fire  # noqa: E402
+import build_laundry  # noqa: E402
+import build_lived  # noqa: E402
+from lib.bake import flat_colours  # noqa: E402
+from lib.export import export_glb, reset, tris  # noqa: E402
+from lib.mesh import apply_all  # noqa: E402
 
 
-def flat_bake(objs, samples=0):
-    """Stands in for build_camp.bake: plain base colours into Col (alpha 0 where it glows), one vertex-colour material."""
-    for o in objs:
-        me = o.data
-        for c in list(me.color_attributes):
-            me.color_attributes.remove(me.color_attributes[c.name])
-        col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        for poly in me.polygons:
-            m = me.materials[poly.material_index] if me.materials else None
-            base = Vector(m["base"]) if m and "base" in m else Vector((0.5, 0.5, 0.5))
-            al = 0.0 if m and m.name.split(".")[0] in GLOW else 1.0
-            for li in poly.loop_indices:
-                col.data[li].color = (base.x, base.y, base.z, al)
-        me.color_attributes.active_color = col
-        m = bpy.data.materials.new("Baked"); m.use_nodes = True
-        nt = m.node_tree; ca = nt.nodes.new("ShaderNodeVertexColor"); ca.layer_name = "Col"
-        nt.links.new(ca.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
-        me.materials.clear(); me.materials.append(m)
+# where the page stands each prop and light (step 2 uses it): checked before the minutes of building in step 1
+LAYOUT = json.load(open(os.path.join(ROOT, "props", "shadow", "layout_picked.json")))
+PL = LAYOUT.get("place") or sys.exit("layout_picked.json has no place block: run props/bake_all.py --only layout first")
 
 
-build_camp.bake = flat_bake
+def flat(objs):
+    """The props' own colours for this bake: plain base colours into Col (alpha 0 where it glows), no light of their own."""
+    flat_colours(objs, GLOW)
 
-# ---- 1. the lived builders, with flat colours
-for name, call in (("build_lived", lambda g: g["build"](32, None)), ("build_fire", lambda g: g["build"]()), ("build_laundry", lambda g: g["build"]())):
-    path = os.path.join(LIVED, name + ".py")
-    g = {"__name__": name, "__file__": path}
-    exec(compile(open(path, encoding="utf-8").read(), path, "exec"), g)
-    call(g)
-    print(f"  built {name} (flat colours)")
+
+# ---- 1. the lived builders, with flat colours, each in its own fresh scene and written to a scratch GLB that step 2
+# imports. The round trip stays on purpose: the glTF export triangulates every face and splits vertices at hard edges
+# and UV seams (WoodPile: 90 faces and 161 vertices as built, 178 triangles and 225 vertices as imported), and the
+# light-map unwrap below (smart_project, then one pack for all objects) works on those faces, so building the props
+# straight into this scene would give every object a different atlas. The scratch folder keeps a failed or
+# --unwrap-only run from leaving half-made props/lived/*.glb behind; step 4 writes those.
+SCRATCH = tempfile.mkdtemp(prefix="camp_lived_")
+atexit.register(shutil.rmtree, SCRATCH, True)      # gone however the run ends (ignore_errors=True)
+build_lived.build(32, colour=flat, path=os.path.join(SCRATCH, "lived.glb"))
+print("  built build_lived (flat colours)")
+build_fire.build(colour=flat, path=os.path.join(SCRATCH, "fire.glb"))
+print("  built build_fire (flat colours)")
+build_laundry.build(colour=flat, path=os.path.join(SCRATCH, "laundry.glb"))
+print("  built build_laundry (flat colours)")
 
 
 def B(x, y, z):            # three.js -> Blender
     return Vector((x, -z, y))
 
 
-# ---- 2. layout, as camp.html
-A0 = -0.75
-d0 = (math.cos(A0), math.sin(A0)); t0 = (-d0[1], d0[0])
-def comb(sa, sb, base=(0, 0)): return (base[0] + d0[0] * sa + t0[0] * sb, base[1] + d0[1] * sa + t0[1] * sb)
-tentAt = comb(-4.2, 2.4); hA = comb(-1.5, -4.6); hB = comb(-2.6, -1.2, hA); tb = comb(1.6, 3.2)
-_tl = math.hypot(*tentAt)
-l0 = (tentAt[0] - tentAt[0] / _tl * 1.12, 2.8, tentAt[1] - tentAt[1] / _tl * 1.12)
-# the lantern strings, as lanterns.js (review B3, Adriaen 2026-11-12): a V from the tent's A-frame and the hammock's near post up
-# to the big tree behind the fire (RC + 0.4 out along d0), tied 1 m in from its centre at 4.6 m; four lanterns on each, and
-# each lantern's light 0.12 m below where it hangs. The lanterns sway, so they are drawn by the page and not baked.
-_tree = (d0[0] * (9 + 0.4 - 1.0), 4.6, d0[1] * (9 + 0.4 - 1.0))
-lanterns = []
-for e in (l0, (hA[0], 2.35, hA[1])):
-    for i in range(1, 5):
-        t = i / 5 * 0.8; p = [e[k] + (_tree[k] - e[k]) * t for k in range(3)]; p[1] -= math.sin(math.pi * t) * 0.5
-        lanterns.append(p)
-seat_at = [(math.cos(A0 + math.pi + (i - 1) * 1.15) * 2.1, math.sin(A0 + math.pi + (i - 1) * 1.15) * 2.1,
-            -(A0 + math.pi + (i - 1) * 1.15) + math.pi / 2) for i in range(3)]
-TENT = (tentAt[0], tentAt[1], math.atan2(-tentAt[0], -tentAt[1]))
-wp = (-0.55, -3.15); wy = math.atan2(-wp[0], -wp[1])
-KITCHEN = (4.55, 1.7, math.atan2(-4.55, -1.7))
-LA, LB = (1.3, 4.3), (4.0, 3.0)
-LAUNDRY = ((LA[0] + LB[0]) / 2, (LA[1] + LB[1]) / 2, math.atan2(-(LB[1] - LA[1]), LB[0] - LA[0]))
+# ---- 2. layout: where the page stands each prop and light, [x, z, yaw] in three.js metres, as the layout step read it from
+# the live page (props/shadow/export_casters.cjs -> layout_picked.json "place", read at the top; props/bake_all.py runs
+# that step first)
+seat_at = [tuple(v) for v in PL["seats"]]
+TENT, HAMMOCK, TABLE, JEEP = (tuple(PL[k]) for k in ("tent", "hammock", "table", "jeep"))
+# the lanterns sway, so the page draws them and they are not baked; their lights are. The page's light is 0.125 m below
+# each lantern's hang point (lanterns.js JAR_Y), the bake's 0.12 m: 5 mm higher (review props-07), kept so the bake
+# stays as it was
+PAGE_LANTERN_DROP, LANTERN_DROP = 0.125, 0.12
+lanterns = [(x, y + PAGE_LANTERN_DROP, z) for x, y, z in PL["lanternLights"]]        # where each lantern hangs
+# toward the sun, the page's (-4, 10, 3): kept here because the page's normalised copy differs from this one in the
+# last float bit (6e-8), and the bake must stay as it was; it stops if the two ever disagree
+sd = Vector((-4, -3, 10)).normalized()
+if (sd - B(*PL["sun"])).length > 1e-6:
+    sys.exit(f"the page's sun {PL['sun']} is not the bake's {tuple(sd)}: update sd")
+print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points (the page: {PAGE_LANTERN_DROP} m)")
 PLACE = {
-    "lived": {"WoodPile": (*wp, wy), "WoodStack": (*wp, wy), "LooseLogs": (*wp, wy), "SeatThings": seat_at[1],
-              "TentSide": TENT, "MatRoll": TENT, "KitchenCrate": KITCHEN, "KitchenThings": KITCHEN},
+    "lived": {"WoodPile": PL["woodPile"], "WoodStack": PL["woodPile"], "LooseLogs": PL["woodPile"], "SeatThings": PL["seatThings"],
+              "TentSide": PL["tentSide"], "MatRoll": PL["tentSide"], "KitchenCrate": PL["kitchen"], "KitchenThings": PL["kitchen"]},
     "fire": {n: (0, 0, 0) for n in ("Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain")},
-    "laundry": {"LaundryPosts": LAUNDRY, "LaundryCloth": LAUNDRY},
+    "laundry": {"LaundryPosts": PL["laundry"], "LaundryCloth": PL["laundry"]},
 }
 
-build_camp.reset()
+reset()
 objs = build_camp.picked()
-if "Fire" in objs:                                # older picked() builds still made the old fire: the lived fire set replaces it
-    bpy.data.objects.remove(objs.pop("Fire"))
 for name, o in objs.items():
-    build_camp.apply_all(o); o.location = (0, 0, 0)
-    n = build_camp.BUDGET["picked"].get(name); t = sum(len(p.vertices) - 2 for p in o.data.polygons)
+    apply_all(o); o.location = (0, 0, 0)
+    n = build_camp.BUDGET["picked"].get(name); t = tris(o)
     if n and t > n:
         bpy.context.view_layer.objects.active = o
         d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=d.name)
-flat_bake(list(objs.values()))
+flat(list(objs.values()))
 
 
 def place(src, name, x, z, yaw, y=0.0, copy=True):
@@ -148,9 +141,8 @@ picked = []
 for i, (x, z, yaw) in enumerate(seat_at):
     picked.append(place(objs["Seat"], f"Seat_{i}", x, z, yaw))
 picked.append(place(objs["Tent"], "Tent", *TENT, copy=False))
-hm = ((hA[0] + hB[0]) / 2, (hA[1] + hB[1]) / 2); hd = (hB[0] - hA[0], hB[1] - hA[1])
-picked.append(place(objs["Hammock"], "Hammock", hm[0], hm[1], -math.atan2(hd[1], hd[0]), copy=False))
-picked.append(place(objs["Table"], "Table", tb[0], tb[1], 0.6, copy=False))
+picked.append(place(objs["Hammock"], "Hammock", *HAMMOCK, copy=False))
+picked.append(place(objs["Table"], "Table", *TABLE, copy=False))
 bpy.data.objects.remove(objs["Seat"]); bpy.data.objects.remove(objs["Lantern"])
 
 
@@ -162,7 +154,7 @@ def import_glb(path):
 
 sets, top = {}, None
 for sname, table in PLACE.items():
-    new = import_glb(os.path.join(LIVED, f"{sname}.glb"))
+    new = import_glb(os.path.join(SCRATCH, f"{sname}.glb"))
     for o in new:
         if o.parent:
             mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
@@ -186,7 +178,7 @@ lived = sets["lived"]
 for i, (x, z, yaw) in enumerate(seat_at):
     lived.append(place(top, f"SeatTop_{i}", x, z, yaw, copy=i < 2))
 receivers = picked + [o for s in sets.values() for o in s if o.name != "Embers"]
-tris = {o.name: sum(len(p.vertices) - 2 for p in o.data.polygons) for o in picked + [o for s in sets.values() for o in s]}
+counts = {o.name: tris(o) for o in picked + [o for s in sets.values() for o in s]}
 
 # ---- 3a. the atlas: TEXCOORD_0 stays (texture UVs, or a dummy), LM is TEXCOORD_1, packed jointly
 for o in receivers:
@@ -219,13 +211,9 @@ if a.unwrap_only:
 
 # ---- 3b. the rest of the scene: the jeep (an occluder only) and the real ground disc (a receiver, mapped straight onto
 # the page's floor: image row 0 = page z -RR, column 0 = x -RR, as ground.js looks it up with flipY false)
-jo = (-2.2 / math.hypot(-2.2, -6.4), -6.4 / math.hypot(-2.2, -6.4))                   # camp.html JEEP_OUT (x, z)
-jt = (-jo[1], jo[0])
-if jt[1] * jo[0] - jt[0] * jo[1] > 0:                                                 # camp.html JEEP_TAN: its right side faces the fire
-    jt = (-jt[0], -jt[1])
 jeep = []
 jroot = bpy.data.objects.new("JeepRoot", None); bpy.context.collection.objects.link(jroot)     # the page's jeep group: every
-jroot.location = B(-2.2, 0, -6.4); jroot.rotation_euler = (0, 0, math.atan2(jt[0], jt[1]))    # node keeps its own place under it
+jroot.location = B(JEEP[0], 0, JEEP[1]); jroot.rotation_euler = (0, 0, JEEP[2])              # node keeps its own place under it
 jall = import_glb(os.path.join(ROOT, "props", "jeep", f"jeep_{a.jeep}.glb"))
 for o in jall:
     if o.type == "MESH" and o.name.startswith("Glass"):
@@ -237,10 +225,8 @@ for o in jall:
 DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}         # camp.html: node, open angle (rad, about up)
 doors = {k: next(o for o in jall if o.name.split(".")[0] == n) for k, (n, _) in DOORS.items()}
 # the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
-# saved it (props/bake_all.py runs that step first); plain cylinders are enough for their shadows
-import json as _json
-_lay = os.path.join(ROOT, "props", "shadow", "layout_picked.json")
-for d in (_json.load(open(_lay)).get("deadwood", []) if os.path.exists(_lay) else []):
+# saved it; plain cylinders are enough for their shadows
+for d in LAYOUT.get("deadwood", []):
     if d["name"] == "FallenLog":
         bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], d.get("y", 0) + d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
         o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, d["yaw"])   # lie along x, then yaw
@@ -272,7 +258,7 @@ def point(group, name, at, watts, r):
     o = bpy.data.objects.new(name, L); o.location = at; bpy.context.collection.objects.link(o); LIGHTS[group][1].append(o)
 point("fire", "FireLight", B(0, 0.55, 0), 260, 0.25)
 for i, p in enumerate(lanterns):
-    point("lanterns", f"LanternLight_{i}", B(p[0], p[1] - 0.12, p[2]), 50, 0.05)
+    point("lanterns", f"LanternLight_{i}", B(p[0], p[1] - LANTERN_DROP, p[2]), 50, 0.05)
 tent = next(o for o in picked if o.name == "Tent")
 bpy.context.view_layer.update()
 point("stove", "StoveLight", tent.matrix_world @ (Vector(build_camp.STOVE) + Vector((-0.35, 0, -0.1))), 22, 0.12)
@@ -280,7 +266,6 @@ moon = bpy.data.lights.new("Moon", "SUN"); moon.color = (1, 1, 1); moon.energy =
 mo = bpy.data.objects.new("Moon", moon); mo.rotation_euler = (math.radians(40), 0, math.radians(-120))
 bpy.context.collection.objects.link(mo); LIGHTS["moon"][1].append(mo)
 bpy.context.view_layer.update()
-sd = Vector((-4, -3, 10)).normalized()                                                  # toward the sun: page (-4, 10, 3)
 sun = bpy.data.lights.new("Sun", "SUN"); sun.energy = 3.0; sun.angle = math.radians(4)
 so = bpy.data.objects.new("Sun", sun); so.rotation_euler = (-sd).to_track_quat("-Z", "Y").to_euler()
 bpy.context.collection.objects.link(so); day_l.append(so)
@@ -409,7 +394,6 @@ print(f"  sun: mean visibility {sv[so_ > 0.02].mean():.2f}")
 save(np.stack([sv, np.clip(ao[..., 0], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun")   # B, A: free (were the jeep's lights)
 # ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
 from PIL import Image
-import json
 gd = gday[..., :3].mean(-1); open_ = np.percentile(gd, 99.5)
 shadow = np.clip(1 - gd / open_, 0, 1)[::-1]
 Image.fromarray((shadow * 255 + 0.5).astype(np.uint8), "L").save(os.path.join(MODELS, f"camp_shadow_picked_{a.jeep}.png"), optimize=True)
@@ -421,15 +405,9 @@ print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
 def export(objs, path, txt, image_format="AUTO"):
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
-                              export_image_format=image_format)
+    export_glb(objs, path, image_format=image_format)
     with open(path, "rb") as f, open(os.path.join(MODELS, txt), "w") as g:
         g.write(base64.b64encode(f.read()).decode())
-    print(f"  {os.path.basename(path)}: {os.path.getsize(path) // 1024} KB")
 
 
 export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
@@ -437,6 +415,4 @@ for sname, meshes in sets.items():
     for o in meshes:
         o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)
     export(meshes, os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
-for k, v in tris.items():
-    print(f"  {k}: {v} triangles")
-print(f"camp light: {len(tris)} objects, {sum(tris.values())} triangles, {time.time() - T0:.0f} s")
+print(f"camp light: {len(counts)} objects, {sum(counts.values())} triangles, {time.time() - T0:.0f} s")
