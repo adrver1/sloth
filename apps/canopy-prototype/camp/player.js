@@ -57,7 +57,7 @@ function step(dt) {
   const ax = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + stickV.x;
   const az = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) - stickV.y;
   const wish = fwd.clone().multiplyScalar(az).addScaledVector(right, ax); if (wish.lengthSq() > 1) wish.normalize();
-  if (me.seat && wish.lengthSq() > 0.01) me.seat = null;   // walking stands you up
+  if (me.seat && wish.lengthSq() > 0.01) { if (me.seat.leave) me.seat.leave(); else me.seat = null; }   // walking stands you up (a seat with .leave, the jeep's, gets you out its own way)
   me.sitK += Math.sign((me.seat ? 1 : 0) - me.sitK) * Math.min(Math.abs((me.seat ? 1 : 0) - me.sitK), dt * 1.6);
   if (me.seat) { me.vel.set(0, 0, 0); me.pos.lerp(me.seat.pos, 1 - Math.exp(-4 * dt)); }
   else me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
