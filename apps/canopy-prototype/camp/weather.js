@@ -4,6 +4,7 @@
 // main.js reads weather.wet (0 dry .. 1 pouring) for the light. No sound (cloud sessions can't hear it).
 import * as THREE from "three";
 import { $, D, camera, qs, scene, store } from "./core.js";
+import { rand } from "./util.js";
 
 const MODES = ["clear", "rain", "changing"], NAME = { clear: "Clear ☀️", rain: "Rain 🌧️", changing: "Changing 🌦️" };
 let mode = MODES.includes(qs.get("weather")) ? qs.get("weather") : MODES.includes(store.get("canopy-weather")) ? store.get("canopy-weather") : "clear";
@@ -14,7 +15,6 @@ show();
 // the drops: N streaks in a 18 x 12 x 18 m box that follows the camera; each falls at its own speed, a little slanted
 const N = D.fx ? (D.fx > 1 ? 1400 : 900) : 450, BOX = 9, TOP = 11, LEN = 0.38;
 const pos = new Float32Array(N * 6), drop = new Float32Array(N * 4);   // x, y, z, speed
-const rand = (a, b) => a + Math.random() * (b - a);
 function reset(i, anyY) { drop.set([camera.position.x + rand(-BOX, BOX), anyY ? rand(-1, TOP) : TOP + rand(0, 2), camera.position.z + rand(-BOX, BOX), rand(8, 11)], i * 4); }
 for (let i = 0; i < N; i++) reset(i, true);
 const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));

@@ -2,8 +2,9 @@
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
-import { D, LIVED, PRE, PROPS, R, S, canvasTex, scene, sun, uTime } from "./core.js";
-import { A0, HERO, RC, V, d0, t0 } from "./forest.js";
+import { D, LIVED, PRE, PROPS, R, S, scene, sun, uTime } from "./core.js";
+import { V, canvasTex, patchMaterial } from "./util.js";
+import { A0, HERO, RC, d0, t0 } from "./forest.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
@@ -69,11 +70,11 @@ const [LMTEX, LMSUN] = await PRE.lm;   // loaded with everything else at the top
 // lighter and more saturated than the vertex-coloured props round them (sawn wood about 202,165,118; bamboo 196,184,114),
 // so they glowed by day and at night (camp review B2). Toned down here, not in the textures, so the bake needs nothing.
 const SAWN = new THREE.Color().setRGB(0.74, 0.71, 0.68, THREE.SRGBColorSpace), BAMBOO = new THREE.Color().setRGB(0.72, 0.67, 0.6, THREE.SRGBColorSpace);   // about 150,117,80 and 141,123,68
+// one program for every material whose shader code comes out the same (review P3: keyed by uuid, each compiled its own);
+// the hooks chained before and after this one (the laundry's swing) are part of the code, so their source is in the key (patchMaterial)
 const lnight = (mat) => {
-  const prev = mat.onBeforeCompile;
   mat.lightMap = LMTEX; mat.lightMapIntensity = 0;
-  mat.onBeforeCompile = (sh, r) => {
-    prev?.call(mat, sh, r);
+  return patchMaterial(mat, "lmap", (sh) => {
     bindLight(sh); sh.uniforms.uNight = uNight; sh.uniforms.uSun = { value: LMSUN };
     sh.fragmentShader = "uniform float uNight; uniform sampler2D uSun;\n" + LIGHT_GLSL + sh.fragmentShader
       .replace("#include <lights_fragment_begin>", liveChunk().replace("getDirectionalLightInfo( directionalLight, directLight );",
@@ -89,12 +90,7 @@ const lnight = (mat) => {
       .replace("#include <opaque_fragment>", LIGHT_MIX("baseC", "lmQ", "lmDecode2(sunT.ba)", "uNight", "vec3(0.0)", true) + `
   outgoingLight = mix(outgoingLight, min(baseC * 1.15, vec3(1.0)), glowK * uNight);
 #include <opaque_fragment>`);
-  };
-  // one program for every material whose shader code comes out the same (review P3: keyed by uuid, each compiled its own);
-  // the hooks chained before and after this one (the laundry's swing) are part of the code, so their source is in the key
-  const own = mat.onBeforeCompile;
-  mat.customProgramCacheKey = () => ["lmap", prev ? prev.toString() : "", mat.onBeforeCompile === own ? "" : mat.onBeforeCompile.toString()].join("|");
-  return mat;
+  });
 };
 {
   const P = await PRE.props, { tentAt, hA, hB, tb } = window.__camp;

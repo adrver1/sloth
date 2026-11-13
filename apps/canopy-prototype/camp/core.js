@@ -1,8 +1,9 @@
 // Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, the seeded random stream, every download
-// started at once (PRE, camp review P2) and the small helpers the other modules share. Loaded first by camp.html via main.js.
+// started at once (PRE, camp review P2) and the look's leaf material (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
+import { canvasTex, sstep } from "./util.js";
 
 const qs = new URLSearchParams(location.search);
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
@@ -41,7 +42,6 @@ let seed = Number(qs.get("seed") || 7);
 const setSeed = (n) => { seed = n; };   // the forest restarts the seeded stream for its layout
 const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const R = (a, b) => a + rnd() * (b - a);
-const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // ---------------------------------------------------------------- look settings (structure differs, not just colour)
 const S = {
@@ -101,10 +101,6 @@ const leafMat = (opts, sway) => {
   };
   return m;
 };
-function canvasTex(w, h, draw) {
-  const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
-}
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
 async function glb(url) {
@@ -112,4 +108,5 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, CABIN, D, DETAIL, JEEP, LIVED, LOOK, PRE, PROPS, R, S, camera, canvasTex, hex, leafMat, qs, renderer, rnd, scene, setSeed, sstep, store, sun, uTime };
+export { $, CABIN, D, DETAIL, JEEP, LIVED, LOOK, PRE, PROPS, R, S, camera, hex, leafMat, qs, renderer, rnd, scene, setSeed, store, sun, uTime };
+export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here (util.js is their home)

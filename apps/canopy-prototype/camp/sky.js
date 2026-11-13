@@ -1,14 +1,15 @@
 // Canopy Camp sky: the painted forest backdrop in the mist, the open sky dome with clouds, the night dome with stars, the moon, the forest floor.
 import * as THREE from "three";
 import "./hud.js";   // run after the module before it, as one script did
-import { LOOK, R, S, canvasTex, hex, scene } from "./core.js";
+import { LOOK, R, S, hex, scene } from "./core.js";
+import { canvasTex, lcg } from "./util.js";
 
 // ---------------------------------------------------------------- backdrop: painted forest layers in the mist (no geometry behind them)
 // Four layers, far to near, each fading into the mist: tall rainforest trees with buttress roots, forked branches and
 // crowns built from many small leaf clusters, palms, tree ferns, hanging lianas, and an undergrowth band at the foot.
 // Low-poly paints the same trees in flat stacked shapes. Its own random stream, so the seeded layout stays the same.
 const back = canvasTex(2048, 512, (g, w, h) => {
-  let s3 = 4242; const Q = (a, b) => { s3 = (s3 * 16807) % 2147483647; return a + (s3 / 2147483647) * (b - a); };
+  const { R: Q } = lcg(4242);
   const gr = g.createLinearGradient(0, 0, 0, h); S.sky.forEach((c, i) => gr.addColorStop(i / (S.sky.length - 1), c)); g.fillStyle = gr; g.fillRect(0, 0, w, h);
   const LOW = LOOK === "low", fogC = new THREE.Color(S.fog[0]), skyTop = new THREE.Color(S.sky[0]);
   const wrap = (x, f) => { f(x); if (x < 160) f(x + w); if (x > w - 160) f(x - w); };     // draw across the seam so the texture tiles
@@ -96,7 +97,7 @@ dome.position.y = 27; scene.add(dome);
 // wisps, faded in over the day dome with dusk; and the moon, a soft disc with a halo, up in the canopy gap where the start view sees
 // it (one sprite each, no fog). Same dome geometry, so 2 draws more at night only.
 const nightTex = canvasTex(1024, 1024, (g, w, h) => {
-  let s4 = 777; const Q = (a, b) => { s4 = (s4 * 16807) % 2147483647; return a + (s4 / 2147483647) * (b - a); };
+  const { R: Q } = lcg(777);
   const c = w / 2, gr = g.createRadialGradient(c, c, 0, c, c, c);
   gr.addColorStop(0, "#0d1a33"); gr.addColorStop(0.6, "#122440"); gr.addColorStop(1, "#0b1622"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 700; i++) {                                     // stars: many faint, a few bright with a glint

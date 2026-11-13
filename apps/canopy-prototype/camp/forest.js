@@ -3,7 +3,8 @@
 import * as THREE from "three";
 import { addMound, groundHeight, initTerrain } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
-import { D, JEEP, LOOK, R, S, canvasTex, hex, leafMat, qs, rnd, scene, setSeed, sstep } from "./core.js";
+import { D, JEEP, LOOK, R, S, hex, leafMat, qs, rnd, scene, setSeed } from "./core.js";
+import { V, canvasTex, lcg, lineDist, polyDist, rand, sstep } from "./util.js";
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
@@ -32,7 +33,6 @@ function merge(geos) {                               // position, normal, colour
   m.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); m.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
   return m;
 }
-const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // ================================================================ layout
 // a round clearing (radius RC) with the camp in it; two big mossy trees at its edge lean their low branches over it,
@@ -49,14 +49,6 @@ const sloPath = (() => {
   const curve = new THREE.CatmullRomCurve3([P(PATH_A, RC - 2), P(PATH_A, RC + 0.5), P(PATH_A - 0.1, RC + 2.5), P(PATH_A + 0.06, RC + 4.3), GLADE.clone().setLength(RC + 5.2), GLADE.clone().setLength(RC + 6.5)]);
   return { curve, pts: curve.getSpacedPoints(48) };
 })();
-function polyDist(pts, x, z) {                         // distance from (x, z) to a polyline, and the nearest point on it
-  let best = 1e9, bx = 0, bz = 0;
-  for (let i = 1; i < pts.length; i++) {
-    const ax = pts[i - 1].x, az = pts[i - 1].z, dx = pts[i].x - ax, dz = pts[i].z - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
-    const d = Math.hypot(x - ax - dx * t, z - az - dz * t); if (d < best) { best = d; bx = ax + dx * t; bz = az + dz * t; }
-  }
-  return [best, bx, bz];
-}
 const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
 const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
@@ -73,15 +65,7 @@ const track = JEEP === "none" ? null : (() => {
   return { curve, pts };
 })();
 function trackDist(x, z) { return Math.min(jeepDist(x, z), pathDist(x, z)); }   // anything kept open: the jeep's track, the path, the glade
-function jeepDist(x, z) {
-  if (!track) return 1e9;
-  let best = 1e9; const p = track.pts;
-  for (let i = 1; i < p.length; i++) {
-    const ax = p[i - 1].x, az = p[i - 1].z, dx = p[i].x - ax, dz = p[i].z - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
-    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
-  }
-  return best;
-}
+function jeepDist(x, z) { return track ? lineDist(track.pts, x, z) : 1e9; }
 
 // ---------------------------------------------------------------- clearing floor
 const FLOOR_OVERLAYS = [];   // the path and track ribbons drawn on the floor: they take the ground's contact shadow (groundLife.shadeOn)
@@ -99,7 +83,7 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
   const glade = new THREE.Mesh(new THREE.CircleGeometry(GLADE_R + 1.2, 24), new THREE.MeshLambertMaterial({ map: clearing.material.map, alphaMap: soft, transparent: true, depthWrite: false }));   // a soft edge into the forest floor
   glade.material.map = clearing.material.map.clone(); glade.material.map.repeat.set(3, 3); glade.material.map.needsUpdate = true;
   glade.rotation.x = -Math.PI / 2; glade.position.set(GLADE.x, 0.022, GLADE.z); glade.material.polygonOffset = true; glade.material.polygonOffsetFactor = -2; scene.add(glade);   // above the ground mesh (0.012), or the two flicker
-  const Q = (a, b) => a + Math.random() * (b - a);   // texture noise only
+  const Q = rand;   // texture noise only
   const earth = canvasTex(64, 256, (g, w, h) => {
     g.fillStyle = LOOK === "low" ? "#a88a5e" : "#8f7653"; g.fillRect(0, 0, w, h);
     if (LOOK !== "low") for (let i = 0; i < 260; i++) { g.fillStyle = ["#7a6245", "#a58b66", "#6e5a40"][i % 3]; g.globalAlpha = Q(0.2, 0.5); g.beginPath(); g.ellipse(Q(0, w), Q(0, h), Q(1, 3), Q(1, 2), 0, 0, 7); g.fill(); }
@@ -123,7 +107,7 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
 
 // ---------------------------------------------------------------- the jeep's track: a dirt road out through the forest, and muddy tyre ruts up to its wheels
 if (track) {
-  const Q = (a, b) => a + Math.random() * (b - a);   // texture noise only: leaves the seeded layout alone
+  const Q = rand;   // texture noise only: leaves the seeded layout alone
   const ribbon = (width, y, tex, alpha, tile, order) => {
     const n = 140, pos = [], uv = [], col = [], idx = [], L = track.curve.getLength();
     for (let i = 0; i <= n; i++) {
@@ -270,7 +254,7 @@ addSectors(leaves);
 // leaves; their own random stream, so the seeded layout stays the same). Twigs scale with the detail level.
 {
   const NEAR = RC + 6;   // only the trees you can see clearly get limbs (fewest triangles that still look good)
-  let s4 = 777; const Q = (a, b) => { s4 = (s4 * 16807) % 2147483647; return a + (s4 / 2147483647) * (b - a); };
+  const { R: Q } = lcg(777);
   const geos = [], tops = [], twigs = D.fx > 1 ? 2 : D.fx ? 1 : 0, seg = 2;   // a limb is a flat strip with two bends: 4 triangles
   // a limb as a flat tapered strip, its wide side facing down: from the ground, looking up, it reads as round wood
   const strip = (curve, r0, r1, n) => {
@@ -327,7 +311,7 @@ addSectors(leaves);
 // bushes along both verges of the jeep's track, so the walk out feels like a lane through the jungle
 // (their own random stream, so the seeded layout of everything else stays the same)
 if (track) {
-  let s2 = 991; const Q2 = (a, b) => { s2 = (s2 * 16807) % 2147483647; return a + (s2 / 2147483647) * (b - a); };
+  const { R: Q2 } = lcg(991);
   const vc = [], L = track.curve.getLength();
   for (let l = 2.5; l < L; l += 1.3) {
     const t = l / L, p = track.curve.getPointAt(t), d = track.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
@@ -368,4 +352,5 @@ if (track) {
 }
 
 
-export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, polyDist, sloPath, t0, track, trackDist };
+export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, branchCurves, clearing, d0, sloPath, t0, track, trackDist };
+export { V, polyDist };   // back-compat: input.js, main.js, operator.js, player.js and sloths.js still import these from here (util.js is their home)

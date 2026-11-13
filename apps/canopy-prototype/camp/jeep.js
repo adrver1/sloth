@@ -2,7 +2,8 @@
 import * as THREE from "three";
 import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { pickAt, toast } from "./hud.js";
-import { JEEP_AT, JEEP_OUT, JEEP_TAN, V } from "./forest.js";
+import { V, canvasTex } from "./util.js";
+import { JEEP_AT, JEEP_OUT, JEEP_TAN } from "./forest.js";
 import { blockers } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
@@ -42,8 +43,8 @@ if (JEEP !== "none") {
   const cabOn = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
   const OFF = new THREE.Color(0x8c8778), CL = new THREE.Color(0xffe2a8);
   // a soft glow round the cabin lamp (one sprite), so the lit cabin reads through the windows before any bake
-  const glowTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    r.addColorStop(0, "rgba(255,226,168,1)"); r.addColorStop(1, "rgba(255,226,168,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+  const glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    r.addColorStop(0, "rgba(255,226,168,1)"); r.addColorStop(1, "rgba(255,226,168,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }, { srgb: false, aniso: 1 });
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.position.set(0, 1.45, -0.25); glow.scale.setScalar(1.1); glow.visible = false; jeep.add(glow);
   // Cabin: live: one spot light under the roof aimed down (83 degree half-angle), shadowed by the jeep only; its shadow map is
