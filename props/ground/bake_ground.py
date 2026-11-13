@@ -54,8 +54,14 @@ def wobbly(p, q, bend, n=14):                               # a footpath doesn't
     pts = [p + (q - p) * t + s * (math.sin(t * math.pi) * bend + rng.uniform(-0.05, 0.05)) for t in np.linspace(0, 1, n)]
     return pts
 def path(pts, w, k):
-    d = seg_dist((X, Z), pts[:-1], pts[1:]) + 0.35 * (n_mid - 0.5) + 0.15 * (n_fine - 0.5)
-    return k * (1 - ss(w * 0.35, w, d))
+    # only the pixels the path can reach are worked out: beyond w + 0.25 m of it (0.25 = the most the two noise terms add)
+    # the result is exactly 0, and a distance field over the whole image for every segment was 70% of this script's run time
+    P = np.array(pts, float); m = w + 0.25 + 2 * 2 * R / N
+    i0, i1 = np.searchsorted(c, [P[:, 1].min() - m, P[:, 1].max() + m]); j0, j1 = np.searchsorted(c, [P[:, 0].min() - m, P[:, 0].max() + m])
+    out = np.zeros((N, N)); box = (slice(i0, i1), slice(j0, j1))
+    d = seg_dist((X[box], Z[box]), pts[:-1], pts[1:]) + 0.35 * (n_mid[box] - 0.5) + 0.15 * (n_fine[box] - 0.5)
+    out[box] = k * (1 - ss(w * 0.35, w, d))
+    return out
 
 warp = 1.1 * (n_mid - 0.5) + 0.5 * (n_fine - 0.5)
 W = 1 - ss(1.7, 3.7, rf + 1.3 * (n_big - 0.5) + warp)        # the trampled ring round the fire and the seats
