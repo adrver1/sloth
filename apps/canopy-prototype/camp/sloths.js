@@ -120,8 +120,10 @@ function slothLife(s, dt) {                            // after the clip: fur by
 const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();
   g.fillStyle = "#e07a8a"; g.beginPath(); g.ellipse(32, 48, 16, 11, 0, 0, 7); g.fill(); });
 const mouthMat = new THREE.MeshBasicMaterial({ map: mouthTex, alphaTest: 0.5 }), mouthGeo = new THREE.PlaneGeometry(0.036, 0.034);
+// the mouth card sits on the smile (head frame y 0.031, z -0.083), a little below and in front of it so it opens downward;
+// the nose is at y 0.046 (Adriaen 2026-11-13: the yawn was on the nose)
 function mouthOf(s) {                                 // also opens and closes as it chews (eating, below)
-  if (!s.mouth) { s.mouth = new THREE.Mesh(mouthGeo, mouthMat); s.mouth.position.set(0, 0.046, -0.1); s.mouth.rotation.set(-0.15, Math.PI, 0); s.mouth.visible = false; s.head.add(s.mouth); }
+  if (!s.mouth) { s.mouth = new THREE.Mesh(mouthGeo, mouthMat); s.mouth.position.set(0, 0.024, -0.087); s.mouth.rotation.set(-0.15, Math.PI, 0); s.mouth.visible = false; s.head.add(s.mouth); }
   return s.mouth;
 }
 function yawnStep(s, dt) {
