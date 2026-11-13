@@ -118,6 +118,7 @@ menu.style.cssText = "position:fixed;left:0;top:0;display:none;flex-direction:co
 document.body.append(menu);
 for (const ev of ["pointerdown", "pointerup"]) menu.addEventListener(ev, (e) => e.stopPropagation());
 function openMenu(t) {
+  if (t.tap) { t.tap(); return; }   // a thing with one obvious use does it straight away (trip.js: the karaoke sign asks its question)
   menuFor = t; menu.replaceChildren(...t.options().map(([label, fn]) => {
     const b = document.createElement("button"); b.textContent = label;
     b.style.cssText = "font:600 16px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25);cursor:pointer;white-space:nowrap";

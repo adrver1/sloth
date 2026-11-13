@@ -825,17 +825,14 @@ if (qs.get("campsloths") !== "0") {
       else { s.dozeT -= sd; if (s.dozeT < 0 || s.squish > 0.9 || s.nod > 2) wake(s, after); }
     } else if (!after) { s.napT -= sd; if (s.napT < 0 && !s.smore && !s.wave && !s.once) doze(s); }
   }
-  // z's rising off each sleeper, three at a time like the hammock napper's (Adriaen 2026-11-13: "sleeping sloths should have
-  // zzzzs like the hammock sloth"); a little smaller on the small ones
+  // a little z rising off each sleeper (the hammock napper has its own three)
   function zStep(s, dt) {
     const on = s.dozing && s.asleep && !s.spot?.asleep;
-    if (!on && !s.zz) return;
-    s.zz ??= [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
-    s.zk = ((s.zk ?? R(0, 1)) + dt / 2.4) % 1;
-    const f = Math.min(1, Math.max(0.6, s.sc / 2.2)), hush = s.squish > 0 ? 0 : 0.85;
-    s.zz.forEach((z, i) => { const k = (s.zk + i / 3) % 1;
-      s.head.getWorldPosition(z.position).add(V(0.1 * f * Math.sin(k * 6), (0.25 + 0.6 * k) * f, 0));
-      z.material.opacity = on ? Math.sin(Math.PI * k) * hush : 0; const w = (0.3 + 0.35 * k) * f; z.scale.set(w, w / 4, 1); });
+    if (!on && !s.z) return;
+    s.z ??= (() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; })();
+    s.zk = ((s.zk ?? R(0, 1)) + dt / 3) % 1; const k = s.zk;
+    s.head.getWorldPosition(s.z.position).add(V(0.08 * Math.sin(k * 6), 0.12 * s.sc / 2 + 0.4 * k, 0));
+    s.z.material.opacity = on ? Math.sin(Math.PI * k) * 0.75 : 0; s.z.scale.set(0.22 + 0.25 * k, (0.22 + 0.25 * k) / 4, 1);
   }
 
   // the seven named sloths (cast.js), each in its own spot: Hibi naps in the hammock, Sunny sits on the bench and toasts

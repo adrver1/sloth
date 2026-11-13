@@ -64,7 +64,14 @@ function polyDist(pts, x, z) {                         // distance from (x, z) t
   }
   return [best, bx, bz];
 }
-const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
+// the karaoke trip's path (Adriaen 2026-11-12): a trodden footpath on from the far side of the glade that bends off along the
+// forest and is lost among the trunks. An arrow sign by the glade points down it; trip.js asks "Go to karaoke?" there.
+const tripPath = (() => {
+  const ag = Math.atan2(GLADE.z, GLADE.x), P = (da, r) => V(Math.cos(ag + da) * r, 0, Math.sin(ag + da) * r), rg = GLADE.length();
+  const curve = new THREE.CatmullRomCurve3([P(0, rg + GLADE_R - 1.4), P(0.02, rg + GLADE_R + 0.6), P(0.06, rg + GLADE_R + 2.4), P(0.13, rg + GLADE_R + 3.5), P(0.24, rg + GLADE_R + 3.9), P(0.37, rg + GLADE_R + 3.7)]);
+  return { curve, pts: curve.getSpacedPoints(40) };
+})();
+const pathLane = (x, z) => Math.min(polyDist(sloPath.pts, x, z)[0], polyDist(tripPath.pts, x, z)[0]);   // the paths themselves
 const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
 const nearPath = () => false;
@@ -116,17 +123,20 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
     g.globalCompositeOperation = "destination-in"; g.fillStyle = e; g.fillRect(0, 0, w, h);
   });
   earth.wrapT = THREE.RepeatWrapping;
-  const n = 40, pos = [], uv = [], col = [], idx = [], L = sloPath.curve.getLength();
+  for (const [curve, half, fade] of [[sloPath.curve, 0.75, (t, L, r) => sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 1.2, L, t * L))],   // takes over from the baked ground's path at the clearing edge, fades out into the glade
+    [tripPath.curve, 1.25, (t, L) => sstep(0, 1.6, t * L) * (1 - sstep(L - 2.5, L, t * L))]]) {   // the trip path: wide enough for two walking hand in hand (Adriaen 2026-11-12), in from the glade's grass, lost in the trees at its end
+  const n = 40, pos = [], uv = [], col = [], idx = [], L = curve.getLength();
   for (let i = 0; i <= n; i++) {
-    const t = i / n, p = sloPath.curve.getPointAt(t), d = sloPath.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
-    const a = sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 1.2, L, t * L));   // takes over from the baked ground's path at the clearing edge, fades out into the glade
-    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * 0.75); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
+    const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
+    const a = fade(t, L, r);
+    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * half); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
     if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: earth, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   m.renderOrder = 1; scene.add(m); FLOOR_OVERLAYS.push(m);
+  }
 }
 
 // ---------------------------------------------------------------- the jeep's track: a dirt road out through the forest, and muddy tyre ruts up to its wheels
@@ -216,6 +226,14 @@ const wall = [];
     if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
     wall.push([x, z, R(0.6, 1.4)]);
   }
+  // the karaoke trip's path runs out past where the wall thins, so a few trunks line it (fixed spots, no rnd(): the seeded
+  // layout above stays as it was); the same instanced trunk, so no new draw (48 tris each)
+  { const nT = wall.length;
+    for (let i = 0; i < 12; i++) { const t = 0.12 + (i >> 1) * 0.16, p = tripPath.curve.getPointAt(t), d = tripPath.curve.getTangentAt(t), sd = (i & 1) ? 1 : -1;
+      if (sd * (p.x * -d.z + p.z * d.x) < 0 && t > 0.4) continue;   // past the sign only on the far side, so the camp side stays open for the cut scene's camera
+      const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.5 + ((i * 7) % 3) * 0.45)), r = Math.hypot(q.x, q.z);
+      if (r < 28.4 && !wall.some((w) => Math.hypot(w[0] - q.x, w[1] - q.z) < 1.8) && !HERO.some((h) => Math.hypot(h.x - q.x, h.z - q.z) < 4)) wall.push([q.x, q.z, 0.7 + ((i * 5) % 4) * 0.15]); }
+    window.__tripTrunks = wall.length - nT; }
   for (const [x, z, s] of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);   // each tree on its own root mound
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
   wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1), y0 = groundHeight(x, z) - 0.15; w[3] = keep ? y0 + 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
@@ -375,4 +393,4 @@ if (track) {
 }
 
 
-export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, flatCol, jeepDist, merge, pathDist, polyDist, sloPath, t0, track, trackDist, woodMat };
+export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, flatCol, jeepDist, merge, pathDist, polyDist, sloPath, t0, track, trackDist, tripPath, woodMat };
