@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { GAIN } from "../bakedlight.js";
 import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { V, canvasTex, ease } from "./util.js";
-import { JEEP_AT, JEEP_OUT, JEEP_TAN } from "./layout.js";
+import { JEEP_AT, JEEP_TAN } from "./layout.js";
 import { blockers } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
@@ -16,7 +16,7 @@ import { blockers } from "./campProps.js";
 // cabinLive.receive(object): that object takes the cabin light's shadow (campLife.js gives it the floor and the baked props).
 let jeepStep = () => {}, jeepApi = null, cabinLive = null;
 if (JEEP !== "none") {
-  const J = await PRE.jeep, at = JEEP_AT, out = JEEP_OUT, tan = JEEP_TAN;
+  const J = await PRE.jeep, at = JEEP_AT, tan = JEEP_TAN;
   const jeep = J.scene;
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
   const glassM = new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false });   // see-through, a little tinted
@@ -31,7 +31,6 @@ if (JEEP !== "none") {
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
   if (far) { far.position.copy(jeep.position); far.rotation.copy(jeep.rotation); }
   for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
-  if (JEEP === "camper") blockers.push([at.clone().addScaledVector(out, -2.3), 0.4]);   // the ladder foot
   // how far each swings (rad) and about which axis, as in build_jeep.py; H is the hood (Adriaen 2026-11-12), hinged at the windscreen
   const D3 = { P: ["DoorP", -1.2, "y"], D: ["DoorD", 1.2, "y"], B: ["BackDoor", 1.75, "y"], H: ["Hood", -1.15, "x"] }, doors = {};
   for (const [k, [n, open, axis]] of Object.entries(D3)) { const o = jeep.getObjectByName(n); if (o) doors[k] = { o, open, axis, cur: 0, want: 0 }; }

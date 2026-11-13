@@ -109,8 +109,7 @@ const S = {
 
 // ---------------------------------------------------------------- renderer
 const renderer = new THREE.WebGLRenderer({ canvas: $("c"), antialias: D.aa, powerPreference: "high-performance" });
-let pr = Math.min(devicePixelRatio, D.pr);
-renderer.setPixelRatio(pr);
+renderer.setPixelRatio(Math.min(devicePixelRatio, D.pr));   // main.js lowers it if the frame rate drops
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 // ---------------------------------------------------------------- downloads, all started at once (camp review P2, 2026-11-12)
 // Every model, the light maps and the ground mask start loading here, while the forest below is grown, instead of one after

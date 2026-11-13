@@ -5,10 +5,11 @@
 import * as THREE from "three";
 import { scene, uTime } from "./core.js";
 import { V, wrapPi } from "./util.js";
+import { SEATS } from "./layout.js";
 import { me } from "./player.js";
 import { addTarget } from "./input.js";
 
-const seats = [0, 1, 2].map((i) => scene.getObjectByName(`Seat_${i}`)).filter(Boolean);
+const seats = SEATS.map((_, i) => scene.getObjectByName(`Seat_${i}`)).filter(Boolean);   // campProps.js puts one log on each of layout.js's seats
 // where you sit on a log: its middle, a little to its back edge. Seat_0 is Sunny's bench (sloths.js "seat", just right of its
 // middle as you face the fire), so there you always shift 0.55 m to the left and leave Sunny room (Adriaen 2026-11-12)
 function seatSpot(o) {
