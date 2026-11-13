@@ -1,6 +1,6 @@
 // Canopy Camp in the jeep (diegetic controls, Adriaen 2026-11-13): open the driver's door (DoorP, the camp side) and "Get in"
 // sits you at the wheel; while the jeep's sloth is playing at driving there, you ride beside it (either front door). In there three things light up like everything else you can use:
-//   the key in the ignition: "Turn the key" cranks and starts the engine (the key turns, the jeep shakes, then idles with a
+//   the key in the ignition: "Turn the key" cranks and starts the engine (the key turns, the jeep shudders, then idles with a
 //     gentle tremble); "Drive somewhere" is the placeholder for fast travel to other levels; "Turn the engine off"
 //   the radio in the middle of the dash: the same menu as the radio on the snack table (radio.js); the music then plays from it
 //   the dash clock: the same menu as the camp's other clocks (clock.js)
@@ -92,9 +92,11 @@ if (jeep) {
     if (engine === "crank") { crank += dt; if (crank > 1.1) { engine = "run"; toast("Brrrm! The engine is running 🚙"); } }
     const want = engine === "off" ? 0 : engine === "crank" ? KEY_CRANK : KEY_RUN;
     keyA += (want - keyA) * Math.min(1, dt * (engine === "crank" ? 14 : 8)); key.rotation.z = keyA;
-    const amp = engine === "crank" ? 0.012 * Math.min(1, crank * 3) : engine === "run" ? 0.0035 : 0;
-    jeep.position.set(base.x, base.y + amp * Math.sin(t * 61) * Math.sin(t * 7.3), base.z + amp * 0.5 * Math.sin(t * 47));
-    jeep.rotation.z = amp * 0.6 * Math.sin(t * 53);
+    // the shake (Adriaen 2026-11-13: it shook too much): a soft shudder while cranking, a barely-there tremble at idle.
+    // Slower waves than before, so at 30-60 fps it reads as a tremble rather than a jitter.
+    const amp = engine === "crank" ? 0.005 * Math.min(1, crank * 3) : engine === "run" ? 0.0009 : 0;
+    jeep.position.set(base.x, base.y + amp * Math.sin(t * 23) * (0.7 + 0.3 * Math.sin(t * 3.1)), base.z + amp * 0.4 * Math.sin(t * 17));
+    jeep.rotation.z = amp * 0.4 * Math.sin(t * 19);
     drawRadio(); rMat.emissiveIntensity = shown === "off" ? 0 : 0.8;
   };
   window.__car.engine = () => engine; window.__camera ??= camera;   // checks
