@@ -1,6 +1,5 @@
 // Canopy Camp HUD: the toast message and tap picking (a ray from the screen into a list of objects).
 import * as THREE from "three";
-import "./core.js";   // run after the module before it, as one script did
 import { $, camera } from "./core.js";
 
 let toastT;

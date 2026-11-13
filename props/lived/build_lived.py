@@ -16,6 +16,8 @@ jeep: Cycles AO times base colour in one colour attribute, drawn with a plain La
 Materials match the camp's rustic set, so the props sit with the picked camp.
 """
 import argparse
+import hashlib
+import json
 import math
 import os
 import random
@@ -173,7 +175,6 @@ def _render_view(path, at, rot, w, h, px):
 def wood_stack(M, samples):
     """The log stack as one block: its front outline extruded along the logs, painted with renders of the detailed
     stack (end grain on the two ends, log sides on the left and right, log tops on top), so it costs about 100 triangles."""
-    from PIL import Image
     logs = stack_logs(M)
     sc = bpy.context.scene
     sc.render.engine = "CYCLES"
@@ -213,13 +214,61 @@ def wood_stack(M, samples):
     W, D, H = X1 - X0, Y1 - Y0, Z1 - Z0
     tmp = os.path.join(HERE, "_stack_%s.png")
     px = 900
-    _render_view(tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
-    _render_view(tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
-    _render_view(tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
+    atlas_path = os.path.join(HERE, "wood_stack.jpg")
+    # the three Cycles renders are most of this script's time (about 30 s of 36 s on a laptop CPU, every light bake), and
+    # their inputs rarely change: wood_stack.json keeps a key of everything they depend on (the logs' vertices, the
+    # material colours, the samples and this function's own source) with the outline they gave, and while the key
+    # matches and wood_stack.jpg is there, the renders are skipped. The seeded logs are still built, so the random
+    # stream the rest of the props draw from is unchanged.
+    stamp = os.path.join(HERE, "wood_stack.json")
+    key = _stack_key(logs, samples, px)
+    cached = None
+    if os.path.exists(stamp) and os.path.exists(atlas_path):
+        with open(stamp) as f:
+            j = json.load(f)
+        if j.get("key") == key:
+            cached = [tuple(p) for p in j["outline"]]
+    if cached is None:
+        _render_view(tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
+        _render_view(tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
+        _render_view(tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
+    else:
+        print("  wood stack: renders unchanged (wood_stack.json), reusing wood_stack.jpg")
     for o in logs:
         bpy.data.objects.remove(o)
     bpy.data.objects.remove(cam)
     bpy.data.objects.remove(sun)
+    outline = cached if cached is not None else _stack_atlas(tmp, atlas_path, X0, W, Z0, H)
+    if cached is None:
+        with open(stamp, "w") as f:
+            json.dump({"key": key, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
+    o = _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
+    if cached is None:
+        for name in ("end", "side", "top"):
+            os.remove(tmp % name)
+    return o
+
+
+def _stack_key(logs, samples, px):
+    """A key of everything the stack renders depend on (see wood_stack)."""
+    h = hashlib.sha1()
+    src = open(os.path.join(HERE, "build_lived.py"), encoding="utf-8").read()
+    h.update(src[src.index("def _render_view"):src.index("def _stack_key")].encode())
+    h.update(f"{samples} {px}".encode())
+    for o in logs:
+        me = o.data
+        co = [0.0] * (len(me.vertices) * 3)
+        me.vertices.foreach_get("co", co)
+        mw = o.matrix_world
+        h.update(" ".join(f"{v:.5f}" for v in co).encode())
+        h.update(" ".join(f"{v:.5f}" for row in mw for v in row).encode())
+        h.update(" ".join(f"{m.name.split('.')[0]}:{tuple(round(c, 4) for c in m.get('base', ()))}" for m in me.materials if m).encode())
+    return h.hexdigest()
+
+
+def _stack_atlas(tmp, atlas_path, X0, W, Z0, H):
+    """The three renders into wood_stack.jpg, and the stack's front outline from the end render's alpha."""
+    from PIL import Image
     # the atlas: ends on the top half, sides bottom left, top bottom right; gaps between logs are dark shadow
     gap = (46, 32, 22, 255)
     def flat(name):
@@ -234,7 +283,6 @@ def wood_stack(M, samples):
     atlas.paste(end.resize((1024, 512), Image.LANCZOS), (0, 0))
     atlas.paste(side.resize((384, 512), Image.LANCZOS), (0, 512))
     atlas.paste(top.resize((640, 512), Image.LANCZOS), (384, 512))
-    atlas_path = os.path.join(HERE, "wood_stack.jpg")
     atlas.save(atlas_path, quality=82)
     # the outline: the top of the stack's silhouette across 22 columns (it has no overhangs, so a height field will do)
     a = end_a.getchannel("A")
@@ -252,6 +300,11 @@ def wood_stack(M, samples):
         win = cols[max(xl, cx - 6):min(xr, cx + 6) + 1]
         outline.append((X0 + cx / iw * W, Z0 + (max(win) / ih) * H + 0.004))
     outline.append((X0 + xr / iw * W, 0.0))
+    return outline
+
+
+def _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H):
+    """The stack's outline extruded along the logs, its faces mapped onto the atlas."""
     # extrude it along the logs, between the two end faces
     ya, yb = -0.235, 0.235
     bm = bmesh.new()
@@ -290,8 +343,6 @@ def wood_stack(M, samples):
     m.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = 0.9
     me.materials.append(m)
-    for name in ("end", "side", "top"):
-        os.remove(tmp % name)
     return o
 
 

@@ -1,6 +1,5 @@
 // Canopy Camp jeep: the Expedition at the clearing edge, its doors, the live cabin light and its far LOD (props/jeep/).
 import * as THREE from "three";
-import "./campProps.js";   // run after the module before it, as one script did
 import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { pickAt, toast } from "./hud.js";
 import { JEEP_AT, JEEP_OUT, JEEP_TAN, V } from "./forest.js";
