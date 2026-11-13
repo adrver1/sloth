@@ -58,4 +58,11 @@ const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !==
     .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)) });
 window.__acts = acts;   // alias: operator.js reads it (audio.js in the open PRs too)
 
-export { acts, atmo, groundLife };
+// sun shadows (ground.js castShadows): re-cast whenever the props in the clearing change, checked each second for the first
+// half minute while they load. main.js calls it each frame, just before it draws.
+let shadowTick = -1, shadowN = -1;
+function shadowStep() {
+  if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }
+}
+
+export { acts, atmo, groundLife, shadowStep };

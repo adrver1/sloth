@@ -13,11 +13,11 @@ import { stickV } from "./hud.js";
 import { dome, moon, nightDome, sky, uSkyDusk } from "./sky.js";
 import "./forest.js";
 import { groundHeight } from "./terrain.js";
-import { fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight } from "./campProps.js";
+import { fireStep, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight } from "./campProps.js";
 import { jeepStep } from "./jeep.js";
 import { SL, SLOTH_WARM, campStep, fx, slothLife, sloths } from "./sloths.js";
 import { collide, me, step } from "./player.js";
-import { acts, atmo, groundLife } from "./campLife.js";
+import { acts, atmo, groundLife, shadowStep } from "./campLife.js";
 import { opStep } from "./operator.js";
 import { aimStep, boop, feed, resize } from "./input.js";
 import { weather } from "./weather.js";
@@ -79,7 +79,6 @@ if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }   // ?pos=, ?yaw=,
 if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
 const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
 window.__stats = {};
-let shadowTick = -1, shadowN = -1;
 // compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card
 await renderer.compileAsync(scene, camera).catch(() => {});
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
@@ -101,14 +100,15 @@ renderer.setAnimationLoop(() => {
     else { f.s.position.addScaledVector(f.v, dt); f.v.multiplyScalar(0.96); f.s.material.opacity = 1 - f.t / f.life; }
     if (f.t > f.life) { scene.remove(f.s); fx.splice(i, 1); f.done?.(); }
   }
-  const fl = 0.85 + 0.15 * Math.sin(uTime.value * 13) * Math.sin(uTime.value * 7.3);
-  flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
-  fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
+  // from here to the lanterns, dusk is still last frame's: the hour moves on further down (review boot-06 noted the
+  // one-frame lag; it is kept as it was, so that nothing changes)
+  const fl = fireStep(dusk);                               // campProps.js: the fire's flicker
   acts.update(dt, uTime.value); aimStep(dt);
-  uNight.value = dusk; stepLight(fl, uTime.value);
+  uNight.value = dusk; stepLight(fl, uTime.value);         // the baked night light: how far it is faded in, and its flicker (bakedlight.js)
   { const W = SLOTH_WARM, n = Math.min(lanternGlow.length, WARM_N - 1);   // the sloths' night glow: lanterns, then the fire
     for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
-    W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk; } pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
+    W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk; }
+  poolsStep(dusk, fl, groundLife.isNightBaked());
   LANTERNS.update(uTime.value, dusk);
   if (day.cycle) { day.set = (day.set + dt / HOUR_S) % 24; if ((clockTick += dt) > 2) { clockTick = 0; day.setHour(day.set); } }
   { const ahead = (day.set - day.shown + 24) % 24; day.shown = (day.shown + Math.min(ahead, dt * 3)) % 24; }   // always forward, like a day
@@ -128,11 +128,10 @@ renderer.setAnimationLoop(() => {
     nightDome.visible = moon.visible = dusk > 0.01; nightDome.material.opacity = Math.min(1, dusk * 1.3); moon.material.opacity = Math.max(0, dusk * 1.5 - 0.5); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
     if (typeof rayMat !== "undefined") rayMat.color.copy(RAY_DAY).lerp(RAY_GOLD, gold), rayMat.opacity = S.rays * Math.max(1 - dusk, 1.8 * gold) * (1 - wet) * (0.85 + 0.15 * Math.sin(uTime.value * 0.21) * Math.sin(uTime.value * 0.13 + 1.0));   // a slow shimmer as leaves move over the gap
   }
-  if (motes) motes.rotation.y += dt * 0.02;
+  motesStep(dt);
   atmo.update(dt, uTime.value, dusk);
   audioStep(dt, dusk); radioStep(dt);
-  // sun shadows (ground.js castShadows): re-cast whenever the props in the clearing change, checked each second for the first half minute while they load
-  if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }
+  shadowStep();                                            // campLife.js: the sun shadows, re-cast while the props load
   renderer.render(scene, camera);
   frames++; acc += raw;
   if (acc >= 1) {

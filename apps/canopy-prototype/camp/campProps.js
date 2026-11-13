@@ -178,5 +178,19 @@ const pools = (() => {
   m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); return m;
 })();
 
+// ---------------------------------------------------------------- each frame (main.js calls these, in its order)
+// the fire's flicker: the old glow sprites (hidden under the flame cards, still moved) and the fire's point light, both
+// brighter toward night. Returns the flicker (0.7 .. 1), which the baked light, the sloths' glow and the pools follow too.
+function fireStep(dusk) {
+  const fl = 0.85 + 0.15 * Math.sin(uTime.value * 13) * Math.sin(uTime.value * 7.3);
+  flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
+  fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
+  return fl;
+}
+// the light pools on the ground: faded in with dusk, flickering with the fire; not shown where the ground's night light is baked
+function poolsStep(dusk, fl, nightBaked) { pools.visible = dusk > 0 && !nightBaked; pools.material.opacity = dusk * (0.9 + 0.1 * fl); }
+// the motes drift slowly round the clearing
+function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
+
 export { SOUP_POT };   // back-compat: operator.js, and audio.js on the open PRs #15/#16, still import the soup pot from here (its home is layout.js)
-export { CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight };
+export { CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, flames, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight };
