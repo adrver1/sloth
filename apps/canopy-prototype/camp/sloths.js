@@ -830,7 +830,9 @@ if (qs.get("campsloths") !== "0") {
   // on the ground: follow the path, keep right of anyone ahead (a sloth or you), slow when close, and greet a sloth it meets
   function walkStep(s, T, sd) {
     const pos = s.o.position;
-    while (T.path.length > 1 && Math.hypot(pos.x - T.path[0].x, pos.z - T.path[0].z) < 0.3) T.path.shift();
+    // a point near enough is passed only when the way on from here to the next one is clear, so in a narrow gap (the crate
+    // and the table end) it still steps through the gap's corner instead of cutting it
+    while (T.path.length > 1 && Math.hypot(pos.x - T.path[0].x, pos.z - T.path[0].z) < (T.snap ? 0.1 : 0.3) && (T.snap || T.path.length === 2 || clearLine(pos, T.path[1]))) { T.path.shift(); T.snap = false; }
     const aim = T.path[0], dir = V(aim.x - pos.x, 0, aim.z - pos.z), dist = dir.length(); dir.divideScalar(Math.max(dist, 1e-4));
     let slow = 1;
     const others = camp.filter((o) => o !== s && GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * (s.sc + o.sc) + 0.1, o]);
@@ -854,11 +856,17 @@ if (qs.get("campsloths") !== "0") {
       if (ok(r)) dir.copy(r); else if (ok(l)) dir.copy(l); else slow = Math.min(slow, 0.25);   // boxed in: on along its path, slowly
     }
     const off = turnTo(T, Math.atan2(-dir.x, -dir.z), sd * 2.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
-    const v = CRAWL * s.sc * sd * slow * (off > 1 ? 0.3 : 1);
+    const v = CRAWL * s.sc * sd * slow * (off > 1 ? 0.3 : 1) * (T.snap || dist < 0.35 ? Math.max(0.1, Math.cos(Math.min(off, 1.5))) : 1);   // close to a point: turn first, so it can't circle it
     const was = pos.clone(); pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v); pos.y = 0;
     if (!isFree(pos) && isFree(was) && (T.path.length > 1 || isFree(aim))) {   // about to walk into something: slide along its path line instead
-      pos.copy(was).addScaledVector(path0, v); if (!isFree(pos)) { pos.copy(was); T.stuck = (T.stuck || 0) + sd; }
-      if (T.stuck > 1.5) { T.stuck = 0; T.path = findPath(pos, T.path[T.path.length - 1]); }   // a fresh path from here
+      // (Adriaen 2026-11-13, Mango stuck between the crate and the table end): the line from where it is to the next point
+      // can clip a blocked cell the planned line (from a cell's middle) missed, so it slides along a wall: along the path
+      // line, else along x or z alone toward the point. Still stuck, it plans afresh and first walks to the middle of its
+      // own cell (T.snap), where the planned lines start, so the same clip can't stop it again.
+      const tries = [path0, V(Math.sign(path0.x), 0, 0), V(0, 0, Math.sign(path0.z))];
+      let ok = false; for (const d of tries) { if (!d.lengthSq()) continue; pos.copy(was).addScaledVector(d, v); if (isFree(pos)) { ok = true; break; } }
+      if (!ok) { pos.copy(was); T.stuck = (T.stuck || 0) + sd; }
+      if (T.stuck > 1.5) { T.stuck = 0; T.path = findPath(pos, T.path[T.path.length - 1]); T.snap = T.path.length > 1; }   // a fresh path from here
     }
     if (T.path.length === 1 && dist < 0.1 + v) { pos.x = aim.x; pos.z = aim.z; T.arrive(); }
   }
