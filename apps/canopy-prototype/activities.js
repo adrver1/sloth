@@ -181,16 +181,13 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     if (!held && soup.stage === "cooking") return "Still cooking…";
     return null;
   }, () => (held === "log" ? looks.fireOnly : looks.pot) ?? null);   // the fire lights up for a log, the pot for everything else
-  // the water canister, on the fire side of the snack table where nothing else stands
+  // the water pail, under the snack table out of the way (Adriaen 2026-11-13): between its legs (local x +-0.45), nudged
+  // to the fire side of the top's middle so it peeks out; the table's own blocker keeps you off it, so it adds none
   const tb = table || V(1.6, 0, 3.2);
-  const canAt = (() => {
-    let best = null, bd = -1; const toFire = V(fire.x - tb.x, 0, fire.z - tb.z).normalize();
-    for (let k = -4; k <= 4; k++) { const d = toFire.clone().applyAxisAngle(V(0, 1, 0), k * 0.3), p = tb.clone().addScaledVector(d, 1.05).setY(0);
-      const room = Math.min(...blockers.filter(([c]) => c.distanceTo(tb) > 0.1).map(([c, r]) => c.distanceTo(p) - r)) - Math.abs(k) * 0.05;
-      if (room > bd) { bd = room; best = p; } }
-    return best;
-  })();
-  const canister = makePail(); canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister); addBlocker?.(canAt, 0.2);
+  const canAt = (() => { const ax = V(Math.sin(0.6), 0, Math.cos(0.6));   // the table top's short axis (campProps.js put("Table", .., 0.6))
+    const side = Math.sign(ax.dot(V(fire.x - tb.x, 0, fire.z - tb.z))) || 1;
+    return tb.clone().setY(0).addScaledVector(ax, side * 0.2); })();
+  const canister = makePail(); canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister);
   thing("canister", canAt, 0.3, () => (!held && soup.stage === "empty") || held === "water", () => { if (held) { putBack(); return; } hold("water"); canister.visible = false; toast("Got the water 💧"); },
     () => held ? full : soup.stage !== "empty" ? "Water's in already" : null, [canister]);
   // the kitchen crate: one vegetable at a time, a different one each time
