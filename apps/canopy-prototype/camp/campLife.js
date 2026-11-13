@@ -1,4 +1,5 @@
 // Canopy Camp life: the lived-in ground (ground.js), the walk-in tent, the atmosphere (atmosphere.js) and the activities (activities.js).
+// main.js calls shadowStep each frame, which re-casts the sun shadows while the props load.
 import { createGround } from "../ground.js";
 import * as THREE from "three";
 import { createAtmosphere } from "../atmosphere.js";

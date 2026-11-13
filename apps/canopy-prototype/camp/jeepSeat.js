@@ -10,7 +10,7 @@
 // sends a sloth coming home to it off for a wander until you get out.
 // The seats join the jeep's API (jeep.js jeepApi, the object window.__jeep names too): sit(side) / stand() / seatedIn()
 // ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks.
-// Three globals stay, each owned by a file the open PRs change: window.__campLife (sloths.js does not export its life yet),
+// Three globals stay, each owned by a file the clean-up has not reached yet: window.__campLife (sloths.js does not export its life yet),
 // window.__car (car.js's; doorOptions(d) on it gives input.js each front door's Get in / Get out) and window.__campFast (the
 // checks' speed-up, core.js lists it).
 import * as THREE from "three";

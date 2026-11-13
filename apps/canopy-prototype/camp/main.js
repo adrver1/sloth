@@ -1,8 +1,8 @@
 // Canopy Camp main: the frame loop, with the fps panel and the resolution safety net, and the hooks the tools and checks use.
 // camp.html loads this file; it imports the other camp modules in order, so they run top to bottom as one script did before.
 // Each frame it calls the modules' step functions in one fixed order. Three pieces of sloths.js's per-frame work are still
-// written out in the loop (the squish and nod, the flying emojis, the night glow's uniforms) until the open PRs on that file
-// land (review boot-06, crosscut-14).
+// written out in the loop (the squish and nod, the flying emojis, the night glow's uniforms) until sloths.js gets a step
+// function for them in the next round of the clean-up (review boot-06, crosscut-14).
 
 // The order of these imports is the order the camp is built in: most modules build their part of the scene as they load, and
 // four draw from the one seeded random stream (core.js) while they do: sky.js, forest.js, campProps.js and sloths.js, in that
@@ -99,7 +99,7 @@ renderer.setAnimationLoop(() => {
   }
 });
 // ---------------------------------------------------------------- window.__ hooks (core.js lists every global on the page)
-window.__me = me;   // alias: sloths.js reads the player's seat from it (an import waits for the open PRs on that file)
+window.__me = me;   // alias: sloths.js reads the player's seat from it (player.js imports sloths.js, so an import back would be a cycle; next round)
 // tool contract: tools/camp-replay.cjs's tour drives these (with __stats above), and all three tools wait for __ready
 window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__time = (h) => day.setHour(h, true);   // __time jumps straight to an hour
 window.__stick = (x, y) => stickV.set(x, y);

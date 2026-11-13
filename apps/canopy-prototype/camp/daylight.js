@@ -8,7 +8,9 @@
 //                    draw from the shared seeded stream (core.js R), last of all, and join the scene last
 //   setLight(hour, wet)   the levels for an hour (daytime.js `shown`) and how wet it is (weather.js, 0..1)
 //   daylightStep(dt, wet) moves the mist banks and sets every colour from the levels
-// It builds nothing when it is imported, so where main.js imports it does not matter.
+// It builds nothing itself when it is imported, but its own imports (sky.js, terrain.js, campProps.js, player.js) are built
+// where it is first imported, so it stays last in main.js's import list: moved up, it builds the props before the forest and
+// the seeded stream comes out in another order (measured: the replay fingerprint moves).
 import * as THREE from "three";
 import { D, R, S, scene, sun, uTime } from "./core.js";
 import { V } from "./util.js";

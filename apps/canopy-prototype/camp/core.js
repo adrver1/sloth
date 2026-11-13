@@ -22,22 +22,23 @@ import { SUN } from "./layout.js";
 //   yaw      radians                       facing the fire (player.js)       main.js (where you look at the start)
 //   pitch    radians                       0.08 (player.js)                  main.js
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
-// still read with qs in the files the open PRs change (move them here once those land): touch (input.js), campsloths, slothmat,
-// lab (sloths.js), op once more (operator.js), sound, station (audio.js).
+// still read with qs in files this clean-up has not reached yet (move them here in its next round): touch (input.js),
+// campsloths, slothmat, lab (sloths.js), op once more (operator.js), sound, station (audio.js).
 const qs = new URLSearchParams(location.search);
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
-// state, one part per owner). audio.js keeps the sound settings under "canopy-audio", which it still types itself (open PRs).
+// state, one part per owner). audio.js keeps the sound settings under "canopy-audio", which it still types itself (next round).
 const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save" };
 // ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
-// API: the files that the open PRs change (sloths.js, operator.js, input.js, audio.js, car.js, radio.js) still read these;
-// the first four are aliases of the exported object named here, the rest have no export yet.
+// API: sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read these. Those six files (and activities.js)
+// were left alone while PRs #14, #20 and #21 changed them; the PRs are merged, so the next round can switch them to imports.
+// The first four are aliases of the exported object named here, the rest have no export yet.
 //   __camp       campProps.js CAMP        sloths.js, operator.js, audio.js, radio.js (and export_casters.cjs, below)
 //   __jeep       jeep.js jeepApi          sloths.js, input.js, car.js, audio.js (and export_casters.cjs)
 //   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown; and export_casters.cjs)
 //   __acts       campLife.js acts         operator.js, audio.js
 //   __campLife   sloths.js (its life)     input.js, operator.js, jeepSeat.js, lab.js
 //   __me         main.js (player.js me)   sloths.js (the player's seat)
-//   __car        car.js (inCar, engine)   jeepSeat.js adds doorOptions to it, which input.js reads; audio.js reads the engine on an open PR
+//   __car        car.js (inCar, engine)   jeepSeat.js adds doorOptions to it, which input.js reads; on main audio.js reads the engine too
 //   __op         operator.js              audio.js (his sounds); a debug hook as well
 //   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); jeepSeat.js reads __campFast, camp-replay.cjs sets it
 // tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.

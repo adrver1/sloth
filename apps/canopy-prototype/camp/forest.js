@@ -331,6 +331,6 @@ if (track) {
 
 
 export { FLOOR_OVERLAYS, branchCurves, clearing, track, trackDist };
-// back-compat, for the files the open PRs change: operator.js and sloths.js still import A0 and RC from here, sloths.js HERO,
+// back-compat, for files the clean-up has not reached yet: operator.js and sloths.js still import A0 and RC from here, sloths.js HERO,
 // and car.js, input.js, operator.js, radio.js and sloths.js V (their home is layout.js, and util.js for V)
 export { A0, HERO, RC, V };

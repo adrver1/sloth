@@ -1,5 +1,7 @@
 // Canopy Camp props: the camp's blockers (the layout itself is layout.js), the picked props with their baked light map (lnight), the lived-in props,
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
+// main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
+// at night) and motesStep (the drifting motes).
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, PROPS, R, S, scene, sun, uTime } from "./core.js";
