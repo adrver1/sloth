@@ -2,7 +2,7 @@
 // ⚙️ slider (which stays as a fallback). It lights up like the other things you can use; tapping it opens the pill menu with a
 // few moments of the day and the day cycle. Its hands are drawn from the hour the light shows (daytime.js `shown`), so they
 // spin round while the sky changes.
-// PROTOTYPE: three looks to pick from, ?clock=a|b|c (default a):
+// PROTOTYPE: three looks to pick from, ?clock=a|b|c (default b, recommended):
 //   a  a wind-up alarm clock on the snack table, about 56 triangles
 //   b  a sun-and-moon dial on a post by the fire, the disc turns with the day, about 42 triangles
 //   c  a round clock hung on the big tree behind the fire, about 46 triangles
@@ -13,9 +13,10 @@ import { d0, t0, V, HERO } from "./forest.js";
 import { me } from "./player.js";
 import { addTarget } from "./input.js";
 import { toast } from "./hud.js";
+import { blockers } from "./campProps.js";
 import { day } from "./daytime.js";
 
-const KIND = ["a", "b", "c"].includes(qs.get("clock")) ? qs.get("clock") : "a";
+const KIND = ["a", "b", "c"].includes(qs.get("clock")) ? qs.get("clock") : "b";
 const MOMENTS = [["Morning 🌅", 7.5], ["Midday ☀️", 12], ["Golden hour 🌇", 17.5], ["Night 🌙", 22]];
 const lam = (o) => new THREE.MeshLambertMaterial(o);
 const hand = (w, l, color) => new THREE.Mesh(new THREE.PlaneGeometry(w, l).translate(0, l * 0.4, 0), lam({ color, side: THREE.DoubleSide }));   // pivot near its base
@@ -84,6 +85,7 @@ if (KIND === "a") {
   clock.add(post, disc, arrow, roof);
   const at = d0.clone().multiplyScalar(3.1).addScaledVector(t0, -1.4);   // behind the fire on the wood pile side, in view as you start and from the seats
   clock.position.copy(at); clock.position.y = window.__groundHeight?.(at.x, at.z) ?? 0; clock.rotation.y = Math.atan2(-at.x, -at.z) - 0.3;
+  blockers.push(Object.assign([at.clone().setY(0), 0.35], { walk: { r: 0.12 } }));   // walk round the post, keep plants and sloths off it
 } else {
   // a round clock hung on the big tree behind the fire, at eye height, facing the camp: face disc (14), an open case drum (28),
   // hands (4)
