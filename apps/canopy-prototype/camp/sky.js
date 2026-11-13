@@ -1,14 +1,16 @@
 // Canopy Camp sky: the painted forest backdrop in the mist, the open sky dome with clouds, the night dome with stars, the moon, the forest floor.
 import * as THREE from "three";
 import "./hud.js";   // run after the module before it, as one script did
-import { LOOK, R, S, canvasTex, hex, scene } from "./core.js";
+import { LOOK, R, S, hex, scene } from "./core.js";
+import { canvasTex, lcg } from "./util.js";
+import { FAR } from "./layout.js";
 
 // ---------------------------------------------------------------- backdrop: painted forest layers in the mist (no geometry behind them)
 // Four layers, far to near, each fading into the mist: tall rainforest trees with buttress roots, forked branches and
 // crowns built from many small leaf clusters, palms, tree ferns, hanging lianas, and an undergrowth band at the foot.
 // Low-poly paints the same trees in flat stacked shapes. Its own random stream, so the seeded layout stays the same.
 const back = canvasTex(2048, 512, (g, w, h) => {
-  let s3 = 4242; const Q = (a, b) => { s3 = (s3 * 16807) % 2147483647; return a + (s3 / 2147483647) * (b - a); };
+  const { R: Q } = lcg(4242);
   const gr = g.createLinearGradient(0, 0, 0, h); S.sky.forEach((c, i) => gr.addColorStop(i / (S.sky.length - 1), c)); g.fillStyle = gr; g.fillRect(0, 0, w, h);
   const LOW = LOOK === "low", fogC = new THREE.Color(S.fog[0]), skyTop = new THREE.Color(S.sky[0]);
   const wrap = (x, f) => { f(x); if (x < 160) f(x + w); if (x > w - 160) f(x - w); };     // draw across the seam so the texture tiles
@@ -62,8 +64,8 @@ const back = canvasTex(2048, 512, (g, w, h) => {
       m.addColorStop(0, fc(0.04)); m.addColorStop(0.55, fc(0.26)); m.addColorStop(1, fc(0.42)); g.fillStyle = m; g.fillRect(0, 0, w, h); }
   }
 });
-back.wrapS = THREE.RepeatWrapping; back.repeat.x = 2; window.__back = back;
-const sky = new THREE.Mesh(new THREE.CylinderGeometry(30, 30, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
+back.wrapS = THREE.RepeatWrapping; back.repeat.x = 2;
+const sky = new THREE.Mesh(new THREE.CylinderGeometry(FAR, FAR, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
 sky.position.y = 10; scene.add(sky);
 // at night the backdrop's top melts into the night dome's rim colour, so there's no hard line where the two meet (Adriaen 2026-11-12)
 const uSkyDusk = { value: 0 }, uSkyRim = { value: new THREE.Color(0x0b1622) };
@@ -88,15 +90,15 @@ const domeTex = canvasTex(1024, 1024, (g, w, h) => {
     }
   }
 });
-const domeGeo = new THREE.SphereGeometry(30, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
-{ const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / 60, 0.5 - p.getZ(i) / 60); }
+const domeGeo = new THREE.SphereGeometry(FAR, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
+{ const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / (2 * FAR), 0.5 - p.getZ(i) / (2 * FAR)); }
 const dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
 dome.position.y = 27; scene.add(dome);
 // the night sky (camp review B1, Adriaen 2026-11-12): a second dome, deep blue to near black at the rim, with stars and a few faint
 // wisps, faded in over the day dome with dusk; and the moon, a soft disc with a halo, up in the canopy gap where the start view sees
 // it (one sprite each, no fog). Same dome geometry, so 2 draws more at night only.
 const nightTex = canvasTex(1024, 1024, (g, w, h) => {
-  let s4 = 777; const Q = (a, b) => { s4 = (s4 * 16807) % 2147483647; return a + (s4 / 2147483647) * (b - a); };
+  const { R: Q } = lcg(777);
   const c = w / 2, gr = g.createRadialGradient(c, c, 0, c, c, c);
   gr.addColorStop(0, "#0d1a33"); gr.addColorStop(0.6, "#122440"); gr.addColorStop(1, "#0b1622"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 700; i++) {                                     // stars: many faint, a few bright with a glint
@@ -124,7 +126,7 @@ const gTex = canvasTex(256, 256, (g, w, h) => {
   for (let i = 0; i < (LOOK === "low" ? 0 : 900); i++) { g.fillStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.15, 0.5); g.beginPath(); g.ellipse(R(0, w), R(0, h), R(2, 8), R(1, 3), R(0, 3), 0, 7); g.fill(); }
 });
 gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping; gTex.repeat.set(10, 10);
-const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 40), new THREE.MeshLambertMaterial({ map: gTex }));
+const ground = new THREE.Mesh(new THREE.CircleGeometry(FAR, 40), new THREE.MeshLambertMaterial({ map: gTex }));
 ground.rotation.x = -Math.PI / 2; scene.add(ground);
 
 

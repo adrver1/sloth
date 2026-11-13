@@ -12,21 +12,22 @@ sloth-life thread builds that sloth).
     .venv/bin/python props/lived/build_laundry.py
 
 One GLB (props/lived/laundry.glb), z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin.
+make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's laundry.glb
+and its models/laundry.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
 """
-import math
 import os
 import sys
 
-import bpy
+import bpy  # noqa: F401  (bmesh needs bpy loaded first)
 import bmesh  # noqa: E402
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_camp  # noqa: E402
-from build_camp import apply_all, bake, join, mat, reset, rod  # noqa: E402
-
-build_camp.densify = lambda o, *_: apply_all(o)   # no face splitting for the bake: plain faces shade fine at this size
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import export_glb, reset  # noqa: E402
+from lib.materials import image_material, mat  # noqa: E402
+from lib.mesh import apply_all, join, obj_from_bm, rod  # noqa: E402
 
 L = 3.0            # post to post
 H = 1.62           # where the line is tied on the posts
@@ -96,19 +97,8 @@ def textured(name, quads, img):
         f = bm.faces.new([bm.verts.new(c) for c in corners])
         for lp, (u, v) in zip(f.loops, ((u0, v1), (u1, v1), (u1, v0), (u0, v0))):
             lp[uv].uv = (u / 512, 1 - v / 256)
-    me = bpy.data.meshes.new(name)
-    bm.to_mesh(me)
-    bm.free()
-    o = bpy.data.objects.new(name, me)
-    bpy.context.collection.objects.link(o)
-    m = bpy.data.materials.new(name)
-    m.use_nodes = True
-    tx = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = bpy.data.images.load(img)
-    bsdf = m.node_tree.nodes["Principled BSDF"]
-    m.node_tree.links.new(tx.outputs["Color"], bsdf.inputs["Base Color"])
-    m.node_tree.links.new(tx.outputs["Alpha"], bsdf.inputs["Alpha"])
-    me.materials.append(m)
+    o = obj_from_bm(bm, name)
+    o.data.materials.append(image_material(name, img, alpha=True))
     return o
 
 
@@ -147,27 +137,30 @@ def posts():
     return join(p, "LaundryPosts")
 
 
-def build():
-    reset()
+def make():
+    """Make the laundry line in the current scene and return it as {name: object}: LaundryPosts (takes vertex colours)
+    and LaundryCloth (textured). No reset, no light, no export."""
     img = os.path.join(HERE, "laundry.png")
     atlas(img)
     po = posts()
     apply_all(po)
-    bake([po], 32)
+    return {"LaundryPosts": po, "LaundryCloth": cloth(img)}
+
+
+def build(colour=None, path=None):
+    """Make the laundry line in a fresh scene, light the posts (colour(objs); by default their own AO bake, no face
+    splitting: plain faces shade fine at this size) and write it to path (default props/lived/laundry.glb)."""
+    reset()
+    every = make()
+    po, cl = every["LaundryPosts"], every["LaundryCloth"]
+    cl.hide_render = True                     # the cloth never shaded the posts' AO: keep it out of it
+    (colour or (lambda objs: bake(objs, 32)))([po])
+    cl.hide_render = False
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
-    cl = cloth(img)
-    path = os.path.join(HERE, "laundry.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in (po, cl):
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=True,
-                              export_image_format="AUTO")
-    for o in (po, cl):
-        print(f"  {o.name}: {sum(len(pl.vertices) - 2 for pl in o.data.polygons)} triangles")
+    path = export_glb([po, cl], path or os.path.join(HERE, "laundry.glb"), image_format="AUTO")
     print(f"hang point (local, three.js): x {line_x(HANG_T):.3f}, y {line_z(HANG_T):.3f}, z 0")
-    print(f"laundry: {os.path.getsize(path) // 1024} KB -> {path}")
+    print(f"laundry -> {path}")
 
 
 if __name__ == "__main__":

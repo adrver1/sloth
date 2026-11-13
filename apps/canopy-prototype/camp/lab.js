@@ -5,7 +5,7 @@
 // or with ?lab; the ✕ closes it and gives back your own view, the normal speed and the live clips.
 import * as THREE from "three";
 import { camera, scene } from "./core.js";
-import { V } from "./forest.js";
+import { V } from "./util.js";
 import { me } from "./player.js";
 
 const L = window.__lab, cs = L.camp;

@@ -4,11 +4,13 @@
 // each, a candle in each jar. By day they are plain glass and tin; from dusk the glass glows with a warm gradient, the
 // candle burns and a soft glow sprite shows round each. They sway slowly. Page-lit (no light map: they move), drawn in
 // five draws for all eight: tin and cords, glass, candles, flames, glows.
-// The same layout is mirrored in props/camp/bake_camp_lightmap.py (the baked lantern light); keep them in step.
+// The light bake (props/camp/bake_camp_lightmap.py) reads where each lantern's light is from the "place" block that
+// props/shadow/export_casters.cjs writes from this page; only the drop below the hang point is still a copy there (the bake's
+// 0.12 m against JAR_Y's 0.125 m, review props-07).
 import * as THREE from "three";
+import { V, canvasTex, tris } from "./util.js";
 
 const SAG = 0.5, PER = 4, TREE_Y = 4.6, TREE_IN = 1.0;   // string sag (m), lanterns per string, tie height and how far in from the tree's centre
-const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // l0: the tent end (on its front A-frame), post: the hammock post's top, tree: the big tree's centre (y ignored)
 export function lanternLayout({ l0, post, tree }) {
@@ -43,7 +45,6 @@ function geo(parts) {      // [[positions, colour], ...] -> one flat-shaded, ver
 
 // the lantern hangs from its pivot (the point on the string): a short cord, the wire handle, then the jar
 const TIN = 0x57514a, CORD = 0x5a4636, JAR_H = 0.1, JAR_R = 0.045, JAR_Y = -0.125;
-const tris = (g) => g.attributes.position.count / 3;
 function frameGeo() {        // the cord and the handle one quad each, the tin lid (sides and top), the base (a flat hexagon): 24 triangles
   return geo([[quad(0.004, 0.06, -0.03), CORD], [quad(0.07, 0.03, -0.06), TIN],
     [prism(0.05, 0.034, 0.022, JAR_Y + JAR_H / 2 + 0.011, 6, ["top"]), TIN], [prism(0.05, 0.05, 0, JAR_Y - JAR_H / 2, 6, ["bottom"]), TIN]]);
@@ -58,9 +59,7 @@ export function createLanterns({ scene, layout, glowTex }) {
 
   const frame = new THREE.InstancedMesh(frameGeo(), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide }), n);
   // the glass: an open 6-sided jar (12 triangles); its emissive map is a warm gradient, brightest low by the flame
-  const gc = document.createElement("canvas"); gc.width = 4; gc.height = 64;
-  { const x = gc.getContext("2d"), g = x.createLinearGradient(0, 0, 0, 64); g.addColorStop(0, "#5c2c0c"); g.addColorStop(0.55, "#ffb45c"); g.addColorStop(1, "#ffd9a0"); x.fillStyle = g; x.fillRect(0, 0, 4, 64); }
-  const emissiveMap = new THREE.CanvasTexture(gc); emissiveMap.colorSpace = THREE.SRGBColorSpace;
+  const emissiveMap = canvasTex(4, 64, (x) => { const g = x.createLinearGradient(0, 0, 0, 64); g.addColorStop(0, "#5c2c0c"); g.addColorStop(0.55, "#ffb45c"); g.addColorStop(1, "#ffd9a0"); x.fillStyle = g; x.fillRect(0, 0, 4, 64); }, { aniso: 1 });
   const glassMat = new THREE.MeshLambertMaterial({ color: 0xdcebe4, transparent: true, opacity: 0.35, emissive: 0xffffff, emissiveMap, emissiveIntensity: 0, depthWrite: false, flatShading: true });
   const glassGeo = new THREE.CylinderGeometry(JAR_R, JAR_R, JAR_H, 6, 1, true).translate(0, JAR_Y, 0).toNonIndexed();
   const glass = new THREE.InstancedMesh(glassGeo, glassMat, n);

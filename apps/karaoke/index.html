@@ -1,4 +1,3 @@
-<!doctype html>
 <meta charset="utf-8">
 <title>Sloth Karaoke</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -67,7 +66,6 @@ button:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; }
   <span class="chip title">🦥 <b>Sloth</b><span class="long">&nbsp;Karaoke</span></span>
   <button class="chip" id="guide" type="button" aria-pressed="true" title="The melody that sings along with you">🎵 Guide tune</button>
   <button class="chip" id="pause" type="button" hidden aria-label="Pause">⏸</button>
-  <button class="chip" id="back" type="button" hidden>🏕️ Back to camp</button>
 </div>
 <div class="lyrics off" id="lyrics" aria-live="off"><div class="now" id="now"></div><div class="next" id="next"></div></div>
 <div class="card" id="start">
@@ -87,7 +85,6 @@ button:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; }
   <p>The sloths want one more.</p>
   <button class="go" id="again" type="button">Encore!</button>
   <button class="go alt" id="other" type="button">Other song</button>
-  <button class="go alt" id="back2" type="button" hidden>🏕️ Back to camp</button>
   <small>Tap the stage any time to cheer.</small>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
@@ -100,18 +97,6 @@ import { furify } from "./fur.js";
 const $ = (id) => document.getElementById(id);
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const STILL = location.search.includes("still");
-// camp mode (?from=camp, Canopy Camp's karaoke trip, 2026-11-12): this page also ships inside the camp (canopy-prototype/karaoke/),
-// and the camp's wagon brings you here. The stage stands in a forest clearing at dusk, the sloths who came along (the camp save's
-// "trip" part) play in the band wearing their camp looks (../camp/cast.js, on the camp's sloth model), the bearded operator
-// watches from the side, and "Back to camp" takes everyone home. Without ?from=camp the page is the Sloth Karaoke artifact as before.
-const CAMP = /[?&]from=camp\b/.test(location.search);
-const SAVE_KEY = "canopy-camp-save";
-const campSave = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch { return null; } };
-const RIDERS = CAMP ? (campSave()?.parts?.trip?.riders ?? (new URLSearchParams(location.search).get("riders") || "Hibi,Bandit,Pip").split(",")).slice(0, 3) : [];
-function backToCamp() {
-  try { const d = campSave() ?? { v: 1, parts: {} }; d.parts = d.parts ?? {}; d.parts.trip = { state: "back", riders: RIDERS, at: Date.now() }; d.at = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch {}
-  location.href = "../camp.html";
-}
 
 // ---------------------------------------------------------------- the songs
 // Two original little songs. Each line is two bars of 4/4: syllables (hyphens
@@ -628,8 +613,7 @@ async function glb(url) {
   const bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
-const [HER, SLOTH, CASTM, OPM, OPA] = await Promise.all([glb("models/her.txt"), glb(CAMP ? "../models/sloth.txt" : "models/sloth.txt"),   // camp mode: the camp's own sloths
-  CAMP ? import("../camp/cast.js").catch(() => null) : null, CAMP ? glb("../models/operator.txt").catch(() => null) : null, CAMP ? glb("../models/operator_anims.txt").catch(() => null) : null]);
+const [HER, SLOTH] = await Promise.all([glb("models/her.txt"), glb("models/sloth.txt")]);
 const bonesOf = (o) => { const b = {}; o.traverse((n) => { if (n.isBone) b[n.name] = n; }); return (k) => b[k.replace(".", "")]; };
 const shadow = (o) => o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
 
@@ -730,7 +714,7 @@ function bandSloth(role, x, z, yaw, h, hatCol, pomCol) {
   const s = makeSloth("idle", new THREE.Vector3(x, STAGE_Y + h, z), yaw); s.role = role; BAND[role] = s;
   for (const side of ["L", "R"]) { const t = new THREE.Object3D(); t.position.set(0, PAW, 0); s.B(`forearm.${side}`).add(t); s["tip" + side] = t; }
   const hat = partyHat(hatCol, pomCol); hat.scale.setScalar(1 / SL); hat.position.set(0.0, 0.118, 0.012); hat.rotation.set(-0.15, 0, role === "drums" || role === "triangle" ? -0.3 : 0.3);
-  s.B("head").add(hat); s.hat = hat;
+  s.B("head").add(hat);
   return s;
 }
 const lift = (v, y) => v.clone().setY(v.y + y);
@@ -843,40 +827,6 @@ function useSong(id) {
   $("tonight").textContent = SONGS[id].title;
 }
 
-// ---------------------------------------------------------------- camp mode: the forest round the stage, the sloths from camp in the band, the operator watching
-let campStep = null;
-if (CAMP) {
-  // a ring of trunks and leafy crowns round the clearing (two instanced draws: trunks 12 tris each, crowns 20 each)
-  const ring = [], tm = new THREE.Matrix4(), N = 26;
-  for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2 + Math.sin(i * 3.7) * 0.08, r = 7.5 + ((i * 7) % 5) * 1.1; ring.push([Math.sin(a) * r, Math.cos(a) * r, 0.75 + ((i * 3) % 4) * 0.15]); }
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.24, 9, 6, 1, true).translate(0, 4.5, 0), mat(0x5b4434), N);
-  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.7, 0), mat(0x3f6a3a), N);
-  ring.forEach(([x, z, k], i) => { tm.compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion(), new THREE.Vector3(k, k, k)); trunks.setMatrixAt(i, tm);
-    tm.compose(new THREE.Vector3(x, 8.6 * k, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, i, 0)), new THREE.Vector3(k * 1.3, k * 0.8, k * 1.3)); crowns.setMatrixAt(i, tm); });
-  scene.add(trunks, crowns);
-  // the band: the sloths who came along take the guitar, the keys and the drums, in their own looks instead of party hats
-  const CAST = CASTM?.CAST ?? [];
-  ["guitar", "keys", "drums"].forEach((role, i) => {
-    const s = BAND[role], c = CAST.find((k) => k.name === RIDERS[i]); if (!s || !c) return;
-    s.hat.visible = false; c.dress?.(s.B("head"), s.o);
-    if (c.scale) s.o.scale.multiplyScalar(c.scale);
-    s.name = c.name;
-  });
-  // the bearded operator dances along at the back of the stage; he sways to the beat
-  if (OPM && OPA) {
-    const o = clone(OPM.scene); o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
-    o.position.set(-1.2, STAGE_Y, 1.6); scene.add(o);
-    o.lookAt(0.2, STAGE_Y, -1.2); o.rotateY(Math.PI);   // up at the back of the stage behind the keys, facing out (the kit faces -Z)
-    const mixer = new THREE.AnimationMixer(o), idle = mixer.clipAction(OPA.animations.find((a) => a.name === "idle")); idle.play();
-    const hips = o.getObjectByName("hips"), hy = hips?.position.clone();
-    campStep = (dt, t, vb) => { mixer.update(dt); if (hips) { hips.position.copy(hy); hips.position.z -= Math.abs(Math.sin(vb * Math.PI)) * 0.025; } o.rotation.z = Math.sin(vb * Math.PI) * 0.03; };
-  }
-  $("back").hidden = false; $("back2").hidden = false;
-  $("back").onclick = backToCamp; $("back2").onclick = backToCamp;
-  const names = RIDERS.length > 1 ? RIDERS.slice(0, -1).join(", ") + " and " + RIDERS.at(-1) : RIDERS[0];
-  document.querySelector("#start p").textContent = `You sing; ${names} play in the band, and the bearded operator dances along at the back.`;
-}
-
 // ---------------------------------------------------------------- down under (song 3): outback sunset, gum trees, a kookaburra and four new friends
 const oz = new THREE.Group(); scene.add(oz); oz.visible = false;
 const blob = (r, s, color, p, parent, o = {}) => {
@@ -891,9 +841,7 @@ function eyes(parent, x, y, z, r = 0.012) {   // shiny black eyes with a white g
   }
 }
 // the sky, ground and fog for each look
-const skyNight = CAMP ? canvasTex(4, 256, (g, w, h) => {   // camp mode: dusk over a forest clearing
-    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#2b2f5e"); gr.addColorStop(0.5, "#5d5f9a"); gr.addColorStop(0.8, "#d68aa6"); gr.addColorStop(1, "#f2b99a"); g.fillStyle = gr; g.fillRect(0, 0, w, h); }) : scene.background;
-const fogNight = CAMP ? new THREE.Color(0x3d4a5e) : scene.fog.color.clone(), groundGreen = CAMP ? new THREE.Color(0x5d6b38) : ground.material.color.clone();
+const skyNight = scene.background, fogNight = scene.fog.color.clone(), groundGreen = ground.material.color.clone();
 const skyOz = canvasTex(4, 256, (g, w, h) => {
   const gr = g.createLinearGradient(0, 0, 0, h);
   gr.addColorStop(0, "#2f3a7a"); gr.addColorStop(0.38, "#8a5aa0"); gr.addColorStop(0.66, "#ff8a6a"); gr.addColorStop(0.86, "#ffc078"); gr.addColorStop(1, "#ffe0a0");
@@ -1441,7 +1389,6 @@ function frame() {
   pools.forEach((p, i) => { const a = vb * Math.PI / 4 + i * 2.1; p.position.x = Math.sin(a) * 1.1; p.position.z = Math.cos(a * 0.7) * 0.5 - 0.1; p.position.y = STAGE_Y + 0.025; });
   if (sing.solo && BAND[sing.solo]) { const s = BAND[sing.solo]; pools[0].position.set(s.base.x, s.base.y + 0.03, s.base.z); }
   stars.forEach((s) => s.scale.setScalar(s.userData.k * (0.75 + 0.25 * Math.sin(t * 2 + s.userData.ph))));
-  campStep?.(dt, t, vb);
   balloons.forEach((g) => { g.rotation.z = Math.sin(t * 0.9 + g.userData.ph) * 0.07; g.rotation.x = Math.cos(t * 0.7 + g.userData.ph) * 0.05; });
   if (playing && bi !== lastBeatInt) {
     lastBeatInt = bi;

@@ -13,7 +13,7 @@ The adventure jeep for the Canopy Camp game (apps/canopy-prototype/camp.html): a
 Each style is one GLB (props/jeep/jeep_<style>.glb) standing on z = 0 with its front toward -Y (three.js +Z): the body
 Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive, the name is kept from when it was the passenger door), DoorD (the other front door)
 and BackDoor (with the spare), each with its origin on its hinge so the page swings it about the vertical; plus empties
-SeatP (driver cushion top, at the wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back) and Boot (middle of the cargo deck). It is the same convention and the same baked light as props/camp/build_camp.py, whose helpers it reuses:
+SeatP (driver cushion top, at the wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back) and Boot (middle of the cargo deck). It is the same convention and the same baked light as props/camp/build_camp.py, with the shared helpers of props/lib:
 Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
 Previews go to props/jeep/preview_<style>.png and preview_all.png.
 """
@@ -26,13 +26,15 @@ import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "camp"))
-import build_camp  # noqa: E402
-from build_camp import (apply_all, ball, bake, cyl, join, mat, reset, rod, torus, _finish)  # noqa: E402
-from build_camp import box as _box  # noqa: E402
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import export_glb, reset  # noqa: E402
+from lib.materials import mat  # noqa: E402
+from lib.mesh import apply_all, ball, cyl, join, rod, torus, with_material  # noqa: E402
+from lib.mesh import box as _box  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
-# for the bake, bevels of one segment and only on parts big enough for a bevel to read, low segment counts on round parts.
+# for the bake (bake(..., apply=False) below), bevels of one segment and only on parts big enough for a bevel to read, low segment counts on round parts.
 
 
 def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
@@ -43,8 +45,6 @@ def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
         mod.width, mod.segments = bevel, 1
     return o
 
-
-build_camp.densify = lambda o, *a, **k: apply_all(o)   # bake() calls it: no splitting, only apply transforms
 
 STYLES = ("toy", "expedition", "camper")
 
@@ -77,7 +77,7 @@ def prism(poly_yz, width, m, taper=1.0, x0=0.0):
     me.validate()
     o = bpy.data.objects.new("prism", me)
     bpy.context.collection.objects.link(o)
-    _finish(o, m, smooth=False)
+    with_material(o, m, smooth=False)
     me.update()
     outward(o)
     return o
@@ -159,7 +159,7 @@ def panel(a, b, c, d, m, t=0.012):
     me.validate()
     o = bpy.data.objects.new("panel", me)
     bpy.context.collection.objects.link(o)
-    _finish(o, m, smooth=False)
+    with_material(o, m, smooth=False)
     outward(o)
     return o
 
@@ -918,26 +918,19 @@ def build(style, samples, do_preview, preview_samples):
     objs = {"toy": toy, "expedition": expedition, "camper": camper}[style]()
     for o in objs.values():
         apply_all(o)
-    # bake with the doors open, so the cabin and the inner door faces get daylight (bake() must not apply the open rotation)
-    build_camp.densify = lambda o, *a, **k: None
+    # bake with the doors open, so the cabin and the inner door faces get daylight (so bake() must not apply the open
+    # rotation: apply=False)
     doors(objs, True)
     if style == "expedition":
         for o in objs.values():
             mud_mask(o)
-    bake(list(objs.values()), samples)
+    bake(list(objs.values()), samples, apply=False)
     doors(objs, False)
     if style == "expedition":
         for o in objs.values():
             mud(o)
-    path = os.path.join(HERE, f"jeep_{style}.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in [*objs.values(), *EMPTIES]:
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
-    tris = sum(len(pl.vertices) - 2 for o in objs.values() for pl in o.data.polygons)
-    print(f"{style}: {tris} triangles, {os.path.getsize(path) // 1024} KB -> {path}")
-    print("  per object: " + ", ".join(f"{n} {sum(len(pl.vertices) - 2 for pl in o.data.polygons)}" for n, o in objs.items()))
+    path = export_glb([*objs.values(), *EMPTIES], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False)
+    print(f"{style} -> {path}")
     for e in EMPTIES:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
     if style == "expedition":                            # the far LOD, in its own scene and bake (it would shade the full jeep)
@@ -945,12 +938,9 @@ def build(style, samples, do_preview, preview_samples):
         reset(); EMPTIES.clear()
         M = mats("ex", **EXPEDITION_COLOURS)
         lod = jeep_lod(M); apply_all(lod)
-        mud_mask(lod); bake([lod], samples); mud(lod)
-        lpath = os.path.join(HERE, "jeep_expedition_lod.glb")
-        bpy.ops.object.select_all(action="DESELECT"); lod.select_set(True)
-        bpy.ops.export_scene.gltf(filepath=lpath, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                                  export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
-        print(f"  JeepLOD: {sum(len(pl.vertices) - 2 for pl in lod.data.polygons)} triangles, {os.path.getsize(lpath) // 1024} KB -> {lpath}")
+        mud_mask(lod); bake([lod], samples, apply=False); mud(lod)
+        lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False)
+        print(f"  JeepLOD -> {lpath}")
         return shots
     return preview(style, objs, preview_samples) if do_preview else []
 

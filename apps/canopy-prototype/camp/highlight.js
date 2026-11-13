@@ -83,6 +83,5 @@ export function createHighlight(scene, renderer, { width = 2.5 } = {}) {
         p.outline.visible = p.glow.visible = mesh.visible;
       }
     },
-    get lit() { return key; },
   };
 }

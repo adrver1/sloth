@@ -1,8 +1,7 @@
 // Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize.
 import * as THREE from "three";
-import "./campLife.js";   // run after the module before it, as one script did
 import { $, R, camera, qs, renderer, scene, uTime } from "./core.js";
-import { pickAt, ray, stickV, toast } from "./hud.js";
+import { keys, pickAt, ray, stickV, toast } from "./hud.js";
 import { V } from "./forest.js";
 import { COUNT, burst, flowerCrown, fx, hit, sloths, sprite } from "./sloths.js";
 import { me } from "./player.js";
@@ -16,6 +15,8 @@ stick.hidden = !coarse;
 document.body.classList.toggle("touch", coarse);   // the hint moves up above the stick
 if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
 function hideHelp() { setTimeout(() => ($("q").style.opacity = 0), 3000); }
+// the keys the player walks by (player.js reads them); the split into modules had dropped these listeners
+addEventListener("keydown", (e) => { keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
 function stickMove(e) {
   const r = stick.getBoundingClientRect(), v = new THREE.Vector2(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2).divideScalar(r.width / 2);
   if (v.length() > 1) v.normalize(); stickV.copy(v); stick.firstElementChild.style.transform = `translate(${v.x * 37}px, ${v.y * 37}px)`;
@@ -46,16 +47,19 @@ const lookEnd = (e) => {
 $("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
 addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.deltaY * 0.02, -20, 6); resize(); }, { passive: true });
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
-function boop(s) { s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
+const told = (kind, s) => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by: "you", name: s.name } }));   // the operator may remark on it
+function boop(s) { told("boop", s); s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
 // feeding (Adriaen 2026-11-12: every camp sloth is already your friend, so no friend counter or "new friend"; and eating
 // shows no words or emojis): a flower flies from you to its mouth, it nods and munches it (slothLife's mouth)
 function feed(s, emoji = "🌺") {
+  told("feed", s);
   const f = sprite(emoji, 96); f.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(f);
   fx.push({ s: f, fly: { from: f.position.clone(), to: s.head.getWorldPosition(V()) }, t: 0, life: 0.9, done() { s.nod = 2.4; s.munch = 2.6; } });
 }
 
-// giving it what you carry (a vegetable or a bowl of soup from the pot): it leaves your hand, flies to its mouth and it munches
-function give(s) { const f = acts.give?.(); if (f) feed(s, f.emoji); }
+// giving it what you carry (a vegetable, a fruit or a bowl of soup): the modelled food (camp/food.js) leaves your hand and
+// the sloth eats it, with its eat clip when it is sitting up (camp/sloths.js life.eatGift)
+function give(s) { const f = acts.give?.(); if (!f) return; const L = window.__campLife; if (L?.eatGift) { told("feed", s); L.eatGift(s, f.make(), f.from); } else feed(s, f.emoji); }
 
 // ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
 // With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,
@@ -79,7 +83,7 @@ const addTarget = (key, make) => extra.push([key, make]);
 function allTargets() {
   const out = [];
   for (const [k, make] of extra) out.push(target(k, make));
-  for (const t of acts.things) if (t.look) out.push(target(t, () => ({ look: t.look, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
+  for (const t of acts.things) if (t.look) out.push(target(t, () => ({ get look() { return t.look; }, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
     ready: () => acts.ready(t), options: () => [[acts.label?.(t) ?? "Use it", () => acts.tap({ thing: t })]] })));   // only ever the one thing a tap does now (activities.js label)
   for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
     ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food?.(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })));
@@ -87,7 +91,7 @@ function allTargets() {
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
     const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
-      options: () => [[(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };
+      options: () => [...(window.__car?.doorOptions?.(d) ?? []), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };   // car.js: Get in / Get out on the driver's door
   }));
   return out;
 }
@@ -118,7 +122,6 @@ menu.style.cssText = "position:fixed;left:0;top:0;display:none;flex-direction:co
 document.body.append(menu);
 for (const ev of ["pointerdown", "pointerup"]) menu.addEventListener(ev, (e) => e.stopPropagation());
 function openMenu(t) {
-  if (t.tap) { t.tap(); return; }   // a thing with one obvious use does it straight away (trip.js: the karaoke sign asks its question)
   menuFor = t; menu.replaceChildren(...t.options().map(([label, fn]) => {
     const b = document.createElement("button"); b.textContent = label;
     b.style.cssText = "font:600 16px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25);cursor:pointer;white-space:nowrap";
@@ -129,7 +132,7 @@ function closeMenu() { menuFor = null; menu.style.display = "none"; }
 function placeMenu() {
   const S = menuFor.at(to); to.y += S.radius * 0.8; to.project(camera);
   if (to.z > 1) { closeMenu(); return; }   // behind you
-  const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, 130, innerHeight - 40);
+  const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, Math.max(130, menu.offsetHeight + 60), innerHeight - 40);   // a tall menu (the clock's) stays on screen
   menu.style.left = x + "px"; menu.style.top = y + "px";
 }
 function tap(x, y) {

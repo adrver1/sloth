@@ -3,17 +3,19 @@
 // colours the way the forest trunks are (forest.js bake()): moss on the up-facing bark, pale wood with rings on the cut ends.
 // Lit live like the forest round them, so no light-map bake; their ground shadows join the GPU bake through window.__deadwood.
 import * as THREE from "three";
-import { S, canvasTex, scene } from "./core.js";
-import { HERO, JEEP_AT, RC, V, trackDist } from "./forest.js";
+import { S, scene } from "./core.js";
+import { V, canvasTex, lcg, sstep, tris } from "./util.js";
+import { HERO, JEEP_AT, RC } from "./layout.js";
+import { trackDist } from "./forest.js";
 import { blockers } from "./campProps.js";
 import { groundHeight } from "./terrain.js";
 
-let s = 9173; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }, R = (a, b) => a + rnd() * (b - a);   // own stream: the shared one sets the rest of the layout
+const { R } = lcg(9173);   // own stream: the shared one sets the rest of the layout
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss), grey = new THREE.Color(0xb3ab9c), wood = new THREE.Color(0xc9a77a), ring = new THREE.Color(0x8a6440), fungus = new THREE.Color(0xe0782a), fungusRim = new THREE.Color(0xf6c060);
 // the bark, painted once and multiplied over the vertex colours: grooves along the wood, flecks and lichen spots; the
 // strip at u > 0.96 stays white for the fungus
 const barkTex = canvasTex(128, 128, (g, w, h) => {
-  let q = 51; const Q = (a, b) => { q = (q * 16807) % 2147483647; return a + (q / 2147483647) * (b - a); };
+  const { R: Q } = lcg(51);
   g.fillStyle = "#e8e2d8"; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 26; i++) { const x = Q(0, w * 0.96); g.strokeStyle = `rgba(40,28,18,${Q(0.25, 0.55)})`; g.lineWidth = Q(1, 3); g.beginPath(); g.moveTo(x, 0);
     for (let y = 0; y <= h; y += 16) g.lineTo(x + Q(-2, 2), y); g.stroke(); }
@@ -27,7 +29,6 @@ function merge(geos) {                               // position, normal, uv and
   for (const g of geos) for (const k in at) at[k].push(...g.attributes[k].array);
   const m = new THREE.BufferGeometry(); for (const [k, a] of Object.entries(at)) m.setAttribute(k, new THREE.Float32BufferAttribute(a, k === "uv" ? 2 : 3)); return m;
 }
-const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // vertex colours: bark (or bleached grey for the dead trunk) with moss where a face looks up, darker low down;
 // cap vertices (flagged by the caller) get pale wood, the cap's centre a darker heart, so the cut end shows rings
@@ -40,8 +41,8 @@ function paint(g, { bleach = 0, moss = 1, y0 = 0, y1 = 1, cap = () => -1, uv = [
     if (k >= 0) c.copy(wood).lerp(ring, k);
     else {
       c.copy(barkA).lerp(barkB, 0.5 + 0.5 * Math.sin(Math.atan2(z, x) * 7 + y * 3.1)).lerp(grey, bleach);
-      c.lerp(mossC, sm(0.45, 0.9, n.getY(i) + 0.6 * Math.sin(x * 4.3 + z * 3.7 + y * 2.9) * Math.sin(x * 1.7 - z * 2.3 + 1.0)) * S.mossAmt * moss);   // moss in patches along the top
-      c.multiplyScalar(0.7 + 0.3 * sm(y0, y1, y));
+      c.lerp(mossC, sstep(0.45, 0.9, n.getY(i) + 0.6 * Math.sin(x * 4.3 + z * 3.7 + y * 2.9) * Math.sin(x * 1.7 - z * 2.3 + 1.0)) * S.mossAmt * moss);   // moss in patches along the top
+      c.multiplyScalar(0.7 + 0.3 * sstep(y0, y1, y));
     }
     col.set([c.r, c.g, c.b], i * 3);
   }
@@ -69,10 +70,10 @@ for (const [rad, need] of [[RC - 1.3, 1.4], [RC - 1.4, 0.6], [RC + 0.2, 0.5]]) {
   for (let i = 0; i < 120; i++) { const a = a0 + i * 0.0523, x = Math.cos(a) * rad, z = Math.sin(a) * rad;
     if (ok(x, z, need) && spots.every((q) => Math.hypot(q.x - x, q.z - z) > 5)) { spots.push(V(x, 0, z)); break; } }
 }
-const parts = [], tris = {}, layout = [];
+const parts = [], triCount = {}, layout = [];
 // seated on the ground (camp/terrain.js): each piece moves up or down by the height under it, a little sunk
 const lift = (from, c) => { const y = groundHeight(c.x, c.z) - 0.03; for (const g of parts.slice(from)) g.translate(0, y, 0); return y; };
-const count = (name, from) => { tris[name] = parts.slice(from).reduce((n, g) => n + g.attributes.position.count / 3, 0); };
+const count = (name, from) => { triCount[name] = parts.slice(from).reduce((n, g) => n + tris(g), 0); };
 
 // the fallen log: lying along the edge, half sunk, one end broken off; moss along its back
 if (spots[0]) { const c = spots[0], yaw = Math.atan2(c.z, c.x) + Math.PI / 2 + R(-0.3, 0.3), L = 2.6, r = 0.27, from = parts.length;
@@ -106,7 +107,8 @@ if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
   parts.push(paint(limb, { bleach: 0.8, moss: 0.3, y0: 0, y1: 2.5 }).rotateY(R(0, 6.28)).translate(c.x, 0, c.z));
   const out = c.clone().normalize().negate();
   for (let i = 0; i < 4; i++) { const a = Math.atan2(out.z, out.x) + R(-0.8, 0.8), d = V(Math.cos(a), 0, Math.sin(a)), y = 0.5 + i * 0.42 + R(-0.1, 0.1), rr = 0.34 - y * 0.03; shelf(parts, c.clone().addScaledVector(d, rr).setY(y), d, R(0.13, 0.19)); }
-  blockers.push(Object.assign([c.clone(), 0.45], { wild: true }));   // wild: no worn dirt or path to it (ground.js) layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);
+  blockers.push(Object.assign([c.clone(), 0.45], { wild: true }));   // wild: no worn dirt or path to it (ground.js)
+  layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);   // was lost in the comment above: unseated, untallied, not in the bake
 }
 // roots (forest-ground note 2b): low half-round roots spreading 1.5 to 2.6 m from both big trees over the ground, across the sloths'
 // way down, so the trees sit in the ground instead of on it. 16 triangles each, in the same draw and bark as the deadwood.
@@ -124,6 +126,5 @@ if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
   count("roots", from);
 }
 const geo = merge(parts), mesh = new THREE.Mesh(geo, deadMat); mesh.name = "Deadwood"; scene.add(mesh);
-tris.total = geo.attributes.position.count / 3;
-window.__deadwood = { layout, tris };   // for the GPU thread's ground-shadow bake (props/bake_all.py) and the tris report
-export { mesh as deadwood };
+triCount.total = tris(geo);
+window.__deadwood = { layout, tris: triCount };   // for the GPU thread's ground-shadow bake (props/bake_all.py) and the tris report

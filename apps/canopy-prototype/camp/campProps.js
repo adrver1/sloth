@@ -1,32 +1,28 @@
-// Canopy Camp props: the camp layout and blockers, the picked props with their baked light map (lnight), the lived-in props,
+// Canopy Camp props: the camp's blockers (the layout itself is layout.js), the picked props with their baked light map (lnight), the lived-in props,
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
-import "./forest.js";   // run after the module before it, as one script did
-import { D, LIVED, PRE, PROPS, R, S, canvasTex, scene, sun, uTime } from "./core.js";
-import { A0, HERO, RC, V, d0, t0 } from "./forest.js";
+import { D, LIVED, PRE, PROPS, R, S, scene, sun, uTime } from "./core.js";
+import { V, canvasTex, patchMaterial } from "./util.js";
+import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
 const lanternGlow = [];   // where each lantern's light is (lanterns.js): the ground pools and the sloths' night glow
-{
-  // the layout: the log seats round the fire (the gap faces the gate), the tent, the hammock posts and the snack table
-  const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
-  const hA = d0.clone().multiplyScalar(-1.5).addScaledVector(t0, -4.6), hB = hA.clone().addScaledVector(d0, -2.6).addScaledVector(t0, -1.2);
-  const tb = d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.2);
-  // the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame and the hammock's near
-  // post up to the big tree behind the fire
-  const l0 = tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8);   // tied to the walk-in tent's front A-frame
-  var LANTERN_LAYOUT = lanternLayout({ l0, post: hA.clone().setY(2.35), tree: HERO[0] });
-  window.__camp = { tentAt, hA, hB, tb, string: LANTERN_LAYOUT.strings[0], strings: LANTERN_LAYOUT.strings };   // string(s): the lantern strings' points (a sloth hangs from one)
-  // collision circles for walking round the camp
-  // blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking
-  // (.walk, player.js): the fire ring stops you at its stones, and each log seat is a thin capsule along the log, so there is
-  // a ring to walk round the fire between them (Adriaen 2026-11-13: the old circles walled the fire in)
-  var blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Object.assign([tentAt.clone().multiplyScalar(1 + 0.275 / tentAt.length()), 1.9], { tent: true }), [tb, 0.75], [hA, 0.3], [hB, 0.3], ...HERO.map((h) => [h, 1.4])];
-  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15, c = V(Math.cos(a) * 2.1, 0, Math.sin(a) * 2.1), t = V(-Math.sin(a), 0, Math.cos(a));
-    blockers.push(Object.assign([c, 0.75], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
-}
+// the layout (layout.js): the log seats round the fire (the gap faces the gate), the tent, the hammock posts, the snack table
+// and the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame and the hammock's
+// near post up to the big tree behind the fire
+const LANTERN_LAYOUT = lanternLayout(LANTERN_TIES);
+// CAMP: the camp layout in the names sloths.js and operator.js know, built from layout.js's own vectors (the same objects, no
+// copies). sloths.js adds .sloths to it. (It also carried the lantern strings' points, which nothing read: review props-08.)
+const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
+window.__camp = CAMP;   // alias: sloths.js and operator.js read it (audio.js in the open PRs too), props/shadow/export_casters.cjs exports tent and hammock
+// blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking
+// (.walk, player.js): the fire ring stops you at its stones, and each log seat is a thin capsule along the log, so there is
+// a ring to walk round the fire between them (Adriaen 2026-11-13: the old circles walled the fire in)
+const blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Object.assign([TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), 1.9], { tent: true }), [TABLE.at, 0.75], [HAMMOCK.a, 0.3], [HAMMOCK.b, 0.3], ...HERO.map((h) => [h, 1.4])];
+for (const { angle: a, at: c } of SEATS) { const t = V(-Math.sin(a), 0, Math.cos(a));
+  blockers.push(Object.assign([c, 0.75], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
 // the lanterns (lanterns.js) and the fire: glow sprites, no real-time shadows; one warm point light for the fire glow
 const glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
 const LANTERNS = createLanterns({ scene, layout: LANTERN_LAYOUT, glowTex }); lanternGlow.push(...LANTERNS.lights);
@@ -37,7 +33,8 @@ const fireLight = new THREE.PointLight(0xff9a4a, D.fx ? 6 : 0, 7, 1.6); fireLigh
 if (S.rays && D.fx) {
   const tex = canvasTex(64, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, "rgba(255,240,200,0)"); gr.addColorStop(0.5, "rgba(255,240,200,1)"); gr.addColorStop(1, "rgba(255,240,200,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
     const v = g.createLinearGradient(0, 0, 0, h); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(0.2, "rgba(0,0,0,1)"); v.addColorStop(1, "rgba(0,0,0,0)"); g.globalCompositeOperation = "destination-in"; g.fillStyle = v; g.fillRect(0, 0, w, h); });
-  var rayMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: S.rays, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  var rayMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: S.rays, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
+    forceSinglePass: true });   // one draw per shaft: three.js draws a see-through two-sided material twice (backs, then fronts) and re-keys its shader each time; a flat additive quad looks the same in one
   // the shafts slant down from the sun's side, all at the same angle like real morning light through a gap in the canopy (review B6)
   const sd = sun.position.clone().normalize(), up = new THREE.Vector3(0, 1, 0), tilt = new THREE.Quaternion().setFromUnitVectors(up, sd);
   for (let i = 0; i < 7; i++) { const r = new THREE.Mesh(new THREE.PlaneGeometry(R(0.9, 2.4), 22), rayMat); const a = R(0, 6.28), d = R(0, RC - 3.5);
@@ -69,11 +66,11 @@ const [LMTEX, LMSUN] = await PRE.lm;   // loaded with everything else at the top
 // lighter and more saturated than the vertex-coloured props round them (sawn wood about 202,165,118; bamboo 196,184,114),
 // so they glowed by day and at night (camp review B2). Toned down here, not in the textures, so the bake needs nothing.
 const SAWN = new THREE.Color().setRGB(0.74, 0.71, 0.68, THREE.SRGBColorSpace), BAMBOO = new THREE.Color().setRGB(0.72, 0.67, 0.6, THREE.SRGBColorSpace);   // about 150,117,80 and 141,123,68
+// one program for every material whose shader code comes out the same (review P3: keyed by uuid, each compiled its own);
+// the hooks chained before and after this one (the laundry's swing) are part of the code, so their source is in the key (patchMaterial)
 const lnight = (mat) => {
-  const prev = mat.onBeforeCompile;
   mat.lightMap = LMTEX; mat.lightMapIntensity = 0;
-  mat.onBeforeCompile = (sh, r) => {
-    prev?.call(mat, sh, r);
+  return patchMaterial(mat, "lmap", (sh) => {
     bindLight(sh); sh.uniforms.uNight = uNight; sh.uniforms.uSun = { value: LMSUN };
     sh.fragmentShader = "uniform float uNight; uniform sampler2D uSun;\n" + LIGHT_GLSL + sh.fragmentShader
       .replace("#include <lights_fragment_begin>", liveChunk().replace("getDirectionalLightInfo( directionalLight, directLight );",
@@ -89,23 +86,18 @@ const lnight = (mat) => {
       .replace("#include <opaque_fragment>", LIGHT_MIX("baseC", "lmQ", "lmDecode2(sunT.ba)", "uNight", "vec3(0.0)", true) + `
   outgoingLight = mix(outgoingLight, min(baseC * 1.15, vec3(1.0)), glowK * uNight);
 #include <opaque_fragment>`);
-  };
-  // one program for every material whose shader code comes out the same (review P3: keyed by uuid, each compiled its own);
-  // the hooks chained before and after this one (the laundry's swing) are part of the code, so their source is in the key
-  const own = mat.onBeforeCompile;
-  mat.customProgramCacheKey = () => ["lmap", prev ? prev.toString() : "", mat.onBeforeCompile === own ? "" : mat.onBeforeCompile.toString()].join("|");
-  return mat;
+  });
 };
 {
-  const P = await PRE.props, { tentAt, hA, hB, tb } = window.__camp;
+  const P = await PRE.props;
   const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
   P.scene.traverse((m) => { if (m.isMesh) m.material = lamL; });
   // the picked set holds each copy on its own (Seat_0, Seat_1 ...), since each is lit where it stands
   const put = (n, x, z, yaw, y = 0, i = 0) => { const s = P.scene.getObjectByName(`${n}_${i}`) ?? P.scene.getObjectByName(n); if (!s) return null; const o = s.clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
-  for (let i = 0; i < 3; i++) { const a = A0 + Math.PI + (i - 1) * 1.15; put("Seat", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2, 0, i); }
-  put("Tent", tentAt.x, tentAt.z, Math.atan2(-tentAt.x, -tentAt.z));
-  const hm = hA.clone().add(hB).multiplyScalar(0.5), hd = hB.clone().sub(hA); put("Hammock", hm.x, hm.z, -Math.atan2(hd.z, hd.x));
-  put("Table", tb.x, tb.z, 0.6);
+  SEATS.forEach(({ at, yaw }, i) => put("Seat", at.x, at.z, yaw, 0, i));
+  put("Tent", TENT.at.x, TENT.at.z, TENT.yaw);
+  put("Hammock", HAMMOCK.mid.x, HAMMOCK.mid.z, HAMMOCK.yaw);
+  put("Table", TABLE.at.x, TABLE.at.z, TABLE.yaw);
 }
 // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
 // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
@@ -114,27 +106,24 @@ if (LIVED) {
   const L = await PRE.lived, lm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
   L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, ...(m.name.startsWith("SeatTop") && { polygonOffset: true, polygonOffsetFactor: -2, color: SAWN }) })) : lm; });   // the stack, loose logs and seat tops are textured
   const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
-  const wp = V(-0.55, 0, -3.15), wy = Math.atan2(-wp.x, -wp.z);
+  const { at: wp, yaw: wy, side } = WOOD_PILE;
   put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); put("LooseLogs", wp.x, wp.z, wy); var WOODPILE = wp;   // the activities take logs from here
   var WOOD_TEX; L.scene.getObjectByName("WoodStack").traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; });   // and paint them like the stack
-  const side = V(Math.cos(wy), 0, -Math.sin(wy));                     // the pile's local +X (where the stump stands) in the world
   blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
-  const a = A0 + Math.PI; put("SeatThings", Math.cos(a) * 2.1, Math.sin(a) * 2.1, -a + Math.PI / 2);
-  if (PROPS === "picked") { const t = window.__camp.tentAt, ty = Math.atan2(-t.x, -t.z); put("TentSide", t.x, t.z, ty); put("MatRoll", t.x, t.z, ty); }   // wellies and the rolled mat on the planks by the door (tent frame)
-  { const k = V(4.55, 0, 1.7), ky = Math.atan2(-k.x, -k.z); put("KitchenCrate", k.x, k.z, ky); put("KitchenThings", k.x, k.z, ky); blockers.push([k, 0.35]); }   // the kitchen crate beside the snack table, its front to the fire
-  for (let i = 0; i < 3; i++) { const b = A0 + Math.PI + (i - 1) * 1.15; put(L.scene.getObjectByName(`SeatTop_${i}`) ? `SeatTop_${i}` : "SeatTop", Math.cos(b) * 2.1, Math.sin(b) * 2.1, -b + Math.PI / 2); }   // the sawn top on each seat
+  put("SeatThings", SEATS[1].at.x, SEATS[1].at.z, SEATS[1].yaw);   // the middle seat
+  if (PROPS === "picked") { const t = TENT.at; put("TentSide", t.x, t.z, TENT.yaw); put("MatRoll", t.x, t.z, TENT.yaw); }   // wellies and the rolled mat on the planks by the door (tent frame)
+  { const { at: k, yaw: ky } = CRATE; put("KitchenCrate", k.x, k.z, ky); put("KitchenThings", k.x, k.z, ky); blockers.push([k, 0.35]); }   // the kitchen crate beside the snack table, its front to the fire
+  SEATS.forEach(({ at, yaw }, i) => put(L.scene.getObjectByName(`SeatTop_${i}`) ? `SeatTop_${i}` : "SeatTop", at.x, at.z, yaw));   // the sawn top on each seat
 }
 // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,
 // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, about 110 triangles).
-// The gap on the line at hang (window.__laundry) is kept free for a sloth to hang from. Shown with the lived-in props.
+// The gap on the line at hang (layout.js LAUNDRY.hang) is kept free for a sloth to hang from. Shown with the lived-in props.
 if (LIVED) {
-  const LD = await PRE.laundry, A = V(1.3, 0, 4.3), B = V(4.0, 0, 3.0), mid = A.clone().lerp(B, 0.5), yaw = Math.atan2(-(B.z - A.z), B.x - A.x);
+  const LD = await PRE.laundry;
   LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
-  const o = LD.scene; o.position.copy(mid); o.rotation.y = yaw; scene.add(o);
-  const dir = B.clone().sub(A).normalize(), L = 3.0, t = 0.42;   // the line is 3 m post to post (A, B are where it's tied, roughly)
-  blockers.push([mid.clone().addScaledVector(dir, -L / 2), 0.25], [mid.clone().addScaledVector(dir, L / 2), 0.25]);
-  window.__laundry = { a: mid.clone().addScaledVector(dir, -L / 2).setY(1.62), b: mid.clone().addScaledVector(dir, L / 2).setY(1.62), sag: 0.13,
-    hang: mid.clone().addScaledVector(dir, -L / 2 + L * t).setY(1.62 - 0.13 * 4 * t * (1 - t)), dir };
+  const o = LD.scene; o.position.copy(LAUNDRY.mid); o.rotation.y = LAUNDRY.yaw; scene.add(o);
+  blockers.push([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
+  window.__laundry = LAUNDRY;   // alias: sloths.js reads the line (layout.js LAUNDRY), only when it is shown
 }
 // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
 // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
@@ -152,7 +141,6 @@ var FIRE_CARDS = [];
         : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : fm; });   // the legs: one tube each, nodes in the texture
     scene.add(o);
   }
-  var SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };              // the soup's surface; atmosphere.js lets steam rise off all of it
   const H = 0.8, flameMat = (ph) => new THREE.ShaderMaterial({
     uniforms: { uTime, uPh: { value: ph } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
@@ -190,4 +178,5 @@ const pools = (() => {
   m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); return m;
 })();
 
-export { FIRE_CARDS, SLOTH, SOUP_POT, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight };
+export { SOUP_POT };   // back-compat: operator.js, and audio.js on the open PRs #15/#16, still import the soup pot from here (its home is layout.js)
+export { CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight };

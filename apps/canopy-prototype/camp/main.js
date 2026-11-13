@@ -3,7 +3,6 @@
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { WARM_N } from "../fur.js";
-import "./input.js";   // run after the module before it, as one script did
 import { $, D, DETAIL, R, S, camera, qs, renderer, scene, store, sun, uTime } from "./core.js";
 import { stickV } from "./hud.js";
 import { dome, moon, nightDome, sky, uSkyDusk } from "./sky.js";
@@ -17,7 +16,12 @@ import { opStep } from "./operator.js";
 import { aimStep, boop, feed, resize } from "./input.js";
 import { weather } from "./weather.js";
 import { lingerStep } from "./linger.js";
-import { tripStep } from "./trip.js";
+import { day } from "./daytime.js";
+import { clockStep } from "./clock.js";
+import { audioStep } from "./audio.js";
+import { radioStep } from "./radio.js";
+import { jeepSeatStep } from "./jeepSeat.js";
+import { carStep } from "./car.js";
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 // rest: dusk falls, the lanterns and the fire glow brighter, fireflies come out
@@ -38,12 +42,11 @@ const sm = THREE.MathUtils.smoothstep, HOUR_S = 30;
 const duskOf = (h) => h >= 20.5 || h < 5.5 ? 1 : h < 7.5 ? 1 - sm(h, 5.5, 7.5) : h < 17 ? 0 : h < 19 ? 0.45 * sm(h, 17, 19) : 0.45 + 0.55 * sm(h, 19, 20.5);
 const goldOf = (h) => sm(h, 16.3, 17.6) * (1 - sm(h, 18.9, 19.8));                       // low warm sun before dusk
 const mistOf = (h) => sm(h, 5, 6.3) * (1 - sm(h, 7.8, 10.5));                            // dawn mist, burnt off by mid-morning
-let tSet = Number(qs.get("time") ?? store.get("canopy-time") ?? 12); if (!(tSet >= 0 && tSet < 24)) tSet = 12;
-let cycle = qs.has("cycle") ? qs.get("cycle") !== "0" : store.get("canopy-cycle") === "on", tShown = tSet;
 const clockText = (h) => `${String(Math.floor(h) % 24).padStart(2, "0")}:${String(Math.floor((h % 1) * 60 / 15) * 15).padStart(2, "0")}`;
-const showTime = () => { $("time").value = String(tSet); $("clock").textContent = clockText(tSet); $("cycle").textContent = "Day cycle: " + (cycle ? "on" : "off"); };
-$("time").oninput = () => { tSet = Number($("time").value); store.set("canopy-time", String(tSet)); showTime(); };
-$("cycle").onclick = () => { cycle = !cycle; store.set("canopy-cycle", cycle ? "on" : "off"); showTime(); };
+const showTime = () => { $("time").value = String(day.set); $("clock").textContent = clockText(day.set); $("cycle").textContent = "Day cycle: " + (day.cycle ? "on" : "off"); };
+day.listeners.push(showTime);   // the clock prop (clock.js) sets the hour too
+$("time").oninput = () => day.setHour(Number($("time").value));
+$("cycle").onclick = () => day.setCycle(!day.cycle);
 showTime();
 // golden hour and dawn mist (camp review B7): on the way to Rest the light lingers in a warm golden band (dusk 0.12 .. 0.5:
 // low amber sun, honey fog, the light shafts turn gold and brighten); on waking, a pale mist lies over the clearing and burns
@@ -76,7 +79,7 @@ await renderer.compileAsync(scene, camera).catch(() => {});
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
-  lingerStep(dt); step(dt); tripStep(dt);   // the karaoke trip's cut scene takes the camera after the player has moved
+  jeepSeatStep(dt); lingerStep(dt); step(dt);
   for (const s of sloths) {
     s.mixer.update(dt);
     slothLife(s, dt);
@@ -85,7 +88,7 @@ renderer.setAnimationLoop(() => {
   }
   campStep(dt);
   opStep(dt);
-  jeepStep(dt);
+  jeepStep(dt); carStep(dt);
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
     if (f.fly) { const e = Math.min(1, f.t / f.life), k = e * e * (3 - 2 * e); f.s.position.lerpVectors(f.fly.from, f.fly.to, k); f.s.position.y += Math.sin(k * Math.PI) * 0.4; }
@@ -101,11 +104,13 @@ renderer.setAnimationLoop(() => {
     for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
     W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk; } pools.visible = dusk > 0 && !groundLife.isNightBaked(); pools.material.opacity = dusk * (0.9 + 0.1 * fl);
   LANTERNS.update(uTime.value, dusk);
-  if (cycle) { tSet = (tSet + dt / HOUR_S) % 24; if ((clockTick += dt) > 2) { clockTick = 0; showTime(); store.set("canopy-time", tSet.toFixed(2)); } }
-  { const ahead = (tSet - tShown + 24) % 24; tShown = (tShown + Math.min(ahead, dt * 3)) % 24; }   // always forward, like a day
+  if (day.cycle) { day.set = (day.set + dt / HOUR_S) % 24; if ((clockTick += dt) > 2) { clockTick = 0; day.setHour(day.set); } }
+  { const ahead = (day.set - day.shown + 24) % 24; day.shown = (day.shown + Math.min(ahead, dt * 3)) % 24; }   // always forward, like a day
+  const tShown = day.shown;
   weather.step(dt);
   const wet = weather.wet;
   dusk = duskOf(tShown); gold = goldOf(tShown) * (1 - wet); mist = mistOf(tShown);
+  clockStep(dt, dusk);
   mistSprites.visible = mist > 0.01;
   if (mistSprites.visible) { const k = mist * (1 - dusk); mistSprites.children[0].material.opacity = 0.32 * k;
     for (const sp of mistSprites.children) { const u = sp.userData; u.a += u.w * dt; sp.position.x = Math.cos(u.a) * u.r; sp.position.z = Math.sin(u.a) * u.r; } }
@@ -119,6 +124,7 @@ renderer.setAnimationLoop(() => {
   }
   if (motes) motes.rotation.y += dt * 0.02;
   atmo.update(dt, uTime.value, dusk);
+  audioStep(dt, dusk); radioStep(dt);
   // sun shadows (ground.js castShadows): re-cast whenever the props in the clearing change, checked each second for the first half minute while they load
   if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }
   renderer.render(scene, camera);
@@ -132,7 +138,7 @@ renderer.setAnimationLoop(() => {
     frames = 0; acc = 0;
   }
 });
-window.__me = me; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__rest = () => { tSet = tShown = 23; showTime(); }; window.__time = (h) => { tSet = tShown = h; showTime(); };   // checks: jump straight to an hour
+window.__me = me; window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__rest = () => day.setHour(23, true); window.__time = (h) => day.setHour(h, true);   // checks: jump straight to an hour
 window.__face = (i) => { const s = sloths[i]; const flat = V(s.p.x, 0, s.p.z); me.pos.copy(flat.clone().multiplyScalar(Math.max(0, 1 - 2.2 / flat.length()))); collide(me.pos); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
 window.__stick = (x, y) => stickV.set(x, y);
 window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));

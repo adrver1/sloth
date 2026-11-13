@@ -2,7 +2,7 @@
 import "./sloths.js";   // run after the module before it, as one script did
 import { camera, uTime } from "./core.js";
 import { keys, stickV } from "./hud.js";
-import { GLADE, GLADE_R, PATH_W, RC, V, d0, polyDist, sloPath, t0, track, tripPath } from "./forest.js";
+import { GLADE, GLADE_R, PATH_W, RC, V, d0, polyDist, sloPath, t0, track } from "./forest.js";
 import { blockers } from "./campProps.js";
 import { groundHeight } from "./terrain.js";
 
@@ -28,9 +28,7 @@ function collide(p) {
   if (r > lim) {
     const [q, d] = walkPts.length > 1 ? onTrack(p) : [null, 1e9];
     const [pd, px, pz] = polyDist(sloPath.pts, p.x, p.z), dg = Math.hypot(p.x - GLADE.x, p.z - GLADE.z), GR = GLADE_R - 0.4;
-    const tp = polyDist(tripPath.pts, p.x, p.z);
     if (dg < GR) {}                                                                          // in the sloth tree's glade
-    else if (tp[0] < 1.3) { if (tp[0] > 0.9) { const c = V(tp[1], 0, tp[2]); p.sub(c).multiplyScalar(0.9 / tp[0]).add(c); } }   // on the karaoke trip's path
     else if (pd < PATH_W + 0.4) { if (pd > PATH_W) { const c = V(px, 0, pz); p.sub(c).multiplyScalar(PATH_W / pd).add(c); } }   // on the path: keep to it
     else if (d < WALK_W + 0.4) { if (d > WALK_W) p.sub(q).multiplyScalar(WALK_W / d).add(q); }   // on the track: keep to it
     else if (dg < GR + 0.8) p.sub(GLADE).multiplyScalar(GR / dg).add(GLADE);
@@ -59,7 +57,7 @@ function step(dt) {
   const ax = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + stickV.x;
   const az = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) - stickV.y;
   const wish = fwd.clone().multiplyScalar(az).addScaledVector(right, ax); if (wish.lengthSq() > 1) wish.normalize();
-  if (me.seat && wish.lengthSq() > 0.01) me.seat = null;   // walking stands you up
+  if (me.seat && wish.lengthSq() > 0.01) { if (me.seat.leave) me.seat.leave(); else me.seat = null; }   // walking stands you up (a seat with .leave, the jeep's, gets you out its own way)
   me.sitK += Math.sign((me.seat ? 1 : 0) - me.sitK) * Math.min(Math.abs((me.seat ? 1 : 0) - me.sitK), dt * 1.6);
   if (me.seat) { me.vel.set(0, 0, 0); me.pos.lerp(me.seat.pos, 1 - Math.exp(-4 * dt)); }
   else me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
@@ -67,7 +65,8 @@ function step(dt) {
   if (moving) me.walkT += dt;
   const feet = me.pos; feet.y = groundHeight(feet.x, feet.z);   // level in the camp and on the paths; the rim rises a little at the edge
   const bob = moving ? Math.sin(me.walkT * 7) * 0.03 : 0;
-  camera.position.set(feet.x, feet.y + EYE - 0.72 * me.sitK * me.sitK * (3 - 2 * me.sitK) + bob, feet.z);   // seated: eye at about 0.83 m
+  if (me.seat) me.drop = me.seat.drop ?? 0.72;   // how far the eye drops seated: 0.72 on a log (eye at about 0.83 m); a seat may say (car.js: the jeep's is high)
+  camera.position.set(feet.x, feet.y + EYE - (me.drop ?? 0.72) * me.sitK * me.sitK * (3 - 2 * me.sitK) + bob, feet.z);
   look.set(-Math.sin(me.yaw) * Math.cos(me.pitch), Math.sin(me.pitch), -Math.cos(me.yaw) * Math.cos(me.pitch)).add(camera.position);
   camera.lookAt(look);
 }
