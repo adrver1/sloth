@@ -21,6 +21,7 @@ import { day } from "./daytime.js";
 import { clockStep } from "./clock.js";
 import { audioStep } from "./audio.js";
 import { radioStep } from "./radio.js";
+import { jeepSeatStep } from "./jeepSeat.js";
 import { carStep } from "./car.js";
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
@@ -79,7 +80,7 @@ await renderer.compileAsync(scene, camera).catch(() => {});
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
-  lingerStep(dt); step(dt);
+  jeepSeatStep(dt); lingerStep(dt); step(dt);
   for (const s of sloths) {
     s.mixer.update(dt);
     slothLife(s, dt);

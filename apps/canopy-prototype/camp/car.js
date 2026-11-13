@@ -28,33 +28,9 @@ if (jeep) {
   const onDash = (o, x, y, tilt = 0) => { o.position.set(x, y, DASH_Z); o.rotation.set(tilt, Math.PI, 0); jeep.add(o); return o; };   // its front toward the driver (-z)
   const tris = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) n += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); return n; };
 
-  // ---------------------------------------------------------------- getting in and out
-  let seat = null;
-  const inCar = () => me.seat != null && me.seat === seat;
-  // the jeep's own sloth plays at driving in the driver's seat (sloths.js spot "jeep"); while it is in, you take the
-  // passenger seat beside it and reach over for the key, the radio and the clock
-  const slothAtWheel = () => sloths.some((s) => s.spot?.car && s.spot.home && s.o.visible);
-  let side = 1;   // +1 the driver's seat (camp side), -1 the passenger's
-  function getIn(force) {
-    side = force ?? (slothAtWheel() ? -1 : 1);
-    const p = local(seatL.x * side, 0, seatL.z - 0.08), fwd = V(0, 0, 1).transformDirection(jeep.matrixWorld).setY(0).normalize();
-    const eyeY = jeep.position.y + seatL.y + 0.68 - (window.__groundHeight?.(p.x, p.z) ?? 0);   // seated eye height above the ground
-    seat = { pos: p.setY(0), yaw: Math.atan2(-fwd.x, -fwd.z), drop: 1.55 - eyeY, car: true };
-    // look down at the dash, a little toward the middle where the radio, the clock and the key are
-    const eye = p.clone().setY(jeep.position.y + seatL.y + 0.68), aim = local(0.18 * side, 1.0, DASH_Z).sub(eye);
-    me.seat = seat; me.yaw = Math.atan2(-aim.x, -aim.z); me.pitch = Math.atan2(aim.y, Math.hypot(aim.x, aim.z)) + 0.12; me.lastDrag = -9; seat.yaw = me.yaw;
-    toast(side > 0 ? "At the wheel 🚙" : "Riding with the sloth at the wheel 🦥");
-  }
-  function getOut() {
-    if (me.seat === seat) me.seat = null;
-    const out = local((seatL.x + 1.25) * side, 0, seatL.z).setY(0);   // beside the door you came in by
-    me.pos.copy(out); me.sitK = 0; seat = null;
-  }
-  // the door's menu (input.js asks window.__car.doorOptions for each jeep door)
-  window.__car = {
-    doorOptions: (d) => d.k !== "P" && d.k !== "D" ? [] : inCar() ? [["Get out 🚪", getOut]] : d.open ? [["Get in 🚙", getIn]] : [],
-    inCar, getIn, getOut,
-  };
+  // ---------------------------------------------------------------- in the jeep: getting in and out is jeepSeat.js (window.__jeep.sit / stand / seatedIn)
+  const inCar = () => !!J.seatedIn?.();
+  window.__car = Object.assign(window.__car ?? {}, { inCar });
 
   // ---------------------------------------------------------------- the key: turn it to start the engine
   // the key head (a brass bow and blade, a leather fob) on one quad that turns about the slot, and a chrome ring round the slot
@@ -112,7 +88,6 @@ if (jeep) {
   let t = 0;
   carStep = (dt) => {
     t += dt;
-    if (seat && me.seat !== seat) getOut();   // walked off (player.js clears the seat)
     if (engine === "crank") { crank += dt; if (crank > 1.1) { engine = "run"; toast("Brrrm! The engine is running 🚙"); } }
     const want = engine === "off" ? 0 : engine === "crank" ? KEY_CRANK : KEY_RUN;
     keyA += (want - keyA) * Math.min(1, dt * (engine === "crank" ? 14 : 8)); key.rotation.z = keyA;
