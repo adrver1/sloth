@@ -1,5 +1,5 @@
 // Canopy Camp replay check: runs the camp headless on a virtual clock with seeded Math.random, steps a fixed number of
-// frames, and prints a fingerprint of the scene (every object's world transform and visibility, every material's key
+// frames, and prints a fingerprint of the scene (every object's world transform and visibility, its vertices and instances, every material's key
 // settings, draw calls, triangles, shader programs) plus screenshots at checkpoints. Two runs of the same code give the
 // same fingerprint, so a refactor that is meant to change nothing can be checked: same fingerprint before and after.
 // Usage (from the repo root, after npm install):
@@ -42,6 +42,7 @@ function virtualise() {
 // runs in the page: a fingerprint of everything in the scene
 function fingerprint() {
   const S = window.__scene, r = (v) => Math.round(v * 1e4) / 1e4, rows = []; let draws = 0, tris = 0;
+  const sum = (a, n) => { let h = 0; for (let i = 0; i < n; i++) h = (Math.imul(h, 31) + Math.round(a[i] * 1e3)) | 0; return h; };   // a hash of a buffer: leaves, grass, particles, vertices
   S.updateMatrixWorld(true);
   S.traverse((o) => {
     let vis = true, p = o; while (p) { if (!p.visible) { vis = false; break; } p = p.parent; }
@@ -50,6 +51,8 @@ function fingerprint() {
     if (o.isMesh || o.isPoints || o.isLine || o.isSprite) {
       const g = o.geometry, n = g ? (g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) : 0;
       row.push(n, o.isInstancedMesh ? o.count : -1, o.renderOrder, o.frustumCulled ? 1 : 0);
+      if (o.isInstancedMesh) row.push(sum(o.instanceMatrix.array, o.count * 16), o.instanceColor ? sum(o.instanceColor.array, o.count * 3) : 0);
+      if (g) for (const k of Object.keys(g.attributes).sort()) { const at = g.attributes[k]; row.push(k, at.count, sum(at.array, at.array.length)); }
       for (const m of [].concat(o.material)) { row.push(m.type, m.transparent ? 1 : 0, r(m.opacity), m.side, m.blending, m.depthWrite ? 1 : 0, m.depthTest ? 1 : 0, r(m.alphaTest || 0), m.visible ? 1 : 0, m.color ? m.color.getHex() : -1, m.emissive ? m.emissive.getHex() : -1, r(m.emissiveIntensity ?? -1), m.map ? 1 : 0, m.lightMap ? 1 : 0, m.vertexColors ? 1 : 0, m.fog ? 1 : 0);
         if (m.uniforms) for (const k of Object.keys(m.uniforms).sort()) { const v = m.uniforms[k].value; if (typeof v === 'number') row.push(k, r(v)); else if (v && v.isVector3) row.push(k, r(v.x), r(v.y), r(v.z)); else if (v && v.isColor) row.push(k, v.getHex()); } }
       if (vis) { draws++; tris += o.isPoints || o.isSprite ? 0 : Math.round(n / 3) * (o.isInstancedMesh ? o.count : 1); }
@@ -80,7 +83,11 @@ async function compare(A, B) {
   const args = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
   const b = await chromium.launch({ args }).catch(() => chromium.launch({ args, executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' }));
   const p = await b.newPage({ viewport: { width: 480, height: 300 }, deviceScaleFactor: 1 });
-  await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (rt) => { const m = rt.request().url().match(/three@0\.186\.1\/(.*)/); rt.fulfill({ path: path.join(NM, m[1]), contentType: m[1].endsWith('.wasm') ? 'application/wasm' : 'text/javascript' }); });
+  // three.js is served from node_modules. Its uuids (one per object, material, texture) draw from Math.random; here they get a
+  // stream of their own, so that making one object more or fewer does not shift the random numbers the page itself draws
+  const core = fs.readFileSync(path.join(NM, 'build/three.core.js'), 'utf8').replace('function generateUUID() {', 'let __us = 1; const __ur = () => { __us = (Math.imul(__us, 1664525) + 1013904223) >>> 0; return __us / 4294967296; };\nfunction generateUUID() {').replace(/const (d[0-3]) = Math\.random\(\)/g, 'const $1 = __ur()');
+  if (!core.includes('const d3 = __ur()')) { console.error('three.core.js: generateUUID not found'); process.exit(2); }
+  await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (rt) => { const m = rt.request().url().match(/three@0\.186\.1\/(.*)/); if (m[1] === 'build/three.core.js') return rt.fulfill({ body: core, contentType: 'text/javascript' }); rt.fulfill({ path: path.join(NM, m[1]), contentType: m[1].endsWith('.wasm') ? 'application/wasm' : 'text/javascript' }); });
   await p.route(/fonts\.(googleapis|gstatic)\.com/, (rt) => rt.fulfill({ body: '', contentType: 'text/css' }));
   const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
   p.on('response', (r) => { if (r.status() >= 400) errs.push(r.status() + ' ' + r.url().slice(-70)); });
