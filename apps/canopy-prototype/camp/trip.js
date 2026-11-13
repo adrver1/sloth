@@ -67,7 +67,9 @@ const sign = (() => {
   g.position.copy(p).addScaledVector(side, 1.05); g.position.y = groundHeight(g.position.x, g.position.z);
   // the board faces the glade, its arrow pointing the way the path bends off; either face reads right (the back one is mirrored)
   const n = GLADE.clone().sub(g.position).setY(0).normalize(), bend = curve.getPointAt(0.7).sub(g.position).setY(0), X = bend.addScaledVector(n, -bend.dot(n)).normalize();
-  g.rotation.y = Math.atan2(-X.z, X.x);
+  // then turned 50° toward the way the path runs (Adriaen 2026-11-13: it should point more down the path), still readable from the glade
+  const along = curve.getTangentAt(Math.min(1, SIGN_T + 0.08)).setY(0).normalize(), turn = Math.atan2(X.z * along.x - X.x * along.z, X.dot(along));
+  g.rotation.y = Math.atan2(-X.z, X.x) + Math.sign(turn) * Math.min(Math.abs(turn), 50 * Math.PI / 180);
   scene.add(g); return g;
 })();
 console.info(`karaoke trip: sign ${tris(sign)} triangles`);
