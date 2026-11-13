@@ -2,12 +2,12 @@
 import "./sloths.js";   // run after the module before it, as one script did
 import { camera, uTime } from "./core.js";
 import { keys, stickV } from "./hud.js";
-import { GLADE, GLADE_R, PATH_W, RC, V, d0, polyDist, sloPath, t0, track, tripPath } from "./forest.js";
+import { GLADE, GLADE_R, PATH_W, RC, V, d0, polyDist, sloPath, t0, track } from "./forest.js";
 import { blockers } from "./campProps.js";
 import { groundHeight } from "./terrain.js";
 
 // ================================================================ the player: first person, on the clearing floor
-const EYE = 1.55, SPEED = 1.7;
+const EYE = 1.55, SPEED = 1.7, BODY = 0.25;   // BODY: how far you keep from things (was 0.3)
 const me = { vel: V(), mode: "ground", pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), s: 0, yaw: 0, pitch: 0.08, target: null, holding: false, walkT: 0, lastDrag: -9, mark: null, seat: null, sitK: 0 };   // seat: { pos, yaw } while sitting by the fire (linger.js); sitK eases 0..1
 me.yaw = Math.atan2(-d0.x, -d0.z);       // face the fire and the big tree behind it
 const look = V();
@@ -28,15 +28,25 @@ function collide(p) {
   if (r > lim) {
     const [q, d] = walkPts.length > 1 ? onTrack(p) : [null, 1e9];
     const [pd, px, pz] = polyDist(sloPath.pts, p.x, p.z), dg = Math.hypot(p.x - GLADE.x, p.z - GLADE.z), GR = GLADE_R - 0.4;
-    const tp = polyDist(tripPath.pts, p.x, p.z);
     if (dg < GR) {}                                                                          // in the sloth tree's glade
-    else if (tp[0] < 1.3) { if (tp[0] > 0.9) { const c = V(tp[1], 0, tp[2]); p.sub(c).multiplyScalar(0.9 / tp[0]).add(c); } }   // on the karaoke trip's path
     else if (pd < PATH_W + 0.4) { if (pd > PATH_W) { const c = V(px, 0, pz); p.sub(c).multiplyScalar(PATH_W / pd).add(c); } }   // on the path: keep to it
     else if (d < WALK_W + 0.4) { if (d > WALK_W) p.sub(q).multiplyScalar(WALK_W / d).add(q); }   // on the track: keep to it
     else if (dg < GR + 0.8) p.sub(GLADE).multiplyScalar(GR / dg).add(GLADE);
     else p.multiplyScalar(lim / r);
   }
-  for (const [c, rad] of blockers) { const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz); if (d < rad + 0.3) { const k = (rad + 0.3) / Math.max(d, 1e-4); p.x = c.x + dx * k; p.z = c.z + dz * k; } }
+  // push out of each blocker along the shortest way, so you slide round it instead of stopping; three passes, so a corner
+  // where two touch settles too. A blocker's .walk shape (campProps.js) is used when it has one: a circle, or a capsule a..b
+  for (let pass = 0; pass < 3; pass++) {
+    let moved = false;
+    for (const B of blockers) {
+      const w = B.walk, rad = (w ? w.r : B[1]) + BODY;
+      let cx = B[0].x, cz = B[0].z;
+      if (w?.a) { const ax = w.a.x, az = w.a.z, dx = w.b.x - ax, dz = w.b.z - az, t = Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.z - az) * dz) / (dx * dx + dz * dz))); cx = ax + dx * t; cz = az + dz * t; }
+      const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
+      if (d < rad) { const k = rad / Math.max(d, 1e-4); p.x = cx + dx * k; p.z = cz + dz * k; moved = true; }
+    }
+    if (!moved) break;
+  }
 }
 let landmark = -1;
 function step(dt) {
