@@ -34,7 +34,6 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 //   __jeep       jeep.js jeepApi          sloths.js, input.js
 //   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown)
 //   __acts       campLife.js acts         operator.js
-//   __groundHeight terrain.js            main.js
 //   __campLife   sloths.js (its life)     input.js, operator.js, lab.js
 //   __me         main.js (player.js me)   sloths.js (the player's seat)
 //   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); camp-replay.cjs sets __campFast too

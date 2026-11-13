@@ -1,12 +1,18 @@
 // Canopy Camp main: the Rest button and the night palette, then the frame loop with the fps panel and the resolution safety net.
 // camp.html loads this file; it imports the other camp modules in order, so they run top to bottom as one script did before.
+// The order of these imports is the order the camp is built in: most modules build their part of the scene as they load, and
+// several draw from the one seeded random stream (core.js), so moving a line here moves trees and sloths. A bare import
+// ("./forest.js") holds a module's place in that order when main.js needs no name from it.
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { WARM_N } from "../fur.js";
 import { $, D, DETAIL, OPT, R, S, camera, renderer, scene, sun, uTime } from "./core.js";
+import { V } from "./util.js";
+import { GLADE, RC, sloPath } from "./layout.js";
 import { stickV } from "./hud.js";
 import { dome, moon, nightDome, sky, uSkyDusk } from "./sky.js";
-import { GLADE, RC, V, sloPath } from "./forest.js";
+import "./forest.js";
+import { groundHeight } from "./terrain.js";
 import { fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight } from "./campProps.js";
 import { jeepStep } from "./jeep.js";
 import { SL, SLOTH_WARM, campStep, fx, slothLife, sloths } from "./sloths.js";
@@ -53,10 +59,10 @@ showTime();
 // off slowly over half a minute. Both are only colour and a few soft sprites, so nothing to bake.
 const RAIN_FOG = new THREE.Color(0x7d8c86), BACK_RAIN = new THREE.Color(0.72, 0.78, 0.8), BACK_DAWN = new THREE.Color(1.25, 1.3, 1.36), BACK_GOLD = new THREE.Color(1.15, 0.82, 0.5), GOLD_SUN = new THREE.Color(0xffa040), GOLD_FOG = new THREE.Color(0xc89a62), DAWN_FOG = new THREE.Color(0xc8ccd6), RAY_DAY = new THREE.Color(0xffffff), RAY_GOLD = new THREE.Color(0xffb050);
 let mist = 0, gold = 0, clockTick = 0;
-const mistSprites = (() => {   // low banks of mist over the clearing floor, each a big soft sprite; they follow the ground when it gets height
+const mistSprites = (() => {   // low banks of mist over the clearing floor, each a big soft sprite standing on the ground (terrain.js)
   const g = new THREE.Group(), n = D.fx ? 16 : 8, mat = new THREE.SpriteMaterial({ map: glowTex, color: 0xe6ebf2, transparent: true, opacity: 0, depthWrite: false, fog: false });
   for (let i = 0; i < n; i++) { const a = R(0, 6.28), r = Math.sqrt(R(0.05, 1)) * (RC + 1), sp = new THREE.Sprite(mat), x = Math.cos(a) * r, z = Math.sin(a) * r;
-    sp.scale.set(R(5, 8), R(1.2, 1.8), 1); sp.position.set(x, (window.__groundHeight?.(x, z) ?? 0) + R(0.35, 0.7), z); sp.userData = { a, r, w: R(0.01, 0.025) * (i % 2 ? 1 : -1) }; g.add(sp); }
+    sp.scale.set(R(5, 8), R(1.2, 1.8), 1); sp.position.set(x, groundHeight(x, z) + R(0.35, 0.7), z); sp.userData = { a, r, w: R(0.01, 0.025) * (i % 2 ? 1 : -1) }; g.add(sp); }
   g.visible = false; scene.add(g); return g;
 })();
 const flies = (() => {
