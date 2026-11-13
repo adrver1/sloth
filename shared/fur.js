@@ -1,9 +1,9 @@
 // Fuzzy shell fur for the baby sloths (look B from the fur options page): painted strands on the body,
 // plus N thin shells (merged into one skinned mesh, one extra draw) pushed out along smoothed normals, with strands cut out of each.
 // Only the fur swatches of the palette get fur; face mask, eyes and claws stay smooth.
-// The one source: tools/sync-shared.cjs copies it next to every page that uses it (each app folder is published on its own).
+// Source: shared/fur.js. tools/sync-shared.cjs copies it next to every page that uses it (each app folder is published on its own).
 // Usage: import { furify } from "./fur.js"; furify(clonedSlothScene) (4 layers; ?fur=0 on the page turns it off).
-// Options, each independent and off by default (off = the plain look the sloth pages use):
+// Options, all off by default (off = the plain look the sloth pages use); warm only works together with lambert:
 // { colors: [0x8a6446, 0x5e4030] } other animals' palette fur swatches (karaoke crowd), instead of the sloth's.
 // { lambert: true } shades body and shells with MeshLambertMaterial instead of the GLB's physical / standard ones (Canopy
 // Camp, review 2026-11-12: cheaper, and matches the Lambert props). Each sloth's shell mesh is in root.userData.furShells.
@@ -104,7 +104,7 @@ function shellGeo(geo, shells) {
   geo.userData[key] = out;
   return out;
 }
-const shellMats = new Map();   // one material per (map, length), shared by every sloth
+const shellMats = new Map();   // one material per (map, length, lambert, warm), shared by every sloth
 function shellMat(map, len, lambert = false, warm = null) {
   const k = map.uuid + len + lambert + !!warm;
   if (shellMats.has(k)) return shellMats.get(k);
