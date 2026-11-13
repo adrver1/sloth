@@ -7,8 +7,8 @@ Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three 
     picked     the set in use: rustic, with a canvas wall tent with planks before the door, the jungle tripod and kettle over the rustic fire and the jungle hammock
 
 Storybook, Rustic and Jungle (and the first pre-light-map picked GLB) are archived (camp review, Adriaen 2026-11-12): their
-GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, since the
-picked set is made from rustic() and jungle(). The page's picked set is built and baked by bake_camp_lightmap.py (through
+GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, one function
+per prop, since the picked set is made from some of them (rustic_seat, rustic_lantern, rustic_table, jungle_hammock). The page's picked set is built and baked by bake_camp_lightmap.py (through
 props/bake_all.py, on the GPU); this script's own AO bake only remakes an archived style:
 
     .venv/bin/python props/camp/build_camp.py --style rustic --samples 64     # -> props/camp/archive/camp_rustic.glb
@@ -230,12 +230,16 @@ def storybook():
     return out
 
 
-def rustic():
-    M = {k: mat(f"ru_{k}", c) for k, c in dict(
+def rustic_mats():
+    """The rustic materials, by short name."""
+    return {k: mat(f"ru_{k}", c) for k, c in dict(
         rock=(0.45, 0.44, 0.42), rock2=(0.36, 0.35, 0.33), bark=(0.3, 0.21, 0.14), wood=(0.68, 0.52, 0.36), char=(0.08, 0.06, 0.05),
         ember=(0.7, 0.2, 0.05), canvas=(0.48, 0.5, 0.32), canvas2=(0.38, 0.4, 0.25), rope=(0.7, 0.62, 0.45), peg=(0.55, 0.42, 0.28),
         sling=(0.32, 0.38, 0.26), glass=(0.92, 0.78, 0.45), tin=(0.55, 0.56, 0.58), white=(0.9, 0.88, 0.82), red=(0.65, 0.15, 0.12)).items()}
-    out = {}
+
+
+def rustic_fire(M):
+    """Rocks round an ember bed and four leaning logs with charred tips (archived: props/lived/build_fire.py replaced it)."""
     p = [ball(0.32, at=(0, 0, 0.0), scale=(1, 1, 0.12), m=M["char"]), ball(0.18, at=(0, 0, 0.03), scale=(1, 1, 0.2), m=M["ember"])]
     for i in range(11):
         a = i / 11 * 2 * math.pi + rng.uniform(-0.1, 0.1)
@@ -246,8 +250,11 @@ def rustic():
         top = Vector((-math.cos(a) * 0.05, -math.sin(a) * 0.05, 0.3))
         p.append(rough_up(rod(base, top, 0.065, M["bark"], verts=10), 0.01, 9))
         p.append(rod(top - (top - base).normalized() * 0.1, top + (top - base).normalized() * 0.02, 0.06, M["char"], verts=10))
-    out["Fire"] = join(p, "Fire")
-    # seat: a split half log on two short stumps
+    return join(p, "Fire")
+
+
+def rustic_seat(M):
+    """The seat (picked): a split half log on two short stumps, its flat top at z = 0.361."""
     lg = cyl(0.25, 1.5, at=(0, 0, 0.0), rot=(0, math.pi / 2, 0), m=M["bark"], verts=24)
     apply_all(lg)
     bpy.ops.object.mode_set(mode="EDIT")
@@ -260,9 +267,13 @@ def rustic():
     p = [lg, top]
     for s in (-1, 1):
         p.append(rough_up(cyl(0.16, 0.36, at=(s * 0.5, 0, 0.18), m=M["bark"], verts=14), 0.01, 10))
-    out["Seat"] = join(p, "Seat")
-    # tent: a closed A-frame ridge tent. The roof is one sheet over the ridge (no gap at the top), its eaves reach the
-    # ground sheet, the back gable is sewn in and the front door is two flaps laced shut down a centre seam.
+    return join(p, "Seat")
+
+
+def rustic_tent(M):
+    """A closed A-frame ridge tent (archived; the picked set has wall_tent()). The roof is one sheet over the ridge (no gap
+    at the top), its eaves reach the ground sheet, the back gable is sewn in and the front door is two flaps laced shut
+    down a centre seam."""
     L, W, H, OV = 2.3, 2.1, 1.55, 0.08
     nx, ny = 12, 8
     verts, faces = [], []
@@ -308,7 +319,11 @@ def rustic():
     p.append(box((L + 0.3, W + 0.2, 0.015), at=(0, 0, 0.008), m=M["canvas2"]))
     t = join(p, "Tent")
     t.rotation_euler = (0, 0, math.pi / 2)        # door end toward -Y
-    out["Tent"] = t
+    return t
+
+
+def rustic_hammock(M):
+    """A canvas sling on two rough posts (archived; the picked set has the jungle hammock)."""
     h = HAMMOCK_SPAN / 2
     p = []
     for s in (-1, 1):
@@ -317,9 +332,12 @@ def rustic():
         p.append(rod((s * h, 0, 1.75), (s * (h - 0.4), -0.2, 1.35), 0.01, M["rope"], verts=5))
     p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.9, 0.55, (0, 0, 1.35), M["sling"]))
     p.append(box((0.5, 0.35, 0.04), at=(0.3, 0.08, 0.86), rot=(0, 0, 0.3), m=M["red"], bevel=0.01))   # a folded blanket
-    out["Hammock"] = join(p, "Hammock")
-    # jar lantern, trimmed (camp review 2026-11-12, 34 triangles): a 6-sided glass jar, a 6-sided tin lid, the wire
-    # handle as one flat quad
+    return join(p, "Hammock")
+
+
+def rustic_lantern(M):
+    """The jar lantern (picked), trimmed (camp review 2026-11-12, 34 triangles): a 6-sided glass jar, a 6-sided tin lid,
+    the wire handle as one flat quad."""
     p = [cyl(0.065, 0.16, at=(0, 0, -0.14), m=M["glass"], verts=6, smooth=False),
          cyl(0.072, 0.03, at=(0, 0, -0.05), m=M["tin"], verts=6, r2=0.05, smooth=False)]
     hq = bpy.data.meshes.new("handle")
@@ -328,9 +346,12 @@ def rustic():
     p.append(ho)
     for o in p[:2]:                                    # the jar's top and the lid's bottom are hidden inside each other
         drop_faces(o, lambda f: abs(f.normal.z) > 0.9 and -0.07 < f.center.z < -0.055)
-    out["Lantern"] = join(p, "Lantern")
-    # the snack table, trimmed (camp review 2026-11-12, about 190 triangles): two 8-sided stumps with no caps (the
-    # top hides theirs), four plain plank boxes, a tin mug and a plate of three tomatoes
+    return join(p, "Lantern")
+
+
+def rustic_table(M):
+    """The snack table (picked), trimmed (camp review 2026-11-12, about 190 triangles): two 8-sided stumps with no caps
+    (the top hides theirs), four plain plank boxes, a tin mug and a plate of three tomatoes."""
     p = []
     for s in (-1, 1):
         leg = rough_up(cyl(0.2, 0.62, at=(s * 0.45, 0, 0.31), m=M["bark"], verts=8, smooth=False), 0.012, 10)
@@ -342,8 +363,14 @@ def rustic():
     for k in range(3):
         bpy.ops.mesh.primitive_ico_sphere_add(radius=0.045, subdivisions=1, location=(-0.25 + k * 0.05, -0.05 + 0.02 * (k % 2), 0.74))
         p.append(_finish(bpy.context.object, M["red"], smooth=False))
-    out["Table"] = join(p, "Table")
-    return out
+    return join(p, "Table")
+
+
+def rustic():
+    """The archived rustic style's six props, made in this order (the order its props draw from the seeded rng)."""
+    M = rustic_mats()
+    return {"Fire": rustic_fire(M), "Seat": rustic_seat(M), "Tent": rustic_tent(M), "Hammock": rustic_hammock(M),
+            "Lantern": rustic_lantern(M), "Table": rustic_table(M)}
 
 
 STOVE = (1.0, 0.85, 0.42)        # the stove's fire, in the tent's own frame (bake_camp_lightmap.py puts a light there)
@@ -525,19 +552,26 @@ def tripod_kettle(M):
     return p
 
 
-def jungle(plain_posts=False):
-    M = {k: mat(f"ju_{k}", c) for k, c in dict(
+def jungle_mats():
+    """The jungle materials, by short name."""
+    return {k: mat(f"ju_{k}", c) for k, c in dict(
         stone=(0.42, 0.46, 0.42), stone2=(0.5, 0.52, 0.47), bamboo=(0.72, 0.68, 0.36), node=(0.52, 0.48, 0.24), char=(0.09, 0.07, 0.05),
         ember=(0.85, 0.3, 0.07), kettle=(0.24, 0.24, 0.26), leaf=(0.24, 0.5, 0.2), leaf2=(0.32, 0.6, 0.24), weave=(0.8, 0.66, 0.44),
         orange=(0.95, 0.5, 0.15), gourd=(0.85, 0.52, 0.2), pink=(0.95, 0.35, 0.5), yellow=(1, 0.8, 0.25), rope=(0.7, 0.6, 0.4)).items()}
-    out = {}
+
+
+def jungle_fire(M):
+    """A stone ring with a bamboo tripod and kettle (archived)."""
     p = [ball(0.3, at=(0, 0, 0), scale=(1, 1, 0.12), m=M["char"]), ball(0.17, at=(0, 0, 0.03), scale=(1, 1, 0.22), m=M["ember"])]
     for i in range(9):
         a = i / 9 * 2 * math.pi
         p.append(ball(0.15, at=(math.cos(a) * 0.6, math.sin(a) * 0.6, 0.06), scale=(1.25, 0.9, 0.5), m=M["stone" if i % 2 else "stone2"], rot=(0, 0, a)))
     p += tripod_kettle(M)
-    out["Fire"] = join(p, "Fire")
-    # seat: a bamboo bench
+    return join(p, "Fire")
+
+
+def jungle_seat(M):
+    """A bamboo bench (archived)."""
     p = []
     for k in range(3):
         p += bamboo((-0.75, (k - 1) * 0.085, 0.42), (0.75, (k - 1) * 0.085, 0.42), 0.042, M["bamboo"], M["node"], nodes=3)
@@ -545,8 +579,11 @@ def jungle(plain_posts=False):
         for d in (-1, 1):
             p += bamboo((s, d * 0.2, 0), (s, -d * 0.12, 0.4), 0.025, M["bamboo"], M["node"], nodes=1)
         p.append(rod((s, -0.16, 0.38), (s, 0.16, 0.38), 0.008, M["rope"], verts=4))
-    out["Seat"] = join(p, "Seat")
-    # shelter: a lean-to of bamboo with a thatch of big leaves and a woven mat
+    return join(p, "Seat")
+
+
+def jungle_tent(M):
+    """A lean-to of bamboo with a thatch of big leaves and a woven mat (archived)."""
     p = []
     fx, bx, wy, fh, bh = -1.05, 1.0, 1.1, 1.95, 0.75
     for y in (-wy, wy):
@@ -567,7 +604,12 @@ def jungle(plain_posts=False):
         p.append(box((1.7, 0.02, 0.022), at=(0, -0.8 + k * 0.4, 0.014), m=M["node"]))
     t = join(p, "Tent")
     t.rotation_euler = (0, 0, math.pi / 2)       # open front toward -Y
-    out["Tent"] = t
+    return t
+
+
+def jungle_hammock(M, plain_posts=False):
+    """The woven hammock on bamboo posts. plain_posts: the picked one, on octagon posts with painted nodes, a coarse sling
+    and no leaves on top."""
     h = HAMMOCK_SPAN / 2
     p = []
     for s in (-1, 1):
@@ -582,9 +624,17 @@ def jungle(plain_posts=False):
         p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
     for s in (-1, 1) if not plain_posts else ():         # two leaves tucked over the posts (not in the picked set)
         p.append(leaf(0.9, 0.38, (s * h, 0, 2.4), 0 if s < 0 else math.pi, 0.5, M["leaf2"], droop=0.3))
-    out["Hammock"] = join(p, "Hammock")
+    return join(p, "Hammock")
+
+
+def jungle_lantern(M):
+    """A gourd lantern (archived)."""
     p = [ball(0.075, at=(0, 0, -0.17), m=M["gourd"], seg=12), ball(0.05, at=(0, 0, -0.07), m=M["gourd"], seg=10), cyl(0.012, 0.05, at=(0, 0, -0.025), m=M["node"], verts=6)]
-    out["Lantern"] = join(p, "Lantern")
+    return join(p, "Lantern")
+
+
+def jungle_table(M):
+    """A stone table with fruit and flowers (archived)."""
     p = []
     for i in range(3):
         a = i / 3 * 2 * math.pi
@@ -595,27 +645,27 @@ def jungle(plain_posts=False):
         p.append(ball(0.055, at=(-0.1 + k * 0.08, 0.02 * k, 0.62), m=M[c], seg=10))
     for k in range(3):
         p += flower((0.2 + k * 0.08, -0.15 + k * 0.12, 0.58), M["pink"], M["yellow"])
-    out["Table"] = join(p, "Table")
-    return out
+    return join(p, "Table")
 
 
-# ------------------------------------------------------------------ bake and export
+def jungle():
+    """The archived jungle style's six props, made in this order (the order its props draw from the seeded rng)."""
+    M = jungle_mats()
+    return {"Fire": jungle_fire(M), "Seat": jungle_seat(M), "Tent": jungle_tent(M), "Hammock": jungle_hammock(M),
+            "Lantern": jungle_lantern(M), "Table": jungle_table(M)}
+
+
+# ------------------------------------------------------------------ the picked set, bake and export
 def picked():
-    """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent; the jungle woven hammock,
-    on plain octagon posts with painted nodes and no leaves on top (2026-11-11). The fire is props/lived/build_fire.py."""
-    out = rustic()
-    j = jungle(plain_posts=True)
-    bpy.data.objects.remove(out["Hammock"])
-    out["Hammock"] = j.pop("Hammock")
-    for o in j.values():
-        bpy.data.objects.remove(o)
-    bpy.data.objects.remove(out.pop("Fire"))   # the old fire is archived (camp review 2026-11-12): props/lived/build_fire.py makes the camp's fire
-    out["Hammock"]["coarse"] = True       # Adriaen 2026-11-11: the densified cloth was ~7k triangles
-    bpy.data.objects.remove(out["Tent"])  # Adriaen 2026-11-11: a rustic wall tent like his photos, loose planks before the door (the A-frame stays in "rustic")
-    out["Tent"] = wall_tent()
-    for k, o in out.items():
-        o.name = k                       # the jungle hammock was made while the rustic one held the name
-    return out
+    """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent like his photos with loose
+    planks before the door; the jungle woven hammock, on plain octagon posts with painted nodes and no leaves on top.
+    The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
+    made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent)."""
+    R, J = rustic_mats(), jungle_mats()
+    seat, lantern, table = rustic_seat(R), rustic_lantern(R), rustic_table(R)
+    hammock = jungle_hammock(J, plain_posts=True)
+    hammock["coarse"] = True                    # Adriaen 2026-11-11: the densified cloth was ~7k triangles
+    return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Lantern": lantern, "Table": table}
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): after the AO bake, a collapse

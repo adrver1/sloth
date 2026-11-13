@@ -118,8 +118,6 @@ PLACE = {
 
 reset()
 objs = build_camp.picked()
-if "Fire" in objs:                                # older picked() builds still made the old fire: the lived fire set replaces it
-    bpy.data.objects.remove(objs.pop("Fire"))
 for name, o in objs.items():
     apply_all(o); o.location = (0, 0, 0)
     n = build_camp.BUDGET["picked"].get(name); t = sum(len(p.vertices) - 2 for p in o.data.polygons)
