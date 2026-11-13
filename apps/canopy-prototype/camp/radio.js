@@ -6,7 +6,7 @@
 // Built here, painted on canvas: a box without a bottom (10), the needle (2), an aerial (6), two note cards (4): 22 triangles.
 import * as THREE from "three";
 import { canvasTex, scene } from "./core.js";
-import { d0, t0 } from "./forest.js";
+import { V } from "./forest.js";
 import { me } from "./player.js";
 import { addTarget } from "./input.js";
 import { toast } from "./hud.js";
@@ -37,11 +37,13 @@ const aerial = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.004, 0.32, 3, 
 aerial.position.set(W / 2 - 0.03, H / 2, -0.02); aerial.rotation.z = -0.5; radio.add(aerial);
 const noteTex = canvasTex(64, 64, (c) => { c.fillStyle = "#fff8ee"; c.font = "700 48px sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.shadowColor = "#8a5a3b"; c.shadowBlur = 4; c.fillText("♪", 32, 34); });
 const notes = [0, 1].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex, transparent: true, opacity: 0, depthWrite: false })); s.scale.setScalar(0.09); radio.add(s); return s; });
-// on the near end of the snack table, its front to the fire
+// on the snack table, its front to the fire
 {
   const tb = window.__camp.tb, table = scene.getObjectByName("Table"), top = table ? new THREE.Box3().setFromObject(table).max.y : 0.75;
-  const at = tb.clone().addScaledVector(d0, -0.4).addScaledVector(t0, -0.1);
-  radio.position.set(at.x, top + H / 2, at.z); radio.rotation.y = Math.atan2(-at.x, -at.z) + 0.25;
+  // the table's far end from where it was (Adriaen 2026-11-13: more to the left, there's more room), past the fruit bowl:
+  // 0.42 m along its long side (table local +x, the table is turned 0.6 rad), at its middle across
+  const ty = table ? table.rotation.y : 0.6, at = tb.clone().add(V(0.42 * Math.cos(ty) - 0.03 * Math.sin(ty), 0, -0.42 * Math.sin(ty) - 0.03 * Math.cos(ty)));
+  radio.position.set(at.x, top + H / 2, at.z); radio.rotation.y = Math.atan2(-at.x, -at.z) - 0.2;
 }
 radio.name = "Radio"; scene.add(radio);
 { let n = 0; radio.traverse((m) => { if (m.isMesh || m.isSprite) n += m.isSprite ? 2 : (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); console.log(`LOG radio: ${n} tris`); }

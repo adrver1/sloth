@@ -5,7 +5,7 @@
 //   the alarm clock on a little crate by the bed in the tent (Adriaen: where it naturally belongs), 66 triangles
 //   the sun-and-moon dial, moved out of the middle of the camp (Adriaen: out of place there). PROTOTYPE, ?dial=:
 //     post   (default) small and weathered, nailed to the hammock's near post at eye height, 34 triangles
-//     tent   a plank over the tent door with a half-moon window, the painted disc turning behind it, 20 triangles
+//     tent   a board over the tent door with a half-moon window, the painted disc turning behind it, 19 triangles
 //     none   no dial; the tent and jeep clocks are enough
 //   the jeep's dash clock lives in car.js and registers here with addClock.
 // Faces, numbers, rims and grain are painted on canvas textures; nothing modelled that paint can do.
@@ -123,18 +123,18 @@ if (DIAL === "post") {
   // a plank over the tent door with a half-moon window: the painted disc turns behind it, so only the half up top shows (the
   // time now). Plank 2 (painted, its window cut by alpha), disc 16, pointer 1.
   const t = window.__camp.tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L, o = new THREE.Group();
-  const plank = canvasTex(256, 128, (c, w, h) => { c.fillStyle = "#8a5a3b"; c.fillRect(0, 0, w, h); c.strokeStyle = "#6b4630"; c.lineWidth = 2;
+  const plank = canvasTex(256, 200, (c, w, h) => { c.fillStyle = "#8a5a3b"; c.fillRect(0, 0, w, h); c.strokeStyle = "#6b4630"; c.lineWidth = 2;
     for (let y = 8; y < h; y += 11) { c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(w * 0.3, y + 3, w * 0.6, y - 3, w, y + 1); c.stroke(); }
-    c.fillStyle = "#4a3426"; for (const x of [10, w - 10]) { c.beginPath(); c.arc(x, h / 2, 4, 0, 7); c.fill(); }
-    c.globalCompositeOperation = "destination-out"; c.beginPath(); c.arc(w / 2, h - 10, 74, Math.PI, 0); c.fill(); });
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.32), lam({ map: plank, alphaTest: 0.5 }));
+    c.fillStyle = "#4a3426"; for (const x of [10, w - 10]) for (const y of [14, h - 14]) { c.beginPath(); c.arc(x, y, 4, 0, 7); c.fill(); }
+    c.globalCompositeOperation = "destination-out"; c.beginPath(); c.arc(w / 2, h / 2, 74, Math.PI, 0); c.fill(); });
+  const BW = 0.64, BH = 0.5, board = new THREE.Mesh(new THREE.PlaneGeometry(BW, BH), lam({ map: plank, alphaTest: 0.5 }));
   const tex = dialTex(), face = lam({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0 });
-  const R = 0.64 * 74 / 256 * 1.05, disc = new THREE.Mesh(new THREE.CircleGeometry(R, 16), face);
-  disc.position.set(0, -0.16 + 0.32 * 10 / 128, -0.01);
+  const R = BW * 74 / 256 * 1.08, disc = new THREE.Mesh(new THREE.CircleGeometry(R, 16), face);   // the window is the top half of a circle in the middle of the board; the rest of the disc stays behind the board
+  disc.position.set(0, 0, -0.01);
   const ptr = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([V(-0.025, 0.04, 0), V(0.025, 0.04, 0), V(0, -0.01, 0)]), lam({ color: 0xe25a6e, side: THREE.DoubleSide }));
-  ptr.position.set(0, -0.16 + 0.32 * 10 / 128 + R * 0.78, 0.004);
+  ptr.position.set(0, R * 0.86 - 0.03, 0.004);
   o.add(board, disc, ptr);
-  const door = V(t.x + 1.0 * fx, 2.05, t.z + 1.0 * fz);   // above the doorway (build_camp.py wall_tent: front at yf -0.95, door 1.8 high)
+  const door = V(t.x + 1.0 * fx, 2.25, t.z + 1.0 * fz);   // above the doorway and its rolled-up flap (build_camp.py wall_tent: front at yf -0.95, door 1.8 high)
   o.position.copy(door); o.rotation.y = Math.atan2(fx, fz); o.name = "Dial"; scene.add(o);
   addClock({ obj: o, disc, lume: face, glow: 0.3, reach: 4, name: "dial tent" });
 }

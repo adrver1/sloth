@@ -7,7 +7,8 @@
 // "Get out" on the door, or walking off with the stick or the keys, puts you back outside the door you came in by.
 // Built here and painted on canvas, nothing added to the baked jeep: key 4, ignition ring 6, radio face 2, clock 10 + hands 4 =
 // 26 triangles. The jeep's own nodes (build_jeep.py): SeatP is the driver's cushion top, WheelHub the steering wheel's middle;
-// the dash's face toward the driver is at local z 0.14, from y 0.93 to 1.13.
+// the dash's face toward the driver is at local z 0.14, from y 0.93 to 1.13. Left to right as you sit: the wheel (x 0.36),
+// the key, the clock up top in the middle, the radio in front of the passenger seat.
 import * as THREE from "three";
 import { camera, canvasTex, scene } from "./core.js";
 import { V } from "./forest.js";
@@ -64,10 +65,10 @@ if (jeep) {
     c.fillStyle = "#e0b84a"; c.beginPath(); c.roundRect(14, 26, 36, 34, 12); c.fill(); c.fillStyle = "#b08a2e"; c.beginPath(); c.arc(32, 50, 4, 0, 7); c.fill();   // the bow
     c.fillStyle = "#d8d8d8"; c.fillRect(28, 0, 8, 28);                                                                                                      // the blade going in
   });
-  const key = new THREE.Group(), keyQuad = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.07).translate(0, -0.035 + 0.0055, 0), lam({ map: keyTex, alphaTest: 0.5, side: THREE.DoubleSide }));
-  keyQuad.rotation.x = 0.35; keyQuad.position.z = 0.012; key.add(keyQuad);   // hanging down from the slot, its fob tipped toward you
-  const ring = new THREE.Mesh(new THREE.CircleGeometry(0.016, 6).translate(0, 0, 0.002), lam({ map: canvasTex(32, 32, (c, w) => { c.fillStyle = "#b8b8b8"; c.fillRect(0, 0, w, w); c.fillStyle = "#222"; c.fillRect(14, 6, 4, 20); }) }));
-  const ign = new THREE.Group(); ign.add(ring, key); onDash(ign, seatL.x + 0.22, 0.99);   // right of the steering column, clear of the wheel's rim
+  const key = new THREE.Group(), keyQuad = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.09).translate(0, -0.045 + 0.007, 0), lam({ map: keyTex, alphaTest: 0.5, side: THREE.DoubleSide }));
+  keyQuad.rotation.x = -0.35; keyQuad.position.z = 0.012; key.add(keyQuad);   // hanging down from the slot, its fob tipped toward you
+  const ring = new THREE.Mesh(new THREE.CircleGeometry(0.02, 6).translate(0, 0, 0.002), lam({ map: canvasTex(32, 32, (c, w) => { c.fillStyle = "#b8b8b8"; c.fillRect(0, 0, w, w); c.fillStyle = "#222"; c.fillRect(14, 6, 4, 20); }) }));
+  const ign = new THREE.Group(); ign.add(ring, key); onDash(ign, seatL.x - 0.27, 1.0);   // right of the steering column as you sit (the jeep looks along +z, so -x), below the wheel's rim
   ign.name = "Ignition"; console.log(`LOG car key: ${tris(ign)} tris`);
   // the engine: off → cranking (the key held over, the jeep shudders) → running (an idle tremble)
   let engine = "off", crank = 0, keyA = 0;
@@ -96,15 +97,15 @@ if (jeep) {
     rTex.needsUpdate = true;
   }
   const rMat = lam({ map: rTex, emissive: 0xffffff, emissiveMap: gTex, emissiveIntensity: 0 });
-  const carRadio = onDash(new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), rMat), -0.1, 1.02, -0.1);
+  const carRadio = onDash(new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), rMat), -0.22, 1.0, -0.1);
   carRadio.name = "CarRadio"; drawRadio();
   addTarget(carRadio, () => ({ look: carRadio, picks: [carRadio], at: (v) => { carRadio.getWorldPosition(v); return new THREE.Sphere(v.clone(), 0.1); }, ready: inCar, options: () => radioOptions(carRadio) }));
 
-  // ---------------------------------------------------------------- the dash clock, between the radio and the wheel
+  // ---------------------------------------------------------------- the dash clock, high in the middle of the dash
   const clock = new THREE.Group(), lume = lam({ map: faceTex({ bg: "#f6efe0", rim: "#3a3a3a", numbers: ["12", "3", "6", "9"], rimW: 0.12 }), emissive: 0xfff0c8, emissiveIntensity: 0 });
-  clock.add(new THREE.Mesh(new THREE.CircleGeometry(0.045, 10), lume));
-  const hh = hand(0.006, 0.026, 0x2a2a2a), mh = hand(0.004, 0.036, 0x2a2a2a); hh.position.z = 0.002; mh.position.z = 0.003; clock.add(hh, mh);
-  onDash(clock, 0.1, 1.03, -0.1); clock.name = "CarClock";
+  clock.add(new THREE.Mesh(new THREE.CircleGeometry(0.055, 10), lume));
+  const hh = hand(0.007, 0.032, 0x2a2a2a), mh = hand(0.005, 0.044, 0x2a2a2a); hh.position.z = 0.002; mh.position.z = 0.003; clock.add(hh, mh);
+  onDash(clock, -0.05, 1.065, -0.1); clock.name = "CarClock";
   addClock({ obj: clock, hands: [hh, mh], lume, glow: 0.8, ready: inCar, name: "car" });
 
   // ---------------------------------------------------------------- per frame: the key, the shake, walking off, the radio display
