@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
-import { D, JEEP, LOOK, R, S, hex, leafMat, qs, rnd, scene, setSeed } from "./core.js";
+import { D, JEEP, LOOK, OPT, R, S, hex, leafMat, rnd, scene, setSeed } from "./core.js";
 import { V, canvasTex, lcg, polyDist, rand, sstep } from "./util.js";
 import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_HALF, PATH_W, RC, TRACK_HALF, d0, pathDist, pathLane, sloPath, t0 } from "./layout.js";
 
@@ -39,7 +39,7 @@ function merge(geos) {                               // position, normal, colour
 // a round clearing (radius RC) with the camp in it; two big mossy trees at its edge lean their low branches over it,
 // and that is where the sloths hang. Everything past the edge is the forest wall: instanced trunks, leaves and mist.
 // The forest restarts the seeded stream here, so it grows the same whatever drew from it before.
-setSeed(3000 + Number(qs.get("seed") || 7));
+setSeed(3000 + OPT.seed);
 // the jeep's track (layout.js JEEP_TRACK), unless ?jeep=none. trackDist() thins trunks, leaves and ferns off the track, the
 // path and the glade (scaled to zero, so the seeded layout of everything else stays the same).
 const track = JEEP === "none" ? null : JEEP_TRACK;

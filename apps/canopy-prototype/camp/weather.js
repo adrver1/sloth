@@ -3,14 +3,14 @@
 // shafts. Weather is set in the ⚙️ menu: Clear, Rain, or Changing (a shower every few minutes). ?weather=rain sets it.
 // main.js reads weather.wet (0 dry .. 1 pouring) for the light. No sound (cloud sessions can't hear it).
 import * as THREE from "three";
-import { $, D, camera, qs, scene, store } from "./core.js";
+import { $, D, KEYS, OPT, camera, scene, store } from "./core.js";
 import { rand } from "./util.js";
 import { TENT } from "./layout.js";
 
 const MODES = ["clear", "rain", "changing"], NAME = { clear: "Clear ☀️", rain: "Rain 🌧️", changing: "Changing 🌦️" };
-let mode = MODES.includes(qs.get("weather")) ? qs.get("weather") : MODES.includes(store.get("canopy-weather")) ? store.get("canopy-weather") : "clear";
+let mode = MODES.includes(OPT.weather) ? OPT.weather : MODES.includes(store.get(KEYS.weather)) ? store.get(KEYS.weather) : "clear";
 const show = () => { $("weather").textContent = "Weather: " + NAME[mode]; };
-$("weather").onclick = () => { mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set("canopy-weather", mode); show(); };
+$("weather").onclick = () => { mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set(KEYS.weather, mode); show(); };
 show();
 
 // the drops: N streaks in a 18 x 12 x 18 m box that follows the camera; each falls at its own speed, a little slanted
@@ -44,5 +44,5 @@ weather.step = (dt) => {
   }
   geo.attributes.position.needsUpdate = true;
 };
-window.__weather = (m) => { mode = m; raining = m === "rain"; weather.wet = raining ? 1 : 0; show(); };   // checks: set it at once
+window.__weather = (m) => { mode = m; raining = m === "rain"; weather.wet = raining ? 1 : 0; show(); };   // tool contract: camp-replay.cjs's tour sets it at once
 export { weather };

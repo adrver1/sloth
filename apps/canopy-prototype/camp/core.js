@@ -6,7 +6,39 @@ import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
 import { canvasTex, sstep } from "./util.js";
 import { SUN } from "./layout.js";
 
+// ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
+// camp.html?name=value. "saved" is the ⚙️ menu's choice, kept per viewer in localStorage under KEYS.
+//   option   values                        default                           read by
+//   detail   low | medium | high           saved, else medium                core.js (D: counts, effects, resolution), main.js (DETAIL)
+//   lm       2k | 1k | 4k (4k: local only) saved, else 1k on phones, 2k     core.js (the light maps)
+//   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campLife.js (JEEP)
+//   seed     a number                      7                                 core.js (the shared stream), forest.js (its restart)
+//   lived    1 | 0                         1                                 core.js, campProps.js, campLife.js (LIVED)
+//   op       1 | 0                         1                                 core.js (the operator's downloads); operator.js reads qs itself
+//   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
+//   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
+// still read with qs in the files the open PRs change (move them here once those land): time, cycle (main.js: the hour and the
+// day cycle, both saved), pos, yaw, pitch (main.js: the start view), touch (input.js), campsloths, slothmat, lab (sloths.js).
 const qs = new URLSearchParams(location.search);
+// localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (main.js, which still types them), save (save.js:
+// the camp's lived state, one part per owner)
+const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save" };
+// ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
+// API: modules that the open PRs change still read these; each is an alias of the exported object named here.
+//   __camp       campProps.js CAMP        sloths.js, operator.js (and export_casters.cjs, below)
+//   __jeep       jeep.js jeepApi          sloths.js, input.js
+//   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown)
+//   __acts       campLife.js acts         operator.js
+//   __groundHeight terrain.js            main.js
+//   __campLife   sloths.js (its life)     input.js, operator.js, lab.js
+//   __me         main.js (player.js me)   sloths.js (the player's seat)
+//   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); camp-replay.cjs sets __campFast too
+// tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.
+//   __ready, __scene, __stats (main.js)                 all three tools
+//   __ground (campLife.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
+//   __time, __boop, __feed, __stick (main.js), __sit (linger.js), __weather (weather.js)   camp-replay.cjs's tour
+// debug hooks for checks by hand in the browser console: __rest, __face, __slothS (main.js), __errand, __path, __spots,
+// __sloth (sloths.js), __op (operator.js).
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
 // they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
 // "Canopy camp: start every download at once" (the looks were archived there). Their branches below are dead code until the forest moves to its own module.
@@ -18,7 +50,18 @@ $("menu").onclick = () => { const o = $("opts"); o.hidden = !o.hidden; $("menu")
 // detail level, kept per viewer: how many leaves, ferns, fur shells and effects, and the resolution cap
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 const LEVELS = ["low", "medium", "high"];
-const DETAIL = LEVELS.includes(qs.get("detail")) ? qs.get("detail") : LEVELS.includes(store.get("canopy-detail")) ? store.get("canopy-detail") : "medium";
+const LMS = ["2k", "1k"], LMNAME = { "4k": "4K map", "2k": "2K map", "1k": "1K map" };
+const OPT = {
+  detail: LEVELS.includes(qs.get("detail")) ? qs.get("detail") : LEVELS.includes(store.get(KEYS.detail)) ? store.get(KEYS.detail) : "medium",
+  lm: [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.includes(store.get(KEYS.lm)) ? store.get(KEYS.lm)
+    : matchMedia("(pointer: coarse)").matches ? "1k" : "2k",   // phones start on the 1K maps (review P1: hard to tell apart at phone size, a quarter of the memory)
+  jeep: qs.get("jeep") === "none" ? "none" : "expedition",
+  seed: Number(qs.get("seed") || 7),
+  lived: qs.get("lived") !== "0",
+  op: qs.get("op") !== "0",
+  weather: qs.get("weather"),
+};
+const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
             medium: { leaves: 1, ferns: 1, fx: 1, shells: 3, pr: 1.75, aa: LOOK !== "moss" },
             high: { leaves: 1.6, ferns: 1.7, fx: 1.5, shells: 4, pr: 2, aa: true } }[DETAIL];
@@ -27,19 +70,17 @@ const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: fal
 const PROPS = "picked";
 $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
 // the jeep: the Expedition (Adriaen 2026-11-12; the Toy and Camper styles are in props/jeep/archive/); ?jeep=none hides it
-const JEEP = qs.get("jeep") === "none" ? "none" : "expedition";
-// the picked props' baked light: a 2K or 1K light map, or the older vertex colours (?lm=4k also works locally; 4k is too big to publish)
-const LMS = ["2k", "1k"], LMNAME = { "4k": "4K map", "2k": "2K map", "1k": "1K map" };
-const LMSET = [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.includes(store.get("canopy-lm")) ? store.get("canopy-lm")
-  : matchMedia("(pointer: coarse)").matches ? "1k" : "2k";   // phones start on the 1K maps (review P1: hard to tell apart at phone size, a quarter of the memory)
+const JEEP = OPT.jeep;
+// the picked props' baked light: a 2K or 1K light map (?lm=4k also works locally; 4k is too big to publish)
+const LMSET = OPT.lm;
 $("lm").textContent = "Light: " + LMNAME[LMSET];
 $("lm").style.display = PROPS === "picked" ? "" : "none";
 const CABIN = "live";   // the jeep's cabin light is live (one shadowed spot light): it looked much better than the bake (Adriaen 2026-11-12)
-$("lm").onclick = () => { store.set("canopy-lm", LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
-$("detail").onclick = () => { store.set("canopy-detail", LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
+$("lm").onclick = () => { store.set(KEYS.lm, LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
+$("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
 // seeded random, so all three looks grow the same tree and hide sloths in the same spots
-let seed = Number(qs.get("seed") || 7);
+let seed = OPT.seed;
 const setSeed = (n) => { seed = n; };   // the forest restarts the seeded stream for its layout
 const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const R = (a, b) => a + rnd() * (b - a);
@@ -62,7 +103,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 // ---------------------------------------------------------------- downloads, all started at once (camp review P2, 2026-11-12)
 // Every model, the light maps and the ground mask start loading here, while the forest below is grown, instead of one after
 // another further down. Each section awaits its own entry in PRE (null when it isn't shown). The loading card counts them.
-const LIVED = qs.get("lived") !== "0";   // ?lived=0 hides the lived-in props to compare
+const LIVED = OPT.lived;   // ?lived=0 hides the lived-in props to compare
 let loadN = 0, loadDone = 0;
 const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
 initKtx(renderer);
@@ -70,8 +111,8 @@ const lmLoad = async (n) => { const t = await loadLightMap(`models/${n}_${LMSET}
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
 const PRE = {
   sloth: pre(glb("models/sloth.txt")),
-  operator: qs.get("op") !== "0" ? pre(glb("models/operator.txt")) : null,                 // the bearded operator (camp/operator.js)
-  operatorAnims: qs.get("op") !== "0" ? pre(glb("models/operator_anims.txt")) : null,
+  operator: OPT.op ? pre(glb("models/operator.txt")) : null,                 // the bearded operator (camp/operator.js)
+  operatorAnims: OPT.op ? pre(glb("models/operator_anims.txt")) : null,
   lm: pre(Promise.all([lmLoad("camp_lm"), lmLoad("camp_lm_sun")])),
   props: pre(glb("models/camp_picked_lm.txt")),
   lived: LIVED ? pre(glb("models/lived.txt")) : null,
@@ -109,5 +150,6 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, CABIN, D, DETAIL, JEEP, LIVED, LOOK, PRE, PROPS, R, S, camera, hex, leafMat, qs, renderer, rnd, scene, setSeed, store, sun, uTime };
+export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, store, sun, uTime };
+export { qs };   // back-compat: input.js, main.js, operator.js and sloths.js still read their own options with it (see the table above)
 export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here (util.js is their home)
