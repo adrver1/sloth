@@ -8,7 +8,7 @@ Numbers marked **measured** were timed here (cloud machine, CPU only, Blender 5.
 
 ## The short answer
 
-1. **The generators are not slow because of their Python.** Building every mesh takes a few seconds. The time goes into Cycles: renders that are redone when nothing changed, samples spent on a 4K map that is never published, about 195 separate Cycles sessions per bake, and possibly the CPU instead of the GPU (see G1). The geometry scripts are messy (monkey-patching, `exec`, copies of helpers) but that costs maintainability, not minutes.
+1. **The generators are not slow because of their Python.** Building every mesh takes a few seconds. The time goes into Cycles: renders that are redone when nothing changed, samples spent on a 4K map that is never published, and about 195 separate Cycles sessions per bake. The bake does run on the GPU (G1). The geometry scripts are messy (monkey-patching, `exec`, copies of helpers) but that costs maintainability, not minutes.
 2. **The camp page has five real bugs**, all small: WASD did nothing on a computer since the module split, the hammock lost its baked light, the dead trunk was missing from the bake, sloths could get stuck (card game, eating), and a wild sloth left your gift in the air. All are fixed on the branch except the dead trunk, which needs a rebake.
 3. **The split into modules is only half done.** The 2026-11-12 split cut one long script at its section headers, so the modules still behave like one script: they talk through 36 `window.__` globals, rely on import order and a shared random stream, and the camp layout is typed by hand in up to six places and again in the bake. This is the main thing that makes the camp hard to grow, and fixing it changes how modules are split, so it needs your go-ahead (section C).
 4. **A good part of the code still serves options that were retired**: the Painterly and Low-poly looks (about 45 branches), the baked jeep cabin light (still sampled every frame, always times zero), the Rustic and Jungle prop sets (39 % of `build_camp.py`), the old fire sprites and firefly cloud. Some of it is now removed; the rest is listed in section D.
@@ -44,7 +44,7 @@ The full light bake takes about 20 minutes on your desktop (GPU thread). What it
 | Ground bake | 39 s, **measured** | 10 s now |
 | Jeep build renders 6 Cycles preview stills on every default run | most of the jeep build, **measured** 6 s at preview size here | G8 |
 
-**G1. Check that the bake really runs on the GPU** (genbake-03, gencamp-06). `build_camp.reset()` calls `bpy.ops.wm.read_factory_settings`, which resets the preferences where the GPU choice lives, and it runs four times after `gpu_run.py` has started Blender. No script sets `scene.cycles.device`, and two builders set it to `"CPU"`. Two rebakes 26 minutes apart suggest the GPU is in use, but nothing in the repo guarantees or logs it. Fix: print the device and compute type before the first bake, and add a `--device` flag that aborts if a GPU was asked for and none is on. Effort S. I've asked for this check to be run on the desktop.
+**G1. Make the GPU choice visible in the repo** (genbake-03, gencamp-06). `build_camp.reset()` calls `bpy.ops.wm.read_factory_settings` four times, which resets the preferences where the GPU choice lives, and no script in the repo sets `scene.cycles.device`. The GPU thread confirmed the bake still runs on the GPU: `gpu_run.py` on the desktop registers a `load_post` handler that turns OptiX back on after every reset, and the bake logs show "OptiX devices: RTX 5070 Ti". So the 20 minutes are about 9 passes at 4096 with 512 samples, roughly 2.5 to 3 minutes each, which is what G2 and G3 cut. What's left is small: the choice lives only in a wrapper outside the repo, so the bake would silently fall back to the CPU if run any other way. Fix: print the device before the first bake, and add a `--device` flag that aborts if a GPU was asked for and none is on. Effort S.
 
 **G2. Spend samples where they show** (genbake-23). The bake takes 512 samples at 4096 although the page ships 2K and 1K maps box-filtered from the 4K, and the shadowless `SUN_OPEN` pass also takes 512. Per-pass samples (SUN_OPEN 8, SUN 128, the rest picked by eye from an A/B) cut the sampling work about 4.5 times, **estimate**. Changes the bake, so it needs a rebake and your eye.
 
@@ -114,6 +114,6 @@ Kept on purpose until you say so, because some were decided only yesterday.
 ## Suggested order
 
 1. Merge the PR with section A (small commits, each checked).
-2. GPU thread: light rebake for the dead trunk, commit `wood_stack.json`, and the device check G1.
+2. GPU thread: light rebake for the dead trunk, commit `wood_stack.json`, and print the device (G1).
 3. Your picks on C1 to C6, D and the 4K maps (one decision card).
 4. Then G2 to G6 as one bake-pipeline PR, tested with one rebake on the desktop.
