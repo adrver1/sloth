@@ -2,7 +2,7 @@
 // started at once (PRE, camp review P2) and the small helpers the other modules share. Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { initKtx, loadLightMap } from "../bakedlight.js";
+import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
 
 const qs = new URLSearchParams(location.search);
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
@@ -108,7 +108,7 @@ function canvasTex(w, h, draw) {
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
 async function glb(url) {
-  const txt = (await (await fetch(url)).text()).trim(), bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
+  const bin = b64bytes((await (await fetch(url)).text()).trim());
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 

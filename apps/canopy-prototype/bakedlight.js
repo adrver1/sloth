@@ -16,11 +16,18 @@ const META = fetch("models/camp_lights.json").then((r) => r.json()).catch(() => 
 export function initKtx(renderer) {
   ktx = new KTX2Loader().setTranscoderPath("https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/libs/basis/").detectSupport(renderer);
 }
+// base64 text -> bytes. The models and the KTX2 maps ship as base64 .txt files (artifacts serve text and images only).
+// Uint8Array.from(atob(txt), callback) called the callback per character: 140 ms for the 3 MB light map, against 8 ms for
+// this loop and 2 ms where the browser has Uint8Array.fromBase64 (measured in Chromium).
+export function b64bytes(txt) {
+  if (Uint8Array.fromBase64) return Uint8Array.fromBase64(txt);
+  const s = atob(txt), n = s.length, u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = s.charCodeAt(i); return u;
+}
 export async function loadLightMap(png) {
   let t = null;
   // artifacts don't serve .ktx2, so the maps ship base64 in .ktx2.txt files like the models (still well under the PNGs)
   if (ktx && (await META).ktx2) t = await fetch(png.replace(/\.png$/, ".ktx2.txt")).then((r) => (r.ok ? r.text() : Promise.reject()))
-    .then((b64) => new Promise((ok, no) => ktx.parse(Uint8Array.from(atob(b64.trim()), (c) => c.charCodeAt(0)).buffer, ok, no))).catch(() => null);   // only once the bake wrote them
+    .then((b64) => new Promise((ok, no) => ktx.parse(b64bytes(b64.trim()).buffer, ok, no))).catch(() => null);   // only once the bake wrote them
   t ??= await new THREE.TextureLoader().loadAsync(png);
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;   // data, decoded in the shaders
 }
@@ -35,7 +42,7 @@ export const LIGHT = {
   uLDay: { value: 0.5 },                               // how much of the warm camp lights shows by day
 };
 export const GAIN = { fire: 1, stove: 1, lanterns: 1, moon: 1, day: 0.5, headlights: 0, cabin: 0, cabinBoost: 3, doors: { P: 0, D: 0, B: 0 } };   // doors: how far each is open, 0..1
-fetch("models/camp_lights.json").then((r) => r.json()).then((j) => [...j.channels, ...(j.jeep_channels || [])].forEach((g, i) => j.colour[g] && LIGHT.uLCol.value[i].set(...j.colour[g])) || (j.door_patch && LIGHT.uGP.value.set(j.door_patch.x0, j.door_patch.z0, j.door_patch.size))).catch(() => {});
+META.then((j) => [...j.channels, ...(j.jeep_channels || [])].forEach((g, i) => j.colour[g] && LIGHT.uLCol.value[i].set(...j.colour[g])) || (j.door_patch && LIGHT.uGP.value.set(j.door_patch.x0, j.door_patch.z0, j.door_patch.size))).catch(() => {});
 
 // GLSL: decode texels, the camp's night light, its warm lights alone, the jeep's lights, and the hue-keeping tone
 export const LIGHT_GLSL = `
