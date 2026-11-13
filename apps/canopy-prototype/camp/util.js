@@ -12,7 +12,9 @@
 //   tris(geometry)                its triangle count
 //   lam(color, opts)              a MeshLambertMaterial of that colour
 //   patchMaterial(mat, id, hook)  adds a shader hook after the material's current one, with a program cache key made of
-//                                 the id, the hook before it and any hook chained after it later (one program per distinct code)
+//                                 the id, this hook's source, the key of the hook before it (its source, or its own key when
+//                                 patchMaterial put it there, so stacked hooks all stay in the key) and the source of any
+//                                 hook chained after it later by hand (one program per distinct code)
 import * as THREE from "three";
 
 export const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -54,10 +56,13 @@ export const tris = (g) => (g.index ? g.index.count : g.attributes.position.coun
 
 export const lam = (color, opts) => new THREE.MeshLambertMaterial({ color, ...opts });
 
+// a hook's part of the program key: patchMaterial's own wrappers carry their key (their source is the same generic wrapper)
+const hookKey = (f) => (f ? (f.programKey ? f.programKey() : f.toString()) : "");
 export function patchMaterial(mat, id, hook) {
   const prev = mat.onBeforeCompile;
-  mat.onBeforeCompile = (sh, r) => { prev?.call(mat, sh, r); hook(sh, r); };
-  const own = mat.onBeforeCompile;
-  mat.customProgramCacheKey = () => [id, prev ? prev.toString() : "", mat.onBeforeCompile === own ? "" : mat.onBeforeCompile.toString()].join("|");
+  const own = (sh, r) => { prev?.call(mat, sh, r); hook(sh, r); };
+  own.programKey = () => [id, hookKey(prev), hook.toString()].join("|");
+  mat.onBeforeCompile = own;
+  mat.customProgramCacheKey = () => (mat.onBeforeCompile === own ? own.programKey() : own.programKey() + "|" + hookKey(mat.onBeforeCompile));
   return mat;
 }

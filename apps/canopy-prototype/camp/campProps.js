@@ -178,5 +178,5 @@ const pools = (() => {
   m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); return m;
 })();
 
-export { SOUP_POT };   // back-compat: operator.js still imports the soup pot from here (its home is layout.js)
+export { SOUP_POT };   // back-compat: operator.js, and audio.js on the open PRs #15/#16, still import the soup pot from here (its home is layout.js)
 export { CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight };

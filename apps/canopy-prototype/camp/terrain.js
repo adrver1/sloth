@@ -7,6 +7,8 @@
 //   jeepDist(x, z)      distance to the jeep's track, or 1e9 with ?jeep=none (no track)
 //   addMound(x, z, r, h) a round root mound (forest.js puts one under each forest tree)
 //   heightGrid(n)       an n x n grid over 2 * FAR metres, rows +z, for the GPU bake (props/shadow/export_casters.cjs)
+// It imports core.js only for the ?jeep option (JEEP); core.js is always evaluated first anyway (main.js imports it before
+// forest.js), so this changes no load order, but it does tie the height function to the page's boot module.
 import { JEEP } from "./core.js";
 import { FAR, HERO, JEEP_TRACK, RC, pathDist } from "./layout.js";
 import { lineDist, sstep } from "./util.js";

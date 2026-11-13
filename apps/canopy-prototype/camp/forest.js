@@ -331,5 +331,6 @@ if (track) {
 
 
 export { FLOOR_OVERLAYS, branchCurves, clearing, track, trackDist };
-// back-compat: input.js, main.js, operator.js, player.js and sloths.js still import these from here (their home is layout.js, and util.js for V and polyDist)
+// back-compat: input.js, main.js, operator.js, player.js and sloths.js still import these from here, and car.js, clock.js, radio.js and
+// jeepSeat.js (open PR #16) import V (their home is layout.js, and util.js for V and polyDist)
 export { A0, GLADE, GLADE_R, HERO, PATH_W, RC, V, d0, polyDist, sloPath, t0 };
