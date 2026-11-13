@@ -111,7 +111,8 @@ async function compare(A, B) {
     if (SHOTS) { fs.writeFileSync(path.join(SHOTS, `rows-${m}.txt`), f.rows.join('\n')); await p.screenshot({ path: path.join(SHOTS, `frame-${m}.png`) }); }
   }
   out.programs = programs; out.errors = errs.slice(0, 10);
-  out.fingerprint = crypto.createHash('sha1').update(JSON.stringify(out.marks)).digest('hex').slice(0, 16);
+  // the fingerprint covers the scene only; draw calls and programs are printed beside it, since a fix may lower them on purpose
+  out.fingerprint = crypto.createHash('sha1').update(Object.values(out.marks).map((m) => m.hash).join()).digest('hex').slice(0, 16);
   console.log(JSON.stringify(out, null, 1));
   await b.close(); srv.close();
   process.exit(errs.length ? 1 : 0);
