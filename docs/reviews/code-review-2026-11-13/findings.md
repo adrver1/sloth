@@ -21,16 +21,16 @@ Flags: **rebake** = needs a GPU bake to verify; **restructure** = changes how mo
 |---|---|---|---|---|
 | [boot-01](#boot-01) | high | fixed | [43c2e9d](https://github.com/adrver1/sloth/commit/43c2e9d) |  |
 | [crosscut-01](#crosscut-01) | high | fixed | [43c2e9d](https://github.com/adrver1/sloth/commit/43c2e9d) |  |
-| [crosscut-02](#crosscut-02) | high | fixed | [d17235f](https://github.com/adrver1/sloth/commit/d17235f) | the trunk shadow shows after the next light rebake |
-| [genbake-01](#genbake-01) | high | fixed | [d17235f](https://github.com/adrver1/sloth/commit/d17235f) | the trunk shadow shows after the next light rebake |
+| [crosscut-02](#crosscut-02) | high | fixed | [d17235f](https://github.com/adrver1/sloth/commit/d17235f), [b700bf0](https://github.com/adrver1/sloth/commit/b700bf0) | rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow |
+| [genbake-01](#genbake-01) | high | fixed | [d17235f](https://github.com/adrver1/sloth/commit/d17235f), [b700bf0](https://github.com/adrver1/sloth/commit/b700bf0) | rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow |
 | [sloths-01](#sloths-01) | high | fixed | [68529c0](https://github.com/adrver1/sloth/commit/68529c0) |  |
 | [sloths-02](#sloths-02) | high | fixed | [68529c0](https://github.com/adrver1/sloth/commit/68529c0) |  |
-| [world-01](#world-01) | high | fixed | [d17235f](https://github.com/adrver1/sloth/commit/d17235f) | the trunk shadow shows after the next light rebake |
+| [world-01](#world-01) | high | fixed | [d17235f](https://github.com/adrver1/sloth/commit/d17235f), [b700bf0](https://github.com/adrver1/sloth/commit/b700bf0) | rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow |
 | [boot-02](#boot-02) | medium | fixed | [68529c0](https://github.com/adrver1/sloth/commit/68529c0) |  |
 | [boot-12](#boot-12) | medium | fixed | [c180d5c](https://github.com/adrver1/sloth/commit/c180d5c) |  |
 | [crosscut-13](#crosscut-13) | medium | fixed | [c180d5c](https://github.com/adrver1/sloth/commit/c180d5c) |  |
 | [genbake-09](#genbake-09) | medium | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
-| [genlived-01](#genlived-01) | medium | fixed | [3235ca1](https://github.com/adrver1/sloth/commit/3235ca1) | props/lived/wood_stack.json is written by the next GPU bake and must be committed then |
+| [genlived-01](#genlived-01) | medium | fixed | [3235ca1](https://github.com/adrver1/sloth/commit/3235ca1), [b700bf0](https://github.com/adrver1/sloth/commit/b700bf0) | the cache file was committed with the GPU bake in b700bf0 |
 | [hygiene-07](#hygiene-07) | medium | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
 | [hygiene-08](#hygiene-08) | medium | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
 | [props-01](#props-01) | medium | fixed | [a8c698a](https://github.com/adrver1/sloth/commit/a8c698a) |  |
@@ -52,8 +52,8 @@ Flags: **rebake** = needs a GPU bake to verify; **restructure** = changes how mo
 | [hygiene-12](#hygiene-12) | low | partly fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668), [0fe98e3](https://github.com/adrver1/sloth/commit/0fe98e3) | two docstrings fixed; the rest remain |
 | [operator-07](#operator-07) | low | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7) | kettle spout removed (pot: SOUP_POT); flames and blockers options remain |
 | [world-05](#world-05) | low | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7) | helpers, stub, __back and unused exports removed; the redundant first map: and the _y trick remain |
-| [genbake-03](#genbake-03) | medium | checked, still open |  | the desktop confirmed the bake runs on the GPU (gpu_run.py re-enables OptiX after each reset); printing the device and a --device flag remain |
-| [gencamp-06](#gencamp-06) | medium | checked, still open |  | the desktop confirmed the bake runs on the GPU (gpu_run.py re-enables OptiX after each reset); printing the device and a --device flag remain |
+| [genbake-03](#genbake-03) | medium | checked, still open |  | the GPU bake printed "GPU OPTIX RTX 5070 Ti" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain |
+| [gencamp-06](#gencamp-06) | medium | checked, still open |  | the GPU bake printed "GPU OPTIX RTX 5070 Ti" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain |
 | [crosscut-03](#crosscut-03) | high | in progress |  | part 1 of section C, on a local branch, not merged yet (camp page) |
 | [genbake-14](#genbake-14) | high | in progress |  | part 1 of section C, on a local branch, not merged yet (generators) |
 | [genbake-18](#genbake-18) | high | in progress |  | part 1 of section C, on a local branch, not merged yet (generators) |
@@ -120,7 +120,7 @@ The bake pipeline is four steps driven by props/bake_all.py (83 lines): (1) layo
 ### genbake-01 · high · S · bug
 **A trailing comment swallowed the dead trunk's layout entry, its seating on the terrain and its triangle count**  _(changes behaviour)_
 
-**Status: fixed** in [d17235f](https://github.com/adrver1/sloth/commit/d17235f). The trunk shadow shows after the next light rebake
+**Status: fixed** in [d17235f](https://github.com/adrver1/sloth/commit/d17235f), [b700bf0](https://github.com/adrver1/sloth/commit/b700bf0). Rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow
 
 Where: `apps/canopy-prototype/camp/deadwood.js:109`; `props/shadow/layout_picked.json:1`; `props/camp/bake_camp_lightmap.py:249-250`
 
@@ -210,7 +210,7 @@ Fix: Use -d["yaw"] (or export the log's three.js rotation.y as rotY so the docst
 ### genbake-03 · medium · S · perf-generator
 **The bake script never sets or prints the Cycles device; four factory resets run after the GPU wrapper**  _(rebake)_
 
-**Status: checked, still open**. The desktop confirmed the bake runs on the GPU (gpu_run.py re-enables OptiX after each reset); printing the device and a --device flag remain
+**Status: checked, still open**. The GPU bake printed "GPU OPTIX RTX 5070 Ti" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain
 
 Where: `props/camp/bake_camp_lightmap.py:291-292`; `props/camp/bake_camp_lightmap.py:125`; `props/camp/build_camp.py:38-39`
 
@@ -622,7 +622,7 @@ Fix: Give build_jeep.build() the same export helper the bake uses (GLB plus mode
 ### gencamp-06 · medium · S · perf-generator
 **To check: reset() reloads factory preferences, and the light bake never selects a render device afterwards**  _(rebake)_
 
-**Status: checked, still open**. The desktop confirmed the bake runs on the GPU (gpu_run.py re-enables OptiX after each reset); printing the device and a --device flag remain
+**Status: checked, still open**. The GPU bake printed "GPU OPTIX RTX 5070 Ti" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain
 
 Where: `props/camp/build_camp.py:38-39`; `props/camp/bake_camp_lightmap.py:125`; `props/camp/build_camp.py:739`
 
@@ -828,7 +828,7 @@ Three Blender generators (props/lived/build_lived.py 802 lines, build_fire.py 42
 ### genlived-01 · medium · M · perf-generator
 **wood_stack() rebuilds the detailed log stack and runs three CPU Cycles renders on every run, with no cache**  _(rebake)_
 
-**Status: fixed** in [3235ca1](https://github.com/adrver1/sloth/commit/3235ca1). Props/lived/wood_stack.json is written by the next GPU bake and must be committed then
+**Status: fixed** in [3235ca1](https://github.com/adrver1/sloth/commit/3235ca1), [b700bf0](https://github.com/adrver1/sloth/commit/b700bf0). The cache file was committed with the GPU bake in b700bf0
 
 Where: `props/lived/build_lived.py:138-154`; `props/lived/build_lived.py:160-170`; `props/lived/build_lived.py:177-222`
 
@@ -1046,7 +1046,7 @@ Fix: Put the three listeners back in camp/input.js next to hideHelp (after line 
 ### crosscut-02 · high · S · bug
 **deadwood.js: a comment added mid-line swallowed the dead trunk's layout, lift and triangle count**  _(rebake, changes behaviour)_
 
-**Status: fixed** in [d17235f](https://github.com/adrver1/sloth/commit/d17235f). The trunk shadow shows after the next light rebake
+**Status: fixed** in [d17235f](https://github.com/adrver1/sloth/commit/d17235f), [b700bf0](https://github.com/adrver1/sloth/commit/b700bf0). Rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow
 
 Where: `apps/canopy-prototype/camp/deadwood.js:109`; `props/shadow/layout_picked.json:deadwood key`; `props/camp/bake_camp_lightmap.py:249`
 
@@ -2498,7 +2498,7 @@ Main themes:
 ### world-01 · high · S · bug
 **Dead trunk's layout, lift and triangle count are swallowed by a comment, so it is missing from the shadow bake**  _(rebake, changes behaviour)_
 
-**Status: fixed** in [d17235f](https://github.com/adrver1/sloth/commit/d17235f). The trunk shadow shows after the next light rebake
+**Status: fixed** in [d17235f](https://github.com/adrver1/sloth/commit/d17235f), [b700bf0](https://github.com/adrver1/sloth/commit/b700bf0). Rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow
 
 Where: `apps/canopy-prototype/camp/deadwood.js:109`; `props/shadow/layout_picked.json:1`; `props/camp/bake_camp_lightmap.py:249-250`
 

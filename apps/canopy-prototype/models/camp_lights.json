@@ -28,5 +28,6 @@
   ]
  },
  "encoding": "light / 4, gamma 2.2",
- "ground_open_day": 1.855
+ "ground_open_day": 1.855,
+ "ktx2": true
 }

@@ -82,9 +82,10 @@
   "crosscut-02": {
    "status": "fixed",
    "commits": [
-    "d17235f"
+    "d17235f",
+    "b700bf0"
    ],
-   "note": "the trunk shadow shows after the next light rebake"
+   "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
   },
   "crosscut-03": {
    "status": "in progress",
@@ -157,14 +158,15 @@
   "genbake-01": {
    "status": "fixed",
    "commits": [
-    "d17235f"
+    "d17235f",
+    "b700bf0"
    ],
-   "note": "the trunk shadow shows after the next light rebake"
+   "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
   },
   "genbake-03": {
    "status": "checked, still open",
    "commits": [],
-   "note": "the desktop confirmed the bake runs on the GPU (gpu_run.py re-enables OptiX after each reset); printing the device and a --device flag remain"
+   "note": "the GPU bake printed \"GPU OPTIX RTX 5070 Ti\" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain"
   },
   "genbake-06": {
    "status": "partly fixed",
@@ -245,7 +247,7 @@
   "gencamp-06": {
    "status": "checked, still open",
    "commits": [],
-   "note": "the desktop confirmed the bake runs on the GPU (gpu_run.py re-enables OptiX after each reset); printing the device and a --device flag remain"
+   "note": "the GPU bake printed \"GPU OPTIX RTX 5070 Ti\" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain"
   },
   "gencamp-08": {
    "status": "waiting on Adriaen",
@@ -265,9 +267,10 @@
   "genlived-01": {
    "status": "fixed",
    "commits": [
-    "3235ca1"
+    "3235ca1",
+    "b700bf0"
    ],
-   "note": "props/lived/wood_stack.json is written by the next GPU bake and must be committed then"
+   "note": "the cache file was committed with the GPU bake in b700bf0"
   },
   "genlived-04": {
    "status": "in progress",
@@ -475,9 +478,10 @@
   "world-01": {
    "status": "fixed",
    "commits": [
-    "d17235f"
+    "d17235f",
+    "b700bf0"
    ],
-   "note": "the trunk shadow shows after the next light rebake"
+   "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
   },
   "world-04": {
    "status": "waiting on Adriaen",
