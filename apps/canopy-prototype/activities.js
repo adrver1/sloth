@@ -6,7 +6,7 @@
 // then settles over a few minutes and never goes out. Up to three logs burn at once. The camp sloth nearest the fire blinks happily.
 // Chunk 2: the soup pot. The pot over the fire starts empty. Carry the water canister (by the snack table) to it and pour; take
 // vegetables one at a time from the kitchen crate and drop them in; after two it bubbles for about 20 s and is soup. Tap the pot
-// with empty paws to ladle a bowl, carry it to a log seat and set it down: the sloths nearby perk up (window event "camp-food").
+// with empty hands to ladle a bowl, carry it to a log seat and set it down: the sloths nearby perk up (window event "camp-food").
 // One pot makes three bowls, then it is empty again. The pot model (props/lived/build_fire.py) is not touched: a flat disc at
 // the soup's surface shows it empty, water or broth, and fades away once the soup is done so the modelled soup shows.
 // Triangle budget: carried and burning logs 24 each; the water pail 60; the surface disc 12; a bowl 24; bubbles, sparks and
@@ -70,7 +70,27 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   for (const k in inHand) { inHand[k].visible = false; hand.add(inHand[k]); }
   inHand.log.rotation.set(1.1, 0.5, 0.9); inHand.water.rotation.set(0.15, -0.5, 0.1);
   let vegNow = 0;
-  function hold(what) { held = what; for (const k in inHand) inHand[k].visible = k === what; hand.userData.t = 0; if (what === "veg") inHand.veg.material.map = vegTex(VEG[vegNow]), inHand.veg.material.needsUpdate = true; }
+  function hold(what) { held = what; for (const k in inHand) inHand[k].visible = k === what; hand.userData.t = 0; if (what === "veg") inHand.veg.material.map = vegTex(VEG[vegNow]), inHand.veg.material.needsUpdate = true; dropBtn.style.display = what ? "block" : "none"; }
+  // Putting things back (Adriaen 2026-11-13: a vegetable taken before the pot had water left you stuck, hands full): a
+  // "Put it back" pill in the corner whenever you carry something (Q or Backspace on a keyboard), and the place it came
+  // from (wood pile, crate, pail spot) takes it back too. It goes back where it came from; a bowl goes back in the pot.
+  const dropBtn = document.createElement("button"); dropBtn.textContent = "✋ Put it back";
+  dropBtn.style.cssText = "position:fixed;z-index:3;display:none;right:max(16px,env(safe-area-inset-right,0px));" +
+    "font:600 15px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 15px;box-shadow:0 3px 0 rgb(138 90 59 / .25);cursor:pointer";
+  for (const ev of ["pointerdown", "pointerup"]) dropBtn.addEventListener(ev, (e) => e.stopPropagation());
+  dropBtn.onclick = (e) => { e.stopPropagation(); putBack(); };
+  dropBtn.id = "putBack"; document.body.append(dropBtn);
+  document.head.append(Object.assign(document.createElement("style"), { textContent:   // above what you hold; on a phone also above the hint and stick row
+    "#putBack{bottom:calc(150px + env(safe-area-inset-bottom,0px))} body.touch #putBack{bottom:calc(220px + env(safe-area-inset-bottom,0px))}" }));
+  addEventListener("keydown", (e) => { if ((e.key === "q" || e.key === "Q" || e.key === "Backspace") && held && !e.target.closest?.("input,textarea")) putBack(); });
+  function putBack() {
+    if (!held) return;
+    const what = held;
+    if (what === "water") canister.visible = true;
+    if (what === "bowl" && soup.stage === "ready" && soup.bowls > 0) soup.bowls--;
+    hold(null);
+    toast(what === "log" ? "Log back on the pile 🪵" : what === "water" ? "Pail put back 💧" : what === "veg" ? `The ${VN[vegNow]} is back in the crate` : "Bowl back in the pot 🍲");
+  }
 
   // ---------------------------------------------------------------- chunk 1: the logs on the fire
   // each leans into the teepee, burns at full for HOLD s, then settles over SETTLE s and is gone
@@ -142,8 +162,8 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     const own = looks[name] ?? look ?? null;
     const t = { name, at, box, when, act, why, get look() { return typeof own === "function" ? own() : own; } }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
   }
-  const full = "Your paws are full";
-  thing("woodpile", pileAt, 0.55, () => !held, () => { hold("log"); toast("Got a log 🪵"); }, () => held && full, stand);
+  const full = "Your hands are full. Put it back first ✋";
+  thing("woodpile", pileAt, 0.55, () => !held || held === "log", () => { if (held) { putBack(); return; } hold("log"); toast("Got a log 🪵"); }, () => held && full, stand);
   // the fire and the pot over it are one place: what a tap does there depends on what you hold
   const potWants = () => (held === "water" && soup.stage === "empty") || (held === "veg" && (soup.stage === "water" || (soup.stage === "cooking" && soup.veg < 3))) || (!held && soup.stage === "ready");
   thing("fire", fire, 0.6, () => held === "log" || potWants(), () => {
@@ -171,10 +191,10 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     return best;
   })();
   const canister = makePail(); canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister); addBlocker?.(canAt, 0.2);
-  thing("canister", canAt, 0.3, () => !held && soup.stage === "empty", () => { hold("water"); canister.visible = false; toast("Got the water 💧"); },
+  thing("canister", canAt, 0.3, () => (!held && soup.stage === "empty") || held === "water", () => { if (held) { putBack(); return; } hold("water"); canister.visible = false; toast("Got the water 💧"); },
     () => held ? full : soup.stage !== "empty" ? "Water's in already" : null, [canister]);
   // the kitchen crate: one vegetable at a time, a different one each time
-  if (crate) thing("crate", crate, 0.4, () => !held, () => { vegNow = (vegNow + 1) % VEG.length; hold("veg"); toast(`Got a ${["carrot", "potato", "onion", "mushroom"][vegNow]} ${VEG[vegNow]}`); }, () => held && full, looks.crate ?? null);
+  if (crate) thing("crate", crate, 0.4, () => !held || held === "veg", () => { if (held) { putBack(); return; } vegNow = (vegNow + 1) % VEG.length; hold("veg"); toast(`Got a ${["carrot", "potato", "onion", "mushroom"][vegNow]} ${VEG[vegNow]}`); }, () => held && full, looks.crate ?? null);
   // the log seats: somewhere to set a bowl down
   for (const seat of seats) thing(`seat${seats.indexOf(seat)}`, seat.c.clone().setY(0), 0.6, () => held === "bowl" && !seat.bowl, () => { hold(null); serve(seat); },
     () => held === "bowl" && seat.bowl ? "A bowl's there already" : null, [seat.o]);
@@ -231,8 +251,9 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     },
     // the words on the tap menu (camp/input.js): what a tap on t does now, with what you are carrying
     label(t) {
-      if (t.name === "woodpile") return "Take a log 🪵";
-      if (t.name === "canister") return "Take the pail of water 💧";
+      if (t.name === "woodpile") return held === "log" ? "Put the log back 🪵" : "Take a log 🪵";
+      if (t.name === "canister") return held === "water" ? "Put the pail back 💧" : "Take the pail of water 💧";
+      if (t.name === "crate" && held === "veg") return `Put the ${VN[vegNow]} back ${VEG[vegNow]}`;
       if (t.name === "crate") { const n = (vegNow + 1) % VEG.length; return `Take a ${VN[n]} ${VEG[n]}`; }
       if (t.name.startsWith("seat")) return "Set the bowl down 🍲";
       if (t.name === "fire") return held === "log" ? "Put the log on the fire 🔥" : held === "water" ? "Pour the water in the pot 💧" : held === "veg" ? `Add the ${VN[vegNow]} to the pot ${VEG[vegNow]}` : "Fill a bowl of soup 🍲";
