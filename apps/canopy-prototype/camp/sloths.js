@@ -177,8 +177,9 @@ if (qs.get("campsloths") !== "0") {
   const swing = new THREE.Group(); hg.add(swing);
   const ham = scene.getObjectByName("Hammock");
   if (ham) {
-    const mat = ham.material.clone();
-    mat.onBeforeCompile = (sh) => {
+    const mat = ham.material.clone(), prevHook = ham.material.onBeforeCompile;   // clone() drops the hook: keep the baked night light and sun shadow (campProps.js lnight)
+    mat.onBeforeCompile = (sh, r) => {
+      prevHook?.call(mat, sh, r);
       sh.uniforms.uSway = sway;
       sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uSway;").replace("#include <begin_vertex>", `#include <begin_vertex>
         float sw = uSway * (1.0 - smoothstep(1.03, 1.43, abs(transformed.x))) * (1.0 - smoothstep(1.8, 1.95, transformed.y));
