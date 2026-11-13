@@ -12,7 +12,7 @@ ground disc 2 x RR across (row 0 = page z -RR, column 0 = x -RR, as ground.js lo
       soot and ash with charcoal by the fire, pebbles, twigs and fallen leaves
   apps/canopy-prototype/models/camp_ground_<props>_mask.png  1024 RGB, ground.js's wear map: R bare ground (1 = soil
       colour, 0 = live grass), G lushness (0.5 neutral), B ash/wet; the grass cards keep to where R is low
-The light (sun shadows, sky occlusion) is a separate bake, props/shadow/bake_ground_shadow.py.
+The light (sun shadows, sky occlusion, night light) is baked with the props, props/camp/bake_camp_lightmap.py.
 """
 import argparse, json, math, os
 import numpy as np
