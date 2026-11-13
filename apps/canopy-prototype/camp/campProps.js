@@ -1,5 +1,7 @@
 // Canopy Camp props: the camp's blockers (the layout itself is layout.js), the picked props with their baked light map (lnight), the lived-in props,
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
+// main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
+// at night) and motesStep (the drifting motes).
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, PROPS, R, S, scene, sun, uTime } from "./core.js";
@@ -16,7 +18,7 @@ const LANTERN_LAYOUT = lanternLayout(LANTERN_TIES);
 // CAMP: the camp layout in the names sloths.js and operator.js know, built from layout.js's own vectors (the same objects, no
 // copies). sloths.js adds .sloths to it. (It also carried the lantern strings' points, which nothing read: review props-08.)
 const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
-window.__camp = CAMP;   // alias: sloths.js and operator.js read it (audio.js in the open PRs too), props/shadow/export_casters.cjs exports tent and hammock
+window.__camp = CAMP;   // alias: sloths.js, operator.js, audio.js and radio.js read it; props/shadow/export_casters.cjs exports tent and hammock
 // blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking
 // (.walk, player.js): the fire ring stops you at its stones, and each log seat is a thin capsule along the log, so there is
 // a ring to walk round the fire between them (Adriaen 2026-11-13: the old circles walled the fire in)
@@ -123,7 +125,7 @@ if (LIVED) {
   LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
   const o = LD.scene; o.position.copy(LAUNDRY.mid); o.rotation.y = LAUNDRY.yaw; scene.add(o);
   blockers.push([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
-  window.__laundry = LAUNDRY;   // alias: sloths.js reads the line (layout.js LAUNDRY), only when it is shown
+  window.__laundry = LAUNDRY;   // alias: sloths.js reads the line (layout.js LAUNDRY), only when it is shown; props/shadow/export_casters.cjs too
 }
 // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
 // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
@@ -178,5 +180,19 @@ const pools = (() => {
   m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); return m;
 })();
 
-export { SOUP_POT };   // back-compat: operator.js, and audio.js on the open PRs #15/#16, still import the soup pot from here (its home is layout.js)
-export { CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight };
+// ---------------------------------------------------------------- each frame (main.js calls these, in its order)
+// the fire's flicker: the old glow sprites (hidden under the flame cards, still moved) and the fire's point light, both
+// brighter toward night. Returns the flicker (0.7 .. 1), which the baked light, the sloths' glow and the pools follow too.
+function fireStep(dusk) {
+  const fl = 0.85 + 0.15 * Math.sin(uTime.value * 13) * Math.sin(uTime.value * 7.3);
+  flames.forEach((s, i) => { s.scale.setScalar((0.9 - i * 0.2) * fl * (1 + 0.3 * dusk)); s.position.y = 0.45 + i * 0.14 + Math.sin(uTime.value * (5 + i)) * 0.03; });
+  fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
+  return fl;
+}
+// the light pools on the ground: faded in with dusk, flickering with the fire; not shown where the ground's night light is baked
+function poolsStep(dusk, fl, nightBaked) { pools.visible = dusk > 0 && !nightBaked; pools.material.opacity = dusk * (0.9 + 0.1 * fl); }
+// the motes drift slowly round the clearing
+function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
+
+export { SOUP_POT };   // back-compat: operator.js and audio.js still import the soup pot from here (its home is layout.js)
+export { CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, flames, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight };

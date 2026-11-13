@@ -1,4 +1,5 @@
 // Canopy Camp sky: the painted forest backdrop in the mist, the open sky dome with clouds, the night dome with stars, the moon, the forest floor.
+// daylight.js colours and fades them by the hour.
 import * as THREE from "three";
 import "./hud.js";   // run after the module before it, as one script did
 import { LOOK, R, S, hex, scene } from "./core.js";

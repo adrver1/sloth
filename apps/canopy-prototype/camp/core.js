@@ -16,29 +16,38 @@ import { SUN } from "./layout.js";
 //   lived    1 | 0                         1                                 core.js, campProps.js, campLife.js (LIVED)
 //   op       1 | 0                         1                                 core.js (the operator's downloads); operator.js reads qs itself
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
+//   time     an hour, 0 up to 24 (21.5)    saved, else 12                    daytime.js (the hour set; anything else counts as 12)
+//   cycle    1 | 0                         saved, else 0                     daytime.js (the day runs on by itself)
+//   pos      x,z in metres                 by the fire (player.js)           main.js (where you stand at the start)
+//   yaw      radians                       facing the fire (player.js)       main.js (where you look at the start)
+//   pitch    radians                       0.08 (player.js)                  main.js
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
-// still read with qs in the files the open PRs change (move them here once those land): time, cycle (main.js: the hour and the
-// day cycle, both saved), pos, yaw, pitch (main.js: the start view), touch (input.js), campsloths, slothmat, lab (sloths.js).
+// still read with qs in files this clean-up has not reached yet (move them here in its next round): touch (input.js),
+// campsloths, slothmat, lab (sloths.js), op once more (operator.js), sound, station (audio.js).
 const qs = new URLSearchParams(location.search);
-// localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (main.js, which still types them), save (save.js:
-// the camp's lived state, one part per owner)
+// localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
+// state, one part per owner). audio.js keeps the sound settings under "canopy-audio", which it still types itself (next round).
 const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save" };
 // ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
-// API: modules that the open PRs change still read these; each is an alias of the exported object named here.
-//   __camp       campProps.js CAMP        sloths.js, operator.js (and export_casters.cjs, below)
-//   __jeep       jeep.js jeepApi          sloths.js, input.js
-//   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown)
-//   __acts       campLife.js acts         operator.js
-//   __groundHeight terrain.js            main.js
-//   __campLife   sloths.js (its life)     input.js, operator.js, lab.js
+// API: sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read these. Those six files (and activities.js)
+// were left alone while PRs #14, #20 and #21 changed them; the PRs are merged, so the next round can switch them to imports.
+// The first four are aliases of the exported object named here, the rest have no export yet.
+//   __camp       campProps.js CAMP        sloths.js, operator.js, audio.js, radio.js (and export_casters.cjs, below)
+//   __jeep       jeep.js jeepApi          sloths.js, input.js, car.js, audio.js (and export_casters.cjs)
+//   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown; and export_casters.cjs)
+//   __acts       campLife.js acts         operator.js, audio.js
+//   __campLife   sloths.js (its life)     input.js, operator.js, jeepSeat.js, lab.js
 //   __me         main.js (player.js me)   sloths.js (the player's seat)
-//   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); camp-replay.cjs sets __campFast too
+//   __car        car.js (inCar, engine)   jeepSeat.js adds doorOptions to it, which input.js reads; on main audio.js reads the engine too
+//   __op         operator.js              audio.js (his sounds); a debug hook as well
+//   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); jeepSeat.js reads __campFast, camp-replay.cjs sets it
 // tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.
-//   __ready, __scene, __stats (main.js)                 all three tools
-//   __ground (campLife.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
+//   __ready, __scene (main.js)                          all three tools
+//   __stats (main.js)                                   camp-probe.cjs, camp-replay.cjs
+//   __camp, __jeep, __laundry (above), __ground (campLife.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
 //   __time, __boop, __feed, __stick (main.js), __sit (linger.js), __weather (weather.js)   camp-replay.cjs's tour
-// debug hooks for checks by hand in the browser console: __rest, __face, __slothS (main.js), __errand, __path, __spots,
-// __sloth (sloths.js), __op (operator.js).
+// debug hooks for checks by hand in the browser console: __rest, __face, __slothS (main.js), __clocks (clock.js), __errand,
+// __path, __spots, __sloth (sloths.js), __op (operator.js), __audio (audio.js), __radio (radio.js), __camera (car.js).
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
 // they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
 // "Canopy camp: start every download at once" (the looks were archived there). Their branches below are dead code until the forest moves to its own module.
@@ -60,6 +69,11 @@ const OPT = {
   lived: qs.get("lived") !== "0",
   op: qs.get("op") !== "0",
   weather: qs.get("weather"),
+  time: (() => { const h = Number(qs.get("time") ?? store.get(KEYS.time) ?? 12); return h >= 0 && h < 24 ? h : 12; })(),
+  cycle: qs.has("cycle") ? qs.get("cycle") !== "0" : store.get(KEYS.cycle) === "on",
+  pos: qs.has("pos") ? qs.get("pos").split(",").map(Number) : null,   // the start view: null keeps player.js's own
+  yaw: qs.has("yaw") ? +qs.get("yaw") : null,
+  pitch: qs.has("pitch") ? +qs.get("pitch") : null,
 };
 const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
@@ -97,8 +111,7 @@ const S = {
 
 // ---------------------------------------------------------------- renderer
 const renderer = new THREE.WebGLRenderer({ canvas: $("c"), antialias: D.aa, powerPreference: "high-performance" });
-let pr = Math.min(devicePixelRatio, D.pr);
-renderer.setPixelRatio(pr);
+renderer.setPixelRatio(Math.min(devicePixelRatio, D.pr));   // main.js lowers it if the frame rate drops
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 // ---------------------------------------------------------------- downloads, all started at once (camp review P2, 2026-11-12)
 // Every model, the light maps and the ground mask start loading here, while the forest below is grown, instead of one after
@@ -151,5 +164,5 @@ async function glb(url) {
 }
 
 export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, store, sun, uTime };
-export { qs };   // back-compat: input.js, main.js, operator.js and sloths.js still read their own options with it (see the table above), and so do audio.js and daytime.js on the open PRs #15/#16
-export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here, and car.js, clock.js and radio.js (open PR #16) import canvasTex (util.js is their home)
+export { qs };   // back-compat: audio.js, input.js, operator.js and sloths.js still read their own options with it (see the table above)
+export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here, and car.js and radio.js import canvasTex (util.js is their home)

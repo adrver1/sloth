@@ -6,19 +6,23 @@
 // so the camp-side door DoorP leads to the driver's seat (SeatP) and DoorD to the passenger's at -X.
 // Never on a sloth: the driver's seat is the jeep sloth's home (sloths.js spot "jeep"; a napping guest uses it too), so it is
 // busy while a sloth is in it, climbing in or out, or waiting at the door; then that door says so and you ride beside it from
-// the other side. While you sit you hold the seat in window.__campLife ("jeep:driver" / "jeep:passenger"), and sloths.js
+// the other side. While you sit you hold the seat in the camp's life ("jeep:driver" / "jeep:passenger"), and sloths.js
 // sends a sloth coming home to it off for a wander until you get out.
-// window.__jeep.sit(side) / stand() / seatedIn() ("driver" | "passenger" | null, only once you have settled) for car.js and checks;
-// window.__car.doorOptions(d) gives each front door its Get in / Get out (input.js).
+// The seats join the jeep's API (jeep.js jeepApi, the object window.__jeep names too): sit(side) / stand() / seatedIn()
+// ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks.
+// Three globals stay, each owned by a file the clean-up has not reached yet: window.__campLife (sloths.js does not export its life yet),
+// window.__car (car.js's; doorOptions(d) on it gives input.js each front door's Get in / Get out) and window.__campFast (the
+// checks' speed-up, core.js lists it).
 import * as THREE from "three";
 import { uTime } from "./core.js";
-import { V } from "./forest.js";
+import { V, ease, wrapPi } from "./util.js";
+import { jeepApi } from "./jeep.js";
 import { me } from "./player.js";
 import { sloths } from "./sloths.js";
 import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
 
-const J = window.__jeep, jeep = J?.node;
+const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
 let jeepSeatStep = () => {};
 if (jeep) {
   const S0 = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
@@ -43,7 +47,6 @@ if (jeep) {
 
   let cur = null;   // { side, phase: "walk" | "door" | "in" | "settle" | "sat" | "open" | "out", t, ... }
   const seat = { pos: V(), yaw: 0, drop: 0, pitch: -0.3, car: true, leave: () => stand() };   // pitch: the gaze rests on the dash (linger.js), where the key, clock and radio are
-  const ease = (k) => k * k * (3 - 2 * k);
   // the way round to the door: out to the side first, and round the front or the back if you start on the other side
   function route(from, s) {
     const p = jeep.worldToLocal(from.clone()), pts = [], X = 1.65 * s.x, END = 2.45;
@@ -75,8 +78,7 @@ if (jeep) {
     const s = cur.s, e = ease(k), p = W(s.door.clone().lerp(s.seat, e)).setY(0), g = groundHeight(p.x, p.z);
     const h = THREE.MathUtils.lerp(g + STAND, eyeWorld(), e) - 0.16 * Math.sin(Math.PI * Math.min(1, k * 1.3));   // the duck under the door frame
     seat.pos.copy(p); me.pos.copy(p); seat.drop = g + STAND - h;
-    let d = yaw1 - yaw0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
-    me.yaw = yaw0 + d * ease(Math.min(1, k * 1.15)); seat.yaw = yaw1;
+    me.yaw = yaw0 + wrapPi(yaw1 - yaw0) * ease(Math.min(1, k * 1.15)); seat.yaw = yaw1;
   }
   const sideYaw = (s) => yawTo(W(s.door), W(s.seat));   // facing in through the door
   jeepSeatStep = (dt) => {
@@ -90,7 +92,7 @@ if (jeep) {
       const a = T.path[i - 1], b = T.path[i], seg = a.distanceTo(b), p = seg > 1e-4 ? a.clone().lerp(b, Math.min(1, d / seg)) : b.clone();
       setStand(p);
       const want = T.len - T.t * WALK > 0.15 ? yawTo(a, b) : sideYaw(s);
-      let dy = want - me.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; me.yaw += dy * Math.min(1, dt * 6);
+      me.yaw += wrapPi(want - me.yaw) * Math.min(1, dt * 6);
       me.pitch += (-0.05 - me.pitch) * Math.min(1, dt * 4);
       if (T.len - T.t * WALK < 1.5) J.open(s.k);
       if (T.t * WALK >= T.len) { T.phase = "door"; T.t = 0; T.yaw0 = me.yaw; }
@@ -110,12 +112,12 @@ if (jeep) {
       if (J.isOpen(s.k) && T.t > 0.15) { T.phase = "out"; T.t = 0; T.yaw0 = me.yaw; }
     } else if (T.phase === "out") {                    // about 1.1 s out, turning toward the door
       const k = Math.min(1, T.t / 1.1); setIn(1 - k, sideYaw(s) + Math.PI, T.yaw0);
-      { let d = sideYaw(s) + Math.PI - T.yaw0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; me.yaw = T.yaw0 + d * ease(k); }
+      me.yaw = T.yaw0 + wrapPi(sideYaw(s) + Math.PI - T.yaw0) * ease(k);
       me.pitch += (0 - me.pitch) * Math.min(1, dt * 3);
       if (k >= 1) { const k2 = s.k; setStand(W(s.door).setY(0)); me.seat = null; me.sitK = 0; me.drop = 0; claim(T.side, false); cur = null; setTimeout(() => J.close(k2), 700); }
     }
   };
-  Object.assign(J, { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null });
+  Object.assign(J, { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null });   // onto jeepApi itself, so window.__jeep has them too (car.js, audio.js)
   // the front doors' menus (input.js): Get in on the closed or open door, Get out while you sit there
   window.__car = Object.assign(window.__car ?? {}, {
     doorOptions: (d) => {

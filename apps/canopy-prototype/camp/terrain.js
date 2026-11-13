@@ -3,7 +3,7 @@
 // so the props stay seated without a rebake), a shallow bowl rim rises at the clearing's edge, the forest floor beyond is
 // hummocky, the trees stand on root mounds, and the height is exactly 0 wherever people and sloths walk: the camp, the glade
 // path, the glade and the jeep's track (camp/layout.js). ground.js builds the mesh.
-//   groundHeight(x, z)  metres above y = 0 (also window.__groundHeight, which main.js reads)
+//   groundHeight(x, z)  metres above y = 0
 //   jeepDist(x, z)      distance to the jeep's track, or 1e9 with ?jeep=none (no track)
 //   addMound(x, z, r, h) a round root mound (forest.js puts one under each forest tree)
 //   heightGrid(n)       an n x n grid over 2 * FAR metres, rows +z, for the GPU bake (props/shadow/export_casters.cjs)
@@ -50,4 +50,4 @@ export function heightGrid(n = 128) {
   return { n, far: FAR, rows: "+z", data: out };
 }
 export { vnoise };
-window.__groundHeight = groundHeight; window.__terrainGrid = heightGrid;
+window.__terrainGrid = heightGrid;   // tool contract: props/shadow/export_casters.cjs reads the height grid for the bake
