@@ -8,7 +8,7 @@ import { blockers } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
 // between the hammock and the first big tree (JEEP_AT, with its track, in layout.js), along the edge, its
-// passenger side (local +X, the camper's ladder) toward the fire. Its three doors open and close when you tap them:
+// passenger side (local +X) toward the fire. Its three doors and the hood open and close from their menus (input.js, through jeepApi.doors):
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
 // uses jeepApi (window.__jeep): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
 // cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.

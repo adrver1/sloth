@@ -26,7 +26,7 @@ const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
 let jeepSeatStep = () => {};
 if (jeep) {
   const S0 = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
-  const EYE_UP = 0.55, STAND = 1.55, WALK = 1.7;
+  const EYE_UP = 0.55, STAND = 1.55, WALK = 1.7;   // STAND and WALK are player.js EYE and SPEED: keep in step
   const SIDES = { driver: { k: "P", x: 1 }, passenger: { k: "D", x: -1 } };
   for (const [name, s] of Object.entries(SIDES)) {
     s.name = name;
@@ -117,7 +117,7 @@ if (jeep) {
       if (k >= 1) { const k2 = s.k; setStand(W(s.door).setY(0)); me.seat = null; me.sitK = 0; me.drop = 0; claim(T.side, false); cur = null; setTimeout(() => J.close(k2), 700); }
     }
   };
-  Object.assign(J, { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null });   // onto jeepApi itself, so window.__jeep has them too (car.js, audio.js)
+  Object.assign(J, { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null });   // onto jeepApi itself, so window.__jeep has them too: car.js reads seatedIn; sit, stand and seatBusy are for checks
   // the front doors' menus (input.js): Get in on the closed or open door, Get out while you sit there
   window.__car = Object.assign(window.__car ?? {}, {
     doorOptions: (d) => {
