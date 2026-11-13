@@ -62,7 +62,7 @@ const clocks = [];
 function addClock({ obj, hands = null, disc = null, lume = null, glow = 0.55, reach = 3.5, ready = null, name }) {
   const c = { obj, hands, disc, lume, glow, shake: 0, base: obj.rotation.z, name };
   const picks = []; obj.traverse((m) => m.isMesh && picks.push(m));
-  const box = new THREE.Box3(), sph = new THREE.Sphere(), tmp = new THREE.Vector3();
+  const box = new THREE.Box3(), sph = new THREE.Sphere(), tmp = V();
   const at = (v) => { box.setFromObject(obj).getBoundingSphere(sph); v.copy(sph.center); sph.radius = Math.max(sph.radius, 0.2); return sph; };
   const set = (h, n) => () => { day.setHour(h); c.shake = 0.7; toast(n); };
   addTarget(obj, () => ({ look: obj, picks, at,

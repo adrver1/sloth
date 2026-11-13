@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { WARM_N } from "../fur.js";
 import { $, DETAIL, OPT, camera, renderer, scene, uTime } from "./core.js";
-import { V } from "./util.js";
+import { V, ease } from "./util.js";
 import { GLADE, sloPath } from "./layout.js";
 import { stickV } from "./hud.js";
 import "./sky.js";
@@ -61,7 +61,7 @@ renderer.setAnimationLoop(() => {
   jeepStep(dt); carStep(dt);
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
-    if (f.fly) { const e = Math.min(1, f.t / f.life), k = e * e * (3 - 2 * e); f.s.position.lerpVectors(f.fly.from, f.fly.to, k); f.s.position.y += Math.sin(k * Math.PI) * 0.4; }
+    if (f.fly) { const k = ease(Math.min(1, f.t / f.life)); f.s.position.lerpVectors(f.fly.from, f.fly.to, k); f.s.position.y += Math.sin(k * Math.PI) * 0.4; }
     else { f.s.position.addScaledVector(f.v, dt); f.v.multiplyScalar(0.96); f.s.material.opacity = 1 - f.t / f.life; }
     if (f.t > f.life) { scene.remove(f.s); fx.splice(i, 1); f.done?.(); }
   }

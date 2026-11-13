@@ -73,6 +73,8 @@ function step(dt) {
   const feet = me.pos; feet.y = groundHeight(feet.x, feet.z);   // level in the camp and on the paths; the rim rises a little at the edge
   const bob = moving ? Math.sin(me.walkT * 7) * 0.03 : 0;
   if (me.seat) me.drop = me.seat.drop ?? 0.72;   // how far the eye drops seated: 0.72 on a log (eye at about 0.83 m); a seat may say (car.js: the jeep's is high)
+  // the drop eases in with sitK, written out and not as util.js ease(): drop * ease(sitK) multiplies in another order and
+  // rounds differently in the last bit, which would move the camera
   camera.position.set(feet.x, feet.y + EYE - (me.drop ?? 0.72) * me.sitK * me.sitK * (3 - 2 * me.sitK) + bob, feet.z);
   look.set(-Math.sin(me.yaw) * Math.cos(me.pitch), Math.sin(me.pitch), -Math.cos(me.yaw) * Math.cos(me.pitch)).add(camera.position);
   camera.lookAt(look);
