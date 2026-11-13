@@ -6,9 +6,9 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
     blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --samples 512
     # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 4096
 
-1. Runs props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours (lib.bake.flat_colours), so
-   their vertex colours are plain base colours (no AO of their own) and their GLBs carry no light.
-2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the lived GLBs, and stands everything where
+1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
+   (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
+2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the scratch GLBs, and stands everything where
    camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
 3. Adds the jeep (an occluder) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
    one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
@@ -30,7 +30,7 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 Layout and lights mirror camp.html (A0, tentAt, hA, hB, tb, lanternGlow, the lived PLACE table); keep them in step.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 """
-import argparse, base64, math, os, sys, time
+import argparse, base64, math, os, shutil, sys, tempfile, time
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -55,6 +55,9 @@ THIN = ("LaundryCloth", "Chain")
 
 sys.path.insert(0, HERE); sys.path.insert(0, LIVED); sys.path.insert(0, os.path.join(ROOT, "props"))
 import build_camp  # noqa: E402
+import build_fire  # noqa: E402
+import build_laundry  # noqa: E402
+import build_lived  # noqa: E402
 from lib.bake import flat_colours  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.mesh import apply_all  # noqa: E402
@@ -65,14 +68,18 @@ def flat(objs):
     flat_colours(objs, GLOW)
 
 
-# ---- 1. the lived builders, with flat colours
-for name, call in (("build_lived", lambda g: g["build"](32, None, colour=flat)), ("build_fire", lambda g: g["build"](colour=flat)),
-                   ("build_laundry", lambda g: g["build"](colour=flat))):
-    path = os.path.join(LIVED, name + ".py")
-    g = {"__name__": name, "__file__": path}
-    exec(compile(open(path, encoding="utf-8").read(), path, "exec"), g)
-    call(g)
-    print(f"  built {name} (flat colours)")
+# ---- 1. the lived builders, with flat colours, each in its own fresh scene and written to a scratch GLB that step 2
+# imports. The round trip stays on purpose: the glTF export triangulates every face and splits vertices at hard edges
+# and UV seams (WoodPile: 90 faces and 161 vertices as built, 178 triangles and 225 vertices as imported), and the
+# light-map unwrap below (smart_project, then one pack for all objects) works on those faces, so building the props
+# straight into this scene would give every object a different atlas. The scratch folder keeps a failed or
+# --unwrap-only run from leaving half-made props/lived/*.glb behind; step 4 writes those.
+SCRATCH = tempfile.mkdtemp(prefix="camp_lived_")
+for name, mod, build in (("lived", build_lived, lambda path: build_lived.build(32, colour=flat, path=path)),
+                         ("fire", build_fire, lambda path: build_fire.build(colour=flat, path=path)),
+                         ("laundry", build_laundry, lambda path: build_laundry.build(colour=flat, path=path))):
+    build(os.path.join(SCRATCH, f"{name}.glb"))
+    print(f"  built {mod.__name__} (flat colours)")
 
 
 def B(x, y, z):            # three.js -> Blender
@@ -149,7 +156,7 @@ def import_glb(path):
 
 sets, top = {}, None
 for sname, table in PLACE.items():
-    new = import_glb(os.path.join(LIVED, f"{sname}.glb"))
+    new = import_glb(os.path.join(SCRATCH, f"{sname}.glb"))
     for o in new:
         if o.parent:
             mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
@@ -169,6 +176,7 @@ for sname, table in PLACE.items():
             me.color_attributes[0].name = "Col"
         meshes.append(o)
     sets[sname] = meshes
+shutil.rmtree(SCRATCH)
 lived = sets["lived"]
 for i, (x, z, yaw) in enumerate(seat_at):
     lived.append(place(top, f"SeatTop_{i}", x, z, yaw, copy=i < 2))

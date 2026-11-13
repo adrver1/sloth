@@ -12,6 +12,8 @@ sloth-life thread builds that sloth).
     .venv/bin/python props/lived/build_laundry.py
 
 One GLB (props/lived/laundry.glb), z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin.
+make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's laundry.glb
+and its models/laundry.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
 """
 import os
 import sys
@@ -135,19 +137,28 @@ def posts():
     return join(p, "LaundryPosts")
 
 
-def build(colour=None):
-    """Build the laundry line in a fresh scene, light the posts (colour(objs); by default their own AO bake, no face
-    splitting: plain faces shade fine at this size) and write laundry.glb."""
-    reset()
+def make():
+    """Make the laundry line in the current scene and return it as {name: object}: LaundryPosts (takes vertex colours)
+    and LaundryCloth (textured). No reset, no light, no export."""
     img = os.path.join(HERE, "laundry.png")
     atlas(img)
     po = posts()
     apply_all(po)
+    return {"LaundryPosts": po, "LaundryCloth": cloth(img)}
+
+
+def build(colour=None, path=None):
+    """Make the laundry line in a fresh scene, light the posts (colour(objs); by default their own AO bake, no face
+    splitting: plain faces shade fine at this size) and write it to path (default props/lived/laundry.glb)."""
+    reset()
+    every = make()
+    po, cl = every["LaundryPosts"], every["LaundryCloth"]
+    cl.hide_render = True                     # the cloth never shaded the posts' AO: keep it out of it
     (colour or (lambda objs: bake(objs, 32)))([po])
+    cl.hide_render = False
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
-    cl = cloth(img)
-    path = export_glb([po, cl], os.path.join(HERE, "laundry.glb"), image_format="AUTO")
+    path = export_glb([po, cl], path or os.path.join(HERE, "laundry.glb"), image_format="AUTO")
     print(f"hang point (local, three.js): x {line_x(HANG_T):.3f}, y {line_z(HANG_T):.3f}, z 0")
     print(f"laundry -> {path}")
 

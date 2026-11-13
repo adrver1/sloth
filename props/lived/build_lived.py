@@ -14,6 +14,8 @@ One GLB (props/lived/lived.glb), one object per prop, each at its own origin, st
 z = 0.361), so the page places it with the same transform as the seat it sits on. Same baked light as the camp and the
 jeep: Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
 Materials match the camp's rustic set, so the props sit with the picked camp.
+make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's lived.glb
+and its models/lived.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
 """
 import argparse
 import hashlib
@@ -695,10 +697,12 @@ def kitchen_things(M):
     return join(p, "KitchenThings")
 
 
-def build(samples, parts_out=None, colour=None):
-    """Build the lived props in a fresh scene, light them (colour(objs); by default their own AO bake at samples) and
-    write lived.glb."""
-    reset()
+BAKED = ("WoodPile", "SeatThings", "TentSide", "KitchenThings")    # the props that take vertex colours; the rest are textured
+
+
+def make(samples=32):
+    """Make the lived props in the current scene and return them as {name: object}, the BAKED ones first, each at its own
+    origin. No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
     M = materials()
     stack = wood_stack(M, max(samples, 48))
     loose = loose_logs()
@@ -710,12 +714,21 @@ def build(samples, parts_out=None, colour=None):
         apply_all(o)
         o.location = (0, 0, 0)
         o.name = k
+    return {**objs, "WoodStack": stack, "LooseLogs": loose, "SeatTop": top, "MatRoll": roll, "KitchenCrate": crate}
+
+
+def build(samples=32, parts_out=None, colour=None, path=None):
+    """Make the lived props in a fresh scene, light the BAKED ones (colour(objs); by default their own AO bake at samples)
+    and write them all to path (default props/lived/lived.glb)."""
+    reset()
+    every = make(samples)
+    objs = {k: every[k] for k in BAKED}
     (colour or (lambda objs: bake(objs, samples)))(list(objs.values()))
-    for o in objs.values():                   # baked props need no UVs; only the stack is textured
+    for o in objs.values():                   # baked props need no UVs; only the textured ones keep theirs
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb([*objs.values(), stack, loose, top, roll, crate], os.path.join(HERE, "lived.glb"), image_format="JPEG", quiet=True)
-    report([stack, loose, crate, roll, top], note={"SeatTop": "(x3 seats on the page)"})
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived.glb"), image_format="JPEG", quiet=True)
+    report([every[k] for k in ("WoodStack", "LooseLogs", "KitchenCrate", "MatRoll", "SeatTop")], note={"SeatTop": "(x3 seats on the page)"})
     for k, o in objs.items():
         report([o])
         part = o.data.attributes["part"]

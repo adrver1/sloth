@@ -13,6 +13,8 @@ One GLB (props/lived/fire.glb) with objects Ring, Tripod, Fire, Embers, Pot and 
 (three.js y up). Embers are drawn unlit on the page so they glow; the flames are animated cards made on the page. Same
 baked light as the other props (AO times base colour in a colour attribute), except the chain, which only carries its
 texture. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
+make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's fire.glb
+and its models/fire.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
 """
 import math
 import os
@@ -357,10 +359,12 @@ def chain(bottom, top):
     return o
 
 
-def build(samples=32, colour=None):
-    """Build the fire set in a fresh scene, light it (colour(objs); by default its own AO bake at samples, no face
-    splitting: the fire and pot are small enough that the plain faces shade fine) and write fire.glb."""
-    reset()
+BAKED = ("Ring", "Tripod", "Fire", "Embers", "Pot")       # the parts that take vertex colours; Chain and TripodLegs are textured
+
+
+def make():
+    """Make the fire set in the current scene and return it as {name: object}, the BAKED parts first, all at the fire's
+    origin. No reset, no light, no export."""
     M = materials()
     ring_o, trip = ring(M), tripod(M)
     fire_o, emb = fire(M)
@@ -369,13 +373,27 @@ def build(samples=32, colour=None):
     for o in objs:
         apply_all(o)
         o.location = (0, 0, 0)
+    ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
+    return {o.name: o for o in objs + [ch, tripod_legs()]}
+
+
+def build(samples=32, colour=None, path=None):
+    """Make the fire set in a fresh scene, light the BAKED parts (colour(objs); by default their own AO bake at samples,
+    no face splitting: the fire and pot are small enough that the plain faces shade fine) and write it all to path
+    (default props/lived/fire.glb)."""
+    reset()
+    every = make()
+    objs = [every[k] for k in BAKED]
+    textured = [o for k, o in every.items() if k not in BAKED]
+    for o in textured:                        # the chain and the legs never shaded the fire's AO: keep them out of it
+        o.hide_render = True
     (colour or (lambda objs: bake(objs, samples)))(objs)
+    for o in textured:
+        o.hide_render = False
     for o in objs:
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
-    objs += [ch, tripod_legs()]
-    path = export_glb(objs, os.path.join(HERE, "fire.glb"), image_format="AUTO")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire.glb"), image_format="AUTO")
     print(f"soup surface (three.js): (0, {SOUP.z:.3f}, 0)")
     print(f"fire -> {path}")
 
