@@ -10,6 +10,7 @@ import { A0, HERO, RC, V, branchCurves } from "./forest.js";
 import { SLOTH, blockers } from "./campProps.js";
 import { CAST } from "./cast.js";
 import { load, save } from "./save.js";
+import { burst, fx, sprite } from "./fx.js";
 
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
 const sloths = [], hit = [];
@@ -1165,13 +1166,6 @@ if (qs.get("campsloths") !== "0") {
 if (qs.has("lab")) import("./lab.js").then((m) => m.toggle());
 const COUNT = sloths.length;
 
-// sprites: words, hearts, flowers
-const sprite = (txt, size = 96) => {
-  const t = canvasTex(512, 128, (g) => { g.font = `600 ${size}px Fredoka, Trebuchet MS, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#fff"; g.strokeStyle = "rgba(74,52,38,.55)"; g.lineWidth = 10; g.strokeText(txt, 256, 68); g.fillText(txt, 256, 68); });
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); s.scale.set(1.0, 0.25, 1); return s;
-};
-const fx = [];
-function burst(p, txt, n, life, size) { for (let i = 0; i < n; i++) { const s = sprite(txt, size); s.scale.multiplyScalar(n > 1 ? 0.45 : 0.6); s.position.copy(p); scene.add(s); fx.push({ s, v: V(R(-0.4, 0.4) * (n > 1), R(0.25, 0.55), R(-0.4, 0.4) * (n > 1)), t: 0, life }); } }
 function flowerCrown(s) {
   const c = new THREE.Group(), cols = [0xff7fa8, 0xffd66e, 0xffffff];
   for (let k = 0; k < 7; k++) { const a = (k / 7) * Math.PI * 2, f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.016, 0), new THREE.MeshLambertMaterial({ color: cols[k % 3], emissive: 0x331100 })); f.position.set(Math.cos(a) * 0.058, 0, Math.sin(a) * 0.052); c.add(f); }
@@ -1179,4 +1173,5 @@ function flowerCrown(s) {
 }
 
 
-export { COUNT, SL, SLOTH_WARM, burst, campStep, flowerCrown, fx, hit, slothLife, sloths, sprite };
+export { COUNT, SL, SLOTH_WARM, campStep, flowerCrown, hit, slothLife, sloths };
+export { burst, fx, sprite };   // back-compat: campLife.js, input.js and operator.js still import these three from here (their home is fx.js)

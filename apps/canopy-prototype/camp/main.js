@@ -12,14 +12,15 @@ import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { WARM_N } from "../fur.js";
 import { $, DETAIL, OPT, camera, renderer, scene, uTime } from "./core.js";
-import { V, ease } from "./util.js";
+import { V } from "./util.js";
 import { GLADE, sloPath } from "./layout.js";
 import { stickV } from "./hud.js";
 import "./sky.js";
 import "./forest.js";
 import { fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
 import { jeepStep } from "./jeep.js";
-import { SL, SLOTH_WARM, campStep, fx, slothLife, sloths } from "./sloths.js";
+import { SL, SLOTH_WARM, campStep, slothLife, sloths } from "./sloths.js";
+import { fxStep } from "./fx.js";
 import { collide, me, step } from "./player.js";
 import { acts, atmo, groundLife, shadowStep } from "./campLife.js";
 import { opStep } from "./operator.js";
@@ -60,12 +61,7 @@ renderer.setAnimationLoop(() => {
   campStep(dt);
   opStep(dt);
   jeepStep(dt); carStep(dt);
-  for (let i = fx.length - 1; i >= 0; i--) {
-    const f = fx[i]; f.t += dt;
-    if (f.fly) { const k = ease(Math.min(1, f.t / f.life)); f.s.position.lerpVectors(f.fly.from, f.fly.to, k); f.s.position.y += Math.sin(k * Math.PI) * 0.4; }
-    else { f.s.position.addScaledVector(f.v, dt); f.v.multiplyScalar(0.96); f.s.material.opacity = 1 - f.t / f.life; }
-    if (f.t > f.life) { scene.remove(f.s); fx.splice(i, 1); f.done?.(); }
-  }
+  fxStep(dt);                                             // fx.js: the words and hearts in the air
   // from here to the lanterns the light is one frame behind: these use last frame's dusk, and the hour only moves on further
   // down, at setLight (review boot-06 noted the lag; it is kept exactly as it was, so that nothing changes)
   const duskLast = light.dusk;
