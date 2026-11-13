@@ -547,6 +547,7 @@ if (qs.get("campsloths") !== "0") {
     if (s.spot.guest) { s.trip.phase = "home"; s.spot.home = true; s.errand = 1e9; doze(s, R(60, 120)); s.dozeIn = 1.2; if (s.spot.car) setTimeout(() => window.__jeep?.close("P"), 1500); return; }   // a nap trip: straight to sleep
     s.trip.phase = "home"; s.spot.home = true; life.claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.claim("log:0", s);   // e.g. "seat:Sunny", "jeep:Mango"
     s.errand = first ? R(4, 45) : R(35, 80) * (s.spot.asleep || s.spot.car ? 1.6 : 1);
+    if (s.spot.asleep) { if (first) { s.dozing = s.asleep = true; s.eyes(true); s.dozeT = R(30, 150); s.dozeIn = 0; } else { doze(s, R(90, 180)); s.dozeIn = 1.5; } }   // Hibi: back in the hammock, a yawn and a long nap
     if (s.spot.car && !first) setTimeout(() => window.__jeep?.close("P"), 1500);
   }
   function placeHome(s) {                             // straight into its spot, as if it had always lived there
@@ -557,7 +558,7 @@ if (qs.get("campsloths") !== "0") {
       s.o.position.copy(P.p); s.o.quaternion.copy(P.q);
     } else {
       spot.parent.add(s.o); s.o.position.copy(spot.at); s.o.quaternion.setFromAxisAngle(UP, spot.yaw);
-      play(s, spot.clip, 0.01); if (spot.asleep) shutEyes(s.o);
+      play(s, spot.clip, 0.01);
     }
     atHome(s, true);
   }
@@ -767,7 +768,7 @@ if (qs.get("campsloths") !== "0") {
   function settleIn(s, fade) {
     const T = s.trip, spot = s.spot; T.phase = "settle"; T.t = 0; spot.parent.attach(s.o);
     T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); T.sc0 = s.sc;
-    play(s, spot.clip, fade); if (spot.asleep) shutEyes(s.o);
+    play(s, spot.clip, fade);
   }
   function arriveDoor(s) {                            // at its spot's door: in the way each spot is reached
     const spot = s.spot, T = s.trip; s.o.position.copy(spot.door);
@@ -836,18 +837,18 @@ if (qs.get("campsloths") !== "0") {
   // naps (Adriaen 2026-11-12: "the sloths need to nap much more"): awake 20 to 45 s, then a yawn and asleep 50 to 110 s
   // where they are, eyes shut, head sinking, a slow z rising. Sitting ones curl up (curl); hanging ones keep their grip and
   // just slow right down; the tent one lays its head down. They wake on their own or when booped or fed; sitting ones
-  // then have a big stretch, the others a yawn. The hammock napper sleeps all day. No errands or s'mores while asleep.
+  // then have a big stretch, the others a yawn. The hammock napper (Hibi) naps longest, 1.5 to 3 minutes, with only 10 to 25 s
+  // awake between, and yawns and stretches like the rest (Adriaen 2026-11-13). No errands or s'mores while asleep.
   const homeClip = (s) => s.trip?.phase === "rest" ? ["idle", 1] : !s.spot ? ["cling", 0.6] : [s.spot.clip, s.spot.clip === "cling" ? 0.6 : 1];
-  const dozeClip = (s) => s.spot?.guest ? [s.spot.clip, s.spot.clip === "nap" ? 1 : 1] : s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
-  const canStretch = (s) => s.trip?.phase === "rest" || (["seat", "jeep"].includes(s.spot?.name) && s.spot.clip !== "curl");
-  function doze(s, dur = R(50, 110)) { s.dozing = true; s.yawn = 1e-3; s.dozeIn = 2.4; s.dozeT = dur; }
+  const dozeClip = (s) => s.spot?.guest || s.spot?.asleep ? [s.spot.clip, s.spot.clip === "nap" ? 1 : 1] : s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
+  const canStretch = (s) => s.trip?.phase === "rest" || (["seat", "jeep", "hammock"].includes(s.spot?.name) && !s.spot.guest && s.spot.clip !== "curl");
+  function doze(s, dur = s.spot?.asleep && s.trip?.phase === "home" ? R(90, 180) : R(50, 110)) { s.dozing = true; s.yawn = 1e-3; s.dozeIn = 2.4; s.dozeT = dur; }
   function wake(s, after) {
-    s.dozing = false; s.asleep = false; s.eyes(false); s.napT = R(20, 45);
+    s.dozing = false; s.asleep = false; s.eyes(false); s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
     const [c, ts] = homeClip(s), back = after ?? (() => play(s, c, 1.5, ts));
     if (canStretch(s)) playOnce(s, "stretch", 1.5, back); else { s.yawn = 1e-3; play(s, c, 2, ts); after?.(); }
   }
   function napStep(s, sd, after) {
-    if (s.spot?.asleep && s.trip?.phase === "home") return;
     if (s.dozing) {
       if (s.dozeIn > 0) { s.dozeIn -= sd; if (s.dozeIn <= 0) { s.asleep = true; s.eyes(true); const [c, ts] = dozeClip(s); play(s, c, 2.5, ts); } }
       else { s.dozeT -= sd; if (s.dozeT < 0 || s.squish > 0.9 || s.nod > 2) wake(s, after); }
@@ -924,7 +925,7 @@ if (qs.get("campsloths") !== "0") {
         life.release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.release("log:0", s);
         s.spot.home = false; life.claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; placeHome(s);
       }
-      if (d.sleep > 0 && !s.spot.asleep) doSleep(s, d);
+      if (d.sleep > 0) doSleep(s, d); else if (s.spot.asleep && d.sleep === 0 && s.trip.phase === "home") { s.dozing = s.asleep = false; s.eyes(false); }
     }
     (got?.wild || []).forEach((d, i) => { if (wild[i] && d.sleep > 0) doSleep(wild[i], d); else if (wild[i] && Number.isFinite(d.napT)) wild[i].napT = d.napT; });
   }
