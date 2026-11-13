@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { WARM_N } from "../fur.js";
-import { $, D, DETAIL, R, S, camera, qs, renderer, scene, store, sun, uTime } from "./core.js";
+import { $, D, DETAIL, OPT, R, S, camera, renderer, scene, sun, uTime } from "./core.js";
 import { stickV } from "./hud.js";
 import { dome, moon, nightDome, sky, uSkyDusk } from "./sky.js";
 import { GLADE, RC, V, sloPath } from "./forest.js";
@@ -69,8 +69,8 @@ flies.visible = false;   // atmosphere.js draws blinking fireflies instead
 // ================================================================ loop, with an fps panel and a resolution safety net
 addEventListener("resize", resize); resize();
 camera.far = 80;
-if (qs.has("pos")) { const [x, z] = qs.get("pos").split(",").map(Number); me.pos.set(x, 0, z); }
-if (qs.has("yaw")) me.yaw = +qs.get("yaw"); if (qs.has("pitch")) me.pitch = +qs.get("pitch");
+if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }   // ?pos=, ?yaw=, ?pitch=: the start view (core.js OPT)
+if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
 const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
 window.__stats = {};
 let shadowTick = -1, shadowN = -1;

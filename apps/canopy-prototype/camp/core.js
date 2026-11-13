@@ -16,12 +16,17 @@ import { SUN } from "./layout.js";
 //   lived    1 | 0                         1                                 core.js, campProps.js, campLife.js (LIVED)
 //   op       1 | 0                         1                                 core.js (the operator's downloads); operator.js reads qs itself
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
+//   time     an hour, 0 up to 24 (21.5)    saved, else 12                    daytime.js (the hour set; anything else counts as 12)
+//   cycle    1 | 0                         saved, else 0                     daytime.js (the day runs on by itself)
+//   pos      x,z in metres                 by the fire (player.js)           main.js (where you stand at the start)
+//   yaw      radians                       facing the fire (player.js)       main.js (where you look at the start)
+//   pitch    radians                       0.08 (player.js)                  main.js
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
-// still read with qs in the files the open PRs change (move them here once those land): time, cycle (main.js: the hour and the
-// day cycle, both saved), pos, yaw, pitch (main.js: the start view), touch (input.js), campsloths, slothmat, lab (sloths.js).
+// still read with qs in the files the open PRs change (move them here once those land): touch (input.js), campsloths, slothmat,
+// lab (sloths.js), op once more (operator.js), sound, station (audio.js).
 const qs = new URLSearchParams(location.search);
-// localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (main.js, which still types them), save (save.js:
-// the camp's lived state, one part per owner)
+// localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
+// state, one part per owner). audio.js keeps the sound settings under "canopy-audio", which it still types itself (open PRs).
 const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save" };
 // ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
 // API: modules that the open PRs change still read these; each is an alias of the exported object named here.
@@ -60,6 +65,11 @@ const OPT = {
   lived: qs.get("lived") !== "0",
   op: qs.get("op") !== "0",
   weather: qs.get("weather"),
+  time: (() => { const h = Number(qs.get("time") ?? store.get(KEYS.time) ?? 12); return h >= 0 && h < 24 ? h : 12; })(),
+  cycle: qs.has("cycle") ? qs.get("cycle") !== "0" : store.get(KEYS.cycle) === "on",
+  pos: qs.has("pos") ? qs.get("pos").split(",").map(Number) : null,   // the start view: null keeps player.js's own
+  yaw: qs.has("yaw") ? +qs.get("yaw") : null,
+  pitch: qs.has("pitch") ? +qs.get("pitch") : null,
 };
 const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
