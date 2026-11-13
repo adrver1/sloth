@@ -30,7 +30,7 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 Layout and lights mirror camp.html (A0, tentAt, hA, hB, tb, lanternGlow, the lived PLACE table); keep them in step.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 """
-import argparse, base64, math, os, shutil, sys, tempfile, time
+import argparse, base64, json, math, os, shutil, sys, tempfile, time
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -109,6 +109,47 @@ wp = (-0.55, -3.15); wy = math.atan2(-wp[0], -wp[1])
 KITCHEN = (4.55, 1.7, math.atan2(-4.55, -1.7))
 LA, LB = (1.3, 4.3), (4.0, 3.0)
 LAUNDRY = ((LA[0] + LB[0]) / 2, (LA[1] + LB[1]) / 2, math.atan2(-(LB[1] - LA[1]), LB[0] - LA[0]))
+jo = (-2.2 / math.hypot(-2.2, -6.4), -6.4 / math.hypot(-2.2, -6.4))                   # camp.html JEEP_OUT (x, z)
+jt = (-jo[1], jo[0])
+if jt[1] * jo[0] - jt[0] * jo[1] > 0:                                                 # camp.html JEEP_TAN: its right side faces the fire
+    jt = (-jt[0], -jt[1])
+JEEP = (-2.2, -6.4, math.atan2(jt[0], jt[1]))                                        # the jeep group: x, z, yaw
+sd = Vector((-4, -3, 10)).normalized()                                                  # toward the sun: page (-4, 10, 3)
+LANTERN_DROP = 0.12        # each lantern's light below where it hangs (the page has 0.125: review props-07, kept for the same bake)
+
+
+def check_layout():
+    """Compare this script's copy of the layout with the place block the page wrote (props/shadow/layout_picked.json,
+    export_casters.cjs): print every value with its difference, and stop when one is off by more than 1e-4. The
+    lantern lights' 5 mm (LANTERN_DROP) is known and reported, not fixed here: changing it changes the bake."""
+    lay = os.path.join(ROOT, "props", "shadow", "layout_picked.json")
+    place = json.load(open(lay)).get("place") if os.path.exists(lay) else None
+    if not place:
+        print("  layout check: no place block in layout_picked.json (run props/bake_all.py --only layout); not checked")
+        return
+    hm = ((hA[0] + hB[0]) / 2, (hA[1] + hB[1]) / 2); hd = (hB[0] - hA[0], hB[1] - hA[1])
+    rows = [*((f"seat {i}", seat_at[i], place["seats"][i]) for i in range(3)), ("tent", TENT, place["tent"]),
+            ("hammock", (*hm, -math.atan2(hd[1], hd[0])), place["hammock"]), ("table", (*tb, 0.6), place["table"]),
+            ("wood pile", (*wp, wy), place["woodPile"]), ("seat things", seat_at[1], place["seatThings"]),
+            ("tent side", TENT, place["tentSide"]), ("kitchen crate", KITCHEN, place["kitchen"]), ("laundry", LAUNDRY, place["laundry"]),
+            *((f"lantern light {i}", (p[0], p[1] - LANTERN_DROP, p[2]), place["lanternLights"][i]) for i, p in enumerate(lanterns)),
+            ("jeep", JEEP, place["jeep"]), ("sun (Blender)", tuple(sd), tuple(B(*place["sun"])))]
+    known = {f"lantern light {i}": (1, 0.005) for i in range(len(lanterns))}     # (component, expected bake - page)
+    print("  layout check, this script against the page (x, z, yaw; lanterns x, y, z):")
+    bad = []
+    for name, mine, page in rows:
+        d = [m - q for m, q in zip(mine, page)]
+        k = known.get(name)
+        off = max(abs(v - (k[1] if k and j == k[0] else 0)) for j, v in enumerate(d))
+        note = "  known: the page's light is 5 mm lower (review props-07), kept" if k else ""
+        print(f"    {name:16s} {' '.join(f'{v:9.5f}' for v in mine)}  diff {' '.join(f'{v:+.1e}' for v in d)}{note}")
+        if off > 1e-4:
+            bad.append(name)
+    if bad:
+        sys.exit(f"layout check: {', '.join(bad)} differ from the page by more than 1e-4; fix this script's layout first")
+
+
+check_layout()
 PLACE = {
     "lived": {"WoodPile": (*wp, wy), "WoodStack": (*wp, wy), "LooseLogs": (*wp, wy), "SeatThings": seat_at[1],
               "TentSide": TENT, "MatRoll": TENT, "KitchenCrate": KITCHEN, "KitchenThings": KITCHEN},
@@ -212,13 +253,9 @@ if a.unwrap_only:
 
 # ---- 3b. the rest of the scene: the jeep (an occluder only) and the real ground disc (a receiver, mapped straight onto
 # the page's floor: image row 0 = page z -RR, column 0 = x -RR, as ground.js looks it up with flipY false)
-jo = (-2.2 / math.hypot(-2.2, -6.4), -6.4 / math.hypot(-2.2, -6.4))                   # camp.html JEEP_OUT (x, z)
-jt = (-jo[1], jo[0])
-if jt[1] * jo[0] - jt[0] * jo[1] > 0:                                                 # camp.html JEEP_TAN: its right side faces the fire
-    jt = (-jt[0], -jt[1])
 jeep = []
 jroot = bpy.data.objects.new("JeepRoot", None); bpy.context.collection.objects.link(jroot)     # the page's jeep group: every
-jroot.location = B(-2.2, 0, -6.4); jroot.rotation_euler = (0, 0, math.atan2(jt[0], jt[1]))    # node keeps its own place under it
+jroot.location = B(JEEP[0], 0, JEEP[1]); jroot.rotation_euler = (0, 0, JEEP[2])              # node keeps its own place under it
 jall = import_glb(os.path.join(ROOT, "props", "jeep", f"jeep_{a.jeep}.glb"))
 for o in jall:
     if o.type == "MESH" and o.name.startswith("Glass"):
@@ -231,9 +268,8 @@ DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}    
 doors = {k: next(o for o in jall if o.name.split(".")[0] == n) for k, (n, _) in DOORS.items()}
 # the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
 # saved it (props/bake_all.py runs that step first); plain cylinders are enough for their shadows
-import json as _json
 _lay = os.path.join(ROOT, "props", "shadow", "layout_picked.json")
-for d in (_json.load(open(_lay)).get("deadwood", []) if os.path.exists(_lay) else []):
+for d in (json.load(open(_lay)).get("deadwood", []) if os.path.exists(_lay) else []):
     if d["name"] == "FallenLog":
         bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], d.get("y", 0) + d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
         o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, d["yaw"])   # lie along x, then yaw
@@ -265,7 +301,7 @@ def point(group, name, at, watts, r):
     o = bpy.data.objects.new(name, L); o.location = at; bpy.context.collection.objects.link(o); LIGHTS[group][1].append(o)
 point("fire", "FireLight", B(0, 0.55, 0), 260, 0.25)
 for i, p in enumerate(lanterns):
-    point("lanterns", f"LanternLight_{i}", B(p[0], p[1] - 0.12, p[2]), 50, 0.05)
+    point("lanterns", f"LanternLight_{i}", B(p[0], p[1] - LANTERN_DROP, p[2]), 50, 0.05)
 tent = next(o for o in picked if o.name == "Tent")
 bpy.context.view_layer.update()
 point("stove", "StoveLight", tent.matrix_world @ (Vector(build_camp.STOVE) + Vector((-0.35, 0, -0.1))), 22, 0.12)
@@ -273,7 +309,6 @@ moon = bpy.data.lights.new("Moon", "SUN"); moon.color = (1, 1, 1); moon.energy =
 mo = bpy.data.objects.new("Moon", moon); mo.rotation_euler = (math.radians(40), 0, math.radians(-120))
 bpy.context.collection.objects.link(mo); LIGHTS["moon"][1].append(mo)
 bpy.context.view_layer.update()
-sd = Vector((-4, -3, 10)).normalized()                                                  # toward the sun: page (-4, 10, 3)
 sun = bpy.data.lights.new("Sun", "SUN"); sun.energy = 3.0; sun.angle = math.radians(4)
 so = bpy.data.objects.new("Sun", sun); so.rotation_euler = (-sd).to_track_quat("-Z", "Y").to_euler()
 bpy.context.collection.objects.link(so); day_l.append(so)
@@ -402,7 +437,6 @@ print(f"  sun: mean visibility {sv[so_ > 0.02].mean():.2f}")
 save(np.stack([sv, np.clip(ao[..., 0], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun")   # B, A: free (were the jeep's lights)
 # ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
 from PIL import Image
-import json
 gd = gday[..., :3].mean(-1); open_ = np.percentile(gd, 99.5)
 shadow = np.clip(1 - gd / open_, 0, 1)[::-1]
 Image.fromarray((shadow * 255 + 0.5).astype(np.uint8), "L").save(os.path.join(MODELS, f"camp_shadow_picked_{a.jeep}.png"), optimize=True)
