@@ -4,6 +4,8 @@ What I looked at: the camp page (`camp.html`, the 23 modules in `apps/canopy-pro
 
 The goal set for this pass: code that is cleanly separated, easy to maintain and to grow, with no stale or duplicate functions or sections.
 
+**Status of every finding** (fixed in which commit, in progress, waiting on a decision, or open) is at the top of [findings.md](findings.md). It is generated from `status.json` by `build.py` in this folder: update `status.json` when a finding is fixed and re-run `build.py`.
+
 Numbers marked **measured** were timed here (cloud machine, CPU only, Blender 5.3, headless Chromium with SwiftShader). Numbers marked **estimate** were not.
 
 ## The short answer

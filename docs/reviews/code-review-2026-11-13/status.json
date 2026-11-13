@@ -1,0 +1,534 @@
+{
+ "as_of": "main 0f5dfbf, 2026-11-13",
+ "statuses": [
+  "fixed",
+  "partly fixed",
+  "checked, still open",
+  "in progress",
+  "planned",
+  "waiting on Adriaen",
+  "open"
+ ],
+ "findings": {
+  "boot-01": {
+   "status": "fixed",
+   "commits": [
+    "43c2e9d"
+   ],
+   "note": ""
+  },
+  "boot-02": {
+   "status": "fixed",
+   "commits": [
+    "68529c0"
+   ],
+   "note": ""
+  },
+  "boot-03": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": "the 7 duplicate bare imports are gone; the 2 unneeded ones and the order comment remain"
+  },
+  "boot-04": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "boot-06": {
+   "status": "planned",
+   "commits": [],
+   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+  },
+  "boot-12": {
+   "status": "fixed",
+   "commits": [
+    "c180d5c"
+   ],
+   "note": ""
+  },
+  "boot-17": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "boot-18": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "boot-19": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "boot-20": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": "highlight lit getter removed; player.js leftovers remain"
+  },
+  "crosscut-01": {
+   "status": "fixed",
+   "commits": [
+    "43c2e9d"
+   ],
+   "note": ""
+  },
+  "crosscut-02": {
+   "status": "fixed",
+   "commits": [
+    "d17235f"
+   ],
+   "note": "the trunk shadow shows after the next light rebake"
+  },
+  "crosscut-03": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "crosscut-04": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "crosscut-05": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "crosscut-06": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": "the 7 duplicate bare imports are gone; the 2 unneeded ones and the order comment remain"
+  },
+  "crosscut-07": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": "forest.js and food.js parts done; jeepTap, player.js and sloths.js leftovers remain"
+  },
+  "crosscut-08": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "crosscut-09": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "crosscut-10": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "crosscut-13": {
+   "status": "fixed",
+   "commits": [
+    "c180d5c"
+   ],
+   "note": ""
+  },
+  "crosscut-14": {
+   "status": "planned",
+   "commits": [],
+   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+  },
+  "crosscut-15": {
+   "status": "in progress",
+   "commits": [
+    "d720668"
+   ],
+   "note": "part 1 of section C, on a local branch, not merged yet; the export_casters.cjs options were fixed in d720668"
+  },
+  "crosscut-17": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "genbake-01": {
+   "status": "fixed",
+   "commits": [
+    "d17235f"
+   ],
+   "note": "the trunk shadow shows after the next light rebake"
+  },
+  "genbake-03": {
+   "status": "checked, still open",
+   "commits": [],
+   "note": "the desktop confirmed the bake runs on the GPU (gpu_run.py re-enables OptiX after each reset); printing the device and a --device flag remain"
+  },
+  "genbake-06": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": "the exporter validates the layout and writes nothing on a broken one; page errors and the Python readers remain"
+  },
+  "genbake-09": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "genbake-11": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": "dead jeep globs removed from the KTX step; DOORS and the Fire check remain"
+  },
+  "genbake-12": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668",
+    "0fe98e3"
+   ],
+   "note": "two docstrings fixed; the rest remain"
+  },
+  "genbake-13": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "genbake-14": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genbake-18": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genbake-21": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genbake-22": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genbake-28": {
+   "status": "fixed",
+   "commits": [
+    "0fe98e3"
+   ],
+   "note": "39 s to 10 s, byte-identical output"
+  },
+  "genbake-32": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "gencamp-01": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "gencamp-02": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "gencamp-06": {
+   "status": "checked, still open",
+   "commits": [],
+   "note": "the desktop confirmed the bake runs on the GPU (gpu_run.py re-enables OptiX after each reset); printing the device and a --device flag remain"
+  },
+  "gencamp-08": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "gencamp-13": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "gencamp-17": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genlived-01": {
+   "status": "fixed",
+   "commits": [
+    "3235ca1"
+   ],
+   "note": "props/lived/wood_stack.json is written by the next GPU bake and must be committed then"
+  },
+  "genlived-04": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genlived-06": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genlived-08": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genlived-09": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genlived-10": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "genlived-13": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "hygiene-01": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "hygiene-02": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "hygiene-07": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "hygiene-08": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "hygiene-12": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668",
+    "0fe98e3"
+   ],
+   "note": "two docstrings fixed; the rest remain"
+  },
+  "hygiene-14": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (one fur.js)"
+  },
+  "operator-07": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": "kettle spout removed (pot: SOUP_POT); flames and blockers options remain"
+  },
+  "operator-09": {
+   "status": "planned",
+   "commits": [],
+   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+  },
+  "operator-10": {
+   "status": "planned",
+   "commits": [],
+   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+  },
+  "operator-12": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "operator-16": {
+   "status": "planned",
+   "commits": [],
+   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+  },
+  "props-01": {
+   "status": "fixed",
+   "commits": [
+    "a8c698a"
+   ],
+   "note": ""
+  },
+  "props-02": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "props-03": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "props-06": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "props-07": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (generators)"
+  },
+  "props-08": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "props-11": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (one fur.js)"
+  },
+  "props-13": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "props-16": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "props-18": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "sloths-01": {
+   "status": "fixed",
+   "commits": [
+    "68529c0"
+   ],
+   "note": ""
+  },
+  "sloths-02": {
+   "status": "fixed",
+   "commits": [
+    "68529c0"
+   ],
+   "note": ""
+  },
+  "sloths-03": {
+   "status": "fixed",
+   "commits": [
+    "a8c698a"
+   ],
+   "note": ""
+  },
+  "sloths-04": {
+   "status": "fixed",
+   "commits": [
+    "68529c0"
+   ],
+   "note": ""
+  },
+  "sloths-22": {
+   "status": "fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": ""
+  },
+  "sloths-29": {
+   "status": "planned",
+   "commits": [],
+   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+  },
+  "sloths-30": {
+   "status": "planned",
+   "commits": [],
+   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+  },
+  "sloths-31": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "sloths-32": {
+   "status": "planned",
+   "commits": [],
+   "note": "part 2 of section C, after PRs #14, #15 and #16 merge"
+  },
+  "world-01": {
+   "status": "fixed",
+   "commits": [
+    "d17235f"
+   ],
+   "note": "the trunk shadow shows after the next light rebake"
+  },
+  "world-04": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "world-05": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": "helpers, stub, __back and unused exports removed; the redundant first map: and the _y trick remain"
+  },
+  "world-06": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "world-07": {
+   "status": "fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": ""
+  },
+  "world-10": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "world-11": {
+   "status": "fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": ""
+  },
+  "world-12": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "world-15": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  },
+  "world-16": {
+   "status": "in progress",
+   "commits": [],
+   "note": "part 1 of section C, on a local branch, not merged yet (camp page)"
+  }
+ }
+}
