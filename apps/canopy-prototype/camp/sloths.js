@@ -442,6 +442,7 @@ if (qs.get("campsloths") !== "0") {
     lend(s, who, opt = {}) {
       const ph = s.trip?.phase; if (!camp.includes(s) || s.gift?.clip || !(["rest", "walk", "greet"].includes(ph) || (ph === "home" && s.spot.name === "seat"))) return false;
       if (s.trip.slot?.key && s.trip.slot.who === s) { s.trip.slot.who = null; life.release(s.trip.slot.key, s); }
+      if (game?.players.includes(s)) game.over = true;   // its card game ends: the other one goes home
       stopSmore(s); s.dozing = s.asleep = false; s.eyes(false); s.once = null;
       life.release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.release("log:0", s); s.spot.home = false;
       scene.attach(s.o); s.trip = { phase: "held", t: 0, yaw: 0, who }; if (opt.asleep) { s.asleep = true; s.eyes(true); } return true;
@@ -570,6 +571,7 @@ if (qs.get("campsloths") !== "0") {
       () => { const yaw = (spot.climbYaw ?? climbYaw) + Math.PI; toGround(s, spot.door.clone().add(V(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(0.3)), yaw, then); }));
   }
   function leave(s) {
+    if (s.gift?.clip) { scene.remove(s.gift.mesh); s.gift = null; s.once = null; }   // never left eating: the eat clip's end would never come
     const spot = s.spot, J = window.__jeep; spot.home = false; s.trip = { phase: "glide", t: 0, yaw: 0 }; life.release(`${spot.name}:${s.name}`, s); if (spot.name === "seat") life.release("log:0", s);
     if (s.asleep) { s.asleep = false; s.eyes(false); }
     s.dozing = false; s.yawn = 0; if (s.mouth) s.mouth.visible = false;
@@ -599,7 +601,7 @@ if (qs.get("campsloths") !== "0") {
   }
   function errand(s) {                                // a place at the table or the crate with a fruit there (or a wander)
     if (s.ownSpot) { life.release(s.spot.key, s); s.spot.who = null; s.spot = s.ownSpot; s.ownSpot = null; return goHome(s); }   // back from a nap trip
-    if (s.cardsTo) { const slot = s.cardsTo; s.cardsTo = null; return walkTo(s, slot.p, () => { startEat(s, slot); s.trip.cards = true; }); }
+    if (s.cardsTo) { const slot = s.cardsTo; s.cardsTo = null; walkTo(s, slot.p, () => { startEat(s, slot); s.trip.cards = true; }); s.trip.slot = slot; return; }   // trip.slot: lend() frees it
     if (s.napTo) { const g = s.napTo; s.napTo = null; life.claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; return goHome(s); }
     const want = s.wantFood; s.wantFood = false;   // the lab's Get food
     if (!want && !s.food && R(0, 1) < 0.3 && napTrip(s)) return;
@@ -612,7 +614,7 @@ if (qs.get("campsloths") !== "0") {
     const free = pois().flatMap((P) => P.slots.filter((q) => !q.who && !claims.has(q.key) && q.food.mesh.visible && !q.food.back && (q.name === "table" || s.sc > 1.6)));   // the small ones can't reach over the crate's rim
     if (!free.length) return wander(s);
     const slot = free[Math.floor(R(0, free.length))]; slot.who = s; life.claim(slot.key, s);
-    walkTo(s, slot.p, () => startEat(s, slot));
+    walkTo(s, slot.p, () => startEat(s, slot)); s.trip.slot = slot;   // trip.slot: lend() frees the place if he borrows it on the way
   }
   // the jeep's engine (Adriaen 2026-11-12: "a sloth can occasionally open the hood, take out a spanner and work on the
   // engine"): the jeep's own sloth goes round to the front, opens the hood, climbs up onto the front of the engine bay and
@@ -965,7 +967,7 @@ if (qs.get("campsloths") !== "0") {
         napStep(s, sd, s.spot.guest ? () => leave(s) : undefined);
         s.errand -= sd;
         if (s.errand < 0 && !s.smore && !s.wave && !s.dozing && !s.once) {
-          const mate = R(0, 1) < 0.2 && out < MAX_OUT - 1 && camp.find((q) => q !== s && q.trip.phase === "home" && !q.dozing && !q.smore && !q.spot.guest && q.spot.name !== "hammock");
+          const mate = R(0, 1) < 0.2 && out < MAX_OUT - 1 && camp.find((q) => q !== s && q.trip.phase === "home" && !q.dozing && !q.smore && !q.gift && !q.spot.guest && q.spot.name !== "hammock");
           if (mate && s.spot.name !== "hammock" && startCards(s, mate)) out += 2;
           else if (out < MAX_OUT) { leave(s); out++; } else s.errand = R(6, 15);
         }
@@ -1040,7 +1042,7 @@ if (qs.get("campsloths") !== "0") {
       // the hit sphere and the point hearts and words fly to follow the sloth
       s.o.getWorldPosition(s.box.position).y += 0.25 * s.sc / SL; s.p.copy(s.box.position);
     }
-    for (const s of wild) { napStep(s, sd); zStep(s, dt); }
+    for (const s of wild) { napStep(s, sd); if (s.gift) giftFly(s, sd); zStep(s, dt); }   // a wild one munches what you give it
     for (const P of POIS ?? []) for (const q of P.slots) {   // fruit put out again a while after one is eaten
       const F = q.food; if (!F.back) continue;
       F.back = Math.max(0, F.back - sd); if (F.back > 0 || q.who) { if (!F.back) F.back = 1; continue; }
@@ -1059,7 +1061,7 @@ if (qs.get("campsloths") !== "0") {
   // food you put out (activities.js, window event "camp-food" {kind, at}): the nearest sloth at home comes over to eat it
   addEventListener("camp-food", (e) => {
     const at = e.detail?.at; if (!at) return;
-    const s = camp.filter((q) => q.trip.phase === "home" && !q.smore && !q.wave).sort((a, b) => a.p.distanceTo(at) - b.p.distanceTo(at))[0];
+    const s = camp.filter((q) => q.trip.phase === "home" && !q.smore && !q.wave && !q.gift).sort((a, b) => a.p.distanceTo(at) - b.p.distanceTo(at))[0];
     if (s) { s.food = at.clone(); leave(s); }
   });
   window.__spots = spots; window.__sloth = (i) => sloths[i]; window.__camp.sloths = camp;
