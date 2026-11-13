@@ -3,9 +3,11 @@
 // Each frame it calls the modules' step functions in one fixed order. Three pieces of sloths.js's per-frame work are still
 // written out in the loop (the squish and nod, the flying emojis, the night glow's uniforms) until the open PRs on that file
 // land (review boot-06, crosscut-14).
+
 // The order of these imports is the order the camp is built in: most modules build their part of the scene as they load, and
-// several draw from the one seeded random stream (core.js), so moving a line here moves trees and sloths. A bare import
-// ("./forest.js") holds a module's place in that order when main.js needs no name from it.
+// four draw from the one seeded random stream (core.js) while they do: sky.js, forest.js, campProps.js and sloths.js, in that
+// order, and createDaylight() below draws last. So moving a line here moves trees and sloths. A bare import ("./forest.js")
+// holds a module's place in that order when main.js needs no name from it.
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { WARM_N } from "../fur.js";

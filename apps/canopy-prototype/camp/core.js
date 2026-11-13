@@ -41,7 +41,8 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 //   __op         operator.js              audio.js (his sounds); a debug hook as well
 //   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); jeepSeat.js reads __campFast, camp-replay.cjs sets it
 // tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.
-//   __ready, __scene, __stats (main.js)                 all three tools
+//   __ready, __scene (main.js)                          all three tools
+//   __stats (main.js)                                   camp-probe.cjs, camp-replay.cjs
 //   __camp, __jeep, __laundry (above), __ground (campLife.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
 //   __time, __boop, __feed, __stick (main.js), __sit (linger.js), __weather (weather.js)   camp-replay.cjs's tour
 // debug hooks for checks by hand in the browser console: __rest, __face, __slothS (main.js), __clocks (clock.js), __errand,
