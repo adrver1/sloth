@@ -5,7 +5,7 @@
 // his mumbled speech (a babble, one syllable a beat), sips, spoon clinks, page turns and snores; your own steps; the jeep's
 // doors; a soft tock on every menu button. Most of it is heard by watching the camp's state each frame (squish, munch,
 // yawn, wave, his clip), so the other modules need no sound calls.
-// Music: three generated stations (campfire guitar, kalimba, music-box lullaby), quiet under the nature sounds.
+// Music: four generated stations (Slow drift, the default: ambient tape loops; campfire guitar, kalimba, music-box lullaby), quiet under the nature sounds.
 // Nothing plays until the first tap or key (browsers block it before that). main.js calls audioStep(dt, dusk) every frame.
 // The radio prop drives it through `audio` (also window.__audio): start, volume, muted, music, musicVolume, station, next,
 // tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange.
@@ -19,8 +19,9 @@ import { weather } from "./weather.js";
 import { SOUP_POT } from "./campProps.js";
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.05 };   // the mix: music sits well under the camp
-const STATIONS = [{ id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
-const set = Object.assign({ volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "campfire" }, (() => { try { return JSON.parse(store.get("canopy-audio") || "{}"); } catch { return {}; } })());
+const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
+const set = Object.assign({ volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" }, (() => { try { return JSON.parse(store.get("canopy-audio") || "{}"); } catch { return {}; } })());
+if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
 if (qs.get("sound") === "0") set.muted = true;
 if (STATIONS.some((s) => s.id === qs.get("station"))) set.station = qs.get("station");
 const listeners = new Set();
@@ -224,9 +225,54 @@ function phrase(s) {
   }
   return out;
 }
+// Slow drift (Adriaen 2026-11-13: ambient, organic, evolving, generative, in the airport-ambient tradition): tape-loop style.
+// Seven voices, each one note on its own loop of 17..32 s; the lengths share no common beat, so the notes meet in ever new
+// clusters and the piece never repeats. Every few turns a voice moves to a neighbouring note, or changes from a soft
+// piano tone to a sung "ooh" pad and back, so it evolves slowly. A low drone swells under it now and then. All of it goes
+// through a long, dark reverb (a 6 s room made from decaying noise).
+const DRIFT_NOTES = [53, 56, 60, 61, 63, 65, 68, 72, 73, 75];   // F Ab C Db Eb, over two octaves: Db major, warm and open
+let reverbIn = null;
+function reverb() {
+  if (reverbIn) return reverbIn;
+  const sr = ac.sampleRate, n = Math.floor(sr * 6), b = ac.createBuffer(2, n, sr);
+  for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); let lp = 0; for (let i = 0; i < n; i++) { const k = i / n; lp += (Math.random() * 2 - 1 - lp) * (0.5 - 0.42 * k); d[i] = lp * Math.pow(1 - k, 2.2) * (i < sr * 0.03 ? i / (sr * 0.03) : 1); } }   // darker as it fades
+  const cv = ac.createConvolver(); cv.buffer = b; cv.connect(gain(bus.music, 0.9));
+  reverbIn = ac.createGain(); reverbIn.connect(cv); return reverbIn;
+}
+const AMB = {
+  piano(m, t, v, out) { const f = hz(m), g = gain(out, 0); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v * 0.16, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 7);
+    osc("sine", f, t, 7.1, g); const h = gain(g, 0.25); osc("sine", f * 2, t, 3, h); h.gain.setTargetAtTime(0, t, 0.6); const k = gain(g, 0.06); osc("triangle", f * 3.01, t, 1.2, k); k.gain.setTargetAtTime(0, t, 0.25); },
+  ooh(m, t, v, out) { const f = hz(m), g = gain(out, 0); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v * 0.07, t + 2.8); g.gain.setValueAtTime(v * 0.07, t + 4); g.gain.linearRampToValueAtTime(0.0001, t + 9);
+    const lp = filt("lowpass", f * 3, 0.7, g); for (const d of [-6, 0, 7]) { const o = osc(d ? "sine" : "triangle", f, t, 9.1, lp); o.detune.value = d; osc("sine", R(4, 5.5), t, 9.1, gain(o.detune, 4)); } },
+  drone(m, t, v, out) { const g = gain(out, 0); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v * 0.08, t + 8); g.gain.linearRampToValueAtTime(0.0001, t + 20);
+    const lp = filt("lowpass", 300, 0.5, g); for (const d of [-4, 4]) { const o = osc("sine", hz(m), t, 20.1, lp); o.detune.value = d; } osc("sine", hz(m + 7), t, 20.1, gain(lp, 0.4)); },
+};
+const drift = { voices: null, droneT: 0 };
+function driftTick() {
+  const now = ac.currentTime, rv = reverb();
+  if (!drift.voices) {
+    drift.dry = gain(bus.music, 0.55); drift.wet = gain(rv, 1);
+    const LOOPS = [17.3, 19.7, 21.1, 23.9, 25.7, 29.3, 31.7];
+    drift.voices = LOOPS.map((len, i) => ({ len, i: 1 + Math.floor(Math.random() * (DRIFT_NOTES.length - 2)), kind: i % 3 === 2 ? "ooh" : "piano", next: now + 0.5 + Math.random() * len * 0.6, turns: 0 }));
+    drift.droneT = now + 4;
+  }
+  for (const v of drift.voices) {
+    if (v.next > now + 0.35) continue;
+    if (v.next < now - 1) v.next = now + Math.random() * 2;   // after a pause
+    const send = (fn) => { const o = gain(drift.dry, 1); o.connect(drift.wet); fn(DRIFT_NOTES[v.i], v.next, R(0.75, 1), o); };
+    send(AMB[v.kind]);
+    if (++v.turns % 3 === 0 && Math.random() < 0.6) v.i = THREE.MathUtils.clamp(v.i + pick([-1, 1]), 0, DRIFT_NOTES.length - 1);   // drift to a neighbouring note
+    if (Math.random() < 0.08) v.kind = v.kind === "piano" ? "ooh" : "piano";
+    v.next += v.len;
+  }
+  if (drift.droneT < now + 0.35) { const o = gain(drift.dry, 1); o.connect(drift.wet); AMB.drone(pick([37, 41, 44]), Math.max(drift.droneT, now), 1, o); drift.droneT = Math.max(drift.droneT, now) + R(30, 55); }
+}
+
 const mus = { st: null, next: 0, bar: 0, ph: null, rep: 0, timer: 0 };
 function musicTick() {
   if (!ac || !set.music || set.muted || ac.state !== "running") return;
+  if (set.station === "drift") { mus.st = null; driftTick(); return; }
+  drift.voices = null;   // a fresh start next time it's tuned in
   const st = STYLE[set.station]; if (!st) return; st.id = set.station;
   if (mus.next < ac.currentTime) mus.next = ac.currentTime + 0.1;   // after a pause, carry on from now
   if (mus.st !== st) { mus.st = st; mus.bar = 0; mus.ph = phrase(st); mus.rep = 0; mus.next = Math.max(mus.next, ac.currentTime + 0.15); }
