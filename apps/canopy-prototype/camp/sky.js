@@ -69,10 +69,12 @@ back.wrapS = THREE.RepeatWrapping; back.repeat.x = 2;
 const sky = new THREE.Mesh(new THREE.CylinderGeometry(FAR, FAR, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
 sky.position.y = 10; scene.add(sky);
 // at night the backdrop's top melts into the night dome's rim colour, so there's no hard line where the two meet (Adriaen 2026-11-12)
-const uSkyDusk = { value: 0 }, uSkyRim = { value: new THREE.Color(0x0b1622) };
-sky.material.onBeforeCompile = (sh) => { sh.uniforms.uDusk = uSkyDusk; sh.uniforms.uRim = uSkyRim;
-  sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uDusk; uniform vec3 uRim;")
-    .replace("#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, uRim, uDusk * smoothstep(0.45, 0.96, vMapUv.y));\n#include <opaque_fragment>"); };
+// and away from plain day (dusk, dawn mist, golden hour, rain, night) it sinks into the scene's own fog colour by uSkyHaze, so
+// it sits behind the same haze as the near forest instead of staying day-green (Adriaen 2026-11-13). main.js sets the amount.
+const uSkyDusk = { value: 0 }, uSkyRim = { value: new THREE.Color(0x0b1622) }, uSkyHaze = { value: 0 }, uSkyFog = { value: scene.fog?.color ?? new THREE.Color() };
+sky.material.onBeforeCompile = (sh) => { sh.uniforms.uDusk = uSkyDusk; sh.uniforms.uRim = uSkyRim; sh.uniforms.uHaze = uSkyHaze; sh.uniforms.uFogC = uSkyFog;
+  sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uDusk; uniform float uHaze; uniform vec3 uRim; uniform vec3 uFogC;")
+    .replace("#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, uFogC, uHaze);\noutgoingLight = mix(outgoingLight, uRim, uDusk * smoothstep(0.45, 0.96, vMapUv.y));\n#include <opaque_fragment>"); };
 // the open sky over the clearing: a low dome capping the backdrop, painted with soft clouds and a fringe of leaves round its rim
 // (planar UVs, so the clouds don't pinch at the top); one draw, no fog, dimmed at dusk with the backdrop
 const ZENITH = { moss: ["#e8f1df", "#a6cdd6"], paint: ["#fdf0dc", "#a3d5ec"], low: ["#e6f8ff", "#7fcfff"] }[LOOK];
@@ -131,4 +133,4 @@ const ground = new THREE.Mesh(new THREE.CircleGeometry(FAR, 40), new THREE.MeshL
 ground.rotation.x = -Math.PI / 2; scene.add(ground);
 
 
-export { dome, ground, moon, nightDome, sky, uSkyDusk };   // ground: the old forest-floor disc, hidden once the one ground mesh (ground.js) is up
+export { dome, ground, moon, nightDome, sky, uSkyDusk, uSkyFog, uSkyHaze };   // ground: the old forest-floor disc, hidden once the one ground mesh (ground.js) is up
