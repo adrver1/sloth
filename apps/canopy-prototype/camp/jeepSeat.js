@@ -42,7 +42,7 @@ if (jeep) {
     : sloths.find((s) => { const p = s.o.getWorldPosition(V()), l = jeep.worldToLocal(p); return l.y > 0.4 && Math.abs(l.x - SIDES.passenger.seat.x) < 0.3 && Math.abs(l.z - SIDES.passenger.seat.z) < 0.4; });
 
   let cur = null;   // { side, phase: "walk" | "door" | "in" | "settle" | "sat" | "open" | "out", t, ... }
-  const seat = { pos: V(), yaw: 0, drop: 0, car: true, leave: () => stand() };
+  const seat = { pos: V(), yaw: 0, drop: 0, pitch: -0.3, car: true, leave: () => stand() };   // pitch: the gaze rests on the dash (linger.js), where the key, clock and radio are
   const ease = (k) => k * k * (3 - 2 * k);
   // the way round to the door: out to the side first, and round the front or the back if you start on the other side
   function route(from, s) {
