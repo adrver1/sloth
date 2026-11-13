@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { GAIN } from "../bakedlight.js";
 import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { pickAt, toast } from "./hud.js";
-import { V, canvasTex } from "./util.js";
+import { V, canvasTex, ease } from "./util.js";
 import { JEEP_AT, JEEP_OUT, JEEP_TAN } from "./layout.js";
 import { blockers } from "./campProps.js";
 
@@ -13,6 +13,7 @@ import { blockers } from "./campProps.js";
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
 // uses jeepApi (window.__jeep): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
 // cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
+// jeepSeat.js adds sitting in the front seats to the same object: sit(side), stand(), seatedIn(), seatBusy(side).
 // cabinLive.receive(object): that object takes the cabin light's shadow (campLife.js gives it the floor and the baked props).
 let jeepStep = () => {}, jeepTap = () => false, jeepApi = null, cabinLive = null;
 if (JEEP !== "none") {
@@ -75,8 +76,7 @@ if (JEEP !== "none") {
     for (const d of Object.values(doors)) {
       if (d.cur === d.want) continue;
       const step = dt * 1.8; d.cur += Math.max(-step, Math.min(step, d.want - d.cur));
-      const k = d.cur / d.open, e = k * k * (3 - 2 * k);                // ease in and out
-      d.o.rotation[d.axis] = d.open * e;
+      d.o.rotation[d.axis] = d.open * ease(d.cur / d.open);                // ease in and out
     }
     lightStep(dt);
     if (far) {
