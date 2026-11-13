@@ -13,7 +13,10 @@ const lanternGlow = [];   // where each lantern's light is (lanterns.js): the gr
 // and the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame and the hammock's
 // near post up to the big tree behind the fire
 const LANTERN_LAYOUT = lanternLayout(LANTERN_TIES);
-window.__camp = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at, string: LANTERN_LAYOUT.strings[0], strings: LANTERN_LAYOUT.strings };   // string(s): the lantern strings' points (a sloth hangs from one)
+// CAMP: the camp layout in the names sloths.js and operator.js know, built from layout.js's own vectors (the same objects, no
+// copies). sloths.js adds .sloths to it. (It also carried the lantern strings' points, which nothing read: review props-08.)
+const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
+window.__camp = CAMP;   // alias: sloths.js and operator.js read it (audio.js in the open PRs too), props/shadow/export_casters.cjs exports tent and hammock
 // blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking
 // (.walk, player.js): the fire ring stops you at its stones, and each log seat is a thin capsule along the log, so there is
 // a ring to walk round the fire between them (Adriaen 2026-11-13: the old circles walled the fire in)
@@ -114,13 +117,13 @@ if (LIVED) {
 }
 // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,
 // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, about 110 triangles).
-// The gap on the line at hang (window.__laundry) is kept free for a sloth to hang from. Shown with the lived-in props.
+// The gap on the line at hang (layout.js LAUNDRY.hang) is kept free for a sloth to hang from. Shown with the lived-in props.
 if (LIVED) {
   const LD = await PRE.laundry;
   LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
   const o = LD.scene; o.position.copy(LAUNDRY.mid); o.rotation.y = LAUNDRY.yaw; scene.add(o);
   blockers.push([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
-  window.__laundry = LAUNDRY;
+  window.__laundry = LAUNDRY;   // alias: sloths.js reads the line (layout.js LAUNDRY), only when it is shown
 }
 // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
 // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
@@ -176,4 +179,4 @@ const pools = (() => {
 })();
 
 export { SOUP_POT };   // back-compat: operator.js still imports the soup pot from here (its home is layout.js)
-export { FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight };
+export { CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, lanternGlow, LANTERNS, motes, pools, rayMat, uNight };

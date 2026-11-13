@@ -1,5 +1,6 @@
 // Canopy Camp jeep: the Expedition at the clearing edge, its doors, the live cabin light and its far LOD (props/jeep/).
 import * as THREE from "three";
+import { GAIN } from "../bakedlight.js";
 import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { pickAt, toast } from "./hud.js";
 import { V, canvasTex } from "./util.js";
@@ -7,12 +8,13 @@ import { JEEP_AT, JEEP_OUT, JEEP_TAN } from "./layout.js";
 import { blockers } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
-// between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge, its
+// between the hammock and the first big tree (JEEP_AT, with its track, in layout.js), along the edge, its
 // passenger side (local +X, the camper's ladder) toward the fire. Its three doors open and close when you tap them:
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
-// uses window.__jeep: open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
-// cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions.
-let jeepStep = () => {}, jeepTap = () => false;
+// uses jeepApi (window.__jeep): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
+// cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
+// cabinLive.receive(object): that object takes the cabin light's shadow (campLife.js gives it the floor and the baked props).
+let jeepStep = () => {}, jeepTap = () => false, jeepApi = null, cabinLive = null;
 if (JEEP !== "none") {
   const J = await PRE.jeep, at = JEEP_AT, out = JEEP_OUT, tan = JEEP_TAN;
   const jeep = J.scene;
@@ -56,7 +58,7 @@ if (JEEP !== "none") {
     cabSpot.castShadow = true; cabSpot.shadow.mapSize.set(512, 512); cabSpot.shadow.camera.near = 0.05; cabSpot.shadow.camera.far = 9; cabSpot.shadow.bias = -0.002;
     jeep.add(cabSpot, cabSpot.target);
     jeep.traverse((m) => { if (m.isMesh && !m.name.startsWith("Glass")) { m.castShadow = true; m.receiveShadow = true; } });
-    window.__cabinLive = { receive: (o) => o.traverse((m) => { if (m.isMesh) m.receiveShadow = true; }) };
+    cabinLive = { receive: (o) => o.traverse((m) => { if (m.isMesh) m.receiveShadow = true; }) };
   }
   let cab = 0, lastCab = -1;
   const lightStep = (dt) => {
@@ -64,8 +66,8 @@ if (JEEP !== "none") {
     cab += (cWant - cab) * Math.min(1, dt * 4);
     if (cabinL) { cabinL.material = cab > 0.02 ? cabOn : jm; cabOn.color.copy(OFF).lerp(CL, cab); }
     glow.material.opacity = 0.55 * cab; glow.visible = cab > 0.02;
-    if (window.__lights) { window.__lights.cabin = cabSpot ? 0 : cab;   // live: the spot light instead of the bake
-      for (const k of ["P", "D", "B"]) window.__lights.doors[k] = doors[k] ? doors[k].o.rotation[doors[k].axis] / doors[k].open : 0; }   // each door's spill (bakedlight.js), by its actual swing
+    GAIN.cabin = cabSpot ? 0 : cab;   // live: the spot light instead of the bake
+    for (const k of ["P", "D", "B"]) GAIN.doors[k] = doors[k] ? doors[k].o.rotation[doors[k].axis] / doors[k].open : 0;   // each door's spill (bakedlight.js), by its actual swing
     if (cabSpot) { cabSpot.intensity = 6 * cab;
       if (Object.values(doors).some((d) => d.cur !== d.want) || Math.abs(cab - lastCab) > 0.01) { renderer.shadowMap.needsUpdate = true; lastCab = cab; } }
   };
@@ -89,7 +91,7 @@ if (JEEP !== "none") {
     if (h.distance > 6) { toast("Get a bit closer"); return true; }
     const d = h.object.userData.door; d.want = d.want ? 0 : d.open; return true;
   };
-  window.__jeep = {
+  jeepApi = {
     node: jeep,
     doors: Object.entries(doors).map(([k, d]) => ({ k, o: d.o, toggle: () => (d.want = d.want ? 0 : d.open), get open() { return d.want !== 0; } })),   // for the highlight and its menu (input.js)
     open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
@@ -98,6 +100,7 @@ if (JEEP !== "none") {
     lights: { get cabin() { return cab; } },
     cargoSlots: [[-0.3, -0.75], [0.3, -0.75], [-0.3, -1.3], [0.3, -1.3]].map(([x, z]) => local(x, boot.y, z)),
   };
+  window.__jeep = jeepApi;   // alias: sloths.js and input.js read it (and the open PRs' car.js, jeepSeat.js)
 }
 
-export { jeepStep, jeepTap };
+export { cabinLive, jeepApi, jeepStep, jeepTap };

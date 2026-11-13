@@ -8,6 +8,7 @@ import { toast } from "./hud.js";
 import { FLOOR_OVERLAYS, RC, clearing, track, trackDist } from "./forest.js";
 import { FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, uNight } from "./campProps.js";
 import { CRATE, FAR, SOUP_POT, TABLE, TENT } from "./layout.js";
+import { cabinLive } from "./jeep.js";
 import { burst, sloths } from "./sloths.js";
 import { me } from "./player.js";
 import "./deadwood.js";
@@ -24,10 +25,10 @@ const groundLife = createGround({ baked: groundBake, height: groundHeight, far: 
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
 forestFloor.visible = false;   // one ground now: the clearing, the bowl's rim and the forest floor (camp/terrain.js)
 for (const m of FLOOR_OVERLAYS) groundLife.shadeOn(m.material);
-if (window.__cabinLive) {   // Cabin: live: the floor and every baked prop take the cabin light's shadow
-  window.__cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;
+if (cabinLive) {   // Cabin: live: the floor and every baked prop take the cabin light's shadow
+  cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;
 }
-window.__ground = groundLife;
+window.__ground = groundLife;   // tool contract: props/shadow/export_casters.cjs reads its layout for the bake
 // the walk-in tent (picked props; build_camp.py wall_tent, keep in step; layout.js TENT): walls stop you, the doorway lets
 // you in, the bed and the stove are in the way
 if (PROPS === "picked") {
@@ -49,13 +50,12 @@ if (PROPS === "picked") {
 }
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: SOUP_POT,
   chimneys: PROPS === "picked" ? [TENT.fromLocal(...TENT.chimney)] : [], sloths, roam: RC - 1.5 });   // the tent stove's pipe mouth (build_camp.py wall_tent: STOVE, pipe top Z0 + H + 0.62)
-window.__atmo = atmo;
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
 const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !== "undefined" ? WOODPILE : null, woodTex: typeof WOOD_TEX !== "undefined" ? WOOD_TEX : null, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
   pot: SOUP_POT, table: TABLE.at, crate: LIVED ? CRATE.at : null, blockers, sloths,
   addBlocker: (c, r) => blockers.push([c, r]),
   looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
     .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)) });
-window.__acts = acts;
+window.__acts = acts;   // alias: operator.js reads it (audio.js in the open PRs too)
 
 export { acts, atmo, groundLife };

@@ -5,7 +5,7 @@
 //   camp_lm_sun A / camp_ground_jeep G   the jeep's cabin light (B / R held the headlights, dropped 2026-11-12)
 // so the page colours them, flickers the fire and the stove on their own, switches the jeep's lights (the jeep code sets
 // GAIN.cabin and GAIN.doors, 0..1), dims or brightens any of them live, and adds the warm ones a little by day (they
-// show in the shade; the sun drowns them in the open). window.__lights is GAIN, to tune live.
+// show in the shade; the sun drowns them in the open).
 import * as THREE from "three";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 
@@ -81,4 +81,3 @@ export function stepLight(fl, t) {
   LIGHT.uLD.value.set(GAIN.doors.P, GAIN.doors.D, GAIN.doors.B);
   LIGHT.uLDay.value = GAIN.day;
 }
-window.__lights = GAIN;
