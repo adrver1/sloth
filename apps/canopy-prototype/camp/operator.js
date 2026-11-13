@@ -66,10 +66,12 @@ const spoon = (() => {   // a tin spoon: a flat handle (12 tris) and its bowl (6
   const g = new THREE.Group(), m = lam(0xc9c4b8), h = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.13, 0.004), m); h.position.y = 0.045;
   const b = new THREE.Mesh(new THREE.CircleGeometry(0.02, 6), m); b.material.side = THREE.DoubleSide; b.position.set(0, 0.125, 0.004); b.scale.set(0.8, 1.2, 1); g.add(h, b); return g;   // the head in the handle's plane, its hollow to +Z
 })();
-const mug = (() => {   // a tin mug, 8 sides, open top, bottom cap (22 tris), and a handle (2 tris)
-  const g = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.036, 0.09, 8, 1, true), lam(0xd8d2c4)); m.material.side = THREE.DoubleSide; m.position.y = 0.045;
+const mug = (() => {   // a tin mug, 8 sides, open top, bottom cap (22 tris), and a handle (24 tris)
+  const g = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.036, 0.09, 8, 1, true), lam(0x5f86ad));   // blue enamel, so it reads against his white shirt m.material.side = THREE.DoubleSide; m.position.y = 0.045;
   const bot = new THREE.Mesh(new THREE.CircleGeometry(0.036, 8), m.material); bot.rotation.x = Math.PI / 2; bot.position.y = 0.001;
-  const h = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.055), lam(0xbdb6a6)); h.material.side = THREE.DoubleSide; h.position.set(0.052, 0.05, 0); h.rotation.x = Math.PI / 2;
+  // the handle: a half ring on the +X side (24 tris; Adriaen 2026-11-13: he held the cup oddly, a flat tab gave his hand
+  // nothing to hold), seen up close as he sips
+  const h = new THREE.Mesh(new THREE.TorusGeometry(0.021, 0.005, 3, 4, Math.PI), lam(0x55799c)); h.rotation.z = -Math.PI / 2; h.position.set(0.039, 0.048, 0);
   g.add(m, bot, h); return g;
 })();
 const book = (() => {   // open book: two cover quads and two page quads (8 tris), spine along Y, pages facing +Z (the reader), halves cupped toward him
@@ -389,7 +391,10 @@ DO.join = function* () {
 // you (into your hands if they're free, else on the seat nearest you). A step you did first is skipped; if the pot is taken
 // over or you've emptied it he gives up quietly.
 const potSpot = () => fireGap(root.position).setLength(0.86);   // at the stones, inside the fire's walk-round circle
-function* toPot() { yield* walkTo(potSpot(), { near: 0.1 }); yield* face(yawTo(V(-root.position.x, 0, -root.position.z))); }
+function* toPot() {   // already there (between steps at the pot): stay put; a path from inside the fire's ring went out and back in (Adriaen: he walked in circles)
+  const at = potSpot(); if (Math.hypot(at.x - root.position.x, at.z - root.position.z) > 0.3) yield* walkTo(at, { near: 0.1 });
+  yield* face(yawTo(V(-root.position.x, 0, -root.position.z)));
+}
 DO.cook = function* () {
   const K = window.__acts?.cook; if (!K?.can()) return;
   op.cooking = true; cookCD = R(240, 420);
@@ -637,7 +642,19 @@ function opStep(dt) {
     spoon.position.copy(grip); { const z = UP.clone().addScaledVector(d, -UP.dot(d)).normalize(); spoon.quaternion.setFromRotationMatrix(mA.makeBasis(V().crossVectors(d, z), d, z)); }   // +Y along d, the hollow (+Z) up
     op.look = op.seated ? -0.28 * (1 - up) : 0;
   }
-  if (op.inHand) {                                     // the bowl or mug in his right hand: at the palm, upright, tipped toward him at the sip
+  if (op.inHand === mug) {                             // the mug: held by its handle (fingers through it, thumb on top), upright at
+    // his chest (lap when seated) with the handle to his right, lifted to his lips and tipped toward him as he sips (the sip
+    // clip's time sets how far); the mug is placed first, then his right hand goes to the handle
+    const a = acts.sip, st = cur === a ? a.time : 0, lift = THREE.MathUtils.smoothstep(st, 1.3, 1.75), tip = THREE.MathUtils.smoothstep(st, 1.45, 1.9);
+    const tilt = 0.85 * tip, q = mug.quaternion.copy(root.quaternion).multiply(qc.setFromAxisAngle(V(1, 0, 0), tilt));
+    const up = V(0, 1, 0).applyQuaternion(q), rest = op.seated ? cs(0.09, 0.93, -0.4) : cs(0.13, 1.08, -0.38);   // out in front, clear of his shirt
+    const lips = mouthAt(V()).addScaledVector(csDir(0, 0, -1), 0.01).addScaledVector(UP, -0.012).addScaledVector(up, -0.088);   // the rim at his lips
+    mug.position.lerpVectors(rest, lips, lift);
+    const mx = V(1, 0, 0).applyQuaternion(q), mz = V(0, 0, -1).applyQuaternion(q);   // handle side, his forward (in the mug's frame)
+    const grip = mug.position.clone().addScaledVector(up, 0.025).addScaledVector(mx, 0.08);
+    reach("R", grip.addScaledVector(mz, -0.05).addScaledVector(mx, 0.012), csDir(1, -0.9, 0.2), 1);
+    turnHand("R", handQuat("R", mz.clone().addScaledVector(mx, -0.35).normalize(), mx.clone().negate()));
+  } else if (op.inHand) {                              // the bowl in his right hand: at the palm, upright
     const h = B.handR, p = op.inHand, a = acts.sip, tip = cur === a ? Math.min(1, Math.max(0, (a.time - 1.45) / 0.35)) : 0;
     h.getWorldPosition(p.position).addScaledVector(V(0, 1, 0).applyQuaternion(h.getWorldQuaternion(tq)), 0.06).addScaledVector(UP, -0.05).addScaledVector(csDir(0, 0, -1), 0.02);
     p.quaternion.copy(root.quaternion).multiply(qc.setFromAxisAngle(V(1, 0, 0), tip * 1.0));
