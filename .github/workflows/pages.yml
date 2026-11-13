@@ -12,7 +12,6 @@ on:
     branches: [main]
     paths:
       - apps/canopy-prototype/**
-      - apps/karaoke/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -33,7 +32,7 @@ jobs:
       - name: Lay out the site
         run: |
           mkdir -p _site
-          cp -rL apps/canopy-prototype _site/canopy-prototype   # -L: canopy-prototype/karaoke is a link to apps/karaoke (the karaoke trip)
+          cp -r apps/canopy-prototype _site/canopy-prototype
           sha=$(git rev-parse --short HEAD)
           cat > _site/index.html <<HTML
           <!doctype html><meta charset="utf-8"><title>Canopy Camp</title>
