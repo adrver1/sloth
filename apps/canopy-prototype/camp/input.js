@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import "./campLife.js";   // run after the module before it, as one script did
 import { $, R, camera, qs, renderer, scene, uTime } from "./core.js";
-import { pickAt, ray, stickV, toast } from "./hud.js";
+import { keys, pickAt, ray, stickV, toast } from "./hud.js";
 import { V } from "./forest.js";
 import { COUNT, burst, flowerCrown, fx, hit, sloths, sprite } from "./sloths.js";
 import { me } from "./player.js";
@@ -16,6 +16,8 @@ stick.hidden = !coarse;
 document.body.classList.toggle("touch", coarse);   // the hint moves up above the stick
 if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
 function hideHelp() { setTimeout(() => ($("q").style.opacity = 0), 3000); }
+// the keys the player walks by (player.js reads them); the split into modules had dropped these listeners
+addEventListener("keydown", (e) => { keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
 function stickMove(e) {
   const r = stick.getBoundingClientRect(), v = new THREE.Vector2(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2).divideScalar(r.width / 2);
   if (v.length() > 1) v.normalize(); stickV.copy(v); stick.firstElementChild.style.transform = `translate(${v.x * 37}px, ${v.y * 37}px)`;
