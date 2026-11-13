@@ -1,0 +1,56 @@
+# Publishes Canopy Camp (apps/canopy-prototype) to GitHub Pages on every push to
+# the camp integration branch, the way desk-at-night's old pages.yml did for the
+# control room. The camp is plain static files (models and light maps are
+# committed, three.js loads from jsDelivr), so nothing is built: the folder is
+# copied as it is and a root index.html forwards to camp.html.
+# Site: https://adrver1.github.io/sloth/ (camp at canopy-prototype/camp.html)
+name: Deploy camp
+
+on:
+  push:
+    branches: [claude/project-thread-otpcew]
+    paths:
+      - apps/canopy-prototype/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4   # no submodules: the camp doesn't use engine/
+      - name: Lay out the site
+        run: |
+          mkdir -p _site
+          cp -r apps/canopy-prototype _site/canopy-prototype
+          sha=$(git rev-parse --short HEAD)
+          cat > _site/index.html <<HTML
+          <!doctype html><meta charset="utf-8"><title>Canopy Camp</title>
+          <link rel="icon" href="data:,">
+          <meta http-equiv="refresh" content="0; url=canopy-prototype/camp.html">
+          <!-- built from $sha -->
+          <a href="canopy-prototype/camp.html">Canopy Camp</a>
+          HTML
+          du -sh _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}canopy-prototype/camp.html
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

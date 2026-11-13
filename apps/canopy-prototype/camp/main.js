@@ -13,6 +13,7 @@ import { jeepStep } from "./jeep.js";
 import { SL, SLOTH_WARM, campStep, fx, slothLife, sloths } from "./sloths.js";
 import { collide, me, step } from "./player.js";
 import { acts, atmo, groundLife } from "./campLife.js";
+import { opStep } from "./operator.js";
 import { aimStep, boop, feed, resize } from "./input.js";
 import { weather } from "./weather.js";
 import { lingerStep } from "./linger.js";
@@ -82,6 +83,7 @@ renderer.setAnimationLoop(() => {
     if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
   }
   campStep(dt);
+  opStep(dt);
   jeepStep(dt);
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
