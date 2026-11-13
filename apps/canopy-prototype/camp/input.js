@@ -129,7 +129,7 @@ function closeMenu() { menuFor = null; menu.style.display = "none"; }
 function placeMenu() {
   const S = menuFor.at(to); to.y += S.radius * 0.8; to.project(camera);
   if (to.z > 1) { closeMenu(); return; }   // behind you
-  const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, 130, innerHeight - 40);
+  const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, Math.max(130, menu.offsetHeight + 60), innerHeight - 40);   // a tall menu (the clock's) stays on screen
   menu.style.left = x + "px"; menu.style.top = y + "px";
 }
 function tap(x, y) {
