@@ -17,7 +17,7 @@ import { A0, RC, V } from "./forest.js";
 import { SLOTH, SOUP_POT, blockers, uNight } from "./campProps.js";
 import { addTarget } from "./input.js";
 import { me } from "./player.js";
-import { sprite } from "./sloths.js";
+import { fx, sprite } from "./sloths.js";
 import { groundHeight } from "./terrain.js";
 
 const ON = qs.get("op") !== "0";
@@ -190,8 +190,13 @@ function* walkTo(to, { near = 0.12 } = {}) {
     }
     want.normalize();
     let speed = WALK * Math.min(1, dist / 0.4 + 0.35);
-    if (block) { speed = 0; waited += dt; if (waited > 2.5) want.add(V(-block[1], 0, block[0])).normalize(); } else waited = 0;   // someone in the way: wait, then step round
-    if (block && waited > 2.5) speed = WALK * 0.5;
+    // someone in the way: a short pause, then he steps round them and walks on past (Adriaen: he queued behind slow sloths,
+    // and they waited for him too, so a jam formed); he keeps to the side he started overtaking on
+    if (block) { waited += dt; if (waited < 0.6) speed = 0; else { op.pass = { side: op.pass?.side ?? 1, t: 1.6, d: block }; } } else waited = 0;
+    if (op.pass && waited >= 0.6 || op.pass?.t > 0 && !block) {   // overtaking: committed to the side step for 1.6 s, then back on his line
+      op.pass.t -= dt; want.addScaledVector(V(-op.pass.d[1], 0, op.pass.d[0]), 1.4 * op.pass.side * Math.min(1, op.pass.t + 0.4)).normalize(); speed = WALK * 0.8;
+      if (op.pass.t <= 0 && !block) op.pass = null;
+    }
     const turn = turnToward(yawTo(want), dt, 3.2); if (turn > 1.2) speed *= 0.3;
     const fwd = csDir(0, 0, -1).setY(0).normalize();
     const was = p.clone(); p.addScaledVector(fwd, speed * dt); p.y = groundAt(p.x, p.z);
@@ -397,9 +402,19 @@ function giveBack(at) {
   s.o.position.copy(p); s.o.rotation.set(0, R(0, 6.28), 0); s.cuddled = false;
   life().giveBack?.(s, p, s.o.rotation.y);
 }
+// a bit of open ground beside him to set the sloth on: in front if it's free, else a little round to either side, clear of the
+// log seats, the table, the fire and the rest (campProps blockers), never inside one (Adriaen: it was dropped through a bench)
+function clearSpot() {
+  for (const d of [0.55, 0.75, 0.95]) for (const a of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, 2.3, -2.3, Math.PI]) {
+    const p = root.localToWorld(V(Math.sin(a) * d, 0, -Math.cos(a) * d)); p.y = 0;
+    if (Math.hypot(p.x, p.z) > RC - 1) continue;
+    if (blockers.every(([c, r]) => Math.hypot(p.x - c.x, p.z - c.z) > r + 0.22)) return p;
+  }
+  return root.localToWorld(V(0.1, 0, -0.55));
+}
 function* putDown() {                                   // set it down in front of him, facing him, and let it go
-  if (!op.buddy || !op.carry) return; const c = op.carry, to = root.localToWorld(V(0.1, 0, -0.55)); to.y = groundAt(to.x, to.z);
-  play("idle", 0.6); c.from.copy(to); c.q0.setFromAxisAngle(UP, root.rotation.y + Math.PI);
+  if (!op.buddy || !op.carry) return; const c = op.carry, to = clearSpot(); to.y = groundAt(to.x, to.z);
+  play("idle", 0.6); c.from.copy(to); c.q0.setFromAxisAngle(UP, yawTo(root.position.clone().sub(to)) + Math.PI);   // facing him
   for (let t = 0; t < 0.8;) { t += yield; c.k = 1 - THREE.MathUtils.smoothstep(t, 0, 0.8); }
   op.carry = null; giveBack(to);
 }
@@ -579,6 +594,8 @@ const LINES = {   // spoken to his life partner, "bonita" (Adriaen, 2026-11-12)
   drink: ["Come sit with me, bonita. I made enough for two.", "A warm drink and you. Perfect evening."],
   warm: ["Come warm your hands with me, my love.", "The fire's nice, but you light up the whole camp."],
   play: ["Look at them, bonita! They get that smile from you.", "Want a turn? They love you almost as much as I do."],
+  thanks: ["Mm, the {food}! Thank you, bonita.", "You always know what I need, my love.", "Food tastes better from you, bonita.",
+    "Delicious. You spoil me, my love.", "Thank you, bonita. Come share it with me."],
   sleep: ["Mmm... love you too, bonita...", "Zz... you're doing fine, my love... zz", "Mm... come here... sleep well, bonita..."],
 };
 // the lines still to come are kept in the camp save (camp/save.js; Adriaen: a reload carries on where he left off); lines no longer in LINES drop out
@@ -597,16 +614,36 @@ bubble.style.cssText = "position:fixed;left:0;top:0;z-index:3;pointer-events:non
 const tail = document.createElement("i"); tail.style.cssText = "position:absolute;left:50%;bottom:-7px;width:14px;height:14px;margin-left:-7px;background:inherit;transform:rotate(45deg);border-radius:0 0 3px 0";
 const say = document.createElement("span"); bubble.append(say, tail); if (ON) document.body.append(bubble);
 const talkSt = { t: 0, smile: 0 };
-function talk() {
+function talk() { speak(line()); }
+// food you hand him (camp activities: a vegetable or a bowl of soup): it flies to his mouth, he munches, then thanks you
+const mouthAt = (out) => B.head.getWorldPosition(out).addScaledVector(csDir(0, 0, -1), 0.12).add(V(0, 0.025, 0));
+function gift() {
+  const f = window.__acts?.give?.(); if (!f) return;
+  // the modelled food (camp/food.js) flies from your hand to his mouth, stays at his lips and gets a bite smaller each
+  // munch (talkStep), then he thanks you
+  const s = f.make(); s.position.copy(f.from); scene.add(s);
+  const fly = { from: s.position.clone(), to: mouthAt(V()) }; talkSt.fly = fly;   // talkStep keeps "to" on his mouth as he moves
+  fx.push({ s, fly, t: 0, life: 0.9, done() {
+    talkSt.fly = null;
+    scene.add(s); talkSt.food = { m: s, t: 0 };
+    const a = acts.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.timeScale = 1.6; a.setEffectiveWeight(1); a.play(); talkSt.munch = 2.2; talkSt.smile = 4;   // munching
+    setTimeout(() => { a.timeScale = 1; if (!bag.thanks?.length) bag.thanks = [...LINES.thanks].sort(() => Math.random() - 0.5); speak(bag.thanks.pop().replace("{food}", f.name)); }, 2200);
+  } });
+}
+function speak(txt) {
   // its size is fixed when it appears: a fixed-position box shrinks to fit the room left of the screen edge, so as he moved
   // toward an edge the text re-wrapped (Adriaen: hard to read). Measure it free, then pin the width.
-  const txt = line(); say.textContent = txt; bubble.style.width = ""; bubble.style.left = "0px"; bubble.style.width = bubble.offsetWidth + 1 + "px"; talkSt.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); talkSt.smile = talkSt.t + 3;
+  say.textContent = txt; bubble.style.width = ""; bubble.style.left = "0px"; bubble.style.width = bubble.offsetWidth + 1 + "px"; talkSt.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); talkSt.smile = talkSt.t + 3;
   if (!op.sleeping) { const a = acts.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.setEffectiveWeight(1); a.play(); }
 }
 function talkStep(dt) {
   { const v = B.chest.getWorldPosition(V()).project(camera); op.scr = [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }   // checks (__op.tapAt)
   talkSt.t = Math.max(0, talkSt.t - dt); talkSt.smile = Math.max(0, talkSt.smile - dt);
-  if (talkSt.t <= 0 && acts.talk.isRunning()) acts.talk.fadeOut(0.3);
+  talkSt.munch = Math.max(0, (talkSt.munch || 0) - dt);
+  if (talkSt.fly) mouthAt(talkSt.fly.to);
+  if (talkSt.food) { const F = talkSt.food; F.t += dt; mouthAt(F.m.position); F.m.scale.copy(F.m.userData.base).multiplyScalar(Math.max(0.1, 1 - 0.24 * Math.floor(F.t / 0.5)));
+    if (F.t > 2.1) { scene.remove(F.m); talkSt.food = null; } }
+  if (talkSt.t <= 0 && !talkSt.munch && acts.talk.isRunning() && acts.talk.getEffectiveWeight() > 0.99) acts.talk.fadeOut(0.3);
   const on = talkSt.t > 0; bubble.style.opacity = on ? 1 : 0; bubble.style.transform = `translate(-50%,-100%) scale(${on ? 1 : 0.85})`;
   if (!on && bubble.style.opacity === "0") return;
   const v = B.head.getWorldPosition(V()).add(V(0, 0.34, 0)).project(camera);
@@ -619,7 +656,7 @@ const tapCol = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.75, 6), n
 if (ON) {
   scene.add(tapCol); const sph = new THREE.Sphere();
   addTarget(tapCol, () => ({ look: null, quiet: true, picks: [tapCol], at: (v) => { v.copy(tapCol.position); sph.center.copy(v); sph.radius = 0.6; return sph; },
-    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => [[op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]] }));
+    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => { const f = !op.sleeping && window.__acts?.food?.(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, gift]] : []), [op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]]; } }));
 }
 
 // start: standing by the woodpile side of the fire, looking at it
@@ -629,10 +666,10 @@ if (ON) {
   window.__op = { root, op, acts, mixer, go: (k) => { op.next = k; },
     dbg: () => ({ inHand: op.inHand && [op.inHand === bowl ? 'bowl' : 'mug', op.inHand.visible, op.inHand.position.toArray().map((v) => +v.toFixed(2)), !!op.inHand.parent], w: Object.entries(acts).filter(([, a]) => a.isRunning()).map(([n, a]) => n + ':' + a.getEffectiveWeight().toFixed(2) + '@' + a.time.toFixed(2)) }),
     state: () => ({ kind: op.kind, at: root.position.toArray().map((v) => +v.toFixed(2)), place: op.place, seated: op.seated, lying: op.lying, sleeping: op.sleeping, buddy: op.buddy?.name ?? null, clip: cur?.getClip().name }),
-    talk, tapCol, line: () => say.textContent, tapAt: () => op.scr,
+    talk, gift, tapCol, clearSpot, line: () => say.textContent, tapAt: () => op.scr,
     sim: (sec) => { for (let t = 0; t < sec; t += 0.05) opStep(0.05); return window.__op.state(); },   // run his life ahead (checks)
     tris: () => { let n = 0; root.traverse((m) => { if (m.isMesh) n += m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3; }); return n; },
-    jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); Object.assign(op, { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null }); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0);
+    jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); Object.assign(op, { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null, pass: null }); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0);
       it = (function* () { op.kind = k; yield* DO[k](); op.kind = "idle"; yield* lifeLoop(); })(); it.next(); } };
 }
 
