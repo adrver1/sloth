@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";
 import { canvasTex, lcg, patchMaterial, rand, sstep, tris } from "./camp/util.js";
+import { SUN } from "./camp/layout.js";
 // the contact shadow on whatever sits on the floor: a dark brown laid over it by the shadow map, faded at night (the night
 // bake holds the night's shadows); xz is the point's world x, z
 const SHADE = (xz) => `outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), texture2D(uShadeT, ${xz} / (2.0 * uR) + 0.5).r * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight) * step(length(${xz}), uR));`;   // the camp's baked lights, one channel each
@@ -68,7 +69,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   // ---------------------------------------------------------------- shadows (Adriaen 2026-11-12): the page has no shadow maps, so castShadows(renderer)
   // renders every standing prop once from the sun into a texture, softened, and the ground and plants read it. Two passes kept with a max blend:
   // the sun's direction, and straight down for a fainter contact darkening under each thing. Nothing per frame; call it again when props are added.
-  const SUN = new THREE.Vector3(-4, 10, 3), SM = 1024;
+  const SM = 1024;   // the sun: layout.js SUN, as core.js lights the scene
   const rtOpt = { type: THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, depthBuffer: false };
   const silRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt), tmpRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt), outRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt);
   const shade = outRT.texture;

@@ -3,6 +3,7 @@ import * as THREE from "three";
 import "./hud.js";   // run after the module before it, as one script did
 import { LOOK, R, S, hex, scene } from "./core.js";
 import { canvasTex, lcg } from "./util.js";
+import { FAR } from "./layout.js";
 
 // ---------------------------------------------------------------- backdrop: painted forest layers in the mist (no geometry behind them)
 // Four layers, far to near, each fading into the mist: tall rainforest trees with buttress roots, forked branches and
@@ -64,7 +65,7 @@ const back = canvasTex(2048, 512, (g, w, h) => {
   }
 });
 back.wrapS = THREE.RepeatWrapping; back.repeat.x = 2;
-const sky = new THREE.Mesh(new THREE.CylinderGeometry(30, 30, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
+const sky = new THREE.Mesh(new THREE.CylinderGeometry(FAR, FAR, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
 sky.position.y = 10; scene.add(sky);
 // at night the backdrop's top melts into the night dome's rim colour, so there's no hard line where the two meet (Adriaen 2026-11-12)
 const uSkyDusk = { value: 0 }, uSkyRim = { value: new THREE.Color(0x0b1622) };
@@ -89,8 +90,8 @@ const domeTex = canvasTex(1024, 1024, (g, w, h) => {
     }
   }
 });
-const domeGeo = new THREE.SphereGeometry(30, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
-{ const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / 60, 0.5 - p.getZ(i) / 60); }
+const domeGeo = new THREE.SphereGeometry(FAR, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
+{ const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / (2 * FAR), 0.5 - p.getZ(i) / (2 * FAR)); }
 const dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
 dome.position.y = 27; scene.add(dome);
 // the night sky (camp review B1, Adriaen 2026-11-12): a second dome, deep blue to near black at the rim, with stars and a few faint
@@ -125,7 +126,7 @@ const gTex = canvasTex(256, 256, (g, w, h) => {
   for (let i = 0; i < (LOOK === "low" ? 0 : 900); i++) { g.fillStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.15, 0.5); g.beginPath(); g.ellipse(R(0, w), R(0, h), R(2, 8), R(1, 3), R(0, 3), 0, 7); g.fill(); }
 });
 gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping; gTex.repeat.set(10, 10);
-const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 40), new THREE.MeshLambertMaterial({ map: gTex }));
+const ground = new THREE.Mesh(new THREE.CircleGeometry(FAR, 40), new THREE.MeshLambertMaterial({ map: gTex }));
 ground.rotation.x = -Math.PI / 2; scene.add(ground);
 
 

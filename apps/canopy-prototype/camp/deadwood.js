@@ -5,7 +5,8 @@
 import * as THREE from "three";
 import { S, scene } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
-import { HERO, JEEP_AT, RC, trackDist } from "./forest.js";
+import { HERO, JEEP_AT, RC } from "./layout.js";
+import { trackDist } from "./forest.js";
 import { blockers } from "./campProps.js";
 import { groundHeight } from "./terrain.js";
 

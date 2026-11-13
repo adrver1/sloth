@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { $, D, camera, qs, scene, store } from "./core.js";
 import { rand } from "./util.js";
+import { TENT } from "./layout.js";
 
 const MODES = ["clear", "rain", "changing"], NAME = { clear: "Clear ☀️", rain: "Rain 🌧️", changing: "Changing 🌦️" };
 let mode = MODES.includes(qs.get("weather")) ? qs.get("weather") : MODES.includes(store.get("canopy-weather")) ? store.get("canopy-weather") : "clear";
@@ -21,12 +22,8 @@ const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.B
 const mat = new THREE.LineBasicMaterial({ color: 0xc8d6e0, transparent: true, opacity: 0, depthWrite: false });
 const rain = new THREE.LineSegments(geo, mat); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
 
-// dry under the tent: its roof and planks (the tent's own frame, as campLife.js tentLocal)
-function dry(x, z, y) {
-  const t = window.__camp?.tentAt; if (!t || y > 3.4) return false;
-  const L = t.length(), fx = -t.x / L, fz = -t.z / L, dx = x - t.x, dz = z - t.z, a = dx * fx + dz * fz, b = dx * fz - dz * fx;
-  return a > -1.9 && a < 2.2 && Math.abs(b) < 2.0;
-}
+// dry under the tent: its roof and planks (layout.js TENT.dry, in the tent's own frame), below 3.4 m
+const dry = (x, z, y) => y <= 3.4 && TENT.dry(x, z);
 
 const weather = { wet: 0, mode: () => mode };
 let showerT = rand(90, 180), raining = mode === "rain";   // Changing: dry spells of 1.5..3 min, showers of 1..1.5 min

@@ -1,10 +1,11 @@
-// Canopy Camp forest: bark with baked AO and moss, the layout (clearing, sloth path and glade, the jeep's track), the clearing floor,
+// Canopy Camp forest: bark with baked AO and moss, the clearing floor with the path and track ribbons (the layout itself is layout.js),
 // the two big mossy trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants.
 import * as THREE from "three";
-import { addMound, groundHeight, initTerrain } from "./terrain.js";
+import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
 import { D, JEEP, LOOK, R, S, hex, leafMat, qs, rnd, scene, setSeed } from "./core.js";
-import { V, canvasTex, lcg, lineDist, polyDist, rand, sstep } from "./util.js";
+import { V, canvasTex, lcg, polyDist, rand, sstep } from "./util.js";
+import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_HALF, PATH_W, RC, TRACK_HALF, d0, pathDist, pathLane, sloPath, t0 } from "./layout.js";
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
@@ -34,38 +35,15 @@ function merge(geos) {                               // position, normal, colour
   return m;
 }
 
-// ================================================================ layout
+// ================================================================ layout (camp/layout.js)
 // a round clearing (radius RC) with the camp in it; two big mossy trees at its edge lean their low branches over it,
 // and that is where the sloths hang. Everything past the edge is the forest wall: instanced trunks, leaves and mist.
-const RC = 9;
+// The forest restarts the seeded stream here, so it grows the same whatever drew from it before.
 setSeed(3000 + Number(qs.get("seed") || 7));
-const A0 = -0.75, d0 = V(Math.cos(A0), 0, Math.sin(A0)), t0 = V(-d0.z, 0, d0.x);
-// the sloth tree's path (Adriaen 2026-11-11): the second big tree no longer stands behind the tent. A footpath leaves the
-// clearing between the tent and the laundry line and winds about 6 m into the forest to a small glade, where that tree
-// stands with its sloths. pathDist() clears trunks and ferns off the path and the glade like trackDist() does for the jeep.
-const PATH_A = 1.45, GLADE_R = 4.2, GLADE = V(Math.cos(PATH_A + 0.22), 0, Math.sin(PATH_A + 0.22)).multiplyScalar(RC + 9.5), PATH_W = 0.6;
-const sloPath = (() => {
-  const P = (a, r) => V(Math.cos(a) * r, 0, Math.sin(a) * r);
-  const curve = new THREE.CatmullRomCurve3([P(PATH_A, RC - 2), P(PATH_A, RC + 0.5), P(PATH_A - 0.1, RC + 2.5), P(PATH_A + 0.06, RC + 4.3), GLADE.clone().setLength(RC + 5.2), GLADE.clone().setLength(RC + 6.5)]);
-  return { curve, pts: curve.getSpacedPoints(48) };
-})();
-const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
-const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
-const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
-initTerrain({ RC, pathDist, jeepDist, hero: HERO });   // the bowl rim, the hummocks and the mounds (terrain.js); level where people walk
-// the jeep's track: the jeep is parked at JEEP_AT along the clearing edge (facing JEEP_TAN) and came in on a muddy track
-// cut through the forest wall behind it. trackDist() thins trunks, leaves and ferns off the track (scaled to zero, so the
-// seeded layout of everything else stays the same).
-const JEEP_AT = V(-2.2, 0, -6.4), JEEP_OUT = JEEP_AT.clone().normalize();
-const JEEP_TAN = (() => { const t = V(-JEEP_OUT.z, 0, JEEP_OUT.x); return V(t.z, 0, -t.x).dot(JEEP_OUT) > 0 ? t.negate() : t; })();   // its right side faces the fire
-const track = JEEP === "none" ? null : (() => {
-  const P = (b, o) => JEEP_AT.clone().addScaledVector(JEEP_TAN, b).addScaledVector(JEEP_OUT, o);
-  const curve = new THREE.CatmullRomCurve3([P(1.2, 0), P(-1.5, 0), P(-3.6, 0.5), P(-4.9, 2.4), P(-5.6, 5.5), P(-5.4, 10), P(-4.2, 16), P(-3, 24)]);
-  const pts = curve.getSpacedPoints(90);
-  return { curve, pts };
-})();
+// the jeep's track (layout.js JEEP_TRACK), unless ?jeep=none. trackDist() thins trunks, leaves and ferns off the track, the
+// path and the glade (scaled to zero, so the seeded layout of everything else stays the same).
+const track = JEEP === "none" ? null : JEEP_TRACK;
 function trackDist(x, z) { return Math.min(jeepDist(x, z), pathDist(x, z)); }   // anything kept open: the jeep's track, the path, the glade
-function jeepDist(x, z) { return track ? lineDist(track.pts, x, z) : 1e9; }
 
 // ---------------------------------------------------------------- clearing floor
 const FLOOR_OVERLAYS = [];   // the path and track ribbons drawn on the floor: they take the ground's contact shadow (groundLife.shadeOn)
@@ -96,7 +74,7 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
   for (let i = 0; i <= n; i++) {
     const t = i / n, p = sloPath.curve.getPointAt(t), d = sloPath.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
     const a = sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 1.2, L, t * L));   // takes over from the baked ground's path at the clearing edge, fades out into the glade
-    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * 0.75); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
+    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * PATH_HALF); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
     if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
@@ -142,7 +120,7 @@ if (track) {
     }
   });
   // the dirt fades out as the track meets the clearing; the ruts run on to the jeep's front wheels
-  ribbon(2.7, 0.022, dirt, (p) => sstep(RC - 3, RC + 0.5, Math.hypot(p.x, p.z)), 3.2, 1);
+  ribbon(2 * TRACK_HALF, 0.022, dirt, (p) => sstep(RC - 3, RC + 0.5, Math.hypot(p.x, p.z)), 3.2, 1);
   ribbon(1.62, 0.028, ruts, (p, l) => sstep(0, 0.6, l) * (0.7 + 0.25 * sstep(RC - 4, RC, Math.hypot(p.x, p.z))), 1.6, 2);
 }
 
@@ -352,5 +330,6 @@ if (track) {
 }
 
 
-export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, branchCurves, clearing, d0, sloPath, t0, track, trackDist };
-export { V, polyDist };   // back-compat: input.js, main.js, operator.js, player.js and sloths.js still import these from here (util.js is their home)
+export { FLOOR_OVERLAYS, branchCurves, clearing, track, trackDist };
+// back-compat: input.js, main.js, operator.js, player.js and sloths.js still import these from here (their home is layout.js, and util.js for V and polyDist)
+export { A0, GLADE, GLADE_R, HERO, PATH_W, RC, V, d0, polyDist, sloPath, t0 };

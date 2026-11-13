@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
 import { canvasTex, sstep } from "./util.js";
+import { SUN } from "./layout.js";
 
 const qs = new URLSearchParams(location.search);
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
@@ -84,7 +85,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(S.fog[0], S.fog[1]);
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 60);
 scene.add(new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
-const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.set(-4, 10, 3); scene.add(sun);
+const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
 const uTime = { value: 0 };
 const leafMat = (opts, sway) => {

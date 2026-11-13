@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { pickAt, toast } from "./hud.js";
 import { V, canvasTex } from "./util.js";
-import { JEEP_AT, JEEP_OUT, JEEP_TAN } from "./forest.js";
+import { JEEP_AT, JEEP_OUT, JEEP_TAN } from "./layout.js";
 import { blockers } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
