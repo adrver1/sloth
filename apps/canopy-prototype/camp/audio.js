@@ -18,7 +18,7 @@ import { me } from "./player.js";
 import { weather } from "./weather.js";
 import { SOUP_POT } from "./campProps.js";
 
-const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.05 };   // the mix: music sits well under the camp
+const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.2 };   // the mix: music sits well under the camp
 const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
 const set = Object.assign({ volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" }, (() => { try { return JSON.parse(store.get("canopy-audio") || "{}"); } catch { return {}; } })());
 if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
@@ -288,7 +288,7 @@ let musicObj = null, musicPan = null;
 function routeMusic() {
   if (!ac) return; bus.music.disconnect();
   if (musicObj && !musicPan) {
-    musicPan = ac.createPanner(); musicPan.panningModel = "equalpower"; musicPan.distanceModel = "inverse"; musicPan.refDistance = 2.2; musicPan.rolloffFactor = 1;
+    musicPan = ac.createPanner(); musicPan.panningModel = "equalpower"; musicPan.distanceModel = "inverse"; musicPan.refDistance = 3; musicPan.rolloffFactor = 0.5;   // fills the camp, a little louder near the radio
     musicPan.connect(bus.musicOut); musicPan.inp = filt("highpass", 160, 0.7, filt("lowpass", 6000, 0.6, musicPan));
   }
   bus.music.connect(musicObj ? musicPan.inp : bus.musicOut);
