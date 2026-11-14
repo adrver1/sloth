@@ -1,5 +1,5 @@
 {
- "as_of": "section C round 4, 2026-11-14",
+ "as_of": "section C round 5, 2026-11-14",
  "statuses": [
   "fixed",
   "partly fixed",
@@ -25,13 +25,19 @@
    "note": ""
   },
   "boot-03": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "16996b7",
     "ae20b20",
-    "30a3173"
+    "30a3173",
+    "5622685",
+    "c5f8db8",
+    "d0d345c",
+    "56bc3b7",
+    "83de465",
+    "7c2a9d4"
    ],
-   "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
+   "note": "every order-only import is gone (input.js in five modules, save.js, fur.js, hud.js, sky.js, sloths.js); main.js holds the build order as calls, and each system has its own random stream (92f6efe), so the order no longer moves the layout"
   },
   "boot-04": {
    "status": "fixed",
@@ -45,9 +51,10 @@
     "70dcb0c",
     "7f62b80",
     "42d0be8",
-    "9bbca24"
+    "9bbca24",
+    "d0d345c"
    ],
-   "note": "every module imports what it uses: input.js, jeepSeat.js and operator.js take campLife from sloth/hooks.js (operator/state.js is handed it, since it is evaluated before the sloths), main.js hands audio.js the chores and the operator (hearCamp), and core.js pace replaces __campFast inside the page; every window.__ name is set in camp/debug.js"
+   "note": "every module imports what it uses: input.js, jeepSeat.js and operator.js take campLife from sloth/hooks.js (operator/state.js is handed it, since it is evaluated before the sloths), audio.js imports the chores and the operator (d0d345c; it was handed them by hearCamp), and core.js pace replaces __campFast inside the page; every window.__ name is set in camp/debug.js"
   },
   "boot-06": {
    "status": "fixed",
@@ -55,9 +62,10 @@
     "4b4c73f",
     "7bece27",
     "0092c59",
-    "8964b12"
+    "8964b12",
+    "8865ca2"
    ],
-   "note": "every piece of per-frame work is a step function in its owner, and main.js calls them in one order; the one-frame dusk lag is kept on purpose, since moving it changes behaviour"
+   "note": "every piece of per-frame work is a step function in its owner, and main.js calls them in one order; the day, the weather and setLight now run first, so the fire, uNight, the sloths' glow, the pools and the lanterns use this frame's dusk (duskLast is gone)"
   },
   "boot-12": {
    "status": "fixed",
@@ -149,13 +157,19 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "crosscut-06": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "16996b7",
     "ae20b20",
-    "30a3173"
+    "30a3173",
+    "5622685",
+    "c5f8db8",
+    "d0d345c",
+    "56bc3b7",
+    "83de465",
+    "7c2a9d4"
    ],
-   "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
+   "note": "no camp module has a bare import left: the build order is main.js's list of build calls, so the chain and its cycle are gone"
   },
   "crosscut-07": {
    "status": "fixed",
@@ -173,9 +187,11 @@
    "note": "the last of them gone too: sloths.js COUNT and flowerCrown, player.js's collide export, core.js's canvasTex import, and the imports main.js and car.js no longer used, and forest.js's A0 and sloth/step.js's scene"
   },
   "crosscut-08": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "removed in the efficiency clean-up (Adriaen 2026-11-14: byte-for-byte sameness no longer required): the fire's three hidden glow sprites (campProps.js fireStep, chores.js boostFire) and daylight.js's hidden firefly cloud. A section D item: restore from 83de465's parent if they are wanted back"
   },
   "crosscut-09": {
    "status": "partly fixed",
@@ -212,14 +228,20 @@
    "note": ""
   },
   "crosscut-14": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "4b4c73f",
     "7bece27",
     "0092c59",
-    "8964b12"
+    "8964b12",
+    "5622685",
+    "c5f8db8",
+    "d0d345c",
+    "56bc3b7",
+    "83de465",
+    "7c2a9d4"
    ],
-   "note": "main.js's inline blocks are all step functions of their owners now, and its import list is the stated build order; init(ctx) per module, a frame registry and the core.js split remain"
+   "note": "no camp module builds anything when it is imported: each exports a build function (buildSky, buildForest, buildProps, buildJeep, buildSloths, buildDeadwood, buildGlade, buildGround, buildOperator, initInput, buildClocks, buildRadio...), and main.js calls them in one commented list; the per-frame work was already in step functions. A frame registry and a core.js split were not needed for this and are not done"
   },
   "crosscut-15": {
    "status": "partly fixed",
@@ -445,13 +467,14 @@
    "note": "shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs"
   },
   "operator-07": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "16996b7",
     "a6ef95e",
-    "bedef9b"
+    "bedef9b",
+    "83de465"
    ],
-   "note": "the blockers option, the fallbacks and the optional-call guards are gone; the old flame sprites are still scaled each frame (camp/chores.js boostFire), because campProps.js still moves them, hidden: they go with campProps.js's own clean-up"
+   "note": "the blockers option, the fallbacks and the optional-call guards are gone (16996b7, a6ef95e, bedef9b), and the old flame sprites with them (83de465): chores.js boostFire scales only the flame cards"
   },
   "operator-09": {
    "status": "partly fixed",
@@ -502,9 +525,11 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "props-03": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "removed in the efficiency clean-up (Adriaen 2026-11-14: byte-for-byte sameness no longer required): the fire's three hidden glow sprites (campProps.js fireStep, chores.js boostFire) and daylight.js's hidden firefly cloud. A section D item: restore from 83de465's parent if they are wanted back"
   },
   "props-06": {
    "status": "fixed",
@@ -667,9 +692,11 @@
    "note": ""
   },
   "world-10": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "the hidden firefly cloud is gone from daylight.js (atmosphere.js draws the blinking fireflies); a section D item, removed in the efficiency clean-up"
   },
   "world-11": {
    "status": "fixed",
@@ -787,11 +814,12 @@
    "note": "campLife.js's and operator.js's headers and comments rewritten with the splits"
   },
   "operator-15": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
-    "a6d52a9"
+    "a6d52a9",
+    "d0d345c"
    ],
-   "note": "the five jobs are campGround.js, tentInside.js, campAir.js and chores.js; campLife.js only holds their order. It keeps its name (main.js imports it): rename it with main.js's next change"
+   "note": "campLife.js is gone: main.js calls buildGround, buildTentInside, buildAtmosphere and buildChores in its build list, and groundLife, atmo and acts are exported by campGround.js, campAir.js and chores.js"
   },
   "operator-13": {
    "status": "fixed",
@@ -877,6 +905,48 @@
     "8230fe9"
    ],
    "note": "covered by hygiene-04: the README table has a row for apps/canopy-prototype"
+  },
+  "world-13": {
+   "status": "fixed",
+   "commits": [
+    "92f6efe"
+   ],
+   "note": "core.js rng(name): each system has its own stream, seeded from ?seed and its name, so the layout no longer depends on module order, on what another system drew or on the detail level of another system; texture noise uses Math.random or a fixed lcg"
+  },
+  "props-10": {
+   "status": "fixed",
+   "commits": [
+    "92f6efe"
+   ],
+   "note": "the shafts and motes draw from their own stream (rng(\"props\")), so the detail level no longer moves anything else"
+  },
+  "sloths-35": {
+   "status": "partly fixed",
+   "commits": [
+    "92f6efe"
+   ],
+   "note": "the sloths' timers no longer share a stream with the forest, the props or the operator (rng(\"sloths\")); within the sloths, placing the wild sloths and the timers still share one stream, which only matters if the placement draws change"
+  },
+  "world-09": {
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "both discs are gone: sky.js exports forestFloorTex and forest.js grassTex, and createGround takes grassMap instead of the clearing mesh"
+  },
+  "boot-21": {
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "the hidden 120-point firefly cloud is no longer built or updated (daylight.js)"
+  },
+  "props-09": {
+   "status": "partly fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "campProps.js has no block-scoped var exports left: everything buildProps makes is a module-level let set when it runs; the sloth model (SLOTH) and the night uniform (uNight) still live in campProps.js"
   }
  }
 }
