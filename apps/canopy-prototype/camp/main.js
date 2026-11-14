@@ -84,19 +84,18 @@ renderer.setAnimationLoop(() => {
   opStep(dt);
   jeepStep(dt); carStep(dt);
   fxStep(dt);                                              // fx.js: the words and hearts in the air
-  // from here to the lanterns the light is one frame behind: these use last frame's dusk, and the hour only moves on further
-  // down, at setLight (review boot-06 noted the lag; it is kept exactly as it was, so that nothing changes)
-  const duskLast = light.dusk;
-  const fl = fireStep(duskLast);                           // campProps.js: the fire's flicker
-  acts.update(dt, uTime.value); aimStep(dt);
-  uNight.value = duskLast; stepLight(fl, uTime.value);     // the baked night light: how far it is faded in, and its flicker (bakedlight.js)
-  warmStep(lanternGlow, fl, duskLast);                     // sloths.js: the sloths' night glow, from the lanterns and the fire
-  poolsStep(duskLast, fl, groundLife.isNightBaked());
-  LANTERNS.update(uTime.value, duskLast);
+  // this frame's light first, so the fire, the baked night light, the sloths' glow, the pools and the lanterns all use it
+  // (review boot-06: they used to read last frame's dusk)
   const hour = dayStep(dt);                                // daytime.js: the day cycle, and the hour shown easing to the hour set
   weather.step(dt);
   const wet = weather.wet;
   setLight(hour, wet); const dusk = light.dusk;            // daylight.js: this frame's dusk, golden hour and mist
+  const fl = fireStep(dusk);                               // campProps.js: the fire's flicker
+  acts.update(dt, uTime.value); aimStep(dt);               // the chores (after fireStep: a log on the fire boosts its light) and what lights up
+  uNight.value = dusk; stepLight(fl, uTime.value);         // the baked night light: how far it is faded in, and its flicker (bakedlight.js)
+  warmStep(lanternGlow, fl, dusk);                         // sloths.js: the sloths' night glow, from the lanterns and the fire
+  poolsStep(dusk, fl, groundLife.isNightBaked());
+  LANTERNS.update(uTime.value, dusk);
   clockStep(dt, dusk);
   daylightStep(dt, wet);                                   // the mist banks and the palette
   motesStep(dt);
