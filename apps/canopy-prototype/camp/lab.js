@@ -14,7 +14,7 @@ import { labApi } from "./sloth/hooks.js";
 import { opApi } from "./operator.js";
 import { setLabStep } from "./labButton.js";
 
-const L = labApi, cs = L.camp;   // (with ?campsloths=0 there are no camp sloths and no lab: this line throws, as it always has)
+const L = labApi, cs = L.camp;   // (with ?campsloths=0 there are no camp sloths, and labButton.js opens no lab)
 const css = document.createElement("style");
 css.textContent = `
 #lab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(96px + env(safe-area-inset-top, 0px)); width: min(300px, calc(100vw - 32px));

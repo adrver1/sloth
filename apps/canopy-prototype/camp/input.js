@@ -54,8 +54,9 @@ function feed(s, emoji = "🌺") {
 }
 
 // giving it what you carry (a vegetable, a fruit or a bowl of soup): the modelled food (camp/food.js) leaves your hand and
-// the sloth eats it, with its eat clip when it is sitting up (camp/sloths.js life.eatGift)
-function give(s) { const f = acts.give(); if (!f) return; const L = slothLife; if (L) { told("feed", s); L.eatGift(s, f.make(), f.from); } else feed(s, f.emoji); }
+// a camp sloth eats it, with its eat clip when it is sitting up (sloth/hooks.js slothLife.eatGift); a wild sloth, which has
+// no day for the eating to pause, gets it the way it gets a flower (it threw on a wild sloth: play-test 2026-11-14)
+function give(s) { const f = acts.give(); if (!f) return; if (slothLife && !s.wild) { told("feed", s); slothLife.eatGift(s, f.make(), f.from); } else feed(s, f.emoji); }
 
 // ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
 // With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,
@@ -124,7 +125,7 @@ function initInput() {
   if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
   // the keys the player walks by (player.js reads them); the split into modules had dropped these listeners
   addEventListener("keydown", (e) => { keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
-  stick.addEventListener("pointerdown", (e) => { e.stopPropagation(); stickId = e.pointerId; stick.setPointerCapture(e.pointerId); stickMove(e); hideHelp(); });
+  stick.addEventListener("pointerdown", (e) => { e.stopPropagation(); stickId = e.pointerId; try { stick.setPointerCapture(e.pointerId); } catch {} /* a pointer that is no longer down (or a made-up one) cannot be captured */ stickMove(e); hideHelp(); });
   stick.addEventListener("pointermove", (e) => { if (e.pointerId === stickId) stickMove(e); });
   stick.addEventListener("pointerup", stickEnd); stick.addEventListener("pointercancel", stickEnd);
   $("c").addEventListener("pointerdown", lookStart);
