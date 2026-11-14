@@ -1,11 +1,11 @@
 // Canopy Camp daylight: what the hour and the weather do to the light. One palette from day through golden hour and dusk to
 // night, with the dawn mist and the grey of rain: the fog, the sky light, the sun (which turns into cool moonlight), the
 // backdrop and the sky domes (sky.js), the moon, the light shafts (campProps.js) and the low banks of mist over the clearing.
-// Only colour and a few soft sprites, so nothing to bake.
+// Only colour and a few soft billboards, so nothing to bake.
 //   light            { dusk, gold, mist }, each 0..1: this frame's levels, once setLight has run
 //   createDaylight() builds the mist banks and puts the moon where the start view sees it. main.js calls it once, last
-//                    (it reads the scene's lights and the sky that the other steps built); the sprites draw from their
-//                    own stream (core.js rng("daylight"))
+//                    (it reads the scene's lights and the sky that the other steps built); the banks draw from their
+//                    own stream (core.js rng("daylight")) and are one instanced draw (atmosphere.js pool, review R2-079)
 //   setLight(hour, wet)   the levels for an hour (daytime.js `shown`) and how wet it is (weather.js, 0..1)
 //   daylightStep(dt, wet) moves the mist banks and sets every colour from the levels
 // It builds nothing when it is imported.
@@ -18,6 +18,7 @@ import { dome, moon, nightDome, sky, uSkyDusk, uSkyFog, uSkyHaze } from "./sky.j
 import { groundHeight } from "./terrain.js";
 import { glowTex, rayMat } from "./campProps.js";
 import { me } from "./player.js";
+import { pool } from "../atmosphere.js";
 
 // night (camp review B1): deep blue-teal fog and backdrop, the forest in cool moonlight and near-black under the canopy, so the
 // fire, the lanterns and the tent are the only warm colours. Warm near, cool far. The sky light from below is warm firelight off
@@ -35,25 +36,25 @@ const mistOf = (h) => sm(h, 5, 6.3) * (1 - sm(h, 7.8, 10.5));                   
 const light = { dusk: 0, gold: 0, mist: 0 };
 function setLight(hour, wet) { light.dusk = duskOf(hour); light.gold = goldOf(hour) * (1 - wet); light.mist = mistOf(hour); }
 
-let hemiL, DAY, mistSprites;
+let hemiL, DAY, banks;   // banks: the mist banks' billboard pool
 function createDaylight() {
   hemiL = scene.children.find((o) => o.isHemisphereLight);
   DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity, sky: hemiL.color.clone(), ground: hemiL.groundColor.clone(), sunC: sun.color.clone(), dens: scene.fog.density };
   // the moon: up in the canopy gap, in front of you as you start (you face the fire), a little to the side
   { const f = me.pos.clone().setY(0).negate().normalize(), sd = V(-f.z, 0, f.x); moon.position.copy(f.multiplyScalar(11)).addScaledVector(sd, 3).setY(21); }
-  mistSprites = (() => {   // low banks of mist over the clearing floor, each a big soft sprite standing on the ground (terrain.js)
-    const g = new THREE.Group(), n = D.fx ? 16 : 8, mat = new THREE.SpriteMaterial({ map: glowTex, color: 0xe6ebf2, transparent: true, opacity: 0, depthWrite: false, fog: false });
-    for (let i = 0; i < n; i++) { const a = R(0, 6.28), r = Math.sqrt(R(0.05, 1)) * (RC + 1), sp = new THREE.Sprite(mat), x = Math.cos(a) * r, z = Math.sin(a) * r;
-      sp.scale.set(R(5, 8), R(1.2, 1.8), 1); sp.position.set(x, groundHeight(x, z) + R(0.35, 0.7), z); sp.userData = { a, r, w: R(0.01, 0.025) * (i % 2 ? 1 : -1) }; g.add(sp); }
-    g.visible = false; scene.add(g); return g;
-  })();
+  // low banks of mist over the clearing floor, each a big soft billboard standing on the ground (terrain.js), all in one draw
+  banks = pool(scene, D.fx ? 16 : 8, glowTex, THREE.NormalBlending, 0);
+  banks.mat.uniforms.tint.value.set(0xe6ebf2); banks.mesh.visible = false;
+  for (let i = 0; i < banks.n; i++) { const a = R(0, 6.28), r = Math.sqrt(R(0.05, 1)) * (RC + 1), x = Math.cos(a) * r, z = Math.sin(a) * r, w = R(5, 8), h = R(1.2, 1.8);
+    banks.live.push({ a, r, w: R(0.01, 0.025) * (i % 2 ? 1 : -1), x, y: groundHeight(x, z) + R(0.35, 0.7), z, size: w, stretch: h / w, alpha: 0, spin: 0 }); }
 }
 
 function daylightStep(dt, wet) {
   const { dusk, gold, mist } = light;
-  mistSprites.visible = mist > 0.01;
-  if (mistSprites.visible) { const k = mist * (1 - dusk); mistSprites.children[0].material.opacity = 0.32 * k;
-    for (const sp of mistSprites.children) { const u = sp.userData; u.a += u.w * dt; sp.position.x = Math.cos(u.a) * u.r; sp.position.z = Math.sin(u.a) * u.r; } }
+  banks.mesh.visible = mist > 0.01;
+  if (banks.mesh.visible) { const k = 0.32 * mist * (1 - dusk);
+    for (const p of banks.live) { p.a += p.w * dt; p.x = Math.cos(p.a) * p.r; p.z = Math.sin(p.a) * p.r; p.alpha = k; }
+    banks.flush(); }
   scene.fog.color.copy(DAY.fog).lerp(GOLD_FOG, 0.55 * gold).lerp(DUSK, dusk).lerp(DAWN_FOG, 0.5 * mist * (1 - dusk)).lerp(RAIN_FOG, 0.6 * wet * (1 - dusk)); scene.fog.density = DAY.dens * (1 + 0.6 * dusk + 0.7 * mist * (1 - dusk) + 0.5 * wet);
   hemiL.intensity = DAY.hemi * (1 - 0.72 * dusk) * (1 - 0.2 * wet); hemiL.color.copy(DAY.sky).lerp(NIGHT_SKY, dusk); hemiL.groundColor.copy(DAY.ground).lerp(NIGHT_GROUND, dusk);
   sun.intensity = DAY.sun * (1 - 0.62 * dusk + 0.35 * gold) * (1 - 0.5 * wet); sun.color.copy(DAY.sunC).lerp(GOLD_SUN, 0.8 * gold).lerp(MOONC, THREE.MathUtils.smoothstep(dusk, 0.35, 1));                      // the sun turns into cool moonlight

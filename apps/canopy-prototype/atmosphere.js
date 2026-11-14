@@ -3,6 +3,8 @@
 // Later: thin smoke from the tent stove's chimney, curling out from under its rain cap.
 // Batch 2: butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
 // Each effect is one instanced draw of camera-facing quads (no point sprites, so phone GPUs' point-size caps don't matter) with a fixed pool, scaled by the detail level.
+// Exports createAtmosphere(opts) (campAir.js) and pool(scene, n, map, blending, order), the billboard pool itself, which
+// daylight.js also uses for the dawn mist banks (review R2-079).
 import * as THREE from "three";
 import { canvasTex, rand } from "./camp/util.js";
 
@@ -16,20 +18,21 @@ const puffTex = () => canvasTex(64, 64, (g, s) => {
 }, { aniso: 1 });
 const sparkTex = () => canvasTex(32, 32, (g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, "rgba(255,255,230,1)"); gr.addColorStop(0.35, "rgba(255,190,90,.8)"); gr.addColorStop(1, "rgba(255,120,40,0)"); g.fillStyle = gr; g.fillRect(0, 0, s, s); }, { aniso: 1 });
 
-// a pool of n billboard quads in one draw; each live particle has position, size, alpha and spin
-function pool(scene, n, map, blending, order) {
+// a pool of n billboard quads in one draw; each live particle has position (x, y, z), size, alpha and spin, and may have
+// stretch, its height over its width (1 when it is not set). Returns { mesh, mat, live, n, add(p), flush() }
+export function pool(scene, n, map, blending, order) {
   const geo = new THREE.InstancedBufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
   geo.setIndex([0, 1, 2, 0, 2, 3]);
-  const at = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3), sa = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);   // xyz | size, alpha, spin
+  const at = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3), sa = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4);   // xyz | size, alpha, spin, stretch
   at.setUsage(THREE.DynamicDrawUsage); sa.setUsage(THREE.DynamicDrawUsage);
   geo.setAttribute("iAt", at); geo.setAttribute("iSA", sa); geo.instanceCount = 0;
   const mat = new THREE.ShaderMaterial({
     uniforms: { map: { value: map }, tint: { value: new THREE.Color(1, 1, 1) } },
-    vertexShader: `attribute vec3 iAt; attribute vec3 iSA; varying vec2 vUv; varying float vA;
+    vertexShader: `attribute vec3 iAt; attribute vec4 iSA; varying vec2 vUv; varying float vA;
       void main() { vUv = uv; vA = iSA.y; float c = cos(iSA.z), s = sin(iSA.z);
-        vec4 mv = modelViewMatrix * vec4(iAt, 1.0); mv.xy += mat2(c, s, -s, c) * position.xy * iSA.x; gl_Position = projectionMatrix * mv; }`,
+        vec4 mv = modelViewMatrix * vec4(iAt, 1.0); mv.xy += mat2(c, s, -s, c) * (position.xy * vec2(1.0, iSA.w)) * iSA.x; gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `uniform sampler2D map; uniform vec3 tint; varying vec2 vUv; varying float vA;
       void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(t.rgb * tint, t.a * vA); if (gl_FragColor.a < 0.004) discard;
         #include <colorspace_fragment>
@@ -39,10 +42,10 @@ function pool(scene, n, map, blending, order) {
   const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = order; scene.add(mesh);
   const live = [];
   return {
-    mat, live, n,
+    mesh, mat, live, n,
     add(p) { if (live.length < n) live.push(p); },
     flush() {                                          // write the live particles into the instance buffers
-      for (let i = 0; i < live.length; i++) { const p = live[i]; at.setXYZ(i, p.x, p.y, p.z); sa.setXYZ(i, p.size, p.alpha, p.spin); }
+      for (let i = 0; i < live.length; i++) { const p = live[i]; at.setXYZ(i, p.x, p.y, p.z); sa.setXYZW(i, p.size, p.alpha, p.spin, p.stretch ?? 1); }
       geo.instanceCount = live.length; at.needsUpdate = sa.needsUpdate = true;
     },
   };
