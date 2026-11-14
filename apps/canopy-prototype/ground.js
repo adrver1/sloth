@@ -458,8 +458,8 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   for (const m of [im, glade]) if (m) { m.material = pmat; scene.add(m); own.add(m); }
   own.add(floor);
   const counts = [0, 1, 2, 3, 4, 5, 6, 7].map((t) => pick.filter((p) => p[2] === t).length);
-  // the baked map (props/shadow/bake_ground_shadow.py, Cycles: soft sun + sky occlusion) wins; the live render above is the fallback
-  // for prop sets and jeeps that have no bake yet
+  // the baked map (camp_shadow_picked_<jeep>.png from props/camp/bake_camp_lightmap.py, run through props/bake_all.py; Cycles: soft
+  // sun + sky occlusion) wins; the live render above is the fallback for when it fails to load
   // shadowLoad settles once the baked map has loaded or failed (none asked: at once), so the camp casts live only without one
   let shadowBaked = false;
   const shadowLoad = new Promise((done) => { if (!shadowMap) return done();

@@ -55,9 +55,15 @@ let glowTex, LANTERNS, fireLight, motes, pools, LMTEX, LMSUN;   // set by buildP
 let rayMat = null, WOODPILE = null, WOOD_TEX = null;   // set by buildProps when it builds their part (the sunbeams, the lived-in props)
 
 // ---------------------------------------------------------------- the camp's baked light (props/camp/bake_camp_lightmap.py: the whole scene, ground and props,
-// baked as one; Adriaen 2026-11-12). On each prop's second UV set (TEXCOORD_1):
-//   camp_lm_<k>.png      one channel per light: fire, stove, lanterns, moon (bakedlight.js colours, flickers and mixes them)
-//   camp_lm_sun_<k>.png  R where the sun reaches (scales the live sun), G sky occlusion (scales the live sky light)
+// baked as one; Adriaen 2026-11-12). This is the one description of the bake's outputs, which the bake's header and bakedlight.js
+// point to. Every light channel holds that light in white as light / 4, gamma 2.2, in models/camp_lights.json's "channels" order
+// (fire, stove, lanterns, moon), with the colours there too. On each prop's second UV set (TEXCOORD_1):
+//   camp_lm_<k>.png      RGBA: fire, stove, lanterns, moon (+ night sky) (bakedlight.js colours, flickers and mixes them)
+//   camp_lm_sun_<k>.png  R where the sun reaches (scales the live sun), G sky occlusion (scales the live sky light); B, A unused
+// and on the ground, looked up by position (row 0 = page z -RR, column 0 = x -RR; ground.js):
+//   camp_ground_night_picked_<jeep>.png  RGBA: the same four lights as camp_lm, with every prop's shadow in them
+//   camp_shadow_picked_<jeep>.png        L: the day shadow, 1 - light / open ground (sun and sky)
+// <k> is 4k, 2k or 1k; each map also ships as <map>.ktx2.txt (props/bake_all.py --only ktx), the PNG staying as the fallback.
 // By day the props are lit live (sun and sky, shaded by the bake) plus a share of the warm lights; at night they show all four
 // lights, baked, unlit, faded in with uNight. COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 // The lightMap slot only gives the shader its sampler and UV: three's own light-map read (lights_fragment_maps, whose envmap part

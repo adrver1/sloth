@@ -1,11 +1,11 @@
-// The camp's baked lights, shared by the props (camp.html) and the ground and plants (ground.js).
-// props/camp/bake_camp_lightmap.py bakes the whole scene once and keeps each light on its own channel, in white,
-// as light / 4 with gamma 2.2 (models/camp_lights.json has the colours):
-//   camp_lm / camp_ground_night   R fire, G stove, B lanterns, A moon (+ night sky)
-//   camp_lm_sun A / camp_ground_jeep G   the jeep's cabin light (B / R held the headlights, dropped 2026-11-12)
-// so the page colours them, flickers the fire and the stove on their own, switches the jeep's lights (the jeep code sets
-// GAIN.cabin and GAIN.doors, 0..1), dims or brightens any of them live, and adds the warm ones a little by day (they
-// show in the shade; the sun drowns them in the open).
+// The camp's baked lights, shared by the props (camp/campProps.js lnight) and the ground and its plants (ground.js).
+// props/camp/bake_camp_lightmap.py bakes the whole scene once and keeps each light on its own channel, in white, as light / 4
+// with gamma 2.2; models/camp_lights.json names the channels and their colours. The channel layout is written down once, in
+// camp/campProps.js above lnight (the props' camp_lm and camp_lm_sun); the ground's camp_ground_night has the same four light
+// channels as camp_lm. So the page colours each light, flickers the fire and the stove on their own, dims or brightens any of
+// them live (GAIN), and adds the warm ones a little by day (they show in the shade; the sun drowns them in the open).
+// The jeep's baked cabin light, door spill and headlights were dropped from the bake on 2026-11-12; their uniforms (uLJ, uLD,
+// uGP) and lmJeep, lmDoors and doorKey still compile but read zero (the cabin light is live, jeep.js).
 import * as THREE from "three";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { swap } from "./camp/util.js";

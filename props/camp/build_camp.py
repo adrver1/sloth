@@ -383,7 +383,8 @@ def wall_tent():
     doorway with the flap rolled up above it, loose planks before the door. Inside: a lining (so the inside gets its
     own bake), a plank floor, a bed along the left wall and a wood stove on the right under the stovepipe.
     Built at its final size with the door toward -Y; every canvas sheet is a small grid so the AO bake has vertices to
-    vary at (the object is "coarse": no densify). camp.html mirrors W, D, Y0, the door and the furniture for walking."""
+    vary at (the object is "coarse": no densify). camp/layout.js TENT mirrors W, the walls' front and back (Y0 - D, Y0 + D), DW, the stove and the bed, and camp/tentInside.js
+    turns them into blockers for walking."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),

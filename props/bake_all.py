@@ -8,11 +8,12 @@ in several different places", and bake the whole scene as one). Run it whenever 
 
   light   props/camp/bake_camp_lightmap.py: ONE Blender scene (the ground disc, the picked set, the lived-in props and the
           jeep) under one set of lights, day (the page's sun + sky) and night (fire, lanterns, stove, moon) ->
-            models/camp_lm_<4k|2k|1k>.png       props: night light (RGB) and sky occlusion (A), on TEXCOORD_1
-            models/camp_lm_sun_<4k|2k|1k>.png   props: where the sun reaches them
+            models/camp_lm_<4k|2k|1k>.png       props: the four night lights, fire, stove, lanterns, moon (RGBA), on TEXCOORD_1
+            models/camp_lm_sun_<4k|2k|1k>.png   props: where the sun reaches them (R) and sky occlusion (G)
             models/camp_shadow_picked_<jeep>.png         ground: day shadow (sun + sky)
-            models/camp_ground_night_picked_<jeep>.png   ground: night light
-          and the props' GLBs/txt
+            models/camp_ground_night_picked_<jeep>.png   ground: the same four night lights
+            models/camp_lights.json             the channel order and each light's colour
+          and the props' GLBs/txt (the channel layout is described once, in apps/canopy-prototype/camp/campProps.js above lnight)
   ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), base64 in <map>.ktx2.txt next to the PNGs (artifacts
           don't serve .ktx2), which stay as the fallback;
           needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH

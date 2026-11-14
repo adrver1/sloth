@@ -8,19 +8,18 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 
 1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
-2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the scratch GLBs, and stands everything where
-   camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
+2. Builds the picked set (build_camp.py picked(), decimated to build_camp.BUDGET where over it, no densify), imports the scratch GLBs, and stands everything where
+   the page puts it (the "place" block below). The picked set's old Fire is left out: the lived fire set replaces it on the page.
 3. Adds the jeep (an occluder) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
    one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
    lanterns, the tent stove and a dim blue moon. Every prop gets a second UV map (TEXCOORD_1; TEXCOORD_0 stays the
-   texture's, or a dummy) packed into one atlas. Written:
-     camp_lm_<k>.png      RGB  night light / 4, sRGB-encoded; the page tones it as 1 - exp(-6.4 x surface colour x light),
-                               unlit, at night
-                          A    sky occlusion (distance 0.6); the page scales the sky light by 0.32 + 0.68 x AO by day
-     camp_lm_sun_<k>.png  where the sun reaches each prop (direct sun over the same with no shadows); the page scales its
-                          live sun by it, so the props shade each other and the jeep shades them
+   texture's, or a dummy) packed into one atlas. Written (step 3b below; the channel layout, the contract with the page's
+   shaders, is described once in apps/canopy-prototype/camp/campProps.js above lnight):
+     camp_lm_<k>.png      RGBA = fire, stove, lanterns, moon, each light / 4, sRGB-encoded, in camp_lights.json "channels"
+     camp_lm_sun_<k>.png  R = where the sun reaches (direct sun over the same with no shadows), G = sky occlusion
      camp_shadow_picked_<jeep>.png        the ground's day shadow, 1 - light / open ground (as ground.js always read it)
-     camp_ground_night_picked_<jeep>.png  the ground's night light / 4 (sRGB), with every prop's shadow in it
+     camp_ground_night_picked_<jeep>.png  the ground's four night lights, as camp_lm, with every prop's shadow in them
+     camp_lights.json     the channel order, each light's colour, the encoding and the open ground's day light
    Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
    Thin double-sided cards (laundry, chain) take the brighter of their two sides.
    COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
@@ -222,7 +221,7 @@ for o in jall:
         o.parent = jroot
     if o.type == "MESH":
         jeep.append(o)
-DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}         # camp.html: node, open angle (rad, about up)
+DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}         # node, open angle (rad, about up), as camp/jeep.js opens them
 doors = {k: next(o for o in jall if o.name.split(".")[0] == n) for k, (n, _) in DOORS.items()}
 # the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
 # saved it; plain cylinders are enough for their shadows
