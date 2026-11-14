@@ -59,6 +59,86 @@ W = 1.6              # body width
 SILL = 0.45          # bottom of the body
 BELT = 1.06          # beltline: hood top and window sills
 ROOF = 1.70
+AXLE_Y = (-WB / 2 - 0.03, WB / 2 - 0.03)   # front and rear axle
+WHEEL_R = 0.37       # wheel radius, also the axle height (the toy's wheels are bigger: body())
+
+# ------------------------------------------------------------------ shapes the full jeep and its far LOD share
+# One copy each, so a body change reaches both and the jeep keeps its shape at the LOD switch (review R2-230).
+LOWER_PROFILE = [(FRONT, SILL), (REAR, SILL), (REAR, BELT), (-0.42, BELT), (FRONT + 0.06, BELT - 0.05), (FRONT, BELT - 0.12)]   # hood and sides (y, z)
+CAB_PROFILE = [(-0.42, BELT - 0.01), (REAR - 0.01, BELT - 0.01), (REAR - 0.03, ROOF), (-0.16, ROOF)]   # upright windscreen, flat roof
+CAB_W, CAB_TAPER = W - 0.04, 0.93          # the cabin's width at the beltline, and how much narrower it is at the roof
+GLASS_Z = (BELT + 0.06, ROOF - 0.07)       # bottom and top of the side and back windows
+GRILLE_Z, GRILLE_W = (0.7, 0.95), 0.82
+LAMP_X, LAMP_Z, LAMP_R = 0.6, 0.83, 0.115  # the headlights (the toy's are bigger: body())
+SNORKEL_PATH = [(0.85, -1.3, BELT - 0.12), (0.85, -0.62, BELT - 0.12), (0.8, -0.31, ROOF - 0.03)]   # along the wing, up the A pillar
+SNORKEL_SECS = [(0.07, 0.15), (0.07, 0.15), (0.075, 0.085)]
+SNORKEL_HEAD = dict(size=(0.14, 0.27, 0.1), at=(0.79, -0.37, ROOF + 0.03), rot=(-0.12, 0, 0))     # the wedge intake on top
+MAP_AT = (-0.2, -0.98, 0.1, 1.0, 0.74)     # the paper map on the bonnet: centre x, y, turn, width (x) and depth (y)
+RACK_Z = ROOF + 0.12                       # the roof rack's top
+JERRY = (0.35, 0.40, 0.17)                 # a jerry can's length (y), height and thickness (x)
+CANS, CAN_Y = ((-0.42, "can"), (-0.14, "can2")), 1.2   # the two cans on the rack: x and colour, and where they stand along y
+CRATE = dict(size=(0.62, 0.55, 0.3), at=(0.25, 0.85, RACK_Z + 0.17))
+
+
+def bonnet_z(y):
+    """The bonnet's top at y: it falls 0.05 from the windscreen to the front."""
+    return BELT - 0.05 * (-0.42 - y) / (-0.42 - FRONT - 0.06)
+
+
+def map_xy(u, v):
+    """A point on the bonnet map, u and v in -1..1 across the sheet, as (x, y)."""
+    cx, cy, a, mw, md = MAP_AT
+    u, v = u * mw / 2, v * md / 2
+    return cx + u * math.cos(a) - v * math.sin(a), cy + u * math.sin(a) + v * math.cos(a)
+
+
+def windscreen():
+    """The windscreen's foot and top on the centre line, its unit up direction along the glass and its unit outward
+    normal."""
+    s0, s1 = Vector((0, -0.42, BELT)), Vector((0, -0.16, ROOF))
+    up = (s1 - s0).normalized()
+    return s0, s1, up, Vector((0, -up.z, up.y))
+
+
+def windscreen_glass(out):
+    """The windscreen glass's four corners, out metres in front of the frame."""
+    s0, s1, up, n = windscreen()
+    a, b = s0 + up * 0.07 + n * out, s1 - up * 0.06 + n * out
+    return [(-0.64, a.y, a.z), (0.64, a.y, a.z), (0.62, b.y, b.z), (-0.62, b.y, b.z)]
+
+
+def cabin_side_x(z, s, pad):
+    """The x of the tapered cabin's side at height z on side s (-1 or 1), pad metres outside it."""
+    return s * (CAB_W / 2 * (1 - (1 - CAB_TAPER) * (z - BELT) / (ROOF - BELT)) + pad)
+
+
+def wheel_arches(lower, R, zc, verts):
+    """Cut both wheel arches out of the lower body."""
+    for y in AXLE_Y:
+        cut(lower, cyl(R + 0.08, W + 0.4, at=(0, y, zc), rot=(0, math.pi / 2, 0), m=lower.data.materials[0], verts=verts))
+
+
+def flare(s, y, zc, R, tube, m, major):
+    """A wheel-arch flare: the top half of a ring round the wheel, its tube widened sideways into a flat band."""
+    fl = torus(R + 0.1, tube, at=(s * (W / 2 + 0.01), y, zc), rot=(0, math.pi / 2, 0), m=m, major=major, minor=3)
+    apply_all(fl)
+    for v in fl.data.vertices:
+        v.co.x *= 2.2
+    return upper_half(fl, zc - 0.12)
+
+
+def bumpers(M, bevel=0.0):
+    """The front and back bumpers."""
+    return [box((W + 0.08, 0.2, 0.18), at=(0, y, SILL + 0.06), m=M["bumper"], bevel=bevel) for y in (FRONT - 0.06, REAR + 0.05)]
+
+
+def winch(M, bevel=0.0):
+    return box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"], bevel=bevel)
+
+
+def snorkel(M):
+    """The angular snorkel: a square duct along the wing and up the A pillar, and the intake head on top."""
+    return [duct(SNORKEL_PATH, SNORKEL_SECS, M["rack"]), box(m=M["rack"], **SNORKEL_HEAD)]
 
 
 # ------------------------------------------------------------------ helpers
@@ -368,13 +448,10 @@ def hood_map(M):
     with the detail painted in coloured shapes: four folded panels in two paper shades, forests, a lake, a river and a
     red route on the map; a clear baseplate with a red arrow, a black bezel, a white dial with an N mark and a red and
     white needle on the compass."""
-    def hz(y):      # bonnet top: falls 0.05 from the windscreen to the front
-        return BELT - 0.05 * (-0.42 - y) / (-0.42 - FRONT - 0.06) + 0.004
-    cx, cy, a, MW, MD = -0.2, -0.98, 0.1, 1.0, 0.74      # map centre, turn, width (x) and depth (y)
-    def P(u, v, h=0.0):                                   # map coordinates in -1..1 across the sheet
-        u, v = u * MW / 2, v * MD / 2
-        x, y = cx + u * math.cos(a) - v * math.sin(a), cy + u * math.sin(a) + v * math.cos(a)
-        return (x, y, hz(y) + h)
+    cx, cy, a = MAP_AT[:3]
+    def P(u, v, h=0.0):                                   # map coordinates in -1..1 across the sheet, h above the bonnet
+        x, y = map_xy(u, v)
+        return (x, y, bonnet_z(y) + 0.004 + h)
     up = (cx, cy, BELT + 2)
     paper = (mat("map_paper", (0.93, 0.88, 0.72)), mat("map_paper2", (0.84, 0.79, 0.63)))
     m = []
@@ -424,20 +501,19 @@ PROP_AT = {}   # loose props: origin at the middle of the bottom, so the page ca
 
 def body(M, style):
     toy = style == "toy"
-    R = 0.43 if toy else 0.37
+    R = 0.43 if toy else WHEEL_R
     zc = R                                                    # wheel centre height
-    yf, yr = -WB / 2 - 0.03, WB / 2 - 0.03
+    yr = AXLE_Y[1]
     p = []
     G = {"DoorP": [], "DoorD": [], "BackDoor": [], "Glass": [], "GlassP": [], "GlassD": [], "GlassB": []}   # parts that move with each door
     # (passenger door on +X, the camp side); the glass is kept apart so the page can draw it see-through
     # lower body: hood and sides up to the beltline, with the wheel arches cut out
-    lower = prism([(FRONT, SILL), (REAR, SILL), (REAR, BELT), (-0.42, BELT), (FRONT + 0.06, BELT - 0.05), (FRONT, BELT - 0.12)], W, M["paint"])
-    for y in (yf, yr):
-        cut(lower, cyl(R + 0.08, W + 0.4, at=(0, y, zc), rot=(0, math.pi / 2, 0), m=M["paint"], verts=20))
+    lower = prism(LOWER_PROFILE, W, M["paint"])
+    wheel_arches(lower, R, zc, 20)
     soften(lower, 0.12 if toy else 0.05)
     # cabin: upright windscreen, flat roof, slightly narrower than the body
     top = M["paint2"]
-    cab = prism([(-0.42, BELT - 0.01), (REAR - 0.01, BELT - 0.01), (REAR - 0.03, ROOF), (-0.16, ROOF)], W - 0.04, top, taper=0.93)
+    cab = prism(CAB_PROFILE, CAB_W, top, taper=CAB_TAPER)
     soften(cab, 0.12 if toy else 0.045)
     # one hollow shell: the cabin is empty behind the windscreen (the bonnet stays solid), then the three doors are cut
     # out of it as their own pieces, each to swing on its hinge
@@ -461,14 +537,14 @@ def body(M, style):
     # window openings, so the glass can be see-through: the windscreen and rear side windows in the body, the front side
     # windows in the doors, the back window in the back door (cut after the doors, which keeps the booleans clean).
     # Their reveals take the inside colour.
-    zt_, zb_ = ROOF - 0.07, BELT + 0.06
-    w0, w1 = Vector((0, -0.42, BELT)), Vector((0, -0.16, ROOF)); wu = (w1 - w0).normalized(); wn = Vector((0, -wu.z, wu.y)) * 0.01
-    wa, wb = w0 + wu * 0.1 + wn, w1 - wu * 0.09 + wn
+    zb, zt = GLASS_Z
+    s0, s1, up, out = windscreen()
+    wa, wb = s0 + up * 0.1 + out * 0.01, s1 - up * 0.09 + out * 0.01
     cut(shell, panel((-0.6, wa.y, wa.z), (0.6, wa.y, wa.z), (0.58, wb.y, wb.z), (-0.58, wb.y, wb.z), M["inside"], t=0.24))
     for sx, door in ((-1, "DoorD"), (1, "DoorP")):
-        cut(G[door][0], prism([(-0.21, zb_ + 0.03), (0.49, zb_ + 0.03), (0.49, zt_ - 0.03), (-0.05, zt_ - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
-        cut(shell, prism([(0.71, zb_ + 0.03), (1.45, zb_ + 0.03), (1.45, zt_ - 0.03), (0.71, zt_ - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
-    cut(G["BackDoor"][0], box((0.92, 0.3, zt_ - zb_ - 0.1), at=(0, REAR, (zb_ + zt_) / 2 + 0.02), m=M["inside"]))
+        cut(G[door][0], prism([(-0.21, zb + 0.03), (0.49, zb + 0.03), (0.49, zt - 0.03), (-0.05, zt - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
+        cut(shell, prism([(0.71, zb + 0.03), (1.45, zb + 0.03), (1.45, zt - 0.03), (0.71, zt - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
+    cut(G["BackDoor"][0], box((0.92, 0.3, zt - zb - 0.1), at=(0, REAR, (zb + zt) / 2 + 0.02), m=M["inside"]))
     p.append(shell)
     # inside: floor, two front seats (driver on +X, the camp side, so a sloth in that seat sits at the wheel), dashboard and wheel, and the
     # rear seats folded flat into a cargo deck
@@ -502,14 +578,10 @@ def body(M, style):
         e = bpy.data.objects.new(name, None); e.location = at; bpy.context.collection.objects.link(e); EMPTIES.append(e)
     # glass: windscreen, side windows split by the B pillar, the rear door window
     g = M["glass"]
-    zt, zb = ROOF - 0.07, BELT + 0.06
-    s0 = Vector((0, -0.42, BELT)); s1 = Vector((0, -0.16, ROOF)); up = (s1 - s0).normalized()
-    nrm = Vector((0, -up.z, up.y)) * 0.01
-    a = s0 + up * 0.07 + nrm; b = s1 - up * 0.06 + nrm
-    G["Glass"].append(panel((-0.64, a.y, a.z), (0.64, a.y, a.z), (0.62, b.y, b.z), (-0.62, b.y, b.z), g))
+    G["Glass"].append(panel(*windscreen_glass(0.01), g))
     for s in (-1, 1):
-        def wx(z):  # side of the tapered cabin at height z
-            return s * ((W - 0.04) / 2 * (1 - 0.07 * (z - BELT) / (ROOF - BELT)) + 0.008)
+        def wx(z):  # just outside the side of the tapered cabin at height z
+            return cabin_side_x(z, s, 0.008)
         door = G["DoorP" if s > 0 else "DoorD"]
         G["GlassP" if s > 0 else "GlassD"].append(panel((wx(zb), -0.24, zb), (wx(zb), 0.52, zb), (wx(zt), 0.52, zt), (wx(zt), -0.07, zt), g))
         G["Glass"].append(panel((wx(zb), 0.68, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), 0.68, zt), g))
@@ -525,7 +597,7 @@ def body(M, style):
         p.append(rod((s * 0.73, -0.12, ROOF - 0.03), (s * 0.73, REAR - 0.05, ROOF - 0.03), 0.012, top, verts=6))
     # wipers, parked along the bottom of the windscreen: a pivot cap on the cowl, an arm, and a rubber blade on the glass
     tilt = -math.atan2(up.y, up.z)                                   # turns a box's Z onto the glass's up direction
-    on_glass = lambda x, h, out: Vector((x, 0, 0)) + s0 + up * h + nrm.normalized() * out
+    on_glass = lambda x, h, off: Vector((x, 0, 0)) + s0 + up * h + out * off
     for x in (-0.5, 0.06):
         piv, tip = on_glass(x, 0.03, 0.03), on_glass(x + 0.36, 0.1, 0.03)
         p.append(cyl(0.022, 0.03, at=tuple(on_glass(x, 0.03, 0.012)), rot=(tilt + math.pi / 2, 0, 0), m=M["trim"], verts=6))
@@ -540,26 +612,26 @@ def body(M, style):
     G["CabinLight"] = [poly([(-0.09, 0.2, cz), (0.09, 0.2, cz), (0.09, 0.3, cz), (-0.09, 0.3, cz)], M["lamp"], (0, 0.25, 0))]
     PROP_AT["CabinLight"] = (0, 0.25, cz)
     G["Lamps"] = []
-    PROP_AT["Lamps"] = (0, FRONT - 0.03, 0.83)
+    PROP_AT["Lamps"] = (0, FRONT - 0.03, LAMP_Z)
     G["Map"], G["Compass"] = hood_map(M)   # loose props on the bonnet, their own nodes (they ride on the hood: finish())
     # the engine, everything at least 3 cm under the closed hood (its underside is at BELT - 0.135 = 0.925)
     p.append(box((0.5, 0.42, 0.2), at=(0, -1.0, SILL + 0.3), m=M["under"], bevel=0.015))           # the engine: block,
     p.append(box((0.4, 0.32, 0.04), at=(0, -1.0, SILL + 0.42), m=M["trim"]))                         # rocker cover (top 0.89),
     p.append(cyl(0.12, 0.05, at=(-0.2, -0.66, SILL + 0.415), m=M["chrome"], verts=10))              # air filter (top 0.89)
     p.append(box((0.2, 0.15, 0.14), at=(0.46, -0.66, SILL + 0.27), m=M["trim"]))                     # and battery (top 0.79)
-    grille_z = (0.7, 0.95)
-    p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"]))
+    p.append(box((GRILLE_W, 0.03, GRILLE_Z[1] - GRILLE_Z[0]), at=(0, FRONT - 0.005, sum(GRILLE_Z) / 2), m=M["grille"]))
     for k in range(3):                                   # three horizontal bars (its own face, no maker's grille)
-        p.append(box((0.78, 0.03, 0.035), at=(0, FRONT - 0.02, grille_z[0] + 0.06 + k * 0.065), m=M["bar"]))
-    hr = 0.15 if toy else 0.115
+        p.append(box((0.78, 0.03, 0.035), at=(0, FRONT - 0.02, GRILLE_Z[0] + 0.06 + k * 0.065), m=M["bar"]))
+    hr = 0.15 if toy else LAMP_R
     for s in (-1, 1):
-        ring, lens = headlight(s * 0.6, FRONT - 0.03, 0.83, hr, M)
+        ring, lens = headlight(s * LAMP_X, FRONT - 0.03, LAMP_Z, hr, M)
         p += ring; G["Lamps"] += lens
         p.append(box((0.12, 0.03, 0.05), at=(s * 0.6, FRONT - 0.02, 0.62), m=M["amber"]))
-    p.append(box((W + 0.08, 0.2, 0.18), at=(0, FRONT - 0.06, SILL + 0.06), m=M["bumper"], bevel=0.05 if toy else 0.025))
+    front_bumper, back_bumper = bumpers(M, bevel=0.05 if toy else 0.025)
+    p.append(front_bumper)
     p.append(box((0.4, 0.02, 0.12), at=(0, FRONT - 0.165, SILL + 0.06), m=M["plate"]))
     # rear: bumper, tall taillights, the spare wheel on the door
-    p.append(box((W + 0.08, 0.2, 0.18), at=(0, REAR + 0.05, SILL + 0.06), m=M["bumper"], bevel=0.05 if toy else 0.025))
+    p.append(back_bumper)
     for s in (-1, 1):
         p.append(box((0.09, 0.03, 0.22), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.78), m=M["red"]))
         p.append(box((0.09, 0.03, 0.06), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.64), m=M["amber"]))
@@ -576,15 +648,11 @@ def body(M, style):
         bd.append(cyl(sr + 0.012, 0.25, at=(0.06, REAR + 0.22, 0.98), rot=(math.pi / 2, 0, 0), m=cover, verts=16))
     # chassis, axles and the four wheels with black flares over them
     p.append(box((W - 0.3, REAR - FRONT - 0.3, 0.2), at=(0, 0, SILL - 0.02), m=M["under"]))
-    for y in (yf, yr):
+    for y in AXLE_Y:
         p.append(rod((-0.7, y, zc), (0.7, y, zc), 0.04, M["under"]))
         for s in (-1, 1):
             p += lift(wheel(s * (W / 2 - 0.1), y, R, 0.27 if toy else 0.25, M), zc)
-            fl = torus(R + 0.1, 0.06 if toy else 0.045, at=(s * (W / 2 + 0.01), y, zc), rot=(0, math.pi / 2, 0), m=M["flare"], major=20, minor=3)
-            apply_all(fl)
-            for v in fl.data.vertices:          # widen the torus tube sideways into a flat band
-                v.co.x *= 2.2
-            p.append(upper_half(fl, zc - 0.12))
+            p.append(flare(s, y, zc, R, 0.06 if toy else 0.045, M["flare"], 20))
     # side steps / sills
     for s in (-1, 1):
         p.append(box((0.06, 0.95, 0.06), at=(s * (W / 2 - 0.01), 0.0, SILL + 0.02), m=M["bumper"], bevel=0.015))
@@ -672,7 +740,7 @@ def toy():
 def jerry_can(x, y, z, m):
     """An upright jerry can, thin across X: a side profile with the spout corner cut off, a carry handle on top
     with a real hole (one concave prism), the X pressed into each side painted as two darker strips, and a spout cap."""
-    L, H, T = 0.35, 0.40, 0.17
+    L, H, T = JERRY
     body = prism([(y - L / 2, z), (y + L / 2, z), (y + L / 2, z + H), (y - L / 2 + 0.075, z + H), (y - L / 2, z + H - 0.07)], T, m, x0=x)
     b = y + L / 2 - 0.02                     # one carry handle: a loop on two legs with a single hole under it
     legs = [(b, b - 0.035), (b - 0.165, b - 0.2)]
@@ -703,15 +771,13 @@ def expedition():
     M = mats("ex", **EXPEDITION_COLOURS)
     p, G = body(M, "expedition")
     # steel bumper with a winch and a pair of tow hooks
-    p.append(box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"], bevel=0.02))
+    p.append(winch(M, bevel=0.02))
     p.append(cyl(0.065, 0.36, at=(0, FRONT - 0.22, SILL + 0.11), rot=(0, math.pi / 2, 0), m=M["rope"], verts=10))
     for s in (-1, 1):
         p.append(torus(0.04, 0.012, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"], major=8, minor=3))
     # snorkel, angular like the aftermarket ones: a flat box duct along the top of the wing, a square riser up the A pillar
     # (raked like the windscreen, clear of the mirror) and a wedge-shaped intake head on top facing forward
-    p.append(duct([(0.85, -1.3, BELT - 0.12), (0.85, -0.62, BELT - 0.12), (0.8, -0.31, ROOF - 0.03)],
-                  [(0.07, 0.15), (0.07, 0.15), (0.075, 0.085)], M["rack"]))
-    p.append(box((0.14, 0.27, 0.1), at=(0.79, -0.37, ROOF + 0.03), rot=(-0.12, 0, 0), m=M["rack"]))                 # intake head
+    p += snorkel(M)
     p.append(box((0.11, 0.01, 0.06), at=(0.79, -0.505, ROOF + 0.04), rot=(-0.12, 0, 0), m=M["grille"]))             # its mesh front
     # no front plate here: the winch shows instead (Adriaen, 2026-11-11). Its fairlead, where the rope comes out:
     p.append(box((0.2, 0.03, 0.08), at=(0, FRONT - 0.3, SILL + 0.1), m=M["bumper"]))
@@ -719,7 +785,7 @@ def expedition():
     p.append(rod((0, FRONT - 0.3, SILL + 0.1), (0, FRONT - 0.34, SILL + 0.06), 0.008, M["rope"], verts=5))
     p.append(torus(0.03, 0.008, at=(0, FRONT - 0.345, SILL + 0.03), rot=(0, math.pi / 2, 0), m=M["strap"], major=6, minor=3))
     # roof rack: a black ladder frame with two jerry cans, a crate and a coil of rope
-    z = ROOF + 0.12
+    z = RACK_Z
     for s in (-1, 1):
         p.append(rod((s * 0.7, -0.2, z), (s * 0.7, 1.55, z), 0.022, M["rack"], verts=4))
         for y in (-0.15, 0.7, 1.5):
@@ -727,10 +793,10 @@ def expedition():
     for k in range(7):
         y = -0.2 + k * 1.75 / 6
         p.append(rod((-0.7, y, z), (0.7, y, z), 0.016, M["rack"], verts=4))
-    for k, (x, cm) in enumerate(((-0.42, "can"), (-0.14, "can2"))):
-        p += jerry_can(x, 1.2, z + 0.02, M[cm])
-    p.append(box((0.62, 0.55, 0.3), at=(0.25, 0.85, z + 0.17), m=M["crate"], bevel=0.02))
-    p.append(box((0.03, 0.57, 0.31), at=(0.25, 0.85, z + 0.17), m=M["strap"]))
+    for x, cm in CANS:
+        p += jerry_can(x, CAN_Y, z + 0.02, M[cm])
+    p.append(box(m=M["crate"], bevel=0.02, **CRATE))
+    p.append(box((0.03, 0.57, 0.31), at=CRATE["at"], m=M["strap"]))
     # a shovel on the rear door
     # (blade clear above the bumper, beside the spare)
     G["BackDoor"].append(rod((0.52, REAR + 0.04, 0.88), (0.52, REAR + 0.04, 1.52), 0.016, M["crate"], verts=6))
@@ -855,59 +921,51 @@ def doors(objs, opened):
 
 
 def jeep_lod(M):
-    """The Expedition seen from beyond about 12 m: the same outline in as few triangles as read at that distance. Body and
-    cabin as two plain prisms (no arch cuts: the flares and wheels cover them), windows as dark quads on the outside,
-    8-sided wheels with no lugs, the bumpers, grille and lamps as boxes and flat polygons, the snorkel, and the roof rack
-    as a slab with the cans and the box on it. One object, its own AO bake; the page swaps it in for the full jeep."""
-    R, zc = 0.37, 0.37
-    yf, yr = -WB / 2 - 0.03, WB / 2 - 0.03
-    lower = prism([(FRONT, SILL), (REAR, SILL), (REAR, BELT), (-0.42, BELT), (FRONT + 0.06, BELT - 0.05), (FRONT, BELT - 0.12)], W, M["paint"])
-    for y in (yf, yr):                                   # wheel arches, coarse (the flares cover the edge)
-        cut(lower, cyl(R + 0.08, W + 0.4, at=(0, y, zc), rot=(0, math.pi / 2, 0), m=M["paint"], verts=10))
-    p = [lower, prism([(-0.42, BELT - 0.01), (REAR - 0.01, BELT - 0.01), (REAR - 0.03, ROOF), (-0.16, ROOF)], W - 0.04, M["paint2"], taper=0.93)]
+    """The Expedition seen from beyond about 12 m: the same outline in as few triangles as read at that distance, from
+    the same shapes as body() and expedition(). Body and cabin as two plain prisms (coarse 10-sided arch cuts: the flares
+    and wheels cover their edge), windows as dark quads on the outside, 8-sided wheels with no lugs, the bumpers, grille
+    and lamps as boxes and flat polygons, the snorkel, and the roof rack as a frame with the cans and the crate as boxes on
+    it. One object, its own AO bake; the page swaps it in for the full jeep."""
+    R = zc = WHEEL_R
+    lower = prism(LOWER_PROFILE, W, M["paint"])
+    wheel_arches(lower, R, zc, 10)
+    p = [lower, prism(CAB_PROFILE, CAB_W, M["paint2"], taper=CAB_TAPER)]
     g = M["glass"]
-    s0, s1 = Vector((0, -0.42, BELT)), Vector((0, -0.16, ROOF)); up = (s1 - s0).normalized(); nrm = Vector((0, -up.z, up.y)) * 0.012
-    a, b = s0 + up * 0.07 + nrm, s1 - up * 0.06 + nrm
-    p.append(quad([(-0.64, a.y, a.z), (0.64, a.y, a.z), (0.62, b.y, b.z), (-0.62, b.y, b.z)], g, (0, -5, BELT)))     # windscreen
-    zt, zb = ROOF - 0.07, BELT + 0.06
+    p.append(quad(windscreen_glass(0.012), g, (0, -5, BELT)))
+    zb, zt = GLASS_Z
     for sd in (-1, 1):
-        wx = lambda z: sd * ((W - 0.04) / 2 * (1 - 0.07 * (z - BELT) / (ROOF - BELT)) + 0.012)
+        wx = lambda z: cabin_side_x(z, sd, 0.012)
         p.append(quad([(wx(zb), -0.24, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), -0.07, zt)], g, (sd * 5, 0.6, 1.3)))   # one strip of side glass
     p.append(quad([(-0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zt), (-0.5, REAR + 0.012, zt)], g, (0, 5, 1.3)))
-    for y in (yf, yr):                                   # wheels: tyre, rim face, hub; open on the inside (never seen)
+    for y in AXLE_Y:                                     # wheels: tyre, rim face, hub; open on the inside (never seen)
         for sd in (-1, 1):
             x, h = sd * (W / 2 - 0.1), 0.125
             p.append(lathe([(R * 0.9, -h * sd, "tyre"), (R, -h * 0.6 * sd, "tyre"), (R, h * 0.6 * sd, "tyre"), (R * 0.9, h * sd, "tyre"), (R * 0.62, h * sd, "rim"), (R * 0.25, h * sd, "hub"), (0, h * sd, "hub")],
                            8, (x, y, zc), True, M, "wheel_lod"))
-            fl = torus(R + 0.1, 0.045, at=(sd * (W / 2 + 0.01), y, zc), rot=(0, math.pi / 2, 0), m=M["flare"], major=10, minor=3)   # flare: the top half of a flattened ring
-            apply_all(fl)
-            for v in fl.data.vertices:
-                v.co.x *= 2.2
-            p.append(upper_half(fl, zc - 0.12))
-    p.append(box((W + 0.08, 0.2, 0.18), at=(0, FRONT - 0.06, SILL + 0.06), m=M["bumper"]))
-    p.append(box((W + 0.08, 0.2, 0.18), at=(0, REAR + 0.05, SILL + 0.06), m=M["bumper"]))
-    p.append(box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"]))                  # winch
-    p.append(quad([(-0.41, FRONT - 0.006, 0.7), (0.41, FRONT - 0.006, 0.7), (0.41, FRONT - 0.006, 0.95), (-0.41, FRONT - 0.006, 0.95)], M["grille"], (0, -5, 0.8)))
+            p.append(flare(sd, y, zc, R, 0.045, M["flare"], 10))
+    p += bumpers(M)
+    p.append(winch(M))
+    gx, (gz0, gz1) = GRILLE_W / 2, GRILLE_Z
+    p.append(quad([(-gx, FRONT - 0.006, gz0), (gx, FRONT - 0.006, gz0), (gx, FRONT - 0.006, gz1), (-gx, FRONT - 0.006, gz1)], M["grille"], (0, -5, 0.8)))
     for sd in (-1, 1):
-        hx, hy, hz, r = sd * 0.6, FRONT - 0.008, 0.83, 0.115
+        hx, hy, hz, r = sd * LAMP_X, FRONT - 0.008, LAMP_Z, LAMP_R
         p.append(poly([(hx + r * math.cos(t * math.pi / 4), hy, hz + r * math.sin(t * math.pi / 4)) for t in range(8)], M["lamp"], (hx, -5, hz)))
         p.append(quad([(sd * 0.71, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.89), (sd * 0.71, REAR + 0.012, 0.89)], M["red"], (0, 5, 0.8)))
         p.append(box((0.06, 0.18, 0.16), at=(sd * (W / 2 + 0.06), -0.28, BELT + 0.17), m=M["trim"]))   # mirror
     sr = R * 0.98                                        # the spare wheel on the back door
     p.append(lathe([(sr * 0.9, 0, "tyre"), (sr, 0.05, "tyre"), (sr, 0.19, "tyre"), (sr * 0.9, 0.24, "tyre"), (sr * 0.62, 0.24, "rim"), (sr * 0.25, 0.24, "hub"), (0, 0.24, "hub")], 8, (0.06, REAR + 0.02, 0.98), False, M, "spare_lod"))
-    p.append(duct([(0.85, -1.3, BELT - 0.12), (0.85, -0.62, BELT - 0.12), (0.8, -0.31, ROOF - 0.03)], [(0.07, 0.15), (0.07, 0.15), (0.075, 0.085)], M["rack"]))
-    p.append(box((0.14, 0.27, 0.1), at=(0.79, -0.37, ROOF + 0.03), rot=(-0.12, 0, 0), m=M["rack"]))
-    z = ROOF + 0.12                                      # roof rack: the outer frame and three cross bars, square, with its load
+    p += snorkel(M)
+    z = RACK_Z                                           # roof rack: the outer frame and three cross bars, square, with its load
     for sd in (-1, 1):
         p.append(box((0.04, 1.78, 0.04), at=(sd * 0.7, 0.67, z), m=M["rack"]))
     for y in (-0.2, 0.67, 1.55):
         p.append(box((1.44, 0.04, 0.03), at=(0, y, z), m=M["rack"]))
-    hz = lambda y: BELT - 0.05 * (-0.42 - y) / (-0.42 - FRONT - 0.06) + 0.007          # the map on the bonnet, as hood_map() lays it
-    mp = lambda u, v: (-0.2 + u * math.cos(0.1) - v * math.sin(0.1), -0.98 + u * math.sin(0.1) + v * math.cos(0.1))
-    p.append(quad([(*mp(u, v), hz(mp(u, v)[1])) for u, v in ((-0.5, -0.37), (0.5, -0.37), (0.5, 0.37), (-0.5, 0.37))], mat("map_paper", (0.93, 0.88, 0.72)), (0, -1, 3)))
-    for x, cm in ((-0.42, "can"), (-0.14, "can2")):
-        p.append(box((0.17, 0.35, 0.44), at=(x, 1.2, z + 0.24), m=M[cm]))
-    p.append(box((0.62, 0.55, 0.3), at=(0.25, 0.85, z + 0.17), m=M["crate"]))
+    corners = [map_xy(u, v) for u, v in ((-1, -1), (1, -1), (1, 1), (-1, 1))]      # the map on the bonnet, as hood_map() lays it
+    p.append(quad([(x, y, bonnet_z(y) + 0.007) for x, y in corners], mat("map_paper", (0.93, 0.88, 0.72)), (0, -1, 3)))
+    L, H, T = JERRY                                      # each can as one box over its body and handle
+    for x, cm in CANS:
+        p.append(box((T, L, H + 0.04), at=(x, CAN_Y, z + 0.02 + (H + 0.04) / 2), m=M[cm]))
+    p.append(box(m=M["crate"], **CRATE))
     return join(p, "JeepLOD")
 
 
