@@ -54,7 +54,7 @@ export const FIRE = V(0, 0, 0);   // the campfire stands at the origin
 export const SEAT_R = 2.1;
 export const SEATS = [0, 1, 2].map((i) => { const a = A0 + Math.PI + (i - 1) * 1.15; return { angle: a, at: V(Math.cos(a) * SEAT_R, 0, Math.sin(a) * SEAT_R), yaw: -a + Math.PI / 2 }; });
 // the ways in to the fire between the logs, as angles round it: the gate's gap, and half way between each pair of seats
-// (0.575 is half the seats' 1.15). The operator stands in one to reach the pot (operator.js fireGap)
+// (0.575 is half the seats' 1.15). The operator stands in one to reach the pot (operator/places.js fireGap)
 export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 // the walk-in tent (build_camp.py wall_tent): its door faces the fire. Its own (Blender) frame: bx across, by toward the back
 // (-by toward the fire). toLocal(x, z) gives [a: ahead of the tent's centre toward the fire, b: across]; fromLocal(bx, by, y)

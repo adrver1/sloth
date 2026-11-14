@@ -12,12 +12,11 @@ import * as THREE from "three";
 import { createCarry } from "./activities/carry.js";
 import { MAX_LOGS, createFireChore, createWoodPile } from "./activities/fireChore.js";
 import { splitBowl } from "./activities/fruitBowl.js";
-import { an, paintLogs } from "./activities/parts.js";
+import { an, flat, paintLogs } from "./activities/parts.js";
 import { createSoupChore } from "./activities/soupChore.js";
 import { V } from "./camp/util.js";
 
 const NEAR = 2.5;                          // tap range
-const flat = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 // camp: the scene, the camera, you (me) and the sloths; places { woodPile: { at, built }, fire, pot: { at, r }, table:
 // { at, yaw }, crate (or null) }; looks (what lights up for a thing, by name); the wood and glow textures; and what the camp
@@ -27,7 +26,7 @@ export function createActivities({ scene, camera, me, sloths, places: { woodPile
   if (woodTex) paintLogs(woodTex);
   const pile = createWoodPile({ scene, woodPile, addBlocker });
   const nearSloth = (at, max = 4) => sloths.filter((s) => !s.wild && s.p).map((s) => [s, s.p.distanceTo(at)]).filter(([, d]) => d < max).sort((a, b) => a[1] - b[1]).map(([s]) => s);
-  // what you just did, for the operator to remark on (camp/operator.js "camp-act"); by: "you" or "operator"
+  // what you just did, for the operator to remark on (camp/operator/talk.js "camp-act"); by: "you" or "operator"
   const told = (kind, by = "you") => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by } }));
   const carry = createCarry({ camera, me, toast });
   const fireChore = createFireChore({ scene, fire, glowTex, burst, nearSloth, boostFire });
@@ -117,6 +116,6 @@ export function createActivities({ scene, camera, me, sloths, places: { woodPile
     update(dt, time) { carry.update(dt, time); fireChore.update(dt); soupChore.update(dt, fireChore.flare); },
     get held() { return carry.held; }, burning, level: fireChore.level, things, soup, seats,
     food: () => carry.food(), give: () => carry.give(),   // what is in your hand to give to a sloth or the operator, and the giving
-    cook: soupChore.cook,   // the operator's soup-making steps (camp/operator.js)
+    cook: soupChore.cook,   // the operator's soup-making steps (camp/operator/cook.js)
   };
 }

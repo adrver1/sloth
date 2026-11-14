@@ -24,7 +24,7 @@ const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
 let carStep = () => {};
 if (jeep) {
   const mat = (o) => new THREE.MeshLambertMaterial(o);   // textured and glowing faces (util.js lam is for plain colours)
-  const DASH_Z = 0.137, local = (x, y, z) => jeep.localToWorld(V(x, y, z));
+  const DASH_Z = 0.137;
   const seatL = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
   // its front toward the driver (-z); a tilted part (its top leaning back) comes forward by as much as its lower edge would sink
   // into the dash, so none of it hides behind the dash face (Adriaen 2026-11-13: the clock's bottom half was cut off)

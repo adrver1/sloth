@@ -1,7 +1,8 @@
 // Camp activities, shared parts: the geometry, materials and painted textures the chores share (a log, a soup bowl and its
 // soup, the pot's surface shade, a bubble), made once when the page loads, and the food's names. Triangles: a log 24 with
 // its caps, a bowl 16 and its soup 8.
-// Exports the parts by name, paintLogs(woodTex) (the logs take the props' wood atlas) and soupBowl() (a new bowl of soup).
+// Exports the parts by name, paintLogs(woodTex) (the logs take the props' wood atlas), soupBowl() (a new bowl of soup),
+// an(name) ("a" or "an") and flat(a, b) (the distance between two points on the ground).
 import * as THREE from "three";
 import { FRUIT, VEG as VEG_KINDS } from "../camp/food.js";
 import { canvasTex } from "../camp/util.js";
@@ -10,6 +11,7 @@ import { canvasTex } from "../camp/util.js";
 export const VN = VEG_KINDS.map((v) => v[0]), VEG = VEG_KINDS.map((v) => v[1]);
 export const FN = FRUIT.map((f) => f[0]), FE = FRUIT.map((f) => f[1]);
 export const an = (name) => (/^[aeiou]/.test(name) ? "an" : "a");
+export const flat = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);   // how far apart on the ground
 
 const tex = (w, h, draw) => canvasTex(w, h, draw, { aniso: 1 });   // small textures seen up close: no anisotropic filtering
 // a bark texture for logs: dark stripes along the length, a pale cut ring at one end of the strip

@@ -1,4 +1,7 @@
-// Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize.
+// Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize; and the things
+// you can use: which one lights up (highlight.js) and the pill menu a tap on it opens.
+// Exports addTarget(key, make) (other modules add a thing that lights up and has a menu: linger.js, clock.js, radio.js, car.js,
+// operator/talk.js), aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) and resize() (main.js).
 import * as THREE from "three";
 import { $, OPT, R, camera, renderer, scene, uTime } from "./core.js";
 import { keys, pickAt, ray, stickV, toast } from "./hud.js";

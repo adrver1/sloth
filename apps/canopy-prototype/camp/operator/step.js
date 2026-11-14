@@ -14,7 +14,7 @@ import { B, mixer, root } from "./model.js";
 import { RADIUS, op } from "./state.js";
 import { talkStep, tapCol } from "./talk.js";
 
-// the bones touched after the clip, each with the clip's own pose for it (see opStep)
+// the bones touched after the clip, each with the clip's own pose for it (see opStep below)
 let REST = [];
 function buildRest() { REST = ["spine", "neck", "head", "chest", "upper_armR", "forearmR", "upper_armL", "forearmL", "handR", "handL"].map((n) => [B[n], B[n].quaternion.clone()]); }
 const va = V(), vb = V(), vc = V();

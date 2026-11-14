@@ -74,7 +74,7 @@ function* face(yaw) {                                  // turn on the spot with 
 
 // sitting: the clips keep his root under his hips, so seated his feet are 0.43 m ahead of it and standing they are under it.
 // He walks to where his feet will be (in front of the seat, his back to it), and sits down with the stand_up clip played
-// backwards while a foot lock (op.footLock, in opStep) keeps his feet planted, so his hips travel back onto the seat; he
+// backwards while a foot lock (op.footLock, step.js opStep) keeps his feet planted, so his hips travel back onto the seat; he
 // rises with it played forwards, his feet still planted, and walks off from there (Adriaen: he stood up into the bench).
 const SIT_REACH = 0.43, SIT_LOW = 0.02, SIT_HIGH = 1.25;    // feet ahead of the hips seated; the clip's seated and standing ends
 function seatFeet(s) {                                 // where his feet go for seat s (hips just behind its middle)

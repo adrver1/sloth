@@ -4,18 +4,17 @@
 // (window event "camp-food"). One pot makes three bowls, then it is empty again. The pot model (props/lived/build_fire.py)
 // is not touched: a flat disc at the soup's surface shows it empty, water or broth, and fades away once the soup is done so
 // the modelled soup shows. Triangles: the surface disc 12, the pail 60 (camp/canister.js), a bowl 24; bubbles are sprites.
-// Exports createSoupChore({ scene, me, pot, fire, carry, burst, toast, told, nearSloth }): { soup (its state), pot, seats,
+// Exports createSoupChore({ scene, me, pot, fire, carry, burst, toast, told, nearSloth }): { soup (its state), seats,
 // wants() (would a tap on the pot do something with what you hold), pour(), addVeg(), ladle(), serve(seat), placePail(table)
 // (builds the pail under the table: the caller says when, since things are built in a fixed order), cook (the same steps for
-// the operator, camp/operator.js), update(dt, flare) }.
+// the operator, camp/operator/cook.js), update(dt, flare) }.
 import * as THREE from "three";
 import { makePail } from "../camp/canister.js";
 import { V } from "../camp/util.js";
-import { bowlGeo, bowlMat, bubbleTex, soupGeo, soupMat, surfTex } from "./parts.js";
+import { bowlGeo, bowlMat, bubbleTex, flat, soupGeo, soupMat, surfTex } from "./parts.js";
 
 const COOK = 20, BOWLS = 3;
 const STAGE = { empty: 0x2e2824, water: 0x86a9b0, 1: 0xc8a466, 2: 0xd9852f, 3: 0xd6712a };
-const flat = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toast, told, nearSloth }) {
   const pot = { at: potAt.at.clone(), r: potAt.r };
@@ -73,10 +72,10 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
   }
   const wantsVeg = () => soup.stage === "water" || (soup.stage === "cooking" && soup.veg < 2);
   return {
-    soup, pot, seats, pour, addVeg, ladle, serve, placePail,
+    soup, seats, pour, addVeg, ladle, serve, placePail,
     // would a tap on the pot do something with what you hold: pour the water, add a vegetable, fill a bowl
     wants: () => (carry.held === "water" && soup.stage === "empty") || (carry.held === "veg" && (soup.stage === "water" || (soup.stage === "cooking" && soup.veg < 3))) || (!carry.held && soup.stage === "ready"),
-    // the operator makes the soup now and then (camp/operator.js cook): the same pot and pail, step by step; each step says
+    // the operator makes the soup now and then (camp/operator/cook.js): the same pot and pail, step by step; each step says
     // whether it could be done (you may have done it first)
     cook: {
       get pail() { return pailAt; }, get table() { return tableAt; },

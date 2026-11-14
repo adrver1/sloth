@@ -4,6 +4,8 @@
 // the radio (audio.musicFrom), so it is loudest by the table. While it plays, its dial window glows, the needle slides to
 // the station and two music notes float up.
 // Built here, painted on canvas: a box without a bottom (10), the needle (2), an aerial (6), two note cards (4): 22 triangles.
+// Exports radioStep(dt) (main.js, each frame) and, for the jeep's radio (car.js): radioOptions(source) (the menu),
+// radioPlaying() and radioSource() (which radio the music comes from).
 import * as THREE from "three";
 import { scene } from "./core.js";
 import { V, canvasTex, lam } from "./util.js";
@@ -92,6 +94,6 @@ function step(dt) {
   notes.forEach((s, k) => { const f = (t * 0.45 + k * 0.5) % 1; s.position.set(-0.05 + k * 0.08 + Math.sin((f + k) * 6) * 0.02, H / 2 + 0.03 + f * 0.25, 0.02); s.material.opacity = lamp * Math.sin(f * Math.PI) * (0.6 + 0.4 * (audio.musicVolume() > 0.3)); });
   radio.scale.y = 1 + lamp * 0.012 * Math.max(0, Math.sin(t * 9));   // a tiny bob to the music
 }
-window.__radio = radio;
+window.__radio = radio;   // a debug hook for checks by hand (core.js lists it); nothing in the page reads it
 const radioSource = () => source;
 export { radioSource, playing as radioPlaying, radioOptions, step as radioStep };
