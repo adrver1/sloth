@@ -258,15 +258,19 @@ def rustic_fire(M):
 
 def rustic_seat(M):
     """The seat (picked): a split half log on two short stumps, about 104 triangles (review R2-169). The log's flat sawn
-    top (SEAT_TOP) is the bisect's own fill face, kept flat when the bark is roughed up; build_lived.py lays the textured
-    SeatTop quad just over it, and with ?lived=0 the fill shows. The stumps are open tubes that end inside the log (no caps:
-    their feet stand on the ground and their tops were inside the log)."""
+    top (SEAT_TOP) is the bisect's own fill face in the pale wood material, kept flat when the bark is roughed up;
+    build_lived.py lays the textured SeatTop quad just over it, and with ?lived=0 the fill shows. The stumps are open
+    tubes that end inside the log (no caps: their feet stand on the ground and their tops were inside the log)."""
     lg = cyl(0.25, 1.5, at=(0, 0, 0.0), rot=(0, math.pi / 2, 0), m=M["bark"], verts=24)
     apply_all(lg)
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.bisect(plane_co=(0, 0, 0), plane_no=(0, 0, 1), clear_outer=True, use_fill=True)
     bpy.ops.object.mode_set(mode="OBJECT")
+    lg.data.materials.append(M["wood"])               # the sawn fill reads as pale wood, not bark (seen with ?lived=0)
+    for pl in lg.data.polygons:
+        if pl.normal.z > 0.99 and abs(pl.center.z) < 1e-5:
+            pl.material_index = len(lg.data.materials) - 1
     cut = [v.index for v in lg.data.vertices if abs(v.co.z) < 1e-5]
     rough_up(lg, 0.008, 12)
     for i in cut:                                     # the sawn top stays flat: the bark only bulges below it
