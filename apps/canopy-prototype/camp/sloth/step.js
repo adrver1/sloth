@@ -2,9 +2,8 @@
 //   home      in its spot (day.js homeStep)          walk     on the ground along a path (walk.js)
 //   greet     saying hello (walk.js)                 eat      at a food place, or playing cards there (eating.js)
 //   fix       at the jeep's engine (fix.js)          rest     sitting in the clearing (day.js)
-//   exit      out through the jeep's door (wayOut.js)
-//   slide, glide   the two generic moves every way in and out is made of (moves.js)
-//   door, clamber, climb, turn, line, rope, settle   the way into a spot (wayIn.js)
+//   exit      out through the jeep's door (wayOut.js)  door     in through it (wayIn.js)
+//   slide, glide   the two generic moves every other step of the way in and out is made of (moves.js)
 //   held      borrowed (lend.js): nothing here moves it
 //   campStep(dt, seat)   each frame (main.js): seat is the log seat you are on (player.js me.seat) or null. Does nothing
 //                        with ?campsloths=0.
@@ -23,13 +22,13 @@ import { giftFly, giftStep } from "./gifts.js";
 import { stopSmore } from "./smore.js";
 import { fixStep } from "./fix.js";
 import { exitStep } from "./wayOut.js";
-import { clamberStep, climbStep, doorStep, lineStep, ropeStep, settleStep, turnStep } from "./wayIn.js";
+import { doorStep } from "./wayIn.js";
 import { homeStep, restStep } from "./day.js";
 import { keep } from "./saved.js";
 
 // each phase's step, called as step(s, T, sd, spot); "home" is called by name below (it counts who is out), "held" has none
-const PHASE = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, rest: restStep, exit: exitStep, door: doorStep, clamber: clamberStep,
-  slide: slideStep, glide: glideStep, climb: climbStep, turn: turnStep, line: lineStep, rope: ropeStep, settle: settleStep };
+const PHASE = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, rest: restStep, exit: exitStep, door: doorStep,
+  slide: slideStep, glide: glideStep };
 
 // you on a log seat by the fire (linger.js) hold it as "log:<i>" (Seat_<i>), so no one sits on you
 let mySeat = -1, LOGS = [];

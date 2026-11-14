@@ -16,7 +16,7 @@ import { HAMMOCK_PIVOT } from "../swing.js";
 import { CRAWL, HW, HW_POST, WALK_TS } from "./state.js";
 import { play } from "./clips.js";
 import { ROPE_L, barkProfile, climbYaw, linePose, postPose, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
-import { climbV, glide, slide, toGround } from "./moves.js";
+import { climbV, glide, postV, slide, toGround } from "./moves.js";
 import { brush } from "./spots.js";
 
 const tmp = V();
@@ -32,7 +32,7 @@ function climbDown(s, then) {
 }
 function downPost(s, spot, top, then) {             // from the top of a post, tail first down to the ground
   play(s, "hang_walk", 1.5, -HW_POST);
-  glide(s, postPose(spot, top), 3, () => slide(s, top, 0, 0.015 * HW_POST * s.sc, (y) => postPose(spot, y),
+  glide(s, postPose(spot, top), 3, () => slide(s, top, 0, postV(s), (y) => postPose(spot, y),
     () => { const yaw = (spot.climbYaw ?? climbYaw) + Math.PI; toGround(s, spot.door.clone().add(V(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(0.3)), yaw, then); }));
 }
 // out of the tent bed (Adriaen 2026-11-13: "add a climb out of bed animation", not a glide): turn to the open side and
@@ -60,11 +60,11 @@ function exitSpot(s, go) {
   if (spot.line) {                                  // hand over hand back along the line to post a, then down it
     const L = LAUNDRY.a.distanceTo(LAUNDRY.b);
     play(s, "hang_walk", 1.2, -HW_POST);
-    return slide(s, spot.t, 0.05, 0.015 * HW_POST * s.sc / L, (u) => { const P = linePose(s, u); brush?.(P.at, true, 1 / 60); return P; }, () => downPost(s, spot, spot.top, go));
+    return slide(s, spot.t, 0.05, postV(s) / L, (u, sd) => { const P = linePose(s, u); brush?.(P.at, true, sd); return P; }, () => downPost(s, spot, spot.top, go));
   }
   if (spot.climb) {                                 // the hammock: out of the sling, up the rope to the knot, down the post
     play(s, "hang_walk", 2, -HW_POST);
-    return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, 0.015 * HW_POST * s.sc, (u) => ropePose(s, u), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
+    return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, postV(s), (u) => ropePose(s, u), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
   }
   if (spot.car) { s.trip.phase = "exit"; s.trip.go = go; jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
   const away = spot.via ? yawFrom(spot.door, spot.via) : yawFrom(s.o.getWorldPosition(tmp), spot.door);
