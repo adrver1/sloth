@@ -243,8 +243,13 @@ def stand(o, pl):
 def build_scene(pl):
     """The picked set and the lived sets in one scene, triangulated as their GLBs will be (so the light-map unwrap, the
     bake and the page all see the same triangles), each prop where the page stands it ([x, z, yaw] in three.js metres,
-    from pl and each object's tags). Returns (picked, sets {set name: meshes}, receivers, counts {name: triangles})."""
+    from pl and each object's tags). Returns (picked, sets {set name: meshes}, receivers, counts {name: triangles}).
+    The builders' make() run in this scene, and their own renders and AO bakes set its device to the CPU (and the stack's
+    render its film and view transform). The scene's settings from just after the reset are put back once they are done,
+    so the GPU that GPU_RUN's load handler chose after the reset is the one the bake runs on (review R2-254)."""
     reset()
+    sc = bpy.context.scene
+    keep = (sc.cycles.device, sc.render.film_transparent, sc.view_settings.view_transform)
     objs = build_camp.picked()
     for o in objs.values():
         apply_all(o); o.location = (0, 0, 0)
@@ -267,6 +272,7 @@ def build_scene(pl):
             triangulate(o)
             meshes += stand(o, pl)
         sets[sname] = meshes
+    sc.cycles.device, sc.render.film_transparent, sc.view_settings.view_transform = keep
     receivers = [o for o in picked + [o for s in sets.values() for o in s] if not o.get("unlit")]
     counts = {o.name: tris(o) for o in picked + [o for s in sets.values() for o in s]}
     return picked, sets, receivers, counts
@@ -537,6 +543,9 @@ def setup_render(a):
     sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 3
     if a.preview:
         sc.cycles.device = "CPU"
+    cp = bpy.context.preferences.addons.get("cycles")
+    kind = cp.preferences.compute_device_type if cp else "?"
+    print(f"  Cycles device: {sc.cycles.device} (compute device type {kind}){'' if sc.cycles.device == 'GPU' or a.preview else '; this bake runs on the CPU'}", flush=True)
     # the bake's edge fill: half the island gap (--margin texels), so each island fills its half of the gap and never
     # reaches a neighbour's texels; at 2048 that is 3 texels, which fills the whole gap in the 1K map (review R2-170)
     bk = sc.render.bake
