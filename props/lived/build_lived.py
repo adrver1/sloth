@@ -544,14 +544,19 @@ def boot(M, at, yaw, roll=0.0):
         z = pl.center.z
         pl.material_index = 2 if pl.normal.z > 0.9 and z > 0.29 else 3 if z < 0.022 else 1 if z < 0.07 else 4 if z > 0.262 else 0
     o.rotation_euler = (roll, 0, yaw)
-    o.scale = (1.25, 1.25, 1.25)                                 # grown-up size next to the tent door
+    o.scale = (BOOT_SCALE,) * 3
     o.location = at
     return o
 
 
+BOOT_SCALE = 1.05     # a grown-up's welly, about 31 cm long (1.25 made them 37 cm, review R2-195)
+
+
 def tent_side(M):
-    """A pair of muddy wellies kicked off on the planks right of the door, one fallen over."""
-    p = [boot(M, (0.8, -1.15, PLANK), 1.75), boot(M, (1.08, -1.28, PLANK + 0.065), 2.1, roll=math.pi / 2)]
+    """A pair of muddy wellies kicked off on the planks right of the door, one fallen over (on its side, so its sole
+    shows). make() drops the standing boot's sole and arch, which face down onto the planks (drop_ground_faces)."""
+    side = 0.045 * 1.15 * BOOT_SCALE                             # half the foot's width: the fallen boot rests on its side
+    p = [boot(M, (0.8, -1.15, PLANK), 1.75), boot(M, (1.08, -1.28, PLANK + side), 2.1, roll=math.pi / 2)]
     mark(p, 0, "Wellies")
     return join(p, "TentSide")
 
