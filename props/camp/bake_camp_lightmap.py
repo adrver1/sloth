@@ -22,18 +22,21 @@ under a minute on a laptop CPU (1/16 of the texels of the full bake and 1/64 of 
 
 1. read_layout: where the page stands each prop and light, from the "place" block the layout step
    (props/shadow/layout_pure.mjs, through export_casters.cjs) writes into props/shadow/layout_picked.json; it stops at once if that block is missing.
-2. build_lived_sets: runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
-   (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
-3. build_scene: builds the picked set (build_camp.py, no densify; it stops if a prop is over build_camp.BUDGET), imports
-   the scratch GLBs, and stands every object where camp.html puts it, from its tags (lib.export.tag, glTF extras, review
+2. build_scene: one scene (review R2-254): builds the picked set (build_camp.py, no densify; it stops if a prop is over
+   build_camp.BUDGET), runs the make() of props/lived/build_lived.py, build_fire.py and build_laundry.py into it
+   (make_lived_sets: each builder's BAKED props with flat colours, lib.bake.flat_colours, so their vertex colours are
+   plain base colours with no AO of their own), triangulates every prop as its GLB will be, and stands every object
+   where camp.html puts it, from its tags (lib.export.tag, glTF extras, review
    R2-249): "anchor" names an entry of the place block's "anchors" (layout.js ANCHORS on the page) or "seats" (one copy
    per log seat, Name_0-2); thin, no_shadow and unlit (the embers, not light-mapped) cast no shadow; unbaked objects (the
    picked jar lantern) are left out. A new prop needs only its tag in its builder's make(), and a new place an entry in
-   layout.js ANCHORS. The picked set's old Fire is left out: the lived fire set replaces it on the page.
-   unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or an all-zero dummy): each prop is projected
+   layout.js ANCHORS.
+3. unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or an all-zero dummy): each prop is projected
    and packed on its own into its own rectangle of the atlas, kept in props/camp/atlas.json (see ATLAS), so changing one
    prop leaves every other prop's UVs and its part of the maps as they were (review R2-149). A run into models/ writes
-   atlas.json with each prop's UV hash, which --objects checks.
+   atlas.json with each prop's UV hash, which --objects checks. A prop's rectangle is sized by its surface times its
+   LM_WEIGHT squared (review R2-172): the tent's big smooth canvas gets 0.6 of the common texel density, the small props
+   seen up close by the fire and on the seats 1.5.
 4. add_occluders and add_ground: the jeep and the deadwood (occluders only) and the real ground disc, so the WHOLE scene is
    baked as one (Adriaen 2026-11-12). Lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky;
    night = the four CHANNELS: the fire, 8 jar lanterns, the tent stove and a dim blue moon.
@@ -66,7 +69,7 @@ A three.js point (x, y, z) is Blender (x, -z, y); a yaw set as rotation.y on the
 The run's memory: one props-sized and one ground-sized float image are made once and reused by every bake pass, and each
 pass keeps only what is used (its channels, the RGB mean, or AO's first channel) as float32 (review R2-224).
 """
-import argparse, atexit, base64, hashlib, json, math, os, shutil, sys, tempfile, time
+import argparse, base64, hashlib, json, math, os, sys, time
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -99,6 +102,11 @@ SUN_DIR = Vector((-4, -3, 10)).normalized()
 # stays as it was
 PAGE_LANTERN_DROP, LANTERN_DROP = 0.125, 0.12
 RR = 9.8                                                  # the ground disc's half width (ground.js)
+# light-map texels per metre for each prop, relative to the rest (review R2-172): the tent (its canvas, lining and plank
+# floor) was half the atlas at one density for every surface, so its smooth walls get less, and the small props seen
+# up close by the fire and on the seats, where the firelight is sharpest, get more. A seat copy (Name_0-2) takes its
+# name's weight. Changing a weight packs the atlas again (unwrap).
+LM_WEIGHT = {"Tent": 0.6, "Pot": 1.5, "Ring": 1.5, "Fire": 1.5, "SeatThings": 1.5, "SeatTop": 1.5, "KitchenThings": 1.5}
 
 sys.path.insert(0, HERE); sys.path.insert(0, LIVED); sys.path.insert(0, os.path.join(ROOT, "props"))
 import build_camp  # noqa: E402
@@ -107,7 +115,7 @@ import build_laundry  # noqa: E402
 import build_lived  # noqa: E402
 from lib.bake import flat_colours  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
-from lib.mesh import apply_all  # noqa: E402
+from lib.mesh import apply_all, triangulate  # noqa: E402
 
 
 def parse_args():
@@ -139,7 +147,7 @@ def parse_args():
 
 
 def read_layout():
-    """layout_picked.json and its "place" block; checked before the minutes of building in build_lived_sets."""
+    """layout_picked.json and its "place" block; checked before the minutes of building in build_scene."""
     layout = json.load(open(os.path.join(ROOT, "props", "shadow", "layout_picked.json")))
     pl = layout.get("place") or sys.exit("layout_picked.json has no place block: run props/bake_all.py --only layout first")
     if "anchors" not in pl:
@@ -156,19 +164,29 @@ def flat(objs):
     flat_colours(objs)
 
 
-def build_lived_sets(scratch):
-    """The lived builders, with flat colours, each in its own fresh scene and written to a scratch GLB that build_scene
-    imports. The round trip stays on purpose: the glTF export triangulates every face and splits vertices at hard edges
-    and UV seams (WoodPile: 90 faces and 161 vertices as built, 178 triangles and 225 vertices as imported), and the
-    light-map unwrap (smart_project and a pack, prop by prop) works on those faces, so building the props straight into
-    this scene would give every object different light-map UVs. The scratch folder keeps a failed or --unwrap-only run
-    from leaving half-made props/lived/*.glb behind; export_models writes those."""
-    build_lived.build(32, colour=flat, path=os.path.join(scratch, "lived.glb"))
-    print("  built build_lived (flat colours)")
-    build_fire.build(colour=flat, path=os.path.join(scratch, "fire.glb"))
-    print("  built build_fire (flat colours)")
-    build_laundry.build(colour=flat, path=os.path.join(scratch, "laundry.glb"))
-    print("  built build_laundry (flat colours)")
+LIVED_SETS = (("lived", build_lived, lambda: build_lived.make(32)), ("fire", build_fire, build_fire.make),
+              ("laundry", build_laundry, build_laundry.make))     # set name (its GLB), builder, make()
+
+
+def make_lived_sets():
+    """The lived builders' make(), straight into this scene (review R2-254: no scratch GLBs, no import fix-ups). Anything
+    a builder leaves behind besides its props (a render camera or lamp) is removed, so it cannot light the bake. Each
+    builder's BAKED props get flat colours and lose their UV layers, as its own build() does; the textured ones keep
+    theirs. Returns {set name: [objects]}."""
+    sets = {}
+    for sname, mod, make in LIVED_SETS:
+        before = set(bpy.data.objects)
+        every = make()
+        for o in set(bpy.data.objects) - before - set(every.values()):
+            bpy.data.objects.remove(o)
+        baked = [every[k] for k in mod.BAKED]
+        flat(baked)
+        for o in baked:
+            while o.data.uv_layers:
+                o.data.uv_layers.remove(o.data.uv_layers[0])
+        sets[sname] = list(every.values())
+        print(f"  made {mod.__name__} (flat colours): {', '.join(every)}")
+    return sets
 
 
 def B(x, y, z):            # three.js -> Blender
@@ -222,9 +240,10 @@ def stand(o, pl):
     return out
 
 
-def build_scene(pl, scratch):
-    """The picked set and the lived sets, each prop where the page stands it ([x, z, yaw] in three.js metres, from pl and
-    each object's tags). Returns (picked, sets {set name: meshes}, receivers, counts {name: triangles})."""
+def build_scene(pl):
+    """The picked set and the lived sets in one scene, triangulated as their GLBs will be (so the light-map unwrap, the
+    bake and the page all see the same triangles), each prop where the page stands it ([x, z, yaw] in three.js metres,
+    from pl and each object's tags). Returns (picked, sets {set name: meshes}, receivers, counts {name: triangles})."""
     reset()
     objs = build_camp.picked()
     for o in objs.values():
@@ -236,22 +255,16 @@ def build_scene(pl, scratch):
         if o.get("unbaked"):
             bpy.data.objects.remove(o)
         else:
+            triangulate(o)
             picked += stand(o, pl)
 
     sets = {}
-    for sname in ("lived", "fire", "laundry"):
-        new = import_glb(os.path.join(scratch, f"{sname}.glb"))
-        for o in new:
-            if o.parent:
-                mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
+    for sname, made in make_lived_sets().items():
         meshes = []
-        for o in new:
-            if o.type != "MESH":
-                bpy.data.objects.remove(o); continue
-            o.name = o.name.split(".")[0]
-            me = o.data
-            if me.color_attributes and "Col" not in [c.name for c in me.color_attributes]:
-                me.color_attributes[0].name = "Col"
+        for o in made:
+            if o.type != "MESH" or o.parent or o.modifiers or "." in o.name:
+                sys.exit(f"{o.name} from {sname}'s make() is not a plain, unparented mesh with its own name: the bake places it as one")
+            triangulate(o)
             meshes += stand(o, pl)
         sets[sname] = meshes
     receivers = [o for o in picked + [o for s in sets.values() for o in s] if not o.get("unlit")]
@@ -363,7 +376,8 @@ def allocate(need, aspect):
 def unwrap(receivers, a):
     """The light-map UVs: TEXCOORD_0 stays (texture UVs, or an all-zero dummy), LM is TEXCOORD_1. Each prop is projected and packed
     on its own and fitted into its rectangle from atlas.json (or new ones, see ATLAS). Returns the atlas as this run
-    used it ({"k": rectangle area per m2 of a prop's surface over how well it packs, "rects": {name: [u0, v0, u1, v1]}})
+    used it ({"k": rectangle area per weighted m2 of a prop's surface over how well it packs, "rects": {name: [u0, v0, u1,
+    v1]}, "weights": LM_WEIGHT as packed})
     and whether it was packed again. The rectangles do not depend on --size; the margins inside them do."""
     for o in receivers:
         uvl = o.data.uv_layers
@@ -375,7 +389,8 @@ def unwrap(receivers, a):
     old = load_atlas()
     rects, k = dict(old.get("rects", {})), old.get("k")
     inset = a.margin / 2 / a.size                                                # half the island margin at each rectangle's edge
-    area = {o.name: sum(p.area for p in o.data.polygons) for o in receivers}
+    weight = lambda n: LM_WEIGHT.get(n, LM_WEIGHT.get(n.split("_")[0], 1.0))      # SeatTop_1 takes SeatTop's
+    area = {o.name: weight(o.name) ** 2 * sum(p.area for p in o.data.polygons) for o in receivers}   # weighted m2 (review R2-172)
 
     def margin(o, r):
         """The island margin for o packed alone, so that it is a.margin texels once o is scaled into rectangle r."""
@@ -397,7 +412,8 @@ def unwrap(receivers, a):
     for n in set(rects) - set(area):
         del rects[n]                                                             # a prop that is gone leaves its space free
     need, _ = measure({o.name: margin(o, rects[o.name]) for o in receivers if o.name in rects})
-    why = [f"{n} is new" for n in need if n not in rects] + \
+    why = (["the texel weights (LM_WEIGHT) changed"] if rects and old.get("weights") != LM_WEIGHT else []) + \
+          [f"{n} is new" for n in need if n not in rects] + \
           [f"{n} outgrew its rectangle" for n in need if n in rects and k and k * need[n] > (rects[n][2] - rects[n][0]) * (rects[n][3] - rects[n][1])]
     repacked = bool(a.repack or why or not k)
     if repacked:
@@ -419,7 +435,7 @@ def unwrap(receivers, a):
             d.uv = (u0 + inset + (d.uv.x - box[0]) * s, v0 + inset + (d.uv.y - box[1]) * s)
     used = sum(uv_box(o)[0] for o in receivers)
     print(f"  atlas: {len(receivers)} objects in their own rectangles, {used * 100:.0f}% of the image covered")
-    return {"k": k, "rects": rects}, repacked
+    return {"k": k, "rects": rects, "weights": LM_WEIGHT}, repacked
 
 
 def add_occluders(layout, pl, jeep):
@@ -770,10 +786,7 @@ def main():
     t0 = time.time()
     a = parse_args()
     layout, pl = read_layout()
-    scratch = tempfile.mkdtemp(prefix="camp_lived_")
-    atexit.register(shutil.rmtree, scratch, True)      # gone however the run ends (ignore_errors=True)
-    build_lived_sets(scratch)
-    picked, sets, receivers, counts = build_scene(pl, scratch)
+    picked, sets, receivers, counts = build_scene(pl)
     atlas, repacked = unwrap(receivers, a)
     if a.unwrap_only:
         sys.exit(0)

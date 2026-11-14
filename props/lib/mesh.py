@@ -1,6 +1,6 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
-drop_faces, capless), and object plumbing (apply_all, join, obj_from_bm). Z up, metres; every helper links what it
+drop_faces, capless), and object plumbing (apply_all, join, obj_from_bm, triangulate). Z up, metres; every helper links what it
 makes into the current scene's collection and returns it.
 """
 import math
@@ -132,6 +132,17 @@ def apply_all(o):
     for mod in list(o.modifiers):
         bpy.ops.object.modifier_apply(modifier=mod.name)
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+
+
+def triangulate(o):
+    """Splits o's faces into triangles in place, as a glTF export would (quads and ngons the beauty way), keeping each
+    face's material, smooth flag and corner data (UVs, colours)."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 3], quad_method="BEAUTY", ngon_method="BEAUTY")
+    bm.to_mesh(o.data)
+    bm.free()
+    o.data.update()
 
 
 def join(objs, name):

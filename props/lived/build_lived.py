@@ -15,7 +15,7 @@ z = 0.361), so the page places it with the same transform as the seat it sits on
 jeep: Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
 Materials match the camp's rustic set, so the props sit with the picked camp.
 make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's lived.glb
-and its models/lived.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+and its models/lived.txt come from the light bake (props/bake_all.py), which runs make() in its own scene and flat-colours the BAKED props.
 """
 import argparse
 import hashlib

@@ -13,7 +13,7 @@ sloth-life thread builds that sloth).
 
 One GLB (props/lived/laundry.glb), z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin.
 make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's laundry.glb
-and its models/laundry.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+and its models/laundry.txt come from the light bake (props/bake_all.py), which runs make() in its own scene and flat-colours the BAKED props.
 """
 import os
 import sys
@@ -135,6 +135,9 @@ def posts():
         top = Vector((s * L / 2, 0, H + 0.12))
         p.append(rod(foot, top, 0.03, M["pole"], verts=6))         # a plain stick; the line is tied round it
     return join(p, "LaundryPosts")
+
+
+BAKED = ("LaundryPosts",)                 # the part that takes vertex colours; the cloth is textured
 
 
 def make():

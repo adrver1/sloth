@@ -14,7 +14,7 @@ One GLB (props/lived/fire.glb) with objects Ring, Tripod, Fire, Embers, Pot and 
 baked light as the other props (AO times base colour in a colour attribute), except the chain, which only carries its
 texture. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
 make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's fire.glb
-and its models/fire.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+and its models/fire.txt come from the light bake (props/bake_all.py), which runs make() in its own scene and flat-colours the BAKED props.
 """
 import math
 import os
