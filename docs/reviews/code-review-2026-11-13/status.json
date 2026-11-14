@@ -909,9 +909,10 @@
   "world-13": {
    "status": "fixed",
    "commits": [
-    "92f6efe"
+    "92f6efe",
+    "2dcf9b2"
    ],
-   "note": "core.js rng(name): each system has its own stream, seeded from ?seed and its name, so the layout no longer depends on module order, on what another system drew or on the detail level of another system; texture noise uses Math.random or a fixed lcg"
+   "note": "core.js rng(name): each system has its own stream, seeded from ?seed and its name, so the layout no longer depends on module order, on what another system drew or on another system's detail level; the forest's stream starts at 3000 + ?seed (rng(name, start)), where it restarted the old shared one, so the forest and the ground it shapes stay as baked. Texture noise uses Math.random or a fixed lcg"
   },
   "props-10": {
    "status": "fixed",
