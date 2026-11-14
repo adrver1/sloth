@@ -14,6 +14,7 @@ import { CAST } from "./cast.js";
 import { load, save } from "./save.js";
 import { burst, fx, sprite } from "./fx.js";
 import { createNav } from "./nav.js";
+import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "./swing.js";
 import { addCrowd, addMover, claim, holder, host, hosted, join, movers, release, taken, walkers } from "./places.js";
 
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
@@ -195,25 +196,11 @@ if (OPT.campsloths) {
     s.asleep = true; s.eyes(true);
   }
 
-  // the hammock: the sling and its ropes swing about the line between the rope knots on the posts (1.75 m up);
-  // the posts and the leaves on top stay put. The same swing turns the group the napper lies in.
-  const PIV = 1.75, sway = { value: 0 };
-  const hg = new THREE.Group(); hg.position.set(hm.x, PIV, hm.z); hg.rotation.y = hYaw; scene.add(hg);
-  const swing = new THREE.Group(); hg.add(swing);
-  const ham = scene.getObjectByName("Hammock");
-  if (ham) {
-    const mat = ham.material.clone(), prevHook = ham.material.onBeforeCompile;   // clone() drops the hook: keep the baked night light and sun shadow (campProps.js lnight)
-    mat.onBeforeCompile = (sh, r) => {
-      prevHook?.call(mat, sh, r);
-      sh.uniforms.uSway = sway;
-      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uSway;").replace("#include <begin_vertex>", `#include <begin_vertex>
-        float sw = uSway * (1.0 - smoothstep(1.03, 1.43, abs(transformed.x))) * (1.0 - smoothstep(1.8, 1.95, transformed.y));
-        vec2 q = transformed.yz - vec2(${PIV.toFixed(2)}, 0.0); float cs = cos(sw), sn = sin(sw);
-        transformed.yz = vec2(${PIV.toFixed(2)}, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
-    };
-    ham.material = mat;
-  }
-  hammockSway = { sway, swing, zz: null, push: 0 };
+  // the hammock (swing.js): the sling swings about the line between the rope knots, and the napper lies in the group
+  // that swings with it
+  const PIV = HAMMOCK_PIVOT;
+  hammockSway = makeHammockSwing(); hammockSway.zz = null;   // zz: the napper's three z's (campStep)
+  const swing = hammockSway.swing;
   const inward = V(-hd.z, 0, hd.x).normalize(); if (inward.dot(hm) > 0) inward.negate();   // from the hammock toward the fire
   // the log seat right of the gap, facing the fire and the kettle
   const sa = SEATS[0].angle, at = V(SEATS[0].at.x, 0.33, SEATS[0].at.z).addScaledVector(V(-Math.sin(sa), 0, Math.cos(sa)), -0.12);   // on the log's top, 12 cm along it
@@ -249,27 +236,8 @@ if (OPT.campsloths) {
     spots.push({ name: "line", parent: scene, clip: "cling", scale: sc, line: true, climb: true, ignore: 0.6,
       door: LL.a.clone().setY(0).addScaledVector(LL.dir, -0.1 * sc), climbYaw: Math.atan2(-LL.dir.x, -LL.dir.z), top: LL.a.y - 0.2 * sc,
       t: Math.max(0, Math.min(1, LL.hang.clone().sub(LL.a).dot(LL.dir) / LL.a.distanceTo(LL.b))) });
-    const cloth = scene.getObjectByName("LaundryCloth");
-    if (cloth?.material) {
-      const L = LL.a.distanceTo(LL.b), u = { uX: { value: 0 }, uPush: { value: 0 }, uTime }, mat = cloth.material;   // uTime: the breeze (props thread)
-      const prevHook = mat.onBeforeCompile;   // keeps the props thread's night light (lnight)
-      mat.onBeforeCompile = (sh, r) => {
-        prevHook?.call(mat, sh, r);
-        Object.assign(sh.uniforms, u);
-        sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uX, uPush, uTime;").replace("#include <begin_vertex>", `#include <begin_vertex>
-          float lt = transformed.x / ${L.toFixed(3)} + 0.5, ly = ${LL.a.y.toFixed(3)} - ${LL.sag.toFixed(3)} * 4.0 * lt * (1.0 - lt);
-          float sw = -1.1 * uPush * (1.0 - smoothstep(0.2, 0.45, abs(transformed.x - uX)));
-          vec2 q = transformed.yz - vec2(ly, 0.0);
-          // a gentle breeze: slow gusts roll along the line, and the cloth bends a little more toward its hem (props thread)
-          float gust = 0.55 + 0.45 * sin(uTime * 0.37 + 1.3) * sin(uTime * 0.23);
-          sw += gust * (0.16 * sin(uTime * 1.6 - transformed.x * 1.8) + 0.06 * sin(uTime * 3.7 - transformed.x * 5.0)) * (1.0 + 2.5 * max(0.0, -q.x));
-          float cs = cos(sw), sn = sin(sw);
-          transformed.yz = vec2(ly, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
-      };
-      mat.needsUpdate = true;
-      LL.brush = (p, on, dt) => { u.uX.value = cloth.worldToLocal(p.clone()).x; u.uPush.value += ((on ? 1 : 0) - u.uPush.value) * Math.min(1, dt * 2); };
-    }
   }
+  const brush = LL ? makeClothBrush() : null;   // swing.js: the towel and socks swing aside as it brushes past them
   // the tent (Adriaen 2026-11-12, "our camp" walk-in tent only): it crawls to the planks before the door, in, turns round
   // and lies on its belly in the doorway, chin on its paws, peeking out (clip peek). Tent frame: +Z out of the door,
   // doorway at z 0.95, floor 0.02 up.
@@ -554,7 +522,7 @@ if (OPT.campsloths) {
     if (spot.line) {                                  // hand over hand back along the line to post a, then down it
       const L = LL.a.distanceTo(LL.b);
       play(s, "hang_walk", 1.2, -HW_POST);
-      return slide(s, spot.t, 0.05, 0.015 * HW_POST * s.sc / L, (u) => { const P = linePose(s, u); LL.brush?.(P.at, true, 1 / 60); return P; }, () => downPost(s, spot, spot.top, go));
+      return slide(s, spot.t, 0.05, 0.015 * HW_POST * s.sc / L, (u) => { const P = linePose(s, u); brush?.(P.at, true, 1 / 60); return P; }, () => downPost(s, spot, spot.top, go));
     }
     if (spot.climb) {                                 // the hammock: out of the sling, up the rope to the knot, down the post
       play(s, "hang_walk", 2, -HW_POST);
@@ -1039,7 +1007,7 @@ if (OPT.campsloths) {
         if (k >= 1) { T.phase = spot.line ? "line" : "rope"; T.t = 0; T.u = spot.line ? 0.05 : 0.1; }
       } else if (T.phase === "line") {               // hand over hand along the line to the gap
         T.u = Math.min(spot.t, T.u + 0.015 * HW_POST * s.sc * sd / LL.a.distanceTo(LL.b)); const P = linePose(s, T.u);
-        s.o.position.copy(P.p); s.o.quaternion.copy(P.q); LL.brush?.(P.at, true, sd);
+        s.o.position.copy(P.p); s.o.quaternion.copy(P.q); brush?.(P.at, true, sd);
         if (T.u >= spot.t) { play(s, "cling", 3, 0.6); atHome(s); }
       } else if (T.phase === "rope") {               // down the rope to the sling's end
         T.u = Math.min(ROPE_L - 0.05, T.u + 0.015 * HW_POST * s.sc * sd); const R1 = ropePose(s, T.u);
@@ -1055,7 +1023,7 @@ if (OPT.campsloths) {
       if (T.phase !== "home" && s.smore) stopSmore(s);
       if (s.gift && !s.gift.clip) giftFly(s, sd);
       zStep(s, dt);
-      if (spot.line && T.phase === "home") LL.brush?.(s.o.position, false, dt);   // the towel swings back
+      if (spot.line && T.phase === "home") brush?.(s.o.position, false, dt);   // the towel swings back
       // the hit sphere and the point hearts and words fly to follow the sloth
       s.o.getWorldPosition(s.box.position).y += 0.25 * s.sc / SL; s.p.copy(s.box.position);
     }
@@ -1068,8 +1036,7 @@ if (OPT.campsloths) {
     for (const P of POIS ?? []) for (const q of P.slots) { const F = q.food; if (F.grow != null) { F.grow = Math.min(1, F.grow + sd); F.mesh.scale.copy(F.mesh.userData.base).multiplyScalar(Math.max(0.01, sstep(0, 1, F.grow))); if (F.grow >= 1) F.grow = null; } }
     const H = hammockSway, T = uTime.value, napper = spots[0].home ? spots[0].who : null;   // a slow swing, nudged harder for a while after a boop
     window.__labStep?.(dt);
-    H.push = Math.max(0, H.push - dt * 0.25);
-    H.sway.value = (0.055 + 0.1 * H.push) * Math.sin(T * 2 * Math.PI / 5.2); H.swing.rotation.x = H.sway.value;
+    H.step(dt);
     if (napper?.squish > 0.9) H.push = 1;
     H.zz ??= [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
     H.zz.forEach((z, i) => { const k = (T / 2.4 + i / 3) % 1; if (napper) napper.head.getWorldPosition(z.position).add(V(0.1 * Math.sin(k * 6), 0.25 + 0.6 * k, 0));
