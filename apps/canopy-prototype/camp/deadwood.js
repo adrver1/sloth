@@ -1,5 +1,5 @@
 // Canopy Camp deadwood (camp review B6): a fallen mossy log, a cut stump and a dead standing trunk at the clearing's edge,
-// with orange shelf fungus on all three. Low poly (about 300 tris in all, one draw) with the detail painted into vertex
+// with orange shelf fungus on all three. Low poly (one draw; deadwood.tris has the count per piece, printed by tools/camp-probe.cjs), with no caps where they are buried, and the detail painted into vertex
 // colours the way the forest trunks are (forest.js bake()): moss on the up-facing bark, pale wood with rings on the cut ends.
 // Lit live like the forest round them, so no light-map bake; their ground shadows join the GPU bake through deadwood (exported; window.__deadwood, debug.js).
 // buildDeadwood() (main.js, once the props and the sloths stand, before the ground) places and builds them.
@@ -71,7 +71,7 @@ function buildDeadwood() {
     const g = new THREE.CylinderGeometry(r * 0.92, r, L, 8, 3, false).rotateZ(Math.PI / 2);
     const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); if (x < -L / 2 + 0.01) p.setXYZ(i, x - (p.getY(i) > 0 ? 0.12 : 0) + Math.sin(i * 2.7) * 0.06, p.getY(i), p.getZ(i)); p.setY(i, p.getY(i) + 0.04 * Math.sin(x * 2.1)); }   // the broken end splinters
     parts.push(paint(g, { y0: -r, y1: r, cap: (x, y, z, nx) => Math.abs(nx) > 0.9 && x > 0 ? Math.min(1, Math.hypot(y, z) < 0.02 ? 1 : 0.15) : -1, uv: [1, 2] }).rotateY(-yaw).translate(c.x, r * 0.75, c.z));
-    const stub = new THREE.ConeGeometry(0.07, 0.6, 5, 1).rotateZ(-0.9).translate(0.35, r + 0.15, 0.1);   // a broken branch stub
+    const stub = new THREE.ConeGeometry(0.07, 0.6, 5, 1, true).rotateZ(-0.9).translate(0.35, r + 0.15, 0.1);   // a broken branch stub, open at its foot inside the log (R2-107)
     parts.push(paint(stub, { moss: 0.5, y0: 0, y1: 0.6 }).rotateY(-yaw).translate(c.x, r * 0.75 - 0.1, c.z));
     const ax = V(Math.cos(yaw), 0, Math.sin(yaw)), side = V(-ax.z, 0, ax.x);
     for (let i = 0; i < 3; i++) { const t = R(-0.9, 0.9), sd = i % 2 ? 1 : -1; shelf(parts, c.clone().addScaledVector(ax, t).addScaledVector(side, sd * r * 0.98).setY(r * 0.75 + R(-0.05, 0.08)), side.clone().multiplyScalar(sd), R(0.12, 0.16)); }
@@ -81,6 +81,7 @@ function buildDeadwood() {
   // the stump: a cut stump with flared roots and a ringed top
   if (spots[1]) { const c = spots[1], r = 0.36, h = 0.48, from = parts.length;
     const g = new THREE.CylinderGeometry(r * 0.85, r * 1.2, h, 9, 2, false).translate(0, h / 2, 0);
+    g.setIndex(Array.from(g.index.array.subarray(0, g.groups.find((q) => q.materialIndex === 2).start))); g.clearGroups();   // the sides and the cut top: the bottom cap is buried (R2-107)
     const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x), f = 1 + (y < 0.01 ? 0.7 * Math.max(0, Math.cos(a * 4 + 0.4)) : y < h - 0.01 ? 0.12 * Math.max(0, Math.cos(a * 4 + 0.4)) : 0);   // roots flare out at the foot
       p.setXYZ(i, x * f, y > h - 0.01 ? h + 0.03 * Math.sin(a * 2) * Math.hypot(x, z) / r : y < 0.01 ? -0.02 : y, z * f); }
     parts.push(paint(g, { y0: 0, y1: h, cap: (x, y, z, nx, ny) => ny > 0.8 ? (Math.hypot(x, z) < 0.02 ? 1 : 0.2) : -1, uv: [2, 0.5] }).translate(c.x, 0, c.z));
@@ -94,7 +95,7 @@ function buildDeadwood() {
     const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
       p.setXYZ(i, x + Math.sin(y * 0.6) * 0.12, y > H - 0.01 ? H - 0.5 * (0.5 + 0.5 * Math.sin(a * 3 + 1)) : y, z); }   // jagged snapped top
     parts.push(paint(g, { bleach: 0.8, moss: 0.6, y0: 0, y1: 2.5, uv: [1, 4] }).translate(c.x, 0, c.z));
-    const limb = new THREE.ConeGeometry(0.08, 1.1, 5, 1).rotateZ(-1.1).translate(0.45, 3.0, 0);
+    const limb = new THREE.ConeGeometry(0.08, 1.1, 5, 1, true).rotateZ(-1.1).translate(0.45, 3.0, 0);   // open at its foot inside the trunk (R2-107)
     parts.push(paint(limb, { bleach: 0.8, moss: 0.3, y0: 0, y1: 2.5 }).rotateY(R(0, 6.28)).translate(c.x, 0, c.z));
     const out = c.clone().normalize().negate();
     for (let i = 0; i < 4; i++) { const a = Math.atan2(out.z, out.x) + R(-0.8, 0.8), d = V(Math.cos(a), 0, Math.sin(a)), y = 0.5 + i * 0.42 + R(-0.1, 0.1), rr = 0.34 - y * 0.03; shelf(parts, c.clone().addScaledVector(d, rr).setY(y), d, R(0.13, 0.19)); }
