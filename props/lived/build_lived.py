@@ -397,8 +397,12 @@ def wood_pile(M):
 # the loose logs lying about: (length, radius, x, y, yaw, end circle, side band), in WoodPile's own frame
 LOOSE = [(0.4, 0.085, 1.38, -0.43, 1.1, 0, 0), (0.44, 0.08, 0.2, -0.45, 0.3, 1, 1), (0.46, 0.065, -0.35, -0.42, -0.2, 2, 2)]
 # They read the stack's atlas (wood_stack.jpg, 1024 px, y down) at spots stack_spots() finds in the stack itself: sawn
-# ends with rings, and log sides. The logs the player carries on the page read other spots of the same atlas
-# (activities/parts.js CARRIED: a strip of the logs seen from above and one round end); keep both on bark and end grain
+# ends with rings, and log sides. The logs the player carries on the page read other spots of the same atlas, CARRIED: a
+# strip of the logs seen from above (x, y, width, height) and one round end (centre x, y and half-size), picked by eye.
+# stack_spots() writes both into wood_stack.json ("spots" and "carried"); the light bake puts "carried" on the WoodStack
+# object in lived.glb (glTF extras), and activities/parts.js paintLogs reads it there (review R2-243). Keep both on bark
+# and end grain, and check CARRIED by eye if the stack is ever built differently.
+CARRIED = {"side": [540, 555, 62, 455], "end": [440, 92, 60]}
 HEX = 6
 
 
@@ -408,7 +412,7 @@ def stack_spots(M):
     bottom. The stack is built again from its own seeded stream (stack_logs) and rays go the way the renders in
     wood_stack() look: from the front (-Y) for the ends, whose largest circles inside a sawn end are kept, and from the
     right (+X) for the sides, whose tallest runs of one log's bark are kept, each inset a little. They are also written
-    into wood_stack.json as "spots", beside the renders' key, so the page can read the same numbers later (R2-243)."""
+    into wood_stack.json as "spots", beside the renders' key and the carried logs' CARRIED spots (R2-243)."""
     from mathutils.bvhtree import BVHTree
     import numpy as np
     logs = stack_logs(M)
@@ -464,8 +468,8 @@ def stack_spots(M):
     spots = {"ends": [[x, y, round(0.95 * r)] for r, x, y in circles], "sides": sides}
     stamp = os.path.join(HERE, "wood_stack.json")
     j = json.load(open(stamp)) if os.path.exists(stamp) else {}
-    if j.get("spots") != spots:
-        j["spots"] = spots
+    if j.get("spots") != spots or j.get("carried") != CARRIED:
+        j["spots"], j["carried"] = spots, CARRIED
         with open(stamp, "w") as f:
             json.dump(j, f)
     return spots
@@ -474,7 +478,7 @@ def stack_spots(M):
 def loose_logs(spots, logs=None, name="LooseLogs"):
     """The loose logs as plain hexagonal prisms (12 side + 8 end triangles each) on the stack's own texture, so they
     look like logs taken off the stack, through spots (stack_spots: a sawn end and a log side each). The page's carried
-    logs use their own spots of the same atlas (activities/parts.js CARRIED), not these."""
+    logs use their own spots of the same atlas (CARRIED), not these."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     U = lambda x, y: (x / 1024, 1 - y / 1024)  # noqa: E731

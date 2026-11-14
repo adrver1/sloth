@@ -30,7 +30,8 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
    COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
    the page places them as before; SeatTop as SeatTop_0-2, one per seat; the laundry's and the fire's ANCHORS empties
-   kept as built, review R2-252) with their models/*.txt copies, and
+   kept as built, review R2-252; the WoodStack carries the carried logs' atlas spots from props/lived/wood_stack.json
+   as a glTF extra, review R2-243) with their models/*.txt copies, and
    apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png. The GLBs carry quantized normals, colours and UVs
    (KHR_mesh_quantization, lib/quantize.py), and the unlit Embers no normals (review R2-109).
 Where each prop and light stands comes from the page itself: the "place" block the layout step (export_casters.cjs)
@@ -418,16 +419,23 @@ json.dump({"channels": G, "colour": {g: LIGHTS[g][0] for g in LIGHTS}, "encoding
 print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}; " + ", ".join(f"{g} max {glit[g].max():.2f}" for g in G))
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
-def export(objs, path, txt, image_format="AUTO"):
-    export_glb(objs, path, image_format=image_format, check=False, small=True, unlit=("Embers",))   # audited in steps 1 and 2;
+def export(objs, path, txt, image_format="AUTO", extras=False):
+    export_glb(objs, path, image_format=image_format, check=False, small=True, unlit=("Embers",), extras=extras)   # audited in steps 1 and 2;
     # small: quantized normals, colours and UVs, and no normals on the unlit embers (review R2-109)
     with open(path, "rb") as f, open(os.path.join(MODELS, txt), "w") as g:
         g.write(base64.b64encode(f.read()).decode())
 
 
 export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
+# the carried logs' spots in the wood stack's atlas ride on the WoodStack as a glTF extra, so the page reads them with the
+# atlas they belong to (activities/parts.js paintLogs, review R2-243); build_lived.py stack_spots writes them
+with open(os.path.join(LIVED, "wood_stack.json")) as f:
+    CARRIED = json.load(f)["carried"]
 for sname, meshes in sets.items():
     for o in meshes:
         o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)
-    export(meshes + anchors[sname], os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
+        if o.name == "WoodStack":
+            o["carried"] = CARRIED
+    export(meshes + anchors[sname], os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO",
+           extras=sname == "lived")
 print(f"camp light: {len(counts)} objects, {sum(counts.values())} triangles, {time.time() - T0:.0f} s")

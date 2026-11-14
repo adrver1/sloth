@@ -1,7 +1,7 @@
 // Camp activities, shared parts: the geometry, materials and painted textures the chores share (a log, a soup bowl and its
 // soup, the pot's surface shade, a bubble), made once when the page loads, and the food's names. Triangles: a log 24 with
 // its caps, a bowl 16 and its soup 8.
-// Exports the parts by name, paintLogs(woodTex) (the logs take the props' wood atlas), soupBowl() (a new bowl of soup),
+// Exports the parts by name, paintLogs(woodTex, spots) (the logs take the props' wood atlas at spots, from lived.glb), soupBowl() (a new bowl of soup),
 // an(name) ("a" or "an") and flat(a, b) (the distance between two points on the ground).
 import * as THREE from "three";
 import { FRUIT, VEG as VEG_KINDS } from "../camp/food.js";
@@ -30,13 +30,13 @@ export const bubbleTex = tex(32, 32, (g) => { g.strokeStyle = "rgba(255,244,225,
 
 // The carried logs' spots in the stack's atlas (props/lived/wood_stack.jpg, 1024 px, y down), which has log ends on the
 // top half and the logs seen from above bottom right: the sides take one log's strip (x0, y0, width, height; mirrored
-// round, so no seam) and the caps one round end (centre x, y and half-size). The loose logs by the wood pile read other
-// spots of the same atlas (props/lived/build_lived.py stack_spots, written into props/lived/wood_stack.json as "spots");
-// they need not match these. If the stack is ever built differently, check these by eye against the new atlas.
+// round, so no seam) and the caps one round end (centre x, y and half-size). They are set once, in props/lived/build_lived.py
+// CARRIED, and the light bake puts them on the WoodStack in lived.glb (camp/campProps.js WOOD_SPOTS, review R2-243).
+// CARRIED here is the same pair, for a lived.glb baked before that; drop it once the light bake has run.
 const CARRIED = { side: [540, 555, 62, 455], end: [440, 92, 60] };
-export function paintLogs(woodTex) {
+export function paintLogs(woodTex, spots = CARRIED) {
   const px = (x, y) => [x / 1024, woodTex.flipY ? 1 - y / 1024 : y / 1024], uv = logGeo.attributes.uv, side = (6 + 1) * 2;
-  const [sx, sy, sw, sh] = CARRIED.side, [ex, ey, eh] = CARRIED.end;
+  const [sx, sy, sw, sh] = spots.side, [ex, ey, eh] = spots.end;
   for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i);
     uv.setXY(i, ...(i < side ? px(sx + sw * Math.abs(2 * u - 1), sy + sh * v) : px(ex + (u - 0.5) * 2 * eh, ey + (v - 0.5) * 2 * eh))); }
   uv.needsUpdate = true; logMat.map = woodTex; logMat.needsUpdate = true;

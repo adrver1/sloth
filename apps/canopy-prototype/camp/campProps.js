@@ -2,7 +2,7 @@
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
 // main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
 // at night) and motesStep (the drifting motes). Exports those, CAMP, SLOTH (the sloth model), blockers and the props' parts
-// other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX, fireLight, glowTex, lanternGlow, LANTERNS, rayMat, uNight), and buildProps()
+// other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX and WOOD_SPOTS (the carried logs' spots in its atlas), fireLight, glowTex, lanternGlow, LANTERNS, rayMat, uNight), and buildProps()
 // (main.js, once), which builds them all. It checks layout.js LAUNDRY and SOUP_POT against the anchors in laundry.glb and
 // fire.glb once they load (checkAnchors, review R2-252).
 import * as THREE from "three";
@@ -43,7 +43,7 @@ function checkAnchors(root, want, file) {
   }
 }
 const uNight = { value: 0 };   // how far the baked night light is faded in (main.js sets it from the dusk)
-let glowTex, LANTERNS, fireLight, rayMat, motes, pools, SLOTH, LMTEX, LMSUN, WOODPILE, WOOD_TEX;   // set by buildProps
+let glowTex, LANTERNS, fireLight, rayMat, motes, pools, SLOTH, LMTEX, LMSUN, WOODPILE, WOOD_TEX, WOOD_SPOTS;   // set by buildProps
 
 // ---------------------------------------------------------------- the camp's baked light (props/camp/bake_camp_lightmap.py: the whole scene, ground and props,
 // baked as one; Adriaen 2026-11-12). On each prop's second UV set (TEXCOORD_1):
@@ -130,7 +130,8 @@ async function buildProps() {
     const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
     const { at: wp, yaw: wy, side } = WOOD_PILE;
     put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); put("LooseLogs", wp.x, wp.z, wy); WOODPILE = wp;   // the activities take logs from here
-    L.scene.getObjectByName("WoodStack").traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; });   // and paint them like the stack
+    const stack = L.scene.getObjectByName("WoodStack");   // and paint them like the stack, at the atlas spots the bake put on it (R2-243)
+    stack.traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; WOOD_SPOTS ??= m.userData.carried; });
     blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
     put("SeatThings", SEATS[1].at.x, SEATS[1].at.z, SEATS[1].yaw);   // the middle seat
     { const t = TENT.at; put("TentSide", t.x, t.z, TENT.yaw); put("MatRoll", t.x, t.z, TENT.yaw); }   // wellies and the rolled mat on the planks by the door (tent frame)
@@ -212,4 +213,4 @@ function poolsStep(dusk, fl, nightBaked) { pools.visible = dusk > 0 && !nightBak
 // the motes drift slowly round the clearing
 function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
 
-export { buildProps, CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight };
+export { buildProps, CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_SPOTS, WOOD_TEX, blockers, fireLight, fireStep, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight };
