@@ -3,7 +3,8 @@
 // is soup. Tap the pot with empty hands to ladle a bowl, carry it to a log seat and set it down: the sloths nearby perk up
 // (camp/events.js EV.food and EV.cheer; sloths.js picks who perks up). One pot makes three bowls, then it is empty again. The pot model (props/lived/build_fire.py)
 // is not touched: a flat disc at the soup's surface shows it empty, water or broth, and fades away once the soup is done so
-// the modelled soup shows. Triangles: the surface disc 12, the pail 60 (camp/canister.js), a bowl 24; bubbles are sprites.
+// the modelled soup shows. Triangles: the surface disc 12, the pail 60 (camp/canister.js), a bowl 24; the bubbles
+// are a pool of 10 quads in one draw (atmosphere.js pool), drawn over the surface disc.
 // Exports createSoupChore({ scene, me, pot, fire, carry, burst, toast, told }): { soup (its state), seats,
 // wants() (would a tap on the pot do something with what you hold), pour(), addVeg(), ladle(), serve(seat), placePail(table)
 // (builds the pail under the table: the caller says when, since things are built in a fixed order), cook (the same steps for
@@ -11,6 +12,7 @@
 import * as THREE from "three";
 import { makePail } from "../camp/canister.js";
 import { V, timers } from "../camp/util.js";
+import { pool } from "../atmosphere.js";
 import { EV, emit } from "../camp/events.js";
 import { bowlGeo, bowlMat, bubbleTex, flat, soupGeo, soupMat, surfTex } from "./parts.js";
 
@@ -26,11 +28,10 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
   const surf = new THREE.Mesh(new THREE.CircleGeometry(pot.r + 0.002, 12).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: surfTex, color: STAGE.empty, transparent: true, depthWrite: true }));
   surf.position.copy(pot.at).setY(pot.at.y + 0.012); surf.renderOrder = 1; scene.add(surf);
   const surfCol = new THREE.Color(STAGE.empty), surfTo = new THREE.Color(STAGE.empty);
-  const bubbles = Array.from({ length: 10 }, () => { const o = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex, transparent: true, depthWrite: false })); o.visible = false; scene.add(o); return { o, live: false, t: 0, life: 1 }; });
+  const bubbles = pool(scene, 10, bubbleTex, THREE.NormalBlending, 2);   // after the surface disc (renderOrder 1)
   function bubble(big = 1) {
-    const b = bubbles.find((q) => !q.live); if (!b) return;
     const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * pot.r * 0.8;
-    b.live = true; b.t = 0; b.life = 0.5 + Math.random() * 0.7; b.big = big * (0.02 + Math.random() * 0.025); b.o.visible = true; b.o.position.set(pot.at.x + Math.cos(a) * r, pot.at.y + 0.022, pot.at.z + Math.sin(a) * r);
+    bubbles.add({ x: pot.at.x + Math.cos(a) * r, y: pot.at.y + 0.022, z: pot.at.z + Math.sin(a) * r, t: 0, life: 0.5 + Math.random() * 0.7, big: big * (0.02 + Math.random() * 0.025), size: 0, alpha: 1, spin: 0 });
   }
   function pour() {   // the water goes in: the surface turns to water with a burst of bubbles
     soup.stage = "water"; soup.veg = 0; soup.refill = false; surfTo.set(STAGE.water); soup.fade = 1;
@@ -112,7 +113,9 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
         soup.fade = Math.max(0, soup.fade - dt / 2); surf.material.opacity = soup.fade; surf.visible = soup.fade > 0.01;
         if (Math.random() < dt * 2) bubble(0.7);
       } else { surf.visible = true; surf.material.opacity = 1; if (soup.stage === "water" && Math.random() < dt * 0.6) bubble(0.6); }
-      for (const b of bubbles) { if (!b.live) continue; b.t += dt; const k = b.t / b.life; b.o.scale.setScalar(b.big * (0.4 + k)); b.o.material.opacity = 1 - k * k; if (k >= 1) { b.live = false; b.o.visible = false; } }
+      const L = bubbles.live;
+      for (let i = L.length - 1; i >= 0; i--) { const b = L[i]; b.t += dt; const k = b.t / b.life; if (k >= 1) { L[i] = L[L.length - 1]; L.pop(); continue; } b.size = b.big * (0.4 + k); b.alpha = 1 - k * k; }
+      bubbles.flush();
       // bowls on the seats: the soup goes down over a minute and a half, then the bowl is taken away
       for (let i = bowlsOut.length - 1; i >= 0; i--) { const b = bowlsOut[i]; b.t += dt;
         b.s.position.y = -0.03 * Math.min(1, b.t / 90); b.s.visible = b.t < 90;
