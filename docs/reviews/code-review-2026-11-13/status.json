@@ -1,0 +1,656 @@
+{
+ "as_of": "section C round 2, 2026-11-13",
+ "statuses": [
+  "fixed",
+  "partly fixed",
+  "checked, still open",
+  "in progress",
+  "planned",
+  "waiting on Adriaen",
+  "open"
+ ],
+ "findings": {
+  "boot-01": {
+   "status": "fixed",
+   "commits": [
+    "43c2e9d"
+   ],
+   "note": ""
+  },
+  "boot-02": {
+   "status": "fixed",
+   "commits": [
+    "68529c0"
+   ],
+   "note": ""
+  },
+  "boot-03": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7",
+    "ae20b20",
+    "30a3173"
+   ],
+   "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
+  },
+  "boot-04": {
+   "status": "partly fixed",
+   "commits": [
+    "2626429",
+    "d6fbceb",
+    "00f93fb",
+    "ae20b20"
+   ],
+   "note": "the APIs are exports and every module the clean-up has reached imports them (daylight.js imports groundHeight, jeepSeat.js the jeep's API); sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read the window aliases (next round), jeepSeat.js and lab.js still read __campLife, __car, __lab and __campFast, which have no export yet, and the debug hooks are not in one place yet"
+  },
+  "boot-06": {
+   "status": "partly fixed",
+   "commits": [
+    "4b4c73f",
+    "7bece27"
+   ],
+   "note": "fire, pools, motes, sun shadows, the day clock and the palette are step functions in their owners; the sloths' squish and nod, the flying emojis and the glow uniforms are still written out in main.js's loop until sloths.js gets a step function (next round); the one-frame dusk lag is kept on purpose, since moving it changes behaviour"
+  },
+  "boot-12": {
+   "status": "fixed",
+   "commits": [
+    "c180d5c"
+   ],
+   "note": ""
+  },
+  "boot-17": {
+   "status": "partly fixed",
+   "commits": [
+    "4ddc16e",
+    "ea8bc13"
+   ],
+   "note": "OPT and KEYS in core.js, now with time, cycle, pos, yaw and pitch; input.js (touch), sloths.js (campsloths, slothmat, lab), operator.js (op) and audio.js (sound, station, its storage key) still parse their own (next round)"
+  },
+  "boot-18": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "boot-19": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "boot-20": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7",
+    "633be43",
+    "8778d7f"
+   ],
+   "note": "highlight lit getter, player.js leftovers and core.js's pr variable removed; input.js's unused imports and its 'lit.at(to).center' remain (next round)"
+  },
+  "crosscut-01": {
+   "status": "fixed",
+   "commits": [
+    "43c2e9d"
+   ],
+   "note": ""
+  },
+  "crosscut-02": {
+   "status": "fixed",
+   "commits": [
+    "d17235f",
+    "b700bf0"
+   ],
+   "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
+  },
+  "crosscut-03": {
+   "status": "partly fixed",
+   "commits": [
+    "2626429",
+    "d6fbceb",
+    "00f93fb",
+    "ae20b20",
+    "4615035"
+   ],
+   "note": "the APIs are exports and every module the clean-up has reached imports them; sloths.js, operator.js, input.js, audio.js, car.js, radio.js, jeepSeat.js and lab.js still read __camp, __jeep, __laundry, __acts, __campLife, __me, __car, __op, __lab, __labStep and __campFast (core.js lists who reads which)"
+  },
+  "crosscut-04": {
+   "status": "partly fixed",
+   "commits": [
+    "4ddc16e",
+    "4615035"
+   ],
+   "note": "the globals are listed in core.js (now with the car's, the radio's and the sound's), marked as API, tool contract or debug hook, and two unused hooks are gone; one debug module is not done: the hooks still sit in main.js (__rest, __face, and __slothS, which still maps every sloth at start-up), clock.js, linger.js, weather.js, car.js, audio.js, radio.js, sloths.js and operator.js (op.scr is still computed every frame)"
+  },
+  "crosscut-05": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "crosscut-06": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7",
+    "ae20b20",
+    "30a3173"
+   ],
+   "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
+  },
+  "crosscut-07": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7",
+    "633be43",
+    "4615035",
+    "8778d7f"
+   ],
+   "note": "forest.js, food.js, player.js and jeep.js (jeepTap, the camper's ladder) done; sloths.js's COUNT, flowerCrown and friend, and input.js's import of them, remain (next round)"
+  },
+  "crosscut-08": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "crosscut-09": {
+   "status": "partly fixed",
+   "commits": [
+    "5dab33a",
+    "d6fbceb",
+    "00f93fb",
+    "633be43",
+    "bdd3760"
+   ],
+   "note": "camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack and its eye-drop ease (both round differently from the helper) and daylight.js's sm (THREE.MathUtils.smoothstep, moved from main.js as it was); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js remain (next round)"
+  },
+  "crosscut-10": {
+   "status": "partly fixed",
+   "commits": [
+    "1eaa862",
+    "d6fbceb",
+    "8778d7f"
+   ],
+   "note": "camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js remain (next round)"
+  },
+  "crosscut-13": {
+   "status": "fixed",
+   "commits": [
+    "c180d5c"
+   ],
+   "note": ""
+  },
+  "crosscut-14": {
+   "status": "partly fixed",
+   "commits": [
+    "4b4c73f",
+    "7bece27"
+   ],
+   "note": "main.js's inline blocks moved to their owners, except the sloths' three pieces (sloths.js, next round), and its import list is the stated build order; init(ctx) per module, a frame registry and the core.js split remain"
+  },
+  "crosscut-15": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668",
+    "4ddc16e",
+    "ea8bc13"
+   ],
+   "note": "one table of URL options, storage keys and window globals in core.js, now with time, cycle and the start view; the README copy remains, and the options input.js, sloths.js, operator.js and audio.js parse themselves"
+  },
+  "crosscut-17": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "genbake-01": {
+   "status": "fixed",
+   "commits": [
+    "d17235f",
+    "b700bf0"
+   ],
+   "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
+  },
+  "genbake-03": {
+   "status": "checked, still open",
+   "commits": [],
+   "note": "the GPU bake printed \"GPU OPTIX RTX 5070 Ti\" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain"
+  },
+  "genbake-06": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": "the exporter validates the layout and writes nothing on a broken one; page errors and the Python readers remain"
+  },
+  "genbake-09": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "genbake-11": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": "dead jeep globs removed from the KTX step; DOORS and the Fire check remain"
+  },
+  "genbake-12": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668",
+    "0fe98e3"
+   ],
+   "note": "two docstrings fixed; the rest remain"
+  },
+  "genbake-13": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "genbake-14": {
+   "status": "fixed",
+   "commits": [
+    "8250f6d",
+    "1829576"
+   ],
+   "note": "export_casters.cjs writes a place block from the live page and the bake reads it; the hand-typed copies are gone"
+  },
+  "genbake-18": {
+   "status": "partly fixed",
+   "commits": [
+    "c473b25"
+   ],
+   "note": "the bake calls each builder's make() directly: no exec, no patching. The GLB round trip stays (through a temporary folder) because the glTF export triangulates and splits vertices, and the atlas is built on that result"
+  },
+  "genbake-21": {
+   "status": "open",
+   "commits": [],
+   "note": "not part of section C part 1"
+  },
+  "genbake-22": {
+   "status": "open",
+   "commits": [],
+   "note": "not part of section C part 1"
+  },
+  "genbake-28": {
+   "status": "fixed",
+   "commits": [
+    "0fe98e3"
+   ],
+   "note": "39 s to 10 s, byte-identical output"
+  },
+  "genbake-32": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "gencamp-01": {
+   "status": "fixed",
+   "commits": [
+    "550c7c9"
+   ],
+   "note": "picked() builds only the five picked props"
+  },
+  "gencamp-02": {
+   "status": "fixed",
+   "commits": [
+    "cb6f0a9"
+   ],
+   "note": "props/lib holds the helpers; no script patches another"
+  },
+  "gencamp-06": {
+   "status": "checked, still open",
+   "commits": [],
+   "note": "the GPU bake printed \"GPU OPTIX RTX 5070 Ti\" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain"
+  },
+  "gencamp-08": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "gencamp-13": {
+   "status": "partly fixed",
+   "commits": [
+    "cb6f0a9"
+   ],
+   "note": "cyl and rod take caps=; the jeep-local duplicates (quad vs poly, lugs and nuts) remain"
+  },
+  "gencamp-17": {
+   "status": "fixed",
+   "commits": [
+    "cb6f0a9"
+   ],
+   "note": "props/lib holds the helpers; no script patches another"
+  },
+  "genlived-01": {
+   "status": "fixed",
+   "commits": [
+    "3235ca1",
+    "b700bf0"
+   ],
+   "note": "the cache file was committed with the GPU bake in b700bf0"
+  },
+  "genlived-04": {
+   "status": "partly fixed",
+   "commits": [
+    "c473b25"
+   ],
+   "note": "the bake calls each builder's make() directly: no exec, no patching. The GLB round trip stays (through a temporary folder) because the glTF export triangulates and splits vertices, and the atlas is built on that result"
+  },
+  "genlived-06": {
+   "status": "fixed",
+   "commits": [
+    "cb6f0a9"
+   ],
+   "note": "props/lib holds the helpers; no script patches another"
+  },
+  "genlived-08": {
+   "status": "fixed",
+   "commits": [
+    "accd75a",
+    "2d14ac8"
+   ],
+   "note": ""
+  },
+  "genlived-09": {
+   "status": "fixed",
+   "commits": [
+    "accd75a",
+    "2d14ac8"
+   ],
+   "note": ""
+  },
+  "genlived-10": {
+   "status": "open",
+   "commits": [],
+   "note": "a tube helper would change geometry, so it needs a rebake and a visual check"
+  },
+  "genlived-13": {
+   "status": "open",
+   "commits": [],
+   "note": "not part of section C part 1"
+  },
+  "hygiene-01": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "hygiene-02": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "hygiene-07": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "hygiene-08": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "hygiene-12": {
+   "status": "partly fixed",
+   "commits": [
+    "d720668",
+    "0fe98e3"
+   ],
+   "note": "two docstrings fixed; the rest remain"
+  },
+  "hygiene-14": {
+   "status": "fixed",
+   "commits": [
+    "9561718"
+   ],
+   "note": "shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs"
+  },
+  "operator-07": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": "kettle spout removed (pot: SOUP_POT); flames and blockers options remain"
+  },
+  "operator-09": {
+   "status": "planned",
+   "commits": [],
+   "note": "next round of section C: the shared character layer and the sloths.js split"
+  },
+  "operator-10": {
+   "status": "planned",
+   "commits": [],
+   "note": "next round of section C: the shared character layer and the sloths.js split"
+  },
+  "operator-12": {
+   "status": "partly fixed",
+   "commits": [
+    "1eaa862",
+    "d6fbceb",
+    "8778d7f"
+   ],
+   "note": "camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js remain (next round)"
+  },
+  "operator-16": {
+   "status": "planned",
+   "commits": [],
+   "note": "next round of section C: the shared character layer and the sloths.js split"
+  },
+  "props-01": {
+   "status": "fixed",
+   "commits": [
+    "a8c698a"
+   ],
+   "note": ""
+  },
+  "props-02": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "props-03": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "props-06": {
+   "status": "partly fixed",
+   "commits": [
+    "1eaa862"
+   ],
+   "note": "camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js remain (next round)"
+  },
+  "props-07": {
+   "status": "partly fixed",
+   "commits": [
+    "8250f6d",
+    "1829576"
+   ],
+   "note": "the bake reads the layout from the page. The lantern light still hangs 0.12 m below its hook in the bake and 0.125 m in the page: matching them needs a pick and a rebake"
+  },
+  "props-08": {
+   "status": "fixed",
+   "commits": [
+    "2626429"
+   ],
+   "note": "exports, with the window names kept as aliases for the files that still read them"
+  },
+  "props-11": {
+   "status": "fixed",
+   "commits": [
+    "9561718"
+   ],
+   "note": "shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs"
+  },
+  "props-13": {
+   "status": "partly fixed",
+   "commits": [
+    "5dab33a",
+    "2ce6f7a"
+   ],
+   "note": "util.js patchMaterial; sloths.js and operator.js still chain their hooks by hand (next round)"
+  },
+  "props-16": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "props-18": {
+   "status": "fixed",
+   "commits": [
+    "d720668"
+   ],
+   "note": ""
+  },
+  "sloths-01": {
+   "status": "fixed",
+   "commits": [
+    "68529c0"
+   ],
+   "note": ""
+  },
+  "sloths-02": {
+   "status": "fixed",
+   "commits": [
+    "68529c0"
+   ],
+   "note": ""
+  },
+  "sloths-03": {
+   "status": "fixed",
+   "commits": [
+    "a8c698a"
+   ],
+   "note": ""
+  },
+  "sloths-04": {
+   "status": "fixed",
+   "commits": [
+    "68529c0"
+   ],
+   "note": ""
+  },
+  "sloths-22": {
+   "status": "fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": ""
+  },
+  "sloths-29": {
+   "status": "planned",
+   "commits": [],
+   "note": "next round of section C: the shared character layer and the sloths.js split"
+  },
+  "sloths-30": {
+   "status": "planned",
+   "commits": [],
+   "note": "next round of section C: the shared character layer and the sloths.js split"
+  },
+  "sloths-31": {
+   "status": "planned",
+   "commits": [],
+   "note": "next round of section C"
+  },
+  "sloths-32": {
+   "status": "planned",
+   "commits": [],
+   "note": "next round of section C: the shared character layer and the sloths.js split"
+  },
+  "world-01": {
+   "status": "fixed",
+   "commits": [
+    "d17235f",
+    "b700bf0"
+   ],
+   "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
+  },
+  "world-04": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "world-05": {
+   "status": "partly fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": "helpers, stub, __back and unused exports removed; the redundant first map: and the _y trick remain"
+  },
+  "world-06": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "world-07": {
+   "status": "fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": ""
+  },
+  "world-10": {
+   "status": "waiting on Adriaen",
+   "commits": [],
+   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+  },
+  "world-11": {
+   "status": "fixed",
+   "commits": [
+    "16996b7"
+   ],
+   "note": ""
+  },
+  "world-12": {
+   "status": "fixed",
+   "commits": [
+    "1eaa862"
+   ],
+   "note": "camp/layout.js"
+  },
+  "world-15": {
+   "status": "partly fixed",
+   "commits": [
+    "5dab33a",
+    "d6fbceb",
+    "00f93fb",
+    "633be43",
+    "bdd3760"
+   ],
+   "note": "camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack and its eye-drop ease (both round differently from the helper) and daylight.js's sm (THREE.MathUtils.smoothstep, moved from main.js as it was); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js remain (next round)"
+  },
+  "world-16": {
+   "status": "fixed",
+   "commits": [
+    "1eaa862"
+   ],
+   "note": "camp/layout.js"
+  },
+  "boot-05": {
+   "status": "fixed",
+   "commits": [
+    "7bece27",
+    "df78f1b"
+   ],
+   "note": "daytime.js has the slider and the day clock, the new daylight.js the palette, the mist and the moon; main.js calls their steps"
+  },
+  "boot-22": {
+   "status": "partly fixed",
+   "commits": [
+    "bdaa1c7"
+   ],
+   "note": "header and module list rewritten, the two dead link selectors removed; merging the two .bar rules, folding .pill into #perf and the spacer span remain (they are live rules: they need a look on a phone)"
+  },
+  "crosscut-16": {
+   "status": "partly fixed",
+   "commits": [
+    "bdaa1c7",
+    "7bece27"
+   ],
+   "note": "camp.html's header and module list and main.js's header say what is there, and the kettle comments in campLife.js are gone; the comment fixes in sloths.js, campProps.js, bakedlight.js, ground.js and atmosphere.js remain, and camp.html's CSS merges (see boot-22)"
+  }
+ }
+}

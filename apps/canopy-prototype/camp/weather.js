@@ -1,32 +1,29 @@
 // Canopy Camp weather (camp review B7): warm rain. A box of falling streaks round the camera (one draw of line segments),
 // kept off the tent and its planks so you can shelter there, and the light it brings: grey-green fog, a dimmer sun, no
 // shafts. Weather is set in the ⚙️ menu: Clear, Rain, or Changing (a shower every few minutes). ?weather=rain sets it.
-// main.js reads weather.wet (0 dry .. 1 pouring) for the light. No sound (cloud sessions can't hear it).
+// main.js steps it each frame and hands weather.wet (0 dry .. 1 pouring) to daylight.js for the light; audio.js makes the rain's sound.
 import * as THREE from "three";
-import { $, D, camera, qs, scene, store } from "./core.js";
+import { $, D, KEYS, OPT, camera, scene, store } from "./core.js";
+import { rand } from "./util.js";
+import { TENT } from "./layout.js";
 
 const MODES = ["clear", "rain", "changing"], NAME = { clear: "Clear ☀️", rain: "Rain 🌧️", changing: "Changing 🌦️" };
-let mode = MODES.includes(qs.get("weather")) ? qs.get("weather") : MODES.includes(store.get("canopy-weather")) ? store.get("canopy-weather") : "clear";
+let mode = MODES.includes(OPT.weather) ? OPT.weather : MODES.includes(store.get(KEYS.weather)) ? store.get(KEYS.weather) : "clear";
 const show = () => { $("weather").textContent = "Weather: " + NAME[mode]; };
-$("weather").onclick = () => { mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set("canopy-weather", mode); show(); };
+$("weather").onclick = () => { mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set(KEYS.weather, mode); show(); };
 show();
 
 // the drops: N streaks in a 18 x 12 x 18 m box that follows the camera; each falls at its own speed, a little slanted
 const N = D.fx ? (D.fx > 1 ? 1400 : 900) : 450, BOX = 9, TOP = 11, LEN = 0.38;
 const pos = new Float32Array(N * 6), drop = new Float32Array(N * 4);   // x, y, z, speed
-const rand = (a, b) => a + Math.random() * (b - a);
 function reset(i, anyY) { drop.set([camera.position.x + rand(-BOX, BOX), anyY ? rand(-1, TOP) : TOP + rand(0, 2), camera.position.z + rand(-BOX, BOX), rand(8, 11)], i * 4); }
 for (let i = 0; i < N; i++) reset(i, true);
 const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
 const mat = new THREE.LineBasicMaterial({ color: 0xc8d6e0, transparent: true, opacity: 0, depthWrite: false });
 const rain = new THREE.LineSegments(geo, mat); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
 
-// dry under the tent: its roof and planks (the tent's own frame, as campLife.js tentLocal)
-function dry(x, z, y) {
-  const t = window.__camp?.tentAt; if (!t || y > 3.4) return false;
-  const L = t.length(), fx = -t.x / L, fz = -t.z / L, dx = x - t.x, dz = z - t.z, a = dx * fx + dz * fz, b = dx * fz - dz * fx;
-  return a > -1.9 && a < 2.2 && Math.abs(b) < 2.0;
-}
+// dry under the tent: its roof and planks (layout.js TENT.dry, in the tent's own frame), below 3.4 m
+const dry = (x, z, y) => y <= 3.4 && TENT.dry(x, z);
 
 const weather = { wet: 0, mode: () => mode };
 let showerT = rand(90, 180), raining = mode === "rain";   // Changing: dry spells of 1.5..3 min, showers of 1..1.5 min
@@ -47,5 +44,5 @@ weather.step = (dt) => {
   }
   geo.attributes.position.needsUpdate = true;
 };
-window.__weather = (m) => { mode = m; raining = m === "rain"; weather.wet = raining ? 1 : 0; show(); };   // checks: set it at once
+window.__weather = (m) => { mode = m; raining = m === "rain"; weather.wet = raining ? 1 : 0; show(); };   // tool contract: camp-replay.cjs's tour sets it at once
 export { weather };

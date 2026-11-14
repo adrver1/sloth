@@ -20,7 +20,7 @@ This work started in the desk-at-night repo (thread "Make fun extras with the sl
 | `characters/sloth_baby/` | The sloth: `build_sloth_baby.py` and `sloth_rig.py`, plus the exported GLBs. The live look is `plush_real`. | |
 | `engine/` | The desk-at-night repo as a git submodule (shallow, branch `main`). It provides the character kit (`engine/characters/_shared`), the ponytail engineer and the bearded operator the sloth plays with, and `engine/web/scripts/pack_chars.mjs`. Nothing from it is copied here. | |
 
-Each app is a static page. Its models sit next to it as base64 `.txt` files, and it shares `fur.js` (shell fur) with the other apps. Three.js 0.186.1 loads from jsDelivr.
+Each app is a static page. Its models sit next to it as base64 `.txt` files. The shell fur, `fur.js`, has one source, `shared/fur.js`; each app folder that uses it keeps a generated copy next to its page, because each folder is published on its own. Edit only `shared/fur.js`, then run `npm run sync-shared` (`tools/sync-shared.cjs`) to rewrite the copies; `npm run check-shared` exits 1 if a copy differs. Three.js 0.186.1 loads from jsDelivr.
 
 ## Run and check
 

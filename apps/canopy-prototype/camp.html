@@ -1,9 +1,11 @@
 <!-- PROTOTYPE (throwaway): Canopy Camp. Question: does a cozy clearing in a lush forest, walked on foot, feel good to explore while staying cheap to render?
-     Ground level only for now (the boardwalk was dropped on 2026-11-11): you walk the round clearing, the forest edge stops you.
-     First person. On a phone a stick bottom-left walks (as in desk-at-night's free mode) and a drag anywhere else looks; on a computer WASD or the arrow keys walk and a mouse drag looks. Tap a sloth to boop it, hold on it to feed it. Rest turns the light to dusk.
-     Built on index.html (the forest look prototype): same three looks behind #moss | #paint | #low, and the same detail toggle.
-     Detail button (Low / Medium / High, or ?detail=) scales leaves, ferns, fur shells, effects and resolution.
-     No real-time shadows; "baked" light is vertex colour; leaves and plants are instanced (one draw per kind). -->
+     First person, at ground level (the boardwalk was dropped on 2026-11-11): you walk the round clearing, the footpath to the sloth tree's glade and the first stretch of the jeep's track; the forest edge stops you.
+     On a phone a stick bottom-left walks (as in desk-at-night's free mode), a drag anywhere else looks and two fingers zoom; on a computer WASD or the arrow keys walk, a mouse drag looks and the wheel zooms.
+     What you can use lights up when you look at it from close by: a log seat, a jeep door, a clock, the radio, the wood pile, the fire. A tap on it opens a small menu of what you can do. A tap on a sloth opens its menu too, and a hold on a sloth feeds it.
+     The ⚙️ button opens the settings: the time of day and the day cycle, the weather, detail (Low / Medium / High: leaves, ferns, fur shells, effects and resolution), the light maps (2K / 1K), the sound and the move lab.
+     One look, Mossy real; the Painterly and Low-poly looks were archived on 2026-11-12 and live on in index.html (the forest look prototype).
+     Light: the props and the ground carry baked light maps (props/bake_all.py), mixed by the hour; the one real-time shadow is the jeep's cabin light. Leaves and plants are instanced (one draw per kind).
+     The URL options (?detail=, ?time=, ?weather= and more) and the window.__ hooks the tools use are listed at the top of camp/core.js. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -22,13 +24,12 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 #perf { font-size: 12px; font-weight: 500; padding: 5px 10px; color: var(--soft); text-align: right; line-height: 1.25; border-radius: 14px; }
 .bar { position: fixed; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top, 0px)); display: flex; justify-content: center; gap: 6px; flex-wrap: wrap;
   padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
-.bar a, .bar button { pointer-events: auto; font: 600 13px var(--display); color: var(--ink); background: rgb(255 248 238 / .85); border: 0; border-radius: 999px;
+.bar button { pointer-events: auto; font: 600 13px var(--display); color: var(--ink); background: rgb(255 248 238 / .85); border: 0; border-radius: 999px;
   padding: 6px 11px; text-decoration: none; box-shadow: 0 2px 0 rgb(138 90 59 / .2); cursor: pointer; }
 .stick { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%;
   background: rgb(255 248 238 / .18); border: 2px solid rgb(255 248 238 / .55); touch-action: none; }
 .stick i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgb(255 248 238 / .85); box-shadow: 0 3px 0 rgb(138 90 59 / .25); }
 .stick i::after { content: "🐾"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 20px; opacity: .7; }
-.bar a.on { background: var(--pink); color: #fff; box-shadow: 0 3px 0 #d95c86; }
 .bar button { background: #ffe9a8; }
 #toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none;
   font-weight: 700; font-size: 34px; color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
@@ -59,9 +60,9 @@ body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 <div id="load"><div class="card"><b>🦥</b><span>Getting the camp ready…</span><div class="bar2"><i id="loadbar"></i></div></div></div>
 <div class="bar">
   <button id="menu" aria-label="Settings" aria-expanded="false">⚙️</button>
-  <div class="menu" id="opts" hidden><label class="time">🕐 <input type="range" id="time" min="0" max="23.75" step="0.25" aria-label="Time of day"><span id="clock">12:00</span></label><button id="cycle">Day cycle: off</button><button id="weather">Weather</button><button id="detail">Detail: Medium</button><button id="lm">Light</button></div>
+  <div class="menu" id="opts" hidden><label class="time">🕐 <input type="range" id="time" min="0" max="23.75" step="0.25" aria-label="Time of day"><span id="clock">12:00</span></label><button id="cycle">Day cycle: off</button><button id="weather">Weather</button><button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="sound">Sound: All 🔊</button></div>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
-<!-- the camp's code is in camp/ (camp review M2), one module per part, run in order by camp/main.js:
-     core (options, renderer, downloads), hud, sky, forest, campProps, jeep, sloths, player, campLife (ground, tent, atmosphere, activities), input, main (night, loop) -->
+<!-- the camp's code is in camp/ (camp review M2), one module per part. camp/main.js is the entry: its import list is the order
+     the parts are built in, and each module's first lines say what it does. -->
 <script type="module" src="camp/main.js"></script>

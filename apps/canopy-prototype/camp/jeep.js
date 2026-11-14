@@ -1,20 +1,22 @@
 // Canopy Camp jeep: the Expedition at the clearing edge, its doors, the live cabin light and its far LOD (props/jeep/).
 import * as THREE from "three";
-import "./campProps.js";   // run after the module before it, as one script did
+import { GAIN } from "../bakedlight.js";
 import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
-import { pickAt, toast } from "./hud.js";
-import { JEEP_AT, JEEP_OUT, JEEP_TAN, V } from "./forest.js";
+import { V, canvasTex, ease } from "./util.js";
+import { JEEP_AT, JEEP_TAN } from "./layout.js";
 import { blockers } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
-// between the hammock and the first big tree (JEEP_AT, set with the track in the layout section), along the edge, its
-// passenger side (local +X, the camper's ladder) toward the fire. Its three doors open and close when you tap them:
+// between the hammock and the first big tree (JEEP_AT, with its track, in layout.js), along the edge, its
+// passenger side (local +X) toward the fire. Its three doors and the hood open and close from their menus (input.js, through jeepApi.doors):
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
-// uses window.__jeep: open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
-// cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions.
-let jeepStep = () => {}, jeepTap = () => false;
+// uses jeepApi (window.__jeep): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
+// cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
+// jeepSeat.js adds sitting in the front seats to the same object: sit(side), stand(), seatedIn(), seatBusy(side).
+// cabinLive.receive(object): that object takes the cabin light's shadow (campLife.js gives it the floor and the baked props).
+let jeepStep = () => {}, jeepApi = null, cabinLive = null;
 if (JEEP !== "none") {
-  const J = await PRE.jeep, at = JEEP_AT, out = JEEP_OUT, tan = JEEP_TAN;
+  const J = await PRE.jeep, at = JEEP_AT, tan = JEEP_TAN;
   const jeep = J.scene;
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
   const glassM = new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false });   // see-through, a little tinted
@@ -29,7 +31,6 @@ if (JEEP !== "none") {
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
   if (far) { far.position.copy(jeep.position); far.rotation.copy(jeep.rotation); }
   for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
-  if (JEEP === "camper") blockers.push([at.clone().addScaledVector(out, -2.3), 0.4]);   // the ladder foot
   // how far each swings (rad) and about which axis, as in build_jeep.py; H is the hood (Adriaen 2026-11-12), hinged at the windscreen
   const D3 = { P: ["DoorP", -1.2, "y"], D: ["DoorD", 1.2, "y"], B: ["BackDoor", 1.75, "y"], H: ["Hood", -1.15, "x"] }, doors = {};
   for (const [k, [n, open, axis]] of Object.entries(D3)) { const o = jeep.getObjectByName(n); if (o) doors[k] = { o, open, axis, cur: 0, want: 0 }; }
@@ -43,8 +44,8 @@ if (JEEP !== "none") {
   const cabOn = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
   const OFF = new THREE.Color(0x8c8778), CL = new THREE.Color(0xffe2a8);
   // a soft glow round the cabin lamp (one sprite), so the lit cabin reads through the windows before any bake
-  const glowTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    r.addColorStop(0, "rgba(255,226,168,1)"); r.addColorStop(1, "rgba(255,226,168,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+  const glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    r.addColorStop(0, "rgba(255,226,168,1)"); r.addColorStop(1, "rgba(255,226,168,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }, { srgb: false, aniso: 1 });
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.position.set(0, 1.45, -0.25); glow.scale.setScalar(1.1); glow.visible = false; jeep.add(glow);
   // Cabin: live: one spot light under the roof aimed down (83 degree half-angle), shadowed by the jeep only; its shadow map is
@@ -56,7 +57,7 @@ if (JEEP !== "none") {
     cabSpot.castShadow = true; cabSpot.shadow.mapSize.set(512, 512); cabSpot.shadow.camera.near = 0.05; cabSpot.shadow.camera.far = 9; cabSpot.shadow.bias = -0.002;
     jeep.add(cabSpot, cabSpot.target);
     jeep.traverse((m) => { if (m.isMesh && !m.name.startsWith("Glass")) { m.castShadow = true; m.receiveShadow = true; } });
-    window.__cabinLive = { receive: (o) => o.traverse((m) => { if (m.isMesh) m.receiveShadow = true; }) };
+    cabinLive = { receive: (o) => o.traverse((m) => { if (m.isMesh) m.receiveShadow = true; }) };
   }
   let cab = 0, lastCab = -1;
   const lightStep = (dt) => {
@@ -64,8 +65,8 @@ if (JEEP !== "none") {
     cab += (cWant - cab) * Math.min(1, dt * 4);
     if (cabinL) { cabinL.material = cab > 0.02 ? cabOn : jm; cabOn.color.copy(OFF).lerp(CL, cab); }
     glow.material.opacity = 0.55 * cab; glow.visible = cab > 0.02;
-    if (window.__lights) { window.__lights.cabin = cabSpot ? 0 : cab;   // live: the spot light instead of the bake
-      for (const k of ["P", "D", "B"]) window.__lights.doors[k] = doors[k] ? doors[k].o.rotation[doors[k].axis] / doors[k].open : 0; }   // each door's spill (bakedlight.js), by its actual swing
+    GAIN.cabin = cabSpot ? 0 : cab;   // live: the spot light instead of the bake
+    for (const k of ["P", "D", "B"]) GAIN.doors[k] = doors[k] ? doors[k].o.rotation[doors[k].axis] / doors[k].open : 0;   // each door's spill (bakedlight.js), by its actual swing
     if (cabSpot) { cabSpot.intensity = 6 * cab;
       if (Object.values(doors).some((d) => d.cur !== d.want) || Math.abs(cab - lastCab) > 0.01) { renderer.shadowMap.needsUpdate = true; lastCab = cab; } }
   };
@@ -73,8 +74,7 @@ if (JEEP !== "none") {
     for (const d of Object.values(doors)) {
       if (d.cur === d.want) continue;
       const step = dt * 1.8; d.cur += Math.max(-step, Math.min(step, d.want - d.cur));
-      const k = d.cur / d.open, e = k * k * (3 - 2 * k);                // ease in and out
-      d.o.rotation[d.axis] = d.open * e;
+      d.o.rotation[d.axis] = d.open * ease(d.cur / d.open);                // ease in and out
     }
     lightStep(dt);
     if (far) {
@@ -83,13 +83,7 @@ if (JEEP !== "none") {
       if (want !== isFar) { isFar = want; far.visible = want; for (const m of jeepMeshes) m.visible = !want; }
     }
   };
-  const meshes = []; for (const d of Object.values(doors)) d.o.traverse((m) => { if (m.isMesh) { m.userData.door = d; meshes.push(m); } });
-  jeepTap = (x, y) => {
-    const h = pickAt(x, y, meshes); if (!h) return false;
-    if (h.distance > 6) { toast("Get a bit closer"); return true; }
-    const d = h.object.userData.door; d.want = d.want ? 0 : d.open; return true;
-  };
-  window.__jeep = {
+  jeepApi = {
     node: jeep,
     doors: Object.entries(doors).map(([k, d]) => ({ k, o: d.o, toggle: () => (d.want = d.want ? 0 : d.open), get open() { return d.want !== 0; } })),   // for the highlight and its menu (input.js)
     open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
@@ -98,6 +92,7 @@ if (JEEP !== "none") {
     lights: { get cabin() { return cab; } },
     cargoSlots: [[-0.3, -0.75], [0.3, -0.75], [-0.3, -1.3], [0.3, -1.3]].map(([x, z]) => local(x, boot.y, z)),
   };
+  window.__jeep = jeepApi;   // alias: sloths.js, input.js, car.js and audio.js read it; props/shadow/export_casters.cjs takes the jeep's place from it
 }
 
-export { jeepStep, jeepTap };
+export { cabinLive, jeepApi, jeepStep };

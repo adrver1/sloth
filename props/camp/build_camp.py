@@ -4,16 +4,17 @@ Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three 
     storybook  chunky and rounded: pebble fire ring, bell tent with a pennant, striped hammock, paper lanterns
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
     jungle     a rainforest hideout: bamboo tripod and kettle, a leaf-thatched lean-to, bamboo bench, gourd lanterns
-    picked     the set in use: rustic, with a canvas wall tent with planks before the door, the jungle tripod and kettle over the rustic fire and the jungle hammock
+    picked     the set in use: the rustic seat, lantern and table, a canvas wall tent with planks before the door, and the
+               jungle hammock on plain posts (the fire, tripod and pot are props/lived/build_fire.py)
 
 Storybook, Rustic and Jungle (and the first pre-light-map picked GLB) are archived (camp review, Adriaen 2026-11-12): their
-GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, since the
-picked set is made from rustic() and jungle(). The page's picked set is built and baked by bake_camp_lightmap.py (through
+GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, one function
+per prop, since the picked set is made from some of them (rustic_seat, rustic_lantern, rustic_table, jungle_hammock). The page's picked set is built and baked by bake_camp_lightmap.py (through
 props/bake_all.py, on the GPU); this script's own AO bake only remakes an archived style:
 
     .venv/bin/python props/camp/build_camp.py --style rustic --samples 64     # -> props/camp/archive/camp_rustic.glb
 
-Each style is one GLB (props/camp/camp_<style>.glb) holding six objects, each at its own origin, standing on
+Each archived style is one GLB (props/camp/archive/camp_<style>.glb) holding six objects, each at its own origin, standing on
 z = 0 with its front toward -Y (three.js +Z): Fire, Seat, Tent, Hammock, Lantern, Table. The page places them.
 Light is baked: Cycles ambient occlusion (with a ground plane, so props darken where they meet the ground)
 times each part's base colour goes into one colour attribute, so the page draws them with a plain Lambert
@@ -23,55 +24,25 @@ import argparse
 import math
 import os
 import random
+import sys
 
 import bpy
 import bmesh
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+from lib.bake import bake  # noqa: E402
+from lib.export import export_glb, reset, tris  # noqa: E402
+from lib.materials import mat  # noqa: E402
+from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
+
 HAMMOCK_SPAN = 2.86
 STYLES = ("storybook", "rustic", "jungle", "picked")
 rng = random.Random(7)
 
 
-# ------------------------------------------------------------------ helpers
-def reset():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-
-
-def mat(name, rgb):
-    m = bpy.data.materials.get(name)
-    if m is None:
-        m = bpy.data.materials.new(name)
-        m.diffuse_color = (*rgb, 1)
-        m["base"] = list(rgb)
-    return m
-
-
-def _finish(o, m, smooth=True):
-    o.data.materials.append(m)
-    if smooth:
-        for p in o.data.polygons:
-            p.use_smooth = True
-    return o
-
-
-def cyl(r, h, at=(0, 0, 0), rot=(0, 0, 0), m=None, verts=16, r2=None, smooth=True):
-    """A cylinder (or cone when r2 is given) of height h centred on at."""
-    if r2 is None:
-        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=h, vertices=verts, location=at, rotation=rot)
-    else:
-        bpy.ops.mesh.primitive_cone_add(radius1=r, radius2=r2, depth=h, vertices=verts, location=at, rotation=rot)
-    return _finish(bpy.context.object, m, smooth)
-
-
-def ball(r, at=(0, 0, 0), scale=(1, 1, 1), m=None, seg=16, rot=(0, 0, 0)):
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=r, segments=seg, ring_count=max(6, seg // 2), location=at, rotation=rot)
-    o = bpy.context.object
-    o.scale = scale
-    return _finish(o, m)
-
-
+# ------------------------------------------------------------------ helpers (the shared ones are in props/lib)
 def rock(r, at, scale, m, rough=0.35, detail=2):
     bpy.ops.mesh.primitive_ico_sphere_add(radius=r, subdivisions=detail, location=at)
     o = bpy.context.object
@@ -79,52 +50,7 @@ def rock(r, at, scale, m, rough=0.35, detail=2):
     for v in o.data.vertices:
         n = v.co.normalized()
         v.co *= 1 + rough * (0.5 * math.sin(n.x * 5.1 + n.y * 3.3) + 0.3 * math.sin(n.y * 7.7 - n.z * 4.1) + 0.2 * rng.uniform(-1, 1))
-    return _finish(o, m)
-
-
-def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=at, rotation=rot)
-    o = bpy.context.object
-    o.scale = size
-    _finish(o, m, smooth=False)
-    if bevel:
-        apply_all(o)
-        mod = o.modifiers.new("b", "BEVEL")
-        mod.width, mod.segments = bevel, 2
-    return o
-
-
-def torus(R, r, at=(0, 0, 0), rot=(0, 0, 0), m=None, major=24, minor=8):
-    bpy.ops.mesh.primitive_torus_add(major_radius=R, minor_radius=r, major_segments=major, minor_segments=minor, location=at, rotation=rot)
-    return _finish(bpy.context.object, m)
-
-
-def bevel(o, w, seg=2):
-    apply_all(o)
-    mod = o.modifiers.new("b", "BEVEL")
-    mod.width, mod.segments, mod.limit_method = w, seg, "ANGLE"
-    return o
-
-
-def rough_up(o, amt, freq=4.0, axis_mask=(1, 1, 1)):
-    """Bumpy bark or rock: push vertices along their normals by a cheap 3D noise."""
-    apply_all(o)
-    me = o.data
-    for v in me.vertices:
-        p = v.co
-        n = math.sin(p.x * freq * 1.7 + p.y * freq * 0.9) * math.sin(p.z * freq * 2.3 + p.x * freq) + 0.5 * math.sin(p.y * freq * 4.1 - p.z * freq * 3.2)
-        v.co += Vector((v.normal.x * axis_mask[0], v.normal.y * axis_mask[1], v.normal.z * axis_mask[2])) * amt * n
-    return o
-
-
-def rod(a, b, r, m, verts=8):
-    """A cylinder from point a to point b."""
-    a, b = Vector(a), Vector(b)
-    d = b - a
-    o = cyl(r, d.length, at=(a + b) / 2, m=m, verts=verts)
-    o.rotation_mode = "QUATERNION"
-    o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
-    return o
+    return with_material(o, m)
 
 
 def bamboo(a, b, r, m, node_m, nodes=None):
@@ -189,7 +115,7 @@ def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
     bpy.context.collection.objects.link(o)
     o.location = at
     o.rotation_euler = (roll, -pitch, yaw)
-    _finish(o, m)
+    with_material(o, m)
     sol = o.modifiers.new("s", "SOLIDIFY")
     sol.thickness = 0.008
     return o
@@ -224,40 +150,6 @@ def sag_sheet(span, width, depth, at, m_a, m_b=None, stripes=0, thick=0.012, nx=
         p.use_smooth = True
     sol = o.modifiers.new("s", "SOLIDIFY")
     sol.thickness = thick
-    return o
-
-
-def drop_faces(o, test):
-    """Delete the faces nobody sees (caps buried in the ground or inside another part); test(face) says which."""
-    apply_all(o)
-    bm = bmesh.new()
-    bm.from_mesh(o.data)
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if test(type("F", (), {"normal": f.normal, "center": f.calc_center_median()}))], context="FACES")
-    bm.to_mesh(o.data)
-    bm.free()
-    return o
-
-
-def apply_all(o):
-    bpy.ops.object.select_all(action="DESELECT")
-    o.select_set(True)
-    bpy.context.view_layer.objects.active = o
-    for mod in list(o.modifiers):
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-
-
-def join(objs, name):
-    for o in objs:
-        apply_all(o)
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
-        o.select_set(True)
-    bpy.context.view_layer.objects.active = objs[0]
-    bpy.ops.object.join()
-    o = bpy.context.object
-    o.name = name
-    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     return o
 
 
@@ -339,12 +231,16 @@ def storybook():
     return out
 
 
-def rustic():
-    M = {k: mat(f"ru_{k}", c) for k, c in dict(
+def rustic_mats():
+    """The rustic materials, by short name."""
+    return {k: mat(f"ru_{k}", c) for k, c in dict(
         rock=(0.45, 0.44, 0.42), rock2=(0.36, 0.35, 0.33), bark=(0.3, 0.21, 0.14), wood=(0.68, 0.52, 0.36), char=(0.08, 0.06, 0.05),
         ember=(0.7, 0.2, 0.05), canvas=(0.48, 0.5, 0.32), canvas2=(0.38, 0.4, 0.25), rope=(0.7, 0.62, 0.45), peg=(0.55, 0.42, 0.28),
         sling=(0.32, 0.38, 0.26), glass=(0.92, 0.78, 0.45), tin=(0.55, 0.56, 0.58), white=(0.9, 0.88, 0.82), red=(0.65, 0.15, 0.12)).items()}
-    out = {}
+
+
+def rustic_fire(M):
+    """Rocks round an ember bed and four leaning logs with charred tips (archived: props/lived/build_fire.py replaced it)."""
     p = [ball(0.32, at=(0, 0, 0.0), scale=(1, 1, 0.12), m=M["char"]), ball(0.18, at=(0, 0, 0.03), scale=(1, 1, 0.2), m=M["ember"])]
     for i in range(11):
         a = i / 11 * 2 * math.pi + rng.uniform(-0.1, 0.1)
@@ -355,8 +251,11 @@ def rustic():
         top = Vector((-math.cos(a) * 0.05, -math.sin(a) * 0.05, 0.3))
         p.append(rough_up(rod(base, top, 0.065, M["bark"], verts=10), 0.01, 9))
         p.append(rod(top - (top - base).normalized() * 0.1, top + (top - base).normalized() * 0.02, 0.06, M["char"], verts=10))
-    out["Fire"] = join(p, "Fire")
-    # seat: a split half log on two short stumps
+    return join(p, "Fire")
+
+
+def rustic_seat(M):
+    """The seat (picked): a split half log on two short stumps, its flat top at z = 0.361."""
     lg = cyl(0.25, 1.5, at=(0, 0, 0.0), rot=(0, math.pi / 2, 0), m=M["bark"], verts=24)
     apply_all(lg)
     bpy.ops.object.mode_set(mode="EDIT")
@@ -369,9 +268,13 @@ def rustic():
     p = [lg, top]
     for s in (-1, 1):
         p.append(rough_up(cyl(0.16, 0.36, at=(s * 0.5, 0, 0.18), m=M["bark"], verts=14), 0.01, 10))
-    out["Seat"] = join(p, "Seat")
-    # tent: a closed A-frame ridge tent. The roof is one sheet over the ridge (no gap at the top), its eaves reach the
-    # ground sheet, the back gable is sewn in and the front door is two flaps laced shut down a centre seam.
+    return join(p, "Seat")
+
+
+def rustic_tent(M):
+    """A closed A-frame ridge tent (archived; the picked set has wall_tent()). The roof is one sheet over the ridge (no gap
+    at the top), its eaves reach the ground sheet, the back gable is sewn in and the front door is two flaps laced shut
+    down a centre seam."""
     L, W, H, OV = 2.3, 2.1, 1.55, 0.08
     nx, ny = 12, 8
     verts, faces = [], []
@@ -389,13 +292,13 @@ def rustic():
             faces.append((a, a + 2 * ny + 1, a + 2 * ny + 2, a + 1))
     me = bpy.data.meshes.new("roof")
     me.from_pydata(verts, [], faces)
-    roof = bpy.data.objects.new("roof", me); bpy.context.collection.objects.link(roof); _finish(roof, M["canvas"])
+    roof = bpy.data.objects.new("roof", me); bpy.context.collection.objects.link(roof); with_material(roof, M["canvas"])
     roof.modifiers.new("s", "SOLIDIFY").thickness = 0.025
     p = [roof]
     def gable(x, tris, m):
         me = bpy.data.meshes.new("gable")
         me.from_pydata([v for t in tris for v in t], [], [(3 * k, 3 * k + 1, 3 * k + 2) for k in range(len(tris))])
-        g = bpy.data.objects.new("gable", me); bpy.context.collection.objects.link(g); _finish(g, m, False)
+        g = bpy.data.objects.new("gable", me); bpy.context.collection.objects.link(g); with_material(g, m, False)
         g.modifiers.new("s", "SOLIDIFY").thickness = 0.02
         return g
     xb, xf = L / 2 - 0.01, -L / 2 + 0.01
@@ -417,7 +320,11 @@ def rustic():
     p.append(box((L + 0.3, W + 0.2, 0.015), at=(0, 0, 0.008), m=M["canvas2"]))
     t = join(p, "Tent")
     t.rotation_euler = (0, 0, math.pi / 2)        # door end toward -Y
-    out["Tent"] = t
+    return t
+
+
+def rustic_hammock(M):
+    """A canvas sling on two rough posts (archived; the picked set has the jungle hammock)."""
     h = HAMMOCK_SPAN / 2
     p = []
     for s in (-1, 1):
@@ -426,20 +333,26 @@ def rustic():
         p.append(rod((s * h, 0, 1.75), (s * (h - 0.4), -0.2, 1.35), 0.01, M["rope"], verts=5))
     p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.9, 0.55, (0, 0, 1.35), M["sling"]))
     p.append(box((0.5, 0.35, 0.04), at=(0.3, 0.08, 0.86), rot=(0, 0, 0.3), m=M["red"], bevel=0.01))   # a folded blanket
-    out["Hammock"] = join(p, "Hammock")
-    # jar lantern, trimmed (camp review 2026-11-12, 34 triangles): a 6-sided glass jar, a 6-sided tin lid, the wire
-    # handle as one flat quad
+    return join(p, "Hammock")
+
+
+def rustic_lantern(M):
+    """The jar lantern (picked), trimmed (camp review 2026-11-12, 34 triangles): a 6-sided glass jar, a 6-sided tin lid,
+    the wire handle as one flat quad."""
     p = [cyl(0.065, 0.16, at=(0, 0, -0.14), m=M["glass"], verts=6, smooth=False),
          cyl(0.072, 0.03, at=(0, 0, -0.05), m=M["tin"], verts=6, r2=0.05, smooth=False)]
     hq = bpy.data.meshes.new("handle")
     hq.from_pydata([(-0.05, 0, -0.035), (0.05, 0, -0.035), (0.03, 0, 0.0), (-0.03, 0, 0.0)], [], [(0, 1, 2, 3)])
-    ho = bpy.data.objects.new("handle", hq); bpy.context.collection.objects.link(ho); _finish(ho, M["tin"], False)
+    ho = bpy.data.objects.new("handle", hq); bpy.context.collection.objects.link(ho); with_material(ho, M["tin"], False)
     p.append(ho)
     for o in p[:2]:                                    # the jar's top and the lid's bottom are hidden inside each other
         drop_faces(o, lambda f: abs(f.normal.z) > 0.9 and -0.07 < f.center.z < -0.055)
-    out["Lantern"] = join(p, "Lantern")
-    # the snack table, trimmed (camp review 2026-11-12, about 190 triangles): two 8-sided stumps with no caps (the
-    # top hides theirs), four plain plank boxes, a tin mug and a plate of three tomatoes
+    return join(p, "Lantern")
+
+
+def rustic_table(M):
+    """The snack table (picked), trimmed (camp review 2026-11-12, about 190 triangles): two 8-sided stumps with no caps
+    (the top hides theirs), four plain plank boxes, a tin mug and a plate of three tomatoes."""
     p = []
     for s in (-1, 1):
         leg = rough_up(cyl(0.2, 0.62, at=(s * 0.45, 0, 0.31), m=M["bark"], verts=8, smooth=False), 0.012, 10)
@@ -450,9 +363,15 @@ def rustic():
     p.append(drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda f: f.normal.z < -0.9))
     for k in range(3):
         bpy.ops.mesh.primitive_ico_sphere_add(radius=0.045, subdivisions=1, location=(-0.25 + k * 0.05, -0.05 + 0.02 * (k % 2), 0.74))
-        p.append(_finish(bpy.context.object, M["red"], smooth=False))
-    out["Table"] = join(p, "Table")
-    return out
+        p.append(with_material(bpy.context.object, M["red"], smooth=False))
+    return join(p, "Table")
+
+
+def rustic():
+    """The archived rustic style's six props, made in this order (the order its props draw from the seeded rng)."""
+    M = rustic_mats()
+    return {"Fire": rustic_fire(M), "Seat": rustic_seat(M), "Tent": rustic_tent(M), "Hammock": rustic_hammock(M),
+            "Lantern": rustic_lantern(M), "Table": rustic_table(M)}
 
 
 STOVE = (1.0, 0.85, 0.42)        # the stove's fire, in the tent's own frame (bake_camp_lightmap.py puts a light there)
@@ -535,11 +454,7 @@ def wall_tent():
     p = [body]
     # frame: open-ended poles (no caps anyone would see)
     def pole(a, b, r, m, verts=6):
-        a, b = Vector(a), Vector(b); d = b - a
-        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=d.length, vertices=verts, end_fill_type="NOTHING", location=(a + b) / 2)
-        o = bpy.context.object; o.rotation_mode = "QUATERNION"
-        o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
-        return _finish(o, m)
+        return rod(a, b, r, m, verts=verts, caps=False)
     rz = Z0 + H + 0.05
     p.append(pole((0, yf - 0.45, rz), (0, yb + 0.45, rz), 0.05, M["pole"]))                            # ridge pole
     # a wide A-frame of crossed shear poles at each end (as in the second photo); the eave poles rest on them, lashed on
@@ -589,7 +504,7 @@ def wall_tent():
     # it reads from the ground (8 + 6 + 2 x 6 = 26 tris); the smoke (atmosphere.js) comes out under it
     top = Z0 + H + 0.62
     bpy.ops.mesh.primitive_cone_add(radius1=0.15, radius2=0.0, depth=0.07, vertices=8, end_fill_type="NGON", location=(sx, sy + 0.12, top + 0.095))
-    p.append(_finish(bpy.context.object, M["pipe"], smooth=False))
+    p.append(with_material(bpy.context.object, M["pipe"], smooth=False))
     for a in (0.0, math.pi):
         lx, ly = math.cos(a) * 0.055, math.sin(a) * 0.055
         p.append(rod((sx + lx, sy + 0.12 + ly, top - 0.03), (sx + lx * 1.4, sy + 0.12 + ly * 1.4, top + 0.065), 0.006, M["iron"], verts=3))
@@ -601,7 +516,6 @@ def stove_kettle(M, at):
     """The kettle on the tent stove (Adriaen 2026-11-12: not one solid chunk, as light as the enamel mug): an 8-sided
     lathe, base to belly to shoulder, a darker lid ring and knob, a tapered 4-sided spout and a 3-part bail handle.
     No bottom (it stands on the plate). About 84 triangles."""
-    import bmesh
     x0, y0, z0 = at
     n, prof = 8, [(0.072, 0.0), (0.085, 0.05), (0.07, 0.095), (0.048, 0.11), (0.014, 0.122), (0.0, 0.135)]
     bm = bmesh.new()
@@ -614,8 +528,7 @@ def stove_kettle(M, at):
             f = bm.faces.new((a[i], a[j], b[0]) if len(b) == 1 else (a[i], a[j], b[j], b[i]))
             f.material_index = 1 if k >= 3 else 0                     # the lid ring and knob in dark iron
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    me = bpy.data.meshes.new("kettle"); bm.to_mesh(me); bm.free()
-    o = bpy.data.objects.new("kettle", me); bpy.context.collection.objects.link(o)
+    o = obj_from_bm(bm, "kettle"); me = o.data
     me.materials.append(M["tin"]); me.materials.append(M["iron"])
     for pl in me.polygons: pl.use_smooth = True
     out = [o]
@@ -639,19 +552,26 @@ def tripod_kettle(M):
     return p
 
 
-def jungle(plain_posts=False):
-    M = {k: mat(f"ju_{k}", c) for k, c in dict(
+def jungle_mats():
+    """The jungle materials, by short name."""
+    return {k: mat(f"ju_{k}", c) for k, c in dict(
         stone=(0.42, 0.46, 0.42), stone2=(0.5, 0.52, 0.47), bamboo=(0.72, 0.68, 0.36), node=(0.52, 0.48, 0.24), char=(0.09, 0.07, 0.05),
         ember=(0.85, 0.3, 0.07), kettle=(0.24, 0.24, 0.26), leaf=(0.24, 0.5, 0.2), leaf2=(0.32, 0.6, 0.24), weave=(0.8, 0.66, 0.44),
         orange=(0.95, 0.5, 0.15), gourd=(0.85, 0.52, 0.2), pink=(0.95, 0.35, 0.5), yellow=(1, 0.8, 0.25), rope=(0.7, 0.6, 0.4)).items()}
-    out = {}
+
+
+def jungle_fire(M):
+    """A stone ring with a bamboo tripod and kettle (archived)."""
     p = [ball(0.3, at=(0, 0, 0), scale=(1, 1, 0.12), m=M["char"]), ball(0.17, at=(0, 0, 0.03), scale=(1, 1, 0.22), m=M["ember"])]
     for i in range(9):
         a = i / 9 * 2 * math.pi
         p.append(ball(0.15, at=(math.cos(a) * 0.6, math.sin(a) * 0.6, 0.06), scale=(1.25, 0.9, 0.5), m=M["stone" if i % 2 else "stone2"], rot=(0, 0, a)))
     p += tripod_kettle(M)
-    out["Fire"] = join(p, "Fire")
-    # seat: a bamboo bench
+    return join(p, "Fire")
+
+
+def jungle_seat(M):
+    """A bamboo bench (archived)."""
     p = []
     for k in range(3):
         p += bamboo((-0.75, (k - 1) * 0.085, 0.42), (0.75, (k - 1) * 0.085, 0.42), 0.042, M["bamboo"], M["node"], nodes=3)
@@ -659,8 +579,11 @@ def jungle(plain_posts=False):
         for d in (-1, 1):
             p += bamboo((s, d * 0.2, 0), (s, -d * 0.12, 0.4), 0.025, M["bamboo"], M["node"], nodes=1)
         p.append(rod((s, -0.16, 0.38), (s, 0.16, 0.38), 0.008, M["rope"], verts=4))
-    out["Seat"] = join(p, "Seat")
-    # shelter: a lean-to of bamboo with a thatch of big leaves and a woven mat
+    return join(p, "Seat")
+
+
+def jungle_tent(M):
+    """A lean-to of bamboo with a thatch of big leaves and a woven mat (archived)."""
     p = []
     fx, bx, wy, fh, bh = -1.05, 1.0, 1.1, 1.95, 0.75
     for y in (-wy, wy):
@@ -681,7 +604,12 @@ def jungle(plain_posts=False):
         p.append(box((1.7, 0.02, 0.022), at=(0, -0.8 + k * 0.4, 0.014), m=M["node"]))
     t = join(p, "Tent")
     t.rotation_euler = (0, 0, math.pi / 2)       # open front toward -Y
-    out["Tent"] = t
+    return t
+
+
+def jungle_hammock(M, plain_posts=False):
+    """The woven hammock on bamboo posts. plain_posts: the picked one, on octagon posts with painted nodes, a coarse sling
+    and no leaves on top."""
     h = HAMMOCK_SPAN / 2
     p = []
     for s in (-1, 1):
@@ -696,9 +624,17 @@ def jungle(plain_posts=False):
         p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
     for s in (-1, 1) if not plain_posts else ():         # two leaves tucked over the posts (not in the picked set)
         p.append(leaf(0.9, 0.38, (s * h, 0, 2.4), 0 if s < 0 else math.pi, 0.5, M["leaf2"], droop=0.3))
-    out["Hammock"] = join(p, "Hammock")
+    return join(p, "Hammock")
+
+
+def jungle_lantern(M):
+    """A gourd lantern (archived)."""
     p = [ball(0.075, at=(0, 0, -0.17), m=M["gourd"], seg=12), ball(0.05, at=(0, 0, -0.07), m=M["gourd"], seg=10), cyl(0.012, 0.05, at=(0, 0, -0.025), m=M["node"], verts=6)]
-    out["Lantern"] = join(p, "Lantern")
+    return join(p, "Lantern")
+
+
+def jungle_table(M):
+    """A stone table with fruit and flowers (archived)."""
     p = []
     for i in range(3):
         a = i / 3 * 2 * math.pi
@@ -709,95 +645,27 @@ def jungle(plain_posts=False):
         p.append(ball(0.055, at=(-0.1 + k * 0.08, 0.02 * k, 0.62), m=M[c], seg=10))
     for k in range(3):
         p += flower((0.2 + k * 0.08, -0.15 + k * 0.12, 0.58), M["pink"], M["yellow"])
-    out["Table"] = join(p, "Table")
-    return out
+    return join(p, "Table")
 
 
-# ------------------------------------------------------------------ bake and export
-def densify(o, edge=0.13):
-    """Split long edges so baked AO per vertex has room to vary."""
-    apply_all(o)
-    bpy.ops.object.mode_set(mode="EDIT")
-    for _ in range(3):
-        bpy.ops.mesh.select_all(action="DESELECT")
-        bpy.ops.object.mode_set(mode="OBJECT")
-        n = 0
-        for e in o.data.edges:
-            a, b = o.data.vertices[e.vertices[0]].co, o.data.vertices[e.vertices[1]].co
-            if (a - b).length > edge:
-                e.select = True; n += 1
-        bpy.ops.object.mode_set(mode="EDIT")
-        if not n:
-            break
-        bpy.ops.mesh.subdivide(number_cuts=1)
-    bpy.ops.object.mode_set(mode="OBJECT")
+def jungle():
+    """The archived jungle style's six props, made in this order (the order its props draw from the seeded rng)."""
+    M = jungle_mats()
+    return {"Fire": jungle_fire(M), "Seat": jungle_seat(M), "Tent": jungle_tent(M), "Hammock": jungle_hammock(M),
+            "Lantern": jungle_lantern(M), "Table": jungle_table(M)}
 
 
-def bake(objs, samples):
-    sc = bpy.context.scene
-    sc.render.engine = "CYCLES"
-    sc.cycles.device = "CPU"
-    sc.cycles.samples = samples
-    sc.world = sc.world or bpy.data.worlds.new("w")
-    bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
-    ground = bpy.context.object
-    for o in objs:
-        if not o.get("coarse"):                         # "coarse": keep the modelled detail, AO only at the existing vertices
-            densify(o, o.get("ao_edge", 0.13))          # "ao_edge": a coarser split for that object
-        ao = o.data.color_attributes.new("AO", "FLOAT_COLOR", "CORNER")
-        o.data.color_attributes.active_color = ao
-    for o in objs:
-        bpy.ops.object.select_all(action="DESELECT")
-        o.select_set(True)
-        bpy.context.view_layer.objects.active = o
-        o.data.color_attributes.active_color = o.data.color_attributes["AO"]
-        sc.render.bake.target = "VERTEX_COLORS"
-        sc.world.light_settings.distance = 0.6
-        bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
-    bpy.data.objects.remove(ground)
-    # colour = base colour x soft AO, into the attribute the exporter writes as COLOR_0
-    for o in objs:
-        me = o.data
-        ao = me.color_attributes["AO"]
-        col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        bases = [Vector(m["base"]) for m in me.materials]
-        for poly in me.polygons:
-            base = bases[poly.material_index]
-            for li in poly.loop_indices:
-                a = ao.data[li].color[0]
-                k = 0.32 + 0.68 * a
-                col.data[li].color = (base.x * k, base.y * k, base.z * k, 1)
-        me.color_attributes.remove(ao)
-        me.color_attributes.active_color = me.color_attributes["Col"]
-        # one plain material that uses the colour attribute
-        m = bpy.data.materials.new("Baked")
-        m.use_nodes = True
-        nt = m.node_tree
-        bsdf = nt.nodes.get("Principled BSDF")
-        ca = nt.nodes.new("ShaderNodeVertexColor")
-        ca.layer_name = "Col"
-        nt.links.new(ca.outputs["Color"], bsdf.inputs["Base Color"])
-        bsdf.inputs["Roughness"].default_value = 0.9
-        me.materials.clear()
-        me.materials.append(m)
-
-
+# ------------------------------------------------------------------ the picked set, bake and export
 def picked():
-    """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent; the jungle woven hammock,
-    on plain octagon posts with painted nodes and no leaves on top (2026-11-11). The fire is props/lived/build_fire.py."""
-    out = rustic()
-    j = jungle(plain_posts=True)
-    bpy.data.objects.remove(out["Hammock"])
-    out["Hammock"] = j.pop("Hammock")
-    for o in j.values():
-        bpy.data.objects.remove(o)
-    bpy.data.objects.remove(out.pop("Fire"))   # the old fire is archived (camp review 2026-11-12): props/lived/build_fire.py makes the camp's fire
-    out["Hammock"]["coarse"] = True       # Adriaen 2026-11-11: the densified cloth was ~7k triangles
-    bpy.data.objects.remove(out["Tent"])  # Adriaen 2026-11-11: a rustic wall tent like his photos, loose planks before the door (the A-frame stays in "rustic")
-    out["Tent"] = wall_tent()
-    for k, o in out.items():
-        o.name = k                       # the jungle hammock was made while the rustic one held the name
-    return out
+    """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent like his photos with loose
+    planks before the door; the jungle woven hammock, on plain octagon posts with painted nodes and no leaves on top.
+    The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
+    made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent)."""
+    R, J = rustic_mats(), jungle_mats()
+    seat, lantern, table = rustic_seat(R), rustic_lantern(R), rustic_table(R)
+    hammock = jungle_hammock(J, plain_posts=True)
+    hammock["coarse"] = True                    # Adriaen 2026-11-11: the densified cloth was ~7k triangles
+    return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Lantern": lantern, "Table": table}
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): after the AO bake, a collapse
@@ -808,12 +676,12 @@ BUDGET = {"picked": {"Table": 1400, "Seat": 500, "Lantern": 200}}
 def lean(objs, budget):
     for name, n in budget.items():
         o = objs.get(name)
-        tris = sum(len(p.vertices) - 2 for p in o.data.polygons) if o else 0
-        if not tris or tris <= n:
+        t = tris(o) if o else 0
+        if not t or t <= n:
             continue
         bpy.context.view_layer.objects.active = o
         d = o.modifiers.new("lean", "DECIMATE")
-        d.decimate_type = "COLLAPSE"; d.ratio = n / tris; d.use_collapse_triangulate = True
+        d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=d.name)
 
 
@@ -823,16 +691,10 @@ def build(style, samples):
     for o in objs.values():
         apply_all(o)
         o.location = (0, 0, 0)
-    bake(list(objs.values()), samples)
+    bake(list(objs.values()), samples, split=True)     # the archived styles split long edges for the AO
     lean(objs, BUDGET.get(style, {}))
-    path = os.path.join(HERE, "archive", f"camp_{style}.glb")
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs.values():
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=False)
-    tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in objs.values())
-    print(f"{style}: {tris} triangles, {os.path.getsize(path) // 1024} KB -> {path}")
+    path = export_glb(list(objs.values()), os.path.join(HERE, "archive", f"camp_{style}.glb"), texcoords=False)
+    print(f"{style} -> {path}")
 
 
 if __name__ == "__main__":

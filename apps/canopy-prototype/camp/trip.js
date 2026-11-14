@@ -10,8 +10,9 @@
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { PRE, camera, canvasTex, scene } from "./core.js";
-import { GLADE, V, tripPath, polyDist } from "./forest.js";
+import { PRE, camera, scene } from "./core.js";
+import { V, canvasTex, polyDist } from "./util.js";
+import { GLADE, tripPath } from "./layout.js";
 import { groundHeight } from "./terrain.js";
 import { me } from "./player.js";
 import { addTarget } from "./input.js";

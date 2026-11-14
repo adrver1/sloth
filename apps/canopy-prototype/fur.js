@@ -1,7 +1,11 @@
+// GENERATED from shared/fur.js by tools/sync-shared.cjs. Do not edit this copy: edit shared/fur.js, then run npm run sync-shared.
 // Fuzzy shell fur for the baby sloths (look B from the fur options page): painted strands on the body,
 // plus N thin shells (merged into one skinned mesh, one extra draw) pushed out along smoothed normals, with strands cut out of each.
 // Only the fur swatches of the palette get fur; face mask, eyes and claws stay smooth.
+// Source: shared/fur.js. tools/sync-shared.cjs copies it next to every page that uses it (each app folder is published on its own).
 // Usage: import { furify } from "./fur.js"; furify(clonedSlothScene) (4 layers; ?fur=0 on the page turns it off).
+// Options, all off by default (off = the plain look the sloth pages use); warm only works together with lambert:
+// { colors: [0x8a6446, 0x5e4030] } other animals' palette fur swatches (karaoke crowd), instead of the sloth's.
 // { lambert: true } shades body and shells with MeshLambertMaterial instead of the GLB's physical / standard ones (Canopy
 // Camp, review 2026-11-12: cheaper, and matches the Lambert props). Each sloth's shell mesh is in root.userData.furShells.
 // { warm } (with lambert): uniforms { uWarm (float), uWarmPos (vec3[WARM_N]), uWarmK (float[WARM_N]) } for a warm glow from
@@ -11,7 +15,7 @@ import * as THREE from "three";
 
 const FUR = [[0x8f, 0x7c, 0x62], [0x6a, 0x58, 0x44]];   // palette fur swatches (light, dark)
 let pc, pg;
-function prepare(geo, map) {
+function prepare(geo, map, fur = FUR) {
   if (geo.userData.furReady) return;
   if (!pc) {
     const img = map.image;
@@ -24,7 +28,7 @@ function prepare(geo, map) {
   for (let i = 0; i < n; i++) {
     const x = Math.min(pc.width - 1, Math.floor(uv.getX(i) * pc.width)), y = Math.min(pc.height - 1, Math.floor(uv.getY(i) * pc.height));
     const o = (y * pc.width + x) * 4;
-    mask[i] = FUR.some((c) => Math.abs(c[0] - px[o]) + Math.abs(c[1] - px[o + 1]) + Math.abs(c[2] - px[o + 2]) < 40) ? 1 : 0;
+    mask[i] = fur.some((c) => Math.abs(c[0] - px[o]) + Math.abs(c[1] - px[o + 1]) + Math.abs(c[2] - px[o + 2]) < 40) ? 1 : 0;
   }
   // smoothed normals: average the flat normals of every vertex at the same spot, so shells don't split at facets
   const key = (i) => `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
@@ -101,7 +105,7 @@ function shellGeo(geo, shells) {
   geo.userData[key] = out;
   return out;
 }
-const shellMats = new Map();   // one material per (map, length), shared by every sloth
+const shellMats = new Map();   // one material per (map, length, lambert, warm), shared by every sloth
 function shellMat(map, len, lambert = false, warm = null) {
   const k = map.uuid + len + lambert + !!warm;
   if (shellMats.has(k)) return shellMats.get(k);
@@ -115,13 +119,13 @@ function shellMat(map, len, lambert = false, warm = null) {
 const baseMats = new Map();
 
 export const FUR_ON = !/[?&]fur=0\b/.test(location.search);   // ?fur=0: the original flat sloth, kept as a backup
-export function furify(root, { shells = 4, length = 0.0075, lambert = false, warm = null } = {}) {
+export function furify(root, { shells = 4, length = 0.0075, colors = null, lambert = false, warm = null } = {}) {
   if (!FUR_ON) return root;
   const meshes = [];
   root.traverse((m) => m.isSkinnedMesh && !m.userData.fur && meshes.push(m));
   for (const m of meshes) {
     const map = m.material.map;
-    prepare(m.geometry, map);
+    prepare(m.geometry, map, colors ? colors.map((h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255]) : FUR);
     const bk = m.material.uuid + lambert + !!warm;
     if (!baseMats.has(bk)) baseMats.set(bk, patch(lambert ? new THREE.MeshLambertMaterial({ map, color: m.material.color }) : m.material.clone(), BASE, "", "", "", "", lambert && warm));
     m.material = baseMats.get(bk);
