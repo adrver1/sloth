@@ -6,7 +6,9 @@
 //   THREE_VER                       the three.js version camp.html loads (its import map)
 //   serve(root, port, transform)    a static server for that checkout; transform(file, bytes) may rewrite a .js file
 //   launch({ width, height, touch })   { browser, page }: Chromium with WebGL on SwiftShader (the repo's playwright, or the
-//                                   preinstalled build when its own browser is missing)
+//                                   preinstalled build when its own browser is missing). With CAMP_GPU=1 it prints the GL
+//                                   renderer to stderr and warns when it is still SwiftShader (review R2-135)
+//   glRenderer(page)                the page's WebGL renderer string (UNMASKED_RENDERER_WEBGL), or 'unknown'
 //   routeThree(page)                three.js from node_modules; its uuids draw from a stream of their own, so that making one
 //                                   object more or fewer does not shift the numbers the page itself draws
 //   watch(page)                     { errs, cons, programs() }: page errors, console errors and HTTP errors; every console
@@ -36,8 +38,19 @@ async function launch({ width = 480, height = 300, touch = false } = {}) {
     : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
   const browser = await chromium.launch({ args }).catch(() => chromium.launch({ args, executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' }));
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, ...(touch ? { hasTouch: true, isMobile: true } : {}) });
+  if (process.env.CAMP_GPU) {   // on Linux or macOS Chromium can fall back to software GL without saying so; then the times are SwiftShader's
+    const gpu = await glRenderer(page);
+    console.error(`CAMP_GPU: WebGL renderer ${gpu}` + (/swiftshader|llvmpipe|software/i.test(gpu) ? '. Warning: this is software GL, not the GPU, so frame times mean nothing' : ''));
+  }
   return { browser, page };
 }
+
+// the WebGL renderer string, read from a throwaway canvas (works on a blank page too)
+const glRenderer = (page) => page.evaluate(() => {
+  const gl = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
+  const dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
+  return gl ? (dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) : 'unknown';
+});
 
 async function routeThree(page) {
   const core = fs.readFileSync(path.join(NM, 'three/build/three.core.js'), 'utf8').replace('function generateUUID() {', 'let __us = 1; const __ur = () => { __us = (Math.imul(__us, 1664525) + 1013904223) >>> 0; return __us / 4294967296; };\nfunction generateUUID() {').replace(/const (d[0-3]) = Math\.random\(\)/g, 'const $1 = __ur()');
@@ -114,4 +127,4 @@ function fingerprint() {
   return { objects: rows.length, draws, tris, calls: st.calls, rtris: st.tris, fog, rows };
 }
 
-module.exports = { THREE_VER, serve, launch, routeThree, watch, virtualise, loadCamp, stepFrames, fingerprint, chromium };
+module.exports = { THREE_VER, serve, launch, routeThree, watch, virtualise, loadCamp, stepFrames, fingerprint, glRenderer, chromium };

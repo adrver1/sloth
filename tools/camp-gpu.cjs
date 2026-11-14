@@ -1,7 +1,8 @@
 // Canopy Camp on a real GPU: loads the camp in Chromium with hardware WebGL (ANGLE on D3D11 on Windows, the default GL elsewhere),
 // then prints JSON with the GPU it ran on, the start-up times, real frame times over a few seconds of free running, draw calls,
 // triangles and shader programs, and takes a screenshot. Use it on a machine with a GPU (Adriaen's desktop, through Remote Control);
-// under SwiftShader in the cloud the times mean nothing (use camp-probe.cjs there, whose counts are exact).
+// under SwiftShader in the cloud the times mean nothing (use camp-probe.cjs there, whose counts are exact). The "gpu" field is the
+// WebGL renderer string, and a warning goes to stderr when it is software GL (SwiftShader, llvmpipe).
 // Usage (from the repo root, after npm ci):
 //   node tools/camp-gpu.cjs [--query "?time=21.5"] [--vw 1280 --vh 800 --dpr 1] [--seconds 10] [--shot out.png] [--headed]
 //   node tools/camp-gpu.cjs --phone ...     the same as --vw 390 --vh 844 --dpr 3 --query "?touch=1" plus a phone user agent
@@ -52,6 +53,8 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
       fps: ft.length ? +(1000 * ft.length / ft.reduce((a, b) => a + b, 0)).toFixed(1) : null, programs: window.__programs,
       draws: st.calls ?? null, triangles: st.tris ?? null, pixelRatio: st.pr ?? null, detail: st.detail ?? null };
   });
+  // Chromium on Linux or macOS can fall back to software GL silently (review R2-135): say so, since the times are then SwiftShader's
+  if (/swiftshader|llvmpipe|software/i.test(out.gpu)) console.error(`Warning: the WebGL renderer is ${out.gpu}, software GL, not the GPU: the frame times mean nothing`);
   if (SHOT) await p.screenshot({ path: SHOT });
   console.log(JSON.stringify({ query: QS, viewport: [VW, VH, DPR], phone: PHONE, msToReady: tReady, ...nav, ...out, errors: errs.slice(0, 20) }, null, 1));
   await b.close(); srv.close();
