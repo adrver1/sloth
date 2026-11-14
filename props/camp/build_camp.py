@@ -337,7 +337,7 @@ def rustic_hammock(M):
 
 
 def rustic_lantern(M):
-    """The jar lantern (picked), trimmed (camp review 2026-11-12, 34 triangles): a 6-sided glass jar, a 6-sided tin lid,
+    """The jar lantern (picked), trimmed (camp review 2026-11-12, 42 triangles): a 6-sided glass jar, a 6-sided tin lid,
     the wire handle as one flat quad."""
     p = [cyl(0.065, 0.16, at=(0, 0, -0.14), m=M["glass"], verts=6, smooth=False),
          cyl(0.072, 0.03, at=(0, 0, -0.05), m=M["tin"], verts=6, r2=0.05, smooth=False)]
@@ -351,7 +351,7 @@ def rustic_lantern(M):
 
 
 def rustic_table(M):
-    """The snack table (picked), trimmed (camp review 2026-11-12, about 190 triangles): two 8-sided stumps with no caps
+    """The snack table (picked), trimmed (camp review 2026-11-12, 184 triangles): two 8-sided stumps with no caps
     (the top hides theirs), four plain plank boxes, a tin mug and a plate of three tomatoes."""
     p = []
     for s in (-1, 1):
@@ -668,8 +668,9 @@ def picked():
     return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Lantern": lantern, "Table": table}
 
 
-# triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): after the AO bake, a collapse
-# decimate keeps the baked vertex colours and the silhouette; the densify only gave the bake room to vary
+# triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good). The light bake
+# (bake_camp_lightmap.py check_budget) stops when a prop is over its budget; only this script's archive CLI (build) still
+# collapses a prop down to it with lean, after its AO bake
 BUDGET = {"picked": {"Table": 1400, "Seat": 500, "Lantern": 200}}
 
 

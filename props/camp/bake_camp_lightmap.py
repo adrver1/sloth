@@ -19,8 +19,8 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
    (props/shadow/export_casters.cjs) writes into props/shadow/layout_picked.json; it stops at once if that block is missing.
 2. build_lived_sets: runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
-3. build_scene: builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the scratch GLBs, and stands
-   everything where camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
+3. build_scene: builds the picked set (build_camp.py, no densify; it stops if a prop is over build_camp.BUDGET), imports
+   the scratch GLBs, and stands everything where camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
    unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or a dummy) packed into one atlas.
 4. add_occluders and add_ground: the jeep and the deadwood (occluders only) and the real ground disc, so the WHOLE scene is
    baked as one (Adriaen 2026-11-12). add_lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky;
@@ -155,6 +155,19 @@ def import_glb(path):
     return [o for o in bpy.data.objects if o not in before]
 
 
+def check_budget(objs):
+    """build_camp.BUDGET is a guard, not a decimate (review R2-239): it prints each budgeted prop's triangles and stops the
+    bake when one is over, so added detail is looked at and trimmed by hand instead of being collapsed without a word."""
+    over = []
+    for name, n in build_camp.BUDGET["picked"].items():
+        t = tris(objs[name])
+        print(f"  budget {name}: {t} triangles (at most {n})")
+        if t > n:
+            over.append(f"{name} {t} > {n}")
+    if over:
+        sys.exit("over the triangle budget in build_camp.BUDGET: " + ", ".join(over) + "; trim the prop or raise its budget")
+
+
 def build_scene(pl, scratch):
     """The picked set and the lived sets, each prop where the page stands it ([x, z, yaw] in three.js metres, from pl).
     Returns (picked, sets {set name: meshes}, receivers, counts {name: triangles})."""
@@ -167,13 +180,9 @@ def build_scene(pl, scratch):
     }
     reset()
     objs = build_camp.picked()
-    for name, o in objs.items():
+    for o in objs.values():
         apply_all(o); o.location = (0, 0, 0)
-        n = build_camp.BUDGET["picked"].get(name); t = tris(o)
-        if n and t > n:
-            bpy.context.view_layer.objects.active = o
-            d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
-            bpy.ops.object.modifier_apply(modifier=d.name)
+    check_budget(objs)
     flat(list(objs.values()))
 
     picked = [place(objs["Seat"], f"Seat_{i}", x, z, yaw) for i, (x, z, yaw) in enumerate(seat_at)]
