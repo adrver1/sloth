@@ -3,7 +3,7 @@
 // ring at the tree's foot, a trodden patch where the path ends and people stand to look up at the sloths, leaf litter thickening into
 // the forest), a plank bench on two log ends facing the tree, a fallen mossy log with shelf fungus, mossy stones, two clusters of
 // mushrooms, three sunbeams through the canopy gap, and bushes out on the bare forest floor round the glade. The plants (tufts, tall grass, wildflowers, clover and the heliconia, bromeliad,
-// fern and orchid clumps at its edge) go in ground.js's one instanced draw: campGround.js passes gladePlants to createGround.
+// fern and orchid clumps at its edge) go in ground.js's second instanced draw of plants, culled on its own bounds: campGround.js passes gladePlants to createGround.
 // buildGlade() (main.js, once the props are in: the sunbeams use their rayMat; before the ground) builds it all.
 // The glade lies outside the baked light map and ground-shadow square (ground.js RR), so it is lit live like the forest round it:
 // nothing here needs a bake. Props: one draw (vertex colours); floor: one draw; sunbeams: one draw on the camp's rayMat (daylight.js

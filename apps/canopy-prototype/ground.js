@@ -3,7 +3,8 @@
 // Floor: one disc (96 tris) that replaces the old flat clearing. A painted "wear map" over the clearing says where it is dirt (fire ring,
 // seats, tent door, table, wood pile, jeep, the paths between them, worked out from camp.html's collision circles), where the grass
 // is lush or dry, and where it is ash or mud; tiling grass and dirt textures give the close-up detail. The edge is ragged, not a circle.
-// Plants: crossed-quad cards (4 tris each) from one painted atlas, all in one instanced draw, swaying in the vertex shader.
+// Plants: crossed-quad cards (4 tris each) from one painted atlas, swaying in the vertex shader: one instanced draw for the clearing
+// and one for the plants the caller passes as extra (the glade), each culled on its own bounds.
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";
@@ -420,16 +421,20 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
       if (ok(x, z)) { pick.push([x, z, 6, R(0.75, 1.3)]); n++; }
     }
   }
-  pick.push(...extra);
-  const im = new THREE.InstancedMesh(card, null, pick.length);
-  const cellA = new Float32Array(pick.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
-  pick.forEach(([x, z, type, size], i) => {
-    q.setFromAxisAngle(up, R(0, 6.28)); m4.compose(new THREE.Vector3(x, height(x, z), z), q, new THREE.Vector3(size * (type === 3 ? 1.6 : 1.1), size, size * (type === 3 ? 1.6 : 1.1))); im.setMatrixAt(i, m4);
-    const dry = 1 - sample(x, z, 1); im.setColorAt(i, col.setRGB(1, 1, 1).lerp(new THREE.Color(1.15, 1.08, 0.75), type < 2 ? dry * 0.5 : 0).multiplyScalar(type === 6 ? R(0.6, 0.85) : R(0.8, 1.05)));
-    if (noise) { im.getColorAt(i, col); im.setColorAt(i, macroTint(noise(x * 0.13 + 3.7, z * 0.13 - 1.2), col)); }   // the ground's big colour patches
-    cellA[i] = type;
+  // two instanced draws on one material (R2-098): the clearing's plants, and the glade's (extra, 20 m away), each with its own bounds,
+  // so three culls the glade's when they are out of view instead of drawing every plant in all directions
+  const nCamp = pick.length; pick.push(...extra);
+  const im = new THREE.InstancedMesh(card, null, nCamp), glade = extra.length ? new THREE.InstancedMesh(card.clone(), null, extra.length) : null;
+  const cells = [new Float32Array(nCamp), new Float32Array(extra.length)], m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
+  pick.forEach(([x, z, type, size], i) => {   // one pass over both, in pick's order, so the random draws are the same as with one draw
+    const [m, j, cellA] = i < nCamp ? [im, i, cells[0]] : [glade, i - nCamp, cells[1]];
+    q.setFromAxisAngle(up, R(0, 6.28)); m4.compose(new THREE.Vector3(x, height(x, z), z), q, new THREE.Vector3(size * (type === 3 ? 1.6 : 1.1), size, size * (type === 3 ? 1.6 : 1.1))); m.setMatrixAt(j, m4);
+    const dry = 1 - sample(x, z, 1); m.setColorAt(j, col.setRGB(1, 1, 1).lerp(new THREE.Color(1.15, 1.08, 0.75), type < 2 ? dry * 0.5 : 0).multiplyScalar(type === 6 ? R(0.6, 0.85) : R(0.8, 1.05)));
+    if (noise) { m.getColorAt(j, col); m.setColorAt(j, macroTint(noise(x * 0.13 + 3.7, z * 0.13 - 1.2), col)); }   // the ground's big colour patches
+    cellA[j] = type;
   });
-  card.setAttribute("aCell", new THREE.InstancedBufferAttribute(cellA, 1));
+  im.geometry.setAttribute("aCell", new THREE.InstancedBufferAttribute(cells[0], 1));
+  if (glade) glade.geometry.setAttribute("aCell", new THREE.InstancedBufferAttribute(cells[1], 1));
   const pmat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide });
   pmat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR }; sh.uniforms.uGN = uGN; sh.uniforms.uGJ = uGJ; sh.uniforms.uGNon = uGNon; bindLight(sh);
@@ -439,15 +444,18 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.6 + ip.x * 1.3 + ip.z * 1.7) + 0.4 * sin(uTime * 3.1 + ip.x * 3.0);
         transformed.xz += vec2(w * 0.06, w * 0.035) * position.y * position.y;
-        vShade = texture2D(uShade, ip.xz / (2.0 * uR) + 0.5).r;
-        vGN = pow(texture2D(uGN, ip.xz / (2.0 * uR) + 0.5), vec4(2.2));
-        vGJ = pow(texture2D(uGJ, ip.xz / (2.0 * uR) + 0.5).rg, vec2(2.2));`]);   // the plants take the ground's night light where they stand
+        float rr = length(ip.xz); vec2 uvP = ip.xz / (2.0 * uR) + 0.5;
+        vGN = pow(texture2D(uGN, uvP), vec4(2.2));
+        if (rr < uR) { vShade = texture2D(uShade, uvP).r; vGJ = pow(texture2D(uGJ, uvP).rg, vec2(2.2)); } else { vShade = 0.0; vGJ = vec2(0.0); }`]);
+    // the plants take the ground's night light where they stand. Outside the baked square (the glade) the maps hold only their clamped
+    // edge: those plants skip the shadow and jeep-light reads (R2-098) and keep the edge's night light, which matches the glade's
+    // own live-lit floor (a test at 21:30 with only the moon left came out visibly darker than the floor round them)
     sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nuniform float uNight, uGNon; varying float vShade; varying vec4 vGN; varying vec2 vGJ; vec3 albedoP;\n" + LIGHT_GLSL],
       ["#include <opaque_fragment>", LIGHT_MIX("albedoP", "(vGN * uGNon)", "(vGJ * uGNon)", "(uNight * uGNon)") + "\n#include <opaque_fragment>"],
       ["#include <map_fragment>", "#include <map_fragment>\nalbedoP = diffuseColor.rgb;\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));"], ["#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);"]);   // both sides lit like the ground, never black from behind
   };
-  im.material = pmat; im.frustumCulled = false; scene.add(im);
-  own.add(floor).add(im);
+  for (const m of [im, glade]) if (m) { m.material = pmat; scene.add(m); own.add(m); }
+  own.add(floor);
   const counts = [0, 1, 2, 3, 4, 5, 6, 7].map((t) => pick.filter((p) => p[2] === t).length);
   // the baked map (props/shadow/bake_ground_shadow.py, Cycles: soft sun + sky occlusion) wins; the live render above is the fallback
   // for prop sets and jeeps that have no bake yet
