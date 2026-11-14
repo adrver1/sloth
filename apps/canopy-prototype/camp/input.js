@@ -132,7 +132,7 @@ function initInput() {
   if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
   // the keys the player walks by (player.js reads them); the split into modules had dropped these listeners
   // (not while a slider, a select or a text field has the focus: its arrows are its own, review R2-055)
-  addEventListener("keydown", (e) => { const t = e.target; if (t.closest?.("input, select, textarea") || t.isContentEditable) return; keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
+  addEventListener("keydown", (e) => { const t = e.target; if ((t.matches?.("input[type=range], select") && /^(Arrow|Page|Home|End)/.test(e.code)) || t.closest?.("textarea, input:not([type=range])") || t.isContentEditable) return; keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
   stick.addEventListener("pointerdown", (e) => { e.stopPropagation(); stickId = e.pointerId; try { stick.setPointerCapture(e.pointerId); } catch {} /* a pointer that is no longer down (or a made-up one) cannot be captured */ stickMove(e); hideHelp(); });
   stick.addEventListener("pointermove", (e) => { if (e.pointerId === stickId) stickMove(e); });
   stick.addEventListener("pointerup", stickEnd); stick.addEventListener("pointercancel", stickEnd);
