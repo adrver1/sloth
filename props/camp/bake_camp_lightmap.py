@@ -120,9 +120,13 @@ PLACE = {
 
 reset()
 objs = build_camp.picked()
-for o in objs.values():
+for name, o in objs.items():
     apply_all(o); o.location = (0, 0, 0)
-build_camp.lean(objs, build_camp.BUDGET["picked"])
+    n = build_camp.BUDGET["picked"].get(name); t = tris(o)
+    if n and t > n:
+        bpy.context.view_layer.objects.active = o
+        d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
+        bpy.ops.object.modifier_apply(modifier=d.name)
 flat(list(objs.values()))
 
 
