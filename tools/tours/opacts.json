@@ -1,0 +1,442 @@
+[
+[
+3,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.cd({ cook: 1e9, join: 1e9, react: 1e9 }); T.log.push(['cd']); "
+],
+[
+5,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.jump('eat'); T.log.push(['jump eat', O.state()]); "
+],
+[
+10,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+20,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+30,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+40,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+50,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+60,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+70,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+80,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+90,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+100,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.jump('drink'); T.log.push(['jump drink', O.state()]); "
+],
+[
+105,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+115,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+125,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+135,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+145,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+155,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+165,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+175,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+185,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+195,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.jump('read'); T.log.push(['jump read', O.state()]); "
+],
+[
+200,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+210,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+220,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+230,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+240,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+250,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+260,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+270,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+280,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+290,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.jump('warm'); T.log.push(['jump warm', O.state()]); "
+],
+[
+295,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+305,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+315,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+325,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+335,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.jump('stroll'); T.log.push(['jump stroll', O.state()]); "
+],
+[
+340,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(3), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+348,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.talk(); T.log.push(['talk', O.line()]); "
+],
+[
+350,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(3), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+360,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(3), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+370,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); window.__time(23); O.jump('sleep'); T.log.push(['jump sleep', O.state()]); "
+],
+[
+375,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+385,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+395,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+405,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+413,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.talk(); T.log.push(['whisper', O.line()]); "
+],
+[
+415,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+425,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); window.__time(9); T.log.push(['morning']); "
+],
+[
+430,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+440,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+450,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+460,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+470,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); window.__campFast = 8; T.log.push(['errands', camp.map((q) => [q.name, !!T.errand(q.name)])]); "
+],
+[
+530,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); window.__campFast = 1; T.log.push(['phases', camp.map((q) => [q.name, q.trip?.phase])]); "
+],
+[
+532,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.jump('play'); T.log.push(['jump play', O.state()]); "
+],
+[
+537,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(5), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+547,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(5), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+557,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(5), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+567,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(5), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+577,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(5), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+587,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(5), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+597,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.cd({ cook: 0 }); O.jump('cook'); T.log.push(['jump cook', O.state()]); "
+],
+[
+602,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+612,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+622,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+632,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+642,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+652,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+662,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+672,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+682,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+692,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+702,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+712,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+722,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+732,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+742,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); window.__sit(1); O.cd({ join: 0 }); T.log.push(['sit']); "
+],
+[
+744,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.jump('join'); T.log.push(['jump join', O.state()]); "
+],
+[
+749,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+759,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+769,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+779,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+789,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+799,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); me.seat = null; T.log.push(['up']); "
+],
+[
+804,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['sim', O.sim(6), O.line(), O.why().talk, O.op.buddy?.name ?? null]); "
+],
+[
+811,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.jump('hold'); T.log.push(['hold']); "
+],
+[
+815,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.fid('scratch'); T.log.push(['fid scratch']); "
+],
+[
+827,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.fid('stretch'); T.log.push(['fid stretch']); "
+],
+[
+839,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.fid('look'); T.log.push(['fid look']); "
+],
+[
+851,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.fid('point'); T.log.push(['fid point']); "
+],
+[
+863,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.fid('shift'); T.log.push(['fid shift']); "
+],
+[
+875,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.fid('rub'); T.log.push(['fid rub']); "
+],
+[
+887,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.fid('yawn'); T.log.push(['fid yawn']); "
+],
+[
+899,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); A.things.find((t) => t.name === 'crate').act(); O.gift(); T.log.push(['gift', A.held, O.why()]); "
+],
+[
+929,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); A.things.find((t) => t.name === 'fruitbowl').act(); O.gift(); T.log.push(['gift', A.held, O.why()]); "
+],
+[
+989,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.cd({ react: 0 }); dispatchEvent(new CustomEvent('camp-act', { detail: { kind: 'boop', by: 'you', name: 'Sunny' } })); T.log.push(['act', O.why()]); "
+],
+[
+1014,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.cd({ react: 0 }); dispatchEvent(new CustomEvent('camp-act', { detail: { kind: 'feed', by: 'you', name: 'Sunny' } })); T.log.push(['act', O.why()]); "
+],
+[
+1039,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.cd({ react: 0 }); dispatchEvent(new CustomEvent('camp-act', { detail: { kind: 'log', by: 'you', name: 'Sunny' } })); T.log.push(['act', O.why()]); "
+],
+[
+1064,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); O.cd({ react: 0 }); dispatchEvent(new CustomEvent('camp-act', { detail: { kind: 'soup', by: 'you', name: 'Sunny' } })); T.log.push(['act', O.why()]); "
+],
+[
+1089,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(O.tapCol, 4); O.jump('stroll'); "
+],
+[
+1092,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); T.log.push(['gaze', O.op.gaze, O.state()]); "
+],
+[
+1102,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); T.log.push(['gaze', O.op.gaze, O.state()]); "
+],
+[
+1112,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); T.log.push(['gaze', O.op.gaze, O.state()]); "
+],
+[
+1122,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); T.log.push(['gaze', O.op.gaze, O.state()]); "
+],
+[
+1132,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); T.log.push(['gaze', O.op.gaze, O.state()]); "
+],
+[
+1142,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); T.log.push(['gaze', O.op.gaze, O.state()]); "
+],
+[
+1152,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); T.log.push(['gaze', O.op.gaze, O.state()]); "
+],
+[
+1162,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); T.log.push(['gaze', O.op.gaze, O.state()]); "
+],
+[
+1179,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+]
+]

@@ -1,0 +1,66 @@
+[
+[
+5,
+"const T = window.__T, J = T.jeep, me = T.me; T.near('Seat_1', 2.2);"
+],
+[
+8,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Seat_1');"
+],
+[
+10,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Seat_1');"
+],
+[
+12,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Sit by the fire');"
+],
+[
+120,
+"const T = window.__T, J = T.jeep, me = T.me; { const c = document.getElementById('c'), ev = (t, x, y) => c.dispatchEvent(new PointerEvent(t, { clientX: x, clientY: y, pointerId: 9, pointerType: 'mouse', bubbles: true })); ev('pointerdown', 200, 150); ev('pointermove', 230, 160); ev('pointermove', 260, 140); ev('pointerup', 260, 140); T.log.push(['drag']); }"
+],
+[
+200,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Seat_1'); T.tap('Seat_1');"
+],
+[
+202,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Stand up');"
+],
+[
+230,
+"const T = window.__T, J = T.jeep, me = T.me; T.near('Seat_0', 2.4);"
+],
+[
+233,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Seat_0');"
+],
+[
+235,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Seat_0');"
+],
+[
+237,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Sit by the fire');"
+],
+[
+330,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, -1);"
+],
+[
+345,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+],
+[
+360,
+"const T = window.__T, J = T.jeep, me = T.me; window.__sit(2); T.log.push(['__sit 2']);"
+],
+[
+440,
+"const T = window.__T, J = T.jeep, me = T.me; T.key('KeyW', true);"
+],
+[
+455,
+"const T = window.__T, J = T.jeep, me = T.me; T.key('KeyW', false);"
+]
+]

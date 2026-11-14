@@ -1,0 +1,70 @@
+[
+[
+3,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.click('menu'); [...document.querySelectorAll('#opts button')].find((b) => b.textContent.startsWith('Move lab')).click(); T.log.push(['ph', ph()]); for (let i = 0; i < 400 && !document.getElementById('lab'); i++) await new Promise((r) => window.__realTimeout(r, 25)); T.log.push(['lab loaded', !!document.getElementById('lab')]);"
+],
+[
+8,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.log.push(['lab', !!document.getElementById('lab'), document.getElementById('lab')?.hidden]); T.log.push(['ph', ph()]);"
+],
+[
+10,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labWho').value = '2'; document.getElementById('labWho').dispatchEvent(new Event('change')); document.querySelector('#lab [data-do=\"leave\"]').click(); T.log.push(['ph', ph()]);"
+],
+[
+30,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.querySelector('#lab [data-sp=\"4\"]').click(); T.log.push(['ph', ph()]);"
+],
+[
+60,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.querySelector('#lab [data-do=\"all\"]').click(); T.log.push(['ph', ph()]);"
+],
+[
+100,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labPath').click(); document.getElementById('labFollow').click(); T.log.push(['ph', ph()]);"
+],
+[
+120,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labStep').click(); T.log.push(['ph', ph()]);"
+],
+[
+130,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.querySelector('#lab [data-sp=\"2\"]').click(); document.getElementById('labFollow').click(); document.getElementById('labPath').click(); T.log.push(['ph', ph()]);"
+],
+[
+150,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labWho').value = '1'; document.getElementById('labWho').dispatchEvent(new Event('change')); document.querySelector('#lab [data-do=\"smore\"]').click();document.querySelector('#lab [data-do=\"wave\"]').click(); T.log.push(['ph', ph()]);"
+],
+[
+190,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labClip').value = 'stretch'; document.getElementById('labClip').dispatchEvent(new Event('change')); const sl = document.getElementById('labT'); sl.value = '0.4'; sl.dispatchEvent(new Event('input')); T.log.push(['ph', ph()]);"
+],
+[
+200,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labBack').click(); T.log.push(['ph', ph()]);"
+],
+[
+210,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.querySelector('#lab [data-do=\"nap\"]').click();document.querySelector('#lab [data-do=\"yawn\"]').click(); T.log.push(['ph', ph()]);"
+],
+[
+240,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.querySelector('#lab [data-do=\"wake\"]').click();document.querySelector('#lab [data-do=\"stretch\"]').click();document.querySelector('#lab [data-do=\"cards\"]').click();document.querySelector('#lab [data-do=\"fix\"]').click();document.querySelector('#lab [data-do=\"home\"]').click();document.querySelector('#lab [data-do=\"wander\"]').click(); T.log.push(['ph', ph()]);"
+],
+[
+250,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labWho').value = '5'; document.getElementById('labWho').dispatchEvent(new Event('change')); document.querySelector('#lab [data-do=\"trip\"]').click(); T.log.push(['ph', ph()]);"
+],
+[
+300,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labClose').click(); T.log.push(['ph', ph()]);"
+],
+[
+320,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); [...document.querySelectorAll('#opts button')].find((b) => b.textContent.startsWith('Move lab')).click(); T.log.push(['ph', ph()]);"
+],
+[
+340,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); document.getElementById('labClose').click(); T.log.push(['ph', ph()]);"
+]
+]

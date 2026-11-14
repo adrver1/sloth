@@ -1,0 +1,210 @@
+[
+[
+5,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, -1);"
+],
+[
+70,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+],
+[
+75,
+"const T = window.__T, J = T.jeep, me = T.me; me.pos.set(0.84, 0, 6.5); me.vel.set(0, 0, 0); me.yaw = Math.atan2(-(0.9 - (0.84)), -(7.89 - (6.5))); me.pitch = 0; T.log.push(['go', 0.84, 6.5]);window.__stick(0, -1);"
+],
+[
+85,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+95,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+105,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+115,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+125,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+135,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+145,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+150,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0.9, -0.5);"
+],
+[
+155,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+165,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+165,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(-0.9, -0.5);"
+],
+[
+175,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+180,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, -1);"
+],
+[
+185,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+195,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+205,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/layout.js'].sloPath.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+215,
+"const T = window.__T, J = T.jeep, me = T.me; { const G = T.mods['camp/layout.js'].GLADE; me.yaw = Math.atan2(-(G.x - me.pos.x), -(G.z - me.pos.z)); T.log.push(['to glade', +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+330,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(1, -0.3);"
+],
+[
+370,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(-0.6, 0.8);"
+],
+[
+400,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+],
+[
+405,
+"const T = window.__T, J = T.jeep, me = T.me; me.pos.set(1.02, 0, -8.02); me.vel.set(0, 0, 0); me.yaw = Math.atan2(-(1.61 - (1.02)), -(-9.85 - (-8.02))); me.pitch = 0; T.log.push(['go', 1.02, -8.02]);window.__stick(0, -1);"
+],
+[
+415,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+425,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+435,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+445,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+455,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+465,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+470,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(1, -0.4);"
+],
+[
+475,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+485,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+485,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(-1, -0.4);"
+],
+[
+495,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+500,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, -1);"
+],
+[
+505,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+515,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+525,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+535,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+545,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+555,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+565,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+575,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+585,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+595,
+"const T = window.__T, J = T.jeep, me = T.me; { const P = T.mods['camp/forest.js'].track.pts; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = Math.hypot(p.x - me.pos.x, p.z - me.pos.z); if (d < bd) { bd = d; bi = i; } }); const q = P[Math.min(P.length - 1, bi + 3)]; me.yaw = Math.atan2(-(q.x - me.pos.x), -(q.z - me.pos.z)); T.log.push(['steer', bi, +bd.toFixed(3), +me.pos.x.toFixed(3), +me.pos.z.toFixed(3)]); }"
+],
+[
+600,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(1, 0);"
+],
+[
+620,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 1);"
+],
+[
+640,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+],
+[
+645,
+"const T = window.__T, J = T.jeep, me = T.me; me.pos.set(5.5, 0, 3.0); me.vel.set(0, 0, 0); me.yaw = Math.atan2(-(11 - (5.5)), -(6 - (3.0))); me.pitch = 0; T.log.push(['go', 5.5, 3.0]);window.__stick(0, -1);"
+],
+[
+700,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0.8, -0.6);"
+],
+[
+740,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+]
+]
