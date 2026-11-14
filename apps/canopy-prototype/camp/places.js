@@ -6,7 +6,8 @@
 //   claim(place, who) -> true when it is who's now (or already was); release(place, who) frees it if who holds it (or
 //   whoever holds it, with no who); holder(place) -> who, or undefined; taken(place) -> someone (or something) holds it
 //   host(place, fn), hosted(place), join(place, s): a place someone is using may still take a sloth too (a bed or a seat
-//   the operator is in): its user registers fn; join asks it, and fn takes the sloth (sloth/lend.js lend) if it says yes
+//   the operator is in): its user registers fn, and host(place, null) when they leave; join asks it, and fn takes the
+//   sloth (sloth/lend.js lend) if it says yes
 //   addMover(object3D, radius): a single walker (the operator); addCrowd(fn): a group, fn() -> [[position, radius], ...]
 //   (the sloths on the ground); walkers: the single ones as [object3D, radius]
 //   movers() -> [[position, radius], ...]: the crowds, then the single walkers, then you (the camera, 0.3 m)
@@ -23,7 +24,7 @@ function release(place, who) { if (!who || claims.get(place) === who) claims.del
 const holder = (place) => claims.get(place);
 const taken = (place) => claims.has(place);
 
-function host(place, fn) { hosts.set(place, fn); }
+function host(place, fn) { if (fn) hosts.set(place, fn); else hosts.delete(place); }   // fn null: no longer hosted (review R2-046)
 const hosted = (place) => hosts.has(place);
 function join(place, s) { const fn = hosts.get(place); return !!fn && !!fn(s); }
 
