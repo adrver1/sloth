@@ -109,7 +109,7 @@ async function buildProps() {
   }
   // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
   // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
-  // rustic seats (Our camp, Rustic); ?lived=0 hides them to compare.
+  // rustic seats; ?lived=0 hides them to compare.
   if (LIVED) {
     const L = await PRE.lived, lm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
     L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, ...(m.name.startsWith("SeatTop") && { polygonOffset: true, polygonOffsetFactor: -2, color: SAWN }) })) : lm; });   // the stack, loose logs and seat tops are textured
@@ -123,8 +123,8 @@ async function buildProps() {
     { const { at: k, yaw: ky } = CRATE; put("KitchenCrate", k.x, k.z, ky); put("KitchenThings", k.x, k.z, ky); blockers.push([k, 0.35]); }   // the kitchen crate beside the snack table, its front to the fire
     SEATS.forEach(({ at, yaw }, i) => put(L.scene.getObjectByName(`SeatTop_${i}`) ? `SeatTop_${i}` : "SeatTop", at.x, at.z, yaw));   // the sawn top on each seat
   }
-  // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,
-  // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, about 110 triangles).
+  // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two plain sticks east of the fire,
+  // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, 90 triangles with the sticks).
   // The gap on the line at hang (layout.js LAUNDRY.hang) is kept free for a sloth to hang from. Shown with the lived-in props.
   if (LIVED) {
     const LD = await PRE.laundry;

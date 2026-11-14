@@ -1,9 +1,10 @@
 """
 The laundry line for the Canopy Camp game (apps/canopy-prototype/camp.html), lived-in props batch 2 (2026-11-11).
 
-    LaundryPosts   two sticks pushed into the ground (baked AO, like the other props)
-    LaundryCloth   the line, a striped towel folded over it and three sloth-sized socks,
-                   all textured quads on one drawn atlas (laundry.png, alpha cut on the page); the pegs are painted in
+    LaundryPosts  40  two plain sticks pushed into the ground (baked, like the other props)
+    LaundryCloth  50  the line, a striped towel folded over it and three sloth-sized socks,
+                      all textured quads on one drawn atlas (laundry.png, alpha cut on the page); the pegs are painted in
+                      (triangles as of 2026-11-14; the export prints them)
 
 Triangles go where they show (Adriaen's rule, 2026-11-11): the line is two crossed strips, the towel is two quads (one
 each side of the line), each sock is one quad. A gap is left on the line at HANG_T for a sloth to hang from (the
@@ -13,8 +14,12 @@ sloth-life thread builds that sloth).
 
 One GLB, z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin. The light bake writes
 props/lived/laundry.glb; a run on its own writes props/lived/laundry_preview.glb (git-ignored).
-make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's laundry.glb
-and its models/laundry.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+make() only creates the objects in the current scene; build() resets, makes, lights and exports.
+How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
+build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+(TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
+models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
+AO in the colour attribute, which the page never sees.
 """
 import os
 import sys

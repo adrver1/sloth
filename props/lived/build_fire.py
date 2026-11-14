@@ -9,12 +9,25 @@ Adriaen picked from three fires and three kettles (the others are in git history
 
     .venv/bin/python props/lived/build_fire.py
 
-One GLB with objects Ring, Tripod, Fire, Embers, Pot and Chain, each at the fire's origin, z up (three.js y up). The
-light bake writes props/lived/fire.glb; a run on its own writes props/lived/fire_preview.glb (git-ignored). Embers are
-drawn unlit on the page so they glow; the flames are animated cards made on the page. Same baked light as the other
-props (AO times base colour in a colour attribute), except the chain, which only carries its texture. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
-make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's fire.glb
-and its models/fire.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+One GLB, every object at the fire's origin, z up (three.js y up). Triangles as of 2026-11-14 (the export prints them):
+
+    Ring       176  the stones and the ash bed (baked)
+    Tripod      48  the rope lashing where the legs cross (baked)
+    Fire       286  the teepee logs and kindling (baked)
+    Embers      60  the glowing lumps in the ash (baked; drawn unlit on the page so they glow)
+    Pot        248  the pot, the soup and its bits, the feet, the lugs and the bail (baked)
+    Chain       36  one textured quad per link (chain_link.png, alpha cut on the page)
+    TripodLegs  66  the three bamboo legs (textured, bamboo.png)
+
+The light bake writes props/lived/fire.glb; a run on its own writes props/lived/fire_preview.glb (git-ignored). The
+flames are animated cards made on the page. build() leaves the BAKED parts one colour attribute and no UVs; the
+textured ones keep their UVs and image. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
+make() only creates the objects in the current scene; build() resets, makes, lights and exports.
+How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
+build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+(TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
+models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
+AO in the colour attribute, which the page never sees.
 """
 import math
 import os
@@ -33,7 +46,7 @@ from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, box, cyl, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
 
 rng = random.Random(23)
-LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
+LIFT = 0.3                             # how far the pot's base sits above 0.45 m, clear of the flames
 POT_Z = 0.45 + LIFT                    # the pot's base
 SOUP = Vector((0.0, 0.0, POT_Z + 0.135))   # the soup's surface, middle
 TOP = Vector((0.0, 0.0, 1.75))         # where the tripod legs meet (tall, so the pot hangs on a long chain)

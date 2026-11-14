@@ -1,16 +1,17 @@
 """
 Lived-in camp props for the Canopy Camp game (apps/canopy-prototype/camp.html): the small things that make the camp
-look used. PROPS (above make()) lists them all, one row each with its builder and how it is lit:
+look used. PROPS (above make()) lists them all, one row each with its builder and how it is lit. Triangles as of
+2026-11-14 (build() prints them, with a breakdown per piece of the baked props):
 
-    WoodStack     the stacked split logs by the fire as one textured block (renders of the detailed stack)
-    LooseLogs     a few loose split logs by the pile (textured)
-    SeatTop       the rustic seat's sawn top (textured; the page puts one on each of three seats)
-    MatRoll       the rolled sleeping mat by the tent (textured)
-    KitchenCrate  the kitchen crate (textured)
-    WoodPile      the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
-    SeatThings    an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
-    TentSide      the wellies by the tent (baked)
-    KitchenThings the pan, plates, honey jar and spoon on the crate (baked)
+    WoodStack      94  the stacked split logs by the fire as one textured block (renders of the detailed stack)
+    LooseLogs      60  three loose split logs by the pile (textured, on the stack's atlas)
+    SeatTop         2  the rustic seat's sawn top (textured; the page puts one on each of three seats)
+    MatRoll        28  the rolled sleeping mat by the tent (textured)
+    KitchenCrate   26  the kitchen crate (textured)
+    WoodPile      178  the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
+    SeatThings    120  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
+    TentSide      176  the pair of wellies by the tent (baked)
+    KitchenThings 160  the pan, plates, honey jar and spoon on the crate (baked)
 
     .venv/bin/python props/lived/build_lived.py
     .venv/bin/python props/lived/build_lived.py --samples 64
@@ -18,11 +19,15 @@ look used. PROPS (above make()) lists them all, one row each with its builder an
 One GLB, one object per prop, each at its own origin, standing on z = 0 with its front toward -Y (three.js +Z). The
 light bake writes props/lived/lived.glb; a run on its own writes props/lived/lived_preview.glb (git-ignored).
 SeatThings shares the Seat's origin (props/camp/build_camp.py rustic(): log along X, flat top at z = 0.361), so the
-page places it with the same transform as the seat it sits on. Same baked light as the camp and the
-jeep: Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
+page places it with the same transform as the seat it sits on. build() leaves the "baked" props one colour attribute
+and no UVs, and the page draws them with a plain Lambert material; the "textured" ones keep their UVs and image.
 Materials match the camp's rustic set, so the props sit with the picked camp.
-make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's lived.glb
-and its models/lived.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+make() only creates the objects in the current scene; build() resets, makes, lights and exports.
+How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
+build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+(TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
+models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
+AO in the colour attribute, which the page never sees.
 """
 import argparse
 import hashlib
@@ -543,7 +548,7 @@ BOOT = [(-0.09, 0), (-0.035, 0), (-0.03, 0.012), (0.045, 0.012), (0.05, 0), (0.1
 
 
 def boot(M, at, yaw, roll=0.0):
-    """A green welly: its side outline extruded (about 60 triangles), the foot a little wider than the shaft. Bands cut
+    """A green welly: its side outline extruded (88 triangles), the foot a little wider than the shaft. Bands cut
     across it: a dark sole, mud up to 7 cm, a darker cuff at the top; the shaft top dark inside."""
     bm = bmesh.new()
     a = [bm.verts.new((x, -0.045, z)) for x, z in BOOT]
@@ -689,7 +694,7 @@ def kitchen_crate():
 
 def kitchen_things(M):
     """What's in and by the crate: a frying pan standing in it with its handle up, a stack of enamel plates, a honey
-    jar and a wooden spoon (plain low-sided shapes, baked AO like the other props)."""
+    jar and a wooden spoon (plain low-sided shapes, baked like the other props)."""
     p = []
     # the pan: a shallow 8-sided dish leaning against the back wall, handle sticking up out of the crate
     pan = cyl(0.12, 0.035, at=(0, 0, 0), m=M["pan"], verts=8, r2=0.1, smooth=False)

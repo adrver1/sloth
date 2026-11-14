@@ -83,7 +83,7 @@ export const LANTERN_TIES = { l0: tentAt.clone().multiplyScalar(1 - 1.12 / tentA
 export const WOOD_PILE = (() => { const at = V(-0.55, 0, -3.15), yaw = yawTo(at); return { at, yaw, side: V(Math.cos(yaw), 0, -Math.sin(yaw)) }; })();   // side: its local +X, where the chopping stump stands
 export const CRATE = (() => { const at = V(4.55, 0, 1.7); return { at, yaw: yawTo(at) }; })();   // the kitchen crate beside the snack table, its front to the fire
 export const SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };   // the soup's surface in the pot over the fire; atmosphere.js lets steam rise off all of it
-// the laundry line (build_laundry.py): two forked sticks east of the fire, between the table and the tent. A and B are
+// the laundry line (build_laundry.py): two plain sticks east of the fire, between the table and the tent. A and B are
 // roughly where the line is tied; it is 3 m post to post. a, b: its ends; sag at the middle; hang: the gap kept free for a
 // sloth (t = 0.42 along it); dir: a to b. posts: the sticks' feet. The sloths (sloth/poses.js, sloth/spots.js, swing.js) read a, b, sag, hang and dir.
 export const LAUNDRY = (() => {
