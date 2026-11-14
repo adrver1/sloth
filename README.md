@@ -48,31 +48,39 @@ Import the layout from `camp/layout.js` and the helpers from `camp/util.js`; don
 
 **Generators** (`props/`, Blender bpy). The builders make the props' GLBs: `props/camp/build_camp.py` (the camp set), `props/jeep/build_jeep.py`, `props/lived/build_*.py` (the lived-in props, the fire, the laundry). `props/lib/` is their shared library (`mesh.py`, `materials.py`, `bake.py`, `export.py`, which prints the triangle count per object). `props/bake_all.py` makes every baked light from one place: `layout` (the clearing's layout from the live page, `props/shadow/export_casters.cjs`), `light` (`props/camp/bake_camp_lightmap.py`, one Blender scene), `ktx` and `ground` (`props/ground/bake_ground.py`). Only the GPU thread runs the bakes; other sessions run at most `python props/bake_all.py --only layout`. The archived prop styles stay in `props/*/archive/`.
 
-**Tools** (`tools/`, from the repo root after `npm install`):
+**Tools** (`tools/`, from the repo root after `npm ci`):
+
+- `npm run check`: the static checks, with no browser and no Blender, which CI runs on every pull request and before every deploy (`.github/workflows/check.yml`): `tools/check-imports.cjs` (every camp module parses, every named import matches an export, every plain `models/` path exists, no KTX2 map is older than its PNG), `tools/check-python.py` (the Python in `props/`, `characters/` and `stickers/renderer/` compiles) and `npm run check-shared`.
 
 - `npm run replay` (`tools/camp-replay.cjs`): runs the camp headless on a virtual clock with seeded randomness for 480 frames (`--frames 300` for a quicker run), walks a short tour (boop, feed, night, rain, sit) and prints a fingerprint of the scene, the draws, the shader programs and any errors. It and the scenario tours are optional diagnostics, not gates: comparing two runs of the same code is still useful, but a clean-up may change the camp's behaviour, and the fingerprint with it. `--shots dir` saves screenshots, `--compare dirA dirB` compares two runs' shots.
 - `npm run scenarios` (`tools/camp-scenarios.cjs`): the scenario tours in `tools/tours/` (the operator's day, the sloths' trips, the jeep, the chores, a phone view...), each a state dump per step, run against two checkouts and compared. The header says how to run base against head; differences are something to look at, not a failure in themselves.
 - `tools/camp-page.cjs`: the headless set-up both of them share (Chromium on SwiftShader, three.js from node_modules, the virtual clock). `CAMP_GPU=1` makes it use the machine's real GPU instead (on a GPU machine such as Adriaen's desktop).
-- `tools/camp-probe.cjs`: draw calls, triangles per object, shader programs, downloads, textures and the time to ready of one camp page (`PORT=` picks its port, `ROOT=` serves another checkout). The counts are exact under SwiftShader; its fps is not.
-- `tools/camp-gpu.cjs`: real-GPU frame times, start-up times, draws and a screenshot (`--phone` for the phone view). Run it on Adriaen's desktop through Remote Control.
+- `tools/camp-probe.cjs` (`npm run probe`, `npm run probe:phone`): draw calls, triangles per object, shader programs, downloads, textures and the time to ready of one camp page (`PORT=` picks its port, `ROOT=` serves another checkout, `--phone` the 390×844 touch view, `--strict` exits 1 on any page error). The counts are exact under SwiftShader; it measures no frame times.
+- `tools/camp-gpu.cjs` (`npm run gpu`, `npm run gpu:phone`): real-GPU frame times, start-up times, draws and a screenshot (`--phone` for the phone view). Run it on a machine with a GPU, Adriaen's desktop, through Remote Control.
 - `tools/gen_fingerprint.py`: the same kind of fingerprint for a `props/` generator, run in bpy.
 - `tools/sync-shared.cjs`: `npm run sync-shared` / `npm run check-shared` for the `shared/` copies.
+- `tools/pack-chars.cjs` (`npm run pack:sloth`, `npm run pack:operator`): packs the sloth and the bearded operator with desk-at-night's `pack_chars.mjs` (run `npm ci` once in `engine/web`) and writes their base64 copies into the camp's `models/`. It holds the list of operator clips the camp plays.
+- `npm run bake`, `npm run bake:layout`, `npm run bake:ktx`: `props/bake_all.py`, all steps or one. Only the GPU bake thread runs the bakes; other sessions run at most `bake:layout`.
+- `tools/stickers.cjs` (`npm run stickers`): serves the repo and makes every sticker in order (the four steps under Run and check).
+- `tools/serve.cjs` (`npm run serve`): the static server on :8765, with caching off.
 
-A Canopy Camp clean-up PR checks the player's experience: the camp loads with no page or console errors, the interactions still work (the replay's tour, or by hand), screenshots at phone and desktop size look no worse, `camp-probe.cjs` shows no more draws, triangles or programs than main, and `camp-gpu.cjs` on the desktop shows no slower frames. Replays and scenarios are optional. Keep cloud runs short (a few hundred frames); long runs and play-tests go to Adriaen's desktop. The coding rules are in `docs/CODING-STANDARDS.md`.
+What a Canopy Camp clean-up PR must show (no errors, interactions, screenshots, probe counts, GPU frame times) is written once, in CLAUDE.md, and the coding rules are in `docs/CODING-STANDARDS.md`.
 
 ## Run and check
 
 ```bash
 git clone --recurse-submodules https://github.com/adrver1/sloth   # or: git submodule update --init
-npm install                    # three, playwright
+npm ci                         # three and playwright, at the versions in package-lock.json
 npm run serve                  # http://localhost:8765/apps/karaoke/index.html
 ```
+
+Playwright is pinned to 1.63.0, whose Chromium build (1243) is the one preinstalled in cloud sessions; the tools fall back to `CHROMIUM=<a Chromium>` (default `/opt/pw-browsers/chromium`) when the repo's playwright has no browser of its own. The Python generators and the sticker scripts take the packages in `props/requirements.txt` (bpy 5.3.0, which needs Python 3.13, numpy and pillow); the desktop bakes run in Blender 5.x, and the scripts are kept working in Blender 4.x too.
 
 To pick up character changes from desk-at-night, run `git submodule update --remote engine` and commit the new pin.
 
 Screenshots use Playwright with SwiftShader (`--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`). On a page, `?still` with `window.__beat` sets the karaoke song position, and `window.__cam=[x,y,z,tx,ty,tz]` sets the camera.
 
-To make stickers, keep the server running and do the following:
+To make stickers, run `npm run stickers`, which serves the repo and runs these four steps in order; or keep the server running and do the following:
 
 ```bash
 node stickers/renderer/stk_run.cjs        # still frames to stickers/renderer/raw
@@ -81,6 +89,6 @@ node stickers/renderer/stk_anim.cjs       # animated frames
 python3 stickers/renderer/stk_anim_post.py
 ```
 
-To rebuild the sloth in Blender, run `python characters/sloth_baby/build_sloth_baby.py` with bpy installed. It needs `libegl1`, and it loads the kit from `engine/`. Then pack it for a page: run `npm ci` once in `engine/web`, then `node engine/web/scripts/pack_chars.mjs --own <out dir> characters/sloth_baby/sloth_baby.glb`. The ponytail and bearded models are built and packed in desk-at-night the same way, from `engine/characters/*/build_*.py`.
+To rebuild the sloth in Blender, run `python characters/sloth_baby/build_sloth_baby.py` with bpy installed. It needs `libegl1`, and it loads the kit from `engine/`. Then pack it for a page: run `npm ci` once in `engine/web`, then `node engine/web/scripts/pack_chars.mjs --own <out dir> characters/sloth_baby/sloth_baby.glb`; for the camp, `npm run pack:sloth` does both steps and writes `models/sloth.txt`. The ponytail and bearded models are built and packed in desk-at-night the same way, from `engine/characters/*/build_*.py`.
 
 The base64 `.txt` models next to each app are generated page copies, not source.

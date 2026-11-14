@@ -119,9 +119,10 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 Adriaen, 2026-11-14: a change, including a clean-up, need not keep the camp byte-for-byte the same. It must not make the player's experience worse.
 
+- `npm run check` passes: the static checks (`tools/check-imports.cjs`, `tools/check-python.py`, `check-shared`) that CI runs on every pull request and before every deploy.
 - The camp loads with no page or console errors. Interactions still work (walk, boop, feed, sit, the menus, the jeep), and no character gets stuck or clips.
 - Screenshots at phone size (390×844) and desktop size (1280×800) look no worse. Show them to Adriaen.
-- Performance is no worse than main. In the cloud, `tools/camp-probe.cjs` gives exact counts (draw calls, triangles per object, shader programs, downloads); its fps means nothing under SwiftShader. Real frame times, start-up time and draws come from `tools/camp-gpu.cjs` (`--phone` for the phone view) on Adriaen's desktop through Remote Control.
+- Performance is no worse than main. In the cloud, `tools/camp-probe.cjs` (`npm run probe`, `npm run probe:phone`, both with `--strict`, which exits 1 on any page error) gives exact counts (draw calls, triangles per object, shader programs, downloads); its fps means nothing under SwiftShader. Real frame times, start-up time and draws come from `tools/camp-gpu.cjs` (`--phone` for the phone view) on Adriaen's desktop through Remote Control.
 - `npm run replay` (`tools/camp-replay.cjs`) and `npm run scenarios` (`tools/camp-scenarios.cjs`) are optional diagnostics. Their fingerprints are expected to change; a difference is something to look at, not a failure. `CAMP_GPU=1` makes them use the real GPU (`tools/camp-page.cjs`) on a GPU machine.
 - No long runs on the cloud CPU: keep SwiftShader runs to a few hundred frames, run at most two headless browsers at once on a shared machine, and pick ports with `PORT=` or `--port`. Long runs and play-tests go to Adriaen's desktop, in the worktrees `C:\claude\sloth-gpu` and `C:\claude\sloth-gpu-main`. Never touch `C:\claude\sloth`, which is the GPU bake thread's copy.
 - If you changed anything under `camp/audio.js` or `camp/audio/`, say so: nobody in the cloud can hear audio, and Adriaen checks the mix by ear.

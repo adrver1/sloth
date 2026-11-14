@@ -11,9 +11,8 @@
 // and hands over a bone map), handProps.js, places.js, walk.js (walking, turning, sitting), buddy.js (with a sloth), day.js
 // (his activities and what comes next), cook.js, lines.js (what he says), talk.js (the bubble, gifts, the tap column),
 // handPose.js, fidget.js and headPose.js (the poses laid over the clip) and step.js (each frame).
-// Repack after a change in desk-at-night (engine/): in engine/web, node scripts/pack_chars.mjs <dir> ../characters/bearded_operator/bearded_operator.glb
-// (mesh, no clips) and node scripts/pack_chars.mjs --clips idle,walk,seated_idle,stand_up,sip,hug,play,play_titanic,play_airplane,play_knees,wave,blink,happy,talk,phone,phone_down,step_down
-// <dir2> ../characters/bearded_operator/bearded_operator_survival.glb (its anims.glb: the same rig, with the play clips), then base64 each into models/.
+// Repack after a change in desk-at-night (engine/) with npm run pack:operator (tools/pack-chars.cjs, which holds the list of
+// clips the camp plays; add a new clip there).
 // ?op=0 leaves him out: nothing of him is made. Exports buildOperator(), opStep (main.js, each frame) and opApi (null with ?op=0): his root, state and the hooks the
 // checks drive him with (opApi.go("read"), .state()); audio.js imports it too, for his sounds.
 import { OPT, PRE, camera } from "./core.js";
