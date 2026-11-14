@@ -38,8 +38,8 @@ let hemiL, DAY, mistSprites;
 function createDaylight() {
   hemiL = scene.children.find((o) => o.isHemisphereLight);
   DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity, sky: hemiL.color.clone(), ground: hemiL.groundColor.clone(), sunC: sun.color.clone(), dens: scene.fog.density };
-  // the moon: up in the canopy gap, in front of you as you start (you face the fire), a little to the side
-  { const f = me.pos.clone().setY(0).negate().normalize(), sd = V(-f.z, 0, f.x); moon.position.copy(f.multiplyScalar(11)).addScaledVector(sd, 3).setY(21); }
+  // the moon: up in the canopy gap, in front of you as you start (main.js sets the start view first), a little to the side
+  { const f = V(-Math.sin(me.yaw), 0, -Math.cos(me.yaw)), sd = V(-f.z, 0, f.x); moon.position.copy(f.multiplyScalar(11)).addScaledVector(sd, 3).setY(21); }
   mistSprites = (() => {   // low banks of mist over the clearing floor, each a big soft sprite standing on the ground (terrain.js)
     const g = new THREE.Group(), n = D.fx ? 16 : 8, mat = new THREE.SpriteMaterial({ map: glowTex, color: 0xe6ebf2, transparent: true, opacity: 0, depthWrite: false, fog: false });
     for (let i = 0; i < n; i++) { const a = R(0, 6.28), r = Math.sqrt(R(0.05, 1)) * (RC + 1), sp = new THREE.Sprite(mat), x = Math.cos(a) * r, z = Math.sin(a) * r;

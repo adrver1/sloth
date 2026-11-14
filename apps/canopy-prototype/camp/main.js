@@ -34,6 +34,11 @@ import { buildCar, carStep } from "./car.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
 import { ready, stats } from "./debug.js";
 
+// the start view first (?pos=, ?yaw=, ?pitch=, core.js OPT), so the build sees where you stand: daylight.js puts the moon in
+// front of it (review R2-070)
+if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }
+if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
+
 // ================================================================ the build, in order (every download started at once in core.js PRE)
 // the world: the sky, then the forest (its root mounds shape the ground's height, which everything after stands on), then the
 // props on the clearing and the jeep at its edge (they wait for their downloads)
@@ -70,8 +75,6 @@ createDaylight();                      // daylight.js: the mist banks, and the m
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 addEventListener("resize", resize); resize();
 camera.far = 80;
-if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }   // ?pos=, ?yaw=, ?pitch=: the start view (core.js OPT)
-if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
 const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
 // compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card
 await renderer.compileAsync(scene, camera).catch(() => {});
