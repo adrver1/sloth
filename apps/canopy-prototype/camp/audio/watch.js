@@ -13,7 +13,7 @@ import { me } from "../player.js";
 import { opApi } from "../operator.js";   // his sounds (null with ?op=0, or until main.js has built him)
 import { sloths } from "../sloths.js";
 import { weather } from "../weather.js";
-import { rand as R } from "../util.js";   // a number between a and b from Math.random
+import { rand as R, sstep } from "../util.js";   // R: a number between a and b from Math.random
 import { ac, BROWN, env, filt, gain, noise, osc, spot } from "./context.js";
 import { night, rain, SFX, underTent, wind } from "./sfx.js";
 import { musicObj, musicPan, musicTick } from "./music.js";
@@ -117,7 +117,7 @@ function audioStep(dt, dusk = 0) {
   const under = wet > 0.05 && underTent(me.pos);
   rain.drips.gain.setTargetAtTime(under ? 0.2 : 1, t, 0.3); rain.roof.gain.setTargetAtTime(under ? 1 : 0, t, 0.3);
   if (wet > 0.05 && (dripT -= dt) < 0) { dripT = R(0.02, 0.12) / wet; SFX.drip(false); if (under) { SFX.drip(true); if (Math.random() < 0.6) SFX.drip(true); } }
-  night.g.gain.setTargetAtTime(THREE.MathUtils.smoothstep(dusk, 0.4, 0.9) * (1 - 0.6 * wet), t, 1.5);
+  night.g.gain.setTargetAtTime(sstep(0.4, 0.9, dusk) * (1 - 0.6 * wet), t, 1.5);
   if ((crackleT -= dt) < 0) { crackleT = R(0.03, 0.35); SFX.crackle(Math.random() < 0.04); }
   // the pot (activities.js soup, read through acts.cook): quiet when empty, a faint simmer of water, a lively bubble while
   // it cooks, a gentle one when it's soup; water pouring in (yours or his) when it fills. Without that, a gentle simmer.
