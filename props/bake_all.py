@@ -26,6 +26,8 @@ in several different places", and bake the whole scene as one). Run it whenever 
 import argparse, os, subprocess, sys, time, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "props"))
+from lib.export import to_txt  # noqa: E402  (plain Python: to_txt needs no Blender)
 ap = argparse.ArgumentParser()
 ap.add_argument("--only", choices=["light", "ktx", "layout", "ground"], action="append")
 ap.add_argument("--size", type=int, default=4096, help="props light map size")
@@ -75,8 +77,7 @@ if "ktx" in steps:
         out = f[:-4] + ".ktx2"
         run([TOKTX, "--t2", "--encode", "uastc", "--uastc_quality", "2", "--uastc_rdo_l", "1.0", "--zcmp", "19",
              "--assign_oetf", "linear", "--assign_primaries", "none", "--genmipmap", out, f])
-        import base64   # artifacts don't serve .ktx2: the page loads them base64 from .ktx2.txt, like the models
-        with open(out, "rb") as fi, open(out + ".txt", "w") as fo: fo.write(base64.b64encode(fi.read()).decode())
+        to_txt(out, out + ".txt")   # artifacts don't serve .ktx2: the page loads them base64 from .ktx2.txt, like the models
         print(f"  {os.path.basename(out)}: {os.path.getsize(out) // 1024} KB, as text {os.path.getsize(out + '.txt') // 1024} KB (png {os.path.getsize(f) // 1024} KB)", flush=True)
         os.remove(out)
     import json

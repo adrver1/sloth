@@ -31,7 +31,7 @@ Where each prop and light stands comes from the page itself: the "place" block t
 writes into props/shadow/layout_picked.json.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 """
-import argparse, atexit, base64, json, math, os, shutil, sys, tempfile, time
+import argparse, atexit, json, math, os, shutil, sys, tempfile, time
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -405,9 +405,7 @@ print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
 def export(objs, path, txt, image_format="AUTO"):
-    export_glb(objs, path, image_format=image_format)
-    with open(path, "rb") as f, open(os.path.join(MODELS, txt), "w") as g:
-        g.write(base64.b64encode(f.read()).decode())
+    export_glb(objs, path, image_format=image_format, txt=os.path.join(MODELS, txt))
 
 
 export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
