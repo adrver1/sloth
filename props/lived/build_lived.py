@@ -386,7 +386,9 @@ def wood_pile(M):
 
 # the loose logs lying about: (length, radius, x, y, yaw, end circle, side band), in WoodPile's own frame
 LOOSE = [(0.4, 0.085, 1.38, -0.43, 1.1, 0, 0), (0.44, 0.08, 0.2, -0.45, 0.3, 1, 1), (0.46, 0.065, -0.35, -0.42, -0.2, 2, 2)]
-# where they read the stack's atlas (wood_stack.jpg, 1024 px, y down): sawn ends with rings, and log sides
+# where they read the stack's atlas (wood_stack.jpg, 1024 px, y down): sawn ends with rings, and log sides. The logs the
+# player carries on the page read other spots of the same atlas (activities/parts.js CARRIED: a strip of the logs seen
+# from above and one round end); change one set without the other, but keep both on log bark and end grain
 ATLAS_ENDS = [(442, 92, 54), (568, 90, 56), (150, 457, 48)]          # circle centre and radius
 ATLAS_SIDES = [(545, 640), (740, 830), (835, 925)]                    # rows of one log side, x 20-355
 HEX = 6
@@ -394,7 +396,8 @@ HEX = 6
 
 def loose_logs(logs=None, name="LooseLogs"):
     """The loose logs as plain hexagonal prisms (12 side + 8 end triangles each) on the stack's own texture, so they
-    look like logs taken off the stack. The page and the activities thread use the same atlas rectangles."""
+    look like logs taken off the stack, through ATLAS_ENDS and ATLAS_SIDES. The page's carried logs use their own spots
+    of the same atlas (activities/parts.js CARRIED), not these."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     U = lambda x, y: (x / 1024, 1 - y / 1024)  # noqa: E731
