@@ -9,12 +9,14 @@ import { blockers } from "../campProps.js";
 import { me } from "../player.js";
 import { groundHeight as groundAt } from "../terrain.js";   // 0 across the camp floor
 import { csDir, cur, play, root } from "./model.js";
-import { RADIUS, life, op } from "./state.js";
+import { RADIUS, op } from "./state.js";
+import { movers } from "../places.js";
+import { slothLife } from "../sloth/hooks.js";   // undefined with ?campsloths=0
 
 const WALK = 1.05, STRIDE = 1.28;                      // his walking speed, m/s; the walk clip's feet move 1.28 m a cycle
 const tmp = V();
 function pathTo(to) {
-  const p = life().path?.(root.position, to, RADIUS);
+  const p = slothLife?.path(root.position, to);
   if (p?.length) return p.map((q) => q.clone());
   return [to.clone()];                                // no planner: straight there, steering round what's in the way
 }
@@ -34,7 +36,7 @@ function* walkTo(to, { near = 0.12 } = {}) {
       if (od < lim && Math.hypot(to.x - c.x, to.z - c.z) > br) want.addScaledVector(V(ox / od, 0, oz / od), (lim - od) / lim * 1.6);
     }
     let block = null;
-    for (const [mp, mr] of life().movers?.() ?? []) {
+    for (const [mp, mr] of movers()) {
       if (mp === root.position) continue;
       const ox = mp.x - p.x, oz = mp.z - p.z, od = Math.hypot(ox, oz); if (od > mr + RADIUS + 0.9) continue;
       const ahead = (ox * want.x + oz * want.z) / (od || 1);

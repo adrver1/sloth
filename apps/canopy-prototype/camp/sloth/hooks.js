@@ -1,11 +1,11 @@
 // Canopy Camp sloths, what the rest of the page gets of the camp sloths:
-//   campLife            for the camp's other characters and the player's modules: the places (places.js claim, release,
-//                       holder, host, addMover, movers), path(from, to), lend and giveBack (lend.js), sloths (the named
-//                       ones), eatGift (gifts.js). operator.js hands it to operator/state.js (all but eatGift), jeepSeat.js
-//                       uses claim and release, input.js eatGift
+//   slothLife           for the operator and the player's modules, what only the camp sloths can do: path(from, to) (the
+//                       sloths' path planner), lend and giveBack (lend.js), sloths (the named ones), eatGift (gifts.js).
+//                       The operator reads all but eatGift, input.js eatGift. The places everyone shares (claims, movers,
+//                       hosts) are camp/places.js, which the others import themselves.
 //   labApi              what the move lab drives (lab.js imports it): each move on its own
 //   addHooks()          makes both (sloths.js, once the camp sloths are built); they stay undefined with ?campsloths=0
-import { addMover, claim, holder, host, movers, release } from "../places.js";
+import { holder } from "../places.js";
 import { GROUND, camp, guests } from "./state.js";
 import { clipOf, homeClip, play, playOnce } from "./clips.js";
 import { findPath, isFree, walkTo } from "./walk.js";
@@ -16,9 +16,9 @@ import { eatGift } from "./gifts.js";
 import { goHome, leave, wander } from "./day.js";
 import { giveBack, lend } from "./lend.js";
 
-let labApi, campLife;   // undefined with ?campsloths=0
+let labApi, slothLife;   // undefined with ?campsloths=0
 function addHooks() {
-  campLife = { claim, release, holder, addMover, host, movers, path: (from, to) => findPath(from, to), lend, giveBack, sloths: camp, eatGift };
+  slothLife = { path: findPath, lend, giveBack, sloths: camp, eatGift };
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
   labApi = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, walkTo, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
     fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
@@ -29,4 +29,4 @@ function addHooks() {
     yawn: (s) => { s.yawn = 1e-3; }, stretch: (s) => { const [c, ts] = homeClip(s); playOnce(s, "stretch", 1.2, () => play(s, c, 1.5, ts)); } };
 }
 
-export { addHooks, campLife, labApi };
+export { addHooks, labApi, slothLife };

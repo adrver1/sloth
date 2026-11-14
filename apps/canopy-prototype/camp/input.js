@@ -9,7 +9,7 @@ import { keys, pickAt, ray, stickV, toast } from "./hud.js";
 import { V } from "./util.js";
 import { hit, sloths } from "./sloths.js";
 import { burst, fx, sprite } from "./fx.js";
-import { campLife } from "./sloth/hooks.js";
+import { slothLife } from "./sloth/hooks.js";
 import { me } from "./player.js";
 import { acts } from "./chores.js";
 import { createHighlight } from "./highlight.js";
@@ -55,7 +55,7 @@ function feed(s, emoji = "🌺") {
 
 // giving it what you carry (a vegetable, a fruit or a bowl of soup): the modelled food (camp/food.js) leaves your hand and
 // the sloth eats it, with its eat clip when it is sitting up (camp/sloths.js life.eatGift)
-function give(s) { const f = acts.give(); if (!f) return; const L = campLife; if (L?.eatGift) { told("feed", s); L.eatGift(s, f.make(), f.from); } else feed(s, f.emoji); }
+function give(s) { const f = acts.give(); if (!f) return; const L = slothLife; if (L) { told("feed", s); L.eatGift(s, f.make(), f.from); } else feed(s, f.emoji); }
 
 // ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
 // With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,

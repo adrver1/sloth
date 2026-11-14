@@ -12,7 +12,7 @@
 // ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks. The jeep's doors, boot
 // and hood are tap targets (targets.js), added here: open or close, and Get in / Get out on the front doors.
 // Exports buildJeepSeats() (main.js, once) and jeepSeatStep (main.js, each frame).
-// The claims go through the sloths' camp life (sloth/hooks.js campLife); core.js pace is the checks' speed-up.
+// The claims go through camp/places.js; core.js pace is the checks' speed-up.
 import * as THREE from "three";
 import { camera, pace, uTime } from "./core.js";
 import { V, ease, wrapPi, yawFrom, yawTo } from "./util.js";
@@ -20,7 +20,7 @@ import { jeepApi } from "./jeep.js";
 import { addTargets } from "./targets.js";
 import { me } from "./player.js";
 import { sloths } from "./sloths.js";
-import { campLife } from "./sloth/hooks.js";
+import { claim as claimPlace, release } from "./places.js";
 import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
 
@@ -39,7 +39,6 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   const W = (v) => jeep.localToWorld(v.clone());
   const fwdYaw = () => { const f = V(0, 0, 1).transformDirection(jeep.matrixWorld); return yawTo(f); };
   const eyeWorld = () => jeep.position.y + S0.y + EYE_UP;
-  const life = () => campLife;
 
   // a sloth in (or getting into or out of) the driver's seat: the jeep sloth at home, a guest napping there, one at the door
   const OUTSIDE = new Set(["walk", "greet", "eat", "rest", "fix", "held"]);
@@ -57,7 +56,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
     pts.push(s.door.clone());
     return [from.clone().setY(0), ...pts.map((q) => W(q).setY(0))];
   }
-  function claim(side, on) { const L = life(); if (!L) return; on ? L.claim(`jeep:${side}`, "player") : L.release(`jeep:${side}`, "player"); }
+  function claim(side, on) { on ? claimPlace(`jeep:${side}`, "player") : release(`jeep:${side}`, "player"); }
   function sit(side = "driver") {
     if (cur) return false;
     const s = SIDES[side]; if (!s) return false;

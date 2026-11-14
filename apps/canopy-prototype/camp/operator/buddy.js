@@ -12,7 +12,9 @@ import { groundHeight as groundAt } from "../terrain.js";
 import { dropAll } from "./handProps.js";
 import { B, UP, body, cs, play, root } from "./model.js";
 import { BED } from "./places.js";
-import { ME, life, op } from "./state.js";
+import { ME, op } from "./state.js";
+import { host as hostPlace } from "../places.js";
+import { slothLife } from "../sloth/hooks.js";   // undefined with ?campsloths=0
 
 function slothPose(s, clip) {
   const c = SLOTH.animations.find((q) => q.name === clip); if (!c) return;
@@ -37,7 +39,7 @@ function giveBack(at) {
   scene.attach(s.o);
   const p = at || root.localToWorld(V(0.25, 0, -0.55)); p.y = groundAt(p.x, p.z);
   s.o.position.copy(p); s.o.rotation.set(0, R(0, 6.28), 0); s.cuddled = false;
-  life().giveBack?.(s, p, s.o.rotation.y);
+  slothLife?.giveBack(s, p, s.o.rotation.y);
 }
 // a bit of open ground beside him to set the sloth on: in front if it's free, else a little round to either side, clear of the
 // log seats, the table, the fire and the rest (campProps blockers), never inside one (Adriaen: it was dropped through a bench)
@@ -77,10 +79,10 @@ function* napTogether() {                              // a sloth joined him in 
 // places a sloth can join him in (camp/sloths.js: a sloth that comes to a place he holds calls life.join, which asks his host)
 const hosted = new Set();
 function welcome(s) {                                  // say yes when he's settled there and has no sloth with him yet
-  if (op.buddy || !(op.seated || op.sleeping) || !life().lend?.(s, ME, { asleep: op.sleeping })) return false;
+  if (op.buddy || !(op.seated || op.sleeping) || !slothLife?.lend(s, ME, { asleep: op.sleeping })) return false;
   op.buddy = s; return true;
 }
-function host(key) { hosted.add(key); life().host?.(key, welcome); }
-function unhost() { for (const k of hosted) life().host?.(k, null); hosted.clear(); }
+function host(key) { hosted.add(key); hostPlace(key, welcome); }
+function unhost() { for (const k of hosted) hostPlace(k, null); hosted.clear(); }
 
 export { clearSpot, cuddleSeated, giveBack, host, napTogether, pickUp, putDown, unhost };

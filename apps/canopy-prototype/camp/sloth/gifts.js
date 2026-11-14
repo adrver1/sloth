@@ -6,7 +6,7 @@
 //                            clearing (walking or greeting) it stops, sits and eats it the same way, sits a moment more,
 //                            then walks on (Adriaen 2026-11-14). Anywhere else (hanging, in bed, held) the food flies to
 //                            its paw and it munches it: returns "munch".
-//                            (campLife.eatGift, sloth/hooks.js: input.js give())
+//                            (slothLife.eatGift, sloth/hooks.js: input.js give())
 //   giftStep(s, sd)          each frame while it eats a gift with the eat clip: the food floats to its paw, then the chewing;
 //                            after a gift eaten on foot, the moment it sits on before it walks on
 //   giftFly(s, dt)           each frame otherwise: its right paw comes up (arms.js giftArm), the food flies into it, the

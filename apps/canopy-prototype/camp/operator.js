@@ -2,7 +2,7 @@
 // models/operator.txt, with the clips of his survival build in models/operator_anims.txt) living in the camp. He goes about
 // his day: soup from the pot on a log seat, a mug from the kitchen crate, a book, warming his hands at the fire, a stroll,
 // sleep in the tent bed, making the soup, and playing with a sloth (holds it up into the wind, flies it overhead). He shares
-// the camp with the sloths through their camp life (sloth/hooks.js campLife): he claims the places he uses, registers as a mover
+// the camp with the sloths through camp/places.js and sloth/hooks.js slothLife: he claims the places he uses, registers as a mover
 // and steers round the others, and a sloth that comes to his seat or his bed joins him there (a cuddle on his lap, a nap on
 // his chest).
 // buildOperator() (main.js, once the sloths and the chores are in) waits for his two downloads, builds his parts and makes
@@ -26,16 +26,14 @@ import { bowl, buildHandProps, dropAll } from "./operator/handProps.js";
 import { buildSleepZ } from "./operator/headPose.js";
 import { buildModel, clips, cur, mixer, play, root } from "./operator/model.js";
 import { SEATS, releasePlace } from "./operator/places.js";
-import { op, reset, useLife } from "./operator/state.js";
+import { op, reset } from "./operator/state.js";
 import { buildRest, opStep } from "./operator/step.js";
 import { buildTalk, gift, saying, talk, tapCol } from "./operator/talk.js";
-import { campLife } from "./sloth/hooks.js";   // made when the sloths were built (sloths.js), before buildOperator runs
 
 let opApi = null;
 async function buildOperator() {
   if (!OPT.op) return;
   const [OP, ANIM] = await Promise.all([PRE.operator, PRE.operatorAnims]);
-  useLife(campLife);   // claims, movers and loans: operator/state.js life()
   // his parts: the model first (the others hang off its bones), then what he holds, his Z's, the clip's rest pose, his bubble
   buildModel(OP, ANIM);
   buildHandProps();

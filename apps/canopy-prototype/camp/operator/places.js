@@ -1,6 +1,5 @@
 // Canopy Camp operator, the camp's places for him: the free end of each log seat that is not Sunny's, the tent bed, the
-// gaps between the logs at the fire, and the claims that keep him and the sloths out of each other's places (the sloths'
-// life, sloth/hooks.js campLife).
+// gaps between the logs at the fire, and the claims that keep him and the sloths out of each other's places (camp/places.js).
 // Exports SEATS, BED (null until findPlaces has found the tent), findPlaces(), fireGap(from), crateFront() (where he stands
 // at the kitchen crate), freeOf(p, r), freeSeat(), claimPlace(key) and releasePlace() (named apart from camp/places.js claim and release, which take a place and who).
 import * as THREE from "three";
@@ -10,8 +9,8 @@ import { V } from "../util.js";
 import { blockers } from "../campProps.js";
 import { me } from "../player.js";
 import { root } from "./model.js";
-import { ME, RADIUS, life, op } from "./state.js";
-import { bedKey, seatKey, seatLog } from "../places.js";
+import { ME, RADIUS, op } from "./state.js";
+import { bedKey, claim, holder, release, seatKey, seatLog } from "../places.js";
 
 const ray = new THREE.Raycaster(), DOWN = V(0, -1, 0);
 const SEATS = [];                                      // the free end of each log seat that isn't Sunny's (Sunny's is Seat_0)
@@ -44,9 +43,9 @@ const fireGap = (from) => {                            // a spot just off the fi
   return V(Math.cos(a) * 1.35, 0, Math.sin(a) * 1.35);
 };
 function freeOf(p, r = RADIUS) { return !blockers.some(([c, br]) => Math.hypot(p.x - c.x, p.z - c.z) < br + r); }
-const freeSeat = () => { findPlaces(); return SEATS.filter((s) => !life().holder?.(s.key) && !(me.seat && s.at.distanceTo(me.seat.pos) < 0.9)).sort((a, b) => a.at.distanceTo(root.position) - b.at.distanceTo(root.position))[0]; };
-function claimPlace(key) { const L = life(); if (L.claim && !L.claim(key, ME)) return false; op.place = key; return true; }
-function releasePlace() { if (op.place) life().release?.(op.place, ME); op.place = null; }
+const freeSeat = () => { findPlaces(); return SEATS.filter((s) => !holder(s.key) && !(me.seat && s.at.distanceTo(me.seat.pos) < 0.9)).sort((a, b) => a.at.distanceTo(root.position) - b.at.distanceTo(root.position))[0]; };
+function claimPlace(key) { if (!claim(key, ME)) return false; op.place = key; return true; }
+function releasePlace() { if (op.place) release(op.place, ME); op.place = null; }
 
 const crateFront = () => CRATE.at.clone().addScaledVector(CRATE.at.clone().negate().normalize(), 0.75);   // 0.75 m toward the fire
 export { BED, SEATS, claimPlace, crateFront, findPlaces, fireGap, freeOf, freeSeat, releasePlace };

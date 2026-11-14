@@ -17,7 +17,9 @@ import { book, bowl, dropAll, hold, mug, spoon } from "./handProps.js";
 import { pickLine } from "./lines.js";
 import { UP, cs, play, root } from "./model.js";
 import { BED, claimPlace, crateFront, findPlaces, fireGap, freeOf, freeSeat, releasePlace } from "./places.js";
-import { ME, RADIUS, life, op } from "./state.js";
+import { ME, RADIUS, op } from "./state.js";
+import { addMover } from "../places.js";
+import { slothLife } from "../sloth/hooks.js";   // undefined with ?campsloths=0
 import { speak } from "./talk.js";
 import { face, faceFire, sitOn, standUp, wait, walkTo } from "./walk.js";
 
@@ -116,7 +118,7 @@ const DO = {
     yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.door);
   },
   *play() {                                            // borrow a sloth that's about on the ground and play with it
-    const L = life(); if (!L.lend) return;
+    const L = slothLife; if (!L) return;
     const s = (L.sloths || []).filter((q) => q.o && q.o.getWorldPosition(tmp).y < 0.6 && Math.hypot(tmp.x, tmp.z) < RC - 1)
       .map((q) => [q, q.o.getWorldPosition(tmp).distanceTo(root.position) * R(0.5, 1.5) + (q.trip?.phase === "home" ? 3 : 0)]).sort((a, b) => a[1] - b[1]).map(([q]) => q).find((q) => L.lend(q, ME));   // nearest-ish, the ones out and about first
     if (!s) return;
@@ -158,7 +160,7 @@ function* lifeLoop() {
   }
 }
 function pick() {
-  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (k !== "play" || life().lend) && (k !== "cook" || (op.cd.cook <= 0 && chores.cook.can())));
+  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (k !== "play" || slothLife) && (k !== "cook" || (op.cd.cook <= 0 && chores.cook.can())));
   let r = R(0, w.reduce((s, [, v]) => s + v, 0)); for (const [k, v] of w) if ((r -= v) <= 0) return k; return w[0][0];
 }
 
@@ -166,7 +168,7 @@ function pick() {
 // over before any frame; without the camp sloths there is none); then run the activity one step
 let it = null;
 function lifeStep(dt) {
-  if (!it) { it = lifeLoop(); it.next(); life().addMover?.(root, RADIUS); }
+  if (!it) { it = lifeLoop(); it.next(); addMover(root, RADIUS); }
   it.next(dt);
 }
 // the checks (opApi.jump): this activity now, then his day goes on

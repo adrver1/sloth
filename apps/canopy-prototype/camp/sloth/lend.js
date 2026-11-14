@@ -1,5 +1,5 @@
 // Canopy Camp sloths, borrowing one for a while (the operator picks one up to cuddle or play: operator.js, through
-// sloth/hooks.js campLife): only one on the ground, or Sunny on its log. While lent its phase is "held": its day, errands and
+// sloth/hooks.js slothLife): only one on the ground, or Sunny on its log. While lent its phase is "held": its day, errands and
 // greetings stop; its clip, blinks and fur keep going.
 //   lend(s, who, opt)       who takes s; false when it can't be borrowed now. It gives up its place at the table, its card
 //                           game, its s'more and its home claim, and wakes (opt.asleep: it sleeps on in his arms)

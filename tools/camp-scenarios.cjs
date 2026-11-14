@@ -75,7 +75,7 @@ function helpers([base, present]) {
   const api = (n, k, g) => T.mods[n]?.[k] ?? window[g];
   Object.defineProperties(T, {
     op: { get: () => api('camp/operator.js', 'opApi', '__op') }, acts: { get: () => T.mods['camp/chores.js']?.acts ?? api('camp/campLife.js', 'acts', '__acts') },   // chores.js since campLife.js went
-    lab: { get: () => api('camp/sloth/hooks.js', 'labApi', '__lab') }, life: { get: () => api('camp/sloth/hooks.js', 'campLife', '__campLife') },
+    lab: { get: () => api('camp/sloth/hooks.js', 'labApi', '__lab') }, life: { get: () => api('camp/sloth/hooks.js', 'campLife', '__campLife') ?? (T.mods['camp/sloth/hooks.js']?.slothLife && { ...T.mods['camp/places.js'], ...T.mods['camp/sloth/hooks.js'].slothLife }) },   // since 2026-11-14 the places are camp/places.js and the sloths' part is slothLife
     jeep: { get: () => api('camp/jeep.js', 'jeepApi', '__jeep') }, car: { get: () => api('camp/car.js', 'carApi', '__car') },
     audio: { get: () => api('camp/audio.js', 'audio', '__audio') }, clocks: { get: () => api('camp/clock.js', 'clocks', '__clocks') },
     spots: { get: () => api('camp/sloth/state.js', 'spots', '__spots') }, radio: { get: () => api('camp/radio.js', 'radio', '__radio') },
