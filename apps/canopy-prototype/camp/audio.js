@@ -9,10 +9,10 @@
 // Nothing plays until the first tap or key (browsers block it before that). main.js calls audioStep(dt, dusk) every frame.
 // The radio prop drives it through `audio` (also window.__audio): start, volume, muted, music, musicVolume, station, next,
 // tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange.
-// The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted. Settings are kept per viewer.
+// The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted, ?station= picks one (core.js OPT). Settings are kept per viewer (KEYS.audio).
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): the bus gains below are the knobs.
 import * as THREE from "three";
-import { $, camera, qs, store } from "./core.js";
+import { $, KEYS, OPT, camera, store } from "./core.js";
 import { sloths } from "./sloths.js";
 import { me } from "./player.js";
 import { weather } from "./weather.js";
@@ -20,12 +20,12 @@ import { SOUP_POT } from "./campProps.js";
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix: music sits well under the camp
 const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
-const set = Object.assign({ volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" }, (() => { try { return JSON.parse(store.get("canopy-audio") || "{}"); } catch { return {}; } })());
+const set = Object.assign({ volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" }, (() => { try { return JSON.parse(store.get(KEYS.audio) || "{}"); } catch { return {}; } })());
 if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
-if (qs.get("sound") === "0") set.muted = true;
-if (STATIONS.some((s) => s.id === qs.get("station"))) set.station = qs.get("station");
+if (!OPT.sound) set.muted = true;
+if (STATIONS.some((s) => s.id === OPT.station)) set.station = OPT.station;
 const listeners = new Set();
-const keep = () => { store.set("canopy-audio", JSON.stringify(set)); listeners.forEach((f) => { try { f(audio.state()); } catch {} }); showBtn(); };
+const keep = () => { store.set(KEYS.audio, JSON.stringify(set)); listeners.forEach((f) => { try { f(audio.state()); } catch {} }); showBtn(); };
 
 let ac = null, master, comp, bus = {}, NOISE, BROWN, CRICKET;
 const R = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];

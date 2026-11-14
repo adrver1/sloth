@@ -10,7 +10,7 @@
 // ?op=0 leaves him out; window.__op drives him for checks (window.__op.go("read"), .state()).
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { PRE, R, camera, qs, scene, uTime } from "./core.js";
+import { OPT, PRE, R, camera, scene, uTime } from "./core.js";
 import { load, save } from "./save.js";
 import { A0, RC, V } from "./forest.js";
 import { SLOTH, SOUP_POT, blockers, uNight } from "./campProps.js";
@@ -21,7 +21,7 @@ import { makePail } from "./canister.js";
 import { VEG, makeFood } from "./food.js";
 import { groundHeight } from "./terrain.js";
 
-const ON = qs.get("op") !== "0";
+const ON = OPT.op;
 const [OP, ANIM] = ON ? await Promise.all([PRE.operator, PRE.operatorAnims]) : [null, null];
 const UP = V(0, 1, 0), tmp = V(), tq = new THREE.Quaternion(), ray = new THREE.Raycaster(), DOWN = V(0, -1, 0);
 const life = () => window.__campLife || {};

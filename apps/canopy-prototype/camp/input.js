@@ -1,6 +1,6 @@
 // Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize.
 import * as THREE from "three";
-import { $, R, camera, qs, renderer, scene, uTime } from "./core.js";
+import { $, OPT, R, camera, renderer, scene, uTime } from "./core.js";
 import { keys, pickAt, ray, stickV, toast } from "./hud.js";
 import { V } from "./forest.js";
 import { COUNT, burst, flowerCrown, fx, hit, sloths, sprite } from "./sloths.js";
@@ -9,7 +9,7 @@ import { acts } from "./campLife.js";
 import { createHighlight } from "./highlight.js";
 
 // ---------------------------------------------------------------- input
-const coarse = matchMedia("(pointer: coarse)").matches || qs.has("touch");
+const coarse = matchMedia("(pointer: coarse)").matches || OPT.touch;   // ?touch: the phone stick on a desktop too
 const stick = $("stick"); let stickId = null;
 stick.hidden = !coarse;
 document.body.classList.toggle("touch", coarse);   // the hint moves up above the stick

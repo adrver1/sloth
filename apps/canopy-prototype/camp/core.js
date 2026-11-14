@@ -14,20 +14,22 @@ import { SUN } from "./layout.js";
 //   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campLife.js (JEEP)
 //   seed     a number                      7                                 core.js (the shared stream), forest.js (its restart)
 //   lived    1 | 0                         1                                 core.js, campProps.js, campLife.js (LIVED)
-//   op       1 | 0                         1                                 core.js (the operator's downloads); operator.js reads qs itself
+//   op       1 | 0                         1                                 core.js (the operator's downloads), operator.js (0 leaves him out)
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
 //   time     an hour, 0 up to 24 (21.5)    saved, else 12                    daytime.js (the hour set; anything else counts as 12)
 //   cycle    1 | 0                         saved, else 0                     daytime.js (the day runs on by itself)
 //   pos      x,z in metres                 by the fire (player.js)           main.js (where you stand at the start)
 //   yaw      radians                       facing the fire (player.js)       main.js (where you look at the start)
 //   pitch    radians                       0.08 (player.js)                  main.js
+//   touch    present or not                on a phone (a coarse pointer)     input.js (the phone stick and its hint, on a desktop too)
+//   sound    0                             saved, else on                    audio.js (0 starts muted)
+//   station  drift | campfire | kalimba | lullaby   saved, else drift        audio.js (checks it against its stations)
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
-// still read with qs in files this clean-up has not reached yet (move them here in its next round): touch (input.js),
-// campsloths, slothmat, lab (sloths.js), op once more (operator.js), sound, station (audio.js).
+// still read with qs in sloths.js, which this clean-up has not reached yet: campsloths, slothmat, lab.
 const qs = new URLSearchParams(location.search);
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
-// state, one part per owner). audio.js keeps the sound settings under "canopy-audio", which it still types itself (next round).
-const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save" };
+// state, one part per owner), audio (audio.js: volume, muted, music, its volume and the station, as one JSON object).
+const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save", audio: "canopy-audio" };
 // ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
 // API: sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read these (and jeepSeat.js and lab.js the ones with no
 // export). Those six files (and activities.js) were left alone while PRs #14, #20 and #21 changed them; the PRs are merged, so the
@@ -75,6 +77,9 @@ const OPT = {
   pos: qs.has("pos") ? qs.get("pos").split(",").map(Number) : null,   // the start view: null keeps player.js's own
   yaw: qs.has("yaw") ? +qs.get("yaw") : null,
   pitch: qs.has("pitch") ? +qs.get("pitch") : null,
+  touch: qs.has("touch"),
+  sound: qs.get("sound") !== "0",
+  station: qs.get("station"),
 };
 const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
@@ -165,5 +170,5 @@ async function glb(url) {
 }
 
 export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, store, sun, uTime };
-export { qs };   // back-compat: audio.js, input.js, operator.js and sloths.js still read their own options with it (see the table above)
+export { qs };   // back-compat: sloths.js still reads its own options with it (see the table above)
 export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here, and car.js and radio.js import canvasTex (util.js is their home)
