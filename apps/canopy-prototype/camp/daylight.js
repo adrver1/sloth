@@ -37,7 +37,7 @@ function setLight(hour, wet) { light.dusk = duskOf(hour); light.gold = goldOf(ho
 let hemiL, DAY, mistSprites;
 function createDaylight() {
   hemiL = scene.children.find((o) => o.isHemisphereLight);
-  DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity, sky: hemiL.color.clone(), ground: hemiL.groundColor.clone(), sunC: sun.color.clone(), dens: scene.fog.density };
+  DAY = { fog: new THREE.Color(S.fog[0]), back: new THREE.Color(S.sky[0]), hemi: hemiL.intensity, sun: sun.intensity, sky: hemiL.color.clone(), ground: hemiL.groundColor.clone(), sunC: sun.color.clone(), dens: scene.fog.density };
   // the moon: up in the canopy gap, in front of you as you start (main.js sets the start view first), a little to the side
   { const f = V(-Math.sin(me.yaw), 0, -Math.cos(me.yaw)), sd = V(-f.z, 0, f.x); moon.position.copy(f.multiplyScalar(11)).addScaledVector(sd, 3).setY(21); }
   mistSprites = (() => {   // low banks of mist over the clearing floor, each a big soft sprite standing on the ground (terrain.js)
@@ -56,9 +56,12 @@ function daylightStep(dt, wet) {
   scene.fog.color.copy(DAY.fog).lerp(GOLD_FOG, 0.55 * gold).lerp(DUSK, dusk).lerp(DAWN_FOG, 0.5 * mist * (1 - dusk)).lerp(RAIN_FOG, 0.6 * wet * (1 - dusk)); scene.fog.density = DAY.dens * (1 + 0.6 * dusk + 0.7 * mist * (1 - dusk) + 0.5 * wet);
   hemiL.intensity = DAY.hemi * (1 - 0.72 * dusk) * (1 - 0.2 * wet); hemiL.color.copy(DAY.sky).lerp(NIGHT_SKY, dusk); hemiL.groundColor.copy(DAY.ground).lerp(NIGHT_GROUND, dusk);
   sun.intensity = DAY.sun * (1 - 0.62 * dusk + 0.35 * gold) * (1 - 0.5 * wet); sun.color.copy(DAY.sunC).lerp(GOLD_SUN, 0.8 * gold).lerp(MOONC, sstep(0.35, 1, dusk));                      // the sun turns into cool moonlight
-  sky.material.color.setRGB(1, 1, 1).lerp(BACK_GOLD, 0.7 * gold).lerp(BACK_DAWN, 0.6 * mist * (1 - dusk)).lerp(BACK_RAIN, 0.5 * wet).lerp(BACK_NIGHT, dusk); uSkyDusk.value = Math.min(1, dusk * 1.3); uSkyFog.value = scene.fog.color; uSkyHaze.value = 0.75 * Math.max(dusk, gold, mist * (1 - dusk), 0.7 * wet); dome.material.color.setScalar(1 - 0.75 * dusk).lerp(BACK_GOLD, 0.6 * gold); scene.background.set(S.sky[0]).lerp(DUSK, dusk);
+  sky.material.color.setRGB(1, 1, 1).lerp(BACK_GOLD, 0.7 * gold).lerp(BACK_DAWN, 0.6 * mist * (1 - dusk)).lerp(BACK_RAIN, 0.5 * wet).lerp(BACK_NIGHT, dusk); uSkyDusk.value = Math.min(1, dusk * 1.3); uSkyFog.value = scene.fog.color; uSkyHaze.value = 0.75 * Math.max(dusk, gold, mist * (1 - dusk), 0.7 * wet); dome.material.color.setScalar(1 - 0.75 * dusk).lerp(BACK_GOLD, 0.6 * gold); scene.background.copy(DAY.back).lerp(DUSK, dusk);
   nightDome.visible = moon.visible = dusk > 0.01; nightDome.material.opacity = Math.min(1, dusk * 1.3); moon.material.opacity = Math.max(0, dusk * 1.5 - 0.5);
-  if (rayMat) rayMat.color.copy(RAY_DAY).lerp(RAY_GOLD, gold), rayMat.opacity = S.rays * Math.max(1 - dusk, 1.8 * gold) * (1 - wet) * (0.85 + 0.15 * Math.sin(uTime.value * 0.21) * Math.sin(uTime.value * 0.13 + 1.0));   // a slow shimmer as leaves move over the gap
+  if (rayMat) {
+    rayMat.color.copy(RAY_DAY).lerp(RAY_GOLD, gold);
+    rayMat.opacity = S.rays * Math.max(1 - dusk, 1.8 * gold) * (1 - wet) * (0.85 + 0.15 * Math.sin(uTime.value * 0.21) * Math.sin(uTime.value * 0.13 + 1.0));   // a slow shimmer as leaves move over the gap
+  }
 }
 
 export { createDaylight, daylightStep, light, setLight };
