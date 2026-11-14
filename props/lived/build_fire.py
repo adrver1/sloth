@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, cyl, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, box, cyl, join, obj_from_bm, torus, with_material  # noqa: E402
 
 rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
@@ -42,9 +42,7 @@ TOP = Vector((0.0, 0.0, 1.75))         # where the tripod legs meet (tall, so th
 def materials():
     return {k: mat(f"fi_{k}", c) for k, c in dict(
         stone=(0.36, 0.35, 0.33), stone2=(0.28, 0.27, 0.26), soot=(0.12, 0.1, 0.09), ash=(0.42, 0.4, 0.37), char=(0.07, 0.055, 0.045),
-        bark=(0.3, 0.21, 0.14), wood=(0.66, 0.5, 0.34), ember=(0.95, 0.28, 0.04), ember2=(1.0, 0.5, 0.08),
-        bamboo=(0.72, 0.68, 0.36), node=(0.52, 0.48, 0.24), rope=(0.7, 0.6, 0.4),
-        iron=(0.13, 0.13, 0.14), iron2=(0.22, 0.22, 0.23), copper=(0.62, 0.36, 0.2), tin=(0.46, 0.47, 0.48), tin2=(0.34, 0.35, 0.36),
+        bark=(0.3, 0.21, 0.14), ember=(0.95, 0.28, 0.04), ember2=(1.0, 0.5, 0.08), rope=(0.7, 0.6, 0.4), iron=(0.13, 0.13, 0.14),
         soup=(0.78, 0.3, 0.1), soup2=(0.86, 0.42, 0.14), carrot=(0.95, 0.5, 0.1), pea=(0.4, 0.62, 0.18),
         potato=(0.88, 0.8, 0.55), herb=(0.25, 0.45, 0.12)).items()}
 
@@ -70,16 +68,6 @@ def stone(r, at, scale, m, sr=None):
     o.scale = scale
     o.location = at
     return with_material(o, m)
-
-
-def log(a, b, r, M, burnt=0.35, verts=7):
-    """A log from a to b: bark, with the last `burnt` of its length (toward b) charred, and pale sawn ends."""
-    a, b = Vector(a), Vector(b)
-    k = a.lerp(b, 1 - burnt)
-    parts = [rough_up(rod(a, k, r, M["bark"], verts=verts), 0.004, 14)]
-    if burnt:
-        parts.append(rod(k, b, r * 0.86, M["char"], verts=verts))
-    return parts
 
 
 def ring(M):
@@ -246,21 +234,6 @@ def lathe(profile, segs, m, z0=0.0):
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
     o = obj_from_bm(bm, "lathe")
     return with_material(o, m)
-
-
-def curve_rod(pts, r0, r1, m, verts=8):
-    """A tapering tube along a few points (a spout)."""
-    parts = []
-    for i in range(len(pts) - 1):
-        t = i / (len(pts) - 1)
-        parts.append(rod(pts[i], pts[i + 1], r0 + (r1 - r0) * t, m, verts=verts))
-    return parts
-
-
-def bail(half_w, z_pivot, rise, m, r=0.005):
-    """A wire bail: an arch from one side lug (y = -half_w) over the top to the other, peaking `rise` above the lugs."""
-    pts = [Vector((0, -half_w * math.cos(t), z_pivot + rise * math.sin(t))) for t in [k / 10 * math.pi for k in range(11)]]
-    return [rod(pts[i], pts[i + 1], r, m, verts=4) for i in range(10)], pts[5]
 
 
 def ribbon_arch(pts, w, m):
