@@ -45,7 +45,8 @@ function wanderPoint() {
 }
 // leaving home: back out of its spot the way it came in, onto the ground, then off on its errand
 function leave(s) {
-  if (s.gift?.clip) { scene.remove(s.gift.mesh); s.gift = null; s.once = null; }   // never left eating: the eat clip's end would never come
+  if (s.gift?.clip) { scene.remove(s.gift.mesh); s.gift = null; }   // never left eating: the eat clip's end would never come
+  s.once = null;   // a stretch or a bite still to end would play its home clip on the way out (review R2-067: the jeep's exit)
   const spot = s.spot; spot.home = false; setTrip(s, "glide", { yaw: 0 }); releaseHome(s);
   wakeUp(s); s.yawn = 0; s.roused = null; if (s.mouth) s.mouth.visible = false;
   exitSpot(s, () => errand(s));
@@ -107,7 +108,7 @@ function homeStep(s, sd, spot, out) {
   napStep(s, sd, s.spot.guest ? () => leave(s) : undefined);
   s.errand -= sd;
   if (s.errand < 0 && !s.smore && !s.wave && !s.dozing && !s.roused && !s.once) {
-    const mate = R(0, 1) < 0.2 && out < MAX_OUT - 1 && camp.find((q) => q !== s && q.trip.phase === "home" && !q.dozing && !q.smore && !q.gift && !q.spot.guest && !q.spot.asleep);
+    const mate = R(0, 1) < 0.2 && out < MAX_OUT - 1 && camp.find((q) => q !== s && q.trip.phase === "home" && !q.dozing && !q.roused && !q.once && !q.smore && !q.gift && !q.spot.guest && !q.spot.asleep);
     if (mate && !s.spot.asleep && startCards(s, mate, leave)) return 2;
     if (out < MAX_OUT) { leave(s); return 1; }
     s.errand = R(6, 15);
