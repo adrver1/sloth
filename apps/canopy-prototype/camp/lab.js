@@ -92,8 +92,19 @@ $("labBack").onclick = () => { endScrub(); setSpeed(1); };
 addEventListener("wheel", (e) => { if (follow) dist = THREE.MathUtils.clamp(dist + e.deltaY * 0.003, 0.6, 8); }, { passive: true });
 
 // the planned path, as a line on the ground
-const pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff3d7f, depthTest: false }));
+// the planned path: one fixed buffer of points (it grows if a path is longer), written in place each frame and drawn up to
+// the path's length, so a shorter path keeps no old tail and nothing is allocated per frame (review R2-059)
+const pathBuf = (n) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * 3), 3).setUsage(THREE.DynamicDrawUsage)); return g; };
+const pathLine = new THREE.Line(pathBuf(128), new THREE.LineBasicMaterial({ color: 0xff3d7f, depthTest: false }));
 pathLine.renderOrder = 9; pathLine.frustumCulled = false; scene.add(pathLine);
+function drawPath(from, path) {
+  const n = path.length + 1;
+  if (n > pathLine.geometry.attributes.position.count) { pathLine.geometry.dispose(); pathLine.geometry = pathBuf(Math.max(n, 2 * pathLine.geometry.attributes.position.count)); }
+  const pos = pathLine.geometry.attributes.position;
+  pos.setXYZ(0, from.x, 0.04, from.z);
+  for (let i = 1; i < n; i++) pos.setXYZ(i, path[i - 1].x, 0.04, path[i - 1].z);
+  pos.needsUpdate = true; pathLine.geometry.setDrawRange(0, n);
+}
 const tgt = V(), wp = V();
 // the follow camera stays in front of anything solid between it and the sloth (play-test 2026-11-14: with Sunny in the
 // operator's arms it ended up inside a surface and showed a flat beige view). The solids are the camp's opaque meshes and
@@ -118,7 +129,7 @@ const labStep = (dt) => {
   if (stepLeft > 0 && --stepLeft === 0) pace.fast = 0; else if (stepLeft > 0) pace.fast = 1;
   const s = sel, T = s.trip;
   pathLine.visible = showPath && T.phase === "walk" && T.path?.length > 0;
-  if (pathLine.visible) pathLine.geometry.setFromPoints([s.o.getWorldPosition(wp).clone(), ...T.path].map((p) => V(p.x, 0.04, p.z)));
+  if (pathLine.visible) drawPath(s.o.getWorldPosition(wp), T.path);
   if (follow) {                                       // orbit: drag turns round it (me.yaw), up and down tilts (me.pitch)
     s.o.getWorldPosition(tgt).y += 0.2 * s.sc / 2.6;
     const el = THREE.MathUtils.clamp(0.35 - me.pitch, -0.2, 1.3);
