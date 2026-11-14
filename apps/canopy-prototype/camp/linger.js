@@ -1,5 +1,5 @@
 // Canopy Camp linger (camp review B7): sit by the fire. Each log seat round the fire lights up like the other things you can
-// use; "Sit by the fire" sets you down on it, facing the flames, with the eye lowered to a seated 0.83 m (player.js eases it).
+// use; "Sit by the fire" sets you down on it, facing the flames, with the eye lowered to a seated 1.13 m (player.js eases it).
 // While you sit and don't look round yourself, the view drifts slowly over the fire and the soup, like letting your gaze
 // wander. Walking (stick or keys) stands you up; so does "Stand up" on the seat.
 import * as THREE from "three";
