@@ -15,15 +15,19 @@ in several different places", and bake the whole scene as one). Run it whenever 
           and the props' GLBs/txt
   ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), base64 in <map>.ktx2.txt next to the PNGs (artifacts
           don't serve .ktx2), which stay as the fallback;
-          needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH
+          needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH. A run with this step checks
+          for toktx before any step starts. The light step removes the old .ktx2.txt of every map it rewrites and writes
+          camp_lights.json without the "ktx2" flag; this step sets the flag only when every map's .ktx2.txt is newer than
+          its PNG, so the page never loads an out-of-date KTX2 copy (review R2-005)
   layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (prop spots, the jeep's track, the path,
           the deadwood, the ground's height, and the "place" block: where the page stands each baked prop and light, which
-          the light bake reads instead of keeping its own copy), served on :8765 by this script ->
+          the light bake reads instead of keeping its own copy), served by this script on a free local port that it
+          hands the exporter as LAYOUT_PORT (it stops if its server dies or never answers, review R2-042) ->
           props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>); it stops the bake if the page gave
           an incomplete layout
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
 """
-import argparse, os, subprocess, sys, time, urllib.request
+import argparse, base64, glob, json, os, shutil, socket, subprocess, sys, time, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ap = argparse.ArgumentParser()
@@ -36,6 +40,10 @@ a = ap.parse_args()
 steps = a.only or ["layout", "light", "ktx", "ground"]   # layout first: the light bake reads the placements ("place") and the deadwood from it
 BLENDER = os.environ.get("BLENDER", "blender")
 GPU_RUN = os.environ.get("GPU_RUN")
+TOKTX = os.environ.get("TOKTX", "toktx")
+MODELS = os.path.join(ROOT, "apps/canopy-prototype/models")
+if "ktx" in steps and not (shutil.which(TOKTX) or os.path.isfile(TOKTX)):   # before the light step's GPU minutes, not after
+    sys.exit(f"the ktx step needs Khronos' toktx, and {TOKTX!r} is not on PATH: set TOKTX=<path to toktx> or leave out the ktx step")
 
 
 def blender(script, *args):
@@ -51,36 +59,46 @@ def run(cmd, **kw):
     print(f"  done in {time.time() - t:.0f} s", flush=True)
 
 
+def free_port():
+    with socket.socket() as k:
+        k.bind(("127.0.0.1", 0)); return k.getsockname()[1]
+
+
 if "layout" in steps:
-    srv = subprocess.Popen([sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    port = free_port()                                       # never one another server or bake already holds
+    srv = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         for _ in range(50):
+            if srv.poll() is not None:
+                sys.exit(f"the layout server on port {port} stopped at once (exit {srv.returncode})")
             try:
-                urllib.request.urlopen("http://localhost:8765/", timeout=1); break
+                urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=1); break
             except OSError:
                 time.sleep(0.2)
-        run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), "picked", a.jeep])
+        else:
+            sys.exit(f"the layout server on port {port} did not answer in 10 s")
+        run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), "picked", a.jeep], env={**os.environ, "LAYOUT_PORT": str(port)})
     finally:
         srv.terminate()
 if "light" in steps:
     blender(os.path.join(ROOT, "props/camp/bake_camp_lightmap.py"), "--size", str(a.size), "--samples", str(a.samples),
             "--ground", str(a.ground_size), "--jeep", a.jeep)
 if "ktx" in steps:
-    import glob
-    TOKTX = os.environ.get("TOKTX", "toktx")
-    M = os.path.join(ROOT, "apps/canopy-prototype/models")
     maps = [f for p in ("camp_lm_[12]k.png", "camp_lm_sun_[12]k.png", f"camp_ground_night_picked_{a.jeep}.png")
-            for f in sorted(glob.glob(os.path.join(M, p)))]   # (the jeep's ground and door-spill maps went with its baked light)
+            for f in sorted(glob.glob(os.path.join(MODELS, p)))]   # (the jeep's ground and door-spill maps went with its baked light)
     for f in maps:
         out = f[:-4] + ".ktx2"
         run([TOKTX, "--t2", "--encode", "uastc", "--uastc_quality", "2", "--uastc_rdo_l", "1.0", "--zcmp", "19",
              "--assign_oetf", "linear", "--assign_primaries", "none", "--genmipmap", out, f])
-        import base64   # artifacts don't serve .ktx2: the page loads them base64 from .ktx2.txt, like the models
+        # artifacts don't serve .ktx2: the page loads them base64 from .ktx2.txt, like the models
         with open(out, "rb") as fi, open(out + ".txt", "w") as fo: fo.write(base64.b64encode(fi.read()).decode())
         print(f"  {os.path.basename(out)}: {os.path.getsize(out) // 1024} KB, as text {os.path.getsize(out + '.txt') // 1024} KB (png {os.path.getsize(f) // 1024} KB)", flush=True)
         os.remove(out)
-    import json
-    jf = os.path.join(M, "camp_lights.json"); j = json.load(open(jf)); j["ktx2"] = True; json.dump(j, open(jf, "w"), indent=1)   # tells the page to try .ktx2
+    stale = [os.path.basename(f) for f in maps if not os.path.exists(f[:-4] + ".ktx2.txt") or os.path.getmtime(f[:-4] + ".ktx2.txt") < os.path.getmtime(f)]
+    jf = os.path.join(MODELS, "camp_lights.json"); j = json.load(open(jf))
+    j["ktx2"] = bool(maps) and not stale; json.dump(j, open(jf, "w"), indent=1)   # tells the page to try .ktx2
+    if stale:
+        sys.exit("no KTX2 for the page: these maps have no up-to-date .ktx2.txt: " + ", ".join(stale))
 if "ground" in steps:
     env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}     # PYTHONPATH may hold Blender's own libraries
     run([sys.executable, os.path.join(ROOT, "props/ground/bake_ground.py"), "--props", "picked"], env=env)
