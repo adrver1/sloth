@@ -218,18 +218,37 @@ function forestWall() {
   return wall;
 }
 
-// leaves and ferns go in as 8 wedges round the clearing, one InstancedMesh each, so three.js culls the wedges behind you:
-// an InstancedMesh is culled as a whole, so before this every leaf was drawn every frame (camp review P4, 2026-11-12).
-// Instances scaled to nothing (kept off the track and the path) are dropped.
-function addSectors(im, n = 8) {
-  const m = new THREE.Matrix4(), p = V(), c = new THREE.Color(), groups = Array.from({ length: n }, () => []);
-  for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, m); if (Math.abs(m.determinant()) < 1e-9) continue;
-    p.setFromMatrixPosition(m); groups[Math.floor((Math.atan2(p.z, p.x) / (2 * Math.PI) + 0.5) * n) % n].push(i); }
-  for (const g of groups) {
-    if (!g.length) continue;
-    const s = new THREE.InstancedMesh(im.geometry, im.material, g.length);
-    g.forEach((i, j) => { im.getMatrixAt(i, m); s.setMatrixAt(j, m); if (im.instanceColor) { im.getColorAt(i, c); s.setColorAt(j, c); } });
-    s.computeBoundingSphere(); scene.add(s);
+// Cards (the leaves, the crown leaves, the verge bushes and the ferns) are collected as raw matrices and colours (cardSet),
+// then split into sectors (addSectors), one InstancedMesh each, so three.js culls the sectors out of view: an InstancedMesh
+// is culled as a whole, so one mesh for all of them drew every leaf every frame (camp review P4, 2026-11-12). The sectors are
+// wedges round the clearing and, with split, a band at eye height apart from the canopy above it, so looking at the edge
+// does not draw the crowns 15 m up (review R2-078). In each sector the cards go near to far from the clearing's centre,
+// where the camera nearly always is, so near leaves write depth first and hide the alpha-tested ones behind them (R2-162).
+// A card scaled to nothing (kept off the track and the path) is simply not added.
+const EYE = 5;   // metres: below it the eye-height edge, above it the canopy and the crowns
+function cardSet() {
+  const mats = [], cols = [];
+  return { mats, cols, add(m, c) { m.toArray(mats, mats.length); cols.push(c.r, c.g, c.b); } };
+}
+function addSectors(set, geo, mat, { wedges = 8, split = false } = {}) {
+  const M = set.mats, groups = new Map();
+  for (let i = 0, n = set.cols.length / 3; i < n; i++) {
+    const x = M[i * 16 + 12], y = M[i * 16 + 13], z = M[i * 16 + 14], w = Math.floor((Math.atan2(z, x) / (2 * Math.PI) + 0.5) * wedges) % wedges;
+    const key = split && y > EYE ? w + wedges : w; if (!groups.has(key)) groups.set(key, []); groups.get(key).push([Math.hypot(x, z), i]);
+  }
+  const c = new THREE.Color(), box = new THREE.Box3(), p = V(), m = new THREE.Matrix4();
+  if (!geo.boundingSphere) geo.computeBoundingSphere();
+  const geoR = geo.boundingSphere.center.length() + geo.boundingSphere.radius;   // the card's reach from its own origin
+  for (const g of groups.values()) {
+    g.sort((a, b) => a[0] - b[0]);
+    const s = new THREE.InstancedMesh(geo, mat, g.length), A = s.instanceMatrix.array;
+    g.forEach(([, i], j) => { for (let k = 0; k < 16; k++) A[j * 16 + k] = M[i * 16 + k]; s.setColorAt(j, c.fromArray(set.cols, i * 3)); });
+    // a tight sphere: round the middle of the cards' box, out to the farthest card's corner (three's own sphere is a running
+    // union that depends on the order and comes out larger than this)
+    box.makeEmpty(); for (let j = 0; j < g.length; j++) box.expandByPoint(p.fromArray(A, j * 16 + 12));
+    s.boundingSphere = new THREE.Sphere(); box.getCenter(s.boundingSphere.center); let r = 0;
+    for (let j = 0; j < g.length; j++) { m.fromArray(A, j * 16); r = Math.max(r, p.fromArray(A, j * 16 + 12).distanceTo(s.boundingSphere.center) + geoR * m.getMaxScaleOnAxis()); }
+    s.boundingSphere.radius = r; scene.add(s);
   }
 }
 
@@ -254,24 +273,23 @@ function wallLeaves(wall) {
   for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); clumps.push([p.x, p.y + (c.low ? 1.2 : 0.9), p.z, R(0.6, 0.9)]); }
   for (const h of HERO) for (let k = 0; k < 18; k++) { const a = R(0, 6.28), r = R(0, 4.5); clumps.push([h.x + Math.cos(a) * r, TOP + R(-2, 1.5), h.z + Math.sin(a) * r, R(1.3, 1.9), h.x, h.z, 0]); }   // the big trees' crowns
   for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = Math.cos(a) * r, z = Math.sin(a) * r, y = R(0.4, 2.8); clumps.push([x, y + groundHeight(x, z), z, R(0.7, 1.2)]); }   // a thick leafy edge at eye height all round the clearing
-  const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump);
+  const leaves = cardSet();
   {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
-    const none = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (const [x, y, z, r] of clumps) { const from = i; let cut = false; for (let k = 0; k < perClump; k++) {
+    const clump = cardSet();
+    for (const [x, y, z, r] of clumps) { clump.mats.length = clump.cols.length = 0; let cut = false; for (let k = 0; k < perClump; k++) {
       const tight = y > 4 ? 0.6 : 1;                  // up in the crowns: leaves packed close and bigger, so they overlap into a mass
       const u = V(R(-1, 1), R(-0.5, 0.8) * (tight < 1 ? 0.7 : 1), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()) * tight);
       e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
       const s = R(leafScale[0], leafScale[1]) * (1 / tight) * Math.pow(D.leaves, -0.33);
       const k0 = y + u.y < 4.5 && Math.min(jeepDist(x + u.x, z + u.z), pathLane(x + u.x, z + u.z)) < 1.9 ? 0 : s;   // keep the track and the path open at eye height
       if (!k0) cut = true;
-      m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); leaves.setMatrixAt(i, m);
-      leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
+      m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); clump.add(m, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
     }
     // a clump the path or track clipped goes as a whole: its last few leaves left alone looked like they floated (Adriaen 2026-11-14)
-    if (cut) for (let j = from; j < i; j++) leaves.setMatrixAt(j, none); }
+    if (!cut) { leaves.mats.push(...clump.mats); leaves.cols.push(...clump.cols); } }
   }
-  addSectors(leaves);
+  addSectors(leaves, leafGeo, leafM, { split: true });
   return clumps;
 }
 
@@ -321,18 +339,21 @@ function crowns(wall, clumps) {
         limb(V(x + Math.cos(a) * 0.2 * s, y0, z + Math.sin(a) * 0.2 * s), p1, 0.2 * s, 0.07 * s, twigs + 1);
         tops.push([p1.x, p1.y + 0.3, p1.z, Q(1.2, 1.8) * s]);
       }
-      tops.push([x, top + 0.4, z, 1.3 * s]);                              // covers the cut top of the trunk
+      tops.push([x, top + 0.4, z, 1.3 * s, 0, true]);                     // covers the cut top of the trunk (kept on every detail level)
     }
     scene.add(new THREE.Mesh(merge(geos), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-    const per = (f) => Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)), lm = new THREE.InstancedMesh(leafGeo, leafM, tops.reduce((n, t) => n + per(t[4]), 0)), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
-    for (const [x, y, z, r, f] of tops) for (let k = 0; k < per(f); k++) {
+    const per = (f) => Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)), lm = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+    // on low detail the spreading crown leaves past NEAR are left out (they are fog-grey there anyway); the clump that covers
+    // each trunk's cut top stays (review R2-162)
+    const far = D.leaves < 1;
+    for (const [x, y, z, r, f, cover] of tops) for (let k = 0; k < per(f); k++) {
       const u = V(Q(-1, 1), Q(-0.3, 0.6), Q(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q(0, 1)) * 0.65);
       e.set(Q(0, 6.28), Q(0, 6.28), Q(0, 6.28)); q.setFromEuler(e);
       const sc = Q(leafScale[0], leafScale[1]) * 1.5 * Math.pow(D.leaves, -0.33);
-      m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); lm.setMatrixAt(i, m);
-      lm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
+      m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
+      if (!far || cover || Math.hypot(x, z) <= NEAR) lm.add(m, c);
     }
-    addSectors(lm);
+    addSectors(lm, leafGeo, leafM);
   }
 }
 
@@ -348,15 +369,15 @@ function verge() {
       for (const k of [-1, 1]) vc.push([p.x + side.x * k * Q2(2.2, 3.2), Q2(0.5, 2.6), p.z + side.z * k * Q2(2.2, 3.2), Q2(0.7, 1.2)]);
     }
     for (const v of vc) v[1] += groundHeight(v[0], v[2]);   // on the banks beside the track
-    const vm = new THREE.InstancedMesh(leafGeo, leafM, vc.length * perClump), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+    const vm = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
     for (const [x, y, z, r] of vc) for (let k = 0; k < perClump; k++) {
       const u = V(Q2(-1, 1), Q2(-0.5, 0.8), Q2(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q2(0, 1)));
       e.set(Q2(0, 6.28), Q2(0, 6.28), Q2(0, 6.28)); q.setFromEuler(e);
       const sc = Q2(leafScale[0], leafScale[1]) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.6 ? 0 : 1);
-      m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.setMatrixAt(i, m);
-      vm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
+      c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
+      if (sc) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.add(m, c); }
     }
-    addSectors(vm);
+    addSectors(vm, leafGeo, leafM);
   }
 }
 
@@ -377,9 +398,10 @@ function ferns() {
     }
     const spots = [];
     for (let i = 0; i < 2000 && spots.length < Math.round(260 * D.ferns); i++) { const a = R(0, 6.28), r = RC - 0.6 + Math.pow(rnd(), 1.6) * 12, x = Math.cos(a) * r, z = Math.sin(a) * r; spots.push([x, z]); }
-    const im = new THREE.InstancedMesh(g, mat, spots.length), m = new THREE.Matrix4(), c = new THREE.Color();
-    spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 ? 0 : 1); m.compose(V(x, groundHeight(x, z) - 0.03, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6.28)), V(s, s, s)); im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
-    addSectors(im);
+    const set = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
+    spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 ? 0 : 1), ry = R(0, 6.28); if (!s) return;
+      m.compose(V(x, groundHeight(x, z) - 0.03, z), q.setFromAxisAngle(V(0, 1, 0), ry), V(s, s, s)); set.add(m, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
+    addSectors(set, g, mat);
   }
 }
 
