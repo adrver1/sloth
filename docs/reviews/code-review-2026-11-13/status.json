@@ -1,5 +1,5 @@
 {
- "as_of": "section C round 5, 2026-11-14",
+ "as_of": "section C round 6, 2026-11-14",
  "statuses": [
   "fixed",
   "partly fixed",
@@ -52,9 +52,11 @@
     "7f62b80",
     "42d0be8",
     "9bbca24",
-    "d0d345c"
+    "d0d345c",
+    "2dd7dc8",
+    "e66242c"
    ],
-   "note": "every module imports what it uses: input.js, jeepSeat.js and operator.js take campLife from sloth/hooks.js (operator/state.js is handed it, since it is evaluated before the sloths), audio.js imports the chores and the operator (d0d345c; it was handed them by hearCamp), and core.js pace replaces __campFast inside the page; every window.__ name is set in camp/debug.js"
+   "note": "every module imports what it uses: the operator's modules, jeepSeat.js and input.js import the places from camp/places.js and the sloths' own part (slothLife: path, lend, giveBack, eatGift) from sloth/hooks.js, with no setter (2dd7dc8); audio.js imports the chores, the operator and carApi (d0d345c, e66242c; it was handed them by hearCamp), and core.js pace replaces __campFast inside the page; every window.__ name is set in camp/debug.js"
   },
   "boot-06": {
    "status": "fixed",
@@ -92,9 +94,11 @@
    "note": ""
   },
   "boot-19": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "LOOK, PROPS and CABIN and the other looks' S entries are gone from core.js; the model file names say picked, and the jeep's live cabin light is no longer behind a switch"
   },
   "boot-20": {
    "status": "fixed",
@@ -239,23 +243,28 @@
     "d0d345c",
     "56bc3b7",
     "83de465",
-    "7c2a9d4"
+    "7c2a9d4",
+    "25a996f",
+    "52a8b5f"
    ],
-   "note": "no camp module builds anything when it is imported: each exports a build function (buildSky, buildForest, buildProps, buildJeep, buildSloths, buildDeadwood, buildGlade, buildGround, buildOperator, initInput, buildClocks, buildRadio...), and main.js calls them in one commented list; the per-frame work was already in step functions. A frame registry and a core.js split were not needed for this and are not done"
+   "note": "no camp module builds anything when it is imported: each exports a build function (buildSky, buildForest, buildProps, buildJeep, buildSloths, buildDeadwood, buildGlade, buildGround, buildOperator, initInput, initAudio, buildClocks, buildRadio...), and main.js calls them in one commented list; the last two exceptions are gone too: audio.js's listeners, Tap for sound pill and Sound button are initAudio() (25a996f), and core.js's settings buttons are wireSettings() (52a8b5f). The per-frame work was already in step functions. A frame registry and a core.js split were not needed for this and are not done"
   },
   "crosscut-15": {
    "status": "partly fixed",
    "commits": [
     "d720668",
     "4ddc16e",
-    "ea8bc13"
+    "ea8bc13",
+    "136323e"
    ],
-   "note": "one table of URL options and storage keys at the top of core.js (OPT), now with touch, campsloths, slothmat, lab, sound and station, which every module reads instead of parsing the URL; the README's Canopy Camp section copies it (ddf8cd6). props/shadow/export_casters.cjs's usage line still names props=, which the page ignores"
+   "note": "one table of URL options and storage keys at the top of core.js (OPT), now with touch, campsloths, slothmat, lab, sound and station, which every module reads instead of parsing the URL; the README's Canopy Camp section points to it (ec67fc1). A pos, yaw or pitch that is not a number now keeps the default start view (136323e). props/shadow/export_casters.cjs's usage line still names props=, which the page ignores"
   },
   "crosscut-17": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "the looks (world-04), the prop-set switch PROPS and the cabin switch CABIN are gone; the camper jeep was already gone"
   },
   "genbake-01": {
    "status": "fixed",
@@ -490,9 +499,10 @@
   "operator-10": {
    "status": "partly fixed",
    "commits": [
-    "d109364"
+    "d109364",
+    "2dd7dc8"
    ],
-   "note": "camp/places.js (claims, hosts, movers) and camp/nav.js (the grid and A*, over a list of blockers, with the body radius and fire berth as arguments) exist and the sloths import them; operator.js hands the sloths' campLife (sloth/hooks.js) to operator/state.js by import, once, before any frame. Left: the operator and jeepSeat.js still reach the registry through that life() object with optional calls, and movers() still builds a new array on every call"
+   "note": "camp/places.js (claims, hosts, movers) and camp/nav.js (the grid and A*, over a list of blockers, with the body radius and fire berth as arguments) exist; the sloths, the operator and jeepSeat.js import them directly, and the operator reaches only the sloths' own part (slothLife) through sloth/hooks.js, with no setter (2dd7dc8). Left: movers() still builds a new array on every call"
   },
   "operator-12": {
    "status": "fixed",
@@ -552,9 +562,10 @@
    "status": "fixed",
    "commits": [
     "2626429",
-    "bfca46a"
+    "bfca46a",
+    "e66242c"
    ],
-   "note": "exports, and the window names are gone except the ones debug.js sets for the tools (window.__car went); the jeep's seats, door options and engine are on jeepApi"
+   "note": "exports, and the window names are gone except the ones debug.js sets for the tools (window.__car went); each module owns its own API: jeep.js jeepApi (the doors and the jeep's places), jeepSeat.js seatApi (sit, stand, seatedIn, seatBusy) and car.js carApi (inCar, engine), and nothing adds to jeepApi any more (e66242c)"
   },
   "props-11": {
    "status": "fixed",
@@ -609,9 +620,10 @@
   "sloths-04": {
    "status": "fixed",
    "commits": [
-    "68529c0"
+    "68529c0",
+    "1a0e5b5"
    ],
-   "note": ""
+   "note": "giving what you carry to a wild sloth no longer throws either: it gets it the way it gets a flower (1a0e5b5)"
   },
   "sloths-22": {
    "status": "fixed",
@@ -636,9 +648,10 @@
    "status": "partly fixed",
    "commits": [
     "d109364",
-    "93e09a3"
+    "93e09a3",
+    "2dd7dc8"
    ],
-   "note": "camp/places.js and camp/nav.js export the registry and the path finding, and the sloths and lab.js import them; operator.js, input.js and jeepSeat.js import campLife from sloth/hooks.js (made of those exports), and no window.__campLife is left. Left: the operator's and jeepSeat.js's life() indirection with its optional calls, movers() building a new array on every call, and the claim of the seat you sit on, which is still in the sloths' step (sloth/step.js seatWatch), not in linger.js"
+   "note": "camp/places.js and camp/nav.js export the registry and the path finding, and the sloths, lab.js, the operator, jeepSeat.js and input.js import them; sloth/hooks.js keeps only the sloths' own part (slothLife: path, lend, giveBack, eatGift), and the operator's life() indirection and its optional calls are gone (2dd7dc8). Left: movers() building a new array on every call, and the claim of the seat you sit on, which is still in the sloths' step (sloth/step.js seatWatch), not in linger.js"
   },
   "sloths-31": {
    "status": "fixed",
@@ -668,9 +681,11 @@
    "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
   },
   "world-04": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "the Painterly and Low-poly branches are gone from forest.js, glade.js, sky.js and ground.js, and the moss code is the only code; LOOK, S.flat and the other looks' S entries are gone (Adriaen 2026-11-14: the clean-up is for maintainability; the looks live on in index.html and in git history). Every forest draw runs in the same order: all 190 meshes' geometry and instances match 230b97f"
   },
   "world-05": {
    "status": "partly fixed",
@@ -857,9 +872,10 @@
    "status": "partly fixed",
    "commits": [
     "bfca46a",
-    "bedef9b"
+    "bedef9b",
+    "25a996f"
    ],
-   "note": "the operator imports acts, the fire's boost has one owner (camp/chores.js boostFire), and audio.js's two globals are gone (hearCamp, see crosscut-03). Left: the window events (camp-act, camp-food) have no one module, and the chores still set s.nod on a sloth"
+   "note": "the operator imports acts, the fire's boost has one owner (camp/chores.js boostFire), audio.js's two globals are gone (hearCamp, see crosscut-03), and the chores name their own sounds (audio.js cue) instead of audio.js reading the #toast text (25a996f). Left: the window events (camp-act, camp-food) have no one module, and the chores still set s.nod on a sloth"
   },
   "sloths-25": {
    "status": "checked, still open",
@@ -948,6 +964,41 @@
     "83de465"
    ],
    "note": "campProps.js has no block-scoped var exports left: everything buildProps makes is a module-level let set when it runs; the sloth model (SLOTH) and the night uniform (uNight) still live in campProps.js"
+  },
+  "boot-09": {
+   "status": "partly fixed",
+   "commits": [
+    "1a0e5b5"
+   ],
+   "note": "lab.js imports labApi (sloth/hooks.js), holder (places.js) and pace (core.js) instead of globals, and with ?campsloths=0 labButton.js adds no lab, so nothing throws (1a0e5b5). Left: the panel is built when lab.js is first imported, and the wheel handler does not check that the panel is open"
+  },
+  "boot-07": {
+   "status": "partly fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "the settings buttons are wired by core.js wireSettings(), which main.js calls, not at import; the forest-only leaf material and the unnamed light are still in core.js"
+  },
+  "props-04": {
+   "status": "partly fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "the constant CABIN switch is inlined and gone from core.js; the rest was not looked at in this round"
+  },
+  "props-17": {
+   "status": "partly fixed",
+   "commits": [
+    "1a0e5b5"
+   ],
+   "note": "?jeep=none no longer asks for a night ground map that was never baked (no 404s; the ground is lit live, as it was after the failed downloads). Left: its day shadow map is still the stale bake, and a night map for it needs a bake on Adriaen's GPU"
+  },
+  "world-14": {
+   "status": "partly fixed",
+   "commits": [
+    "a2aaf40"
+   ],
+   "note": "buildForest is a list of named steps (clearingFloor, trackRoad, heroTrees, forestWall, leafCard, wallLeaves, crowns, verge, ferns) in the same order; the repeated ribbon builders and leaf-instancing loops are as they were"
   }
  }
 }
