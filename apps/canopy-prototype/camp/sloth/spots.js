@@ -13,7 +13,7 @@
 //                   s.ownSpot); and gives it up and has its own home again (day.js, saved.js)
 //   sizeIn(s, spot) s's size there: spot.scale (for a sloth of the usual size) times s.k (its cast.js scale)
 //   hammock         the hammock's swing (swing.js makeHammockSwing), stepped by naps.js hammockStep
-//   brush           brush(p, on, dt): the laundry swings aside where a sloth passes (swing.js); null without the line
+//   brush           brush(p, on, sd): the laundry swings aside where a sloth passes, at the sloths' paced time (swing.js); null without the line
 // A spot: { name, parent (the group it is local to), at, yaw, clip (what it plays there), scale (the size a sloth of the
 // usual size has there; sizeIn), door (the point on the ground it crawls to before going in), who (its sloth), home (its
 // sloth is in) } and what its way in needs:

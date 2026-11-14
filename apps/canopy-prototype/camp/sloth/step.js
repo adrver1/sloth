@@ -50,7 +50,7 @@ function campStep(dt) {
     if (s.trip.phase !== "home" && s.smore) stopSmore(s);
     if (s.gift && !s.gift.clip) giftFly(s, sd);
     zStep(s, sd);
-    if (s.spot.line && s.trip.phase === "home") brush?.(s.o.position, false, dt);   // the towel swings back
+    if (s.spot.line && s.trip.phase === "home") brush?.(s.o.position, false, sd);   // the towel swings back, at the sloths' pace
     // the hit sphere and the point hearts and words fly to follow the sloth
     s.o.getWorldPosition(s.box.position).y += 0.25 * s.sc / SL; s.p.copy(s.box.position);
   }

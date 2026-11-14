@@ -8,7 +8,8 @@
 //                          swing for a while (set it to 1 after a boop), step(dt): each frame, a slow swing that push adds to }
 //   makeClothBrush()       the laundry line's towel and socks sway in a breeze (uTime), and swing aside round the line where
 //                          a sloth brushes past. Returns brush(p, on, dt): p where the sloth is (world), on while it is at the
-//                          cloth; or null when there is no cloth
+//                          cloth, dt the camp's paced seconds (the sloths' sd); or null when there is no cloth. Off and swung
+//                          back, it returns at once.
 // sloth/spots.js buildSpots calls both while it builds the camp sloths' spots, so the scene's objects keep their order; nothing runs on import.
 import * as THREE from "three";
 import { scene, uTime } from "./core.js";
@@ -57,7 +58,12 @@ function makeClothBrush() {
       transformed.yz = vec2(ly, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
   });
   mat.needsUpdate = true;
-  return (p, on, dt) => { u.uX.value = cloth.worldToLocal(p.clone()).x; u.uPush.value += ((on ? 1 : 0) - u.uPush.value) * Math.min(1, dt * 2); };
+  // one scratch vector, and nothing to do once the cloth has swung back and no one is at it (review R2-066)
+  const lp = new THREE.Vector3();
+  return (p, on, dt) => {
+    if (!on && u.uPush.value < 1e-3) { u.uPush.value = 0; return; }
+    u.uX.value = cloth.worldToLocal(lp.copy(p)).x; u.uPush.value += ((on ? 1 : 0) - u.uPush.value) * Math.min(1, dt * 2);
+  };
 }
 
 export { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing };
