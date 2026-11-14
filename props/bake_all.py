@@ -19,12 +19,13 @@ in several different places", and bake the whole scene as one). Run it whenever 
           for toktx before any step starts. The light step removes the old .ktx2.txt of every map it rewrites and writes
           camp_lights.json without the "ktx2" flag; this step sets the flag only when every map's .ktx2.txt is newer than
           its PNG, so the page never loads an out-of-date KTX2 copy (review R2-005)
-  layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (the worn spots, the jeep's track, the path,
-          the deadwood, and the "place" block: where the page stands each baked prop and light, which
-          the light bake reads instead of keeping its own copy), served by this script on a free local port that it
+  layout  props/shadow/export_casters.cjs: the clearing's layout (the worn spots, the jeep's track, the path, the deadwood,
+          and the "place" block: where the page stands each baked prop and light, which the light bake reads instead of
+          keeping its own copy). All but the deadwood comes from props/shadow/layout_pure.mjs in node (review R2-257); the
+          exporter boots the page for the deadwood and checks the page agrees. The page is served by this script on a free local port that it
           hands the exporter as LAYOUT_PORT (it stops if its server dies or never answers, review R2-042) ->
           props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>); it stops the bake if the page gave
-          an incomplete layout
+          an incomplete layout or disagrees with layout_pure.mjs
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
 
 Stamps (review R2-140): after each step, props/bake.lock.json records the hash of every input the step read (its scripts,
@@ -143,7 +144,7 @@ def inputs(step):
     """{name: hash or value} of everything the step reads. A None value (a tool that is not on this machine) is not compared."""
     if step == "layout":
         three = json.load(open(os.path.join(ROOT, "node_modules/three/package.json"))).get("version") if os.path.exists(os.path.join(ROOT, "node_modules/three/package.json")) else None
-        files = tree("apps/canopy-prototype", skip=("models", "lmpreview")) + [os.path.join(ROOT, "props/shadow/export_casters.cjs")]
+        files = tree("apps/canopy-prototype", skip=("models", "lmpreview")) + [os.path.join(ROOT, "props/shadow", f) for f in ("export_casters.cjs", "layout_pure.mjs")]
         return {**hashes(files), "cmd": ["picked", a.jeep], "three": three}
     if step == "light":
         files = tree("props/camp", "props/lib", exts=(".py",)) + tree("props/lived", exts=(".py", ".png", ".jpg", ".json"))

@@ -21,7 +21,7 @@ props/; with --preview it defaults to apps/canopy-prototype/lmpreview). The prev
 under a minute on a laptop CPU (1/16 of the texels of the full bake and 1/64 of its samples).
 
 1. read_layout: where the page stands each prop and light, from the "place" block the layout step
-   (props/shadow/export_casters.cjs) writes into props/shadow/layout_picked.json; it stops at once if that block is missing.
+   (props/shadow/layout_pure.mjs, through export_casters.cjs) writes into props/shadow/layout_picked.json; it stops at once if that block is missing.
 2. build_lived_sets: runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
 3. build_scene: builds the picked set (build_camp.py, no densify; it stops if a prop is over build_camp.BUDGET), imports

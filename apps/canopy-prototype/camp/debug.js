@@ -13,20 +13,14 @@
 //   __sit(i)         you sit on log seat i (linger.js sit)                 camp-replay.cjs's tour, the scenario tours
 //   __weather(mode)  the weather set at once (weather.js setWeather)       camp-replay.cjs's tour
 //   __campFast       the camp's pace (core.js pace.fast): 6 runs the sloths' day and the jeep seats six times as fast   camp-replay.cjs's tour, the scenarios
-//   __camp           CAMP: the tent and the hammock's posts (campProps.js)   props/shadow/export_casters.cjs (the bake's layout)
-//   __jeep           jeepApi (jeep.js), when there is a jeep               export_casters.cjs (its place); camp-scenarios.cjs on old checkouts
-//   __glade          the glade and the sloths' path (layout.js)            export_casters.cjs
-//   __ground         groundLife (campGround.js)             export_casters.cjs (its layout)
-//   __deadwood       deadwood (deadwood.js): its layout and triangles      export_casters.cjs (the ground-shadow bake)
+//   __jeep           jeepApi (jeep.js), when there is a jeep               camp-scenarios.cjs on old checkouts
+// (props/shadow/export_casters.cjs imports the modules it reads instead: deadwood.js, campProps.js, core.js, forest.js,
+// campGround.js and jeep.js, review R2-257.)
 // Exports stats and ready().
 import { pace, scene } from "./core.js";
-import { GLADE, sloPath } from "./layout.js";
 import { stickV } from "./hud.js";
-import { deadwood } from "./deadwood.js";
-import { CAMP } from "./campProps.js";
 import { jeepApi } from "./jeep.js";
 import { sloths } from "./sloths.js";
-import { groundLife } from "./campGround.js";
 import { boop, feed } from "./input.js";
 import { setWeather } from "./weather.js";
 import { sit } from "./linger.js";
@@ -39,7 +33,6 @@ function ready() {
     __scene: scene, __stats: stats,
     __time: (h) => day.setHour(h, true), __boop: (i) => boop(sloths[i]), __feed: (i) => feed(sloths[i]), __stick: (x, y) => stickV.set(x, y),
     __sit: sit, __weather: setWeather,
-    __camp: CAMP, __glade: { at: GLADE, path: sloPath.pts }, __ground: groundLife, __deadwood: deadwood,
   });
   if (jeepApi) window.__jeep = jeepApi;
   Object.defineProperty(window, "__campFast", { get: () => pace.fast, set: (v) => { pace.fast = v; }, configurable: true });

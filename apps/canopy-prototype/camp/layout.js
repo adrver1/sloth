@@ -1,14 +1,14 @@
 // Canopy Camp layout: where everything in the camp stands, in one place (camp review C1: world-12, props-06, crosscut-10,
 // operator-12, world-16). Only numbers, vectors and pure functions: no scene, no DOM, no random numbers (what is placed at random, the forest wall, the
 // ferns, the deadwood, stays where it is drawn), so any module can import it at any point. Units are metres; y is up, the fire is at the origin.
-// The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
-// the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
+// node can import it (and lanterns.js): props/shadow/layout_pure.mjs works out the bakes' layout from it with no browser
+// (the tent, the hammock, the track, the glade path, WEAR and a "place" block, where each baked prop and light stands;
+// review R2-257), props/shadow/export_casters.cjs adds the deadwood from the page and writes it all to
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block (its "anchors"
 // are ANCHORS, at the end of this file). Two values are
 // typed again there: the sun's direction (the bake stops if the two differ) and the lantern drop, lanterns.js JAR_Y, with no
 // check (review props-07). SEAT_R and JEEP_OUT are exported for checks; no module
 // imports them. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
-// campProps.js's CAMP (tentAt, hA, hB, tb) is window.__camp for the bake (debug.js).
 import * as THREE from "three";
 import { V, polyDist, yawTo } from "./util.js";
 
