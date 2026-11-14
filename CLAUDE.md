@@ -1,10 +1,10 @@
 # sloth
 
-This repo holds the baby sloth character and the fun pages made with it: karaoke, synth, stickers and small games. README.md says what is where. The full history of how each piece was made, and every pick Adriaen made, is in `docs/threads/`.
+This repo holds the baby sloth character and the fun pages made with it: karaoke, synth, stickers and small games. README.md says what is where. The full history of how each piece was made, and every pick Adriaen made, is in `docs/threads/` up to 2026-11-10. Canopy Camp's picks are in `docs/reviews/`, `docs/plans/` and in the code comments that cite Adriaen; those repo copies are the ones kept up to date, not the older copies in the project files.
 
 ## Rules
 
-- The apps are published as artifacts; README.md lists their URLs. The source of truth is `apps/<name>/`. Edit it there, then republish to the same URL, so the link stays the same.
+- The apps are published as artifacts, except Canopy Camp, which GitHub Pages publishes when a PR merges to main (`.github/workflows/pages.yml`). README.md lists their URLs. The source of truth is `apps/<name>/`. Edit it there, then republish to the same URL, so the link stays the same.
 - Show a change to Adriaen as a screenshot or a republished page. Adriaen reviews on a phone, so check both a phone-sized and a desktop-sized view.
 - You can't hear audio in a cloud session. Say so whenever you change a sound, because Adriaen checks the mix by ear and found the didgeridoo far too loud the first time.
 - Keep every asset variant: sloth styles `plush`, `baby` and `plush_real`, and the flat sticker set as a backup to the furry one.
