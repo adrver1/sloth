@@ -12,7 +12,7 @@
 //   moveInto(s, g), moveBack(s)    a nap trip: s claims the guest spot g and makes it its spot (its home kept as
 //                   s.ownSpot); and gives it up and has its own home again (day.js, saved.js)
 //   sizeIn(s, spot) s's size there: spot.scale (for a sloth of the usual size) times s.k (its cast.js scale)
-//   hammock         the hammock's swing (swing.js makeHammockSwing), with zz and zk for its napper's z's (naps.js)
+//   hammock         the hammock's swing (swing.js makeHammockSwing), stepped by naps.js hammockStep
 //   brush           brush(p, on, dt): the laundry swings aside where a sloth passes (swing.js); null without the line
 // A spot: { name, parent (the group it is local to), at, yaw, clip (what it plays there), scale (the size a sloth of the
 // usual size has there; sizeIn), door (the point on the ground it crawls to before going in), who (its sloth), home (its
@@ -42,7 +42,7 @@ function buildSpots() {
   const hA = HAMMOCK.a, inward = HAMMOCK_IN;   // the hammock's first post (layout.js)
   // the hammock (swing.js): the sling swings about the line between the rope knots, and the napper lies in the group
   // that swings with it
-  hammock = makeHammockSwing(); hammock.zz = null; hammock.zk = 0;   // zz: the napper's three z's, zk: their rise (naps.js hammockStep)
+  hammock = makeHammockSwing();
   const swing = hammock.swing;
   // the log seat right of the gap, facing the fire and the kettle
   const sa = SEATS[0].angle, at = V(SEATS[0].at.x, 0.33, SEATS[0].at.z).addScaledVector(V(-Math.sin(sa), 0, Math.cos(sa)), -0.12);   // on the log's top, 12 cm along it

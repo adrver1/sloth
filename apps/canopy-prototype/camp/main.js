@@ -82,7 +82,7 @@ renderer.setAnimationLoop(() => {
   slothsStep(dt);                                          // sloths.js: every sloth's clip, its life on top of it, the squish of a boop and its nod
   campStep(dt);                                            // sloths.js: the camp sloths' day (linger.js has claimed the log you sit on)
   labStep(dt);                                             // labButton.js: the move lab, while it is open
-  hammockStep(dt);                                         // sloths.js: the hammock's swing and its napper's z's
+  hammockStep(dt);                                         // sloths.js: the hammock's swing (its napper's z's are in campStep)
   opStep(dt);
   jeepStep(dt); carStep(dt);
   fxStep(dt);                                              // fx.js: the words and hearts in the air
