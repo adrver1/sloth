@@ -1,6 +1,9 @@
 // Canopy Camp sloths, the arms, posed on the bones after the clip has run:
 //   aimBone(bone, dir, w)   turns a bone (it points along its own +Y) toward the world direction dir, by the weight w
 //   giftArm(s)              the right arm reaches out for a gift and brings it to the lips (gifts eaten away from the eat clip)
+// and read off them:
+//   pawOf(s, out)           where the right paw is in the world: the end of the forearm (it bends 55 % of the way down the arm)
+//   lpawOf(s, out)          the same for the left paw
 import * as THREE from "three";
 import { V, sstep } from "../util.js";
 import { FACE, mouthOf } from "./face.js";
@@ -11,7 +14,13 @@ function aimBone(b, dir, w) {                          // turn bone b (it points
   qb.setFromUnitVectors(y, dir).slerp(q1.identity(), 1 - w).multiply(bq);
   b.quaternion.copy(b.parent.getWorldQuaternion(q1).invert().multiply(qb));
 }
-// a gift eaten away from the eat clip (giftFly, in the life code below): a two-bone reach of the right arm, out in front to
+const shoulder = V(), elbow = V(), qPaw = new THREE.Quaternion(), qL = new THREE.Quaternion();
+const pawOf = (s, out) => {                          // the end of the right forearm (it bends 55 % of the way down the arm)
+  s.arm[0].getWorldPosition(shoulder); s.arm[1].getWorldPosition(elbow);
+  return out.copy(UPV).applyQuaternion(s.arm[1].getWorldQuaternion(qPaw)).multiplyScalar(shoulder.distanceTo(elbow) * 0.82).add(elbow);
+};
+function lpawOf(s, out) { s.armL[0].getWorldPosition(shoulder); s.armL[1].getWorldPosition(elbow); return out.copy(UPV).applyQuaternion(s.armL[1].getWorldQuaternion(qL)).multiplyScalar(shoulder.distanceTo(elbow) * 0.82).add(elbow); }
+// a gift eaten away from the eat clip (gifts.js giftFly): a two-bone reach of the right arm, out in front to
 // take it, then up to the lips; the paw is at 0.82 of the forearm (pawOf)
 const gS = V(), gE = V(), gGoal = V(), gDir = V(), gPerp = V(), gM = V();
 function giftArm(s) {
@@ -30,4 +39,4 @@ function giftArm(s) {
   up.updateMatrixWorld(true); fo.getWorldPosition(gE); aimBone(fo, gGoal.clone().sub(gE).normalize(), w);
 }
 
-export { aimBone, giftArm };
+export { aimBone, giftArm, lpawOf, pawOf };

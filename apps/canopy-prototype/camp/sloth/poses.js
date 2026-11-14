@@ -8,6 +8,7 @@
 //                                     how far off it still was
 //   underAt(s, at, head)              hanging back-down under a branch or pole at `at`, its head toward `head`
 //   trunkAt(s, tree, out, y, R)       upright on a trunk at height y, facing the bark on the side `out`; R(y) is the bark's radius
+//   treeOf(curve)                     the big tree a branch grows from (its foot, on the ground)
 //   trunkR0(y), barkProfile(tree, out, yTop), branchBase(curve, tree)   the trunk's radius by formula, as measured on one
 //                                     side, and the first point along a branch that is clear of the bark
 //   HAMMOCK_IN, climbYaw              from the hammock toward the fire, and the yaw of a sloth climbing its post
@@ -18,7 +19,7 @@
 import * as THREE from "three";
 import { scene } from "../core.js";
 import { V } from "../util.js";
-import { HAMMOCK, LAUNDRY } from "../layout.js";
+import { HAMMOCK, HERO, LAUNDRY } from "../layout.js";
 
 const UP = V(0, 1, 0), m4 = new THREE.Matrix4(), LL = LAUNDRY;
 const yawQ = (yaw) => new THREE.Quaternion().setFromAxisAngle(UP, yaw);
@@ -33,6 +34,7 @@ function underAt(s, at, head) {
   return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
 }
 const trunkAt = (s, tree, out, y, R) => ({ p: tree.clone().addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y), q: new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(out.x, out.z)) });
+const treeOf = (c) => HERO.reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
 // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths.
 // Their sloths climb down the trunk and back up it (climbDown, climbUp below). Trunk radius after forest.js (1.05 at the
 // foot to 0.6 at 15 m, with the root flare).
@@ -78,4 +80,4 @@ function linePose(s, t) {                           // hanging back-down under t
 }
 const postPose = (spot, y) => ({ p: spot.door.clone().setY(y), q: new THREE.Quaternion().setFromAxisAngle(UP, spot.climbYaw ?? climbYaw) });
 
-export { HAMMOCK_IN, ROPE_L, UP, barkProfile, branchBase, climbYaw, linePose, postPose, ropePose, trunkAt, trunkR0, turnTo, underAt, yawOf, yawQ };
+export { HAMMOCK_IN, ROPE_L, UP, barkProfile, branchBase, climbYaw, linePose, postPose, ropePose, treeOf, trunkAt, trunkR0, turnTo, underAt, yawOf, yawQ };

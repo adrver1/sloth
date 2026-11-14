@@ -5,11 +5,13 @@
 //   playOnce(s, name, fade, then, at)    the same for a clip played once (stretch, eat, eat_high); then() runs when it has
 //                                        played through (the camp step watches s.once)
 //   homeClip(s), dozeClip(s)             [clip, timeScale] for where it is: awake, and asleep
+//   EAT_GRAB                             how many seconds into the eat clips the claws close on the food
 //   canStretch(s)                        it is sitting, or lying where it can sit up, so it can stretch when it wakes
 import * as THREE from "three";
 import { SLOTH } from "../campProps.js";
 
 const clipOf = (n) => SLOTH.animations.find((a) => a.name === n);
+const EAT_GRAB = 1.85;                                // s into the eat clips: the claws close on the fruit
 const ONCE = new Set(["stretch", "eat", "eat_high"]);   // played once, then s.once() (see campStep)
 function play(s, name, fade, timeScale = 1, at = 0) {
   const next = s.mixer.clipAction(clipOf(name)), once = ONCE.has(name); s.once = null;
@@ -25,4 +27,4 @@ const homeClip = (s) => s.trip?.phase === "rest" ? ["idle", 1] : !s.spot ? ["cli
 const dozeClip = (s) => s.spot?.guest || s.spot?.asleep ? [s.spot.clip, s.spot.clip === "nap" ? 1 : 1] : s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
 const canStretch = (s) => s.trip?.phase === "rest" || (["seat", "jeep", "hammock"].includes(s.spot?.name) && s.spot.clip !== "curl") || (s.spot?.guest && s.spot.name === "tent");    // sitting, or lying where it can sit up (hammock, bed)
 
-export { canStretch, clipOf, dozeClip, homeClip, play, playOnce };
+export { EAT_GRAB, canStretch, clipOf, dozeClip, homeClip, play, playOnce };
