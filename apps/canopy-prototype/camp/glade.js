@@ -2,7 +2,7 @@
 // "the same treatment as the main camp with beautification and making it real"). One painted floor (lush grass with sun flecks, a moss
 // ring at the tree's foot, a trodden patch where the path ends and people stand to look up at the sloths, leaf litter thickening into
 // the forest), a plank bench on two log ends facing the tree, a fallen mossy log with shelf fungus, mossy stones, two clusters of
-// mushrooms, three sunbeams through the canopy gap and bushes in the ring you can't walk into. The plants (tufts, tall grass, wildflowers, clover and the heliconia, bromeliad,
+// mushrooms, three sunbeams through the canopy gap, and bushes out on the bare forest floor round the glade. The plants (tufts, tall grass, wildflowers, clover and the heliconia, bromeliad,
 // fern and orchid clumps at its edge) go in ground.js's one instanced draw: campLife.js passes gladePlants to createGround.
 // The glade lies outside the baked light map and ground-shadow square (ground.js RR), so it is lit live like the forest round it:
 // nothing here needs a bake. Props: one draw (vertex colours); floor: one draw; sunbeams: one draw on the camp's rayMat (daylight.js
@@ -10,9 +10,10 @@
 import * as THREE from "three";
 import { D, LOOK, S, scene, sun } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
-import { GLADE, GLADE_R, pathLane, sloPath } from "./layout.js";
+import { GLADE, GLADE_R, RC, pathLane, sloPath } from "./layout.js";
 import { blockers, rayMat } from "./campProps.js";
 import { leafGeo, leafM, leafScale, perClump } from "./forest.js";
+import { groundHeight } from "./terrain.js";
 
 const { R, rnd } = lcg(5150);   // own stream: the shared one sets the rest of the layout
 const k = D.fx > 1 ? 1.5 : D.fx ? 1 : 0.5;   // how much to grow, as ground.js
@@ -171,23 +172,28 @@ if (rayMat) {
   triCount.beams = tris(geo);
 }
 
-// ---------------------------------------------------------------- bushes in the ring you can't walk into (Adriaen 2026-11-14): between the
-// walkable glade (player.js keeps you within GLADE_R - 0.4) and the forest wall; low leafy mounds of the forest's own leaf cards
-// (forest.js leafGeo, 2 tris each), one instanced draw. Kept off the footpath from camp and the way out on the far side (the karaoke
-// route runs round the tree and leaves away from the camp).
+// ---------------------------------------------------------------- bushes out on the flat forest floor round the glade, where the bare leaf
+// litter met the fog (Adriaen 2026-11-14: not round the tree, that was too crowded). Low leafy mounds of the forest's own leaf cards
+// (forest.js leafGeo, 2 tris each), one instanced draw. Kept off the camp's clearing, the footpath, and the wedge the karaoke road
+// leaves the glade by (turns -1.75 to -2.35 in at()'s frame; the trip's route also clears itself through pathLane).
 {
   const B = [];
-  for (let tries = 0; tries < 400 && B.length < Math.round(16 * Math.min(k, 1.2)); tries++) {
-    const turn = R(-Math.PI, Math.PI), r = R(GLADE_R - 0.2, GLADE_R + 1.1), c = at(r, turn);
-    if (Math.abs(turn) < 0.55 || Math.abs(Math.abs(turn) - Math.PI) < 0.75 || pathLane(c.x, c.z) < 1.8 || taken(c.x, c.z, 0.5) || B.some((b) => Math.hypot(b[0] - c.x, b[2] - c.z) < 1.1)) continue;
-    B.push([c.x, R(0.35, 0.7), c.z, R(0.55, 0.9)]);
+  const off = (x, z) => { const a = Math.atan2(z - G.z, x - G.x) - Math.atan2(inDir.z, inDir.x), t = Math.atan2(Math.sin(a), Math.cos(a));
+    return (t > -2.35 && t < -1.75) || Math.hypot(x - G.x, z - G.z) < GLADE_R + 1.3 || Math.hypot(x, z) < RC + 1.5 || pathLane(x, z) < 2.2; };
+  // in clumps of two or three, as undergrowth grows, filling the flat floor out to where the fog takes over
+  for (let tries = 0, groups = 0; tries < 800 && groups < Math.round(16 * Math.min(k, 1.2)); tries++) {
+    const c = at(R(GLADE_R + 1.8, GLADE_R + 7.5), R(-Math.PI, Math.PI));
+    if (off(c.x, c.z) || B.some((b) => Math.hypot(b[0] - c.x, b[2] - c.z) < 2.6)) continue;
+    groups++;
+    for (let j = 0, n = 2 + (rnd() < 0.5 ? 1 : 0); j < n; j++) { const a = R(0, 6.28), d = j ? R(0.9, 1.4) : 0, x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d;
+      if (!off(x, z)) B.push([x, R(0.25, 0.55) + groundHeight(x, z), z, R(0.65, 1.15)]); }   // on the forest floor's hummocks
   }
   const per = Math.max(8, Math.round(perClump * 0.75)), im = new THREE.InstancedMesh(leafGeo, leafM, B.length * per), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
   for (const [x, y, z, r] of B) for (let j = 0; j < per; j++) {
-    const u = V(R(-1, 1), R(-0.6, 0.7), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()));
+    const u = V(R(-1, 1), R(-0.45, 0.55), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()));   // wider than tall
     e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
     const sc = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 0.85 : r * 0.9);
-    m.compose(V(x + u.x, Math.max(0.12, y + u.y), z + u.z), q, V(sc, sc, sc)); im.setMatrixAt(i, m);
+    m.compose(V(x + u.x, Math.max(y - 0.25, y + u.y), z + u.z), q, V(sc, sc, sc)); im.setMatrixAt(i, m);
     im.setColorAt(i, c.setHex(S.leaf[(j + i) % 4]).multiplyScalar(R(0.7, 0.95))); i++;
   }
   im.name = "GladeBushes"; scene.add(im);
