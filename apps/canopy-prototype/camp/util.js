@@ -17,7 +17,7 @@
 //   ease(k)                       the smoothstep curve for a k that is already 0..1 (sstep without the clamp)
 //   lam(color, opts)              a MeshLambertMaterial of that colour
 //   timers()                      a queue of calls to make later in frame time, { after(sec, fn), step(dt) }: its owner steps
-//                                 it each frame, so opApi.sim and the replays, which step faster than real time, run them on
+//                                 it each frame, so opChecks.sim and the replays, which step faster than real time, run them on
 //                                 time (setTimeout runs on the wall clock: review R2-050)
 //   patchMaterial(mat, id, hook)  adds a shader hook after the material's current one, with a program cache key made of
 //                                 the id, this hook's source, the key of the hook before it (its source, or its own key when

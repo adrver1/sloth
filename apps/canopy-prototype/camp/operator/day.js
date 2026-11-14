@@ -4,7 +4,7 @@
 // weight (other weights at night), never the same thing twice in a row. With ?lived=0 there is no kitchen crate, so no mug
 // and no cooking.
 // Exports lifeStep(dt) (step.js, each frame; an error in an activity is logged and his day starts again) and jumpTo(kind)
-// (the checks, opApi.jump: stop what he is doing cleanly, start that activity now, then carry on).
+// (the checks, opChecks.jump: stop what he is doing cleanly, start that activity now, then carry on).
 import * as THREE from "three";
 import { LIVED, rng, scene } from "../core.js";
 const { R } = rng("operator");
@@ -145,7 +145,7 @@ const WEIGHTS = (night) => night ? { sleep: 6, warm: 2, drink: 1, read: 0.3, str
 const NEEDS_CRATE = new Set(["drink", "cook"]);
 // when you sit by the fire he comes and sits with you on another log (Adriaen 2026-11-13), not again for a while after (op.cd.join)
 const wantJoin = () => !!me.seat && !op.seated && !op.lying && op.cd.join <= 0 && !op.buddy && !op.carry && !op.cooking;
-DO.hold = function* () { yield* wait(1e9); };   // checks only (opApi.jump("hold")): stand still
+DO.hold = function* () { yield* wait(1e9); };   // checks only (opChecks.jump("hold")): stand still
 DO.join = function* () {
   op.cd.join = 1e9;   // not again while he sits with you; the finally sets the real wait, even if this is stopped (review R2-064)
   try {
@@ -189,7 +189,7 @@ function lifeStep(dt) {
   if (!it) { it = lifeLoop(); it.next(); }
   try { it.next(dt); } catch (e) { console.error(`operator: his ${op.kind} stopped with an error; his day goes on`, e); lifeStop(); }
 }
-// the checks (opApi.jump): this activity now, then his day goes on
+// the checks (opChecks.jump): this activity now, then his day goes on
 function jumpTo(k) {
   if (!DO[k]) throw new Error(`operator: no activity "${k}" (one of ${Object.keys(DO).join(", ")})`);
   lifeStop();

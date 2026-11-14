@@ -74,7 +74,7 @@ function helpers([base, present]) {
   // the camp's APIs: the module's export where it has one, else the window.__ name an older checkout set
   const api = (n, k, g) => T.mods[n]?.[k] ?? window[g];
   Object.defineProperties(T, {
-    op: { get: () => api('camp/operator.js', 'opApi', '__op') }, acts: { get: () => T.mods['camp/chores.js']?.acts ?? api('camp/campLife.js', 'acts', '__acts') },   // chores.js since campLife.js went
+    op: { get: () => { const o = api('camp/operator.js', 'opApi', '__op'), c = T.mods['camp/operator/checks.js']?.opChecks; return o && c ? Object.defineProperties({ ...o }, Object.getOwnPropertyDescriptors(c)) : o; } },   // his checks' hooks have been operator/checks.js opChecks since 2026-11-14 acts: { get: () => T.mods['camp/chores.js']?.acts ?? api('camp/campLife.js', 'acts', '__acts') },   // chores.js since campLife.js went
     lab: { get: () => api('camp/sloth/hooks.js', 'labApi', '__lab') }, life: { get: () => api('camp/sloth/hooks.js', 'campLife', '__campLife') ?? (T.mods['camp/sloth/hooks.js']?.slothLife && { ...T.mods['camp/places.js'], ...T.mods['camp/sloth/hooks.js'].slothLife }) },   // since 2026-11-14 the places are camp/places.js and the sloths' part is slothLife
     jeep: { get: () => { const j = api('camp/jeep.js', 'jeepApi', '__jeep'), s = T.mods['camp/jeepSeat.js']?.seatApi; return j && s ? { ...j, ...s } : j; } },   // the seats have been jeepSeat.js seatApi since 2026-11-14 car: { get: () => api('camp/car.js', 'carApi', '__car') },
     audio: { get: () => api('camp/audio.js', 'audio', '__audio') }, clocks: { get: () => api('camp/clock.js', 'clocks', '__clocks') },
@@ -184,7 +184,7 @@ async function drive(name, sc, root, port, outDir, shots, p, EVO) {
   await page.loadCamp(p, port, sc.query || '', errs);
   const rndReady = await p.evaluate(() => [window.__rndN ?? null, window.__mrN ?? null]);
   await p.addStyleTag({ content: 'body > :not(canvas) { visibility: hidden !important; }' });
-  const present = ['camp/sloth/hooks.js', 'camp/sloth/state.js', 'camp/fx.js', 'camp/places.js', 'camp/campLife.js', 'camp/chores.js', 'camp/jeepSeat.js'].filter((n) => fs.existsSync(path.join(root, 'apps/canopy-prototype', n)));
+  const present = ['camp/sloth/hooks.js', 'camp/sloth/state.js', 'camp/fx.js', 'camp/places.js', 'camp/campLife.js', 'camp/chores.js', 'camp/jeepSeat.js', 'camp/operator/checks.js'].filter((n) => fs.existsSync(path.join(root, 'apps/canopy-prototype', n)));
   await p.evaluate(helpers, [`http://localhost:${port}/apps/canopy-prototype/`, present]);
   const loadErr = await p.evaluate(() => window.__T.load());
   const TOUR = sc.tour ? JSON.parse(fs.readFileSync(path.join(TOURS, sc.tour), 'utf8')) : [];
