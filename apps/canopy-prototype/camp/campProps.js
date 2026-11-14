@@ -15,10 +15,10 @@ const lanternGlow = [];   // where each lantern's light is (lanterns.js): the gr
 // and the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame and the hammock's
 // near post up to the big tree behind the fire
 const LANTERN_LAYOUT = lanternLayout(LANTERN_TIES);
-// CAMP: the camp layout in the names sloths.js, operator.js, audio.js and radio.js know, built from layout.js's own vectors (the same objects, no
-// copies). sloths.js adds .sloths to it. (It also carried the lantern strings' points, which nothing read: review props-08.)
+// CAMP: the camp layout in the names operator.js, audio.js and radio.js know, built from layout.js's own vectors (the same objects, no
+// copies). sloth/hooks.js adds .sloths to it. (It also carried the lantern strings' points, which nothing read: review props-08.)
 const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
-window.__camp = CAMP;   // alias: sloths.js, operator.js, audio.js and radio.js read it; props/shadow/export_casters.cjs exports tent and hammock
+window.__camp = CAMP;   // alias: operator.js, audio.js and radio.js read it; props/shadow/export_casters.cjs exports tent and hammock
 // blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking
 // (.walk, player.js): the fire ring stops you at its stones, and each log seat is a thin capsule along the log, so there is
 // a ring to walk round the fire between them (Adriaen 2026-11-13: the old circles walled the fire in)
@@ -125,7 +125,7 @@ if (LIVED) {
   LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
   const o = LD.scene; o.position.copy(LAUNDRY.mid); o.rotation.y = LAUNDRY.yaw; scene.add(o);
   blockers.push([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
-  window.__laundry = LAUNDRY;   // alias: sloths.js reads the line (layout.js LAUNDRY), only when it is shown; props/shadow/export_casters.cjs too
+  window.__laundry = LAUNDRY;   // alias, set only when the line is shown: props/shadow/export_casters.cjs reads it (the sloths import layout.js LAUNDRY)
 }
 // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
 // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one

@@ -1,9 +1,9 @@
 // Canopy Camp sloths, what the rest of the page gets of the camp sloths, on window (the modules that still read these are
 // another branch's to change; the checks in tools/ read them too):
-//   window.__campLife   for the camp's other characters and the player's modules (operator.js, campLife.js, activities.js,
-//                       jeepSeat.js, car.js, linger.js): the places (places.js claim, release, holder, host, join, addMover,
-//                       movers), path(from, to), lend and giveBack (lend.js), sloths (the named ones), eatGift (gifts.js)
-//   window.__lab        labApi, what the move lab drives (lab.js imports it): each move on its own
+//   window.__campLife   for the camp's other characters and the player's modules (operator.js, input.js and jeepSeat.js
+//                       read it): the places (places.js claim, release, holder, host, join, addMover, movers),
+//                       path(from, to), lend and giveBack (lend.js), sloths (the named ones), eatGift (gifts.js)
+//   window.__lab        labApi, what the move lab drives (lab.js imports it; the global is for checks): each move on its own
 //   window.__spots, __sloth(i), __errand(name), __path(from, to)   for checks; window.__camp.sloths (campProps.js CAMP)
 //   addHooks()          sets them all (sloths.js, once the camp sloths are built); nothing is set with ?campsloths=0
 import { CAMP } from "../campProps.js";

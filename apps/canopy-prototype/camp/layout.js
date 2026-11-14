@@ -80,7 +80,7 @@ export const CRATE = (() => { const at = V(4.55, 0, 1.7); return { at, yaw: faci
 export const SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };   // the soup's surface in the pot over the fire; atmosphere.js lets steam rise off all of it
 // the laundry line (build_laundry.py): two forked sticks east of the fire, between the table and the tent. A and B are
 // roughly where the line is tied; it is 3 m post to post. a, b: its ends; sag at the middle; hang: the gap kept free for a
-// sloth (t = 0.42 along it); dir: a to b. posts: the sticks' feet. sloths.js reads a, b, sag, hang and dir (window.__laundry).
+// sloth (t = 0.42 along it); dir: a to b. posts: the sticks' feet. The sloths (sloth/poses.js, sloth/spots.js, swing.js) read a, b, sag, hang and dir.
 export const LAUNDRY = (() => {
   const A = V(1.3, 0, 4.3), B = V(4.0, 0, 3.0), mid = A.clone().lerp(B, 0.5), yaw = Math.atan2(-(B.z - A.z), B.x - A.x);
   const dir = B.clone().sub(A).normalize(), L = 3.0, t = 0.42;
