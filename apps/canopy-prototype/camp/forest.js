@@ -155,8 +155,16 @@ for (const [k, c] of HERO.entries()) {
     curve.points.forEach((q) => q.add(V(c.x, 0, c.z))); curve.updateArcLengths(); curve.low = low; branchCurves.push(curve);
   }
   // lianas from the low branches down to the ground
+  // each hangs from a point on its branch to the ground, never over or onto a path (Adriaen 2026-11-14:
+  // the glade tree's vines came down onto the path). One draw from the seeded stream per liana as before, so nothing else moves;
+  // if that point would land on a path, the next points along the branch are tried, and with none clear the liana is left out
   for (let i = 0; i < 3; i++) {
-    const b = branchCurves[branchCurves.length - 9 + i], p0 = b.getPointAt(R(0.55, 0.95)), p1 = p0.clone().multiplyScalar(1.08), _y = p1.setY(groundHeight(p1.x, p1.z)), mid = p0.clone().lerp(p1, 0.5).addScaledVector(V(p0.x, 0, p0.z).normalize(), 0.4);
+    const b = branchCurves[branchCurves.length - 9 + i], t0 = R(0.55, 0.95), out = (q) => V(q.x - c.x, 0, q.z - c.z).normalize();
+    const first = (() => { const p0 = b.getPointAt(t0), p1 = p0.clone().multiplyScalar(1.08); p1.setY(groundHeight(p1.x, p1.z)); return [p0, p1, V(p0.x, 0, p0.z).normalize().multiplyScalar(0.4)]; })();   // as it always was
+    const land = (t) => { const p0 = b.getPointAt(t), p1 = p0.clone().addScaledVector(out(p0), 0.35); p1.setY(groundHeight(p1.x, p1.z)); return [p0, p1, out(p0).multiplyScalar(0.25)]; };
+    const pick = [first, ...[0.95, 0.85, 0.75, 0.65, 0.55, 0.45, 0.35].map(land)].find(([p0, p1]) => pathLane(p1.x, p1.z) > 1.4 && pathLane(p0.x, p0.z) > 1.1 && jeepDist(p1.x, p1.z) > 1.8);   // neither its foot nor where it hangs from over a path
+    if (!pick) continue;
+    const [p0, p1, bow] = pick, mid = p0.clone().lerp(p1, 0.5).add(bow);
     woodGeos.push(bake(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 8, 0.025, 3), 0, 7));
   }
 }
@@ -242,15 +250,19 @@ for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = M
 const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump);
 {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
-  for (const [x, y, z, r] of clumps) for (let k = 0; k < perClump; k++) {
+  const none = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (const [x, y, z, r] of clumps) { const from = i; let cut = false; for (let k = 0; k < perClump; k++) {
     const tight = LOOK === "moss" && y > 4 ? 0.6 : 1;                  // up in the crowns: leaves packed close and bigger, so they overlap into a mass
     const u = V(R(-1, 1), R(-0.5, 0.8) * (tight < 1 ? 0.7 : 1), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()) * tight);
     e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
     const s = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 / tight : r * 0.9) * Math.pow(D.leaves, -0.33);
     const k0 = y + u.y < 4.5 && Math.min(jeepDist(x + u.x, z + u.z), pathLane(x + u.x, z + u.z)) < 1.9 ? 0 : s;   // keep the track and the path open at eye height
+    if (!k0) cut = true;
     m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); leaves.setMatrixAt(i, m);
     leaves.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
+  // a clump the path or track clipped goes as a whole: its last few leaves left alone looked like they floated (Adriaen 2026-11-14)
+  if (cut) for (let j = from; j < i; j++) leaves.setMatrixAt(j, none); }
 }
 addSectors(leaves);
 // crowns on branches: a forked limb from the trunk into every leaf clump, and a spreading crown of limbs, twigs and leaves on
