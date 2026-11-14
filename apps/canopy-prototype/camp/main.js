@@ -69,7 +69,6 @@ createDaylight();                      // daylight.js: the mist banks, and the m
 // ================================================================ loop, with an fps panel and a resolution safety net
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 addEventListener("resize", resize); resize();
-camera.far = 80;
 if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }   // ?pos=, ?yaw=, ?pitch=: the start view (core.js OPT)
 if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
 const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;

@@ -134,7 +134,8 @@ const PRE = {
 };
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(S.fog[0], S.fog[1]);
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 60);
+// far 80 m: from the end of the jeep's track, about 30 m out, the backdrop on the far side of the camp is 60 m away (review R2-179)
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 80);
 scene.add(new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
