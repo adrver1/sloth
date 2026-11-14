@@ -370,8 +370,7 @@ def make():
     fire_o, emb = fire(M)
     pot_o, peak = pot(M)
     objs = [ring_o, trip, fire_o, emb, pot_o]
-    for o in objs:
-        apply_all(o)
+    for o in objs:                             # each is joined from parts (join() applied them): at the fire's origin
         o.location = (0, 0, 0)
     ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
     return {o.name: o for o in objs + [ch, tripod_legs()]}

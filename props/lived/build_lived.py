@@ -738,9 +738,8 @@ def make(samples=32):
     its own origin. No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
     M = materials()
     made = {name: fn(M, samples) for name, fn, _, _ in PROPS}
-    for k in BAKED:                           # the baked props are built from parts: apply them at the origin
+    for k in BAKED:                           # the baked props are joined from parts (join() applied them): at the origin
         o = made[k]
-        apply_all(o)
         o.location = (0, 0, 0)
         o.name = k
     return {k: made[k] for k in BAKED + TEXTURED}

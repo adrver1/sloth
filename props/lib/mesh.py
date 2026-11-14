@@ -1,13 +1,13 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
-drop_faces, capless), and object plumbing (apply_all, join, obj_from_bm). Z up, metres; every helper links what it
+drop_faces, capless), and object plumbing (apply_all, join, obj_from_bm, select_only). Z up, metres; every helper links what it
 makes into the current scene's collection and returns it.
 """
 import math
 
 import bpy
 import bmesh
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 
 def with_material(o, m, smooth=True):
@@ -124,26 +124,54 @@ def capless(o, a, b, keep_end=True):
     return o
 
 
-def apply_all(o):
-    """Apply o's modifiers, rotation and scale (o becomes the only selected, active object)."""
-    bpy.ops.object.select_all(action="DESELECT")
+def select_only(o):
+    """Make o the only selected object and the active one (without the select_all operator, which walks every object)."""
+    for s in list(bpy.context.view_layer.objects.selected):
+        s.select_set(False)
     o.select_set(True)
     bpy.context.view_layer.objects.active = o
+
+
+def _plain(o):
+    """True when o's transform can be written into its mesh directly: no modifiers, no parent, no delta transforms, no
+    shape keys or custom normals, a mesh no other object uses, and no mirroring (a negative scale flips the faces)."""
+    me = o.data
+    return (not o.modifiers and o.parent is None and me.users == 1 and me.shape_keys is None and not me.has_custom_normals
+            and tuple(o.delta_scale) == (1, 1, 1) and not any(o.delta_rotation_euler) and tuple(o.delta_rotation_quaternion) == (1, 0, 0, 0)
+            and o.matrix_basis.to_3x3().determinant() > 0)
+
+
+def _apply(o, location):
+    """Write o's rotation and scale (and its location when location is True) into its mesh. A plain object (_plain) is
+    done through the mesh API, and returns at once when there is nothing to apply; any other goes through the operators."""
+    select_only(o)
+    if o.type == "MESH" and _plain(o):
+        m = o.matrix_basis.copy() if location else o.matrix_basis.to_3x3().to_4x4()
+        if m != Matrix.Identity(4):
+            o.data.transform(m)
+            o.matrix_basis = Matrix.Identity(4) if location else Matrix.Translation(o.location)
+            bpy.context.view_layer.update()            # so matrix_world is current, as after the operator
+        return
     for mod in list(o.modifiers):
         bpy.ops.object.modifier_apply(modifier=mod.name)
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    bpy.ops.object.transform_apply(location=location, rotation=True, scale=True)
+
+
+def apply_all(o):
+    """Apply o's modifiers, rotation and scale (o becomes the only selected, active object). Cheap when there is nothing
+    to apply, so calling it on an object that join() already applied costs nothing (review R2-237)."""
+    _apply(o, False)
 
 
 def join(objs, name):
     """Join objs into one object called name, with every transform applied (it keeps objs[0]'s mesh)."""
     for o in objs:
         apply_all(o)
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
+    select_only(objs[0])
+    for o in objs[1:]:
         o.select_set(True)
-    bpy.context.view_layer.objects.active = objs[0]
     bpy.ops.object.join()
     o = bpy.context.object
     o.name = name
-    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    _apply(o, True)
     return o

@@ -66,7 +66,6 @@ import build_lived  # noqa: E402
 from lib.bake import flat_colours, pick_device  # noqa: E402
 from lib.audit import audit  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
-from lib.mesh import apply_all  # noqa: E402
 
 
 # where the page stands each prop and light (step 2 uses it): checked before the minutes of building in step 1
@@ -125,7 +124,7 @@ PLACE = {
 reset()
 objs = build_camp.picked()
 for name, o in objs.items():
-    apply_all(o); o.location = (0, 0, 0)
+    o.location = (0, 0, 0)                            # each is joined from parts (join() applied them)
     n = build_camp.BUDGET["picked"].get(name); t = tris(o)
     if n and t > n:
         bpy.context.view_layer.objects.active = o

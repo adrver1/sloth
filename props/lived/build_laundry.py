@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, join, obj_from_bm, rod  # noqa: E402
+from lib.mesh import join, obj_from_bm, rod  # noqa: E402
 
 L = 3.0            # post to post
 H = 1.62           # where the line is tied on the posts
@@ -143,8 +143,7 @@ def make():
     and LaundryCloth (textured). No reset, no light, no export."""
     img = os.path.join(HERE, "laundry.png")
     atlas(img)
-    po = posts()
-    apply_all(po)
+    po = posts()                               # joined, so its transforms are already applied
     return {"LaundryPosts": po, "LaundryCloth": cloth(img)}
 
 
