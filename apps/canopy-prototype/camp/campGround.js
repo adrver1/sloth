@@ -6,7 +6,7 @@
 // Exports buildGround(mask): main.js calls it once, after the props, the sloths, the deadwood and the glade stand and before
 // the tent's walls join the blockers, since the worn dirt is painted round the blockers as they are then; it makes groundLife
 // (exported and returned); and shadowStep(), which main.js calls each frame to re-cast the sun shadows
-// while the props load.
+// when the casters change in the first half minute.
 import { createGround } from "../ground.js";
 import { D, JEEP, S, renderer, scene, uTime } from "./core.js";
 import { FLOOR_OVERLAYS, grassTex, track, trackDist } from "./forest.js";
@@ -32,8 +32,9 @@ function buildGround(baked) {
   return groundLife;
 }
 
-// sun shadows (ground.js castShadows): re-cast whenever the props in the clearing change, checked each second for the first
-// half minute while they load. main.js calls it each frame, just before it draws.
+// sun shadows (ground.js castShadows): re-cast whenever the number of casters in the clearing changes, checked each second
+// for the first half minute. Every prop is awaited before the first frame (main.js), so this is a guard for a caster added
+// later, not a wait for the props. main.js calls it each frame, just before it draws.
 let shadowTick = -1, shadowN = -1;
 function shadowStep() {
   if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }

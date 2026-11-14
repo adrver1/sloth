@@ -103,7 +103,7 @@ renderer.setAnimationLoop(() => {
   motesStep(dt);
   atmo.update(dt, uTime.value, dusk);
   audioStep(dt, dusk); radioStep(dt);
-  shadowStep();                                            // campGround.js: the sun shadows, re-cast while the props load
+  shadowStep();                                            // campGround.js: the sun shadows, re-cast if the casters change early on
   renderer.render(scene, camera);
   frames++; acc += raw;
   if (acc >= 1) {

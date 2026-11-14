@@ -1,5 +1,5 @@
-// Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize; and the things
-// you can use: which one lights up (highlight.js) and the pill menu a tap on it opens.
+// Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, a tap that opens a menu (on a sloth: boop, feed or
+// give), a hold on a sloth that feeds it, and resize; and the things you can use: which one lights up (highlight.js) and the pill menu a tap on it opens.
 // The things themselves are tap targets (targets.js), added by the modules that own them; input.js adds the sloths.
 // Exports initInput() (main.js, once), aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) (debug.js) and resize() (main.js).
 import * as THREE from "three";

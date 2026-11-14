@@ -52,7 +52,7 @@ function edgeOf(obj, c, u, minY) {                    // how far from c along u 
 const topAt = (obj, p) => { ray.set(V(p.x, 3, p.z), DOWN); ray.far = 4; return ray.intersectObject(obj, true)[0]?.point.y ?? 0; };
 function pois() {                                   // two places on the table (its two ends) and two at the crate
   if (POIS) return POIS;
-  const kc = scene.getObjectByName("KitchenCrate");   // (the lived-in props come in a moment after the rest)
+  const kc = scene.getObjectByName("KitchenCrate");   // a crate not where layout.js puts it: no places yet, ask again later
   if (kc && kc.getWorldPosition(tmp).distanceTo(CRATE.at) > 0.3) return [];
   POIS = [];
   for (const [name, obj, c, minY, n] of [["table", scene.getObjectByName("Table"), TABLE.at, 0.5, 2], ["crate", scene.getObjectByName("KitchenCrate"), CRATE.at, 0.15, 2]]) {
