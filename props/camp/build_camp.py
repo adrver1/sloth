@@ -350,9 +350,11 @@ def rustic_lantern(M):
     return join(p, "Lantern")
 
 
-def rustic_table(M):
+def rustic_table(M, bowl=False):
     """The snack table (picked), trimmed (camp review 2026-11-12, about 190 triangles): two 8-sided stumps with no caps
-    (the top hides theirs), four plain plank boxes, a tin mug and a plate of three tomatoes."""
+    (the top hides theirs), four plain plank boxes, a tin mug and a plate of three tomatoes. With bowl=True (the picked
+    set) the plate and its tomatoes are their own object, "FruitBowl", a child of the Table at the same origin, so the
+    page can light up just the plate (review R2-159); the archived rustic style keeps them joined into the Table."""
     p = []
     for s in (-1, 1):
         leg = rough_up(cyl(0.2, 0.62, at=(s * 0.45, 0, 0.31), m=M["bark"], verts=8, smooth=False), 0.012, 10)
@@ -360,11 +362,15 @@ def rustic_table(M):
     for k in range(4):
         p.append(box((1.3, 0.17, 0.05), at=(0, (k - 1.5) * 0.18, 0.645), m=M["wood"]))
     p.append(drop_faces(cyl(0.05, 0.1, at=(0.3, 0.1, 0.72), m=M["tin"], verts=8, smooth=False), lambda f: f.normal.z < -0.9))
-    p.append(drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda f: f.normal.z < -0.9))
+    fruit = [drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda f: f.normal.z < -0.9)]
     for k in range(3):
         bpy.ops.mesh.primitive_ico_sphere_add(radius=0.045, subdivisions=1, location=(-0.25 + k * 0.05, -0.05 + 0.02 * (k % 2), 0.74))
-        p.append(with_material(bpy.context.object, M["red"], smooth=False))
-    return join(p, "Table")
+        fruit.append(with_material(bpy.context.object, M["red"], smooth=False))
+    if not bowl:
+        return join(p + fruit, "Table")
+    table, plate = join(p, "Table"), join(fruit, "FruitBowl")
+    plate.parent = table                               # both origins are at the world origin, so its local transform stays identity
+    return table, plate
 
 
 def rustic():
@@ -660,12 +666,13 @@ def picked():
     """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent like his photos with loose
     planks before the door; the jungle woven hammock, on plain octagon posts with painted nodes and no leaves on top.
     The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
-    made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent)."""
+    made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent). "FruitBowl" is
+    the plate of tomatoes, a child of "Table" (review R2-159): whoever places the Table moves it too."""
     R, J = rustic_mats(), jungle_mats()
-    seat, lantern, table = rustic_seat(R), rustic_lantern(R), rustic_table(R)
+    seat, lantern, (table, bowl) = rustic_seat(R), rustic_lantern(R), rustic_table(R, bowl=True)
     hammock = jungle_hammock(J, plain_posts=True)
     hammock["coarse"] = True                    # Adriaen 2026-11-11: the densified cloth was ~7k triangles
-    return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Lantern": lantern, "Table": table}
+    return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Lantern": lantern, "Table": table, "FruitBowl": bowl}
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): after the AO bake, a collapse

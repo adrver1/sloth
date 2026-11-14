@@ -24,7 +24,7 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
    Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
    Thin double-sided cards (laundry, chain) take the brighter of their two sides.
    COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
-4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
+4. Writes props/camp/camp_picked_lm.glb (the Table with its plate of tomatoes, FruitBowl, as a child), props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
    the page places them as before; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt copies, and
    apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png.
 Where each prop and light stands comes from the page itself: the "place" block the layout step (export_casters.cjs)
@@ -143,6 +143,7 @@ for i, (x, z, yaw) in enumerate(seat_at):
 picked.append(place(objs["Tent"], "Tent", *TENT, copy=False))
 picked.append(place(objs["Hammock"], "Hammock", *HAMMOCK, copy=False))
 picked.append(place(objs["Table"], "Table", *TABLE, copy=False))
+picked.append(objs["FruitBowl"])               # the plate, a child of the Table (review R2-159): it moves with it, baked and exported with it
 bpy.data.objects.remove(objs["Seat"]); bpy.data.objects.remove(objs["Lantern"])
 
 

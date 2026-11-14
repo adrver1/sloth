@@ -3,7 +3,7 @@
 // it. You carry one thing at a time. This file is the list of things you can tap: where each is, when a tap does something,
 // what it does, what the tap menu calls it and what to say when it does not apply. The work behind them is in activities/:
 // carry.js (what you hold, and putting it back), fireChore.js (logs on the fire), soupChore.js (the pot, the pail, the bowls
-// on the seats), fruitBowl.js (the fruit plate cut off the table model) and parts.js (the shared geometry and names).
+// on the seats), fruitBowl.js (the fruit plate, the table model's FruitBowl child) and parts.js (the shared geometry and names).
 // It knows the camp only through what camp/chores.js hands it (the places, the props that light up, the fire's boost);
 // camp/input.js passes taps in and camp/main.js calls update() each frame.
 // Exports createActivities(camp): { pick(ray), tap(hit), ready(thing), update(dt, time), things, held, burning, level(),
@@ -83,7 +83,7 @@ export function createActivities({ scene, camera, me, places: { woodPile, fire, 
   // the kitchen crate: one vegetable at a time, a different one each time
   if (crate) thing({ name: "crate", at: crate, r: 0.4, look: looks.crate ?? null, ...source("veg", () => { const [n, e] = carry.takeNext("veg"); toast(`Got a ${n} ${e}`, "knock"); }),
     label: () => { const [n, e] = held() === "veg" ? carry.now("veg") : carry.next("veg"); return held() === "veg" ? `Put the ${n} back ${e}` : `Take a ${n} ${e}`; } });
-  // the fruit plate on the snack table (split off the Table model, activities/fruitBowl.js): one fruit at a time to give to a
+  // the fruit plate on the snack table (the Table's FruitBowl child, activities/fruitBowl.js): one fruit at a time to give to a
   // sloth or the operator (Adriaen 2026-11-13: veg from the crate, fruit from the fruit bowl)
   const tableObj = scene.getObjectByName("Table");
   const fruitBowl = tableObj && splitBowl(tableObj);
