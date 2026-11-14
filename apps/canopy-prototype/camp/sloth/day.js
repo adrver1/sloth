@@ -18,14 +18,14 @@ import { rng, scene } from "../core.js";
 const { R } = rng("sloths");
 import { V, yawFrom } from "../util.js";
 import { RC } from "../layout.js";
-import { bedKey, claim, holder, hosted, join, release, seatKey, seatLog, taken } from "../places.js";
+import { bedKey, claim, holder, hosted, join, seatKey, seatLog, taken } from "../places.js";
 import { CRAWL, MAX_OUT, camp, guests } from "./state.js";
-import { releaseHome } from "./spots.js";
+import { moveBack, moveInto, releaseHome } from "./spots.js";
 import { play } from "./clips.js";
 import { yawQ } from "./poses.js";
 import { glide } from "./moves.js";
 import { isFree, walkTo } from "./walk.js";
-import { doze, napStep } from "./naps.js";
+import { doze, napStep, wakeUp } from "./naps.js";
 import { pois } from "./table.js";
 import { startEat } from "./eating.js";
 import { startCards } from "./cards.js";
@@ -42,16 +42,15 @@ function wanderPoint() {
 function leave(s) {
   if (s.gift?.clip) { scene.remove(s.gift.mesh); s.gift = null; s.once = null; }   // never left eating: the eat clip's end would never come
   const spot = s.spot; spot.home = false; s.trip = { phase: "glide", t: 0, yaw: 0 }; releaseHome(s);
-  if (s.asleep) { s.asleep = false; s.eyes(false); }
-  s.dozing = false; s.yawn = 0; s.roused = null; if (s.mouth) s.mouth.visible = false;
+  wakeUp(s); s.yawn = 0; s.roused = null; if (s.mouth) s.mouth.visible = false;
   exitSpot(s, () => errand(s));
 }
 const fed = (s) => () => { R(0, 1) < 0.35 ? wander(s) : goHome(s); };   // after a meal: a wander, or home
 function errand(s) {                                // a place at the table or the crate with a fruit there (or a wander)
   const bowl = s.food; s.food = null;               // a bowl is for this errand only: one it does not go to is forgotten
-  if (s.ownSpot) { release(s.spot.key, s); s.spot.who = null; s.spot = s.ownSpot; s.ownSpot = null; return goHome(s); }   // back from a nap trip
+  if (s.ownSpot) { moveBack(s); return goHome(s); }   // back from a nap trip
   if (s.cardsTo) { const slot = s.cardsTo; s.cardsTo = null; walkTo(s, slot.p, () => { startEat(s, slot, () => goHome(s)); s.trip.cards = true; }); s.trip.slot = slot; return; }   // trip.slot: lend() frees it
-  if (s.napTo) { const g = s.napTo; s.napTo = null; claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; return goHome(s); }
+  if (s.napTo) { const g = s.napTo; s.napTo = null; moveInto(s, g); return goHome(s); }
   const want = s.wantFood; s.wantFood = false;   // the lab's Get food
   if (!want && !bowl && R(0, 1) < 0.3 && napTrip(s)) return;
   if (bowl) {                                       // a bowl you set down (activities' "camp-food"): eat from it there
@@ -95,7 +94,7 @@ function napTrip(s) {                               // a cozy place free (or sha
   const h = holder(pick.key);
   if (h && camp.includes(h)) return false;
   if (h) { walkTo(s, pick.via ?? pick.door, () => { if (!join(pick.key, s)) goHome(s); }); return true; }   // he's in it: ask to join him
-  claim(pick.key, s); s.ownSpot = own; s.spot = pick; pick.who = s;
+  moveInto(s, pick);
   goHome(s); return true;
 }
 function homeStep(s, sd, spot, out) {

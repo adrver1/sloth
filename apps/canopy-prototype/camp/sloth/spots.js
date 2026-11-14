@@ -8,6 +8,8 @@
 //                   bed. Called once the named sloths are in their spots (it copies the spots as they are then).
 //   claimHome(s), releaseHome(s)   s takes, or gives up, the place its spot is in the camp's registry (places.js), e.g.
 //                   "seat:Sunny" or "jeep:Mango"; the seat's sloth holds its log too ("log:0"), so no one else sits there
+//   moveInto(s, g), moveBack(s)    a nap trip: s claims the guest spot g and makes it its spot (its home kept as
+//                   s.ownSpot); and gives it up and has its own home again (day.js, saved.js)
 //   hammock         the hammock's swing (swing.js makeHammockSwing), with zz for its napper's z's (naps.js)
 //   brush           brush(p, on, dt): the laundry swings aside where a sloth passes (swing.js); null without the line
 // A spot: { name, parent (the group it is local to), at, yaw, clip (what it plays there), scale (its size there), door (the
@@ -109,5 +111,8 @@ function buildGuests() {
 
 const claimHome = (s) => { claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") claim(seatKey(0), s); };
 const releaseHome = (s) => { release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") release(seatKey(0), s); };
+// a nap trip: s claims the guest spot g and lives there for now, its own home kept as s.ownSpot; and back to its own home
+const moveInto = (s, g) => { claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; };
+const moveBack = (s) => { release(s.spot.key, s); s.spot.who = null; s.spot = s.ownSpot; s.ownSpot = null; };
 
-export { brush, buildGuests, buildSpots, claimHome, hammock, releaseHome };
+export { brush, buildGuests, buildSpots, claimHome, hammock, moveBack, moveInto, releaseHome };

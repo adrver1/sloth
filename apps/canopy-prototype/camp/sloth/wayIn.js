@@ -36,7 +36,7 @@ function placeHome(s) {                             // straight into its spot, a
     const P = spot.line ? linePose(s, spot.t) : underAt(s, spot.curve.getPointAt(spot.t), spot.curve.getTangentAt(spot.t));
     s.o.position.copy(P.p); s.o.quaternion.copy(P.q);
   } else {
-    spot.parent.add(s.o); s.o.position.copy(spot.at); s.o.quaternion.setFromAxisAngle(UP, spot.yaw);
+    spot.parent.add(s.o); s.o.position.copy(spot.at); s.o.quaternion.copy(yawQ(spot.yaw));
     play(s, spot.clip, 0.01);
   }
   atHome(s, true);

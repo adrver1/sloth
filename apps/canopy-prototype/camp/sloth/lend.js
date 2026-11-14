@@ -9,7 +9,7 @@ const { R } = rng("sloths");
 import { release } from "../places.js";
 import { camp } from "./state.js";
 import { play } from "./clips.js";
-import { UP } from "./poses.js";
+import { yawQ } from "./poses.js";
 import { quitGame } from "./cards.js";
 import { stopSmore } from "./smore.js";
 import { wakeUp } from "./naps.js";
@@ -25,8 +25,8 @@ function lend(s, who, opt = {}) {
 }
 function giveBack(s, at, yaw) {
   if (s.trip?.phase !== "held") return;
-  if (s.asleep) { s.asleep = false; s.eyes(false); }
-  scene.attach(s.o); s.o.position.set(at.x, 0, at.z); s.o.quaternion.setFromAxisAngle(UP, yaw); s.o.scale.setScalar(s.sc);
+  if (s.asleep) wakeUp(s);   // it slept on in his arms
+  scene.attach(s.o); s.o.position.set(at.x, 0, at.z); s.o.quaternion.copy(yawQ(yaw)); s.o.scale.setScalar(s.sc);
   s.trip = { phase: "rest", t: 0, yaw, dur: R(1.5, 3) }; play(s, "idle", 0.6);
 }
 
