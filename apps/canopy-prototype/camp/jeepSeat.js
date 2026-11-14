@@ -11,8 +11,7 @@
 // The seats join the jeep's API (jeep.js jeepApi, the object window.__jeep names too): sit(side) / stand() / seatedIn()
 // ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks, and doorOptions(d),
 // which gives input.js each front door's Get in / Get out. Exports jeepSeatStep (main.js, each frame).
-// Two globals stay, both owned by sloths.js, which the clean-up has not reached yet: window.__campLife (it does not export its
-// life yet) and window.__campFast (the checks' speed-up, core.js lists it).
+// The claims go through the sloths' camp life (sloth/hooks.js campLife); window.__campFast is the checks' speed-up (core.js lists it).
 import * as THREE from "three";
 import { uTime } from "./core.js";
 import { V, ease, wrapPi } from "./util.js";
@@ -20,6 +19,7 @@ import { yawFrom, yawTo } from "./actor.js";
 import { jeepApi } from "./jeep.js";
 import { me } from "./player.js";
 import { sloths } from "./sloths.js";
+import { campLife } from "./sloth/hooks.js";
 import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
 
@@ -37,7 +37,7 @@ if (jeep) {
   const W = (v) => jeep.localToWorld(v.clone());
   const fwdYaw = () => { const f = V(0, 0, 1).transformDirection(jeep.matrixWorld); return yawTo(f); };
   const eyeWorld = () => jeep.position.y + S0.y + EYE_UP;
-  const life = () => window.__campLife;
+  const life = () => campLife;
 
   // a sloth in (or getting into or out of) the driver's seat: the jeep sloth at home, a guest napping there, one at the door
   const OUTSIDE = new Set(["walk", "greet", "eat", "rest", "fix", "held"]);

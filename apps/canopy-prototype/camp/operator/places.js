@@ -1,6 +1,6 @@
 // Canopy Camp operator, the camp's places for him: the free end of each log seat that is not Sunny's, the tent bed, the
 // gaps between the logs at the fire, and the claims that keep him and the sloths out of each other's places (the sloths'
-// life, window.__campLife).
+// life, sloth/hooks.js campLife).
 // Exports SEATS, BED (null until findPlaces has found the tent), findPlaces(), fireGap(from), crateFront() (where he stands
 // at the kitchen crate), freeOf(p, r), freeSeat(), claim(key) and release().
 import * as THREE from "three";

@@ -1,12 +1,12 @@
-// Canopy Camp sloths, what the rest of the page gets of the camp sloths, on window (the modules that still read these are
-// another branch's to change; the checks in tools/ read them too):
-//   window.__campLife   for the camp's other characters and the player's modules: the places (places.js claim, release,
+// Canopy Camp sloths, what the rest of the page gets of the camp sloths:
+//   campLife            for the camp's other characters and the player's modules: the places (places.js claim, release,
 //                       holder, host, addMover, movers), path(from, to), lend and giveBack (lend.js), sloths (the named
-//                       ones), eatGift (gifts.js). operator.js reads all but eatGift, jeepSeat.js claim and release,
-//                       input.js eatGift
-//   window.__lab        labApi, what the move lab drives (lab.js imports it; the global is for checks): each move on its own
+//                       ones), eatGift (gifts.js). operator.js hands it to operator/state.js (all but eatGift), jeepSeat.js
+//                       uses claim and release, input.js eatGift. window.__campLife is the same object, for the checks
+//   labApi              what the move lab drives (lab.js imports it; window.__lab is the same object, for checks): each move on its own
 //   window.__spots, __sloth(i), __errand(name), __path(from, to)   for checks
-//   addHooks()          sets them all (sloths.js, once the camp sloths are built); nothing is set with ?campsloths=0
+//   addHooks()          makes them all (sloths.js, once the camp sloths are built); both exports stay undefined and nothing
+//                       is set on window with ?campsloths=0
 import { addMover, claim, holder, host, movers, release } from "../places.js";
 import { GROUND, camp, guests, sloths, spots } from "./state.js";
 import { clipOf, homeClip, play, playOnce } from "./clips.js";
@@ -18,9 +18,9 @@ import { eatGift } from "./gifts.js";
 import { goHome, leave, wander } from "./day.js";
 import { giveBack, lend } from "./lend.js";
 
-let labApi;   // undefined with ?campsloths=0
+let labApi, campLife;   // undefined with ?campsloths=0
 function addHooks() {
-  window.__campLife = { claim, release, holder, addMover, host, movers, path: (from, to) => findPath(from, to), lend, giveBack, sloths: camp, eatGift };
+  campLife = window.__campLife = { claim, release, holder, addMover, host, movers, path: (from, to) => findPath(from, to), lend, giveBack, sloths: camp, eatGift };
   window.__spots = spots; window.__sloth = (i) => sloths[i];
   window.__errand = (name) => { const s = camp.find((q) => q.name === name); if (s && s.trip.phase === "home") { s.wantFood = true; leave(s); } return s; };
   window.__path = findPath;
@@ -34,4 +34,4 @@ function addHooks() {
     yawn: (s) => { s.yawn = 1e-3; }, stretch: (s) => { const [c, ts] = homeClip(s); playOnce(s, "stretch", 1.2, () => play(s, c, 1.5, ts)); } };
 }
 
-export { addHooks, labApi };
+export { addHooks, campLife, labApi };

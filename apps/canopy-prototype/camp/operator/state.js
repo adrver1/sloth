@@ -2,10 +2,14 @@
 // hands, which sloth is with him, what he is saying and how long until he may do some things again. Every field is named
 // here with its starting value; the activity scripts and the per-frame steps read and write it, and audio.js and the
 // checks read it through opApi.op. The two resets (hands, body) are here too, so no script clears fields by hand.
-// Exports op, reset(part), life() (the sloths' shared camp life, window.__campLife) and his name and size in it.
+// Exports op, reset(part), life() and useLife(l) (the sloths' shared camp life) and his name and size in it.
 const ME = "operator", RADIUS = 0.3;                   // his name for claims and loans, and his radius as a mover
-// the camp he shares with the sloths (camp/sloths.js; it has no export yet): claims on places, movers, loans of a sloth
-const life = () => window.__campLife || {};
+// the camp he shares with the sloths (sloth/hooks.js campLife): claims on places, movers, loans of a sloth; {} without the
+// camp sloths. operator.js hands it over with useLife: this module is evaluated before the sloths' (it imports nothing), and
+// importing sloth/hooks.js here would move the sloths' modules earlier in the build.
+let campLife = null;
+const life = () => campLife || {};
+const useLife = (l) => { campLife = l; };
 
 const op = {
   // his day: what he is doing ("start" until the first pick, "idle" between), what the checks asked for next, what he did last
@@ -43,4 +47,4 @@ const RESET = {
 };
 const reset = (part) => Object.assign(op, RESET[part]);
 
-export { ME, RADIUS, life, op, reset };
+export { ME, RADIUS, life, op, reset, useLife };

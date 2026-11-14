@@ -5,7 +5,7 @@
 //   3. the atmosphere (campAir.js)
 //   4. your chores (chores.js)
 // Exports acts, atmo, groundLife and shadowStep (campGround.js's), which main.js steps each frame. Nothing to do with
-// window.__campLife, which is sloths.js's API for who is where; main.js imports from here, so the name stays for now.
+// sloth/hooks.js campLife, the sloths' API for who is where; main.js imports from here, so the name stays for now.
 import { PRE } from "./core.js";
 import { buildGround, shadowStep } from "./campGround.js";
 import { buildTentInside } from "./tentInside.js";

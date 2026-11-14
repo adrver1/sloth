@@ -4,7 +4,7 @@
 //                            clearing, or on its log or jeep seat) it plays eat, its paw takes the food out of the air and
 //                            it bites it smaller, and its day carries on after: returns "eat". Anywhere else (walking,
 //                            hanging, in bed, held) the food flies to its paw and it munches it: returns "munch".
-//                            (window.__campLife.eatGift: input.js give())
+//                            (campLife.eatGift, sloth/hooks.js: input.js give())
 //   giftStep(s)              each frame while it eats a gift with the eat clip: the food floats to its paw, then the chewing
 //   giftFly(s, dt)           each frame otherwise: its right paw comes up (arms.js giftArm), the food flies into it, the
 //                            paw lifts it to its lips and it shrinks a bite at a time while the mouth munches (Adriaen
