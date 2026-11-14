@@ -11,3 +11,4 @@ props/jeep/preview_*.png
 shots/
 package-lock.json
 props/lived/*_preview.glb
+props/camp/out/
