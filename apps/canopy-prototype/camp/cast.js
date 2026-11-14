@@ -1,4 +1,4 @@
-// Canopy Camp's seven named sloths (activities plan, "The seven sloths"; picked on names-prototype.html): each one's name,
+// Canopy Camp's seven named sloths (docs/plans/canopy-camp-activities.md, "The seven sloths"; picked on names-prototype.html): each one's name,
 // trait, favourite snack and how to dress it. dress(head, root) hangs the trait off the head bone (the cape off the body
 // bone); call it after furify. Ported from names-prototype.html, where the traits were tried out side by side.
 // sloths.js reads name, scale and dress. trait and fav are shown nowhere in the camp yet: they are kept for a menu that
