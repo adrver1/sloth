@@ -13,7 +13,7 @@ import { D, S, scene, sun } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
 import { GLADE, GLADE_R, HERO, RC, pathLane, sloPath } from "./layout.js";
 import { blockers, rayMat } from "./campProps.js";
-import { cards, clumpN, leafGeo, leafM, leafScale, perClump, withLeafN } from "./forest.js";
+import { cards, clumpN, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest.js";
 import { groundHeight } from "./terrain.js";
 
 const { R, rnd } = lcg(5150);   // its own fixed stream
@@ -186,21 +186,21 @@ function buildGlade() {
     // in clumps of two or three, as undergrowth grows, filling the flat floor out to where the fog takes over
     for (let tries = 0, groups = 0; tries < 800 && groups < Math.round(16 * Math.min(k, 1.2)); tries++) {
       const c = at(R(GLADE_R + 1.8, GLADE_R + 7.5), R(-Math.PI, Math.PI));
-      if (off(c.x, c.z) || B.some((b) => Math.hypot(b[0] - c.x, b[2] - c.z) < 2.6)) continue;
+      if (off(c.x, c.z) || B.some((b) => Math.hypot(b.x - c.x, b.z - c.z) < 2.6)) continue;
       groups++;
       for (let j = 0, n = 2 + (rnd() < 0.5 ? 1 : 0); j < n; j++) { const a = R(0, 6.28), d = j ? R(0.9, 1.4) : 0, x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d;
-        if (!off(x, z)) B.push([x, R(0.25, 0.55) + groundHeight(x, z), z, R(0.65, 1.15)]); }   // on the forest floor's hummocks
+        if (!off(x, z)) B.push({ x, y: R(0.25, 0.55) + groundHeight(x, z), z, r: R(0.65, 1.15) }); }   // on the forest floor's hummocks
     }
-    const per = Math.max(8, Math.round(perClump * 0.75)), nrm = new Float32Array(B.length * cards(per) * 3), n = V();
-    const im = new THREE.InstancedMesh(withLeafN(leafGeo, nrm), leafM, B.length * cards(per)), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
-    for (const [x, y, z, r] of B) for (let j = 0; j < per; j++) {
-      const u = V(R(-1, 1), R(-0.45, 0.55), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()));   // wider than tall
-      e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
-      const sc = R(leafScale[0], leafScale[1]) * 0.85;
-      c.setHex(S.leaf[(j + i) % 4]).multiplyScalar(R(0.7, 0.95));   // every leaf draws its numbers, so the plants after keep their places
-      if (j >= cards(per)) continue;
-      m.compose(V(x + u.x, Math.max(y - 0.25, y + u.y), z + u.z), q, V(sc, sc, sc)); im.setMatrixAt(i, m); im.setColorAt(i, c); clumpN(u, n).toArray(nrm, i * 3); i++;
-    }
+    const per = Math.max(8, Math.round(perClump * 0.75)), keep = cards(per), nrm = new Float32Array(B.length * keep * 3);
+    const im = new THREE.InstancedMesh(withLeafN(leafGeo, nrm), leafM, B.length * keep), m = new THREE.Matrix4(), c = new THREE.Color(), n = V(), p = V(), sc = V();
+    let i = 0;
+    // wider than tall; every leaf draws its colour too, kept or not, so the plants after keep their places
+    scatterLeaves(B, R, () => per, () => [-0.45, 0.55, 1], (b, j, u, q, size) => {
+      c.setHex(S.leaf[(j + i) % 4]).multiplyScalar(R(0.7, 0.95));
+      if (j >= keep) return;
+      m.compose(p.set(b.x + u.x, Math.max(b.y - 0.25, b.y + u.y), b.z + u.z), q, sc.setScalar(size * 0.85));
+      im.setMatrixAt(i, m); im.setColorAt(i, c); clumpN(u, n).toArray(nrm, i * 3); i++;
+    });
     im.name = "GladeBushes"; scene.add(im);
     triCount.bushes = B.length * cards(per) * tris(leafGeo); triCount.bushCount = B.length;
   }

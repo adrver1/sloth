@@ -16,9 +16,11 @@ export const RC = 9;      // the clearing's radius: a round clearing with the ca
 export const FAR = 30;    // the ground mesh's radius (terrain.js, the old forest-floor disc), the backdrop's and the sky dome's
 export const SUN = V(-4, 10, 3);   // the sun light's position (core.js); ground.js renders its live shadows from it
 
-// the big tree at the clearing's edge: A0 is its direction from the fire, d0 that direction as a unit vector, t0 the one
-// across it (d0 turned a quarter left). The camp is laid out in this frame: tent, hammock, table and seats.
-export const A0 = -0.75, d0 = V(Math.cos(A0), 0, Math.sin(A0)), t0 = V(-d0.z, 0, d0.x);
+// the big tree at the clearing's edge, the bearing the camp is laid out by (tent, hammock, table and seats): HERO_ANGLE is
+// its direction from the fire, HERO_DIR that direction as a unit vector, HERO_ACROSS the one across it (HERO_DIR turned a
+// quarter left). A0, d0 and t0 are the short names the older modules still import: the same values.
+export const HERO_ANGLE = -0.75, HERO_DIR = V(Math.cos(HERO_ANGLE), 0, Math.sin(HERO_ANGLE)), HERO_ACROSS = V(-HERO_DIR.z, 0, HERO_DIR.x);
+export const A0 = HERO_ANGLE, d0 = HERO_DIR, t0 = HERO_ACROSS;
 
 // ---------------------------------------------------------------- the sloth tree's path and glade (Adriaen 2026-11-11)
 // the second big tree stands in a small glade about 6 m into the forest; a footpath leaves the clearing between the tent and

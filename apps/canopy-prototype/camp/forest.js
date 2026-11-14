@@ -1,9 +1,9 @@
 // Canopy Camp forest: bark with baked AO and moss, the clearing floor with the path and track ribbons (the layout itself is layout.js),
 // the two big mossy trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants.
 // Exports buildForest() (main.js, once), FLOOR_OVERLAYS, branchCurves (the big trees' low branches), grassTex (the clearing's
-// grass tile, for ground.js), track and trackDist, and leafGeo, leafM, leafScale, perClump, cards(n), clumpN and withLeafN (the
-// leaf card, its material, its size range, how many leaves a clump draws from its stream, how many of n become cards, a leaf's
-// light normal and the card geometry that carries them) for glade.js's bushes.
+// grass tile, for ground.js), track and trackDist, and for glade.js's bushes leafGeo, leafM, perClump, cards(n), scatterLeaves,
+// clumpN and withLeafN (the leaf card, its material, how many leaves a clump draws from its stream, how many of n become cards,
+// the leaf scatter every leafy thing shares, a leaf's light normal and the card geometry that carries them).
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import { D, hex, JEEP, leafMat, OPT, rng, S, scene } from "./core.js";
@@ -15,7 +15,7 @@ import { GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_A, PATH_HALF, RC, TRACK_HALF, pa
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
-function bake(geo, y0, y1) {
+function paintBark(geo, y0, y1) {
   geo.computeVertexNormals();
   const p = geo.attributes.position, n = geo.attributes.normal, col = new Float32Array(p.count * 3), c = new THREE.Color();
   for (let i = 0; i < p.count; i++) {
@@ -66,6 +66,27 @@ function buildForest() {
   ferns();                       // ferns and undergrowth round the clearing
 }
 
+// A ribbon on the floor along a curve (the footpath and the jeep's track and ruts): n segments, half its width either side,
+// y above 0, tex tiled along it every tile metres, alpha(point, metres along, length) per row, drawn in renderOrder order. Wound
+// face up, so it needs no back side. It takes the ground's contact shadow (FLOOR_OVERLAYS, groundLife.shadeOn).
+function ribbon(curve, { n, half, y, tex, alpha, tile, order }) {
+  const pos = [], uv = [], col = [], idx = [], L = curve.getLength();
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), a = alpha(p, t * L, L);
+    for (const k of [-1, 1]) {
+      const q = p.clone().addScaledVector(side, k * half);
+      pos.push(q.x, y, q.z); uv.push((k + 1) / 2, (t * L) / tile); col.push(1, 1, 1, a);
+    }
+    if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
+  tex.wrapT = THREE.RepeatWrapping;
+  const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  mesh.renderOrder = order; scene.add(mesh); FLOOR_OVERLAYS.push(mesh);
+}
+
 function clearingFloor() {
   // ---------------------------------------------------------------- clearing floor
   // the grass tile: ground.js paints the clearing with it (the flat clearing disc it was drawn on is gone)
@@ -74,7 +95,7 @@ function clearingFloor() {
     for (let i = 0; i < 1400; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.2, 0.6); g.lineWidth = 1.5; const x = R(0, w), y = R(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-2, 2), y - R(3, 8)); g.stroke(); }
   });
   grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(6, 6);
-  // the footpath to the glade: one ribbon of trodden earth (1 draw, 80 triangles); the glade's own floor is camp/glade.js
+  // the footpath to the glade: one ribbon of trodden earth (1 draw, 96 triangles); the glade's own floor is camp/glade.js
   {
     const Q = rand;   // texture noise only
     // packed earth, warmer and lighter than the forest floor so it reads from the camp (Adriaen 2026-11-14: "more prominent"): two darker
@@ -87,28 +108,19 @@ function clearingFloor() {
         for (let i = 0; i < 60; i++) { g.fillStyle = ["#cbbd9f", "#9d927f"][i % 2]; g.globalAlpha = Q(0.6, 0.9); g.beginPath(); g.ellipse(Q(w * 0.2, w * 0.8), Q(0, h), Q(1.2, 2.6), Q(1, 2), Q(0, 3), 0, 7); g.fill(); }   // pebbles
         for (let i = 0; i < 26; i++) { g.fillStyle = ["#b8743a", "#d3a24a", "#8a5a2c"][i % 3]; g.globalAlpha = Q(0.6, 0.9); const x = Q(0, 1) < 0.7 ? (Q(0, 1) < 0.5 ? Q(8, 30) : Q(w - 30, w - 8)) : Q(30, w - 30); g.beginPath(); g.ellipse(x, Q(0, h), Q(3, 5), Q(1.4, 2.4), Q(0, 3), 0, 7); g.fill(); }   // fallen leaves, mostly at the sides
       }
-      g.globalAlpha = 1; for (let i = 0; i < 60; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.lineWidth = 2; const x = Q(0, 1) < 0.5 ? Q(4, 22) : Q(w - 22, w - 4), y = Q(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Q(-3, 3), y - Q(5, 11)); g.stroke(); }   // grass at the verges
+      // grass at the verges
+      g.globalAlpha = 1;
+      for (let i = 0; i < 60; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.lineWidth = 2; const x = Q(0, 1) < 0.5 ? Q(4, 22) : Q(w - 22, w - 4), y = Q(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Q(-3, 3), y - Q(5, 11)); g.stroke(); }
       const img = g.getImageData(0, 0, w, h), d = img.data;   // a ragged edge: the verge wanders in and out along the path
       for (let y = 0; y < h; y++) { const t = (y / h) * 6.2832, l = 0.2 + 0.05 * Math.sin(t * 3 + 1) + 0.03 * Math.sin(t * 7), r = 0.8 + 0.05 * Math.sin(t * 2 + 4) + 0.03 * Math.sin(t * 9 + 2);
         for (let x = 0; x < w; x++) { const u = x / w; d[(y * w + x) * 4 + 3] *= sstep(l - 0.12, l + 0.04, u) * (1 - sstep(r - 0.04, r + 0.12, u)); } }
       g.putImageData(img, 0, 0);
     }, { read: true });
-    earth.wrapT = THREE.RepeatWrapping;
     // the ribbon starts in the camp, just past the log seats round the fire, and runs out between the tent and the laundry line
     // onto the glade path (Adriaen 2026-11-14: "continue past the tent to the camp"); sloPath itself, which the player and the
-    // terrain follow, still starts at RC - 2
+    // terrain follow, still starts at RC - 2. About 2 m wide, about 1.2 m of it bare earth; it fades in at the seats and out into the glade.
     const way = new THREE.CatmullRomCurve3([V(Math.cos(PATH_A) * 3.0, 0, Math.sin(PATH_A) * 3.0), V(Math.cos(PATH_A) * 5.0, 0, Math.sin(PATH_A) * 5.0), ...sloPath.curve.points]);
-    const n = 48, pos = [], uv = [], col = [], idx = [], L = way.getLength();
-    for (let i = 0; i <= n; i++) {
-      const t = i / n, p = way.getPointAt(t), d = way.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
-      const a = sstep(0, 1.0, t * L) * (1 - sstep(L - 1.2, L, t * L));   // fades in at the seats, out into the glade
-      for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * PATH_HALF * 1.35); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2.5); col.push(1, 1, 1, a); }   // 2 m wide, about 1.2 m of it bare earth (was 0.75 m)
-      if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
-    }
-    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: earth, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
-    m.renderOrder = 1; scene.add(m); FLOOR_OVERLAYS.push(m);
+    ribbon(way, { n: 48, half: PATH_HALF * 1.35, y: 0.024, tex: earth, tile: 2.5, order: 1, alpha: (p, l, L) => sstep(0, 1.0, l) * (1 - sstep(L - 1.2, L, l)) });
   }
 }
 
@@ -116,20 +128,6 @@ function trackRoad() {
   // ---------------------------------------------------------------- the jeep's track: a dirt road out through the forest, and muddy tyre ruts up to its wheels
   if (track) {
     const Q = rand;   // texture noise only: leaves the seeded layout alone
-    const ribbon = (width, y, tex, alpha, tile, order) => {
-      const n = 140, pos = [], uv = [], col = [], idx = [], L = track.curve.getLength();
-      for (let i = 0; i <= n; i++) {
-        const t = i / n, p = track.curve.getPointAt(t), d = track.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), a = alpha(p, t * L);
-        for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * width / 2); pos.push(q.x, y, q.z); uv.push((k + 1) / 2, (t * L) / tile); col.push(1, 1, 1, a); }
-        if (i) { const b = (i - 1) * 2; idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); }
-      }
-      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-      g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
-      tex.wrapT = THREE.RepeatWrapping;
-      const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2,
-        forceSinglePass: true }));   // flat on the ground, so one draw shows the same as three.js's two passes for see-through two-sided materials
-      mesh.renderOrder = order; scene.add(mesh); FLOOR_OVERLAYS.push(mesh);
-    };
     const mud = ["#8a6c4a", "#6b5038", "#4a3626"];
     const dirt = canvasTex(128, 512, (g, w, h) => {
       g.fillStyle = mud[0]; g.fillRect(0, 0, w, h);
@@ -143,15 +141,17 @@ function trackRoad() {
       for (const cx of [w * 0.14, w * 0.86]) {
         const b = g.createLinearGradient(cx - 14, 0, cx + 14, 0); b.addColorStop(0, "rgba(60,42,28,0)"); b.addColorStop(0.25, "rgba(60,42,28,.85)"); b.addColorStop(0.75, "rgba(60,42,28,.85)"); b.addColorStop(1, "rgba(60,42,28,0)");
         g.fillStyle = b; g.fillRect(cx - 14, 0, 28, h);
-        g.strokeStyle = "rgba(30,20,12,.7)"; g.lineWidth = 3;                    // tread chevrons
+        // tread chevrons
+        g.strokeStyle = "rgba(30,20,12,.7)";
+        g.lineWidth = 3;
         for (let y = 0; y < h; y += 16) { g.beginPath(); g.moveTo(cx - 9, y + 6); g.lineTo(cx, y); g.lineTo(cx + 9, y + 6); g.stroke(); }
         g.fillStyle = "rgba(150,135,110,.35)";                                   // wet shine in a few spots
         for (let k = 0; k < 3; k++) { g.beginPath(); g.ellipse(cx + Q(-3, 3), Q(0, h), 5, Q(10, 22), 0, 0, 7); g.fill(); }
       }
     });
     // the dirt fades out as the track meets the clearing; the ruts run on to the jeep's front wheels
-    ribbon(2 * TRACK_HALF, 0.022, dirt, (p) => sstep(RC - 3, RC + 0.5, Math.hypot(p.x, p.z)), 3.2, 1);
-    ribbon(1.62, 0.028, ruts, (p, l) => sstep(0, 0.6, l) * (0.7 + 0.25 * sstep(RC - 4, RC, Math.hypot(p.x, p.z))), 1.6, 2);
+    ribbon(track.curve, { n: 140, half: TRACK_HALF, y: 0.022, tex: dirt, tile: 3.2, order: 1, alpha: (p) => sstep(RC - 3, RC + 0.5, Math.hypot(p.x, p.z)) });
+    ribbon(track.curve, { n: 140, half: 0.81, y: 0.028, tex: ruts, tile: 1.6, order: 2, alpha: (p, l) => sstep(0, 0.6, l) * (0.7 + 0.25 * sstep(RC - 4, RC, Math.hypot(p.x, p.z))) });
   }
 }
 
@@ -165,7 +165,7 @@ function heroTrees() {
       const f = 1 + 0.08 * Math.sin(a * 5 + y * 0.6) + 0.05 * Math.sin(a * 11 - y * 1.3) + 0.7 * Math.exp(-y * 1.5) * (0.5 + 0.5 * Math.cos(a * 4 + k));
       p.setXYZ(i, x * f + Math.sin(y * 0.35) * 0.2, y, z * f);
     }
-    woodGeos.push(bake(g, 0, 7).translate(c.x, 0, c.z));
+    woodGeos.push(paintBark(g, 0, 7).translate(c.x, 0, c.z));
     const inward = Math.atan2(-c.z, -c.x);
     for (let i = 0; i < 9; i++) {
       const low = i < 5, h = (low ? 2.05 + i * 0.16 : 4.6 + (i - 5) * 1.2) + R(-0.08, 0.08);   // low ones at head height: you meet the sloths face to face
@@ -173,7 +173,7 @@ function heroTrees() {
       const L = low ? R(2.8, 3.8) : R(2.4, 3.4), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), pts = [];
       for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push(dir.clone().multiplyScalar(0.45 + L * t).addScaledVector(side, Math.sin(t * 3 + i) * 0.3).setY(h + (low ? 0.25 * t - 0.3 * t * t : 0.7 * t - 0.65 * t * t))); }
       const curve = new THREE.CatmullRomCurve3(pts);
-      woodGeos.push(bake(tube(curve, 0.2, 0.07, low ? 10 : 5, low ? 7 : 4), 0, 7).translate(c.x, 0, c.z));
+      woodGeos.push(paintBark(tube(curve, 0.2, 0.07, low ? 10 : 5, low ? 7 : 4), 0, 7).translate(c.x, 0, c.z));
       curve.points.forEach((q) => q.add(V(c.x, 0, c.z))); curve.updateArcLengths(); curve.low = low; branchCurves.push(curve);
     }
     // lianas from the low branches down to the ground
@@ -186,7 +186,7 @@ function heroTrees() {
       const pick = [t0, 0.95, 0.85, 0.75, 0.65, 0.55, 0.45, 0.35].map(land).find(([p0, p1]) => pathLane(p1.x, p1.z) > 1.4 && pathLane(p0.x, p0.z) > 1.1 && jeepDist(p1.x, p1.z) > 1.8);   // neither its foot nor where it hangs from over a path
       if (!pick) continue;
       const [p0, p1, bow] = pick, mid = p0.clone().lerp(p1, 0.5).add(bow);
-      woodGeos.push(bake(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 8, 0.025, 3), 0, 7));
+      woodGeos.push(paintBark(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 8, 0.025, 3), 0, 7));
     }
   }
   function tube(curve, r0, r1, segs, rad) {
@@ -200,25 +200,35 @@ function heroTrees() {
   scene.add(new THREE.Mesh(merge(woodGeos), barkMat));
 }
 
+// The wall's trees, as { x, z, s, y0, top }: where each stands, its girth scale, the height its trunk is seated at, and its
+// trunk's top (0 for a tree left out on the track or the path), which the crown limbs grow from.
 function forestWall() {
   // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
   const wall = [];
-  {
-    const g = bake(wallTrunk(), 0, 9);
-    for (let i = 0; i < 400 && wall.length < 70; i++) {
-      const a = R(0, 6.28), r = RC + 1.2 + Math.pow(rnd(), 1.4) * 15, x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
-      wall.push([x, z, R(0.6, 1.4)]);
-    }
-    for (const [x, z, s] of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);   // each tree on its own root mound
-    const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
-    // each trunk is seated by the lowest ground round its base, not at its centre, so no side of the base stands above the
-    // ground on a slope or a hummock (review R2-164)
-    const seat = (x, z, s) => { let y = Infinity; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; y = Math.min(y, groundHeight(x + Math.cos(a) * 0.65 * s, z + Math.sin(a) * 0.65 * s)); } return y - 0.05; };
-    wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1), y0 = seat(x, z, s); w[3] = keep ? y0 + 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
-      w[4] = y0; m.compose(V(x, y0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), ry), V(s * keep, sy * keep, s * keep)); im.setMatrixAt(i, m); });
-    scene.add(im);
+  const g = paintBark(wallTrunk(), 0, 9);
+  for (let i = 0; i < 400 && wall.length < 70; i++) {
+    const a = R(0, 6.28), r = RC + 1.2 + Math.pow(rnd(), 1.4) * 15, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w.x - x, w.z - z) < 1.6)) continue;
+    wall.push({ x, z, s: R(0.6, 1.4), y0: 0, top: 0 });
   }
+  // each tree on its own root mound
+  for (const { x, z, s } of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);
+  // each trunk is seated by the lowest ground round its base, not at its centre, so no side of the base stands above the
+  // ground on a slope or a hummock (review R2-164)
+  const seat = (x, z, s) => {
+    let y = Infinity;
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; y = Math.min(y, groundHeight(x + Math.cos(a) * 0.65 * s, z + Math.sin(a) * 0.65 * s)); }
+    return y - 0.05;
+  };
+  const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4(), q = new THREE.Quaternion();
+  wall.forEach((w, i) => {
+    const keep = trackDist(w.x, w.z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1);
+    w.y0 = seat(w.x, w.z, w.s);
+    w.top = keep ? w.y0 + 20 * sy : 0;
+    m.compose(V(w.x, w.y0, w.z), q.setFromAxisAngle(UP, ry), V(w.s * keep, sy * keep, w.s * keep));
+    im.setMatrixAt(i, m);
+  });
+  scene.add(im);
   return wall;
 }
 
@@ -283,6 +293,27 @@ function addSectors(set, geo, mat, { wedges = 8, split = false } = {}) {
   }
 }
 
+// Scatters leaf cards round clump centres ({ x, y, z, r }): per(clump) leaves each, and every leaf draws from rand in the
+// same order: three numbers for its offset's direction, one for its distance, three for its turn and one for its size. So each
+// caller keeps its own stream, and the layout it was baked with. shape(clump) is [lo, hi, reach]: the direction's height is
+// rand(lo, hi) and the distance r * cbrt(rand) * reach. leaf(clump, k, u, q, size) gets the offset u, the turn q and the drawn
+// size (from leafScale) and adds the card or not; end(clump), if given, runs after each clump. The wall leaves, the crowns
+// and the verge use it, and glade.js's bushes.
+function scatterLeaves(clumps, rand, per, shape, leaf, end) {
+  const u = V(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  for (const cl of clumps) {
+    const n = per(cl), [lo, hi, reach] = shape(cl);
+    for (let k = 0; k < n; k++) {
+      u.set(rand(-1, 1), rand(lo, hi), rand(-1, 1)).normalize().multiplyScalar(cl.r * Math.cbrt(rand(0, 1)) * reach);
+      e.set(rand(0, 6.28), rand(0, 6.28), rand(0, 6.28)); q.setFromEuler(e);
+      leaf(cl, k, u, q, rand(leafScale[0], leafScale[1]));
+    }
+    if (end) end(cl);
+  }
+}
+// a leaf card's colour: the four leaf greens in turn (i counts the leaves), darker low down
+const leafColour = (c, i, y) => c.setHex(S.leaf[i % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y));
+
 // The leaf card: three sprigs of nine leaves painted close together on one 512 px card, so a clump needs CARD_KEEP of
 // the cards it had with one nine-leaf sprig per card, each card 1.35 times as wide. That keeps the leaves about as many
 // and as big, with about 40 % fewer alpha-tested card layers and 60 % fewer cards to sway (review R2-162).
@@ -308,33 +339,51 @@ function leafCard() {
         g.restore();
       }
     });
-    leafGeo = new THREE.PlaneGeometry(1, 1); leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04, true); perClump = Math.round(24 * D.leaves); leafScale = [0.8 * 1.35, 1.25 * 1.35];
+    leafGeo = new THREE.PlaneGeometry(1, 1);
+    leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04, true);
+    perClump = Math.round(24 * D.leaves);
+    leafScale = [0.8 * 1.35, 1.25 * 1.35];
   }
 }
 
+// The leaf clumps, as { x, y, z, r } plus tree (the wall tree it grows on) or hero (the big tree whose crown it is in):
+// two on each wall tree, along the big trees' branches, in the big trees' crowns, and a thick leafy edge at eye height.
 function wallLeaves(wall) {
   const clumps = [];
-  for (const [x, z, s, , y0] of wall) for (let k = 0; k < 2; k++) { const y = y0 + 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s, x, z, s]); }
-  for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); clumps.push([p.x, p.y + (c.low ? 1.2 : 0.9), p.z, R(0.6, 0.9)]); }
-  for (const h of HERO) for (let k = 0; k < 18; k++) { const a = R(0, 6.28), r = R(0, 4.5); clumps.push([h.x + Math.cos(a) * r, TOP + R(-2, 1.5), h.z + Math.sin(a) * r, R(1.3, 1.9), h.x, h.z, 0]); }   // the big trees' crowns
-  for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = Math.cos(a) * r, z = Math.sin(a) * r, y = R(0.4, 2.8); clumps.push([x, y + groundHeight(x, z), z, R(0.7, 1.2)]); }   // a thick leafy edge at eye height all round the clearing
-  const leaves = cardSet();
-  {
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(), n = V(); let i = 0;
-    const clump = cardSet(), keep = cards(perClump);
-    for (const [x, y, z, r] of clumps) { clump.mats.length = clump.cols.length = clump.nrm.length = 0; let cut = false; for (let k = 0; k < perClump; k++) {
-      const tight = y > 4 ? 0.6 : 1;                  // up in the crowns: leaves packed close and bigger, so they overlap into a mass
-      const u = V(R(-1, 1), R(-0.5, 0.8) * (tight < 1 ? 0.7 : 1), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()) * tight);
-      e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
-      const s = R(leafScale[0], leafScale[1]) * (1 / tight) * Math.pow(D.leaves, -0.33);
-      const k0 = y + u.y < 4.5 && Math.min(jeepDist(x + u.x, z + u.z), pathLane(x + u.x, z + u.z)) < 1.9 ? 0 : s;   // keep the track and the path open at eye height
-      if (!k0) cut = true;
-      c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
-      if (k < keep) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); clump.add(m, c, clumpN(u, n)); }
-    }
-    // a clump the path or track clipped goes as a whole: its last few leaves left alone looked like they floated (Adriaen 2026-11-14)
-    if (!cut) { leaves.mats.push(...clump.mats); leaves.cols.push(...clump.cols); leaves.nrm.push(...clump.nrm); } }
+  for (const tree of wall) for (let k = 0; k < 2; k++) {
+    const y = tree.y0 + 10 * tree.s + R(-1, 4), x = tree.x + R(-2, 2), z = tree.z + R(-2, 2);
+    if (Math.hypot(x, z) > RC + 1.5) clumps.push({ x, y, z, r: 2.2 * tree.s, tree });
   }
+  for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) {
+    const p = c.getPointAt(Math.min(1, t));
+    clumps.push({ x: p.x, y: p.y + (c.low ? 1.2 : 0.9), z: p.z, r: R(0.6, 0.9) });
+  }
+  // the big trees' crowns
+  for (const hero of HERO) for (let k = 0; k < 18; k++) {
+    const a = R(0, 6.28), d = R(0, 4.5);
+    clumps.push({ x: hero.x + Math.cos(a) * d, y: TOP + R(-2, 1.5), z: hero.z + Math.sin(a) * d, r: R(1.3, 1.9), hero });
+  }
+  // a thick leafy edge at eye height all round the clearing
+  for (let i = 0; i < 70; i++) {
+    const a = R(0, 6.28), d = RC + R(0.3, 2.2), x = Math.cos(a) * d, z = Math.sin(a) * d, y = R(0.4, 2.8);
+    clumps.push({ x, y: y + groundHeight(x, z), z, r: R(0.7, 1.2) });
+  }
+  // up in the crowns (above 4 m) the leaves are packed closer (0.6) and bigger, so they overlap into a mass
+  const tight = (cl) => cl.y > 4 ? 0.6 : 1;
+  const leaves = cardSet(), clump = cardSet(), keep = cards(perClump), m = new THREE.Matrix4(), c = new THREE.Color(), n = V(), p = V(), sc = V();
+  let i = 0, cut = false;
+  scatterLeaves(clumps, R, () => perClump, (cl) => { const t = tight(cl); return [-0.5 * (t < 1 ? 0.7 : 1), 0.8 * (t < 1 ? 0.7 : 1), t]; }, (cl, k, u, q, size) => {
+    p.set(cl.x + u.x, cl.y + u.y, cl.z + u.z);
+    // keep the track and the path open at eye height
+    const s = p.y < 4.5 && Math.min(jeepDist(p.x, p.z), pathLane(p.x, p.z)) < 1.9 ? 0 : size / tight(cl) * Math.pow(D.leaves, -0.33);
+    if (!s) cut = true;
+    leafColour(c, k + i, p.y); i++;
+    if (k < keep) clump.add(m.compose(p, q, sc.setScalar(s)), c, clumpN(u, n));
+  }, () => {
+    // a clump the path or track clipped goes as a whole: its last few leaves left alone looked like they floated (Adriaen 2026-11-14)
+    if (!cut) { leaves.mats.push(...clump.mats); leaves.cols.push(...clump.cols); leaves.nrm.push(...clump.nrm); }
+    clump.mats.length = clump.cols.length = clump.nrm.length = 0; cut = false;
+  });
   addSectors(leaves, leafGeo, leafM, { split: true });
   return clumps;
 }
@@ -346,7 +395,10 @@ function crowns(wall, clumps) {
   {
     const NEAR = RC + 6;   // only the trees you can see clearly get limbs (fewest triangles that still look good)
     const { R: Q } = lcg(777);
-    const geos = [], tops = [], twigs = D.fx > 1 ? 2 : D.fx ? 1 : 0, seg = 2;   // a limb is a flat strip with two bends: 4 triangles
+    // tops: the leaf clumps the crowns add, as { x, y, z, r }, with f (a twig's tuft, a smaller share of perClump) or cover
+    // (the clump over a trunk's cut top)
+    const geos = [], tops = [], twigs = D.fx > 1 ? 2 : D.fx ? 1 : 0;
+    const seg = 2;   // a limb is a flat strip with two bends: 4 triangles
     // a limb as a flat tapered strip, its wide side facing down: from the ground, looking up, it reads as round wood
     const strip = (curve, r0, r1, n) => {
       const pos = [];
@@ -357,48 +409,49 @@ function crowns(wall, clumps) {
     const limb = (p0, p1, r0, r1, fork) => {
       if (Math.hypot(p0.x, p0.z) > NEAR) return;                       // out in the mist the leaves alone read as a crown: no wood
       const d = p1.clone().sub(p0), mid = p0.clone().lerp(p1, 0.5).add(V(Q(-0.2, 0.2), d.length() * Q(0.08, 0.18), Q(-0.2, 0.2)));
-      const c = new THREE.CatmullRomCurve3([p0, mid, p1]); geos.push(bake(strip(c, r0, r1, seg), 0, 18));
+      const c = new THREE.CatmullRomCurve3([p0, mid, p1]); geos.push(paintBark(strip(c, r0, r1, seg), 0, 18));
       for (let i = 0; i < fork; i++) {                                    // twigs off the outer half, splaying up and sideways
         const q = c.getPointAt(Q(0.5, 0.8)), side = V(-d.z, 0, d.x).normalize().multiplyScalar(i % 2 ? 1 : -1), L = d.length() * Q(0.35, 0.55);
         const e = q.clone().addScaledVector(d.clone().normalize(), L * 0.5).addScaledVector(side, L * 0.7).add(V(0, L * 0.5, 0));
-        geos.push(bake(strip(new THREE.CatmullRomCurve3([q, q.clone().lerp(e, 0.5).add(V(0, L * 0.12, 0)), e]), r1 * 0.9, r1 * 0.35, seg), 0, 18));
-        tops.push([e.x, e.y + 0.3, e.z, L * 0.6 + 0.5, 0.3]);
+        geos.push(paintBark(strip(new THREE.CatmullRomCurve3([q, q.clone().lerp(e, 0.5).add(V(0, L * 0.12, 0)), e]), r1 * 0.9, r1 * 0.35, seg), 0, 18));
+        tops.push({ x: e.x, y: e.y + 0.3, z: e.z, r: L * 0.6 + 0.5, f: 0.3 });
       }
     };
-    for (const [cx, cy, cz, r, tx, tz, ts] of clumps) {
-      if (tx === undefined) continue;
-      if (ts) {                                                           // a forest tree's side clump: one limb up and out from the trunk
-        const top = wall.find((w) => w[0] === tx && w[1] === tz)?.[3]; if (!top) continue;
-        const y0 = Math.min(cy - Q(1.5, 2.5), top - 1.5), p1 = V(cx, cy - r * 0.25, cz);
-        limb(V(tx, y0, tz).addScaledVector(p1.clone().setY(y0).sub(V(tx, y0, tz)).normalize(), 0.2 * ts), p1, 0.2 * ts, 0.07 * ts, twigs + 1);
-      } else {                                                            // a big tree's crown clump: limbs from the top of the trunk
-        const p1 = V(cx, cy - 0.4, cz), dir = p1.clone().setY(0).sub(V(tx, 0, tz)).normalize();
-        limb(V(tx, TOP - 3.2, tz).addScaledVector(dir, 0.4), p1, 0.32, 0.1, twigs);
+    for (const cl of clumps) {
+      if (cl.tree) {                                                      // a forest tree's side clump: one limb up and out from the trunk
+        const { x, z, s, top } = cl.tree;
+        if (!top) continue;
+        const y0 = Math.min(cl.y - Q(1.5, 2.5), top - 1.5), p1 = V(cl.x, cl.y - cl.r * 0.25, cl.z);
+        limb(V(x, y0, z).addScaledVector(p1.clone().setY(y0).sub(V(x, y0, z)).normalize(), 0.2 * s), p1, 0.2 * s, 0.07 * s, twigs + 1);
+      } else if (cl.hero) {                                               // a big tree's crown clump: limbs from the top of the trunk
+        const p1 = V(cl.x, cl.y - 0.4, cl.z), dir = p1.clone().setY(0).sub(V(cl.hero.x, 0, cl.hero.z)).normalize();
+        limb(V(cl.hero.x, TOP - 3.2, cl.hero.z).addScaledVector(dir, 0.4), p1, 0.32, 0.1, twigs);
       }
     }
-    for (const [x, z, s, top] of wall) {                                 // the crown on top of each forest tree
+    // the crown on top of each forest tree
+    for (const { x, z, s, top } of wall) {
       if (!top) continue;
       const n = Math.round(Q(3, 5)), a0 = Q(0, 6.28);
       for (let i = 0; i < n; i++) {
         const a = a0 + (i / n) * 6.28 + Q(-0.3, 0.3), out = Q(1.6, 3.2) * s, y0 = top * Q(0.78, 0.9);
         const p1 = V(x + Math.cos(a) * out, top + Q(0.3, 1.8) * s, z + Math.sin(a) * out);
         limb(V(x + Math.cos(a) * 0.2 * s, y0, z + Math.sin(a) * 0.2 * s), p1, 0.2 * s, 0.07 * s, twigs + 1);
-        tops.push([p1.x, p1.y + 0.3, p1.z, Q(1.2, 1.8) * s]);
+        tops.push({ x: p1.x, y: p1.y + 0.3, z: p1.z, r: Q(1.2, 1.8) * s });
       }
-      tops.push([x, top + 0.4, z, 1.3 * s, 0, true]);                     // covers the cut top of the trunk (kept on every detail level)
+      tops.push({ x, y: top + 0.4, z, r: 1.3 * s, cover: true });   // covers the cut top of the trunk (kept on every detail level)
     }
     scene.add(new THREE.Mesh(merge(geos), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-    const per = (f) => Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)), lm = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(), n = V(); let i = 0;
+    const per = (cl) => Math.max(1, Math.round(perClump * (cl.f || 0.5) * 0.6));
+    const lm = cardSet(), m = new THREE.Matrix4(), c = new THREE.Color(), n = V(), p = V(), sc = V();
+    let i = 0;
     // on low detail the spreading crown leaves past NEAR are left out (they are fog-grey there anyway); the clump that covers
     // each trunk's cut top stays (review R2-162)
     const far = D.leaves < 1;
-    for (const [x, y, z, r, f, cover] of tops) for (let k = 0; k < per(f); k++) {
-      const u = V(Q(-1, 1), Q(-0.3, 0.6), Q(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q(0, 1)) * 0.65);
-      e.set(Q(0, 6.28), Q(0, 6.28), Q(0, 6.28)); q.setFromEuler(e);
-      const sc = Q(leafScale[0], leafScale[1]) * 1.5 * Math.pow(D.leaves, -0.33);
-      m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
-      if (k < cards(per(f)) && (!far || cover || Math.hypot(x, z) <= NEAR)) lm.add(m, c, clumpN(u, n));
-    }
+    scatterLeaves(tops, Q, per, () => [-0.3, 0.6, 0.65], (cl, k, u, q, size) => {
+      p.set(cl.x + u.x, cl.y + u.y, cl.z + u.z); m.compose(p, q, sc.setScalar(size * 1.5 * Math.pow(D.leaves, -0.33)));
+      leafColour(c, k + i, p.y); i++;
+      if (k < cards(per(cl)) && (!far || cl.cover || Math.hypot(cl.x, cl.z) <= NEAR)) lm.add(m, c, clumpN(u, n));
+    });
     addSectors(lm, leafGeo, leafM);
   }
 }
@@ -412,17 +465,16 @@ function verge() {
     for (let l = 2.5; l < L; l += 1.3) {
       const t = l / L, p = track.curve.getPointAt(t), d = track.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
       if (Math.hypot(p.x, p.z) < RC - 0.5) continue;
-      for (const k of [-1, 1]) vc.push([p.x + side.x * k * Q2(2.2, 3.2), Q2(0.5, 2.6), p.z + side.z * k * Q2(2.2, 3.2), Q2(0.7, 1.2)]);
+      for (const k of [-1, 1]) vc.push({ x: p.x + side.x * k * Q2(2.2, 3.2), y: Q2(0.5, 2.6), z: p.z + side.z * k * Q2(2.2, 3.2), r: Q2(0.7, 1.2) });
     }
-    for (const v of vc) v[1] += groundHeight(v[0], v[2]);   // on the banks beside the track
-    const vm = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(), n = V(); let i = 0;
-    for (const [x, y, z, r] of vc) for (let k = 0; k < perClump; k++) {
-      const u = V(Q2(-1, 1), Q2(-0.5, 0.8), Q2(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q2(0, 1)));
-      e.set(Q2(0, 6.28), Q2(0, 6.28), Q2(0, 6.28)); q.setFromEuler(e);
-      const sc = Q2(leafScale[0], leafScale[1]) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.6 ? 0 : 1);
-      c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
-      if (sc && k < cards(perClump)) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.add(m, c, clumpN(u, n)); }
-    }
+    for (const v of vc) v.y += groundHeight(v.x, v.z);   // on the banks beside the track
+    const vm = cardSet(), m = new THREE.Matrix4(), c = new THREE.Color(), n = V(), p = V(), sc = V(), keep = cards(perClump);
+    let i = 0;
+    scatterLeaves(vc, Q2, () => perClump, () => [-0.5, 0.8, 1], (cl, k, u, q, size) => {
+      p.set(cl.x + u.x, cl.y + u.y, cl.z + u.z);
+      leafColour(c, k + i, p.y); i++;
+      if (k < keep && trackDist(p.x, p.z) >= 1.6) vm.add(m.compose(p, q, sc.setScalar(size * Math.pow(D.leaves, -0.33))), c, clumpN(u, n));
+    });
     addSectors(vm, leafGeo, leafM);
   }
 }
@@ -451,4 +503,4 @@ function ferns() {
   }
 }
 
-export { buildForest, FLOOR_OVERLAYS, branchCurves, cards, clumpN, grassTex, leafGeo, leafM, leafScale, perClump, track, trackDist, withLeafN };
+export { buildForest, FLOOR_OVERLAYS, branchCurves, cards, clumpN, grassTex, leafGeo, leafM, perClump, scatterLeaves, track, trackDist, withLeafN };
