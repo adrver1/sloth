@@ -27,6 +27,7 @@ Previews are opt-in (--preview, Cycles on the CPU): props/jeep/preview_<style>_<
 detail, open, door and wheel.
 """
 import argparse
+import dataclasses
 import math
 import os
 import sys
@@ -40,18 +41,17 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, bisect, cyl, join, outward, rod, torus, with_material  # noqa: E402
-from lib.mesh import box as _box  # noqa: E402
+from lib.mesh import apply_all, ball, bisect, box, cyl, join, mesh_obj, outward, rod, torus  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
 # for the bake (bake(..., apply=False) below), one-segment bevels on boxes only where they are big enough for a bevel to read
-# (box below), two-segment roundings only on the big body shapes (soften), low segment counts on round parts.
+# (slim_box), two-segment roundings only on the big body shapes (soften), low segment counts on round parts.
 
 
-def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
-    """lib.mesh.box with a one-segment bevel, only on boxes whose smallest side is at least 5 cm (on smaller parts a bevel
-    would not read, so none is asked for)."""
-    o = _box(size, at=at, rot=rot, m=m)
+def slim_box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
+    """lib.mesh.box, but its bevel has one segment and only on boxes whose smallest side is at least 5 cm (on smaller parts
+    a bevel would not read, so none is made). Every box of the jeep is one of these."""
+    o = box(size, at=at, rot=rot, m=m)
     if bevel and min(size) >= 0.05:
         apply_all(o)
         mod = o.modifiers.new("b", "BEVEL")
@@ -138,16 +138,16 @@ def flare(s, y, zc, R, tube, m, major):
 
 def bumpers(M, bevel=0.0):
     """The front and back bumpers."""
-    return [box((W + 0.08, 0.2, 0.18), at=(0, y, SILL + 0.06), m=M["bumper"], bevel=bevel) for y in (FRONT - 0.06, REAR + 0.05)]
+    return [slim_box((W + 0.08, 0.2, 0.18), at=(0, y, SILL + 0.06), m=M["bumper"], bevel=bevel) for y in (FRONT - 0.06, REAR + 0.05)]
 
 
 def winch(M, bevel=0.0):
-    return box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"], bevel=bevel)
+    return slim_box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"], bevel=bevel)
 
 
 def snorkel(M):
     """The angular snorkel: a square duct along the wing and up the A pillar, and the intake head on top."""
-    return [duct(SNORKEL_PATH, SNORKEL_SECS, M["rack"]), box(m=M["rack"], **SNORKEL_HEAD)]
+    return [duct(SNORKEL_PATH, SNORKEL_SECS, M["rack"]), slim_box(m=M["rack"], **SNORKEL_HEAD)]
 
 
 # ------------------------------------------------------------------ helpers
@@ -165,15 +165,7 @@ def prism(poly_yz, width, m, taper=1.0, x0=0.0):
     for i in range(n):
         j = (i + 1) % n
         faces.append((i, j, n + j, n + i))
-    me = bpy.data.meshes.new("prism")
-    me.from_pydata(verts, [], faces)
-    me.validate()
-    o = bpy.data.objects.new("prism", me)
-    bpy.context.collection.objects.link(o)
-    with_material(o, m, smooth=False)
-    me.update()
-    outward(o)
-    return o
+    return outward(mesh_obj("prism", verts, faces, (m,), validate=True))
 
 
 def soften(o, w, seg=2):
@@ -232,29 +224,15 @@ def panel(a, b, c, d, m, t=0.012):
     nrm = (b - a).cross(d - a).normalized() * t / 2
     vs = [a - nrm, b - nrm, c - nrm, d - nrm, a + nrm, b + nrm, c + nrm, d + nrm]
     fs = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
-    me = bpy.data.meshes.new("panel")
-    me.from_pydata([tuple(v) for v in vs], [], fs)
-    me.validate()
-    o = bpy.data.objects.new("panel", me)
-    bpy.context.collection.objects.link(o)
-    with_material(o, m, smooth=False)
-    outward(o)
-    return o
+    return outward(mesh_obj("panel", vs, fs, (m,), validate=True))
 
 
-TYRE = "mt"   # tread option (--tyre): "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders, "road" smooth with painted grooves
-
-
-def quad(pts, m, toward):
-    """One flat quad, no thickness, wound so its front faces the point toward."""
+def poly(pts, m, toward):
+    """One flat n-gon (a quad, a lens, a map panel), no thickness, wound so its front faces the point toward."""
     a, b, c = (Vector(q) for q in pts[:3])
-    n = (b - a).cross(c - a)
-    if n.dot(Vector(toward) - a) < 0:
+    if (b - a).cross(c - a).dot(Vector(toward) - a) < 0:
         pts = pts[::-1]
-    me = bpy.data.meshes.new("quad"); me.from_pydata([tuple(q) for q in pts], [], [(0, 1, 2, 3)]); me.update()
-    o = bpy.data.objects.new("quad", me); bpy.context.collection.objects.link(o)
-    me.materials.append(m)
-    return o
+    return mesh_obj("poly", pts, [tuple(range(len(pts)))], (m,))
 
 
 def duct(path, secs, m):
@@ -276,11 +254,7 @@ def duct(path, secs, m):
             c2 = (c + 1) % 4
             faces.append((i * 4 + c, i * 4 + c2, (i + 1) * 4 + c2, (i + 1) * 4 + c))
     faces += [(0, 1, 2, 3), tuple(len(verts) - 4 + c for c in (3, 2, 1, 0))]
-    me = bpy.data.meshes.new("duct"); me.from_pydata(verts, [], faces); me.update()
-    o = bpy.data.objects.new("duct", me); bpy.context.collection.objects.link(o)
-    me.materials.append(m)
-    outward(o)
-    return o
+    return outward(mesh_obj("duct", verts, faces, (m,)))
 
 
 def lathe(prof, n, at, axis_x, M, name="lathe", face=None):
@@ -302,12 +276,10 @@ def lathe(prof, n, at, axis_x, M, name="lathe", face=None):
             f = (A[i], A[i2], B[i2], B[i])
             f = tuple(dict.fromkeys(f))   # a fan triangle where one ring is a single point
             faces.append(f); fm.append(keys.index(prof[j][2]))
-    me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces); me.update()
-    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
-    for k in keys:
-        me.materials.append(M[k])
-    for pl, k in zip(me.polygons, fm):
-        pl.material_index, pl.use_smooth = k, True
+    o = mesh_obj(name, verts, faces, [M[k] for k in keys], fm)
+    me = o.data
+    for pl in me.polygons:
+        pl.use_smooth = True
     # an open surface, so face it away from the wheel's centre explicitly (normals_make_consistent can pick inward,
     # and the page draws front faces only)
     import bmesh
@@ -320,19 +292,54 @@ def lathe(prof, n, at, axis_x, M, name="lathe", face=None):
     return o
 
 
-WHEEL = "closed"   # "closed": the whole wheel is one sealed lathe; "open": the earlier separate tyre, rim, hub and cap
+# the wheels (--wheel, --tyre): "closed", the whole wheel as one sealed lathe, or "open", the earlier separate tyre, rim, hub
+# and cap; the open wheel's tread: "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders,
+# "road" smooth with painted grooves. build() hands them to the style builders, which hand them to body() and wheel().
+WHEELS = dict(kind="closed", tyre="mt")
+# the tread blocks round a tyre: how many, their width and their offset from the centre line (times the tyre's width),
+# their length (times the spacing round the tyre) and their height (times the radius)
+TREAD = {"at": (16, 0.36, 0.18, 0.8, 0.05),   # staggered blocks, half the tread wide, alternating left and right of the centre
+         "mt": (12, 0.5, 0.12, 0.6, 0.07)}    # big lugs, nearly the full tread wide, alternating which shoulder they reach
 
 
-def wheel(x, y, R, Wt, M, axis_x=True):
-    return (wheel_closed if WHEEL == "closed" else wheel_open)(x, y, R, Wt, M, axis_x)
+def wheel(x, y, R, Wt, M, axis_x=True, kind="closed", tyre="mt"):
+    """One wheel of radius R and width Wt at (x, y, 0), its axle along X (or along Y for the spare): kind and tyre as in
+    WHEELS."""
+    return wheel_closed(x, y, R, Wt, M, axis_x) if kind == "closed" else wheel_open(x, y, R, Wt, M, axis_x, tyre)
+
+
+def lugs(x, y, R, Wt, core, m, axis_x, tread):
+    """The tread blocks (TREAD[tread]) round a tyre whose tread band has radius core, sunk into it so only the tops show."""
+    nb, kw, ko, kl, kh = TREAD[tread]
+    p = []
+    for i in range(nb):
+        a = (i + 0.5) / nb * 2 * math.pi
+        lane = 1 if i % 2 else -1
+        w_, off, ln, ht = Wt * kw, lane * Wt * ko, 2 * math.pi * R / nb * kl, R * kh
+        rc = core + ht * 0.1
+        if axis_x:
+            p.append(slim_box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=m))
+        else:
+            p.append(slim_box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=m))
+    return p
+
+
+def nuts(x, y, along, ring, r, depth, m, axis_x, smooth=True):
+    """Five hex wheel nuts of radius r and depth depth on a circle of radius ring round the axle through (x, y, 0), at
+    along on the axle (an x when it runs along X, a y otherwise)."""
+    rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
+    p = []
+    for k in range(5):
+        a = k / 5 * 2 * math.pi
+        c, sn = math.cos(a) * ring, math.sin(a) * ring
+        p.append(cyl(r, depth, at=(along, y + c, sn) if axis_x else (x + c, along, sn), rot=rot, m=m, verts=6, smooth=smooth))
+    return p
 
 
 def wheel_closed(x, y, R, Wt, M, axis_x=True):
     """The whole wheel as one sealed surface of revolution, 14 segments round: from the axle on the inside, out over the
     sidewall, across the tread, down the outer sidewall, into the dished rim and back to the axle at the hub. No gaps to
     see through, no hidden caps. Then 12 low mud-terrain lugs and five hex nuts."""
-    if "groove" not in M:
-        M["groove"] = mat(M["tyre"].name + "_groove", tuple(c * 0.45 for c in M["tyre"]["base"]))
     at, h, rr = (x, y, 0), Wt / 2, R * 0.6
     side = (math.copysign(1, x) if x else 1) if axis_x else 1
     core = R * 0.95
@@ -342,60 +349,28 @@ def wheel_closed(x, y, R, Wt, M, axis_x=True):
     outward(o)                                        # a closed surface, so this is reliable
     for pl in o.data.polygons:                        # smooth over the rubber only; the rim, hub and back stay crisp
         pl.use_smooth = o.data.materials[pl.material_index] in (M["tyre"], M["groove"])
-    p = [o]
-    nb = 12
-    for i in range(nb):
-        a = (i + 0.5) / nb * 2 * math.pi
-        lane = 1 if i % 2 else -1
-        w_, off, ln, ht = Wt * 0.5, lane * Wt * 0.12, 2 * math.pi * R / nb * 0.6, R * 0.07
-        rc = core + ht * 0.1
-        if axis_x:
-            p.append(box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=M["tyre"]))
-        else:
-            p.append(box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=M["tyre"]))
-    rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
-    for k in range(5):
-        a = k / 5 * 2 * math.pi
-        c, sn = math.cos(a) * rr * 0.28, math.sin(a) * rr * 0.28
-        nut_at = (x + side * (h * 0.78 + 0.01), y + c, sn) if axis_x else (x + c, y + side * (h * 0.78 + 0.01), sn)
-        p.append(cyl(rr * 0.075, 0.02, at=nut_at, rot=rot, m=M["trim"], verts=6, smooth=False))
-    return p
+    along = (x if axis_x else y) + side * (h * 0.78 + 0.01)
+    return [o, *lugs(x, y, R, Wt, core, M["tyre"], axis_x, "mt"), *nuts(x, y, along, rr * 0.28, rr * 0.075, 0.02, M["trim"], axis_x, smooth=False)]
 
 
-def wheel_open(x, y, R, Wt, M, axis_x=True):
-    """A tyre with a rounded shoulder and tread (style TYRE), a dished steel rim with a hub, on an axle along X
-    (or along Y for the spare). The silhouette gets the segments; the tread pattern is low blocks or painted bands."""
-    if "groove" not in M:
-        M["groove"] = mat(M["tyre"].name + "_groove", tuple(c * 0.45 for c in M["tyre"]["base"]))
+def wheel_open(x, y, R, Wt, M, axis_x=True, tyre="mt"):
+    """A tyre with a rounded shoulder and tread (tyre: "at", "mt" or "road"), a dished steel rim with a hub, on an axle
+    along X (or along Y for the spare). The silhouette gets the segments; the tread pattern is low blocks or painted bands."""
     at, h, rr = (x, y, 0), Wt / 2, R * 0.6
     side = (math.copysign(1, x) if x else 1) if axis_x else 1          # the outer face: away from the car (+Y for the spare)
     t, g = "tyre", "groove"
-    core = R * (0.95 if TYRE != "road" else 1.0)
+    core = R * (0.95 if tyre != "road" else 1.0)
     # the tyre's cross-section, inner bead to outer bead: bulging sidewalls, rounded shoulders, a flat tread band
-    if TYRE == "road":
+    if tyre == "road":
         prof = [(rr, -h, t), (R * 0.86, -h - 0.012, t), (R * 0.97, -h * 0.9, t), (R, -h * 0.7, g), (R, -h * 0.58, t), (R, -h * 0.12, g),
-                (R, h * 0.0, t), (R, h * 0.12, t), (R, h * 0.58, g), (R, h * 0.7, t), (R * 0.97, h * 0.9, t), (R * 0.86, h + 0.012, t), (rr, h, t)]
-        prof = [pp for k, pp in enumerate(prof) if k != 6]
+                (R, h * 0.12, t), (R, h * 0.58, g), (R, h * 0.7, t), (R * 0.97, h * 0.9, t), (R * 0.86, h + 0.012, t), (rr, h, t)]
     else:
         prof = [(rr, -h, t), (R * 0.84, -h - 0.014, t), (core * 0.97, -h * 0.9, t), (core, -h * 0.74, g), (core, h * 0.74, t),
                 (core * 0.97, h * 0.9, t), (R * 0.84, h + 0.014, t), (rr, h, t)]
     prof = [(r, o * side, k) for r, o, k in prof]
-    p = [lathe(prof, 20 if TYRE != "mt" else 16, at, axis_x, M, "tyre")]
-    if TYRE in ("at", "mt"):
-        nb = 16 if TYRE == "at" else 12
-        for i in range(nb):
-            a = (i + 0.5) / nb * 2 * math.pi
-            lane = 1 if i % 2 else -1
-            if TYRE == "at":    # staggered blocks, half the tread wide, alternating left and right of the centre
-                w_, off, ln, ht = Wt * 0.36, lane * Wt * 0.18, 2 * math.pi * R / nb * 0.8, R * 0.05
-            else:               # big lugs, nearly the full tread wide, alternating which shoulder they reach
-                w_, off, ln, ht = Wt * 0.5, lane * Wt * 0.12, 2 * math.pi * R / nb * 0.6, R * 0.07
-            rc = core + ht * 0.1        # sunk into the tread band, so only the top shows
-            if axis_x:
-                b = box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=M[t])
-            else:
-                b = box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=M[t])
-            p.append(b)
+    p = [lathe(prof, 20 if tyre != "mt" else 16, at, axis_x, M, "tyre")]
+    if tyre in TREAD:
+        p += lugs(x, y, R, Wt, core, M[t], axis_x, tyre)
     # the rim: a lip, a dished face and a raised centre, then a hub and five nuts; a flat cap closes the inner side
     rim = [(rr, h * 1.02, "rim"), (rr * 0.88, h * 0.6, "rim"), (rr * 0.5, h * 0.6, "rim"), (rr * 0.42, h * 0.75, "hub")]
     p.append(lathe([(r, o * side, k) for r, o, k in rim], 12, at, axis_x, M, "rim", face=(side, 0, 0) if axis_x else (0, side, 0)))
@@ -403,12 +378,7 @@ def wheel_open(x, y, R, Wt, M, axis_x=True):
     rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
     p.append(cyl(rr * 0.42, 0.04, at=hub_at, rot=rot, m=M["hub"], verts=6))
     p.append(cyl(rr * 0.9, 0.01, at=(x - side * h * 0.98, y, 0) if axis_x else (x, y - side * h * 0.98, 0), rot=rot, m=M["under"], verts=6))
-    for k in range(5):     # five hex wheel nuts round the hub
-        a = k / 5 * 2 * math.pi
-        c, sn = math.cos(a) * rr * 0.3, math.sin(a) * rr * 0.3
-        nut_at = (hub_at[0] + side * 0.02, y + c, sn) if axis_x else (x + c, hub_at[1] + side * 0.02, sn)
-        p.append(cyl(rr * 0.075, 0.025, at=nut_at, rot=rot, m=M["trim"], verts=6))
-    return p
+    return p + nuts(x, y, hub_at[0 if axis_x else 1] + side * 0.02, rr * 0.3, rr * 0.075, 0.025, M["trim"], axis_x)
 
 
 def lift(objs, z):
@@ -426,16 +396,6 @@ def headlight(x, y, z, r, M, ring="chrome"):
 
 
 # ------------------------------------------------------------------ the shared body
-def poly(pts, m, toward):
-    """One flat n-gon, no thickness, wound so its front faces the point toward."""
-    a, b, c = (Vector(q) for q in pts[:3])
-    if (b - a).cross(c - a).dot(Vector(toward) - a) < 0:
-        pts = pts[::-1]
-    me = bpy.data.meshes.new("poly"); me.from_pydata([tuple(q) for q in pts], [], [tuple(range(len(pts)))]); me.update()
-    o = bpy.data.objects.new("poly", me); bpy.context.collection.objects.link(o)
-    me.materials.append(m)
-    return o
-
 
 def hood_map(M):
     """A big folded paper map spread over half the bonnet, with an orienteering compass lying on it. All flat polygons
@@ -463,7 +423,6 @@ def hood_map(M):
     m.append(poly([P(0.45, 0.45, 0.002), P(0.62, 0.32, 0.002), P(0.8, 0.4, 0.002), P(0.78, 0.65, 0.002), P(0.55, 0.7, 0.002)], water, up))
     strip([(-1, -0.45), (-0.4, -0.2), (0.15, -0.35), (0.5, 0.42)], 0.03, water, 0.003)
     strip([(-0.75, -0.8), (-0.35, 0.0), (0.1, 0.25), (0.62, -0.05)], 0.012, mat("map_route", (0.82, 0.22, 0.18)), 0.004)
-    PROP_AT["Map"] = P(0, 0)
     # the compass lies on the map: a clear baseplate (pale blue) with a red arrow, a black bezel, a white dial
     q = []
     ku, kv = 0.42, -0.45
@@ -486,20 +445,29 @@ def hood_map(M):
     side = lambda s: C(s * nd[1] * 0.007, -s * nd[0] * 0.007 - 0.02, H + 0.002)
     q.append(poly([tip(1, 0.036), side(1), side(-1)], mat("compass_needle", (0.85, 0.15, 0.12)), kup))
     q.append(poly([tip(-1, 0.036), side(-1), side(1)], mat("compass_south", (0.22, 0.22, 0.24)), kup))
-    PROP_AT["Compass"] = tuple(o)
-    return m, q
+    return m, q, {"Map": P(0, 0), "Compass": tuple(o)}
 
 
-PROP_AT = {}   # loose props: origin at the middle of the bottom, so the page can lift them off the bonnet
+@dataclasses.dataclass
+class Body:
+    """What body() makes and a style builder adds to, for finish(): parts (joined into Jeep), groups (each joined into its
+    own node: the doors, the hood, the glass, the cabin light, the loose props), origins (the origin of each group node that
+    is not on a hinge: the middle of its bottom, so the page can lift it) and empties (the page's marker points)."""
+    parts: list
+    groups: dict
+    origins: dict = dataclasses.field(default_factory=dict)
+    empties: list = dataclasses.field(default_factory=list)
 
 
-def body(M, style):
+def body(M, style, wheels=WHEELS):
+    """The jeep every style shares (style "toy" makes the wheels and lamps bigger), with wheels as in WHEELS."""
     toy = style == "toy"
     R = 0.43 if toy else WHEEL_R
     zc = R                                                    # wheel centre height
     yr = AXLE_Y[1]
     p = []
     G = {"DoorP": [], "DoorD": [], "BackDoor": [], "Glass": [], "GlassP": [], "GlassD": [], "GlassB": []}   # parts that move with each door
+    b = Body(p, G)
     # (passenger door on +X, the camp side); the glass is kept apart so the page can draw it see-through
     # lower body: hood and sides up to the beltline, with the wheel arches cut out
     lower = prism(LOWER_PROFILE, W, M["paint"])
@@ -516,7 +484,7 @@ def body(M, style):
                      W - 0.1, M["inside"], taper=0.95))
     side = [(-0.33, SILL + 0.11), (0.6, SILL + 0.11), (0.6, ROOF - 0.08), (-0.1, ROOF - 0.08), (-0.33, BELT)]
     regions = {"DoorP": lambda: prism(side, 0.4, M["paint"], x0=0.8), "DoorD": lambda: prism(side, 0.4, M["paint"], x0=-0.8),
-               "BackDoor": lambda: box((1.32, 0.3, ROOF - 0.08 - SILL - 0.1), at=(0, REAR, (ROOF - 0.08 + SILL + 0.1) / 2), m=M["paint"])}
+               "BackDoor": lambda: slim_box((1.32, 0.3, ROOF - 0.08 - SILL - 0.1), at=(0, REAR, (ROOF - 0.08 + SILL + 0.1) / 2), m=M["paint"])}
     for name, make in regions.items():
         r = make(); apply_all(r)
         G[name].append(piece(shell, r))
@@ -538,38 +506,38 @@ def body(M, style):
     for sx, door in ((-1, "DoorD"), (1, "DoorP")):
         cut(G[door][0], prism([(-0.21, zb + 0.03), (0.49, zb + 0.03), (0.49, zt - 0.03), (-0.05, zt - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
         cut(shell, prism([(0.71, zb + 0.03), (1.45, zb + 0.03), (1.45, zt - 0.03), (0.71, zt - 0.03)], 0.3, M["inside"], x0=sx * 0.76))
-    cut(G["BackDoor"][0], box((0.92, 0.3, zt - zb - 0.1), at=(0, REAR, (zb + zt) / 2 + 0.02), m=M["inside"]))
+    cut(G["BackDoor"][0], slim_box((0.92, 0.3, zt - zb - 0.1), at=(0, REAR, (zb + zt) / 2 + 0.02), m=M["inside"]))
     p.append(shell)
     # inside: floor, two front seats (driver on +X, the camp side, so a sloth in that seat sits at the wheel), dashboard and wheel, and the
     # rear seats folded flat into a cargo deck
     fab, ins = M["seat"], M["inside"]
-    p.append(box((W - 0.12, REAR + 0.33, 0.04), at=(0, (REAR - 0.37) / 2, SILL + 0.1), m=ins))
+    p.append(slim_box((W - 0.12, REAR + 0.33, 0.04), at=(0, (REAR - 0.37) / 2, SILL + 0.1), m=ins))
     for x in (-0.36, 0.36):
-        p.append(box((0.42, 0.46, 0.13), at=(x, 0.18, SILL + 0.34), m=fab, bevel=0.04))
-        p.append(box((0.3, 0.3, 0.2), at=(x, 0.18, SILL + 0.18), m=ins))
-        p.append(box((0.42, 0.11, 0.5), at=(x, 0.46, SILL + 0.64), rot=(-0.18, 0, 0), m=fab, bevel=0.04))
-        p.append(box((0.24, 0.08, 0.13), at=(x, 0.52, SILL + 0.97), rot=(-0.18, 0, 0), m=fab))
-    p.append(box((W - 0.14, 0.24, 0.2), at=(0, -0.26, BELT - 0.03), m=ins))
+        p.append(slim_box((0.42, 0.46, 0.13), at=(x, 0.18, SILL + 0.34), m=fab, bevel=0.04))
+        p.append(slim_box((0.3, 0.3, 0.2), at=(x, 0.18, SILL + 0.18), m=ins))
+        p.append(slim_box((0.42, 0.11, 0.5), at=(x, 0.46, SILL + 0.64), rot=(-0.18, 0, 0), m=fab, bevel=0.04))
+        p.append(slim_box((0.24, 0.08, 0.13), at=(x, 0.52, SILL + 0.97), rot=(-0.18, 0, 0), m=fab))
+    p.append(slim_box((W - 0.14, 0.24, 0.2), at=(0, -0.26, BELT - 0.03), m=ins))
     p.append(rod((0.36, -0.26, BELT - 0.06), (0.36, -0.05, BELT + 0.09), 0.026, M["trim"], verts=6))
     # the wheel's middle: a hub boss and three spokes (left, right, down) in the rim's plane
     wr, wc = math.pi / 2 + 0.45, Vector((0.36, -0.05, BELT + 0.09))
     ux, uy = Vector((1, 0, 0)), Vector((0, math.cos(wr), math.sin(wr)))      # the rim plane's axes
     p.append(cyl(0.045, 0.04, at=tuple(wc), rot=(wr, 0, 0), m=M["trim"], verts=6))
     for d, size in ((ux, (0.13, 0.03, 0.014)), (-ux, (0.13, 0.03, 0.014)), (-uy, (0.03, 0.13, 0.014))):
-        p.append(box(size, at=tuple(wc + d * 0.085), rot=(wr, 0, 0), m=M["trim"]))
+        p.append(slim_box(size, at=tuple(wc + d * 0.085), rot=(wr, 0, 0), m=M["trim"]))
     p.append(torus(0.16, 0.018, at=(0.36, -0.05, BELT + 0.09), rot=(math.pi / 2 + 0.45, 0, 0), m=M["trim"], major=12, minor=4))
-    p.append(box((1.08, 0.92, 0.05), at=(0, 1.06, SILL + 0.3), m=fab))   # fits between the wheel tubs     # the folded rear seats: a flat deck
-    p.append(box((W - 0.16, 0.06, 0.2), at=(0, 0.62, SILL + 0.2), m=ins))
+    p.append(slim_box((1.08, 0.92, 0.05), at=(0, 1.06, SILL + 0.3), m=fab))   # fits between the wheel tubs     # the folded rear seats: a flat deck
+    p.append(slim_box((W - 0.16, 0.06, 0.2), at=(0, 0.62, SILL + 0.2), m=ins))
     for sx in (-1, 1):   # rear wheel tubs: single quads (inner wall, lid, both ends) facing into the boot, closing it off from the wheels
         x0, x1, y0, y1, z0, z1 = sx * 0.54, sx * (W / 2 - 0.01), yr - R - 0.1, yr + R + 0.1, SILL + 0.1, zc + R + 0.1
         aim = (0, yr, SILL + 0.6)
-        p.append(quad([(x0, y0, z0), (x0, y1, z0), (x0, y1, z1), (x0, y0, z1)], ins, aim))
-        p.append(quad([(x0, y0, z1), (x0, y1, z1), (x1, y1, z1), (x1, y0, z1)], ins, aim))
+        p.append(poly([(x0, y0, z0), (x0, y1, z0), (x0, y1, z1), (x0, y0, z1)], ins, aim))
+        p.append(poly([(x0, y0, z1), (x0, y1, z1), (x1, y1, z1), (x1, y0, z1)], ins, aim))
         for y_, away in ((y0, -1), (y1, 1)):     # the ends face away from the wheel, into the cabin and the boot
-            p.append(quad([(x0, y_, z0), (x1, y_, z0), (x1, y_, z1), (x0, y_, z1)], ins, (x0, y_ + away, z0)))
+            p.append(poly([(x0, y_, z0), (x1, y_, z0), (x1, y_, z1), (x0, y_, z1)], ins, (x0, y_ + away, z0)))
     # handy points for the page: the driver's (SeatP, name kept) seat cushion, the steering wheel centre, the passenger door sill, the middle of the cargo deck
     for name, at in (("SeatP", (0.36, 0.18, SILL + 0.41)), ("DoorSill", (W / 2, 0.13, SILL + 0.11)), ("Boot", (0, 1.06, SILL + 0.33)), ("WheelHub", (0.36, -0.05, BELT + 0.09))):
-        e = bpy.data.objects.new(name, None); e.location = at; bpy.context.collection.objects.link(e); EMPTIES.append(e)
+        e = bpy.data.objects.new(name, None); e.location = at; bpy.context.collection.objects.link(e); b.empties.append(e)
     # glass: windscreen, side windows split by the B pillar, the rear door window
     g = M["glass"]
     G["Glass"].append(panel(*windscreen_glass(0.01), g))
@@ -579,12 +547,12 @@ def body(M, style):
         door = G["DoorP" if s > 0 else "DoorD"]
         G["GlassP" if s > 0 else "GlassD"].append(panel((wx(zb), -0.24, zb), (wx(zb), 0.52, zb), (wx(zt), 0.52, zt), (wx(zt), -0.07, zt), g))
         G["Glass"].append(panel((wx(zb), 0.68, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), 0.68, zt), g))
-        door.append(box((0.03, 0.14, 0.03), at=(s * (W / 2 + 0.012), 0.45, BELT - 0.12), m=M["trim"]))   # handle
+        door.append(slim_box((0.03, 0.14, 0.03), at=(s * (W / 2 + 0.012), 0.45, BELT - 0.12), m=M["trim"]))   # handle
         # mirror: a big squarish housing close to the door on a short foot at the front corner of the window (Adriaen's
         # photo); it rides on the door, so it swings open with it, and the housing sticks out sideways with its glass facing back
-        door.append(box((0.06, 0.06, 0.08), at=(s * (W / 2 + 0.03), -0.28, BELT + 0.07), m=M["trim"], bevel=0.012))
-        door.append(box((0.18, 0.065, 0.16), at=(s * (W / 2 + 0.105), -0.28, BELT + 0.17), m=M["trim"], bevel=0.02))
-        door.append(box((0.14, 0.006, 0.12), at=(s * (W / 2 + 0.105), -0.246, BELT + 0.17), m=M["glass"]))
+        door.append(slim_box((0.06, 0.06, 0.08), at=(s * (W / 2 + 0.03), -0.28, BELT + 0.07), m=M["trim"], bevel=0.012))
+        door.append(slim_box((0.18, 0.065, 0.16), at=(s * (W / 2 + 0.105), -0.28, BELT + 0.17), m=M["trim"], bevel=0.02))
+        door.append(slim_box((0.14, 0.006, 0.12), at=(s * (W / 2 + 0.105), -0.246, BELT + 0.17), m=M["glass"]))
     G["GlassB"].append(panel((-0.5, REAR + 0.004, zb + 0.04), (0.5, REAR + 0.004, zb + 0.04), (0.48, REAR + 0.002, zt - 0.02), (-0.48, REAR + 0.002, zt - 0.02), g))
     # roof gutters
     for s in (-1, 1):
@@ -596,71 +564,73 @@ def body(M, style):
         piv, tip = on_glass(x, 0.03, 0.03), on_glass(x + 0.36, 0.1, 0.03)
         p.append(cyl(0.022, 0.03, at=tuple(on_glass(x, 0.03, 0.012)), rot=(tilt + math.pi / 2, 0, 0), m=M["trim"], verts=6))
         p.append(rod(tuple(piv), tuple(tip), 0.008, M["trim"], verts=4))
-        bl = box((0.44, 0.014, 0.022), at=tuple(on_glass(x + 0.3, 0.12, 0.014)), rot=(tilt, 0, 0.0), m=M["trim"])
+        bl = slim_box((0.44, 0.014, 0.022), at=tuple(on_glass(x + 0.3, 0.12, 0.014)), rot=(tilt, 0, 0.0), m=M["trim"])
         bl.rotation_mode = "XYZ"
         p.append(bl)
-        p.append(box((0.03, 0.02, 0.03), at=tuple(on_glass(x + 0.36, 0.11, 0.024)), rot=(tilt, 0, 0), m=M["trim"]))   # the clip joining them
+        p.append(slim_box((0.03, 0.02, 0.03), at=tuple(on_glass(x + 0.36, 0.11, 0.024)), rot=(tilt, 0, 0), m=M["trim"]))   # the clip joining them
     # front: a recessed grille with three bars, round headlights, indicators, bumper
     # the cabin light: a flat lens under the roof between the front seats, its own node so the page can switch it on
     cz = ROOF - 0.056
     G["CabinLight"] = [poly([(-0.09, 0.2, cz), (0.09, 0.2, cz), (0.09, 0.3, cz), (-0.09, 0.3, cz)], M["lamp"], (0, 0.25, 0))]
-    PROP_AT["CabinLight"] = (0, 0.25, cz)
+    b.origins["CabinLight"] = (0, 0.25, cz)
     G["Lamps"] = []
-    PROP_AT["Lamps"] = (0, FRONT - 0.03, LAMP_Z)
-    G["Map"], G["Compass"] = hood_map(M)   # loose props on the bonnet, their own nodes (they ride on the hood: finish())
+    b.origins["Lamps"] = (0, FRONT - 0.03, LAMP_Z)
+    G["Map"], G["Compass"], on_map = hood_map(M)
+    b.origins.update(on_map)   # loose props on the bonnet, their own nodes (they ride on the hood: finish())
     # the engine, everything at least 3 cm under the closed hood (its underside is at BELT - 0.135 = 0.925)
-    p.append(box((0.5, 0.42, 0.2), at=(0, -1.0, SILL + 0.3), m=M["under"], bevel=0.015))           # the engine: block,
-    p.append(box((0.4, 0.32, 0.04), at=(0, -1.0, SILL + 0.42), m=M["trim"]))                         # rocker cover (top 0.89),
+    p.append(slim_box((0.5, 0.42, 0.2), at=(0, -1.0, SILL + 0.3), m=M["under"], bevel=0.015))           # the engine: block,
+    p.append(slim_box((0.4, 0.32, 0.04), at=(0, -1.0, SILL + 0.42), m=M["trim"]))                         # rocker cover (top 0.89),
     p.append(cyl(0.12, 0.05, at=(-0.2, -0.66, SILL + 0.415), m=M["chrome"], verts=10))              # air filter (top 0.89)
-    p.append(box((0.2, 0.15, 0.14), at=(0.46, -0.66, SILL + 0.27), m=M["trim"]))                     # and battery (top 0.79)
-    p.append(box((GRILLE_W, 0.03, GRILLE_Z[1] - GRILLE_Z[0]), at=(0, FRONT - 0.005, sum(GRILLE_Z) / 2), m=M["grille"]))
+    p.append(slim_box((0.2, 0.15, 0.14), at=(0.46, -0.66, SILL + 0.27), m=M["trim"]))                     # and battery (top 0.79)
+    p.append(slim_box((GRILLE_W, 0.03, GRILLE_Z[1] - GRILLE_Z[0]), at=(0, FRONT - 0.005, sum(GRILLE_Z) / 2), m=M["grille"]))
     for k in range(3):                                   # three horizontal bars (its own face, no maker's grille)
-        p.append(box((0.78, 0.03, 0.035), at=(0, FRONT - 0.02, GRILLE_Z[0] + 0.06 + k * 0.065), m=M["bar"]))
+        p.append(slim_box((0.78, 0.03, 0.035), at=(0, FRONT - 0.02, GRILLE_Z[0] + 0.06 + k * 0.065), m=M["bar"]))
     hr = 0.15 if toy else LAMP_R
     for s in (-1, 1):
         ring, lens = headlight(s * LAMP_X, FRONT - 0.03, LAMP_Z, hr, M)
         p += ring; G["Lamps"] += lens
-        p.append(box((0.12, 0.03, 0.05), at=(s * 0.6, FRONT - 0.02, 0.62), m=M["amber"]))
+        p.append(slim_box((0.12, 0.03, 0.05), at=(s * 0.6, FRONT - 0.02, 0.62), m=M["amber"]))
     front_bumper, back_bumper = bumpers(M, bevel=0.05 if toy else 0.025)
     p.append(front_bumper)
-    p.append(box((0.4, 0.02, 0.12), at=(0, FRONT - 0.165, SILL + 0.06), m=M["plate"]))
+    p.append(slim_box((0.4, 0.02, 0.12), at=(0, FRONT - 0.165, SILL + 0.06), m=M["plate"]))
     # rear: bumper, tall taillights, the spare wheel on the door
     p.append(back_bumper)
     for s in (-1, 1):
-        p.append(box((0.09, 0.03, 0.22), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.78), m=M["red"]))
-        p.append(box((0.09, 0.03, 0.06), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.64), m=M["amber"]))
-    p.append(box((0.42, 0.02, 0.12), at=(0, REAR + 0.155, SILL + 0.06), m=M["plate"]))
+        p.append(slim_box((0.09, 0.03, 0.22), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.78), m=M["red"]))
+        p.append(slim_box((0.09, 0.03, 0.06), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.64), m=M["amber"]))
+    p.append(slim_box((0.42, 0.02, 0.12), at=(0, REAR + 0.155, SILL + 0.06), m=M["plate"]))
     bd = G["BackDoor"]
     for z in (0.7, 1.35):                                     # hinges on the -X side, a handle on the other
-        p.append(box((0.05, 0.04, 0.09), at=(-0.66, REAR + 0.015, z), m=M["trim"]))
-    bd.append(box((0.03, 0.12, 0.03), at=(0.55, REAR + 0.02, BELT - 0.12), rot=(0, 0, math.pi / 2), m=M["trim"]))
+        p.append(slim_box((0.05, 0.04, 0.09), at=(-0.66, REAR + 0.015, z), m=M["trim"]))
+    bd.append(slim_box((0.03, 0.12, 0.03), at=(0.55, REAR + 0.02, BELT - 0.12), rot=(0, 0, math.pi / 2), m=M["trim"]))
     sr = R * 0.98
     bd.append(cyl(0.06, 0.12, at=(0.06, REAR + 0.06, 0.98), rot=(math.pi / 2, 0, 0), m=M["trim"], verts=12))
-    bd += lift(wheel(0.06, REAR + 0.22, sr, 0.24, M, axis_x=False), 0.98)
+    bd += lift(wheel(0.06, REAR + 0.22, sr, 0.24, M, axis_x=False, **wheels), 0.98)
     cover = M.get("cover")
     if cover:
         bd.append(cyl(sr + 0.012, 0.25, at=(0.06, REAR + 0.22, 0.98), rot=(math.pi / 2, 0, 0), m=cover, verts=16))
     # chassis, axles and the four wheels with black flares over them
-    p.append(box((W - 0.3, REAR - FRONT - 0.3, 0.2), at=(0, 0, SILL - 0.02), m=M["under"]))
+    p.append(slim_box((W - 0.3, REAR - FRONT - 0.3, 0.2), at=(0, 0, SILL - 0.02), m=M["under"]))
     for y in AXLE_Y:
         p.append(rod((-0.7, y, zc), (0.7, y, zc), 0.04, M["under"]))
         for s in (-1, 1):
-            p += lift(wheel(s * (W / 2 - 0.1), y, R, 0.27 if toy else 0.25, M), zc)
+            p += lift(wheel(s * (W / 2 - 0.1), y, R, 0.27 if toy else 0.25, M, **wheels), zc)
             p.append(flare(s, y, zc, R, 0.06 if toy else 0.045, M["flare"], 20))
     # side steps / sills
     for s in (-1, 1):
-        p.append(box((0.06, 0.95, 0.06), at=(s * (W / 2 - 0.01), 0.0, SILL + 0.02), m=M["bumper"], bevel=0.015))
-    return p, G
+        p.append(slim_box((0.06, 0.95, 0.06), at=(s * (W / 2 - 0.01), 0.0, SILL + 0.02), m=M["bumper"], bevel=0.015))
+    return b
 
 
 # hinge of each door (x, y) and how far it opens (radians about Z); the page reads the same from the node positions
 HINGES = {"DoorP": ((W / 2 + 0.01, -0.33), -1.2), "DoorD": ((-W / 2 - 0.01, -0.33), 1.2), "BackDoor": ((-0.67, REAR + 0.02), 1.75)}
-EMPTIES = []
 HOOD_HINGE, HOOD_OPEN = (0, -0.43, BELT + 0.03), -1.15                      # the hood swings up about X (the page does the same)
 
 
-def finish(p, G):
-    """Join the body and each door; put each door's origin on its hinge."""
+def finish(b):
+    """Join the body and each group of b (a Body); put each door's origin on its hinge, the hood's on its own and the
+    others' at b.origins. Returns the objects by name and b.empties."""
+    p, G = b.parts, b.groups
     out = {"Jeep": join(p, "Jeep")}
     for name, parts in G.items():
         if name.startswith("Glass"):
@@ -668,8 +638,8 @@ def finish(p, G):
         o = join(parts, name)
         if name == "Hood":                                             # hinged at the foot of the windscreen
             bpy.context.scene.cursor.location = HOOD_HINGE
-        elif name in PROP_AT:
-            bpy.context.scene.cursor.location = PROP_AT[name]
+        elif name in b.origins:
+            bpy.context.scene.cursor.location = b.origins[name]
         else:
             (hx, hy), _ = HINGES[name]
             bpy.context.scene.cursor.location = (hx, hy, 0)
@@ -685,30 +655,34 @@ def finish(p, G):
             o.parent = out[door]
             o.matrix_parent_inverse = out[door].matrix_world.inverted()
         out[name] = o
-    return out
+    return out, b.empties
 
 
-# ------------------------------------------------------------------ the three styles
+# ------------------------------------------------------------------ the three styles (each returns finish()'s objects and empties)
 BASE = dict(seat=(0.3, 0.25, 0.21), inside=(0.17, 0.17, 0.18), glass=(0.11, 0.14, 0.17), trim=(0.1, 0.1, 0.1), grille=(0.05, 0.05, 0.06), lamp=(1.0, 0.96, 0.82),
             chrome=(0.78, 0.79, 0.8), amber=(0.98, 0.58, 0.12), red=(0.75, 0.08, 0.06), plate=(0.92, 0.9, 0.84), under=(0.1, 0.1, 0.1),
             tyre=(0.11, 0.11, 0.11), hub=(0.3, 0.3, 0.32))
 
 
 def mats(prefix, **over):
-    return {k: mat(f"{prefix}_{k}", c) for k, c in {**BASE, **over}.items()}
+    """A style's materials: BASE with its own colours over it, plus the tyre's darker groove (named <prefix>_tyre_groove,
+    so mud_mask() treats it as tyre)."""
+    M = {k: mat(f"{prefix}_{k}", c) for k, c in {**BASE, **over}.items()}
+    M["groove"] = mat(f"{prefix}_tyre_groove", tuple(c * 0.45 for c in M["tyre"]["base"]))
+    return M
 
 
-def toy():
+def toy(wheels=WHEELS):
     M = mats("toy", paint=(0.5, 0.8, 0.68), paint2=(0.97, 0.93, 0.82), bar=(0.97, 0.93, 0.82), bumper=(0.97, 0.93, 0.82), flare=(0.97, 0.93, 0.82),
              rim=(0.97, 0.93, 0.82), cover=(0.97, 0.93, 0.82), wicker=(0.78, 0.6, 0.38), wicker2=(0.62, 0.45, 0.27), blanket=(0.95, 0.45, 0.5),
              blanket2=(1, 0.88, 0.9), petal=(1, 0.55, 0.65), mid=(1, 0.84, 0.3), leaf=(0.36, 0.62, 0.3), tyre=(0.2, 0.18, 0.17))
-    p, G = body(M, "toy")
+    b = body(M, "toy", wheels); p, G = b.parts, b.groups
     # a wicker roof basket with a rolled picnic blanket and a little potted plant
     z = ROOF + 0.05
     for s in (-1, 1):
         p.append(cyl(0.02, 0.08, at=(s * 0.55, -0.0, ROOF + 0.02), m=M["wicker2"], verts=6))
         p.append(cyl(0.02, 0.08, at=(s * 0.55, 1.3, ROOF + 0.02), m=M["wicker2"], verts=6))
-    p.append(box((1.3, 1.45, 0.03), at=(0, 0.66, z), m=M["wicker2"]))
+    p.append(slim_box((1.3, 1.45, 0.03), at=(0, 0.66, z), m=M["wicker2"]))
     for k in range(4):
         h = z + 0.04 + k * 0.045
         for s in (-1, 1):
@@ -728,7 +702,7 @@ def toy():
         a = k / 5 * 2 * math.pi
         G["BackDoor"].append(ball(0.07, at=(0.06 + math.cos(a) * 0.09, sy, 0.98 + math.sin(a) * 0.09), scale=(1, 0.3, 1), m=M["petal"], seg=10))
     G["BackDoor"].append(ball(0.06, at=(0.06, sy + 0.01, 0.98), scale=(1, 0.4, 1), m=M["mid"], seg=10))
-    return finish(p, G)
+    return finish(b)
 
 
 def jerry_can(x, y, z, m):
@@ -751,7 +725,7 @@ def jerry_can(x, y, z, m):
         for (y0, z0), (y1, z1) in (((y - L / 2 + 0.05, z + 0.05), (y + L / 2 - 0.05, z + H - 0.08)), ((y - L / 2 + 0.05, z + H - 0.08), (y + L / 2 - 0.05, z + 0.05))):
             d = Vector((0, y1 - y0, z1 - z0)); n = Vector((0, -d.z, d.y)).normalized() * 0.012
             pts = [(xs, y0 - n.y, z0 - n.z), (xs, y1 - n.y, z1 - n.z), (xs, y1 + n.y, z1 + n.z), (xs, y0 + n.y, z0 + n.z)]
-            parts.append(quad(pts, dark, (x + s, y, z + H / 2)))
+            parts.append(poly(pts, dark, (x + s, y, z + H / 2)))
     parts.append(cyl(0.024, 0.045, at=(x, y - L / 2 + 0.03, z + H - 0.03), rot=(math.pi / 4, 0, 0), m=dark, verts=6))
     return parts
 
@@ -761,9 +735,9 @@ EXPEDITION_COLOURS = dict(paint=(0.36, 0.39, 0.25), paint2=(0.36, 0.39, 0.25), b
                           strap=(0.82, 0.5, 0.12), rope=(0.7, 0.62, 0.45))
 
 
-def expedition():
+def expedition(wheels=WHEELS):
     M = mats("ex", **EXPEDITION_COLOURS)
-    p, G = body(M, "expedition")
+    b = body(M, "expedition", wheels); p, G = b.parts, b.groups
     # steel bumper with a winch and a pair of tow hooks
     p.append(winch(M, bevel=0.02))
     p.append(cyl(0.065, 0.36, at=(0, FRONT - 0.22, SILL + 0.11), rot=(0, math.pi / 2, 0), m=M["rope"], verts=10))
@@ -772,10 +746,10 @@ def expedition():
     # snorkel, angular like the aftermarket ones: a flat box duct along the top of the wing, a square riser up the A pillar
     # (raked like the windscreen, clear of the mirror) and a wedge-shaped intake head on top facing forward
     p += snorkel(M)
-    p.append(box((0.11, 0.01, 0.06), at=(0.79, -0.505, ROOF + 0.04), rot=(-0.12, 0, 0), m=M["grille"]))             # its mesh front
+    p.append(slim_box((0.11, 0.01, 0.06), at=(0.79, -0.505, ROOF + 0.04), rot=(-0.12, 0, 0), m=M["grille"]))             # its mesh front
     # no front plate here: the winch shows instead (Adriaen, 2026-11-11). Its fairlead, where the rope comes out:
-    p.append(box((0.2, 0.03, 0.08), at=(0, FRONT - 0.3, SILL + 0.1), m=M["bumper"]))
-    p.append(box((0.12, 0.034, 0.025), at=(0, FRONT - 0.3, SILL + 0.1), m=M["grille"]))
+    p.append(slim_box((0.2, 0.03, 0.08), at=(0, FRONT - 0.3, SILL + 0.1), m=M["bumper"]))
+    p.append(slim_box((0.12, 0.034, 0.025), at=(0, FRONT - 0.3, SILL + 0.1), m=M["grille"]))
     p.append(rod((0, FRONT - 0.3, SILL + 0.1), (0, FRONT - 0.34, SILL + 0.06), 0.008, M["rope"], verts=5))
     p.append(torus(0.03, 0.008, at=(0, FRONT - 0.345, SILL + 0.03), rot=(0, math.pi / 2, 0), m=M["strap"], major=6, minor=3))
     # roof rack: a black ladder frame with two jerry cans, a crate and a coil of rope
@@ -789,27 +763,27 @@ def expedition():
         p.append(rod((-0.7, y, z), (0.7, y, z), 0.016, M["rack"], verts=4))
     for x, cm in CANS:
         p += jerry_can(x, CAN_Y, z + 0.02, M[cm])
-    p.append(box(m=M["crate"], bevel=0.02, **CRATE))
-    p.append(box((0.03, 0.57, 0.31), at=CRATE["at"], m=M["strap"]))
+    p.append(slim_box(m=M["crate"], bevel=0.02, **CRATE))
+    p.append(slim_box((0.03, 0.57, 0.31), at=CRATE["at"], m=M["strap"]))
     # a shovel on the rear door
     # (blade clear above the bumper, beside the spare)
     G["BackDoor"].append(rod((0.52, REAR + 0.04, 0.88), (0.52, REAR + 0.04, 1.52), 0.016, M["crate"], verts=6))
-    G["BackDoor"].append(box((0.15, 0.02, 0.2), at=(0.52, REAR + 0.05, 0.8), m=M["rack"]))
-    return finish(p, G)
+    G["BackDoor"].append(slim_box((0.15, 0.02, 0.2), at=(0.52, REAR + 0.05, 0.8), m=M["rack"]))
+    return finish(b)
 
 
-def camper():
+def camper(wheels=WHEELS):
     M = mats("ca", paint=(0.82, 0.74, 0.58), paint2=(0.95, 0.93, 0.88), bar=(0.95, 0.93, 0.88), bumper=(0.2, 0.2, 0.2), flare=(0.2, 0.2, 0.2),
              rim=(0.95, 0.93, 0.88), cover=(0.25, 0.42, 0.38), canvas=(0.27, 0.45, 0.4), canvas2=(0.95, 0.66, 0.33), base=(0.18, 0.18, 0.18),
              alu=(0.72, 0.73, 0.74), rope=(0.7, 0.62, 0.45))
-    p, G = body(M, "camper")
+    b = body(M, "camper", wheels); p, G = b.parts, b.groups
     # rooftop tent folded open over the right side: one shell on the roof, the lid as the floor out over the ladder
     z = ROOF + 0.07
     x0, x1 = -0.72, 2.0
     for s in (-1, 1):
         p.append(rod((s * 0.6, -0.05, ROOF), (s * 0.6, -0.05, z), 0.02, M["base"], verts=6))
         p.append(rod((s * 0.6, 1.45, ROOF), (s * 0.6, 1.45, z), 0.02, M["base"], verts=6))
-    p.append(box((x1 - x0, 1.75, 0.07), at=((x0 + x1) / 2, 0.7, z), m=M["base"], bevel=0.02))
+    p.append(slim_box((x1 - x0, 1.75, 0.07), at=((x0 + x1) / 2, 0.7, z), m=M["base"], bevel=0.02))
     # canvas: one tent over the shell and the fold-out, high over the roof hinge and sloping down to the far end,
     # with an orange window each end and the door over the ladder
     prof = [(x0, z), (x1, z), (x1, z + 0.58), (0.62, z + 0.9), (x0 + 0.1, z + 0.72), (x0, z + 0.42)]
@@ -833,7 +807,7 @@ def camper():
         p.append(rod((xt + (xb - xt) * t, yl[0], z * (1 - t)), (xt + (xb - xt) * t, yl[1], z * (1 - t)), 0.016, M["alu"], verts=6))
     # a coiled rope and a little pennant on the spare
     p.append(torus(0.15, 0.03, at=(-0.45, 1.3, z + 0.12), m=M["rope"], major=12, minor=3))
-    return finish(p, G)
+    return finish(b)
 
 
 # ------------------------------------------------------------------ mud, export, preview
@@ -925,12 +899,12 @@ def jeep_lod(M):
     wheel_arches(lower, R, zc, 10)
     p = [lower, prism(CAB_PROFILE, CAB_W, M["paint2"], taper=CAB_TAPER)]
     g = M["glass"]
-    p.append(quad(windscreen_glass(0.012), g, (0, -5, BELT)))
+    p.append(poly(windscreen_glass(0.012), g, (0, -5, BELT)))
     zb, zt = GLASS_Z
     for sd in (-1, 1):
         wx = lambda z: cabin_side_x(z, sd, 0.012)
-        p.append(quad([(wx(zb), -0.24, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), -0.07, zt)], g, (sd * 5, 0.6, 1.3)))   # one strip of side glass
-    p.append(quad([(-0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zt), (-0.5, REAR + 0.012, zt)], g, (0, 5, 1.3)))
+        p.append(poly([(wx(zb), -0.24, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), -0.07, zt)], g, (sd * 5, 0.6, 1.3)))   # one strip of side glass
+    p.append(poly([(-0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zt), (-0.5, REAR + 0.012, zt)], g, (0, 5, 1.3)))
     for y in AXLE_Y:                                     # wheels: tyre, rim face, hub; open on the inside (never seen)
         for sd in (-1, 1):
             x, h = sd * (W / 2 - 0.1), 0.125
@@ -940,34 +914,34 @@ def jeep_lod(M):
     p += bumpers(M)
     p.append(winch(M))
     gx, (gz0, gz1) = GRILLE_W / 2, GRILLE_Z
-    p.append(quad([(-gx, FRONT - 0.006, gz0), (gx, FRONT - 0.006, gz0), (gx, FRONT - 0.006, gz1), (-gx, FRONT - 0.006, gz1)], M["grille"], (0, -5, 0.8)))
+    p.append(poly([(-gx, FRONT - 0.006, gz0), (gx, FRONT - 0.006, gz0), (gx, FRONT - 0.006, gz1), (-gx, FRONT - 0.006, gz1)], M["grille"], (0, -5, 0.8)))
     for sd in (-1, 1):
         hx, hy, hz, r = sd * LAMP_X, FRONT - 0.008, LAMP_Z, LAMP_R
         p.append(poly([(hx + r * math.cos(t * math.pi / 4), hy, hz + r * math.sin(t * math.pi / 4)) for t in range(8)], M["lamp"], (hx, -5, hz)))
-        p.append(quad([(sd * 0.71, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.89), (sd * 0.71, REAR + 0.012, 0.89)], M["red"], (0, 5, 0.8)))
-        p.append(box((0.06, 0.18, 0.16), at=(sd * (W / 2 + 0.06), -0.28, BELT + 0.17), m=M["trim"]))   # mirror
+        p.append(poly([(sd * 0.71, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.89), (sd * 0.71, REAR + 0.012, 0.89)], M["red"], (0, 5, 0.8)))
+        p.append(slim_box((0.06, 0.18, 0.16), at=(sd * (W / 2 + 0.06), -0.28, BELT + 0.17), m=M["trim"]))   # mirror
     sr = R * 0.98                                        # the spare wheel on the back door
     p.append(lathe([(sr * 0.9, 0, "tyre"), (sr, 0.05, "tyre"), (sr, 0.19, "tyre"), (sr * 0.9, 0.24, "tyre"), (sr * 0.62, 0.24, "rim"), (sr * 0.25, 0.24, "hub"), (0, 0.24, "hub")], 8, (0.06, REAR + 0.02, 0.98), False, M, "spare_lod"))
     p += snorkel(M)
     z = RACK_Z                                           # roof rack: the outer frame and three cross bars, square, with its load
     for sd in (-1, 1):
-        p.append(box((0.04, 1.78, 0.04), at=(sd * 0.7, 0.67, z), m=M["rack"]))
+        p.append(slim_box((0.04, 1.78, 0.04), at=(sd * 0.7, 0.67, z), m=M["rack"]))
     for y in (-0.2, 0.67, 1.55):
-        p.append(box((1.44, 0.04, 0.03), at=(0, y, z), m=M["rack"]))
+        p.append(slim_box((1.44, 0.04, 0.03), at=(0, y, z), m=M["rack"]))
     corners = [map_xy(u, v) for u, v in ((-1, -1), (1, -1), (1, 1), (-1, 1))]      # the map on the bonnet, as hood_map() lays it
-    p.append(quad([(x, y, bonnet_z(y) + 0.007) for x, y in corners], mat("map_paper", (0.93, 0.88, 0.72)), (0, -1, 3)))
+    p.append(poly([(x, y, bonnet_z(y) + 0.007) for x, y in corners], mat("map_paper", (0.93, 0.88, 0.72)), (0, -1, 3)))
     L, H, T = JERRY                                      # each can as one box over its body and handle
     for x, cm in CANS:
-        p.append(box((T, L, H + 0.04), at=(x, CAN_Y, z + 0.02 + (H + 0.04) / 2), m=M[cm]))
-    p.append(box(m=M["crate"], **CRATE))
+        p.append(slim_box((T, L, H + 0.04), at=(x, CAN_Y, z + 0.02 + (H + 0.04) / 2), m=M[cm]))
+    p.append(slim_box(m=M["crate"], **CRATE))
     return join(p, "JeepLOD")
 
 
-def build(style, samples, views=None, preview_samples=48):
-    """Build, bake and export one style (views: None for no previews, else the preview tags to render, all when empty)."""
+def build(style, samples, views=None, preview_samples=48, wheels=WHEELS):
+    """Build, bake and export one style (views: None for no previews, else the preview tags to render, all when empty;
+    wheels as in WHEELS)."""
     reset()
-    EMPTIES.clear()
-    objs = {"toy": toy, "expedition": expedition, "camper": camper}[style]()
+    objs, empties = {"toy": toy, "expedition": expedition, "camper": camper}[style](wheels)
     for o in objs.values():
         apply_all(o)
     # bake with the doors open, so the cabin and the inner door faces get daylight (so bake() must not apply the open
@@ -982,14 +956,14 @@ def build(style, samples, views=None, preview_samples=48):
         for o in objs.values():
             mud(o)
     txt = os.path.join(MODELS, f"jeep_{style}.txt") if style == "expedition" else None   # the archived styles: props/jeep/archive
-    path = export_glb([*objs.values(), *EMPTIES], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False, txt=txt)
+    path = export_glb([*objs.values(), *empties], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False, txt=txt)
     print(f"{style} -> {path}")
-    for e in EMPTIES:
+    for e in empties:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
     if views is not None:
         preview(style, objs, preview_samples, views)
     if style == "expedition":                            # the far LOD, in its own scene and bake (it would shade the full jeep)
-        reset(); EMPTIES.clear()
+        reset()
         M = mats("ex", **EXPEDITION_COLOURS)
         lod = jeep_lod(M); apply_all(lod)
         mud_mask(lod); bake([lod], samples, apply=False); mud(lod)
@@ -1004,11 +978,9 @@ if __name__ == "__main__":
     ap.add_argument("--preview-samples", type=int, default=48)
     ap.add_argument("--preview", nargs="?", const="", default=None, metavar="VIEWS",
                     help="also render Cycles preview stills: all of them, or only the comma-separated views given")
-    ap.add_argument("--wheel", default=WHEEL, choices=["closed", "open"])
-    ap.add_argument("--tyre", default=TYRE, choices=["at", "mt", "road"], help="the tread; only acts with --wheel open")
+    ap.add_argument("--wheel", default=WHEELS["kind"], choices=["closed", "open"])
+    ap.add_argument("--tyre", default=WHEELS["tyre"], choices=["at", "mt", "road"], help="the tread; only acts with --wheel open")
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])   # under blender -b: the args after --
-    TYRE = a.tyre
-    WHEEL = a.wheel
     views = None if a.preview is None else [v for v in a.preview.split(",") if v]
     for s in (STYLES if a.style == "all" else [a.style]):
-        build(s, a.samples, views, a.preview_samples)
+        build(s, a.samples, views, a.preview_samples, dict(kind=a.wheel, tyre=a.tyre))

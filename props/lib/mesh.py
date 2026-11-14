@@ -1,7 +1,9 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
-drop_faces, capless, outward, bisect), and object plumbing (apply_all, join, obj_from_bm). Z up, metres; every helper
-links what it makes into the current scene's collection and returns it.
+drop_faces, capless, outward, bisect), and object plumbing (apply_all, join, obj_from_bm, mesh_obj). Z up, metres; every
+helper links what it makes into the current scene's collection and returns it.
+
+    mesh_obj(name, verts, faces, mats=(), face_mats=None, validate=False)   an object from hand-written vertices and faces
 
 cyl, ball and box build their mesh with bmesh (one bmesh op each, review R2-227) and match the bpy.ops primitives they
 replace: the same vertices, a "UVMap" with the same UVs, the object named Cylinder, Cone, Sphere or Cube at its
@@ -29,6 +31,26 @@ def obj_from_bm(bm, name):
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    return o
+
+
+def mesh_obj(name, verts, faces, mats=(), face_mats=None, validate=False):
+    """A new object called name, linked into the scene, whose mesh (also called name) has the vertices verts and the faces
+    faces (tuples of vertex indices), flat shaded. mats are its material slots, in order; face_mats[i] is the slot of face
+    i (all faces take slot 0 when it is None). validate=True runs Mesh.validate() first, which drops broken faces (so leave
+    it off when face_mats is given)."""
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(v) for v in verts], [], [tuple(f) for f in faces])
+    if validate:
+        me.validate()
+    me.update()
+    for m in mats:
+        me.materials.append(m)
+    if face_mats is not None:
+        for p, k in zip(me.polygons, face_mats):
+            p.material_index = k
     o = bpy.data.objects.new(name, me)
     bpy.context.collection.objects.link(o)
     return o
@@ -88,11 +110,7 @@ def torus(R, r, at=(0, 0, 0), rot=(0, 0, 0), m=None, major=24, minor=8):
 
 def quad(corners, m):
     """One flat face through four corners, flat shaded (a page, a line of print, a ribbon, a wood chip)."""
-    me = bpy.data.meshes.new("quad")
-    me.from_pydata(corners, [], [(0, 1, 2, 3)])
-    o = bpy.data.objects.new("quad", me)
-    bpy.context.collection.objects.link(o)
-    return with_material(o, m, smooth=False)
+    return mesh_obj("quad", corners, [(0, 1, 2, 3)], (m,))
 
 
 def bevel(o, w, seg=2):

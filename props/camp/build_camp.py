@@ -37,11 +37,11 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, bevel, bisect, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, ball, bevel, bisect, box, cyl, drop_faces, join, mesh_obj, obj_from_bm, quad, rod, rough_up, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
 STYLES = ("storybook", "rustic", "jungle", "picked")
-rng = random.Random(7)
+rng = random.Random(7)   # the archived styles' rocks and leaves; each style builder reseeds it (rng.seed(7)) first
 
 
 # ------------------------------------------------------------------ helpers (the shared ones are in props/lib)
@@ -86,15 +86,7 @@ def painted_bamboo(a, h, r, m, node_m, step=0.38, band=0.035, sides=8):
         for k in range(n):
             faces.append((i * n + k, i * n + (k + 1) % n, (i + 1) * n + (k + 1) % n, (i + 1) * n + k)); mats.append(kind)
     faces.append(tuple(len(zs) * n - n + k for k in range(n))); mats.append(0)
-    me = bpy.data.meshes.new("post")
-    me.from_pydata(verts, [], faces)
-    o = bpy.data.objects.new("post", me)
-    bpy.context.collection.objects.link(o)
-    o.data.materials.append(m)
-    o.data.materials.append(node_m)
-    for poly, mi in zip(o.data.polygons, mats):
-        poly.material_index = mi
-    return [o]
+    return [mesh_obj("post", verts, faces, (m, node_m), mats)]
 
 
 def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
@@ -111,10 +103,7 @@ def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
         for j in range(nw):
             a = i * (nw + 1) + j
             faces.append((a, a + nw + 1, a + nw + 2, a + 1))
-    me = bpy.data.meshes.new("leaf")
-    me.from_pydata(verts, [], faces)
-    o = bpy.data.objects.new("leaf", me)
-    bpy.context.collection.objects.link(o)
+    o = mesh_obj("leaf", verts, faces)
     o.location = at
     o.rotation_euler = (roll, -pitch, yaw)
     with_material(o, m)
@@ -140,15 +129,9 @@ def sag_sheet(span, width, depth, at, m_a, m_b=None, stripes=0, thick=0.012, nx=
             a = i * (ny + 1) + j
             faces.append((a, a + ny + 1, a + ny + 2, a + 1))
             mats.append(1 if stripes and (j // max(1, ny // stripes)) % 2 else 0)
-    me = bpy.data.meshes.new("sling")
-    me.from_pydata(verts, [], faces)
-    o = bpy.data.objects.new("sling", me)
-    bpy.context.collection.objects.link(o)
+    o = mesh_obj("sling", verts, faces, (m_a, m_b or m_a), mats)
     o.location = at
-    o.data.materials.append(m_a)
-    o.data.materials.append(m_b or m_a)
-    for p, mi in zip(o.data.polygons, mats):
-        p.material_index = mi
+    for p in o.data.polygons:
         p.use_smooth = True
     sol = o.modifiers.new("s", "SOLIDIFY")
     sol.thickness = thick
@@ -165,6 +148,7 @@ def flower(at, m_petal, m_mid, r=0.05):
 
 # ------------------------------------------------------------------ the three styles
 def storybook():
+    rng.seed(7)
     M = {k: mat(f"sb_{k}", c) for k, c in dict(
         stone=(0.62, 0.6, 0.58), stone2=(0.72, 0.68, 0.64), bark=(0.42, 0.26, 0.15), wood=(0.86, 0.68, 0.45), ember=(0.9, 0.32, 0.08),
         cream=(0.96, 0.91, 0.8), pink=(0.95, 0.52, 0.62), door=(0.55, 0.35, 0.3), rope=(0.82, 0.72, 0.52), red=(0.86, 0.2, 0.18),
@@ -289,15 +273,11 @@ def rustic_tent(M):
         for j in range(2 * ny):
             a = i * (2 * ny + 1) + j
             faces.append((a, a + 2 * ny + 1, a + 2 * ny + 2, a + 1))
-    me = bpy.data.meshes.new("roof")
-    me.from_pydata(verts, [], faces)
-    roof = bpy.data.objects.new("roof", me); bpy.context.collection.objects.link(roof); with_material(roof, M["canvas"])
+    roof = with_material(mesh_obj("roof", verts, faces), M["canvas"])
     roof.modifiers.new("s", "SOLIDIFY").thickness = 0.025
     p = [roof]
     def gable(x, tris, m):
-        me = bpy.data.meshes.new("gable")
-        me.from_pydata([v for t in tris for v in t], [], [(3 * k, 3 * k + 1, 3 * k + 2) for k in range(len(tris))])
-        g = bpy.data.objects.new("gable", me); bpy.context.collection.objects.link(g); with_material(g, m, False)
+        g = mesh_obj("gable", [v for t in tris for v in t], [(3 * k, 3 * k + 1, 3 * k + 2) for k in range(len(tris))], (m,))
         g.modifiers.new("s", "SOLIDIFY").thickness = 0.02
         return g
     xb, xf = L / 2 - 0.01, -L / 2 + 0.01
@@ -340,10 +320,7 @@ def rustic_lantern(M):
     the wire handle as one flat quad."""
     p = [cyl(0.065, 0.16, at=(0, 0, -0.14), m=M["glass"], verts=6, smooth=False),
          cyl(0.072, 0.03, at=(0, 0, -0.05), m=M["tin"], verts=6, r2=0.05, smooth=False)]
-    hq = bpy.data.meshes.new("handle")
-    hq.from_pydata([(-0.05, 0, -0.035), (0.05, 0, -0.035), (0.03, 0, 0.0), (-0.03, 0, 0.0)], [], [(0, 1, 2, 3)])
-    ho = bpy.data.objects.new("handle", hq); bpy.context.collection.objects.link(ho); with_material(ho, M["tin"], False)
-    p.append(ho)
+    p.append(quad([(-0.05, 0, -0.035), (0.05, 0, -0.035), (0.03, 0, 0.0), (-0.03, 0, 0.0)], M["tin"]))
     for o in p[:2]:                                    # the jar's top and the lid's bottom are hidden inside each other
         drop_faces(o, lambda f: abs(f.normal.z) > 0.9 and -0.07 < f.center.z < -0.055)
     return join(p, "Lantern")
@@ -368,6 +345,7 @@ def rustic_table(M):
 
 def rustic():
     """The archived rustic style's six props, made in this order (the order its props draw from the seeded rng)."""
+    rng.seed(7)
     M = rustic_mats()
     return {"Fire": rustic_fire(M), "Seat": rustic_seat(M), "Tent": rustic_tent(M), "Hammock": rustic_hammock(M),
             "Lantern": rustic_lantern(M), "Table": rustic_table(M)}
@@ -446,11 +424,7 @@ def wall_tent():
         face([P(-ln / 2, -hw2, t), P(ln / 2, -hw2, t), P(ln / 2, hw2, t), P(-ln / 2, hw2, t)], m)
         face([P(-ln / 2, -hw2, 0), P(ln / 2, -hw2, 0), P(ln / 2, -hw2, t), P(-ln / 2, -hw2, t)], "fascia")
         face([P(ln / 2, hw2, 0), P(-ln / 2, hw2, 0), P(-ln / 2, hw2, t), P(ln / 2, hw2, t)], "fascia")
-    me = bpy.data.meshes.new("wall_tent"); me.from_pydata(V, [], F)
-    for m in mats: me.materials.append(m)
-    for p, k in zip(me.polygons, FM): p.material_index = k
-    body = bpy.data.objects.new("canvas", me); bpy.context.collection.objects.link(body)
-    p = [body]
+    p = [mesh_obj("canvas", V, F, mats, FM)]
     # frame: open-ended poles (no caps anyone would see)
     def pole(a, b, r, m, verts=6):
         return rod(a, b, r, m, verts=verts, caps=False)
@@ -649,6 +623,7 @@ def jungle_table(M):
 
 def jungle():
     """The archived jungle style's six props, made in this order (the order its props draw from the seeded rng)."""
+    rng.seed(7)
     M = jungle_mats()
     return {"Fire": jungle_fire(M), "Seat": jungle_seat(M), "Tent": jungle_tent(M), "Hammock": jungle_hammock(M),
             "Lantern": jungle_lantern(M), "Table": jungle_table(M)}
@@ -660,6 +635,7 @@ def picked():
     planks before the door; the jungle woven hammock, on plain six-sided posts with painted nodes and no leaves on top.
     The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
     made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent)."""
+    rng.seed(7)
     R, J = rustic_mats(), jungle_mats()
     seat, lantern, table = rustic_seat(R), rustic_lantern(R), rustic_table(R)
     hammock = jungle_hammock(J, plain_posts=True)
@@ -675,6 +651,7 @@ BUDGET = {"picked": {"Table": 1400, "Seat": 500, "Lantern": 200}}
 
 
 def lean(objs, budget):
+    """Collapse-decimate each object of objs (by name) that has more triangles than budget gives it."""
     for name, n in budget.items():
         o = objs.get(name)
         t = tris(o) if o else 0
