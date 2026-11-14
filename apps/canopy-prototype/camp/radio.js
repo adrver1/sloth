@@ -16,7 +16,7 @@ import { toast } from "./hud.js";
 import { audio } from "./audio.js";
 
 const W = 0.3, H = 0.19, Dp = 0.13;
-const N = audio.stations.length, DIAL = { x0: -0.105, x1: 0.105, y: 0.035 };   // the dial window on the front, in metres from its middle
+const DIAL = { x0: -0.105, x1: 0.105, y: 0.035 };   // the dial window on the front, in metres from its middle
 let radio, face, needle, notes, source;   // built by buildRadio; source: the radio the music comes from (the last one you used)
 function buildRadio() {
   // the front: walnut case, a cloth speaker grille, the dial window with a mark per station, two knobs
@@ -26,7 +26,7 @@ function buildRadio() {
     c.strokeStyle = "#b39a6e"; c.lineWidth = 3; for (let x = 26; x < 168; x += 9) { c.beginPath(); c.moveTo(x, 80); c.lineTo(x, 144); c.stroke(); }
     c.fillStyle = "#f3e2b0"; c.beginPath(); c.roundRect(40, 18, 176, 40, 10); c.fill();                      // the dial window
     c.fillStyle = "#6b4630"; c.font = "600 20px Fredoka, Trebuchet MS, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
-    audio.stations.forEach((s, i) => { const x = 40 + 22 + i * (176 - 44) / (N - 1); c.fillRect(x - 1.5, 22, 3, 8); c.fillText(s.emoji, x, 44); });
+    audio.stations.forEach((s, i) => { const x = 40 + 22 + i * (176 - 44) / (audio.stations.length - 1); c.fillRect(x - 1.5, 22, 3, 8); c.fillText(s.emoji, x, 44); });
     for (const x of [196, 228]) { c.fillStyle = "#3d2a1d"; c.beginPath(); c.arc(x - 6, 112, 15, 0, 7); c.fill(); c.fillStyle = "#c9a86a"; c.beginPath(); c.arc(x - 6, 112, 5, 0, 7); c.fill(); }
   });
   // the glow of the dial lamp: only the window lights up
@@ -81,7 +81,7 @@ function radioOptions(src) {
   audio.start();
   const use = (fn) => () => { audio.musicFrom(src); source = src; fn(); };
   if (!playing()) return [["Turn the radio on 📻", use(() => { audio.muted(false); audio.music(true); say(); })]];
-  const v = audio.musicVolume(), nx = audio.stations[(audio.stations.findIndex((s) => s.id === audio.station().id) + 1) % N];
+  const v = audio.musicVolume(), nx = audio.stations[(audio.stations.findIndex((s) => s.id === audio.station().id) + 1) % audio.stations.length];
   return [[`Next: ${nx.name} ${nx.emoji}`, use(() => { audio.next(); say(); })],
     ...(v > 0.12 ? [["Quieter 🔉", use(() => { audio.musicVolume(v - 0.15); toast("Quieter 🔉"); })]] : []),
     ...(v < 0.98 ? [["Louder 🔊", use(() => { audio.musicVolume(v + 0.15); toast("Louder 🔊"); })]] : []),
@@ -93,7 +93,7 @@ let lamp = 0, nx = 0, t = 0;
 function step(dt) {
   t += dt; const on = playing() && audio.state().started && source === radio, i = audio.stations.findIndex((s) => s.id === audio.station().id);
   lamp += ((on ? 1 : 0) - lamp) * Math.min(1, dt * 4); face.emissiveIntensity = 0.7 * lamp;
-  const x = DIAL.x0 + (DIAL.x1 - DIAL.x0) * (i / (N - 1)); nx += (x - nx) * Math.min(1, dt * 5); needle.position.x = nx;
+  const x = DIAL.x0 + (DIAL.x1 - DIAL.x0) * (i / (audio.stations.length - 1)); nx += (x - nx) * Math.min(1, dt * 5); needle.position.x = nx;
   notes.forEach((s, k) => { const f = (t * 0.45 + k * 0.5) % 1; s.position.set(-0.05 + k * 0.08 + Math.sin((f + k) * 6) * 0.02, H / 2 + 0.03 + f * 0.25, 0.02); s.material.opacity = lamp * Math.sin(f * Math.PI) * (0.6 + 0.4 * (audio.musicVolume() > 0.3)); });
   radio.scale.y = 1 + lamp * 0.012 * Math.max(0, Math.sin(t * 9));   // a tiny bob to the music
 }
