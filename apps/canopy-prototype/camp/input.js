@@ -90,8 +90,7 @@ function aimStep(dt) {
 }
 function openMenu(t) {
   menuFor = t; menu.replaceChildren(...t.options().map(([label, fn]) => {
-    const b = document.createElement("button"); b.textContent = label;
-    b.style.cssText = "font:600 16px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25);cursor:pointer;white-space:nowrap";
+    const b = document.createElement("button"); b.textContent = label; b.className = "tap-pill";   // styled in camp.html
     b.onclick = (e) => { e.stopPropagation(); closeMenu(); fn(); }; return b; }));
   menu.style.display = "flex"; placeMenu();
 }
