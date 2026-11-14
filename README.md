@@ -44,33 +44,13 @@ Each app is a static page. Its models sit next to it as base64 `.txt` files. The
 
 Import the layout from `camp/layout.js` and the helpers from `camp/util.js`; don't paste a copy into a module. `fur.js` in the app folder is a generated copy: edit `shared/fur.js`, then run `npm run sync-shared`.
 
-**URL options** (`camp.html?name=value`; the table at the top of `camp/core.js`, `OPT`, is the source):
-
-| Option | Values | Default |
-| --- | --- | --- |
-| `detail` | low, medium, high | saved, else medium |
-| `lm` | 2k, 1k, 4k (4k: local only) | saved, else 1k on phones, 2k |
-| `jeep` | expedition, none | expedition |
-| `seed` | a number | 7 |
-| `lived` | 1, 0 (the lived-in props) | 1 |
-| `op` | 1, 0 (the operator) | 1 |
-| `weather` | clear, rain, changing | saved, else clear |
-| `time` | an hour, 0 up to 24 | saved, else 12 |
-| `cycle` | 1, 0 (the day runs on by itself) | saved, else 0 |
-| `pos`, `yaw`, `pitch` | where you stand and look at the start | by the fire, facing it |
-| `campsloths` | 1, 0 (0: only the two wild sloths) | 1 |
-| `slothmat` | lambert, old | lambert |
-| `lab` | present: opens the move lab | absent |
-| `touch` | present: the phone stick on a desktop too | on a phone |
-| `sound` | 0 starts muted | saved, else on |
-| `station` | drift, campfire, kalimba, lullaby | saved, else drift |
-| `fur` | 1, 0 | 1 |
+**URL options** (`camp.html?name=value`): the table at the top of `camp/core.js`, `OPT`, lists each one with its values and default. In short: the look (`detail`, `lm`, `fur`, `slothmat`), what is in the camp (`jeep`, `lived`, `op`, `campsloths`, `seed`), the day (`time`, `cycle`, `weather`), where you start (`pos`, `yaw`, `pitch`), sound (`sound`, `station`), and `lab` and `touch` for testing.
 
 **Generators** (`props/`, Blender bpy). The builders make the props' GLBs: `props/camp/build_camp.py` (the camp set), `props/jeep/build_jeep.py`, `props/lived/build_*.py` (the lived-in props, the fire, the laundry). `props/lib/` is their shared library (`mesh.py`, `materials.py`, `bake.py`, `export.py`, which prints the triangle count per object). `props/bake_all.py` makes every baked light from one place: `layout` (the clearing's layout from the live page, `props/shadow/export_casters.cjs`), `light` (`props/camp/bake_camp_lightmap.py`, one Blender scene), `ktx` and `ground` (`props/ground/bake_ground.py`). Only the GPU thread runs the bakes; other sessions run at most `python props/bake_all.py --only layout`. The archived prop styles stay in `props/*/archive/`.
 
 **Tools** (`tools/`, from the repo root after `npm install`):
 
-- `npm run replay` (`tools/camp-replay.cjs`): runs the camp headless on a virtual clock with seeded randomness for 480 frames and prints a fingerprint of the scene, the shader programs and any errors. `--shots dir` saves screenshots, `--compare dirA dirB` compares two runs' shots.
+- `npm run replay` (`tools/camp-replay.cjs`): runs the camp headless on a virtual clock with seeded randomness for 480 frames and prints a fingerprint of the scene, the shader programs and any errors. It and the scenario tours are optional diagnostics, not gates: a change may change the camp's behaviour, and their fingerprints with it. `--shots dir` saves screenshots, `--compare dirA dirB` compares two runs' shots.
 - `npm run scenarios` (`tools/camp-scenarios.cjs`): the scenario tours in `tools/tours/` (the operator's day, the sloths' trips, the jeep, the chores, a phone view...), each a state dump per step, run against two checkouts and compared. The header says how to run base against head.
 - `tools/camp-page.cjs`: the headless set-up both of them share (Chromium on SwiftShader, three.js from node_modules, the virtual clock).
 - `tools/camp-probe.cjs`: draw calls, triangles per object, downloads and textures of one camp page.
