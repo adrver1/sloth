@@ -47,9 +47,16 @@ function napStep(s, sd, after) {
     if (r.t > r.dur && !s.once && !s.wave && !s.yawn) { s.roused = null; if (r.back) doze(s); else after?.(); }
   } else if (!after) { s.napT -= sd; if (s.napT < 0 && !s.smore && !s.wave && !s.once) doze(s); }
 }
-// three z sprites, added to the scene in order (the first time a sleeper or the hammock's napper needs them)
-const makeZs = () => [0, 1, 2].map(() => makeZ());
+// three z sprites, added to the scene hidden (the first time a sleeper or the hammock's napper needs them)
+const makeZs = () => [0, 1, 2].map(() => { const z = makeZ(); z.visible = false; return z; });
 const ZS = { wob: 0.1, y0: 0.25, rise: 0.6, w0: 0.3, w1: 0.35 };   // how a sloth's z's sway, rise and grow (actor.js zAt)
+// the three z's over sloth s while on, k0 (0..1) the first one's rise, f their size; hushed while it wobbles from a boop.
+// Off, they are hidden and cost nothing more (review R2-017: they used to stay in the scene at opacity 0).
+function zsStep(zz, s, k0, on, f = 1) {
+  if (!on) { if (zz[0].visible) for (const z of zz) z.visible = false; return; }
+  const a = s.squish > 0 ? 0 : 0.85;
+  zz.forEach((z, i) => { const k = (k0 + i / 3) % 1; z.visible = true; zAt(z, s.head, k, ZS, f); z.material.opacity = Math.sin(Math.PI * k) * a; });
+}
 // z's rising off each sleeper, three at a time like the hammock napper's (Adriaen 2026-11-13: "sleeping sloths should have
 // zzzzs like the hammock sloth"); a little smaller on the small ones
 function zStep(s, dt) {
@@ -57,20 +64,19 @@ function zStep(s, dt) {
   if (!on && !s.zz) return;
   s.zz ??= makeZs();
   s.zk = ((s.zk ?? R(0, 1)) + dt / 2.4) % 1;
-  const f = Math.min(1, Math.max(0.6, s.sc / 2.2)), hush = s.squish > 0 ? 0 : 0.85;
-  s.zz.forEach((z, i) => { const k = (s.zk + i / 3) % 1;
-    zAt(z, s.head, k, ZS, f); z.material.opacity = on ? Math.sin(Math.PI * k) * hush : 0; });
+  zsStep(s.zz, s, s.zk, on, Math.min(1, Math.max(0.6, s.sc / 2.2)));
 }
 // the hammock's swing and its napper's z's (main.js calls it after the move lab's step, which used to run just before it).
 // Without the camp sloths (?campsloths=0) the hammock was never given its swing, and it hangs still.
 function hammockStep(dt) {
   if (!OPT.campsloths) return;
-  const H = hammock, T = uTime.value, napper = spots[0].home ? spots[0].who : null;   // a slow swing, nudged harder for a while after a boop
+  const H = hammock, napper = spots[0].home ? spots[0].who : null;   // a slow swing, nudged harder for a while after a boop
   H.step(dt);
   if (napper?.squish > 0.9) H.push = 1;
+  const on = !!napper?.asleep;
+  if (!on && !H.zz) return;
   H.zz ??= makeZs();
-  H.zz.forEach((z, i) => { const k = (T / 2.4 + i / 3) % 1; zAt(z, napper?.head, k, ZS);
-    z.material.opacity = napper?.asleep ? Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85) : 0; });
+  zsStep(H.zz, napper, uTime.value / 2.4, on);
 }
 
 export { doze, hammockStep, napStep, wakeUp, zStep };
