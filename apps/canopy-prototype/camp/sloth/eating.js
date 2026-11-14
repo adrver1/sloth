@@ -16,7 +16,7 @@ import { WALK_TS, setTrip } from "./state.js";
 import { EAT_GRAB, play, playOnce } from "./clips.js";
 import { UP, turnTo } from "./poses.js";
 import { move, moveStep } from "./moves.js";
-import { mouthOf } from "./face.js";
+import { mouthOf, openMouth } from "./face.js";
 import { pawOf } from "./arms.js";
 import { fruit, restOn, sitFor } from "./table.js";
 import { restHeight } from "../food.js";
@@ -64,7 +64,7 @@ function chewStep(s, mesh, from, t0) {
   if (base) mesh.scale.copy(base).multiplyScalar(1 - 0.22 * bites);
   mesh.visible = bites < 4;
   const m = mouthOf(s), open = t > 3.0 && t < 6.9 ? Math.max(0, Math.sin(2 * Math.PI * 9 * (t / 8 - 0.4) + 0.6)) : 0;
-  m.visible = open > 0.08; m.scale.set(0.9, Math.max(0.01, open), 1);
+  m.visible = open > 0.08; openMouth(s, 0.9, open);
 }
 
 export { chewStep, eatStep, startEat };

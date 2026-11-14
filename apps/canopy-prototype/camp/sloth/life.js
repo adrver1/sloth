@@ -9,7 +9,7 @@ import { camera, rng } from "../core.js";
 const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { LIVELY, SL, sloths } from "./state.js";
-import { FACE, mouthOf, yawnStep } from "./face.js";
+import { FACE, mouthOf, openMouth, yawnStep } from "./face.js";
 import { aimBone } from "../actor.js";
 import { giftArm } from "./arms.js";
 
@@ -69,7 +69,7 @@ function slothLife(s, dt) {                            // after the clip: fur by
   if (s.yawn) yawnStep(s, dt);
   if (s.munch > 0) {                                   // munching what you fed it: the mouth opens and shuts a few times
     s.munch = Math.max(0, s.munch - dt); const m = mouthOf(s), o = s.munch > 0.1 ? Math.max(0, Math.sin(s.munch * 9)) : 0;
-    m.visible = o > 0.08; m.scale.set(0.75, Math.max(0.01, o * 0.6), 1); s.head.rotation.x += 0.08 * o;
+    m.visible = o > 0.08; openMouth(s, 0.75, o * 0.6); s.head.rotation.x += 0.08 * o;
   }
 }
 // each frame, for every sloth (main.js): its clip, its life on top of the clip, the squish of a boop and a nod
