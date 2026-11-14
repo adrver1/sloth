@@ -14,11 +14,11 @@
 const path = require('path'), fs = require('fs'), crypto = require('crypto');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const ROOT = path.resolve(arg('root', path.resolve(__dirname, '..'))), FRAMES = +arg('frames', 480), SHOTS = arg('shots', ''), QS = arg('query', ''), PORT = +arg('port', 8811);
-const { serve, launch, routeThree, watch, virtualise, loadCamp, stepFrames, fingerprint, chromium } = require('./camp-page.cjs');   // the shared set-up
+const { serve, launch, routeThree, watch, virtualise, loadCamp, stepFrames, fingerprint } = require('./camp-page.cjs');   // the shared set-up
 const srv = serve(ROOT, PORT);
 
 async function compare(A, B) {
-  const b = await chromium.launch().catch(() => chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' })); const p = await b.newPage(); let bad = 0;
+  const { browser: b, page: p } = await launch(); let bad = 0;
   for (const f of fs.readdirSync(A).filter((f) => f.endsWith('.png')).sort((x, y) => parseInt(x.slice(6)) - parseInt(y.slice(6)))) {
     if (!fs.existsSync(path.join(B, f))) { console.log(`${f}: missing in ${B}`); bad++; continue; }
     const n = await p.evaluate(async ([a, c]) => { const px = async (d) => { const im = new Image(); im.src = 'data:image/png;base64,' + d; await im.decode(); const cv = new OffscreenCanvas(im.width, im.height), g = cv.getContext('2d'); g.drawImage(im, 0, 0); return g.getImageData(0, 0, im.width, im.height).data; };

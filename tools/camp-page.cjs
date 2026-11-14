@@ -1,12 +1,22 @@
-// Canopy Camp headless page: the browser set-up that tools/camp-replay.cjs and tools/camp-scenarios.cjs share (review
-// crosscut-22). The camp runs in Chromium with SwiftShader, served from a checkout by a small static server, with three.js
-// from node_modules (the cloud proxy blocks jsDelivr) and, in virtualise(), a virtual clock and a seeded Math.random, so
-// two runs of the same code do exactly the same thing.
+// Canopy Camp headless page: the browser set-up every camp tool shares (review crosscut-22, R2-127): tools/camp-probe.cjs,
+// tools/camp-gpu.cjs, tools/camp-replay.cjs, tools/camp-scenarios.cjs and props/shadow/export_casters.cjs. The camp runs in
+// Chromium (WebGL on SwiftShader, or the real GPU), served from a checkout by a small static server, with three.js from
+// node_modules (the cloud proxy blocks jsDelivr) and, in virtualise(), a virtual clock and a seeded Math.random, so two
+// runs of the same code do exactly the same thing.
 // Exports:
-//   THREE_VER                       the three.js version camp.html loads (its import map)
-//   serve(root, port, transform)    a static server for that checkout; transform(file, bytes) may rewrite a .js file
-//   launch({ width, height, touch })   { browser, page }: Chromium with WebGL on SwiftShader (the repo's playwright, or the
-//                                   preinstalled build when its own browser is missing)
+//   THREE_VER                       the three.js version camp.html loads, read from its import map (the one place it is typed)
+//   serve(root, port, transform)    a static server for that checkout; transform(file, bytes) may rewrite a .js file.
+//                                   Port 0 takes a free port; await listening(server) for the port it got
+//   listening(server)               a promise of the port the server listens on
+//   launch({ width, height, touch, dpr, gpu, headed, userAgent, args })   { browser, page }: Chromium with WebGL on
+//                                   SwiftShader, or with gpu (or CAMP_GPU=1) on the machine's real GPU. The browser is
+//                                   CHROMIUM=<path> when it is set (CHROME= is read too, its old name), else the repo's
+//                                   playwright build, else the preinstalled /opt/pw-browsers/chromium. args adds flags.
+//   openCamp({ root, port, query, url, before, timeout, ...launch options })   serves the checkout (root: this repo; port 0,
+//                                   the default, takes a free one), opens the browser, routes three.js, runs before(page)
+//                                   (listeners and init scripts the tool needs), opens camp.html with query (or the page
+//                                   at url, a path from the root) and waits for window.__ready on the real clock.
+//                                   Returns { page, browser, port, tReady (ms), close() }
 //   routeThree(page)                three.js from node_modules; its uuids draw from a stream of their own, so that making one
 //                                   object more or fewer does not shift the numbers the page itself draws
 //   watch(page)                     { errs, cons, programs() }: page errors, console errors and HTTP errors; every console
@@ -19,8 +29,10 @@
 const path = require('path'), fs = require('fs'), http = require('http');
 const NM = path.resolve(__dirname, '..', 'node_modules');
 const { chromium } = require(path.join(NM, 'playwright'));
-const THREE_VER = '0.186.1';
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.txt': 'text/plain' };
+const THREE_VER = (fs.readFileSync(path.resolve(__dirname, '../apps/canopy-prototype/camp.html'), 'utf8').match(/three@(\d+\.\d+\.\d+)\//) || [])[1];
+if (!THREE_VER) { console.error('camp.html: no three@<version> in its import map'); process.exit(2); }
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.txt': 'text/plain',
+  '.ktx2': 'image/ktx2', '.glb': 'model/gltf-binary', '.wasm': 'application/wasm', '.mp3': 'audio/mpeg' };
 
 function serve(root, port, transform) {
   return http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => {
@@ -28,15 +40,32 @@ function serve(root, port, transform) {
     if (transform) d = transform(f, d);
     r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); r.end(d); }); }).listen(port);
 }
+const listening = (srv) => new Promise((ok, err) => { if (srv.listening) ok(srv.address().port); else { srv.once('listening', () => ok(srv.address().port)); srv.once('error', err); } });
 
-async function launch({ width = 480, height = 300, touch = false } = {}) {
-  // CAMP_GPU=1 uses the machine's real GPU (ANGLE on D3D11 on Windows): much faster on a desktop with a graphics card. Pixels can
-  // differ a little from SwiftShader's, so compare runs made the same way.
-  const args = process.env.CAMP_GPU ? ['--ignore-gpu-blocklist', ...(process.platform === 'win32' ? ['--use-angle=d3d11'] : [])]
-    : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
-  const browser = await chromium.launch({ args }).catch(() => chromium.launch({ args, executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' }));
-  const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, ...(touch ? { hasTouch: true, isMobile: true } : {}) });
+async function launch({ width = 480, height = 300, touch = false, dpr = 1, gpu = !!process.env.CAMP_GPU, headed = false, userAgent, args: extra = [] } = {}) {
+  // gpu (or CAMP_GPU=1) uses the machine's real GPU (ANGLE on D3D11 on Windows): much faster on a desktop with a graphics card.
+  // Pixels can differ a little from SwiftShader's, so compare runs made the same way.
+  const args = [...(gpu ? ['--ignore-gpu-blocklist', ...(process.platform === 'win32' ? ['--use-angle=d3d11'] : [])]
+    : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']), ...extra];
+  const exe = process.env.CHROMIUM || process.env.CHROME, opts = { args, headless: !headed };
+  const browser = exe ? await chromium.launch({ ...opts, executablePath: exe })
+    : await chromium.launch(opts).catch(() => chromium.launch({ ...opts, executablePath: '/opt/pw-browsers/chromium' }));
+  const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: dpr, ...(touch ? { hasTouch: true, isMobile: true } : {}), ...(userAgent ? { userAgent } : {}) });
   return { browser, page };
+}
+
+async function openCamp({ root = path.resolve(__dirname, '..'), port = 0, query = '', url, before, timeout = 240000, ...opts } = {}) {
+  const srv = serve(path.resolve(root), port), at = await listening(srv);
+  const { browser, page } = await launch(opts);
+  const close = async () => { await browser.close().catch(() => {}); srv.close(); };
+  try {
+    await routeThree(page);
+    if (before) await before(page);
+    const t0 = Date.now();
+    await page.goto(`http://localhost:${at}${url || '/apps/canopy-prototype/camp.html' + query}`);
+    await page.waitForFunction(() => window.__ready, null, { timeout });
+    return { page, browser, port: at, tReady: Date.now() - t0, close };
+  } catch (e) { await close(); throw e; }
 }
 
 async function routeThree(page) {
@@ -114,4 +143,4 @@ function fingerprint() {
   return { objects: rows.length, draws, tris, calls: st.calls, rtris: st.tris, fog, rows };
 }
 
-module.exports = { THREE_VER, serve, launch, routeThree, watch, virtualise, loadCamp, stepFrames, fingerprint, chromium };
+module.exports = { THREE_VER, serve, listening, launch, openCamp, routeThree, watch, virtualise, loadCamp, stepFrames, fingerprint, chromium };

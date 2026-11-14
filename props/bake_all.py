@@ -18,12 +18,12 @@ in several different places", and bake the whole scene as one). Run it whenever 
           needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH
   layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (prop spots, the jeep's track, the path,
           the deadwood, the ground's height, and the "place" block: where the page stands each baked prop and light, which
-          the light bake reads instead of keeping its own copy), served on :8765 by this script ->
-          props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>); it stops the bake if the page gave
-          an incomplete layout
+          the light bake reads instead of keeping its own copy); the script serves the repo itself ->
+          props/shadow/layout_picked.json (needs `npm install`, and CHROMIUM=<a Chrome> when playwright has no browser of
+          its own); it stops the bake if the page gave an incomplete layout
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
 """
-import argparse, os, subprocess, sys, time, urllib.request
+import argparse, os, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ap = argparse.ArgumentParser()
@@ -52,16 +52,7 @@ def run(cmd, **kw):
 
 
 if "layout" in steps:
-    srv = subprocess.Popen([sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    try:
-        for _ in range(50):
-            try:
-                urllib.request.urlopen("http://localhost:8765/", timeout=1); break
-            except OSError:
-                time.sleep(0.2)
-        run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), a.jeep])
-    finally:
-        srv.terminate()
+    run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), a.jeep])   # it serves the repo itself
 if "light" in steps:
     blender(os.path.join(ROOT, "props/camp/bake_camp_lightmap.py"), "--size", str(a.size), "--samples", str(a.samples),
             "--ground", str(a.ground_size), "--jeep", a.jeep)
