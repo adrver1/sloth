@@ -11,26 +11,26 @@ import { SUN } from "./layout.js";
 //   detail   low | medium | high           saved, else medium                core.js (D: counts, effects, resolution), main.js (DETAIL)
 //   lm       2k | 1k | 4k (4k: local only) saved, else 1k on phones, 2k     core.js (the light maps)
 //   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campGround.js (JEEP)
-//   seed     a number                      7                                 core.js rng (every named stream)
-//   lived    1 | 0                         1                                 core.js, campProps.js, chores.js (LIVED)
-//   op       1 | 0                         1                                 core.js (the operator's downloads), operator.js (0 leaves him out)
+//   seed     a number                      7                                 core.js rng (every named stream), forest.js (its own start)
+//   lived    1 | 0                         1                                 core.js, campProps.js, chores.js, sloth/spots.js, debug.js (LIVED)
+//   op       1 | 0                         1                                 core.js (the operator's downloads), operator.js and operator/step.js (0 leaves him out)
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
 //   time     an hour, 0 up to 24 (21.5)    saved, else 12                    daytime.js (the hour set; anything else counts as 12)
 //   cycle    1 | 0                         saved, else 0                     daytime.js (the day runs on by itself)
 //   pos      x,z in metres                 by the fire (player.js)           main.js (where you stand at the start)
 //   yaw      radians                       facing the fire (player.js)       main.js (where you look at the start)
 //   pitch    radians                       0.08 (player.js)                  main.js
-//   campsloths 1 | 0                       1                                 sloths.js, sloth/step.js, sloth/naps.js (0: only the two wild sloths, no camp sloths)
+//   campsloths 1 | 0                       1                                 sloths.js, sloth/step.js, sloth/naps.js, labButton.js (0: only the two wild sloths, no camp sloths)
 //   slothmat lambert | old                 lambert                           sloth/body.js (old: the sloth GLB's own physical material)
 //   lab      (present)                     absent                            labButton.js (opens the move lab, lab.js, at the start)
 //   touch    present or not                on a phone (a coarse pointer)     input.js (the phone stick and its hint, on a desktop too)
-//   sound    0                             saved, else on                    audio.js (0 starts muted)
-//   station  drift | campfire | kalimba | lullaby   saved, else drift        audio.js (checks it against its stations)
+//   sound    0                             saved, else on                    audio/context.js (0 starts muted)
+//   station  drift | campfire | kalimba | lullaby   saved, else drift        audio/context.js (checks it against its stations)
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
 const qs = new URLSearchParams(location.search);
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };   // a number, or null when it is missing or not a number
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
-// state, one part per owner), audio (audio.js: volume, muted, music, its volume and the station, as one JSON object).
+// state, one part per owner), audio (audio.js and audio/context.js: volume, muted, music, its volume and the station, as one JSON object).
 const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save", audio: "canopy-audio" };
 // ---------------------------------------------------------------- window.__ names on camp.html (review C2, crosscut-03/04, boot-04)
 // The modules talk through imports only. The window.__ names are for the headless tools (camp-probe.cjs, camp-replay.cjs,
@@ -49,7 +49,7 @@ const OPT = {
   lm: [...LMS, "4k"].includes(qs.get("lm")) ? qs.get("lm") : LMS.includes(store.get(KEYS.lm)) ? store.get(KEYS.lm)
     : matchMedia("(pointer: coarse)").matches ? "1k" : "2k",   // phones start on the 1K maps (review P1: hard to tell apart at phone size, a quarter of the memory)
   jeep: qs.get("jeep") === "none" ? "none" : "expedition",
-  seed: Number(qs.get("seed") || 7),
+  seed: num(qs.get("seed")) ?? 7,   // a value that is not a number keeps 7
   lived: qs.get("lived") !== "0",
   op: qs.get("op") !== "0",
   weather: qs.get("weather"),
