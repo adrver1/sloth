@@ -46,13 +46,15 @@ rng = random.Random(7)
 
 
 # ------------------------------------------------------------------ helpers (the shared ones are in props/lib)
-def rock(r, at, scale, m, rough=0.35, detail=2):
-    bpy.ops.mesh.primitive_ico_sphere_add(radius=r, subdivisions=detail, location=at)
+def rock(r, at, scale, m):
+    """A rough rock (the archived rustic fire ring): an icosphere of radius r at at, scaled, its radius pushed in and out
+    by up to 35 % with a little noise from the seeded rng."""
+    bpy.ops.mesh.primitive_ico_sphere_add(radius=r, subdivisions=2, location=at)
     o = bpy.context.object
     o.scale = scale
     for v in o.data.vertices:
         n = v.co.normalized()
-        v.co *= 1 + rough * (0.5 * math.sin(n.x * 5.1 + n.y * 3.3) + 0.3 * math.sin(n.y * 7.7 - n.z * 4.1) + 0.2 * rng.uniform(-1, 1))
+        v.co *= 1 + 0.35 * (0.5 * math.sin(n.x * 5.1 + n.y * 3.3) + 0.3 * math.sin(n.y * 7.7 - n.z * 4.1) + 0.2 * rng.uniform(-1, 1))
     return with_material(o, m)
 
 
@@ -349,7 +351,7 @@ def rustic_lantern(M):
     ho = bpy.data.objects.new("handle", hq); bpy.context.collection.objects.link(ho); with_material(ho, M["tin"], False)
     p.append(ho)
     for o in p[:2]:                                    # the jar's top and the lid's bottom are hidden inside each other
-        drop_faces(o, lambda f: abs(f.normal.z) > 0.9 and -0.07 < f.center.z < -0.055)
+        drop_faces(o, lambda n, c: abs(n.z) > 0.9 and -0.07 < c.z < -0.055)
     return join(p, "Lantern")
 
 
@@ -359,11 +361,11 @@ def rustic_table(M):
     p = []
     for s in (-1, 1):
         leg = rough_up(cyl(0.2, 0.62, at=(s * 0.45, 0, 0.31), m=M["bark"], verts=8, smooth=False), 0.012, 10)
-        p.append(drop_faces(leg, lambda f: abs(f.normal.z) > 0.9))
+        p.append(drop_faces(leg, lambda n, c: abs(n.z) > 0.9))
     for k in range(4):
         p.append(box((1.3, 0.17, 0.05), at=(0, (k - 1.5) * 0.18, 0.645), m=M["wood"]))
-    p.append(drop_faces(cyl(0.05, 0.1, at=(0.3, 0.1, 0.72), m=M["tin"], verts=8, smooth=False), lambda f: f.normal.z < -0.9))
-    p.append(drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda f: f.normal.z < -0.9))
+    p.append(drop_faces(cyl(0.05, 0.1, at=(0.3, 0.1, 0.72), m=M["tin"], verts=8, smooth=False), lambda n, c: n.z < -0.9))
+    p.append(drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda n, c: n.z < -0.9))
     for k in range(3):
         bpy.ops.mesh.primitive_ico_sphere_add(radius=0.045, subdivisions=1, location=(-0.25 + k * 0.05, -0.05 + 0.02 * (k % 2), 0.74))
         p.append(with_material(bpy.context.object, M["red"], smooth=False))
@@ -537,8 +539,8 @@ def stove_kettle(M, at):
     out = [o]
     sp = cyl(0.016, 0.11, m=M["tin"], verts=4, r2=0.008)            # the spout, tapering up and out
     sp.location = (x0 - 0.1, y0, z0 + 0.075); sp.rotation_euler = (0, -0.9, 0); out.append(sp)
-    hy = 0.0                                                          # the bail handle: up, across, down, over the lid
-    pts = [(x0 + 0.06, y0 + hy, z0 + 0.095), (x0 + 0.045, y0 + hy, z0 + 0.19), (x0 - 0.045, y0 + hy, z0 + 0.19), (x0 - 0.06, y0 + hy, z0 + 0.095)]
+    # the bail handle: up, across, down, over the lid
+    pts = [(x0 + 0.06, y0, z0 + 0.095), (x0 + 0.045, y0, z0 + 0.19), (x0 - 0.045, y0, z0 + 0.19), (x0 - 0.06, y0, z0 + 0.095)]
     for a, b in zip(pts, pts[1:]): out.append(rod(a, b, 0.005, M["iron"], verts=3))
     return out
 

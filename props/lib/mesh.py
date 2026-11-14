@@ -101,11 +101,12 @@ def rough_up(o, amt, freq=4.0, axis_mask=(1, 1, 1)):
 
 
 def drop_faces(o, test):
-    """Delete the faces nobody sees (caps buried in the ground or inside another part); test(face) says which."""
+    """Delete the faces nobody sees (caps buried in the ground or inside another part); test(normal, centre) says which,
+    from each face's normal and median centre (Vectors, in o's applied frame)."""
     apply_all(o)
     bm = bmesh.new()
     bm.from_mesh(o.data)
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if test(type("F", (), {"normal": f.normal, "center": f.calc_center_median()}))], context="FACES")
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if test(f.normal, f.calc_center_median())], context="FACES")
     bm.to_mesh(o.data)
     bm.free()
     return o
