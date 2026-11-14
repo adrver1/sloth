@@ -3,7 +3,9 @@
 # control room. Camp threads merge into claude/project-thread-otpcew first; a PR
 # from there to main publishes. The camp is plain static files (models and light maps are
 # committed, three.js loads from jsDelivr), so nothing is built: the folder is
-# copied as it is and a root index.html forwards to camp.html. The static checks in check.yml run first, and nothing is published
+# copied, the old prototypes (index.html, nooks.html, names-prototype.html) and any 4K light map are left out, and
+# index.html files at the root and in the folder forward to camp.html (review R2-208). The build stops when the site
+# is over 30 MB (about 22 MB on 2026-11-14). The static checks in check.yml run first, and nothing is published
 # when they fail.
 # Site: https://adrver1.github.io/sloth/ (camp at canopy-prototype/camp.html)
 name: Deploy camp
@@ -39,15 +41,23 @@ jobs:
         run: |
           mkdir -p _site
           cp -r apps/canopy-prototype _site/canopy-prototype
+          C=_site/canopy-prototype
+          rm -f $C/models/*_4k.png $C/index.html $C/nooks.html $C/names-prototype.html
           sha=$(git rev-parse --short HEAD)
-          cat > _site/index.html <<HTML
+          forward() {   # $1: the index.html to write, $2: camp.html relative to it
+            cat > "$1" <<HTML
           <!doctype html><meta charset="utf-8"><title>Canopy Camp</title>
           <link rel="icon" href="data:,">
-          <meta http-equiv="refresh" content="0; url=canopy-prototype/camp.html">
+          <meta http-equiv="refresh" content="0; url=$2">
           <!-- built from $sha -->
-          <a href="canopy-prototype/camp.html">Canopy Camp</a>
+          <a href="$2">Canopy Camp</a>
           HTML
+          }
+          forward _site/index.html canopy-prototype/camp.html
+          forward $C/index.html camp.html
           du -sh _site
+          mb=$(du -sm _site | cut -f1)
+          if [ "$mb" -gt 30 ]; then echo "::error::The site is $mb MB, over the 30 MB guard: a big file got into apps/canopy-prototype"; exit 1; fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
