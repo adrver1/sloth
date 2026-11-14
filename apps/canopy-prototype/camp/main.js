@@ -22,13 +22,13 @@ import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
 import { collide, me, step } from "./player.js";
 import { acts, atmo, groundLife, shadowStep } from "./campLife.js";
-import { opStep } from "./operator.js";
+import { opApi, opStep } from "./operator.js";
 import { aimStep, boop, feed, resize } from "./input.js";
 import { weather } from "./weather.js";
 import { lingerStep } from "./linger.js";
 import { day, dayStep, wireTimeMenu } from "./daytime.js";
 import { clockStep } from "./clock.js";
-import { audioStep } from "./audio.js";
+import { audioStep, hearCamp } from "./audio.js";
 import { radioStep } from "./radio.js";
 import { jeepSeatStep } from "./jeepSeat.js";
 import { carStep } from "./car.js";
@@ -37,6 +37,7 @@ import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 wireTimeMenu();     // the ⚙️ menu's time slider and Day cycle button (daytime.js)
 createDaylight();   // the mist banks and the moon's place: last, after every module above has built its part (daylight.js)
+hearCamp(acts, opApi);   // audio.js hears the pot and the operator (it is evaluated before either exists)
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 addEventListener("resize", resize); resize();

@@ -6,7 +6,8 @@
 // doors; a soft tock on every menu button. Most of it is heard by watching the camp's state each frame (squish, munch,
 // yawn, wave, his clip), so the other modules need no sound calls.
 // Music: four generated stations (Slow drift, the default: ambient tape loops; campfire guitar, kalimba, music-box lullaby), quiet under the nature sounds.
-// Nothing plays until the first tap or key (browsers block it before that). main.js calls audioStep(dt, dusk) every frame.
+// Nothing plays until the first tap or key (browsers block it before that). main.js calls audioStep(dt, dusk) every frame,
+// and hands it the chores and the operator first (hearCamp(acts, opApi)).
 // The radio prop drives it through `audio` (also window.__audio): start, volume, muted, music, musicVolume, station, next,
 // tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange.
 // The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted, ?station= picks one (core.js OPT). Settings are kept per viewer (KEYS.audio).
@@ -311,8 +312,13 @@ function watchSloths(dt) {
   // the nearest sleeping sloth breathes slowly, if you are close enough to hear it
   if ((sleepT -= dt) < 0) { sleepT = R(3.2, 4.2); let best = null, bd = 4; for (const s of sloths) if (s.asleep) { const d = s.o.getWorldPosition(tmp).distanceTo(camera.position); if (d < bd) { bd = d; best = s; } } if (best) SFX.breath(slothAt(best)); }
 }
+// the chores' acts (the pot's stage) and the operator's opApi (his sounds) are handed over by main.js (hearCamp) before the
+// first frame: this module is evaluated while campLife.js waits for the ground mask, before either exists, so importing
+// them would move it, and its Sound button, later in the build
+let acts = null, opApi = null;
+function hearCamp(a, o) { acts = a; opApi = o; }
 function watchOperator(dt) {
-  const O = window.__op; if (!O) return;   // operator.js opApi: a global, since this module is evaluated before the operator's (core.js says why)
+  const O = opApi; if (!O) return;
   const p = O.root.position, head = tmp.copy(p).setY(p.y + 1.6).clone();
   if (opLast) { const d = Math.hypot(p.x - opLast.x, p.z - opLast.z); if (d < 0.5) { opStepD += d; if (opStepD > 0.64) { opStepD = 0; SFX.step(p.clone().setY(0.05)); } } }
   opLast = p.clone();
@@ -391,10 +397,9 @@ function audioStep(dt, dusk = 0) {
   if (wet > 0.05 && (dripT -= dt) < 0) { dripT = R(0.02, 0.12) / wet; SFX.drip(false); if (under) { SFX.drip(true); if (Math.random() < 0.6) SFX.drip(true); } }
   night.g.gain.setTargetAtTime(THREE.MathUtils.smoothstep(dusk, 0.4, 0.9) * (1 - 0.6 * wet), t, 1.5);
   if ((crackleT -= dt) < 0) { crackleT = R(0.03, 0.35); SFX.crackle(Math.random() < 0.04); }
-  // the pot (activities.js soup, read through __acts.cook): quiet when empty, a faint simmer of water, a lively bubble while
+  // the pot (activities.js soup, read through acts.cook): quiet when empty, a faint simmer of water, a lively bubble while
   // it cooks, a gentle one when it's soup; water pouring in (yours or his) when it fills. Without that, a gentle simmer.
-  // (window.__acts is campLife.js's acts: a global for the same reason as window.__op in watchOperator)
-  const stage = window.__acts?.cook?.stage ?? "ready", rate = { empty: 0, water: 0.6, cooking: 6, ready: 2 }[stage] ?? 2;
+  const stage = acts?.cook?.stage ?? "ready", rate = { empty: 0, water: 0.6, cooking: 6, ready: 2 }[stage] ?? 2;
   if (potStage === "empty" && stage === "water") SFX.pour(potAt());
   if (potStage === "water" && stage === "cooking") SFX.plop(potAt());
   potStage = stage;
@@ -486,4 +491,4 @@ function showBtn() { if (!btn) return; btn.textContent = "Sound: " + (set.muted 
 if (btn) btn.onclick = () => { start(); if (set.muted) { set.muted = false; set.music = true; mus.st = null; } else if (set.music) set.music = false; else set.muted = true; applyGain(); keep(); };
 showBtn();
 
-export { audio, audioStep };
+export { audio, audioStep, hearCamp };
