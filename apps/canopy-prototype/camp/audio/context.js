@@ -28,6 +28,9 @@ const own = (key) => { delete urlOnly[key]; };
 const saved = () => JSON.stringify({ ...set, ...urlOnly });
 
 let ac = null, master, comp, bus = {}, NOISE, BROWN, CRICKET;
+// started: the first tap has started the sound (and the music clock). kick: the next tap must resume the context again
+// (after a tab switch or a phone suspending it, see wake). hint: the Tap for sound pill, once makeHint has made it.
+let started = false, kick = false, hint = null;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 // ---------------------------------------------------------------- the graph: three buses into a gentle compressor
@@ -101,13 +104,11 @@ function start() {
   return true;
 }
 // the "Tap for sound" pill (made by makeHint, which initAudio calls): shown if the sound still hasn't started after a tap
-let hint = null, started = false;
 const HINT_CSS = "position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:4;display:none;font:600 15px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";
 function showHint() { if (hint) hint.style.display = ac && !set.muted && ac.state !== "running" ? "block" : "none"; }
 // switching tabs or apps (Adriaen 2026-11-14: the sound didn't come back): pause while hidden, and on the way back try to
 // resume at once. Phones often refuse that without a tap (iOS can also leave the context "running" but silent), so the next
 // tap anywhere wakes it again inside the tap, and the Tap for sound pill shows if it is still off.
-let kick = false;
 function wake() { if (!ac || !started || set.muted || document.hidden) return; kick = true; ac.resume().catch(() => {}); setTimeout(showHint, 700); }
 
 // a small pill if the sound still hasn't started after a tap (some phones and in-app browsers): tapping it starts it for sure
