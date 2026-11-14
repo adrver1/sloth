@@ -166,8 +166,12 @@ const leafMat = (opts, sway) => {
 };
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
+// a base64 model: a download that fails (a 404, a server error) throws an error naming the file, so camp.html's loading card
+// says it did not load instead of the parser failing on an error page (review R2-058)
 async function glb(url) {
-  const bin = b64bytes((await (await fetch(url)).text()).trim());
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  const bin = b64bytes((await res.text()).trim());
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
