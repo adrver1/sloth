@@ -3,16 +3,16 @@
 // him, blinks, eyes shut in his sleep, a smile, and the Z's over his head (one sprite).
 // Exports buildSleepZ() (operator.js, after the hand props) and poseHead(dt) (step.js, each frame, after his hands).
 import * as THREE from "three";
-import { R, camera, scene } from "../core.js";
+import { R, camera } from "../core.js";
 import { V } from "../util.js";
-import { sprite } from "../sloths.js";
-import { aimBone } from "../actor.js";
+import { aimBone, makeZ, zAt } from "../actor.js";
 import { B, UP, clips, csDir, cur, mixer, play, root } from "./model.js";
 import { op } from "./state.js";
 import { turnToward, yawTo } from "./walk.js";
 
 let zz = null;
-function buildSleepZ() { zz = (() => { const z = sprite("z", 110); z.material.depthTest = true; z.material.opacity = 0; scene.add(z); return z; })(); }
+function buildSleepZ() { zz = makeZ(); zz.material.opacity = 0; }
+const ZS = { wob: 0.08, y0: 0.25, rise: 0.4, w0: 0.22, w1: 0.25 };   // how his z sways, rises and grows (actor.js zAt)
 function poseHead(dt) {
   // the head: a look down at a book or a sloth, round the camp, or at you when you're near and he's awake
   const camD = camera.position.distanceTo(root.position);
@@ -49,7 +49,7 @@ function poseHead(dt) {
   const smile = op.happy || (op.talk.smile > 0 && op.talk.t <= 0 && !op.sleeping);
   const hp = clips.happy; if (smile && !hp.isRunning()) { hp.reset().play(); hp.time = 1.5; hp.timeScale = 0; } else if (!smile && hp.isRunning()) hp.stop();
   // breathing in his sleep, and the Z's
-  if (op.sleeping) { op.anim.zz = (op.anim.zz + dt / 3) % 1; B.head.getWorldPosition(zz.position).add(V(0.08 * Math.sin(op.anim.zz * 6), 0.25 + 0.4 * op.anim.zz, 0)); zz.material.opacity = Math.sin(Math.PI * op.anim.zz) * 0.75; zz.scale.set(0.22 + 0.25 * op.anim.zz, (0.22 + 0.25 * op.anim.zz) / 4, 1); }
+  if (op.sleeping) { op.anim.zz = (op.anim.zz + dt / 3) % 1; zAt(zz, B.head, op.anim.zz, ZS); zz.material.opacity = Math.sin(Math.PI * op.anim.zz) * 0.75; }
   else zz.material.opacity = 0;
 }
 

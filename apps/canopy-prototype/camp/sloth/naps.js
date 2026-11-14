@@ -14,9 +14,8 @@
 //   zStep(s, dt)             the three z's rising off a sleeper (not the hammock's own napper)
 //   hammockStep(dt)          the hammock's swing and its napper's z's, each frame (main.js)
 // Every length of a nap draws from the seeded stream (core.js R) as it happens.
-import { OPT, R, scene, uTime } from "../core.js";
-import { V } from "../util.js";
-import { sprite } from "../fx.js";
+import { OPT, R, uTime } from "../core.js";
+import { makeZ, zAt } from "../actor.js";
 import { spots } from "./state.js";
 import { canStretch, dozeClip, homeClip, play, playOnce } from "./clips.js";
 import { hammock } from "./spots.js";
@@ -48,7 +47,8 @@ function napStep(s, sd, after) {
   } else if (!after) { s.napT -= sd; if (s.napT < 0 && !s.smore && !s.wave && !s.once) doze(s); }
 }
 // three z sprites, added to the scene in order (the first time a sleeper or the hammock's napper needs them)
-const makeZs = () => [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
+const makeZs = () => [0, 1, 2].map(() => makeZ());
+const ZS = { wob: 0.1, y0: 0.25, rise: 0.6, w0: 0.3, w1: 0.35 };   // how a sloth's z's sway, rise and grow (actor.js zAt)
 // z's rising off each sleeper, three at a time like the hammock napper's (Adriaen 2026-11-13: "sleeping sloths should have
 // zzzzs like the hammock sloth"); a little smaller on the small ones
 function zStep(s, dt) {
@@ -58,8 +58,7 @@ function zStep(s, dt) {
   s.zk = ((s.zk ?? R(0, 1)) + dt / 2.4) % 1;
   const f = Math.min(1, Math.max(0.6, s.sc / 2.2)), hush = s.squish > 0 ? 0 : 0.85;
   s.zz.forEach((z, i) => { const k = (s.zk + i / 3) % 1;
-    s.head.getWorldPosition(z.position).add(V(0.1 * f * Math.sin(k * 6), (0.25 + 0.6 * k) * f, 0));
-    z.material.opacity = on ? Math.sin(Math.PI * k) * hush : 0; const w = (0.3 + 0.35 * k) * f; z.scale.set(w, w / 4, 1); });
+    zAt(z, s.head, k, ZS, f); z.material.opacity = on ? Math.sin(Math.PI * k) * hush : 0; });
 }
 // the hammock's swing and its napper's z's (main.js calls it after the move lab's step, which used to run just before it).
 // Without the camp sloths (?campsloths=0) the hammock was never given its swing, and it hangs still.
@@ -69,8 +68,8 @@ function hammockStep(dt) {
   H.step(dt);
   if (napper?.squish > 0.9) H.push = 1;
   H.zz ??= makeZs();
-  H.zz.forEach((z, i) => { const k = (T / 2.4 + i / 3) % 1; if (napper) napper.head.getWorldPosition(z.position).add(V(0.1 * Math.sin(k * 6), 0.25 + 0.6 * k, 0));
-    z.material.opacity = napper?.asleep ? Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85) : 0; z.scale.set(0.3 + 0.35 * k, (0.3 + 0.35 * k) / 4, 1); });
+  H.zz.forEach((z, i) => { const k = (T / 2.4 + i / 3) % 1; zAt(z, napper?.head, k, ZS);
+    z.material.opacity = napper?.asleep ? Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85) : 0; });
 }
 
 export { doze, hammockStep, napStep, wakeUp, zStep };

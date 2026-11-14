@@ -9,8 +9,14 @@
 //                               reps, the repetitions a once clip is given (the sloths 1, the operator three.js's default);
 //                               restart (the sloths start a once clip over, the operator leaves it running); weigh (the
 //                               operator also enables the clip and sets its weight to 1 before it plays)
+//   makeZ()                     a z sprite (fx.js), drawn over the scene's depth like the others but hidden behind things, added to the scene
+//   zAt(z, head, k, Z, f = 1)   a z rising off a sleeper, k (0..1) of the way up: over the head bone when one is given,
+//                               swaying as it rises, and growing. Z: { wob, y0, rise, w0, w1 }, the character's own numbers;
+//                               f scales it (the small sloths). Its opacity and how fast k runs stay with the character.
 import * as THREE from "three";
+import { scene } from "./core.js";
 import { V } from "./util.js";
+import { sprite } from "./fx.js";
 
 const Y = V(0, 1, 0);                                  // a bone points along its own +Y
 const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), vb = V();
@@ -28,4 +34,10 @@ export function crossFade(cur, next, fade, { once = false, at = 0, speed = 1, re
   next.play();
   if (cur && cur !== next) cur.crossFadeTo(next, fade, false);
   return next;
+}
+
+export function makeZ() { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; }
+export function zAt(z, head, k, Z, f = 1) {
+  if (head) head.getWorldPosition(z.position).add(V(Z.wob * f * Math.sin(k * 6), (Z.y0 + Z.rise * k) * f, 0));
+  const w = (Z.w0 + Z.w1 * k) * f; z.scale.set(w, w / 4, 1);
 }
