@@ -6,7 +6,7 @@
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
-import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime } from "./core.js";
+import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime, wireSettings } from "./core.js";
 import { buildSky } from "./sky.js";
 import { buildForest } from "./forest.js";
 import { buildProps, fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
@@ -54,6 +54,7 @@ buildChores();                         // chores.js: your activities
 await buildOperator();                 // operator.js: waits for his downloads (?op=0: nothing)
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
+wireSettings();                        // core.js: the ⚙️ menu, and its Detail and Light buttons
 initInput();                           // input.js
 initAudio();                           // audio.js: the first-tap listeners, the Tap for sound pill, the ⚙️ Sound button
 buildWeather();                        // weather.js: the ⚙️ Weather button and the rain streaks

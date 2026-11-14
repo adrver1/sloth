@@ -8,7 +8,7 @@
 // (exported and returned); and shadowStep(), which main.js calls each frame to re-cast the sun shadows
 // while the props load.
 import { createGround } from "../ground.js";
-import { D, JEEP, LOOK, PROPS, S, renderer, scene, uTime } from "./core.js";
+import { D, JEEP, S, renderer, scene, uTime } from "./core.js";
 import { FLOOR_OVERLAYS, grassTex, track, trackDist } from "./forest.js";
 import { blockers, uNight } from "./campProps.js";
 import { FAR, RC, TENT } from "./layout.js";
@@ -20,9 +20,9 @@ import { forestFloorTex } from "./sky.js";
 let groundLife = null;
 // baked: the ground mask core.js downloaded (PRE.groundMask), or null: then ground.js paints its wear map live
 function buildGround(baked) {
-  groundLife = createGround({ baked, height: groundHeight, far: FAR, forestMap: forestFloorTex, noise: vnoise, scene, RC, blockers, grassMap: grassTex, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [], extra: gladePlants,
+  groundLife = createGround({ baked, height: groundHeight, far: FAR, forestMap: forestFloorTex, noise: vnoise, scene, RC, blockers, grassMap: grassTex, S, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [], extra: gladePlants,
     bare: TENT.bare,   // no grass in the tent or through its planks
-    shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
+    shadowMap: `models/camp_shadow_picked_${JEEP}.png`, nightMap: `models/camp_ground_night_picked_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
   for (const m of FLOOR_OVERLAYS) groundLife.shadeOn(m.material);
   if (cabinLive) {   // the jeep's cabin light is live: the floor and every baked prop take its shadow
     cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;

@@ -5,7 +5,7 @@
 // and perClump (the leaf card, its material, its size range and how many go in a clump) for glade.js's bushes.
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
-import { D, hex, JEEP, leafMat, LOOK, OPT, rng, S, scene } from "./core.js";
+import { D, hex, JEEP, leafMat, OPT, rng, S, scene } from "./core.js";
 // the forest starts its stream where it always restarted the old shared one (3000 + ?seed), so its trees, and the root mounds
 // under them that shape the ground the light and ground bakes were made on, stay where they were baked
 const { R, rnd } = rng("forest", 3000 + OPT.seed);
@@ -15,13 +15,12 @@ import { GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_A, PATH_HALF, RC, TRACK_HALF, pa
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
 function bake(geo, y0, y1) {
-  if (S.flat) geo = geo.toNonIndexed();
   geo.computeVertexNormals();
   const p = geo.attributes.position, n = geo.attributes.normal, col = new Float32Array(p.count * 3), c = new THREE.Color();
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
     const crev = 0.5 + 0.5 * Math.sin(Math.atan2(z, x) * 9 + y * 0.7 + Math.sin(y * 2.3) * 1.5);
-    c.copy(barkA).lerp(barkB, S.flat ? 0.2 : crev * 0.7);
+    c.copy(barkA).lerp(barkB, crev * 0.7);
     const up = n.getY(i), m = sstep(0.05, 0.6, up + 0.35 * Math.sin(x * 3.1 + z * 2.7 + y * 1.9)) * S.mossAmt;
     c.lerp(mossC, m);
     c.multiplyScalar(0.45 + 0.55 * sstep(y0, y1, y));                       // darker near the forest floor
@@ -30,7 +29,7 @@ function bake(geo, y0, y1) {
   geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
   return geo;
 }
-const barkMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: S.flat });
+const barkMat = new THREE.MeshLambertMaterial({ vertexColors: true });
 const woodGeos = [];
 function merge(geos) {                               // position, normal, colour only; one draw for many parts
   const pos = [], nor = [], col = [];
@@ -57,8 +56,8 @@ function buildForest() {
   // ---------------------------------------------------------------- clearing floor
   // the grass tile: ground.js paints the clearing with it (the flat clearing disc it was drawn on is gone)
   grassTex = canvasTex(256, 256, (g, w, h) => {
-    g.fillStyle = hex(new THREE.Color(S.leaf[3]).lerp(new THREE.Color(0xd8e0a0), LOOK === "low" ? 0.1 : 0.25).getHex()); g.fillRect(0, 0, w, h);
-    if (LOOK !== "low") for (let i = 0; i < 1400; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.2, 0.6); g.lineWidth = 1.5; const x = R(0, w), y = R(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-2, 2), y - R(3, 8)); g.stroke(); }
+    g.fillStyle = hex(new THREE.Color(S.leaf[3]).lerp(new THREE.Color(0xd8e0a0), 0.25).getHex()); g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1400; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.2, 0.6); g.lineWidth = 1.5; const x = R(0, w), y = R(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-2, 2), y - R(3, 8)); g.stroke(); }
   });
   grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(6, 6);
   // the footpath to the glade: one ribbon of trodden earth (1 draw, 80 triangles); the glade's own floor is camp/glade.js
@@ -67,8 +66,8 @@ function buildForest() {
     // packed earth, warmer and lighter than the forest floor so it reads from the camp (Adriaen 2026-11-14: "more prominent"): two darker
     // lanes where feet go, pebbles, a few fallen leaves, grass at the verges and a ragged edge (the texture tiles every 2.5 m)
     const earth = canvasTex(128, 512, (g, w, h) => {
-      g.fillStyle = LOOK === "low" ? "#b0915f" : "#a3845a"; g.fillRect(0, 0, w, h);
-      if (LOOK !== "low") {
+      g.fillStyle = "#a3845a"; g.fillRect(0, 0, w, h);
+      {
         for (const cx of [0.4, 0.6]) { const b = g.createLinearGradient(w * (cx - 0.12), 0, w * (cx + 0.12), 0); b.addColorStop(0, "rgba(110,84,56,0)"); b.addColorStop(0.5, "rgba(110,84,56,.45)"); b.addColorStop(1, "rgba(110,84,56,0)"); g.fillStyle = b; g.fillRect(0, 0, w, h); }
         for (let i = 0; i < 700; i++) { g.fillStyle = ["#8a6c48", "#b89a70", "#76593c"][i % 3]; g.globalAlpha = Q(0.2, 0.5); g.beginPath(); g.ellipse(Q(0, w), Q(0, h), Q(1, 4), Q(1, 2.5), Q(0, 3), 0, 7); g.fill(); }
         for (let i = 0; i < 60; i++) { g.fillStyle = ["#cbbd9f", "#9d927f"][i % 2]; g.globalAlpha = Q(0.6, 0.9); g.beginPath(); g.ellipse(Q(w * 0.2, w * 0.8), Q(0, h), Q(1.2, 2.6), Q(1, 2), Q(0, 3), 0, 7); g.fill(); }   // pebbles
@@ -115,10 +114,10 @@ function buildForest() {
         forceSinglePass: true }));   // flat on the ground, so one draw shows the same as three.js's two passes for see-through two-sided materials
       mesh.renderOrder = order; scene.add(mesh); FLOOR_OVERLAYS.push(mesh);
     };
-    const mud = LOOK === "low" ? ["#9a7a52", "#7d6040", "#5c4530"] : ["#8a6c4a", "#6b5038", "#4a3626"];
+    const mud = ["#8a6c4a", "#6b5038", "#4a3626"];
     const dirt = canvasTex(128, 512, (g, w, h) => {
       g.fillStyle = mud[0]; g.fillRect(0, 0, w, h);
-      if (LOOK !== "low") for (let i = 0; i < 900; i++) { g.fillStyle = mud[1 + (i % 2)]; g.globalAlpha = Q(0.15, 0.45); g.beginPath(); g.ellipse(Q(0, w), Q(0, h), Q(1, 5), Q(1, 3), Q(0, 3), 0, 7); g.fill(); }
+      for (let i = 0; i < 900; i++) { g.fillStyle = mud[1 + (i % 2)]; g.globalAlpha = Q(0.15, 0.45); g.beginPath(); g.ellipse(Q(0, w), Q(0, h), Q(1, 5), Q(1, 3), Q(0, 3), 0, 7); g.fill(); }
       g.globalAlpha = 1;
       for (let i = 0; i < 26; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.lineWidth = 2; const x = Q(0, w) < w / 2 ? Q(0, 16) : Q(w - 16, w), y = Q(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Q(-2, 2), y - Q(4, 9)); g.stroke(); }   // grass tufts at the verges
       const e = g.createLinearGradient(0, 0, w, 0); e.addColorStop(0, "rgba(0,0,0,0)"); e.addColorStop(0.18, "rgba(0,0,0,1)"); e.addColorStop(0.82, "rgba(0,0,0,1)"); e.addColorStop(1, "rgba(0,0,0,0)");
@@ -141,7 +140,7 @@ function buildForest() {
 
   // ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
   for (const [k, c] of HERO.entries()) {
-    const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, S.flat ? 9 : 14, S.flat ? 8 : 16, true); g.translate(0, TOP / 2, 0);
+    const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, 14, 16, true); g.translate(0, TOP / 2, 0);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
@@ -156,7 +155,7 @@ function buildForest() {
       const L = low ? R(2.8, 3.8) : R(2.4, 3.4), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), pts = [];
       for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push(dir.clone().multiplyScalar(0.45 + L * t).addScaledVector(side, Math.sin(t * 3 + i) * 0.3).setY(h + (low ? 0.25 * t - 0.3 * t * t : 0.7 * t - 0.65 * t * t))); }
       const curve = new THREE.CatmullRomCurve3(pts);
-      woodGeos.push(bake(tube(curve, 0.2, 0.07, low ? (S.flat ? 6 : 10) : 5, low ? (S.flat ? 5 : 7) : 4), 0, 7).translate(c.x, 0, c.z));
+      woodGeos.push(bake(tube(curve, 0.2, 0.07, low ? 10 : 5, low ? 7 : 4), 0, 7).translate(c.x, 0, c.z));
       curve.points.forEach((q) => q.add(V(c.x, 0, c.z))); curve.updateArcLengths(); curve.low = low; branchCurves.push(curve);
     }
     // lianas from the low branches down to the ground
@@ -186,7 +185,7 @@ function buildForest() {
   // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
   const wall = [];
   {
-    const g = bake(new THREE.CylinderGeometry(0.35, 0.65, 20, S.flat ? 6 : 8, 3, true).translate(0, 10, 0), 0, 9);
+    const g = bake(new THREE.CylinderGeometry(0.35, 0.65, 20, 8, 3, true).translate(0, 10, 0), 0, 9);
     for (let i = 0; i < 400 && wall.length < 70; i++) {
       const a = R(0, 6.28), r = RC + 1.2 + Math.pow(rnd(), 1.4) * 15, x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
@@ -212,7 +211,7 @@ function buildForest() {
       s.computeBoundingSphere(); scene.add(s);
     }
   }
-  if (LOOK === "moss") {
+  {
     const tex = canvasTex(256, 256, (g, w, h) => {
       g.translate(w / 2, h / 2);
       for (let k = 0; k < 9; k++) {
@@ -223,11 +222,7 @@ function buildForest() {
       }
     });
     leafGeo = new THREE.PlaneGeometry(1, 1); leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04); perClump = Math.round(24 * D.leaves); leafScale = [0.8, 1.25];
-  } else if (LOOK === "paint") {
-    const grad = new THREE.DataTexture(new Uint8Array([90, 90, 90, 255, 170, 170, 170, 255, 255, 255, 255, 255]), 3, 1);
-    grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
-    leafGeo = new THREE.IcosahedronGeometry(0.5, 1); leafM = new THREE.MeshToonMaterial({ gradientMap: grad }); leafM.onBeforeCompile = leafMat({}, 0.03).onBeforeCompile; perClump = Math.round(8 * D.leaves); leafScale = [0.6, 1.1];
-  } else { leafGeo = new THREE.IcosahedronGeometry(0.5, 0); leafM = leafMat({}, 0.02); perClump = Math.round(5 * D.leaves); leafScale = [0.6, 1.1]; }
+  }
   const clumps = [];
   for (const [x, z, s, , y0] of wall) for (let k = 0; k < 2; k++) { const y = y0 + 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s, x, z, s]); }
   for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); clumps.push([p.x, p.y + (c.low ? 1.2 : 0.9), p.z, R(0.6, 0.9)]); }
@@ -238,10 +233,10 @@ function buildForest() {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
     const none = new THREE.Matrix4().makeScale(0, 0, 0);
     for (const [x, y, z, r] of clumps) { const from = i; let cut = false; for (let k = 0; k < perClump; k++) {
-      const tight = LOOK === "moss" && y > 4 ? 0.6 : 1;                  // up in the crowns: leaves packed close and bigger, so they overlap into a mass
+      const tight = y > 4 ? 0.6 : 1;                  // up in the crowns: leaves packed close and bigger, so they overlap into a mass
       const u = V(R(-1, 1), R(-0.5, 0.8) * (tight < 1 ? 0.7 : 1), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()) * tight);
       e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
-      const s = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 / tight : r * 0.9) * Math.pow(D.leaves, -0.33);
+      const s = R(leafScale[0], leafScale[1]) * (1 / tight) * Math.pow(D.leaves, -0.33);
       const k0 = y + u.y < 4.5 && Math.min(jeepDist(x + u.x, z + u.z), pathLane(x + u.x, z + u.z)) < 1.9 ? 0 : s;   // keep the track and the path open at eye height
       if (!k0) cut = true;
       m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); leaves.setMatrixAt(i, m);
@@ -298,13 +293,12 @@ function buildForest() {
       }
       tops.push([x, top + 0.4, z, 1.3 * s]);                              // covers the cut top of the trunk
     }
-    scene.add(new THREE.Mesh(merge(geos), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: S.flat, side: THREE.DoubleSide })));
-    // fewer leaves per crown for the big ball leaves of the other looks
-    const per = (f) => LOOK === "moss" ? Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)) : f ? 0 : 1, lm = new THREE.InstancedMesh(leafGeo, leafM, tops.reduce((n, t) => n + per(t[4]), 0)), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+    scene.add(new THREE.Mesh(merge(geos), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+    const per = (f) => Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)), lm = new THREE.InstancedMesh(leafGeo, leafM, tops.reduce((n, t) => n + per(t[4]), 0)), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
     for (const [x, y, z, r, f] of tops) for (let k = 0; k < per(f); k++) {
-      const u = V(Q(-1, 1), Q(-0.3, 0.6), Q(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q(0, 1)) * (LOOK === "moss" ? 0.65 : 1));
+      const u = V(Q(-1, 1), Q(-0.3, 0.6), Q(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q(0, 1)) * 0.65);
       e.set(Q(0, 6.28), Q(0, 6.28), Q(0, 6.28)); q.setFromEuler(e);
-      const sc = Q(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1.5 : r * 0.9) * Math.pow(D.leaves, -0.33);
+      const sc = Q(leafScale[0], leafScale[1]) * 1.5 * Math.pow(D.leaves, -0.33);
       m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); lm.setMatrixAt(i, m);
       lm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
     }
@@ -325,7 +319,7 @@ function buildForest() {
     for (const [x, y, z, r] of vc) for (let k = 0; k < perClump; k++) {
       const u = V(Q2(-1, 1), Q2(-0.5, 0.8), Q2(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q2(0, 1)));
       e.set(Q2(0, 6.28), Q2(0, 6.28), Q2(0, 6.28)); q.setFromEuler(e);
-      const sc = Q2(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.6 ? 0 : 1);
+      const sc = Q2(leafScale[0], leafScale[1]) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.6 ? 0 : 1);
       m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.setMatrixAt(i, m);
       vm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
     }
@@ -334,7 +328,7 @@ function buildForest() {
   // ferns and undergrowth in a thick band round the clearing
   {
     let g, mat;
-    if (LOOK === "moss") {
+    {
       const tex = canvasTex(256, 256, (cx, w, h) => {
         cx.translate(w / 2, h);
         for (let f = 0; f < 7; f++) { cx.save(); cx.rotate(-1.1 + f * 0.37); cx.strokeStyle = hex(S.leaf[f % 4]); cx.lineWidth = 3; cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(0, -220); cx.stroke(); cx.fillStyle = hex(S.leaf[(f + 1) % 4]);
@@ -344,8 +338,7 @@ function buildForest() {
       const a = new THREE.PlaneGeometry(1.4, 1.2).translate(0, 0.6, 0).toNonIndexed(), b = a.clone().rotateY(Math.PI / 2);
       g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute([...a.attributes.position.array, ...b.attributes.position.array], 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute([...a.attributes.uv.array, ...b.attributes.uv.array], 2)); g.computeVertexNormals();
       mat = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.03);
-    } else if (LOOK === "paint") { g = new THREE.IcosahedronGeometry(0.5, 2).scale(1, 0.7, 1); mat = leafM; }
-    else { g = new THREE.ConeGeometry(0.4, 1, 5).translate(0, 0.5, 0); mat = leafMat({}, 0); }
+    }
     const spots = [];
     for (let i = 0; i < 2000 && spots.length < Math.round(260 * D.ferns); i++) { const a = R(0, 6.28), r = RC - 0.6 + Math.pow(rnd(), 1.6) * 12, x = Math.cos(a) * r, z = Math.sin(a) * r; spots.push([x, z]); }
     const im = new THREE.InstancedMesh(g, mat, spots.length), m = new THREE.Matrix4(), c = new THREE.Color();

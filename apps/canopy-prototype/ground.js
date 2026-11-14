@@ -23,7 +23,7 @@ const NOISE_GLSL = `
 `;
 const macroTint = (m, c) => c.multiply(new THREE.Color(1.1 + (0.8 - 1.1) * m, 1.02 + (0.97 - 1.02) * m, 0.74 + (0.95 - 0.74) * m));
 
-export function createGround({ scene, RC, blockers, grassMap, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null, extra = [] }) {
+export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null, extra = [] }) {
   // extra: more plants as [x, z, atlas cell, size], placed by the caller (camp/glade.js: the sloth tree's glade, outside the clearing)
   // height (camp/terrain.js groundHeight): the floor, the plants and the roots follow it; far > 0 makes the floor one mesh out to far metres,
   // the forest floor included (forestMap is its tile, 6 m across), instead of the flat clearing disc
@@ -135,12 +135,12 @@ export function createGround({ scene, RC, blockers, grassMap, S, look, fx, uTime
   const sample = (x, z, ch) => { const X = Math.min(M - 1, Math.max(0, Math.floor(px(x)))), Z = Math.min(M - 1, Math.max(0, Math.floor(px(z)))); return mk[(Z * M + X) * 4 + ch] / 255; };
 
   // ---------------------------------------------------------------- dirt detail, tiled: packed earth with pebbles, twigs and a few dry leaves
-  const mud = look === "low" ? ["#a88a60", "#947654", "#7a5e42"] : ["#a08460", "#8a6e4e", "#73583e"];
+  const mud = ["#a08460", "#8a6e4e", "#73583e"];
   const dirtTex = canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = mud[0]; g.fillRect(0, 0, w, h);
     const Q = rand;
     const wrap = (f) => { for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { g.save(); g.translate(dx, dy); f(); g.restore(); } };
-    if (look !== "low") for (let i = 0; i < 700; i++) { const x = Q(0, w), y = Q(0, h), rx = Q(1, 6), ry = Q(1, 4), r = Q(0, 3), c = mud[1 + (i % 2)], a = Q(0.15, 0.45); wrap(() => { g.fillStyle = c; g.globalAlpha = a; g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 7); g.fill(); }); }
+    for (let i = 0; i < 700; i++) { const x = Q(0, w), y = Q(0, h), rx = Q(1, 6), ry = Q(1, 4), r = Q(0, 3), c = mud[1 + (i % 2)], a = Q(0.15, 0.45); wrap(() => { g.fillStyle = c; g.globalAlpha = a; g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 7); g.fill(); }); }
     g.globalAlpha = 1;
     for (let i = 0; i < 40; i++) { const x = Q(0, w), y = Q(0, h), r = Q(1.5, 4), c = ["#9b948a", "#7f786e", "#b0a89a"][i % 3]; wrap(() => { g.fillStyle = "rgba(40,28,20,.35)"; g.beginPath(); g.ellipse(x + 1, y + 1.2, r, r * 0.75, 0, 0, 7); g.fill(); g.fillStyle = c; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,.25)"; g.beginPath(); g.ellipse(x - r * 0.3, y - r * 0.3, r * 0.4, r * 0.3, 0, 0, 7); g.fill(); }); }   // pebbles
     for (let i = 0; i < 9; i++) { const x = Q(0, w), y = Q(0, h), a = Q(0, 3.14), L = Q(10, 26); wrap(() => { g.strokeStyle = "#4a3424"; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.lineTo(x + Math.cos(a) * L + 4, y + Math.sin(a) * L - 3); g.stroke(); }); }   // twigs

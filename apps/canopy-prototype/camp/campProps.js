@@ -6,7 +6,7 @@
 // (main.js, once), which builds them all.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
-import { D, LIVED, PRE, PROPS, rng, S, scene, sun, uTime } from "./core.js";
+import { D, LIVED, PRE, rng, S, scene, sun, uTime } from "./core.js";
 const { R } = rng("props");
 import { V, canvasTex, patchMaterial } from "./util.js";
 import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, TABLE, TENT, WOOD_PILE } from "./layout.js";
@@ -119,7 +119,7 @@ async function buildProps() {
     L.scene.getObjectByName("WoodStack").traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; });   // and paint them like the stack
     blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
     put("SeatThings", SEATS[1].at.x, SEATS[1].at.z, SEATS[1].yaw);   // the middle seat
-    if (PROPS === "picked") { const t = TENT.at; put("TentSide", t.x, t.z, TENT.yaw); put("MatRoll", t.x, t.z, TENT.yaw); }   // wellies and the rolled mat on the planks by the door (tent frame)
+    { const t = TENT.at; put("TentSide", t.x, t.z, TENT.yaw); put("MatRoll", t.x, t.z, TENT.yaw); }   // wellies and the rolled mat on the planks by the door (tent frame)
     { const { at: k, yaw: ky } = CRATE; put("KitchenCrate", k.x, k.z, ky); put("KitchenThings", k.x, k.z, ky); blockers.push([k, 0.35]); }   // the kitchen crate beside the snack table, its front to the fire
     SEATS.forEach(({ at, yaw }, i) => put(L.scene.getObjectByName(`SeatTop_${i}`) ? `SeatTop_${i}` : "SeatTop", at.x, at.z, yaw));   // the sawn top on each seat
   }

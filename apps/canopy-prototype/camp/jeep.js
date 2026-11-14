@@ -1,7 +1,7 @@
 // Canopy Camp jeep: the Expedition at the clearing edge, its doors, the live cabin light and its far LOD (props/jeep/).
 import * as THREE from "three";
 import { GAIN } from "../bakedlight.js";
-import { CABIN, JEEP, PRE, camera, renderer, scene } from "./core.js";
+import { JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { V, canvasTex, ease } from "./util.js";
 import { JEEP_AT, JEEP_TAN } from "./layout.js";
 import { blockers } from "./campProps.js";
@@ -53,7 +53,7 @@ async function buildJeep() {
   // Cabin: live: one spot light under the roof aimed down (83 degree half-angle), shadowed by the jeep only; its shadow map is
   // redrawn only while a door moves or the light fades, and every prop and the floor take its shadow
   let cabSpot = null;
-  if (CABIN === "live") {
+  {   // the cabin light is live (one shadowed spot light): it looked much better than the bake (Adriaen 2026-11-12)
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
     cabSpot = new THREE.SpotLight(0xffe3a8, 0, 9, 1.45, 0.4, 2); cabSpot.position.set(0, 1.62, -0.25); cabSpot.target.position.set(0, 0, -0.25);
     cabSpot.castShadow = true; cabSpot.shadow.mapSize.set(512, 512); cabSpot.shadow.camera.near = 0.05; cabSpot.shadow.camera.far = 9; cabSpot.shadow.bias = -0.002;

@@ -18,7 +18,7 @@
 // places.js) and bed. Nothing runs on import; sloths.js calls the two builders in their place in the build order.
 import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
-import { LIVED, PROPS, scene } from "../core.js";
+import { LIVED, scene } from "../core.js";
 import { V, yawTo } from "../util.js";
 import { HAMMOCK, LAUNDRY, RC, SEATS, TENT } from "../layout.js";
 import { branchCurves } from "../forest.js";
@@ -75,7 +75,7 @@ function buildSpots() {
   // the tent (Adriaen 2026-11-12, "our camp" walk-in tent only): it crawls to the planks before the door, in, turns round
   // and lies on its belly in the doorway, chin on its paws, peeking out (clip peek). Tent frame: +Z out of the door,
   // doorway at z 0.95, floor 0.02 up.
-  if (PROPS === "picked") {
+  {
     const tg = new THREE.Group(); tg.position.copy(TENT.at).setY(0); tg.rotation.y = TENT.yaw; scene.add(tg); tg.updateMatrixWorld(true);
     spots.push({ name: "tent", parent: tg, at: V(0, 0.04, 0.9), yaw: Math.PI, clip: "peek", scale: 1.9, noHop: true,
       via: tg.localToWorld(V(0, 0, 1.7)).setY(0), door: tg.localToWorld(V(0, 0, 0.3)).setY(0) });

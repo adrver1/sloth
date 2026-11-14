@@ -35,12 +35,9 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 // The modules talk through imports only. The window.__ names are for the headless tools (camp-probe.cjs, camp-replay.cjs,
 // camp-scenarios.cjs and props/shadow/export_casters.cjs) and are all set in debug.js, which lists them with their readers.
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
-// they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
-// "Canopy camp: start every download at once" (the looks were archived there). Their branches below and in forest.js and sky.js are dead code (campGround.js still passes LOOK to ground.js).
-const LOOK = "moss";
+// they live on in index.html (the forest look prototype), and camp.html with all three, with their branches in forest.js,
+// glade.js and sky.js, is in git history before commit "Canopy camp: start every download at once".
 const $ = (id) => document.getElementById(id);
-// settings: one ⚙️ button opens the detail and light-map choices (the old row took a quarter of a phone screen)
-$("menu").onclick = () => { const o = $("opts"); o.hidden = !o.hidden; $("menu").setAttribute("aria-expanded", String(!o.hidden)); };
 
 // detail level, kept per viewer: how many leaves, ferns, fur shells and effects, and the resolution cap
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
@@ -69,21 +66,23 @@ const OPT = {
 };
 const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
-            medium: { leaves: 1, ferns: 1, fx: 1, shells: 3, pr: 1.75, aa: LOOK !== "moss" },
+            medium: { leaves: 1, ferns: 1, fx: 1, shells: 3, pr: 1.75, aa: false },
             high: { leaves: 1.6, ferns: 1.7, fx: 1.5, shells: 4, pr: 2, aa: true } }[DETAIL];
-// the props: "Our camp" (the picked set) only. Storybook, Rustic, Jungle and the first code-drawn shapes are archived in
-// props/camp/archive/ (camp review, Adriaen 2026-11-12); PROPS stays so the checks below read the same.
-const PROPS = "picked";
-$("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
+// the props: "Our camp" (the picked set, the "picked" in the model file names) only. Storybook, Rustic, Jungle and the first
+// code-drawn shapes are archived in props/camp/archive/ (camp review, Adriaen 2026-11-12).
 // the jeep: the Expedition (Adriaen 2026-11-12; the Toy and Camper styles are in props/jeep/archive/); ?jeep=none hides it
 const JEEP = OPT.jeep;
 // the picked props' baked light: a 2K or 1K light map (?lm=4k also works locally; 4k is too big to publish)
 const LMSET = OPT.lm;
-$("lm").textContent = "Light: " + LMNAME[LMSET];
-$("lm").style.display = PROPS === "picked" ? "" : "none";
-const CABIN = "live";   // the jeep's cabin light is live (one shadowed spot light): it looked much better than the bake (Adriaen 2026-11-12)
-$("lm").onclick = () => { store.set(KEYS.lm, LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
-$("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
+// the ⚙️ menu's own buttons: main.js calls wireSettings() once. One ⚙️ button opens the detail and light-map choices (the old
+// row took a quarter of a phone screen); Detail and Light each step to the next choice, keep it and reload.
+function wireSettings() {
+  $("menu").onclick = () => { const o = $("opts"); o.hidden = !o.hidden; $("menu").setAttribute("aria-expanded", String(!o.hidden)); };
+  $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
+  $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
+  $("lm").textContent = "Light: " + LMNAME[LMSET];
+  $("lm").onclick = () => { store.set(KEYS.lm, LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
+}
 
 // seeded random, so every visit grows the same tree and hides sloths in the same spots. Each system draws from its own named
 // stream (rng("forest"), rng("sloths"), ...), seeded from ?seed and the name, so one system drawing more or less, or earlier,
@@ -102,15 +101,9 @@ function rng(name, start) {
   return st;
 }
 
-// ---------------------------------------------------------------- look settings (structure differs, not just colour)
-const S = {
-  moss:  { sky: ["#dfe9d2", "#a9c39a", "#5d7d58"], fog: [0x9fb592, 0.055], bark: [0x5b4636, 0x3a2c22], moss: 0x6f8f3a, mossAmt: 0.75,
-           leaf: [0x4f7f34, 0x6b9a3c, 0x3d6a2f, 0x85a845], hemi: [0xf4f0dc, 0x3b4a2a, 1.6], sun: [0xffe7c0, 2.0], rays: 0.3, motes: 260, flat: false, slothTint: 0xc9d9a6 },
-  paint: { sky: ["#fde8cf", "#cfe6c4", "#8fb889"], fog: [0xcfe0c0, 0.045], bark: [0x9a6b4c, 0x6e4a36], moss: 0x9cc46a, mossAmt: 0.45,
-           leaf: [0x7cc06a, 0x9bd27a, 0x5fae63, 0xb7dd85], hemi: [0xfff6e6, 0x6e8f62, 2.0], sun: [0xffe2b8, 1.6], rays: 0.16, motes: 160, flat: false, slothTint: 0xe2ecc4 },
-  low:   { sky: ["#bfeaff", "#d9f5e8", "#a8dca0"], fog: [0xc8eedd, 0.032], bark: [0x9b6440, 0x7a4b30], moss: 0x8bcf5a, mossAmt: 0.35,
-           leaf: [0x5cc45a, 0x7fd860, 0x45b35a, 0xa3e36a], hemi: [0xffffff, 0x7fb070, 2.2], sun: [0xfff3dc, 1.5], rays: 0, motes: 0, flat: true, slothTint: 0xdaf0c0 },
-}[LOOK];
+// ---------------------------------------------------------------- the look's settings (Mossy real)
+const S = { sky: ["#dfe9d2", "#a9c39a", "#5d7d58"], fog: [0x9fb592, 0.055], bark: [0x5b4636, 0x3a2c22], moss: 0x6f8f3a, mossAmt: 0.75,
+            leaf: [0x4f7f34, 0x6b9a3c, 0x3d6a2f, 0x85a845], hemi: [0xf4f0dc, 0x3b4a2a, 1.6], sun: [0xffe7c0, 2.0], rays: 0.3, motes: 260, slothTint: 0xc9d9a6 };
 
 // ---------------------------------------------------------------- renderer
 const renderer = new THREE.WebGLRenderer({ canvas: $("c"), antialias: D.aa, powerPreference: "high-performance" });
@@ -136,7 +129,7 @@ const PRE = {
   fire: pre(glb("models/fire.txt")),
   jeep: JEEP !== "none" ? pre(glb(`models/jeep_${JEEP}.txt`)) : null,
   jeepLod: JEEP === "expedition" ? pre(glb("models/jeep_expedition_lod.txt").catch(() => null)) : null,
-  groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: `models/camp_ground_${PROPS}.jpg` }); im.onerror = () => ok(null); im.src = `models/camp_ground_${PROPS}_mask.png`; })),
+  groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: "models/camp_ground_picked.jpg" }); im.onerror = () => ok(null); im.src = "models/camp_ground_picked_mask.png"; })),
 };
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(S.fog[0], S.fog[1]);
@@ -149,7 +142,7 @@ const uTime = { value: 0 };
 // and the tools through window.__campFast (debug.js)
 const pace = { fast: undefined };
 const leafMat = (opts, sway) => {
-  const m = S.flat ? new THREE.MeshLambertMaterial({ flatShading: true, ...opts }) : new THREE.MeshLambertMaterial(opts);
+  const m = new THREE.MeshLambertMaterial(opts);
   if (sway) m.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = uTime;
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;")
@@ -169,4 +162,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime };
+export { $, D, DETAIL, JEEP, KEYS, LIVED, OPT, PRE, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime, wireSettings };

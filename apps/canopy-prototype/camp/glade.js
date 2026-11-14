@@ -9,7 +9,7 @@
 // nothing here needs a bake. Props: one draw (vertex colours); floor: one draw; sunbeams: one draw on the camp's rayMat (daylight.js
 // fades it with the time of day and the weather).
 import * as THREE from "three";
-import { D, LOOK, S, scene, sun } from "./core.js";
+import { D, S, scene, sun } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
 import { GLADE, GLADE_R, HERO, RC, pathLane, sloPath } from "./layout.js";
 import { blockers, rayMat } from "./campProps.js";
@@ -47,7 +47,7 @@ const gladePlants = [];   // filled by buildGlade (see the plants below)
 function buildGlade() {
   // ---------------------------------------------------------------- the floor: one disc, painted once (canvas x, y = world dx, dz)
   const PX = 512, W = (x) => (x / FR + 1) * PX / 2;
-  const leaf = S.leaf.map((c) => new THREE.Color(c).lerp(new THREE.Color(0xd8e0a0), LOOK === "low" ? 0.15 : 0.3));
+  const leaf = S.leaf.map((c) => new THREE.Color(c).lerp(new THREE.Color(0xd8e0a0), 0.3));
   const floorTex = canvasTex(PX, PX, (g) => {
     const blob = (x, z, r, col, a) => { const gr = g.createRadialGradient(W(x), W(z), 0, W(x), W(z), r * PX / (2 * FR)); gr.addColorStop(0, col.replace("A", a)); gr.addColorStop(1, col.replace("A", 0)); g.fillStyle = gr; g.fillRect(0, 0, PX, PX); };
     g.fillStyle = "#" + leaf[3].clone().lerp(leaf[1], 0.35).getHexString(); g.fillRect(0, 0, PX, PX);
@@ -63,7 +63,7 @@ function buildGlade() {
       for (let j = 0; j < 3; j++) d[i + j] = d[i + j] * (1 - w) + (mud[j] * (1 - c) + mid[j] * c) * w;
     }
     g.putImageData(img, 0, 0);
-    if (LOOK !== "low") {
+    {
       for (let i = 0; i < 900; i++) { const a = R(0, 6.28), r = Math.sqrt(rnd()) * FR, x = Math.cos(a) * r, z = Math.sin(a) * r;   // grass strokes, sparse on the earth
         if (worn(G.x + x, G.z + z) > 0.6 && rnd() < 0.85) continue; g.strokeStyle = "#" + leaf[i % 4].getHexString(); g.globalAlpha = R(0.25, 0.6); g.lineWidth = 1.2; g.beginPath(); g.moveTo(W(x), W(z)); g.lineTo(W(x) + R(-1.5, 1.5), W(z) - R(2, 5)); g.stroke(); }
       for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = R(0, GLADE_R), x = Math.cos(a) * r, z = Math.sin(a) * r;                 // pebbles kicked onto the trodden earth
@@ -195,7 +195,7 @@ function buildGlade() {
     for (const [x, y, z, r] of B) for (let j = 0; j < per; j++) {
       const u = V(R(-1, 1), R(-0.45, 0.55), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()));   // wider than tall
       e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
-      const sc = R(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 0.85 : r * 0.9);
+      const sc = R(leafScale[0], leafScale[1]) * 0.85;
       m.compose(V(x + u.x, Math.max(y - 0.25, y + u.y), z + u.z), q, V(sc, sc, sc)); im.setMatrixAt(i, m);
       im.setColorAt(i, c.setHex(S.leaf[(j + i) % 4]).multiplyScalar(R(0.7, 0.95))); i++;
     }
