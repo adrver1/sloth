@@ -2,11 +2,12 @@
 # deploy (pages.yml calls this workflow and deploys only when it passes). npm run check runs, with no browser and no Blender:
 #   tools/check-imports.cjs   every camp module parses, every named import matches an export, every models/ path written as a
 #                             plain string exists, and no KTX2 light map is older than its PNG
-#   tools/check-python.py     every Python file in props/, characters/ and stickers/renderer/ compiles
+#   tools/check-python.py     (through tools/py.cjs, which finds python or python3) every Python file in props/, characters/ and stickers/renderer/ compiles
 #   tools/sync-shared.cjs --check   the fur.js copies match shared/fur.js, and the other pages' sloth.txt and ponytail.txt
 #                             copies match each other (so any app folder's change runs the check, not only the camp's)
-# The headless page check (npm run probe, tools/camp-probe.cjs --strict) is not run here yet: it needs a browser and takes
-# about half a minute under SwiftShader. Run it by hand before a merge.
+# The probe job then loads camp.html headless (npm run probe, tools/camp-probe.cjs --strict, SwiftShader) and fails on any page
+# error or when the page never becomes ready. It does not block yet (continue-on-error), until its time on GitHub runners is
+# known; then drop continue-on-error and add probe to pages.yml's needs. Until then, also run it by hand before a merge.
 name: Check
 
 on:
@@ -41,3 +42,23 @@ jobs:
           python-version: "3.13"
       - run: npm ci
       - run: npm run check
+  probe:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run probe
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-shot
+          path: shots/probe.png
+          if-no-files-found: ignore

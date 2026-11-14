@@ -5,7 +5,7 @@
   "description": "Baby sloth character, karaoke, synth, stickers and games",
   "scripts": {
     "serve": "node tools/serve.cjs 8765",
-    "check": "node tools/check-imports.cjs && python tools/check-python.py && node tools/sync-shared.cjs --check",
+    "check": "node tools/check-imports.cjs && node tools/py.cjs tools/check-python.py && node tools/sync-shared.cjs --check",
     "probe": "node tools/camp-probe.cjs --strict /apps/canopy-prototype/camp.html shots/probe.png",
     "probe:phone": "node tools/camp-probe.cjs --strict --phone /apps/canopy-prototype/camp.html shots/probe_phone.png",
     "gpu": "node tools/camp-gpu.cjs --shot shots/gpu.png",
@@ -14,9 +14,9 @@
     "scenarios": "node tools/camp-scenarios.cjs",
     "sync-shared": "node tools/sync-shared.cjs",
     "check-shared": "node tools/sync-shared.cjs --check",
-    "bake": "python props/bake_all.py",
-    "bake:layout": "python props/bake_all.py --only layout",
-    "bake:ktx": "python props/bake_all.py --only ktx",
+    "bake": "node tools/py.cjs props/bake_all.py",
+    "bake:layout": "node tools/py.cjs props/bake_all.py --only layout",
+    "bake:ktx": "node tools/py.cjs props/bake_all.py --only ktx",
     "pack:sloth": "node tools/pack-chars.cjs sloth",
     "pack:operator": "node tools/pack-chars.cjs operator",
     "stickers": "node tools/stickers.cjs"
