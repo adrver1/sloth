@@ -11,6 +11,8 @@ import { SLOTH, blockers } from "./campProps.js";
 import { CAST } from "./cast.js";
 import { load, save } from "./save.js";
 import { burst, fx, sprite } from "./fx.js";
+import { createNav } from "./nav.js";
+import { addCrowd, addMover, claim, holder, host, hosted, join, movers, release, taken, walkers } from "./places.js";
 
 const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
 const sloths = [], hit = [];
@@ -374,69 +376,10 @@ if (qs.get("campsloths") !== "0") {
         () => { play(s, "cling", 3, 0.6); atHome(s); }))));
   }
 
-  // ---------------------------------------------------------------- wayfinding (Adriaen 2026-11-12: "fix wayfinding so sloths
-  // don't accidentally run into each other or other objects"). A 20 cm grid over the clearing marks every blocker (grown by
-  // the sloth's half-length) and a wide ring round the fire; a trip plans an A* path on it and pulls it straight where the
-  // way is clear. Starts and ends inside a blocker (a seat, the jeep's door) go straight out to the nearest free cell.
-  // On the way, a sloth gives way to the others and to you: it keeps to the right of anyone ahead and slows when close.
-  const GC = 0.2, GH = RC + 0.5, GN = Math.ceil(2 * GH / GC), BODY = 0.28, FIRE_KEEP = 2.3;   // a wide berth round the fire (Adriaen: too close is too dangerous)
-  let grid = null, gridFor = -1;
-  const cellOf = (p) => [Math.max(0, Math.min(GN - 1, Math.floor((p.x + GH) / GC))), Math.max(0, Math.min(GN - 1, Math.floor((p.z + GH) / GC)))];
-  const cellAt = (i, j) => V(-GH + (i + 0.5) * GC, 0, -GH + (j + 0.5) * GC);
-  function freeGrid() {                               // rebuilt when a blocker is added (the tent's walls, the activities' props)
-    if (grid && gridFor === blockers.length) return grid;
-    grid = new Uint8Array(GN * GN); gridFor = blockers.length;
-    for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) { const q = cellAt(i, j), r = Math.hypot(q.x, q.z); if (r > RC - 0.8 || r < FIRE_KEEP) grid[j * GN + i] = 1; }
-    for (const [c, r] of blockers) {
-      const RR = r + BODY, [i0, j0] = cellOf(V(c.x - RR, 0, c.z - RR)), [i1, j1] = cellOf(V(c.x + RR, 0, c.z + RR));
-      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const q = cellAt(i, j); if (Math.hypot(q.x - c.x, q.z - c.z) < RR) grid[j * GN + i] = 1; }
-    }
-    return grid;
-  }
-  const isFree = (p) => { const [i, j] = cellOf(p); return !freeGrid()[j * GN + i]; };
-  function nearestFree(i, j) {
-    const g = freeGrid();
-    for (let r = 1; r < 30; r++) {
-      let best = null, bd = 1e9;
-      for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
-        if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
-        const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= GN || b >= GN || g[b * GN + a]) continue;
-        const d = di * di + dj * dj; if (d < bd) { bd = d; best = [a, b]; }
-      }
-      if (best) return best;
-    }
-    return [i, j];
-  }
-  function astar(ai, aj, bi, bj) {
-    const g = freeGrid(), n = GN * GN, cost = new Float32Array(n).fill(Infinity), from = new Int32Array(n).fill(-1), done = new Uint8Array(n);
-    const heap = [], push = (f, k) => { heap.push([f, k]); let c = heap.length - 1; while (c > 0) { const p = (c - 1) >> 1; if (heap[p][0] <= heap[c][0]) break; [heap[p], heap[c]] = [heap[c], heap[p]]; c = p; } };
-    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let c = 0; for (;;) { const l = 2 * c + 1, r = l + 1; let m = c;
-      if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === c) break; [heap[m], heap[c]] = [heap[c], heap[m]]; c = m; } } return top; };
-    const h = (i, j) => { const dx = Math.abs(i - bi), dy = Math.abs(j - bj); return Math.max(dx, dy) + 0.414 * Math.min(dx, dy); };
-    const a = aj * GN + ai, b = bj * GN + bi; cost[a] = 0; push(h(ai, aj), a);
-    while (heap.length) {
-      const [, k] = pop(); if (done[k]) continue; done[k] = 1; if (k === b) break;
-      const i = k % GN, j = (k / GN) | 0;
-      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
-        if (!di && !dj) continue; const x = i + di, y = j + dj; if (x < 0 || y < 0 || x >= GN || y >= GN) continue;
-        const q = y * GN + x; if (g[q] || done[q]) continue;
-        if (di && dj && (g[j * GN + x] || g[y * GN + i])) continue;   // no cutting corners
-        const c = cost[k] + (di && dj ? 1.414 : 1); if (c < cost[q]) { cost[q] = c; from[q] = k; push(c + h(x, y), q); }
-      }
-    }
-    if (!done[b]) return null;
-    const out = []; for (let k = b; k >= 0; k = from[k]) out.push(cellAt(k % GN, (k / GN) | 0)); return out.reverse();
-  }
-  function clearLine(p, q) { const d = p.distanceTo(q), n = Math.ceil(d / 0.08); for (let k = 1; k < n; k++) if (!isFree(tmp.lerpVectors(p, q, k / n))) return false; return true; }
-  function findPath(from, to) {
-    const g = freeGrid(); let [ai, aj] = cellOf(from), [bi, bj] = cellOf(to);
-    if (g[aj * GN + ai]) [ai, aj] = nearestFree(ai, aj);
-    if (g[bj * GN + bi]) [bi, bj] = nearestFree(bi, bj);
-    const raw = astar(ai, aj, bi, bj); if (!raw) return [to.clone().setY(0)];
-    const pts = [raw[0]];
-    for (let k = 0; k < raw.length - 1;) { let m = raw.length - 1; while (m > k + 1 && !clearLine(raw[k], raw[m])) m--; pts.push(raw[m]); k = m; }
-    pts.push(to.clone().setY(0)); return pts;
-  }
+  // wayfinding (nav.js): the sloths' grid over the clearing. They keep 0.28 m (half a sloth) from every blocker and a wide
+  // berth round the fire (Adriaen: too close is too dangerous). On the way, a sloth gives way to the others and to you: it
+  // keeps to the right of anyone ahead and slows when close (walkStep).
+  const { clearLine, findPath, isFree } = createNav({ blockers, half: RC + 0.5, rim: RC - 0.8, fireKeep: 2.3, body: 0.28 });
 
   // ---------------------------------------------------------------- daily life (Adriaen 2026-11-12): every camp sloth now and
   // then leaves its spot (no more than MAX_OUT at once), crawls to the snack table or the kitchen crate, sits and eats its
@@ -446,17 +389,11 @@ if (qs.get("campsloths") !== "0") {
   const GROUND = new Set(["walk", "greet", "eat", "rest"]);
   const CRATE = V(4.55, 0, 1.7);                      // the kitchen crate (campProps.js), beside the snack table
   let POIS = null;
-  // who is where (Adriaen 2026-11-12: "coordinate such that characters take each other into account"): a place (a table
-  // or crate place, a bed, a seat) is claimed by whoever uses it, so no one sits or lies on someone else; anyone walking
-  // about registers as a mover, and the sloths steer round movers as they do round each other and you. Shared with the
-  // camp's other characters (the operator) through window.__campLife.
-  const claims = new Map(), movers = [], hosts = new Map();
+  // who is where (places.js): a place is claimed by whoever uses it, and anyone walking about is a mover. `life` is what
+  // the camp's other characters and the player's modules get of it and of the sloths (window.__campLife).
+  addCrowd(() => camp.filter((o) => GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * o.sc]));   // the sloths on the ground are movers
   const life = window.__campLife = {
-    claim(place, who) { const h = claims.get(place); if (h && h !== who) return false; claims.set(place, who); return true; },
-    release(place, who) { if (!who || claims.get(place) === who) claims.delete(place); },
-    holder: (place) => claims.get(place),
-    addMover(obj, r) { movers.push([obj, r]); },
-    removeMover(obj) { const i = movers.findIndex((m) => m[0] === obj); if (i >= 0) movers.splice(i, 1); },
+    claim, release, holder, addMover, host, join, movers,
     // borrowing a sloth for a while (the operator picks one up to cuddle or play): only one on the ground, or Sunny on its
     // log. While lent its phase is "held": its life step, errands and greetings stop; its clip, blinks and fur keep going.
     path: (from, to) => findPath(from, to),
@@ -475,10 +412,6 @@ if (qs.get("campsloths") !== "0") {
       s.trip = { phase: "rest", t: 0, yaw, dur: R(1.5, 3) }; play(s, "idle", 0.6);
     },
     sloths: camp,
-    // a place someone else is using may still take a sloth too (a bed or seat the operator is in: they nap or cuddle
-    // together): its user registers a host; join(place, s) asks it, and the host takes the sloth with lend() if it says yes
-    host(place, fn) { hosts.set(place, fn); },
-    join(place, s) { const fn = hosts.get(place); return !!fn && !!fn(s); },
     // food you give it (activities.js food(), a mesh from camp/food.js leaving your hand at `from`; Adriaen 2026-11-13: the
     // food is modelled so the sloths eat it with their own eat clip). Sitting up and awake (resting in the clearing, or on
     // its log or jeep seat): it plays eat, its paw takes the food out of the air and it bites it smaller (chewStep), and
@@ -491,7 +424,6 @@ if (qs.get("campsloths") !== "0") {
       if (sitUp) playOnce(s, "eat", 0.5, () => { scene.remove(mesh); if (s.mouth) s.mouth.visible = false; s.gift = null; const [c, ts] = homeClip(s); play(s, c, 0.9, ts); }, EAT_GRAB - 0.9);
       return sitUp ? "eat" : "munch";
     },
-    movers: () => [...camp.filter((o) => GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * o.sc]), ...movers.map(([o, r]) => [o.position, r]), [camera.position, 0.3]],
   };
   // Eating (Adriaen 2026-11-12: "have them pick up the food item and eat it; crawl on top of the table or reach into the
   // crate", no words or emojis): a fruit lies at each place, on the table top or on the things in the crate. A sloth comes
@@ -652,7 +584,7 @@ if (qs.get("campsloths") !== "0") {
       return walkTo(s, g, () => startEat(s, slot));
     }
     if (s.spot.car && window.__jeep?.node?.getObjectByName("Hood") && (s.fixNext || (!s.wantFood && R(0, 1) < 0.45)) && life.claim("jeep:hood", s)) { s.fixNext = false; return fixEngine(s); }
-    const free = pois().flatMap((P) => P.slots.filter((q) => !q.who && !claims.has(q.key) && q.food.mesh.visible && !q.food.back && (q.name === "table" || s.sc > 1.6)));   // the small ones can't reach over the crate's rim
+    const free = pois().flatMap((P) => P.slots.filter((q) => !q.who && !taken(q.key) && q.food.mesh.visible && !q.food.back && (q.name === "table" || s.sc > 1.6)));   // the small ones can't reach over the crate's rim
     if (!free.length) return wander(s);
     const slot = free[Math.floor(R(0, free.length))]; slot.who = s; life.claim(slot.key, s);
     walkTo(s, slot.p, () => startEat(s, slot)); s.trip.slot = slot;   // trip.slot: lend() frees the place if he borrows it on the way
@@ -719,7 +651,7 @@ if (qs.get("campsloths") !== "0") {
   function lpawOf(s, out) { s.armL[0].getWorldPosition(shoulder); s.armL[1].getWorldPosition(elbow); return out.copy(UP).applyQuaternion(s.armL[1].getWorldQuaternion(qL)).multiplyScalar(shoulder.distanceTo(elbow) * 0.82).add(elbow); }
   function startCards(a, b) {                         // a and b (both at home, awake) go and play at the table
     const P = pois().find((q) => q.name === "table"); if (!P || P.slots.length < 2 || game) return false;
-    if (P.slots.some((q) => q.who || claims.has(q.key))) return false;
+    if (P.slots.some((q) => q.who || taken(q.key))) return false;
     game = { P, players: [a, b], over: false, len: R(70, 120), t: 0, turn: 0 };
     [a, b].forEach((s, i) => { const slot = P.slots[i]; slot.who = s; life.claim(slot.key, s); s.cardsTo = slot; if (s.trip.phase === "home") leave(s); });
     return true;
@@ -802,10 +734,10 @@ if (qs.get("campsloths") !== "0") {
     if (G.t > 4.2) s.gift = null;
   }
   function wander(s) {
-    const lg = ["log:1", "log:2"].find((k) => claims.get(k) === "operator" && hosts.has(k));   // he's on a log: now and then go and sit with him
+    const lg = ["log:1", "log:2"].find((k) => holder(k) === "operator" && hosted(k));   // he's on a log: now and then go and sit with him
     if (lg && R(0, 1) < 0.25) { const o = scene.getObjectByName(`Seat_${lg[4]}`); if (o) { const c = o.position.clone().setY(0); return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!life.join(lg, s)) goHome(s); }); } }
     walkTo(s, wanderPoint(), () => { Object.assign(s.trip, { phase: "rest", t: 0, dur: R(5, 9), nap: R(0, 1) < 0.55 }); play(s, "idle", 1.2); }); }
-  const youDrive = () => claims.get("jeep:driver") === "player";   // you in the jeep's driver seat (jeepSeat.js): its sloth waits
+  const youDrive = () => holder("jeep:driver") === "player";   // you in the jeep's driver seat (jeepSeat.js): its sloth waits
   function goHome(s) {
     const spot = s.spot;
     if (spot.car && youDrive()) return wander(s);   // a wander and a sit, then it tries again
@@ -837,7 +769,7 @@ if (qs.get("campsloths") !== "0") {
     const aim = T.path[0], dir = V(aim.x - pos.x, 0, aim.z - pos.z), dist = dir.length(); dir.divideScalar(Math.max(dist, 1e-4));
     let slow = 1;
     const others = camp.filter((o) => o !== s && GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * (s.sc + o.sc) + 0.1, o]);
-    others.push([camera.position, 0.45, null], ...movers.map(([o, r]) => [o.position, r + 0.18 * s.sc + 0.1, null]));
+    others.push([camera.position, 0.45, null], ...walkers.map(([o, r]) => [o.position, r + 0.18 * s.sc + 0.1, null]));
     // giving way (Adriaen 2026-11-13: "wayfinding needs a bit of work", a sloth was walking into a log seat): it steps
     // aside to the right of anyone ahead, or to the left when the right is a blocker; someone sitting in a seat or a bed
     // (inside a blocker the path already goes round) is left out, so the operator on his log doesn't push it into the log
@@ -987,8 +919,8 @@ if (qs.get("campsloths") !== "0") {
   function napTrip(s) {                               // a cozy place free (or shared with the operator); false if none
     const own = s.spot, ok = guests.filter((g) => !(g.car && youDrive()) && !(g.name === own.name && own.name !== "tent") && (s.sc < 2.0 || g.name !== "hammock"));
     let pick = ok[Math.floor(R(0, ok.length))]; if (!pick) return false;
-    const b0 = claims.get("bed:0"); if (pick.key === "bed:1" && b0 && !camp.includes(b0)) pick = guests.find((g) => g.key === "bed:0");   // he lies along the whole bed
-    const h = claims.get(pick.key);
+    const b0 = holder("bed:0"); if (pick.key === "bed:1" && b0 && !camp.includes(b0)) pick = guests.find((g) => g.key === "bed:0");   // he lies along the whole bed
+    const h = holder(pick.key);
     if (h && camp.includes(h)) return false;
     if (h) { walkTo(s, pick.via ?? pick.door, () => { if (!life.join(pick.key, s)) goHome(s); }); return true; }   // he's in it: ask to join him
     life.claim(pick.key, s); s.ownSpot = own; s.spot = pick; pick.who = s;
@@ -1007,7 +939,7 @@ if (qs.get("campsloths") !== "0") {
       const s = camp.find((q) => q.name === d.name); if (!s) continue;
       if (Number.isFinite(d.napT)) s.napT = d.napT;
       const g = d.nap && guests.find((q) => q.key === d.nap);
-      if (g && !claims.get(g.key)) {                  // back in the cozy spot it was napping in
+      if (g && !holder(g.key)) {                  // back in the cozy spot it was napping in
         life.release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.release("log:0", s);
         s.spot.home = false; life.claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; placeHome(s);
       }
@@ -1157,7 +1089,7 @@ if (qs.get("campsloths") !== "0") {
     nap: (s) => { if (!s.dozing) doze(s); },
     guests: () => guests.map((g) => g.key),
     cards: (s) => { const mate = camp.find((q) => q !== s && q.trip.phase === "home" && !q.spot.guest && q.spot.name !== "hammock"); return mate && s.trip.phase === "home" && startCards(s, mate); },
-    napTrip: (s, key) => { if (s.trip.phase !== "home" || s.spot.guest) return; const g = guests.find((q) => q.key === key); if (g && !claims.get(key)) { s.napTo = g; leave(s); } }, wake: (s) => { if (s.dozing) s.dozeIn > 0 ? (s.dozeIn = 0.01, s.dozeT = 0) : (s.dozeT = 0); },
+    napTrip: (s, key) => { if (s.trip.phase !== "home" || s.spot.guest) return; const g = guests.find((q) => q.key === key); if (g && !holder(key)) { s.napTo = g; leave(s); } }, wake: (s) => { if (s.dozing) s.dozeIn > 0 ? (s.dozeIn = 0.01, s.dozeT = 0) : (s.dozeT = 0); },
     yawn: (s) => { s.yawn = 1e-3; }, stretch: (s) => { const [c, ts] = homeClip(s); playOnce(s, "stretch", 1.2, () => play(s, c, 1.5, ts)); } };
 }
 // the move lab opens from the settings menu (Adriaen: "add the move lab in the artifact too"), or straight away with ?lab
