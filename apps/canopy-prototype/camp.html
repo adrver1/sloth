@@ -1,11 +1,10 @@
-<!-- PROTOTYPE (throwaway): Canopy Camp. Question: does a cozy clearing in a lush forest, walked on foot, feel good to explore while staying cheap to render?
-     First person, at ground level (the boardwalk was dropped on 2026-11-11): you walk the round clearing, the footpath to the sloth tree's glade and the first stretch of the jeep's track; the forest edge stops you.
+<!-- Canopy Camp: a cozy clearing in a lush forest with the baby sloths, the bearded operator and a jeep, walked on foot in first person.
+     You walk the round clearing, the footpath to the sloth tree's glade and the first stretch of the jeep's track; the forest edge stops you.
      On a phone a stick bottom-left walks (as in desk-at-night's free mode), a drag anywhere else looks and two fingers zoom; on a computer WASD or the arrow keys walk, a mouse drag looks and the wheel zooms.
      What you can use lights up when you look at it from close by: a log seat, a jeep door, a clock, the radio, the wood pile, the fire. A tap on it opens a small menu of what you can do. A tap on a sloth opens its menu too, and a hold on a sloth feeds it.
      The ⚙️ button opens the settings: the time of day and the day cycle, the weather, detail (Low / Medium / High: leaves, ferns, fur shells, effects and resolution), the light maps (2K / 1K), the sound and the move lab.
-     One look, Mossy real; the Painterly and Low-poly looks were archived on 2026-11-12 and live on in index.html (the forest look prototype).
-     Light: the props and the ground carry baked light maps (props/bake_all.py), mixed by the hour; the one real-time shadow is the jeep's cabin light. Leaves and plants are instanced (one draw per kind).
-     The URL options (?detail=, ?time=, ?weather= and more) are listed at the top of camp/core.js, the window.__ names the tools use in camp/debug.js. -->
+     Light: the props and the ground carry baked light maps (props/bake_all.py), mixed by the hour; the one live light with a shadow is the jeep's cabin light. Leaves and plants are instanced (one draw per kind).
+     The code is in camp/: camp/main.js is the entry and builds the parts in the order of its build list. The URL options (?detail=, ?time=, ?weather= and more) are listed at the top of camp/core.js, the window.__ names the tools use in camp/debug.js. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -18,23 +17,21 @@
 html, body { height: 100%; margin: 0; }
 body { background: #6f8f6a; color: var(--ink); font-family: var(--display); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-.hud { position: fixed; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none;
+.hud { position: fixed; left: 0; right: 0; top: 0; display: flex; justify-content: flex-end; align-items: flex-start; gap: 8px; pointer-events: none;
   padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
-.pill { background: rgb(255 248 238 / .9); border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 20px; box-shadow: 0 3px 0 rgb(138 90 59 / .18); font-variant-numeric: tabular-nums; }
-#perf { font-size: 12px; font-weight: 500; padding: 5px 10px; color: var(--soft); text-align: right; line-height: 1.25; border-radius: 14px; }
-.bar { position: fixed; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top, 0px)); display: flex; justify-content: center; gap: 6px; flex-wrap: wrap;
+#perf { background: rgb(255 248 238 / .9); box-shadow: 0 3px 0 rgb(138 90 59 / .18); font-variant-numeric: tabular-nums;
+  font-size: 12px; font-weight: 500; padding: 5px 10px; color: var(--soft); text-align: right; line-height: 1.25; border-radius: 14px; }
+.bar { position: fixed; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top, 0px)); display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap;
   padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
-.bar button { pointer-events: auto; font: 600 13px var(--display); color: var(--ink); background: rgb(255 248 238 / .85); border: 0; border-radius: 999px;
-  padding: 6px 11px; text-decoration: none; box-shadow: 0 2px 0 rgb(138 90 59 / .2); cursor: pointer; }
+.bar button { pointer-events: auto; font: 600 13px var(--display); color: var(--ink); background: #ffe9a8; border: 0; border-radius: 999px;
+  padding: 6px 11px; box-shadow: 0 2px 0 rgb(138 90 59 / .2); cursor: pointer; }
 .stick { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%;
   background: rgb(255 248 238 / .18); border: 2px solid rgb(255 248 238 / .55); touch-action: none; }
 .stick i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgb(255 248 238 / .85); box-shadow: 0 3px 0 rgb(138 90 59 / .25); }
 .stick i::after { content: "🐾"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 20px; opacity: .7; }
-.bar button { background: #ffe9a8; }
 #toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none;
   font-weight: 700; font-size: 34px; color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
 #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-.bar { justify-content: flex-end; }
 .bar .menu { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .bar .menu[hidden] { display: none; }
 .bar .time { pointer-events: auto; display: flex; align-items: center; gap: 8px; font: 600 13px var(--display); background: rgb(255 248 238 / .85); border-radius: 999px; padding: 4px 12px; box-shadow: 0 2px 0 rgb(138 90 59 / .2); }
@@ -53,7 +50,7 @@ body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 #load .bar2 i { display: block; height: 100%; width: 4%; background: var(--leaf); border-radius: 99px; transition: width .3s; }
 </style>
 <canvas id="c"></canvas>
-<div class="hud"><span></span><div class="pill" id="perf">… fps</div></div>
+<div class="hud"><div id="perf">… fps</div></div>
 <div id="q">Stick to walk · drag to look<br>Tap a sloth, or anything that lights up, to see what you can do</div>
 <div class="stick" id="stick" hidden><i></i></div>
 <div id="toast"></div>
@@ -63,8 +60,8 @@ body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
   <div class="menu" id="opts" hidden><label class="time">🕐 <input type="range" id="time" min="0" max="23.75" step="0.25" aria-label="Time of day"><span id="clock">12:00</span></label><button id="cycle">Day cycle: off</button><button id="weather">Weather</button><button id="detail">Detail: Medium</button><button id="lm">Light</button><button id="sound">Sound: All 🔊</button></div>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
-<!-- the camp's code is in camp/ (camp review M2), one module per part. camp/main.js is the entry: its import list is the order
-     the parts are built in, and each module's first lines say what it does. -->
+<!-- the camp's code is in camp/ (camp review M2), one module per part, each saying in its first lines what it does. camp/main.js
+     is the entry: its build list sets the order the parts are built in. -->
 <!-- if the camp fails while the loading card is up (a download that fails, an error while building), the card says so and
      a tap reloads (review R2-058). Errors from images are left out: a missing baked map is allowed and falls back. -->
 <script>
