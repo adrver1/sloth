@@ -23,7 +23,8 @@ const NOISE_GLSL = `
 `;
 const macroTint = (m, c) => c.multiply(new THREE.Color(1.1 + (0.8 - 1.1) * m, 1.02 + (0.97 - 1.02) * m, 0.74 + (0.95 - 0.74) * m));
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null }) {
+export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null, extra = [] }) {
+  // extra: more plants as [x, z, atlas cell, size], placed by the caller (camp/glade.js: the sloth tree's glade, outside the clearing)
   // height (camp/terrain.js groundHeight): the floor, the plants and the roots follow it; far > 0 makes the floor one mesh out to far metres,
   // the forest floor included (forestMap is its tile, 6 m across), instead of the flat clearing disc
   // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
@@ -420,6 +421,7 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
       if (ok(x, z)) { pick.push([x, z, 6, R(0.75, 1.3)]); n++; }
     }
   }
+  pick.push(...extra);
   const im = new THREE.InstancedMesh(card, null, pick.length);
   const cellA = new Float32Array(pick.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
   pick.forEach(([x, z, type, size], i) => {

@@ -10,6 +10,7 @@
 //                       (where to walk to), u, yaw, clip (eat or eat_high), who, h (the table top), food: { at, mesh, back
 //                       (seconds until a new fruit), grow } }
 //   fruit(mesh)         a new fruit, or the same mesh as a new kind (draws two numbers)
+//   restOn(food)        lays the food's fruit on the surface at its place (eating.js: the next fruit a table eater takes)
 //   sitFor(slot, sc)    where a sloth of size sc sits so that its paw meets the fruit
 //   fruitStep(sd)       each frame: a fruit is put out again a while after one is eaten, and grows to its size
 import * as THREE from "three";
@@ -91,4 +92,4 @@ function fruitStep(sd) {
   for (const P of POIS ?? []) for (const q of P.slots) { const F = q.food; if (F.grow != null) { F.grow = Math.min(1, F.grow + sd); F.mesh.scale.copy(F.mesh.userData.base).multiplyScalar(Math.max(0.01, sstep(0, 1, F.grow))); if (F.grow >= 1) F.grow = null; } }
 }
 
-export { buildTable, fruit, fruitStep, pois, sitFor };
+export { buildTable, fruit, fruitStep, pois, restOn, sitFor };

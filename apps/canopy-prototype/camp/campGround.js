@@ -13,13 +13,14 @@ import { blockers, uNight } from "./campProps.js";
 import { FAR, RC, TENT } from "./layout.js";
 import { cabinLive } from "./jeep.js";
 import "./deadwood.js";   // before the ground is built, so its plants grow round the log, the stump and the dead trunk
+import { gladePlants } from "./glade.js";   // before the ground is built: its plants go in the ground's one draw
 import { groundHeight, vnoise } from "./terrain.js";
 import { ground as forestFloor } from "./sky.js";
 
 let groundLife = null;
 // baked: the ground mask core.js downloaded (PRE.groundMask), or null: then ground.js paints its wear map live
 function buildGround(baked) {
-  groundLife = createGround({ baked, height: groundHeight, far: FAR, forestMap: forestFloor.material.map, noise: vnoise, scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
+  groundLife = createGround({ baked, height: groundHeight, far: FAR, forestMap: forestFloor.material.map, noise: vnoise, scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [], extra: gladePlants,
     bare: TENT.bare,   // no grass in the tent or through its planks
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
   forestFloor.visible = false;   // one ground now: the clearing, the bowl's rim and the forest floor (camp/terrain.js)

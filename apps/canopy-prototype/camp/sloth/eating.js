@@ -3,7 +3,8 @@
 // mouth, and the fruit gets smaller with each chew until it's gone. A bowl you set down works the same: the fruit comes
 // up out of it.
 //   startEat(s, slot, done)          starts the eat phase at a slot it has walked to; done() runs when it has eaten and is
-//                                    back on the ground (or, at the card table, when the game is over: cards.js)
+//                                    back on the ground (or, at the card table, when the game is over: cards.js). Up on
+//                                    the table it eats two or three fruits in a row before it climbs down
 //   eatStep(s, T, sd)                the eat phase, each frame: turn to the food, up onto the table, eat (or play cards)
 //   chewStep(s, mesh, from, t0)      during an eat clip, from t0 seconds in: the food goes from `from` into its paw and to
 //                                    its lips, a bite smaller each time the painted mouth closes
@@ -16,7 +17,7 @@ import { UP, turnTo } from "./poses.js";
 import { move, moveStep } from "./moves.js";
 import { mouthOf } from "./face.js";
 import { pawOf } from "./arms.js";
-import { fruit, sitFor } from "./table.js";
+import { fruit, restOn, sitFor } from "./table.js";
 import { cardsSit, cardsStep } from "./cards.js";
 
 const paw = V(), mouthW = V();
@@ -42,6 +43,9 @@ function chew(s, T) {
   playOnce(s, T.slot.clip, 0.8, () => {            // eaten: down off the table, then on its way
     const slot = T.slot, F = slot.food; mouthOf(s).visible = false;
     F.from = null;
+    // up on the table it must be hungry (Adriaen 2026-11-14): two or three fruits in a row, each the next from the plate
+    if (slot.name === "table" && !F.bowl && (T.more ??= Math.floor(R(1, 3))) > 0) { T.more--; fruit(F.mesh); restOn(F); F.mesh.visible = true; F.mesh.scale.multiplyScalar(0.01); F.grow = 0; return chew(s, T); }
+    T.more = undefined;
     if (F.bowl) { F.mesh && scene.remove(F.mesh); F.mesh = null; } else { F.mesh.visible = false; F.back = R(25, 45); }
     const go = () => { slot.who = null; if (slot.key) release(slot.key, s); T.done(); };
     if (slot.name === "table") { play(s, "hang_walk", 1, -2); T.yaw = slot.yaw; move(s, T, slot.p.clone(), 3.5, 0.12, -0.5, go); }

@@ -54,7 +54,7 @@ function campStep(dt, seat) {
     if (fast !== 1) s.mixer.update(sd - dt);   // the clip at the same pace (slow motion and pause in the move lab too)
     T.t += sd; s.greetCD -= sd;
     if (s.once && s.act.time >= s.act.getClip().duration - 0.02) { const f = s.once; s.once = null; f(); }   // a stretch or a bite done
-    if (s.gift?.clip) giftStep(s);   // eating what you gave it: its day waits until it's done
+    if (s.gift?.clip) giftStep(s, sd);   // eating what you gave it: its day waits until it's done
     else if (T.phase === "home") out += homeStep(s, sd, spot, out);
     else PHASE[T.phase]?.(s, T, sd, spot);
     if (T.phase !== "home" && s.smore) stopSmore(s);

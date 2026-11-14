@@ -5,8 +5,8 @@
 // The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
 // the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Only the sun's
-// direction is typed again there (the bake stops if the two differ). PATH_A, SEAT_R and JEEP_OUT are exported for checks;
-// no module imports them.
+// direction is typed again there (the bake stops if the two differ). SEAT_R and JEEP_OUT are exported for checks; no module
+// imports them. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
 // campProps.js's CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry for the bake (debug.js).
 import * as THREE from "three";
 import { V, polyDist, yawTo } from "./util.js";
@@ -33,7 +33,8 @@ export const sloPath = (() => {
 export const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
 export const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 // the two big mossy trees: one at the clearing's edge behind the fire, one in the glade
-export const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
+// the glade's tree stands 0.4 m off the glade's middle, away from where the karaoke route passes it (Adriaen 2026-11-14: clear of the path)
+export const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone().add(V(0.35, 0, 0.19))];
 
 // ---------------------------------------------------------------- the jeep and its track
 // the jeep is parked at JEEP_AT along the clearing edge (facing JEEP_TAN, its right side to the fire) and came in on a muddy

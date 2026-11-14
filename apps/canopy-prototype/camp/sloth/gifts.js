@@ -2,15 +2,19 @@
 // 2026-11-13: the food is modelled so the sloths eat it with their own eat clip).
 //   eatGift(s, mesh, from)   sloth s gets the food `mesh`, thrown from `from`. Sitting up and awake (resting in the
 //                            clearing, or on its log or jeep seat) it plays eat, its paw takes the food out of the air and
-//                            it bites it smaller, and its day carries on after: returns "eat". Anywhere else (walking,
-//                            hanging, in bed, held) the food flies to its paw and it munches it: returns "munch".
+//                            it bites it smaller, and its day carries on after: returns "eat". On its way across the
+//                            clearing (walking or greeting) it stops, sits and eats it the same way, sits a moment more,
+//                            then walks on (Adriaen 2026-11-14). Anywhere else (hanging, in bed, held) the food flies to
+//                            its paw and it munches it: returns "munch".
 //                            (campLife.eatGift, sloth/hooks.js: input.js give())
-//   giftStep(s)              each frame while it eats a gift with the eat clip: the food floats to its paw, then the chewing
+//   giftStep(s, sd)          each frame while it eats a gift with the eat clip: the food floats to its paw, then the chewing;
+//                            after a gift eaten on foot, the moment it sits on before it walks on
 //   giftFly(s, dt)           each frame otherwise: its right paw comes up (arms.js giftArm), the food flies into it, the
 //                            paw lifts it to its lips and it shrinks a bite at a time while the mouth munches (Adriaen
 //                            2026-11-13: "they eat without hands")
-import { scene } from "../core.js";
+import { R, scene } from "../core.js";
 import { V, sstep } from "../util.js";
+import { WALK_TS } from "./state.js";
 import { EAT_GRAB, canStretch, homeClip, play, playOnce } from "./clips.js";
 import { mouthOf } from "./face.js";
 import { pawOf } from "./arms.js";
@@ -20,14 +24,20 @@ const paw = V(), mouthW = V();
 function eatGift(s, mesh, from) {
   if (s.gift) { scene.remove(s.gift.mesh); s.gift = null; }
   mesh.position.copy(from); mesh.scale.copy(mesh.userData.base ?? V(1, 1, 1)); scene.add(mesh);
-  const sitUp = canStretch(s) && !s.asleep && !s.dozing && !s.once && !s.smore && !s.wave && !s.yawn && (s.trip.phase === "rest" ? !s.trip.slept : s.trip.phase === "home");
+  // on its way across the clearing (Adriaen 2026-11-14: "it should stop and sit down for a bit while eating"): it stops,
+  // sits and eats it the same way, sits a moment more, then walks on
+  const onFoot = (s.trip.phase === "walk" || s.trip.phase === "greet") && !s.asleep && !s.once && !s.wave;
+  const sitUp = onFoot || canStretch(s) && !s.asleep && !s.dozing && !s.once && !s.smore && !s.wave && !s.yawn && (s.trip.phase === "rest" ? !s.trip.slept : s.trip.phase === "home");
   s.gift = { mesh, from: from.clone(), land: from.clone(), t: 0, clip: sitUp }; s.nod = 1.2;
-  if (sitUp) playOnce(s, "eat", 0.5, () => { scene.remove(mesh); if (s.mouth) s.mouth.visible = false; s.gift = null; const [c, ts] = homeClip(s); play(s, c, 0.9, ts); }, EAT_GRAB - 0.9);
+  if (sitUp) playOnce(s, "eat", onFoot ? 0.8 : 0.5, () => { scene.remove(mesh); if (s.mouth) s.mouth.visible = false;
+    if (onFoot) { s.gift = { clip: true, wait: R(1.5, 3) }; play(s, "idle", 0.9); return; }   // a moment more sitting, then on (giftStep)
+    s.gift = null; const [c, ts] = homeClip(s); play(s, c, 0.9, ts); }, EAT_GRAB - (onFoot ? 1.3 : 0.9));
   return sitUp ? "eat" : "munch";
 }
 // a gift while it sits up: the food floats to its paw as the paw comes up, then the eat clip's chewing
-function giftStep(s) {
+function giftStep(s, sd) {
   const G = s.gift, t = s.act.time;
+  if (G.wait != null) { G.wait -= sd; if (G.wait < 0) { s.gift = null; if (s.trip.phase === "walk") play(s, "walk", 1, WALK_TS); else if (s.trip.phase === "greet") play(s, "idle", 0.8); } return; }
   if (t < EAT_GRAB) { pawOf(s, paw); const k = sstep(EAT_GRAB - 0.9, EAT_GRAB, t); G.mesh.position.lerpVectors(G.from, paw, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.25; G.land.copy(paw); }
   else chewStep(s, G.mesh, G.land, EAT_GRAB);
 }
