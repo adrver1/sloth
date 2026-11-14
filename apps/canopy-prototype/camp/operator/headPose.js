@@ -7,7 +7,7 @@ import { camera, rng } from "../core.js";
 const { R } = rng("operator");
 import { V, yawTo } from "../util.js";
 import { aimBone, makeZ, zAt } from "../actor.js";
-import { B, UP, clips, csDir, cur, mixer, play, root } from "./model.js";
+import { B, UP, clips, csDir, cur, play, root } from "./model.js";
 import { handsBusy, op } from "./state.js";
 import { turnToward } from "./walk.js";
 
@@ -42,8 +42,11 @@ function poseHead(dt) {
   if (op.kind === "stroll" && cur === clips.idle && camD < 9) {
     const v = vA.copy(root.position).add(vY.set(0, 1.5, 0)).project(camera);
     op.gaze = Math.abs(v.x) < 0.25 && Math.abs(v.y) < 0.35 && v.z < 1 ? op.gaze + dt : 0;
-    if (op.gaze > 3) { op.gaze = -12; const a = play("wave", 0.3, { once: true }); mixer.addEventListener("finished", function f(e) { if (e.action === a) { mixer.removeEventListener("finished", f); play("idle", 0.4); } }); }
+    if (op.gaze > 3) { op.gaze = -12; play("wave", 0.3, { once: true }); op.anim.wave = clips.wave.getClip().duration; }
   }
+  // the wave's end: back to idle, unless something else (a walk) has taken over by then. A timer, not a "finished" listener:
+  // that one also fired when a walk began in the wave's last moments, and leaked when the wave was faded out (review R2-068)
+  if (op.anim.wave > 0 && (op.anim.wave -= dt) <= 0) { op.anim.wave = 0; if (cur === clips.wave) play("idle", 0.4); }
   // eyes: blink now and then; shut in his sleep (the blink clip paused at its middle); a smile with a sloth or after a line
   // (the happy clip paused 1.5 s in). Both are started and stopped only when they change: a paused or zero-speed action is
   // not isRunning() in three, so testing that every frame restarted the smile each frame and never stopped it (review R2-008).
