@@ -23,8 +23,9 @@ async function buildJeep() {
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
   const glassM = new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false });   // see-through, a little tinted
   jeep.traverse((m) => { if (m.isMesh) { m.material = m.name.startsWith("Glass") ? glassM : jm; if (m.name.startsWith("Glass")) m.renderOrder = 2; } });
-  // far away (camp review P7): beyond about 12 m the JeepLOD (props/jeep/build_jeep.py jeep_lod, one mesh of under 700 triangles)
-  // stands in for the full jeep (about 5,300 triangles in 10 meshes; build_jeep.py prints both counts), never while a door is open. Only the jeep's own meshes are hidden, so a sloth sitting
+  // far away (camp review P7): beyond about 12 m the JeepLOD (props/jeep/build_jeep.py jeep_lod, one mesh of under 700 triangles
+  // after the R2-148/168/190/191 rebake) stands in for the full jeep (about 5,300 triangles in 10 meshes after that rebake;
+  // build_jeep.py prints both counts), never while a door is open. Only the jeep's own meshes are hidden, so a sloth sitting
   // in it (parented to the jeep) stays.
   const jeepMeshes = []; jeep.traverse((m) => { if (m.isMesh) jeepMeshes.push(m); });
   const far = (await PRE.jeepLod)?.scene;
