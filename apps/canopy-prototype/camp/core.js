@@ -53,7 +53,7 @@ const OPT = {
   lived: qs.get("lived") !== "0",
   op: qs.get("op") !== "0",
   weather: qs.get("weather"),
-  time: (() => { const h = Number(qs.get("time") ?? store.get(KEYS.time) ?? 12); return h >= 0 && h < 24 ? h : 12; })(),
+  time: (() => { const v = qs.get("time") || store.get(KEYS.time), h = v ? Number(v) : 12; return h >= 0 && h < 24 ? h : 12; })(),   // an empty ?time= counts as missing
   cycle: qs.has("cycle") ? qs.get("cycle") !== "0" : store.get(KEYS.cycle) === "on",
   pos: (() => { const p = (qs.get("pos") || "").split(",").map(parseFloat); return p.length === 2 && p.every(Number.isFinite) ? p : null; })(),   // the start view: null (or a value that isn't a number) keeps player.js's own
   yaw: num(qs.get("yaw")),
@@ -76,11 +76,11 @@ const JEEP = OPT.jeep;
 // the picked props' baked light: a 2K or 1K light map (?lm=4k also works locally; 4k is too big to publish)
 const LMSET = OPT.lm;
 // the ⚙️ menu's own buttons: main.js calls wireSettings() once. One ⚙️ button opens the detail and light-map choices (the old
-// row took a quarter of a phone screen); Detail and Light each step to the next choice, keep it and reload.
+// row took a quarter of a phone screen); Detail and Light each step to the next choice, keep it and reload without their URL option (which would win over the kept choice).
 function wireSettings() {
   $("menu").onclick = () => { const o = $("opts"); o.hidden = !o.hidden; $("menu").setAttribute("aria-expanded", String(!o.hidden)); };
   $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
-  $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
+  $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); const u = new URL(location.href); u.searchParams.delete("detail"); location.replace(u); };
   $("lm").textContent = "Light: " + LMNAME[LMSET];
   $("lm").onclick = () => { store.set(KEYS.lm, LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 }
