@@ -11,6 +11,7 @@ import { V } from "./util.js";
 import { me } from "./player.js";
 import { holder } from "./places.js";
 import { labApi } from "./sloth/hooks.js";
+import { opApi } from "./operator.js";
 import { setLabStep } from "./labButton.js";
 
 const L = labApi, cs = L.camp;   // (with ?campsloths=0 there are no camp sloths and no lab: this line throws, as it always has)
@@ -95,6 +96,25 @@ addEventListener("wheel", (e) => { if (follow) dist = THREE.MathUtils.clamp(dist
 const pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff3d7f, depthTest: false }));
 pathLine.renderOrder = 9; pathLine.frustumCulled = false; scene.add(pathLine);
 const tgt = V(), wp = V();
+// the follow camera stays in front of anything solid between it and the sloth (play-test 2026-11-14: with Sunny in the
+// operator's arms it ended up inside a surface and showed a flat beige view). The solids are the camp's opaque meshes and
+// the operator (not the leaves, the sloths or the see-through cards), gathered again every 2 s while the lab follows, since
+// ?lab opens it before the rest of the camp is built; the camera stops 0.12 m short of the first one the ray from the
+// sloth meets.
+let solids = [], solidsT = 0;
+const ray = new THREE.Raycaster(), dir = V();
+function findSolids() {
+  const op = opApi?.root, inOp = (o) => { for (let p = o; p; p = p.parent) if (p === op) return true; return false; };
+  const list = [];
+  scene.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || pathLine === o) return;
+    if (o.isSkinnedMesh && !inOp(o)) return;   // the sloths
+    if ([].concat(o.material).some((m) => m.transparent || m.depthWrite === false)) return;
+    list.push(o);
+  });
+  return list;
+}
+const shown = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
 const labStep = (dt) => {
   if (stepLeft > 0 && --stepLeft === 0) pace.fast = 0; else if (stepLeft > 0) pace.fast = 1;
   const s = sel, T = s.trip;
@@ -103,7 +123,11 @@ const labStep = (dt) => {
   if (follow) {                                       // orbit: drag turns round it (me.yaw), up and down tilts (me.pitch)
     s.o.getWorldPosition(tgt).y += 0.2 * s.sc / 2.6;
     const el = THREE.MathUtils.clamp(0.35 - me.pitch, -0.2, 1.3);
-    camera.position.set(tgt.x + Math.sin(me.yaw) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z + Math.cos(me.yaw) * Math.cos(el) * dist);
+    if ((solidsT -= dt) < 0) { solids = findSolids(); solidsT = 2; }
+    dir.set(Math.sin(me.yaw) * Math.cos(el), Math.sin(el), Math.cos(me.yaw) * Math.cos(el));
+    ray.set(tgt, dir); ray.near = 0.15; ray.far = dist;
+    const hit = ray.intersectObjects(solids, false).find((h) => shown(h.object));
+    camera.position.copy(tgt).addScaledVector(dir, hit ? Math.max(0.25, hit.distance - 0.12) : dist);
     camera.lookAt(tgt);
   }
   const a = scrub ? scrub.a : s.act;
