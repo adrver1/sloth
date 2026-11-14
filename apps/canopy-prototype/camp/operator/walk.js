@@ -1,8 +1,8 @@
 // Canopy Camp operator, getting about: a path round the blockers (the sloths' planner when it is there), steering round the
 // others walking about, stopping to listen when you speak to him, turning on the spot, and sitting down on a seat and
 // rising from it with his feet planted. All generators: an activity script runs them with yield*, one step a frame.
-// Exports turnToward(yaw, dt, rate), wait(s, until), walkTo(to, { near }), face(yaw), faceFire(), sitOn(seat),
-// standUp().
+// Exports turnToward(yaw, dt, rate), yawToYou() (the yaw from him to the camera), wait(s, until), walkTo(to, { near }),
+// face(yaw), faceFire(), sitOn(seat), standUp().
 import { camera } from "../core.js";
 import { V, yawTo } from "../util.js";
 import { blockers } from "../campProps.js";
@@ -14,7 +14,7 @@ import { movers } from "../places.js";
 import { slothLife } from "../sloth/hooks.js";   // undefined with ?campsloths=0
 
 const WALK = 1.05, STRIDE = 1.28;                      // his walking speed, m/s; the walk clip's feet move 1.28 m a cycle
-const tmp = V(), vW = V(), vS = V(), vFw = V(), vWas = V();   // scratch: a walking frame allocates nothing (review R2-019)
+const tmp = V(), vW = V(), vS = V(), vFw = V(), vWas = V(), vYou = V();   // scratch: a walking frame allocates nothing (review R2-019)
 function pathTo(to) {
   const p = slothLife?.path(root.position, to);
   if (p?.length) return p.map((q) => q.clone());
@@ -63,8 +63,8 @@ function* walkTo(to, { near = 0.12 } = {}) {
 }
 function* listen() {                                   // stop and turn to you while you talk, then a moment before going on
   play("idle", 0.3);
-  yield* face(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)));
-  while (op.talk.t > 0) { const dt = yield; turnToward(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2); }
+  yield* face(yawToYou());
+  while (op.talk.t > 0) { const dt = yield; turnToward(yawToYou(), dt, 1.2); }
   yield* wait(0.6);
 }
 function* face(yaw) {                                  // turn on the spot with small steps (the walk clip, slow), easing in and out
@@ -100,5 +100,6 @@ function* standUp() {
   op.footLock = null; root.position.y = groundAt(root.position.x, root.position.z);
 }
 
+const yawToYou = () => yawTo(vYou.set(camera.position.x - root.position.x, 0, camera.position.z - root.position.z));
 function* faceFire() { yield* face(yawTo(V(-root.position.x, 0, -root.position.z))); }   // the fire is at the camp's origin
-export { face, faceFire, sitOn, standUp, turnToward, wait, walkTo };
+export { face, faceFire, sitOn, standUp, turnToward, wait, walkTo, yawToYou };

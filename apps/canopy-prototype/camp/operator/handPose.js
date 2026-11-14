@@ -12,7 +12,7 @@ import { THUMB, handQuat } from "./ik.js";
 import { B, UP, clips, cs, csDir, cur, reach, root, turnHand } from "./model.js";
 import { BED } from "./places.js";
 import { op } from "./state.js";
-import { mouthAt } from "./talk.js";
+import { mouthAt, palmAt } from "./talk.js";
 
 // scratch, so a frame of poses allocates nothing (review R2-019): each vector holds one value for the length of a block
 const tq = new THREE.Quaternion(), qc = new THREE.Quaternion(), qb = new THREE.Quaternion(), qL = new THREE.Quaternion(), qR = new THREE.Quaternion(), qH = new THREE.Quaternion();
@@ -93,8 +93,8 @@ function poseHands(dt) {
     reach("R", grip.addScaledVector(mz, -0.05).addScaledVector(mx, 0.012), csDir(1, -0.9, 0.2, vPole), 1);
     turnHand("R", handQuat("R", vF.copy(mz).addScaledVector(mx, -0.35).normalize(), vP.copy(mx).negate(), qH));
   } else if (op.inHand) {                              // the bowl in his right hand: at the palm, upright
-    const h = B.handR, p = op.inHand, a = clips.sip, tip = cur === a ? Math.min(1, Math.max(0, (a.time - 1.45) / 0.35)) : 0;
-    h.getWorldPosition(p.position).addScaledVector(vUp.set(0, 1, 0).applyQuaternion(h.getWorldQuaternion(tq)), 0.06).addScaledVector(UP, -0.05).addScaledVector(csDir(0, 0, -1, vX), 0.02);
+    const p = op.inHand, a = clips.sip, tip = cur === a ? Math.min(1, Math.max(0, (a.time - 1.45) / 0.35)) : 0;
+    palmAt("R", p.position, 0.06).addScaledVector(UP, -0.05).addScaledVector(csDir(0, 0, -1, vX), 0.02);
     p.quaternion.copy(root.quaternion).multiply(qc.setFromAxisAngle(X, tip * 1.0));
   }
   // cooking: the pail hangs by its bail from his right hand (held out and tipped over the pot to pour); the long spoon goes
@@ -113,7 +113,7 @@ function poseHands(dt) {
     reach("R", cs(0.1 + Math.cos(a) * 0.03, 1.2, -0.42 + Math.sin(a) * 0.025, vT), csDir(1, -0.6, 0.2, vPole), S.k);
     const g = B.handR.getWorldPosition(vG), d = tip.sub(g); stick.position.copy(g); stick.scale.set(1, d.length() + 0.06, 1); stick.quaternion.setFromUnitVectors(UP, d.normalize());
   }
-  if (op.veg) B.handR.getWorldPosition(veg.position).addScaledVector(vUp.set(0, 1, 0).applyQuaternion(B.handR.getWorldQuaternion(tq)), 0.07);
+  if (op.veg) palmAt("R", veg.position);
   // food you gave him (talk.js gift; Adriaen 2026-11-13: "they eat without hands"): his free hand comes out to take it, then
   // lifts it to his mouth a bite at a time and goes down again when it's gone
   if (op.talk.hand) {

@@ -5,11 +5,11 @@
 import * as THREE from "three";
 import { camera, rng } from "../core.js";
 const { R } = rng("operator.face");   // its own stream: blinks and fidgets follow frame timing, so they must not move his day's picks (review R2-122)
-import { V, yawTo } from "../util.js";
+import { V } from "../util.js";
 import { aimBone, makeZ, zAt } from "../actor.js";
 import { B, UP, clips, csDir, cur, play, root } from "./model.js";
 import { handsBusy, op } from "./state.js";
-import { turnToward } from "./walk.js";
+import { turnToward, yawToYou } from "./walk.js";
 
 let zz = null;
 function buildSleepZ() { zz = makeZ(); zz.material.opacity = 0; }
@@ -37,7 +37,7 @@ function poseHead(dt) {
   if (down) B.head.rotateX(down * 0.6), B.neck.rotateX(down * 0.3);
   // standing about with his hands free when you talk to him: he turns to you (walking, listen() stops him first)
   if (talking && !op.seated && !op.lying && cur === clips.idle && !handsBusy())
-    turnToward(yawTo(vA.set(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2);
+    turnToward(yawToYou(), dt, 1.2);
   // a wave back when you keep looking at him for 3 s (standing about, not busy)
   if (op.kind === "stroll" && cur === clips.idle && camD < 9) {
     const v = vA.copy(root.position).add(vY.set(0, 1.5, 0)).project(camera);
