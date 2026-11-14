@@ -54,27 +54,31 @@ const grass = canvasTex(256, 256, (g, w, h) => {
 grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(6, 6);
 const clearing = new THREE.Mesh(new THREE.CircleGeometry(RC + 0.8, 48), new THREE.MeshLambertMaterial({ map: grass }));
 clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(clearing);
-// the glade's grass and the footpath to it: one circle and one ribbon of trodden earth (2 draws, about 200 triangles)
+// the footpath to the glade: one ribbon of trodden earth (1 draw, 80 triangles); the glade's own floor is camp/glade.js
 {
-  const soft = canvasTex(64, 64, (g, w) => { const r = g.createRadialGradient(w / 2, w / 2, w * 0.3, w / 2, w / 2, w / 2); r.addColorStop(0, "#fff"); r.addColorStop(1, "#000"); g.fillStyle = r; g.fillRect(0, 0, w, w); });
-  soft.colorSpace = THREE.NoColorSpace;
-  const glade = new THREE.Mesh(new THREE.CircleGeometry(GLADE_R + 1.2, 24), new THREE.MeshLambertMaterial({ map: clearing.material.map, alphaMap: soft, transparent: true, depthWrite: false }));   // a soft edge into the forest floor
-  glade.material.map = clearing.material.map.clone(); glade.material.map.repeat.set(3, 3); glade.material.map.needsUpdate = true;
-  glade.rotation.x = -Math.PI / 2; glade.position.set(GLADE.x, 0.022, GLADE.z); glade.material.polygonOffset = true; glade.material.polygonOffsetFactor = -2; scene.add(glade);   // above the ground mesh (0.012), or the two flicker
   const Q = rand;   // texture noise only
-  const earth = canvasTex(64, 256, (g, w, h) => {
-    g.fillStyle = LOOK === "low" ? "#a88a5e" : "#8f7653"; g.fillRect(0, 0, w, h);
-    if (LOOK !== "low") for (let i = 0; i < 260; i++) { g.fillStyle = ["#7a6245", "#a58b66", "#6e5a40"][i % 3]; g.globalAlpha = Q(0.2, 0.5); g.beginPath(); g.ellipse(Q(0, w), Q(0, h), Q(1, 3), Q(1, 2), 0, 0, 7); g.fill(); }
-    g.globalAlpha = 1; for (let i = 0; i < 18; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.lineWidth = 2; const x = Q(0, 1) < 0.5 ? Q(0, 9) : Q(w - 9, w), y = Q(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Q(-2, 2), y - Q(4, 8)); g.stroke(); }
-    const e = g.createLinearGradient(0, 0, w, 0); e.addColorStop(0, "rgba(0,0,0,0)"); e.addColorStop(0.25, "rgba(0,0,0,1)"); e.addColorStop(0.75, "rgba(0,0,0,1)"); e.addColorStop(1, "rgba(0,0,0,0)");
-    g.globalCompositeOperation = "destination-in"; g.fillStyle = e; g.fillRect(0, 0, w, h);
+  // packed earth, warmer and lighter than the forest floor so it reads from the camp (Adriaen 2026-11-14: "more prominent"): two darker
+  // lanes where feet go, pebbles, a few fallen leaves, grass at the verges and a ragged edge (the texture tiles every 2.5 m)
+  const earth = canvasTex(128, 512, (g, w, h) => {
+    g.fillStyle = LOOK === "low" ? "#b0915f" : "#a3845a"; g.fillRect(0, 0, w, h);
+    if (LOOK !== "low") {
+      for (const cx of [0.4, 0.6]) { const b = g.createLinearGradient(w * (cx - 0.12), 0, w * (cx + 0.12), 0); b.addColorStop(0, "rgba(110,84,56,0)"); b.addColorStop(0.5, "rgba(110,84,56,.45)"); b.addColorStop(1, "rgba(110,84,56,0)"); g.fillStyle = b; g.fillRect(0, 0, w, h); }
+      for (let i = 0; i < 700; i++) { g.fillStyle = ["#8a6c48", "#b89a70", "#76593c"][i % 3]; g.globalAlpha = Q(0.2, 0.5); g.beginPath(); g.ellipse(Q(0, w), Q(0, h), Q(1, 4), Q(1, 2.5), Q(0, 3), 0, 7); g.fill(); }
+      for (let i = 0; i < 60; i++) { g.fillStyle = ["#cbbd9f", "#9d927f"][i % 2]; g.globalAlpha = Q(0.6, 0.9); g.beginPath(); g.ellipse(Q(w * 0.2, w * 0.8), Q(0, h), Q(1.2, 2.6), Q(1, 2), Q(0, 3), 0, 7); g.fill(); }   // pebbles
+      for (let i = 0; i < 26; i++) { g.fillStyle = ["#b8743a", "#d3a24a", "#8a5a2c"][i % 3]; g.globalAlpha = Q(0.6, 0.9); const x = Q(0, 1) < 0.7 ? (Q(0, 1) < 0.5 ? Q(8, 30) : Q(w - 30, w - 8)) : Q(30, w - 30); g.beginPath(); g.ellipse(x, Q(0, h), Q(3, 5), Q(1.4, 2.4), Q(0, 3), 0, 7); g.fill(); }   // fallen leaves, mostly at the sides
+    }
+    g.globalAlpha = 1; for (let i = 0; i < 60; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.lineWidth = 2; const x = Q(0, 1) < 0.5 ? Q(4, 22) : Q(w - 22, w - 4), y = Q(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Q(-3, 3), y - Q(5, 11)); g.stroke(); }   // grass at the verges
+    const img = g.getImageData(0, 0, w, h), d = img.data;   // a ragged edge: the verge wanders in and out along the path
+    for (let y = 0; y < h; y++) { const t = (y / h) * 6.2832, l = 0.2 + 0.05 * Math.sin(t * 3 + 1) + 0.03 * Math.sin(t * 7), r = 0.8 + 0.05 * Math.sin(t * 2 + 4) + 0.03 * Math.sin(t * 9 + 2);
+      for (let x = 0; x < w; x++) { const u = x / w; d[(y * w + x) * 4 + 3] *= sstep(l - 0.12, l + 0.04, u) * (1 - sstep(r - 0.04, r + 0.12, u)); } }
+    g.putImageData(img, 0, 0);
   });
   earth.wrapT = THREE.RepeatWrapping;
   const n = 40, pos = [], uv = [], col = [], idx = [], L = sloPath.curve.getLength();
   for (let i = 0; i <= n; i++) {
     const t = i / n, p = sloPath.curve.getPointAt(t), d = sloPath.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
-    const a = sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 1.2, L, t * L));   // takes over from the baked ground's path at the clearing edge, fades out into the glade
-    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * PATH_HALF); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2); col.push(1, 1, 1, a); }
+    const a = sstep(RC - 1.6, RC - 0.4, r) * (1 - sstep(L - 1.2, L, t * L));   // fades in over the baked ground's path a metre inside the clearing, so the way out shows from the camp; fades out into the glade
+    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * PATH_HALF * 1.35); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2.5); col.push(1, 1, 1, a); }   // 2 m wide, about 1.2 m of it bare earth (was 0.75 m)
     if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));

@@ -13,6 +13,7 @@ import { cabinLive } from "./jeep.js";
 import { burst, sloths } from "./sloths.js";
 import { me } from "./player.js";
 import "./deadwood.js";
+import { gladePlants } from "./glade.js";   // before the ground: its plants go in the ground's draw
 import { groundHeight, vnoise } from "./terrain.js";
 import { ground as forestFloor } from "./sky.js";   // before the ground, so its plants grow round the log, stump and dead trunk
 
@@ -21,7 +22,7 @@ import { ground as forestFloor } from "./sky.js";   // before the ground, so its
 // wild, lived-in ground (ground.js): worn dirt round the fire, the props and the paths between them; grass tufts, tall grass, wildflowers and clover
 // the baked ground (props/ground/bake_ground.py) for the sets that have one; others paint their wear map live
 const groundBake = await PRE.groundMask;
-const groundLife = createGround({ baked: groundBake, height: groundHeight, far: FAR, forestMap: forestFloor.material.map, noise: vnoise, scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
+const groundLife = createGround({ baked: groundBake, height: groundHeight, far: FAR, forestMap: forestFloor.material.map, noise: vnoise, scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [], extra: gladePlants,
     bare: PROPS === "picked" ? TENT.bare : undefined,   // no grass in the tent or through its planks
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
 forestFloor.visible = false;   // one ground now: the clearing, the bowl's rim and the forest floor (camp/terrain.js)
