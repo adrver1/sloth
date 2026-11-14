@@ -200,18 +200,26 @@ def wood_stack(M, samples):
     atlas_path = os.path.join(HERE, "wood_stack.jpg")
     # the three Cycles renders are most of this script's time (about 30 s of 36 s on a laptop CPU, every light bake), and
     # their inputs rarely change: wood_stack.json keeps a key of everything they depend on (the logs' vertices, the
-    # material colours, the samples and this function's own source) with the outline they gave, and while the key
-    # matches and wood_stack.jpg is there, the renders are skipped. The seeded logs are still built, so the random
-    # stream the rest of the props draw from is unchanged.
+    # material colours, the samples, the Blender version and the source from STACK_BOX to the end of _stack_block, which
+    # holds the camera boxes, the renders, the atlas and the block's UVs) with the outline they gave, and while the key
+    # matches and wood_stack.jpg is there, the renders are skipped. On a miss it prints which part changed. The seeded
+    # logs are still built, so the random stream the rest of the props draw from is unchanged.
     stamp = os.path.join(HERE, "wood_stack.json")
-    key = _stack_key(logs, samples, px)
-    cached = None
-    if os.path.exists(stamp) and os.path.exists(atlas_path):
+    parts = _stack_key(logs, samples, px)
+    key = hashlib.sha1(json.dumps(parts, sort_keys=True).encode()).hexdigest()
+    cached, why = None, "no wood_stack.json"
+    if not os.path.exists(atlas_path):
+        why = "no wood_stack.jpg"
+    elif os.path.exists(stamp):
         with open(stamp) as f:
             j = json.load(f)
         if j.get("key") == key:
             cached = [tuple(p) for p in j["outline"]]
+        else:
+            old = j.get("parts", {})
+            why = ", ".join(k for k in parts if old.get(k) != parts[k]) + " changed" if old else "wood_stack.json is from an older key"
     if cached is None:
+        print(f"  wood stack: cache miss because {why}, rendering")
         _render_view(tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
         _render_view(tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
         _render_view(tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
@@ -224,7 +232,7 @@ def wood_stack(M, samples):
     outline = cached if cached is not None else _stack_atlas(tmp, atlas_path, X0, W, Z0, H)
     if cached is None:
         with open(stamp, "w") as f:
-            json.dump({"key": key, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
+            json.dump({"key": key, "parts": parts, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
     o = _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
     if cached is None:
         for name in ("end", "side", "top"):
@@ -233,20 +241,22 @@ def wood_stack(M, samples):
 
 
 def _stack_key(logs, samples, px):
-    """A key of everything the stack renders depend on (see wood_stack)."""
-    h = hashlib.sha1()
+    """What the stack renders depend on (see wood_stack), as {part: sha1}: "source" (this file from STACK_BOX to the end
+    of _stack_block), "logs" (their vertices, transforms and material colours), "settings" (samples and pixels per metre)
+    and "blender" (its version)."""
     src = open(os.path.join(HERE, "build_lived.py"), encoding="utf-8").read()
-    h.update(src[src.index("def _render_view"):src.index("def _stack_key")].encode())
-    h.update(f"{samples} {px}".encode())
+    logs_h = hashlib.sha1()
     for o in logs:
         me = o.data
         co = [0.0] * (len(me.vertices) * 3)
         me.vertices.foreach_get("co", co)
         mw = o.matrix_world
-        h.update(" ".join(f"{v:.5f}" for v in co).encode())
-        h.update(" ".join(f"{v:.5f}" for row in mw for v in row).encode())
-        h.update(" ".join(f"{m.name.split('.')[0]}:{tuple(round(c, 4) for c in m.get('base', ()))}" for m in me.materials if m).encode())
-    return h.hexdigest()
+        logs_h.update(" ".join(f"{v:.5f}" for v in co).encode())
+        logs_h.update(" ".join(f"{v:.5f}" for row in mw for v in row).encode())
+        logs_h.update(" ".join(f"{m.name.split('.')[0]}:{tuple(round(c, 4) for c in m.get('base', ()))}" for m in me.materials if m).encode())
+    sha = lambda t: hashlib.sha1(t.encode()).hexdigest()
+    return {"source": sha(src[src.index("STACK_BOX = "):src.index("def ring_top")]), "logs": logs_h.hexdigest(),
+            "settings": sha(f"{samples} {px}"), "blender": sha(bpy.app.version_string)}
 
 
 def _stack_atlas(tmp, atlas_path, X0, W, Z0, H):
