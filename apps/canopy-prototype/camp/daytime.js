@@ -2,6 +2,9 @@
 // Day cycle button. The clock props (clock.js) set the hour too. The light (daylight.js) follows `shown`, which eases forward
 // to `set` (dayStep, about 3 h a second), so moving the slider from noon to night passes through golden hour, and from night
 // to morning through the dawn mist, and a clock can draw its hands from `shown` and they spin round while the sky changes.
+// The slider is the exception: an hour it sets less than BACK_H behind the hour shown is eased back to, so nudging it back a
+// little (or dragging it to and fro) no longer runs the sky through a whole night (review R2-166). The clocks' moments
+// always go forward.
 // With the cycle on, a day takes 12 minutes (Adriaen 2026-11-12: the slider replaced the Rest button, and the cycle is optional).
 // It starts from ?time= and ?cycle=, or what was saved (core.js OPT), and saves under KEYS.time and KEYS.cycle: each change
 // you make at once, and the running cycle's hour every 30 s and when the page is hidden (review R2-071: it was every 2 s).
@@ -13,12 +16,14 @@
 import { $, KEYS, OPT, store } from "./core.js";
 
 const HOUR_S = 30;   // seconds for one camp hour while the cycle runs
+const BACK_H = 3;    // the slider: an hour set less than this many hours behind the one shown is eased back to
 const day = {
   set: OPT.time, shown: OPT.time,
   cycle: OPT.cycle,
   listeners: [],
-  // set the hour (0..24); `jump` skips the easing (checks)
-  setHour(h, jump = false) { this.set = ((h % 24) + 24) % 24; if (jump) this.shown = this.set; this.save(); this.changed(); },
+  back: false,   // the last hour was set by the slider, so the hour shown may ease back to it (dayStep)
+  // set the hour (0..24); `jump` skips the easing (checks); `back` lets the hour shown ease back to it when it is a little behind
+  setHour(h, jump = false, back = false) { this.set = ((h % 24) + 24) % 24; this.back = back; if (jump) this.shown = this.set; this.save(); this.changed(); },
   setCycle(on) { this.cycle = on; store.set(KEYS.cycle, on ? "on" : "off"); this.save(); this.changed(); },
   save() { store.set(KEYS.time, this.set.toFixed(2)); },
   changed() { for (const f of this.listeners) f(); },
@@ -32,7 +37,7 @@ let dragging = false;
 const showTime = () => { if (!dragging) $("time").value = String(day.set); $("clock").textContent = clockText(day.set); $("cycle").textContent = "Day cycle: " + (day.cycle ? "on" : "off"); };
 function wireTimeMenu() {
   day.listeners.push(showTime);   // the clock prop (clock.js) sets the hour too
-  $("time").oninput = () => day.setHour(Number($("time").value));
+  $("time").oninput = () => day.setHour(Number($("time").value), false, true);
   $("time").addEventListener("pointerdown", () => { dragging = true; });
   for (const ev of ["pointerup", "pointercancel"]) addEventListener(ev, () => { dragging = false; }, { passive: true });
   addEventListener("pagehide", () => day.save());
@@ -42,7 +47,8 @@ function wireTimeMenu() {
 }
 
 // each frame (main.js): the cycle moves the hour set on, telling the listeners every 2 s and saving it every 30 s; the hour
-// shown eases after the hour set. Returns the hour shown.
+// shown eases after the hour set, forward like a day, or back when the slider set an hour a little behind it. Returns the
+// hour shown.
 let clockTick = 0, saveTick = 0;
 function dayStep(dt) {
   if (day.cycle) {
@@ -50,7 +56,9 @@ function dayStep(dt) {
     if ((clockTick += dt) > 2) { clockTick = 0; day.changed(); }
     if ((saveTick += dt) > 30) { saveTick = 0; day.save(); }
   }
-  { const ahead = (day.set - day.shown + 24) % 24; day.shown = (day.shown + Math.min(ahead, dt * 3)) % 24; }   // always forward, like a day
+  const ahead = (day.set - day.shown + 24) % 24;
+  if (day.back && ahead > 24 - BACK_H) day.shown = (day.shown - Math.min(24 - ahead, dt * 3) + 24) % 24;
+  else day.shown = (day.shown + Math.min(ahead, dt * 3)) % 24;
   return day.shown;
 }
 export { day, dayStep, wireTimeMenu };
