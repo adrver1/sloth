@@ -9,10 +9,10 @@
 // Every other step of the way in is a slide or a glide (moves.js): up the trunk and along the branch, up the post, round
 // onto the rope or the line and along it, and the settle into the spot, growing or shrinking to its size there (spots.js
 // sizeIn: the spot's size times the sloth's own factor s.k).
-// The times to the next errand and the next nap draw from the sloths' stream (core.js rng("sloths")) as they happen.
+// The times to the next errand and the next nap draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
 import { jeepApi } from "../jeep.js";
 import { rng } from "../core.js";
-const { R } = rng("sloths");
+const { R } = rng("slothDay");
 import { yawFrom } from "../util.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";

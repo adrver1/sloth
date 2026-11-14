@@ -8,13 +8,17 @@
 // for the tools) speeds them up for checks.
 // The order in buildSloths is the order things are made in: the mouth card's material, the wild sloths, then the spots,
 // the wayfinding grid, the things the sloths use, the named sloths, the guest spots, the saved state, and last the hooks.
-// Later steps use what earlier ones made. The modules in camp/sloth/ make nothing at their top level: that goes in a build
+// Later steps use what earlier ones made.
+// Two seeded streams (core.js rng, review R2-117): "sloths" places them (the wild sloths' branch points and makeSloth's
+// draws, all made here in this fixed order), and "slothDay" times what they do once the camp runs (blinks, naps,
+// errands, greetings, cards), so a change to their behaviour never moves where a wild sloth hangs. The modules in camp/sloth/ make nothing at their top level: that goes in a build
 // function called from here. The food places come later, in buildSlothPlaces, which main.js calls once every blocker is in.
 // Exports: buildSloths(), buildSlothPlaces(), sloths (every sloth), hit (their tap spheres), OUT (the trip phases in which a camp sloth is away from its spot,
 // sloth/state.js; jeepSeat.js), and the frame steps main.js calls in this order: slothsStep(dt)
 // (sloth/life.js), campStep(dt) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
 import { OPT, rng } from "./core.js";
-const { R } = rng("sloths");
+const { R } = rng("sloths");        // placement only: which branch point each wild sloth hangs at (and makeSloth's three draws)
+const day = rng("slothDay").R;      // the run-time timers (greetings, s'mores), like every module in sloth/ (review R2-117)
 import { V, tris as triCount } from "./util.js";
 import { HERO } from "./layout.js";
 import { branchCurves } from "./forest.js";
@@ -65,7 +69,7 @@ function buildSloths() {
       homed.add(c);
       const k = c.scale ?? 1;   // its own size against the others (Pip is the smallest), kept as s.k for every spot it goes to
       const s = makeSloth(spot.scale * k); c.dress?.(s.head, s.o);
-      Object.assign(s, { name: c.name, k, spot, greetCD: R(0, 10), smoreT: R(8, 20), gaze: 0, waveCD: 0 });
+      Object.assign(s, { name: c.name, k, spot, greetCD: day(0, 10), smoreT: day(8, 20), gaze: 0, waveCD: 0 });
       spot.who = s; camp.push(s); placeHome(s);
     }
     { const per = []; let all = 0;   // every trait mesh (cast.js marks them), skinned or not, with its triangles

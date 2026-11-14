@@ -9,7 +9,7 @@
 //   chewStep(s, mesh, from, t0)      during an eat clip, from t0 seconds in: the food goes from `from` into its paw and to
 //                                    its lips, a bite smaller each time the painted mouth closes
 import { rng, scene } from "../core.js";
-const { R } = rng("sloths");
+const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { release } from "../places.js";
 import { WALK_TS, setTrip } from "./state.js";

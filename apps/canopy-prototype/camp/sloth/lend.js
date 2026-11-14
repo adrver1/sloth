@@ -5,7 +5,7 @@
 //                           game, its s'more and its home claim, and wakes (opt.asleep: it sleeps on in his arms)
 //   giveBack(s, at, yaw)    s is put down on the ground at `at`, facing yaw, and sits there a moment before going home
 import { rng, scene } from "../core.js";
-const { R } = rng("sloths");
+const { R } = rng("slothDay");
 import { release } from "../places.js";
 import { LENDABLE, camp, setTrip } from "./state.js";
 import { play } from "./clips.js";

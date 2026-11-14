@@ -3,10 +3,10 @@
 //                      by distance (furStep), blinks, a look at you when you come close (LOOK_NEAR), a slow wave when
 //                      you keep looking at it, the gift arm, the sinking head of a sleeper, a yawn, munching
 //   slothsStep(dt)     each frame, for every sloth (main.js): its clip, slothLife, the squish of a boop and a nod
-// Blinks draw from the sloths' stream (core.js rng("sloths")) as they happen.
+// Blinks draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
 import * as THREE from "three";
 import { camera, rng } from "../core.js";
-const { R } = rng("sloths");
+const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { LIVELY, SL, sloths } from "./state.js";
 import { FACE, mouthOf, yawnStep } from "./face.js";

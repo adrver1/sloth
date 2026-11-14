@@ -12,10 +12,10 @@
 //   watchFood()                 listens for food you put out (activities.js, window event "camp-food" {kind, at}): the
 //                               nearest sloth that is awake at its own home and doing nothing else comes over to eat it
 //                               (none comes if all are busy or asleep)
-// What it does next, where it wanders and how long it sits draw from the sloths' stream (core.js rng("sloths")) as they happen.
+// What it does next, where it wanders and how long it sits draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
 import { jeepApi } from "../jeep.js";
 import { rng, scene } from "../core.js";
-const { R } = rng("sloths");
+const { R } = rng("slothDay");
 import { V, yawFrom } from "../util.js";
 import { RC } from "../layout.js";
 import { bedKey, claim, holder, hosted, join, seatKey, seatLog, taken } from "../places.js";

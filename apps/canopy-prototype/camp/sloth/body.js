@@ -1,6 +1,7 @@
 // Canopy Camp sloths, the body: one sloth from the model, with its fur, its clip and everything the other modules keep on it.
 //   makeSloth(sc)      makes a sloth at size sc and returns it: adds it to the scene with its tap sphere and to state.js's
-//                      sloths and hit. Draws three numbers from the sloths' stream. It is the one place a sloth object is
+//                      sloths and hit. Draws three numbers from the sloths' placement stream (rng("sloths"): its clip's start, its first blink and
+//                      nap), only ever while sloths.js builds, in a fixed order; what they do later draws from "slothDay" (R2-117). It is the one place a sloth object is
 //                      made, and it lists every field one has, with its meaning (review sloths-34, R2-030). A camp sloth is
 //                      then put in its spot (wayIn.js placeHome).
 //   placeUnder(s, p, dir)   hangs s under a branch at p (poses.js underAt), its head toward dir (a wild sloth)

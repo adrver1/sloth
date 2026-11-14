@@ -3,7 +3,7 @@
 // crate. A new fruit is put out a while after one is eaten. The fruit are camp/food.js's (mango, apple, banana, fig, lime:
 // 20 to 35 triangles each, one shared material), the same ones you carry and give.
 //   buildTable()        measures where the paw is at the grab of the two eat clips (sloths.js, in its place in the build order)
-//   buildPlaces()       makes the places and puts a fruit at each, drawing from the sloths' stream (sloths.js
+//   buildPlaces()       makes the places and puts a fruit at each, drawing from the sloths' day stream (sloths.js
 //                       buildSlothPlaces, called by main.js once the blockers are in); without a table or a crate (?lived=0)
 //                       that one has none
 //   pois()              the places: [{ name: "table" | "crate", c, slots }], two on the table (its two ends) and two at the
@@ -17,7 +17,7 @@
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { rng, scene } from "../core.js";
-const { R } = rng("sloths");
+const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { CRATE, RC, TABLE } from "../layout.js";
 import { SLOTH } from "../campProps.js";
