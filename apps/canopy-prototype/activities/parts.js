@@ -31,7 +31,8 @@ export const bubbleTex = tex(32, 32, (g) => { g.strokeStyle = "rgba(255,244,225,
 // The carried logs' spots in the stack's atlas (props/lived/wood_stack.jpg, 1024 px, y down), which has log ends on the
 // top half and the logs seen from above bottom right: the sides take one log's strip (x0, y0, width, height; mirrored
 // round, so no seam) and the caps one round end (centre x, y and half-size). The loose logs by the wood pile read other
-// spots of the same atlas (props/lived/build_lived.py ATLAS_ENDS and ATLAS_SIDES); they need not match these.
+// spots of the same atlas (props/lived/build_lived.py stack_spots, written into props/lived/wood_stack.json as "spots");
+// they need not match these. If the stack is ever built differently, check these by eye against the new atlas.
 const CARRIED = { side: [540, 555, 62, 455], end: [440, 92, 60] };
 export function paintLogs(woodTex) {
   const px = (x, y) => [x / 1024, woodTex.flipY ? 1 - y / 1024 : y / 1024], uv = logGeo.attributes.uv, side = (6 + 1) * 2;

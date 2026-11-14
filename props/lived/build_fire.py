@@ -48,7 +48,6 @@ from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import anchor, apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
 
-rng = random.Random(23)
 LIFT = 0.3                             # how far the pot's base sits above 0.45 m, clear of the flames
 POT_Z = 0.45 + LIFT                    # the pot's base
 SOUP = Vector((0.0, 0.0, POT_Z + 0.135))   # the soup's surface, middle
@@ -64,11 +63,10 @@ def materials():
         potato=(0.88, 0.8, 0.55), herb=(0.25, 0.45, 0.12)).items()}
 
 
-def stone(r, at, scale, m, sr=None):
+def stone(r, at, scale, m, sr):
     """A low-poly fire stone in 16 triangles (camp review 2026-11-12): six lumpy points round its middle, a flat-ish top of
     three and one point underneath, each pushed about by its own random; smooth shaded, so it reads as a worn pebble and
-    not a crystal (the flat-shaded 12-triangle bipyramid looked like quartz)."""
-    sr = sr or rng
+    not a crystal (the flat-shaded 12-triangle bipyramid looked like quartz). sr: the ring's seeded stream."""
     bm = bmesh.new()
     for i in range(6):
         t = (i + sr.uniform(-0.25, 0.25)) / 6 * 2 * math.pi
@@ -181,6 +179,8 @@ def tripod_legs():
 
 
 def embers(n, spread, M, z=0.04):
+    """n glowing lumps scattered in the ash within spread of the middle, from their own seeded stream (review R2-256)."""
+    rng = random.Random(24)
     p = []
     for i in range(n):
         a, d = rng.uniform(0, 2 * math.pi), spread * math.sqrt(rng.uniform(0, 1))
@@ -192,12 +192,13 @@ def embers(n, spread, M, z=0.04):
     return p
 
 
-def hex_log(a, b, r, M, burnt=0.45, sides=6):
+def hex_log(a, b, r, M, twist, burnt=0.45, sides=6):
     """A low-poly fire log from a (in the ash) to b: one six-sided tube with a single extra ring where the bark turns to
-    char, a cap on the burnt end and none on the buried end. 4 x sides + (sides - 2) triangles."""
+    char, a cap on the burnt end and none on the buried end, its sides turned by twist (0..1 of a side). 4 x sides +
+    (sides - 2) triangles."""
     a, b = Vector(a), Vector(b)
     bm = bmesh.new()
-    t = sweep(bm, [a, a.lerp(b, 1 - burnt), b], [r, r, r * 0.85], sides, twist=rng.uniform(0, 1))
+    t = sweep(bm, [a, a.lerp(b, 1 - burnt), b], [r, r, r * 0.85], sides, twist=twist)
     for f in t["sides"][1] + [t["cap_b"]]:                         # the burnt end
         f.material_index = 1
     o = obj_from_bm(bm, "log")
@@ -208,16 +209,19 @@ def hex_log(a, b, r, M, burnt=0.45, sides=6):
 
 def fire(M):
     """The teepee: seven split logs leaning together, kindling between them, embers in the ash. Hexagonal logs and
-    four-sided kindling sticks (Adriaen: they need not be round)."""
+    four-sided kindling sticks (Adriaen: they need not be round). The logs and sticks draw from their own seeded
+    stream, the embers from theirs (review R2-256)."""
+    rng = random.Random(23)
     p = []
     for i in range(7):
         a = i / 7 * 2 * math.pi + rng.uniform(-0.15, 0.15)
         r0 = rng.uniform(0.3, 0.38)
-        p += hex_log((math.cos(a) * r0, math.sin(a) * r0, 0.02), (math.cos(a + 0.25) * 0.05, math.sin(a + 0.25) * 0.05, rng.uniform(0.5, 0.58)),
-                     rng.uniform(0.035, 0.045), M, burnt=0.45)
+        top = (math.cos(a + 0.25) * 0.05, math.sin(a + 0.25) * 0.05, rng.uniform(0.5, 0.58))
+        r = rng.uniform(0.035, 0.045)
+        p += hex_log((math.cos(a) * r0, math.sin(a) * r0, 0.02), top, r, M, rng.uniform(0, 1), burnt=0.45)
     for i in range(5):                                             # kindling sticks between them
         a = i / 5 * 2 * math.pi + 0.5
-        p += hex_log((math.cos(a) * 0.22, math.sin(a) * 0.22, 0.03), (0, 0, 0.38), 0.016, M, burnt=0.5, sides=4)
+        p += hex_log((math.cos(a) * 0.22, math.sin(a) * 0.22, 0.03), (0, 0, 0.38), 0.016, M, rng.uniform(0, 1), burnt=0.5, sides=4)
     em = embers(12, 0.22, M)
     return join(p, "Fire"), join(em, "Embers")
 
@@ -268,6 +272,7 @@ def pot(M):
             (0.152, 0.158), (SOUP_R, sz - 0.004)]                                  # over the lip, down to the soup
     p = [lathe(prof, 10, M["iron"], z0=POT_Z, flip=True)]
     p.append(lathe([(0.0, sz), (0.148, sz - 0.004)], 10, M["soup"], z0=POT_Z))
+    rng = random.Random(25)                                        # the soup bits' own seeded stream (review R2-256)
     for i in range(9):                                             # bits in the soup: carrot coins, potato, peas, herbs
         a, d = rng.uniform(0, 2 * math.pi), 0.11 * math.sqrt(rng.uniform(0.05, 1))
         at = (math.cos(a) * d, math.sin(a) * d, SOUP.z + 0.002 + 0.0006 * i)   # each a step higher: overlapping bits z-fought (R2-152)

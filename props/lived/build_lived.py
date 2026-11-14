@@ -53,7 +53,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "camp"))
 from build_camp import DOOR_PLANK as PLANK, SEAT_BOARD, SEAT_TOP  # noqa: E402  (the seat and the tent planks, review R2-252)
 from lib.mesh import apply_all, box, cyl, drop_faces, drop_ground_faces, join, mug, obj_from_bm, quad, rod, rough_up, sweep, tube  # noqa: E402
 
-rng = random.Random(11)
 
 
 PARTS = []          # piece names; each face carries its piece's index in the "part" attribute, for the triangle breakdown
@@ -138,7 +137,9 @@ def hatchet(M, at, yaw, lean):
 
 def stack_logs(M):
     """The detailed log stack: split logs along Y (ends toward the fire and away), in rows that step in as they go up.
-    About 2,000 triangles, so the page never draws it: wood_stack() renders it to a texture on a simple block."""
+    About 2,000 triangles, so the page never draws it: wood_stack() renders it to a texture on a simple block. It draws
+    from its own seeded stream (review R2-256), so every call builds the same stack, whatever was built before it."""
+    rng = random.Random(11)
     p = []
     rows = [6, 5, 5, 4, 2]
     z = 0.0
@@ -216,8 +217,8 @@ def wood_stack(M, samples):
     # their inputs rarely change: wood_stack.json keeps a key of everything they depend on (the logs' vertices, the
     # material colours, the samples, the Blender version and the source from STACK_BOX to the end of _stack_block, which
     # holds the camera boxes, the renders, the atlas and the block's UVs) with the outline they gave, and while the key
-    # matches and wood_stack.jpg is there, the renders are skipped. On a miss it prints which part changed. The seeded
-    # logs are still built, so the random stream the rest of the props draw from is unchanged.
+    # matches and wood_stack.jpg is there, the renders are skipped. On a miss it prints which part changed. The logs are
+    # still built on a hit, for the key.
     stamp = os.path.join(HERE, "wood_stack.json")
     parts = _stack_key(logs, samples, px)
     key = hashlib.sha1(json.dumps(parts, sort_keys=True).encode()).hexdigest()
@@ -383,6 +384,7 @@ def wood_pile(M):
     k0 = mark(p, k0, "Chopping stump")
     p.append(hatchet(M, (sx + 0.03, sy - 0.02, 0.505), yaw=-0.5, lean=0.85))   # the blade bitten in about 2 cm
     k0 = mark(p, k0, "Hatchet")
+    rng = random.Random(12)                         # the chips' own seeded stream (review R2-256)
     for k in range(10):                             # chips round the stump: one flat quad each
         t, d = rng.uniform(0, 2 * math.pi), rng.uniform(0.3, 0.6)
         cx, cy, w, h, yaw = sx + math.cos(t) * d, sy + math.sin(t) * d, rng.uniform(0.03, 0.06), rng.uniform(0.015, 0.03), rng.uniform(0, 3.14)
@@ -394,18 +396,85 @@ def wood_pile(M):
 
 # the loose logs lying about: (length, radius, x, y, yaw, end circle, side band), in WoodPile's own frame
 LOOSE = [(0.4, 0.085, 1.38, -0.43, 1.1, 0, 0), (0.44, 0.08, 0.2, -0.45, 0.3, 1, 1), (0.46, 0.065, -0.35, -0.42, -0.2, 2, 2)]
-# where they read the stack's atlas (wood_stack.jpg, 1024 px, y down): sawn ends with rings, and log sides. The logs the
-# player carries on the page read other spots of the same atlas (activities/parts.js CARRIED: a strip of the logs seen
-# from above and one round end); change one set without the other, but keep both on log bark and end grain
-ATLAS_ENDS = [(442, 92, 54), (568, 90, 56), (150, 457, 48)]          # circle centre and radius
-ATLAS_SIDES = [(545, 640), (740, 830), (835, 925)]                    # rows of one log side, x 20-355
+# They read the stack's atlas (wood_stack.jpg, 1024 px, y down) at spots stack_spots() finds in the stack itself: sawn
+# ends with rings, and log sides. The logs the player carries on the page read other spots of the same atlas
+# (activities/parts.js CARRIED: a strip of the logs seen from above and one round end); keep both on bark and end grain
 HEX = 6
 
 
-def loose_logs(logs=None, name="LooseLogs"):
+def stack_spots(M):
+    """Where the atlas shows whole log ends and log sides, found in the stack's geometry instead of measured by hand
+    (review R2-256): {"ends": [[x, y, r] x 3], "sides": [[x0, y0, x1, y1] x 3]} in atlas pixels, each list top to
+    bottom. The stack is built again from its own seeded stream (stack_logs) and rays go the way the renders in
+    wood_stack() look: from the front (-Y) for the ends, whose largest circles inside a sawn end are kept, and from the
+    right (+X) for the sides, whose tallest runs of one log's bark are kept, each inset a little. They are also written
+    into wood_stack.json as "spots", beside the renders' key, so the page can read the same numbers later (R2-243)."""
+    from mathutils.bvhtree import BVHTree
+    import numpy as np
+    logs = stack_logs(M)
+    V, F, owner = [], [], []
+    for i, o in enumerate(logs):
+        mw, base = o.matrix_world, len(V)
+        V += [mw @ v.co for v in o.data.vertices]
+        for pl in o.data.polygons:
+            F.append([base + k for k in pl.vertices]); owner.append(i)
+    for o in logs:
+        me = o.data
+        bpy.data.objects.remove(o); bpy.data.meshes.remove(me)
+    tree = BVHTree.FromPolygons(V, F)
+    (X0, X1), (Y0, Y1), (Z0, Z1) = STACK_BOX["x"], STACK_BOX["y"], STACK_BOX["z"]
+    W, D, H = X1 - X0, Y1 - Y0, Z1 - Z0
+
+    def hit(origin, d):
+        loc, nrm, idx, _ = tree.ray_cast(Vector(origin), Vector(d))
+        return (owner[idx], nrm) if loc is not None else (None, None)
+    step, ends = 2, {}                    # the end render fills the atlas's top half (1024 x 512)
+    for v in range(0, 512, step):
+        for u in range(0, 1024, step):
+            i, n = hit((X0 + (u + 0.5) / 1024 * W, -3, Z1 - (v + 0.5) / 512 * H), (0, 1, 0))
+            if i is not None and abs(n.y) > 0.9:
+                ends.setdefault(i, set()).add((u, v))
+    circles = []
+    for i, pts in ends.items():           # the largest circle inside each log's sawn end, in pixels
+        P = np.array(sorted(pts), float)
+        rim = np.array([p for p in sorted(pts) if any((p[0] + a, p[1] + b) not in pts for a, b in ((step, 0), (-step, 0), (0, step), (0, -step)))], float)
+        d = np.sqrt(((P[:, None] - rim[None]) ** 2).sum(-1)).min(1)
+        k = int(d.argmax())
+        circles.append((float(d[k]), int(P[k][0]), int(P[k][1])))
+    circles = sorted(sorted(circles, reverse=True)[:3], key=lambda c: (c[2], c[1]))
+    runs, cur = [], None                  # the side render: the atlas's bottom left (384 x 512 from y 512)
+    for v in range(512):
+        z = Z1 - (v + 0.5) / 512 * H
+        seen = {hit((3, Y0 + (u + 0.5) / 384 * D, z), (-1, 0, 0))[0] for u in (40, 190, 340)}
+        i = seen.pop() if len(seen) == 1 else None
+        if cur and cur[0] == i:
+            cur[2] = v
+        else:
+            if cur and cur[0] is not None:
+                runs.append(cur)
+            cur = [i, v, v]
+    if cur and cur[0] is not None:
+        runs.append(cur)
+    sides = []
+    for i, v0, v1 in sorted(sorted(runs, key=lambda r: r[1] - r[2])[:3], key=lambda r: r[1]):
+        z = Z1 - ((v0 + v1) / 2 + 0.5) / 512 * H
+        us = [u for u in range(384) if hit((3, Y0 + (u + 0.5) / 384 * D, z), (-1, 0, 0))[0] == i]
+        iu, iv = round(0.04 * (us[-1] - us[0])), round(0.04 * (v1 - v0))
+        sides.append([us[0] + iu, 512 + v0 + iv, us[-1] - iu, 512 + v1 - iv])
+    spots = {"ends": [[x, y, round(0.95 * r)] for r, x, y in circles], "sides": sides}
+    stamp = os.path.join(HERE, "wood_stack.json")
+    j = json.load(open(stamp)) if os.path.exists(stamp) else {}
+    if j.get("spots") != spots:
+        j["spots"] = spots
+        with open(stamp, "w") as f:
+            json.dump(j, f)
+    return spots
+
+
+def loose_logs(spots, logs=None, name="LooseLogs"):
     """The loose logs as plain hexagonal prisms (12 side + 8 end triangles each) on the stack's own texture, so they
-    look like logs taken off the stack, through ATLAS_ENDS and ATLAS_SIDES. The page's carried logs use their own spots
-    of the same atlas (activities/parts.js CARRIED), not these."""
+    look like logs taken off the stack, through spots (stack_spots: a sawn end and a log side each). The page's carried
+    logs use their own spots of the same atlas (activities/parts.js CARRIED), not these."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     U = lambda x, y: (x / 1024, 1 - y / 1024)  # noqa: E731
@@ -414,12 +483,12 @@ def loose_logs(logs=None, name="LooseLogs"):
         zc = r * math.cos(math.radians(30))                         # a flat face down, so it rests on the ground
         t = sweep(bm, [(x - c * L / 2, y - sn * L / 2, zc), (x + c * L / 2, y + sn * L / 2, zc)], [r, r], HEX, cap_a=True,
                   twist=0.5, frame=((-sn, c, 0), (0, 0, 1)))
-        y0, y1 = ATLAS_SIDES[sd]
+        x0, y0, x1, y1 = spots["sides"][sd]
         for k, f in enumerate(t["sides"][0]):
             va, vb = y0 + (y1 - y0) * k / HEX, y0 + (y1 - y0) * (k + 1) / HEX   # each face a slice across the band
-            for lp, (ux, vy) in zip(f.loops, ((20, va), (20, vb), (355, vb), (355, va))):
+            for lp, (ux, vy) in zip(f.loops, ((x0, va), (x0, vb), (x1, vb), (x1, va))):
                 lp[uv].uv = U(ux, vy)
-        ex, ey, er = ATLAS_ENDS[e]
+        ex, ey, er = spots["ends"][e]
         for s, ring, cap in ((-1, t["rings"][0], t["cap_a"]), (1, t["rings"][1], t["cap_b"])):
             for lp in cap.loops:
                 a = t["angles"][ring.index(lp.vert)]
@@ -701,13 +770,13 @@ def kitchen_things(M):
     return join(p, "KitchenThings")
 
 
-# Every lived prop, in build order (the seeded stream rng is drawn in this order, so keep it): (name, builder(M, samples),
+# Every lived prop, in build order (each builder that needs random numbers has its own seeded stream, review R2-256): (name, builder(M, samples),
 # how it is lit, a note for the triangle report). "baked" props take vertex colours (their own AO, or the light bake's
 # flat colours) and lose their UVs; "textured" ones keep their UVs and image. A new prop is one row here; the page
 # (campProps.js) and the light bake (bake_camp_lightmap.py PLACE) still place it by name.
 PROPS = [
     ("WoodStack", lambda M, s: wood_stack(M, max(s, 48)), "textured", None),
-    ("LooseLogs", lambda M, s: loose_logs(), "textured", None),
+    ("LooseLogs", lambda M, s: loose_logs(stack_spots(M)), "textured", None),
     ("SeatTop", lambda M, s: seat_top(), "textured", "(x3 seats on the page)"),
     ("MatRoll", lambda M, s: mat_roll(os.path.join(HERE, "mat_roll.png")), "textured", None),
     ("KitchenCrate", lambda M, s: kitchen_crate(), "textured", None),
