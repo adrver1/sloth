@@ -10,7 +10,9 @@ import * as THREE from "three";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 
 // the light maps ship as KTX2 (UASTC + zstd, props/bake_all.py --only ktx): about half the download of the PNGs and a quarter
-// of the GPU memory; a map with no .ktx2 next to it (or a browser that can't take it) falls back to its .png
+// of the GPU memory; a map with no .ktx2 next to it (or a browser that can't take it) falls back to its .png.
+// camp_lights.json "ktx2" says which maps have one: an object of map name -> the hash of the PNG it was made from (written by
+// bake_all.py; tools/check-imports.cjs uses the hash to find a stale .ktx2.txt), or true from older bakes, when every map is tried
 let ktx = null;
 const META = fetch("models/camp_lights.json").then((r) => r.json()).catch(() => ({}));
 export function initKtx(renderer) {
@@ -23,10 +25,13 @@ export function b64bytes(txt) {
   if (Uint8Array.fromBase64) return Uint8Array.fromBase64(txt);
   const s = atob(txt), n = s.length, u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = s.charCodeAt(i); return u;
 }
-export async function loadLightMap(png) {
+// loadLightMap(png, { ktx }): the map as a texture, from its .ktx2.txt when there is one, else the .png. ktx: false skips the
+// KTX2 try (core.js passes it for the 4K maps, which bake_all.py does not convert), so no request 404s.
+export async function loadLightMap(png, { ktx: tryKtx = true } = {}) {
   let t = null;
   // artifacts don't serve .ktx2, so the maps ship base64 in .ktx2.txt files like the models (still well under the PNGs)
-  if (ktx && (await META).ktx2) t = await fetch(png.replace(/\.png$/, ".ktx2.txt")).then((r) => (r.ok ? r.text() : Promise.reject()))
+  const has = (await META).ktx2, name = png.replace(/^.*\//, "").replace(/\.png$/, "");
+  if (ktx && tryKtx && (has === true || (has && typeof has === "object" && name in has))) t = await fetch(png.replace(/\.png$/, ".ktx2.txt")).then((r) => (r.ok ? r.text() : Promise.reject()))
     .then((b64) => new Promise((ok, no) => ktx.parse(b64bytes(b64.trim()).buffer, ok, no))).catch(() => null);   // only once the bake wrote them
   t ??= await new THREE.TextureLoader().loadAsync(png);
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;   // data, decoded in the shaders

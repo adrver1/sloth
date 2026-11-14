@@ -117,7 +117,8 @@ const LIVED = OPT.lived;   // ?lived=0 hides the lived-in props to compare
 let loadN = 0, loadDone = 0;
 const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
 initKtx(renderer);
-const lmLoad = async (n) => { const t = await loadLightMap(`models/${n}_${LMSET}.png`).catch(() => loadLightMap(`models/${n}_2k.png`));
+// the 4K maps (?lm=4k, local only) have no KTX2 copy (bake_all.py converts the 2K and 1K maps), so they go straight to the PNG
+const lmLoad = async (n) => { const t = await loadLightMap(`models/${n}_${LMSET}.png`, { ktx: LMSET !== "4k" }).catch(() => loadLightMap(`models/${n}_2k.png`));
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
 const PRE = {
   sloth: pre(glb("models/sloth.txt")),
