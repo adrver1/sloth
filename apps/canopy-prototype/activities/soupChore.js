@@ -1,22 +1,23 @@
 // Camp activities, chunk 2: the soup pot. The pot over the fire starts empty. Carry the water pail (under the snack table) to
 // it and pour; take vegetables one at a time from the kitchen crate and drop them in; after two it bubbles for about 20 s and
 // is soup. Tap the pot with empty hands to ladle a bowl, carry it to a log seat and set it down: the sloths nearby perk up
-// (window event "camp-food"). One pot makes three bowls, then it is empty again. The pot model (props/lived/build_fire.py)
+// (camp/events.js EV.food and EV.cheer; sloths.js picks who perks up). One pot makes three bowls, then it is empty again. The pot model (props/lived/build_fire.py)
 // is not touched: a flat disc at the soup's surface shows it empty, water or broth, and fades away once the soup is done so
 // the modelled soup shows. Triangles: the surface disc 12, the pail 60 (camp/canister.js), a bowl 24; bubbles are sprites.
-// Exports createSoupChore({ scene, me, pot, fire, carry, burst, toast, told, nearSloth }): { soup (its state), seats,
+// Exports createSoupChore({ scene, me, pot, fire, carry, burst, toast, told }): { soup (its state), seats,
 // wants() (would a tap on the pot do something with what you hold), pour(), addVeg(), ladle(), serve(seat), placePail(table)
 // (builds the pail under the table: the caller says when, since things are built in a fixed order), cook (the same steps for
 // the operator, camp/operator/cook.js), update(dt, flare) }.
 import * as THREE from "three";
 import { makePail } from "../camp/canister.js";
 import { V } from "../camp/util.js";
+import { EV, emit } from "../camp/events.js";
 import { bowlGeo, bowlMat, bubbleTex, flat, soupGeo, soupMat, surfTex } from "./parts.js";
 
 const COOK = 20, BOWLS = 3;
 const STAGE = { empty: 0x2e2824, water: 0x86a9b0, 1: 0xc8a466, 2: 0xd9852f, 3: 0xd6712a };
 
-export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toast, told, nearSloth }) {
+export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toast, told }) {
   const pot = { at: potAt.at.clone(), r: potAt.r };
   const soup = { stage: "empty", veg: 0, cook: 0, bowls: 0, fade: 1 };   // stage: empty, water, cooking, ready
   const surf = new THREE.Mesh(new THREE.CircleGeometry(pot.r + 0.002, 12).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: surfTex, color: STAGE.empty, transparent: true, depthWrite: true }));
@@ -53,9 +54,8 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
     const at = seat.c.clone().addScaledVector(along, (toMe.dot(along) >= 0 ? 1 : -1) * 0.32).setY(seat.top);
     const g = new THREE.Group(), s = new THREE.Mesh(soupGeo, soupMat); g.add(new THREE.Mesh(bowlGeo, bowlMat), s); g.position.copy(at); g.scale.setScalar(1.3); scene.add(g);
     const b = { g, s, t: 0, seat }; seat.bowl = b; bowlsOut.push(b);
-    const near = nearSloth(at, 4);
-    near.slice(0, 2).forEach((sl, i) => setTimeout(() => { sl.nod = 1.6; burst(sl.p.clone().add(V(0, 0.3, 0)), i ? "🍲" : "*sniff sniff*", 1, 2, 60); }, 600 + i * 700));
-    dispatchEvent(new CustomEvent("camp-food", { detail: { kind: "soup", at: at.clone() } }));   // for the sloths' own lives (sloth life thread)
+    emit(EV.cheer, { at, max: 4, words: ["*sniff sniff*", "🍲"], life: 2, delay: 600, gap: 700 });   // the two nearest sloths perk up
+    emit(EV.food, { kind: "soup", at: at.clone() });   // and the nearest one at home comes to eat it (sloth/day.js watchFood)
   }
   // the water pail, under the snack table out of the way (Adriaen 2026-11-13): between its legs (local x +-0.45), nudged
   // to the fire side of the top's middle so it peeks out; the table's own blocker keeps you off it, so it adds none
@@ -96,7 +96,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
       if (soup.stage === "cooking") {
         soup.cook += dt * (1 + 0.25 * flare); const k = Math.min(1, soup.cook / COOK);
         if (Math.random() < dt * (2 + 10 * k)) bubble(0.8 + 0.6 * k);
-        if (k >= 1) { soup.stage = "ready"; soup.fade = 1; const s = nearSloth(fire, 6)[0]; if (s) { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), "*smells good*", 1, 2.2, 60); } toast("Soup's ready 🍲", "clink"); if (soup.by === "you") told("soup"); }
+        if (k >= 1) { soup.stage = "ready"; soup.fade = 1; emit(EV.cheer, { at: fire, max: 6, words: ["*smells good*"], life: 2.2 }); toast("Soup's ready 🍲", "clink"); if (soup.by === "you") told("soup"); }
       } else if (soup.stage === "ready") {
         soup.fade = Math.max(0, soup.fade - dt / 2); surf.material.opacity = soup.fade; surf.visible = soup.fade > 0.01;
         if (Math.random() < dt * 2) bubble(0.7);

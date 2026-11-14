@@ -4,10 +4,12 @@
 // happily. A quick shower of sparks when a log goes on (a fixed little pool of quads).
 // Triangles: 24 a burning log; the plain stack for ?lived=0 six logs.
 // Exports MAX_LOGS, createWoodPile (the plain stack, when the props' pile is not there) and createFireChore({ scene, fire,
-// glowTex, burst, nearSloth, boostFire }): { burning, level(), flare (0 to 3, eased), addLog(), update(dt) }. The fire itself
+// glowTex, boostFire }): { burning, level(), flare (0 to 3, eased), addLog(), update(dt) }. The fire itself
 // belongs to the camp: update() hands boostFire(wide, tall, light) the factors and the camp applies them (camp/chores.js).
+// The sloth's blink is asked for with camp/events.js EV.cheer; sloths.js picks the sloth.
 import * as THREE from "three";
 import { V, yawTo } from "../camp/util.js";
+import { EV, emit } from "../camp/events.js";
 import { logGeo, logMat } from "./parts.js";
 
 const HOLD = 60, SETTLE = 180;
@@ -26,7 +28,7 @@ export function createWoodPile({ scene, woodPile, addBlocker }) {
   return { at, stand };
 }
 
-export function createFireChore({ scene, fire, glowTex, burst, nearSloth, boostFire }) {
+export function createFireChore({ scene, fire, glowTex, boostFire }) {
   const burning = [];
   const ANG = [0.4, 2.5, 4.6];
   function addLog() {
@@ -36,8 +38,7 @@ export function createFireChore({ scene, fire, glowTex, burst, nearSloth, boostF
     burning.push({ m, t: 0, slot }); pop = 1;
     for (let i = 0; i < 14; i++) spark();
     // the camp sloth nearest the fire turns to it with a slow, happy blink
-    const near = nearSloth(fire, 6)[0];
-    if (near) setTimeout(() => { near.nod = 1.6; burst(near.p.clone().add(V(0, 0.3, 0)), "*happy blink*", 1, 2.2, 60); }, 900);
+    emit(EV.cheer, { at: fire, max: 6, words: ["*happy blink*"], life: 2.2, delay: 900 });
   }
   const level = () => burning.reduce((s, b) => s + (b.t < HOLD ? 1 : Math.max(0, 1 - (b.t - HOLD) / SETTLE)), 0);
   const sparks = [], sparkMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xffb35a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });

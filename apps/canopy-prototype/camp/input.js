@@ -12,6 +12,7 @@ import { burst, fx, sprite } from "./fx.js";
 import { slothLife } from "./sloth/hooks.js";
 import { me } from "./player.js";
 import { acts } from "./chores.js";
+import { EV, emit } from "./events.js";
 import { createHighlight } from "./highlight.js";
 import { addTargets, allTargets, targetOf } from "./targets.js";
 
@@ -43,7 +44,7 @@ const lookEnd = (e) => {
   if (L.moved < 12 && !L.held && performance.now() - L.t0 < 450) tap(e.clientX, e.clientY);
 };
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
-const told = (kind, s) => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by: "you", name: s.name } }));   // the operator may remark on it
+const told = (kind, s) => emit(EV.act, { kind, by: "you", name: s.name });   // the operator may remark on it (events.js)
 function boop(s) { told("boop", s); s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
 // feeding (Adriaen 2026-11-12: every camp sloth is already your friend, so no friend counter or "new friend"; and eating
 // shows no words or emojis): a flower flies from you to its mouth, it nods and munches it (slothLife's mouth)

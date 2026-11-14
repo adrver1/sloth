@@ -9,7 +9,7 @@
 //   homeStep(s, sd, spot, out)  at home, each frame: s'mores on the seat, naps, the wait for its next errand; out: how many
 //                               are away now. Returns how many it sent off (0, 1, or 2 for a game of cards)
 //   restStep(s, T, sd)          the rest phase: sitting in the clearing, often a nap there, then home
-//   watchFood()                 listens for food you put out (activities.js, window event "camp-food" {kind, at}): the
+//   watchFood()                 listens for food you put out (activities/soupChore.js, events.js EV.food {kind, at}): the
 //                               nearest sloth at home comes over to eat it
 // What it does next, where it wanders and how long it sits draw from the sloths' stream (core.js rng("sloths")) as they happen.
 import { jeepApi } from "../jeep.js";
@@ -32,6 +32,7 @@ import { fixEngine } from "./fix.js";
 import { smoreStep } from "./smore.js";
 import { exitSpot } from "./wayOut.js";
 import { enterSpot } from "./wayIn.js";
+import { EV, on } from "../events.js";
 
 function wanderPoint() {
   for (let k = 0; k < 60; k++) { const a = R(0, 2 * Math.PI), r = R(2.6, RC - 2), p = V(Math.cos(a) * r, 0, Math.sin(a) * r); if (isFree(p) && camp.every((o) => o.o.position.distanceTo(p) > 1.2)) return p; }
@@ -52,7 +53,7 @@ function errand(s) {                                // a place at the table or t
   if (s.napTo) { const g = s.napTo; s.napTo = null; claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; return goHome(s); }
   const want = s.wantFood; s.wantFood = false;   // the lab's Get food
   if (!want && !s.food && R(0, 1) < 0.3 && napTrip(s)) return;
-  if (s.food) {                                     // a bowl you set down (activities' "camp-food"): eat from it there
+  if (s.food) {                                     // a bowl you set down (events.js EV.food): eat from it there
     const at = s.food; s.food = null; const u = V(at.x, 0, at.z).normalize(), g = V(at.x, 0, at.z).addScaledVector(u, 0.9);
     const slot = { name: "bowl", p: g, u, yaw: Math.atan2(u.x, u.z), clip: "eat", who: s, h: 0, food: { at: at.clone().setY(at.y + 0.05), mesh: null, bowl: true } };
     return walkTo(s, g, () => startEat(s, slot, fed(s)));
@@ -114,8 +115,8 @@ function restStep(s, T, sd) {                       // a sit and a look round so
   else if (T.t > T.dur) goHome(s);
 }
 function watchFood() {
-  addEventListener("camp-food", (e) => {
-    const at = e.detail?.at; if (!at) return;
+  on(EV.food, ({ at } = {}) => {
+    if (!at) return;
     const s = camp.filter((q) => q.trip.phase === "home" && !q.smore && !q.wave && !q.gift).sort((a, b) => a.p.distanceTo(at) - b.p.distanceTo(at))[0];
     if (s) { s.food = at.clone(); leave(s); }
   });

@@ -26,7 +26,7 @@ const LINES = {   // spoken to his life partner, "bonita" (Adriaen, 2026-11-12)
   thanks: ["Mm, the {food}! Thank you, bonita.", "You always know what I need, my love.", "Food tastes better from you, bonita.",
     "Delicious. You spoil me, my love.", "Thank you, bonita. Come share it with me."],
   sleep: ["Mmm... love you too, bonita...", "Zz... you're doing fine, my love... zz", "Mm... come here... sleep well, bonita..."],
-  // remarks on what you just did (activities.js / input.js "camp-act"; Adriaen 2026-11-13)
+  // remarks on what you just did (activities.js / input.js, events.js EV.act; Adriaen 2026-11-13)
   react_log: ["Look at that fire go, bonita.", "You've got the touch with that fire, my love."],
   react_water: ["Soup night? I like where this is going."],
   react_veg: ["Chef bonita at work.", "Smells like home already."],

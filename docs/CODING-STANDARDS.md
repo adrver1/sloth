@@ -26,6 +26,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - Why: 36 `window.__` globals had become the real API between modules, so a missing one failed silently and modules depended on load order (C2: crosscut-03, boot-04, props-08, sloths-31, operator-19).
 - A new tool hook goes into `debug.js`'s `ready()` and its header table, with the tool that reads it. If no tool reads it, do not add it.
 - A module's API is a named export object when it has several members, for example `jeepApi` (`jeep.js`), `seatApi` (`jeepSeat.js`), `carApi` (`car.js`), `slothLife` and `labApi` (`sloth/hooks.js`), `acts` (`chores.js`). Each object is built in its own module; no other module adds members to it.
+- A signal between modules that do not import each other (the chores and the operator's remarks, the soup and the sloths) goes through `camp/events.js` `on(name, fn)` and `emit(name, detail)`, with its name and detail listed in that file's header. No `window` events (review R2-031).
 - Example: `apps/canopy-prototype/camp/debug.js`.
 
 ## 4. Importing builds nothing; `main.js` sets the build order

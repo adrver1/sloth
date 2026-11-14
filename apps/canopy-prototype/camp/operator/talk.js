@@ -1,7 +1,7 @@
 // Canopy Camp operator, talking to you: tap him for a few warm words (lines.js). He looks at you while he speaks, his jaw
 // moves (the talk clip) and he smiles after; a speech bubble over his head. Food in your hand can be given to him: it flies
 // to his free hand (or his mouth), he munches it a bite at a time and thanks you. Now and then he remarks on what you just
-// did (window event "camp-act" from the chores and the taps). What a tap finds is an invisible column round him (24
+// did (camp/events.js EV.act, from the chores and the taps). What a tap finds is an invisible column round him (24
 // triangles, never drawn: the skinned mesh is too costly to ray-test); no glow, like the sloths.
 // Exports buildTalk() (operator.js, once his model is in), speak(text), talk(), gift(), talkStep(dt), mouthAt(out), tapCol,
 // saying() (the bubble's text) and chestOnScreen() (where his chest is on screen, for the checks: opApi.tapAt).
@@ -11,6 +11,7 @@ const { R } = rng("operator");
 import { V } from "../util.js";
 import { acts as chores } from "../chores.js";   // your chores (activities.js): the food in your hand
 import { addTarget } from "../targets.js";
+import { EV, on } from "../events.js";
 import { fx } from "../fx.js";
 import { LINES, bag, line, pickLine } from "./lines.js";
 import { B, clips, csDir, root } from "./model.js";
@@ -22,8 +23,7 @@ let bubble = null, say = null, tapCol = null;
 // (review R2-019): shown, on screen, its half width (measured once per line, in speak) and the position written
 const bub = { shown: false, vis: true, half: 0, left: "", top: "" };
 // a remark on what you just did, when he's near, awake and not mid-sentence; at most one every 40 s or so, not every time
-function react(e) {
-  const { kind, by, name } = e.detail || {}; if (by === ME || !LINES["react_" + kind]) return;
+function react({ kind, by, name } = {}) { if (by === ME || !LINES["react_" + kind]) return;
   if (op.sleeping || op.lying || op.talk.t > 0 || op.talk.munch > 0 || op.cd.react > 0 || op.carry) return;
   if (camera.position.distanceTo(root.position) > 9 || Math.random() > 0.7) return;
   op.cd.react = R(35, 50);
@@ -31,7 +31,7 @@ function react(e) {
   setTimeout(() => { if (!op.sleeping && op.talk.t <= 0) speak(l); }, 800);
 }
 function buildTalk() {
-  addEventListener("camp-act", react);
+  on(EV.act, react);
   bubble = document.createElement("div");
   bubble.style.cssText = "position:fixed;left:0;top:0;z-index:3;pointer-events:none;transform:translate(-50%,-100%) scale(.85);opacity:0;transition:opacity .35s,transform .35s;" +
     "max-width:min(260px,70vw);text-align:center;font:600 16px/1.3 var(--display);color:var(--ink);background:rgb(255 248 238 / .96);border-radius:18px;padding:9px 14px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";

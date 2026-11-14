@@ -20,6 +20,8 @@ import { branchCurves } from "./forest.js";
 import { CAST } from "./cast.js";
 import { addLabButton } from "./labButton.js";
 import { addCrowd } from "./places.js";
+import { EV, on } from "./events.js";
+import { burst } from "./fx.js";
 import { GROUND, camp, hit, sloths, spots, wild } from "./sloth/state.js";
 import { hang, warmStep } from "./sloth/body.js";
 import { slothsStep } from "./sloth/life.js";
@@ -37,6 +39,13 @@ import { watchFood } from "./sloth/day.js";
 import { restore } from "./sloth/saved.js";
 import { campStep, findSeats } from "./sloth/step.js";
 import { addHooks } from "./sloth/hooks.js";
+
+// a chore near some camp sloths (events.js EV.cheer): the nearest ones, one per word, nod and say it (review R2-031: the
+// chores used to pick the sloths and write their nods themselves)
+function cheer({ at, max, words, life, delay = 0, gap = 0 }) {
+  const near = sloths.filter((s) => !s.wild && s.p).map((s) => [s, s.p.distanceTo(at)]).filter(([, d]) => d < max).sort((a, b) => a[1] - b[1]).map(([s]) => s);
+  words.forEach((w, i) => { const s = near[i]; if (s) setTimeout(() => { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), w, 1, life, 60); }, delay + i * gap); });
+}
 
 function buildSloths() {
   buildFace();   // the mouth card's texture, material and geometry (sloth/face.js)
@@ -75,6 +84,7 @@ function buildSloths() {
     restore();       // who was asleep, and who was napping where (the camp's save)
     findSeats(); watchFood(); addHooks();
   }
+  on(EV.cheer, cheer);   // the camp sloths perk up at the chores (events.js); none with ?campsloths=0, as before
   addLabButton();   // the move lab's button in the ⚙️ menu, and ?lab (labButton.js), once there are sloths to inspect
 }
 export { buildSloths, campStep, hammockStep, hit, sloths, slothsStep, warmStep };

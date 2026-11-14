@@ -15,22 +15,23 @@ import { splitBowl } from "./activities/fruitBowl.js";
 import { an, flat, paintLogs } from "./activities/parts.js";
 import { createSoupChore } from "./activities/soupChore.js";
 import { V } from "./camp/util.js";
+import { EV, emit } from "./camp/events.js";
 
 const NEAR = 2.5;                          // tap range
 
-// camp: the scene, the camera, you (me) and the sloths; places { woodPile: { at, built }, fire, pot: { at, r }, table:
+// camp: the scene, the camera and you (me); places { woodPile: { at, built }, fire, pot: { at, r }, table:
 // { at, yaw }, crate (or null) }; looks (what lights up for a thing, by name); the wood and glow textures; and what the camp
-// does for the chores: burst (a word over a sloth), toast(text, sound) (the message, and the sound that goes with it, if any), addBlocker and boostFire (the logs make the camp's fire bigger)
-export function createActivities({ scene, camera, me, sloths, places: { woodPile, fire, pot, table, crate }, looks, woodTex, glowTex, burst, toast, addBlocker, boostFire }) {
+// does for the chores: burst (a word in the air: the pot's splash and plop), toast(text, sound) (the message, and the sound that goes with it, if any), addBlocker and boostFire (the logs make the camp's fire bigger)
+export function createActivities({ scene, camera, me, places: { woodPile, fire, pot, table, crate }, looks, woodTex, glowTex, burst, toast, addBlocker, boostFire }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   if (woodTex) paintLogs(woodTex);
   const pile = createWoodPile({ scene, woodPile, addBlocker });
-  const nearSloth = (at, max = 4) => sloths.filter((s) => !s.wild && s.p).map((s) => [s, s.p.distanceTo(at)]).filter(([, d]) => d < max).sort((a, b) => a[1] - b[1]).map(([s]) => s);
-  // what you just did, for the operator to remark on (camp/operator/talk.js "camp-act"); by: "you" or "operator"
-  const told = (kind, by = "you") => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by } }));
+  // what you just did, for the operator to remark on (camp/events.js EV.act, heard by camp/operator/talk.js); by: "you" or
+  // "operator". The sloths' part in the chores goes through EV.cheer and EV.food, so the chores never touch a sloth.
+  const told = (kind, by = "you") => emit(EV.act, { kind, by });
   const carry = createCarry({ camera, me, toast });
-  const fireChore = createFireChore({ scene, fire, glowTex, burst, nearSloth, boostFire });
-  const soupChore = createSoupChore({ scene, me, pot, fire, carry, burst, toast, told, nearSloth });
+  const fireChore = createFireChore({ scene, fire, glowTex, boostFire });
+  const soupChore = createSoupChore({ scene, me, pot, fire, carry, burst, toast, told });
   const { soup, seats } = soupChore, { burning } = fireChore;
 
   // ---------------------------------------------------------------- things you can tap
