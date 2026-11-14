@@ -1,15 +1,16 @@
 """
 The adventure jeep for the Canopy Camp game (apps/canopy-prototype/camp.html): an original small boxy off-roader
-(short, upright, round headlights, spare wheel on the back door), parked in the clearing. Three styles to pick from:
+(short, upright, round headlights, spare wheel on the back door), parked in the clearing. The default style, and the only
+one the page loads, is expedition: olive paint, black flares, a roof rack with jerry cans, a snorkel, a winch and mud up
+the sills. The two other styles are archived (props/jeep/archive/, the GLBs only); their builders stay here, since they
+share body() with it:
 
     toy         chunky and rounded like the storybook props: mint and cream, big soft wheels, a wicker roof basket
-    expedition  closer to real, to sit with the rustic props: olive paint, black flares, roof rack with jerry cans,
-                snorkel, winch, mud up the sills
     camper      a camping rig: sand paint, a rooftop tent folded open over the side with a ladder to the ground
 
     .venv/bin/python props/jeep/build_jeep.py                                  # the expedition jeep and its far LOD
-    .venv/bin/python props/jeep/build_jeep.py --style all --preview            # all three, with every preview still
-    .venv/bin/python props/jeep/build_jeep.py --preview front,detail           # only these stills (Cycles, slow)
+    .venv/bin/python props/jeep/build_jeep.py --preview front,detail           # and these Cycles preview stills (slow)
+    .venv/bin/python props/jeep/build_jeep.py --style toy                      # remake an archived style
 
 Each style is one GLB, props/jeep/jeep_<style>.glb, standing on z = 0 with its front toward -Y (three.js +Z): the body
 Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive,
@@ -20,8 +21,8 @@ and Boot (middle of the cargo deck). The expedition, the page's jeep, also write
 and the base64 copies the page loads, apps/canopy-prototype/models/jeep_expedition.txt and jeep_expedition_lod.txt.
 props/bake_all.py runs this (its "jeep" step) before the light bake whenever the GLB is older than this script or
 props/lib, because the light bake uses the GLB as a shadow caster.
-It is the same convention and the same baked light as props/camp/build_camp.py, with the shared helpers of props/lib:
-Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
+It is the same convention as props/camp/build_camp.py, with the shared helpers of props/lib: Cycles AO times base colour
+in one colour attribute (the jeep carries its own light), drawn with a plain Lambert material on the page.
 Previews are opt-in (--preview, Cycles on the CPU): props/jeep/preview_<style>_<view>.png for the views front, back,
 detail, open, door and wheel.
 """
@@ -43,7 +44,8 @@ from lib.mesh import apply_all, ball, bisect, cyl, join, outward, rod, torus, wi
 from lib.mesh import box as _box  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
-# for the bake (bake(..., apply=False) below), bevels of one segment and only on parts big enough for a bevel to read, low segment counts on round parts.
+# for the bake (bake(..., apply=False) below), one-segment bevels on boxes only where they are big enough for a bevel to read
+# (box below), two-segment roundings only on the big body shapes (soften), low segment counts on round parts.
 
 
 def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):

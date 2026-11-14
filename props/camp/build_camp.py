@@ -1,24 +1,26 @@
 """
-Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three styles to pick from:
+Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html). The page uses one set, picked() (Adriaen
+2026-11-11): the rustic seat, lantern and table, a canvas wall tent with planks before the door, and the jungle hammock
+on plain posts (the fire, tripod and pot are props/lived/build_fire.py). props/camp/bake_camp_lightmap.py builds it,
+through props/bake_all.py on the GPU, places it from the page's layout and bakes its light map; this script never
+exports it.
+
+The three earlier styles, and the first pre-light-map picked GLB, are archived (camp review, Adriaen 2026-11-12): their
+GLBs are in props/camp/archive/ and the page no longer offers them.
 
     storybook  chunky and rounded: pebble fire ring, bell tent with a pennant, striped hammock, paper lanterns
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
     jungle     a rainforest hideout: bamboo tripod and kettle, a leaf-thatched lean-to, bamboo bench, gourd lanterns
-    picked     the set in use: the rustic seat, lantern and table, a canvas wall tent with planks before the door, and the
-               jungle hammock on plain posts (the fire, tripod and pot are props/lived/build_fire.py)
 
-Storybook, Rustic and Jungle (and the first pre-light-map picked GLB) are archived (camp review, Adriaen 2026-11-12): their
-GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, one function
-per prop, since the picked set is made from some of them (rustic_seat, rustic_lantern, rustic_table, jungle_hammock). The page's picked set is built and baked by bake_camp_lightmap.py (through
-props/bake_all.py, on the GPU); this script's own AO bake only remakes an archived style:
+Their builders stay here, one function per prop, since the picked set is made from some of them (rustic_seat,
+rustic_lantern, rustic_table, jungle_hammock). This script's command line only remakes an archived style, with its own
+AO bake (Cycles ambient occlusion with a ground plane, times each part's base colour, into one colour attribute):
 
     .venv/bin/python props/camp/build_camp.py --style rustic --samples 64     # -> props/camp/archive/camp_rustic.glb
 
 Each archived style is one GLB (props/camp/archive/camp_<style>.glb) holding six objects, each at its own origin, standing on
-z = 0 with its front toward -Y (three.js +Z): Fire, Seat, Tent, Hammock, Lantern, Table. The page places them.
-Light is baked: Cycles ambient occlusion (with a ground plane, so props darken where they meet the ground)
-times each part's base colour goes into one colour attribute, so the page draws them with a plain Lambert
-material and no textures. The Hammock's posts stand at x = +-HAMMOCK_SPAN / 2, to match the page.
+z = 0 with its front toward -Y (three.js +Z): Fire, Seat, Tent, Hammock, Lantern, Table. The Hammock's posts stand at
+x = +-HAMMOCK_SPAN / 2.
 """
 import argparse
 import math
@@ -68,7 +70,7 @@ def bamboo(a, b, r, m, node_m, nodes=None):
 
 
 def painted_bamboo(a, h, r, m, node_m, step=0.38, band=0.035, sides=8):
-    """A plain octagonal pole (Adriaen 2026-11-11: no modelled rings): one flat-shaded eight-sided tube
+    """A plain many-sided pole (Adriaen 2026-11-11: no modelled rings): one flat-shaded tube of `sides` sides (eight unless asked)
     with a ring of vertices at each node, the thin node bands taking the node colour, so the nodes are
     only painted on; a top cap, no hidden faces. Standing at a, height h. About 16 triangles a metre."""
     zs, kinds, z = [0.0], [], 0.0
@@ -380,7 +382,7 @@ def wall_tent():
     doorway with the flap rolled up above it, loose planks before the door. Inside: a lining (so the inside gets its
     own bake), a plank floor, a bed along the left wall and a wood stove on the right under the stovepipe.
     Built at its final size with the door toward -Y; every canvas sheet is a small grid so the AO bake has vertices to
-    vary at (the object is "coarse": no densify). camp.html mirrors W, D, Y0, the door and the furniture for walking."""
+    vary at (the object is "coarse": no densify). camp/layout.js TENT repeats its sizes for the page (the walls, the doorway, the stove, the chimney and the bed)."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),
@@ -605,12 +607,12 @@ def jungle_tent(M):
 
 
 def jungle_hammock(M, plain_posts=False):
-    """The woven hammock on bamboo posts. plain_posts: the picked one, on octagon posts with painted nodes, a coarse sling
+    """The woven hammock on bamboo posts. plain_posts: the picked one, on six-sided posts with painted nodes, a coarse sling
     and no leaves on top."""
     h = HAMMOCK_SPAN / 2
     p = []
     for s in (-1, 1):
-        if plain_posts:                                  # the picked set (Adriaen 2026-11-11): octagon posts, nodes painted on
+        if plain_posts:                                  # the picked set (Adriaen 2026-11-11): six-sided posts, nodes painted on
             p += painted_bamboo((s * h, 0, 0), 2.4, 0.055, M["bamboo"], M["node"], step=0.6, sides=6)   # trimmed (camp review 2026-11-12)
         else:
             p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
@@ -655,7 +657,7 @@ def jungle():
 # ------------------------------------------------------------------ the picked set, bake and export
 def picked():
     """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent like his photos with loose
-    planks before the door; the jungle woven hammock, on plain octagon posts with painted nodes and no leaves on top.
+    planks before the door; the jungle woven hammock, on plain six-sided posts with painted nodes and no leaves on top.
     The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
     made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent)."""
     R, J = rustic_mats(), jungle_mats()
@@ -665,8 +667,10 @@ def picked():
     return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Lantern": lantern, "Table": table}
 
 
-# triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): after the AO bake, a collapse
-# decimate keeps the baked vertex colours and the silhouette; the densify only gave the bake room to vary
+# triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): a collapse decimate brings each prop
+# down to its budget. bake_camp_lightmap.py does it before the light bake (with no densify); build() does it after the AO
+# bake of an archived style, keeping the baked vertex colours and the silhouette (there the densify only gave the bake room
+# to vary)
 BUDGET = {"picked": {"Table": 1400, "Seat": 500, "Lantern": 200}}
 
 
