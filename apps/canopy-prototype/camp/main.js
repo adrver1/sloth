@@ -21,20 +21,29 @@ import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
 import { acts, atmo, groundLife, shadowStep } from "./campLife.js";
 import { opApi, opStep } from "./operator.js";
-import { aimStep, resize } from "./input.js";
-import { weather } from "./weather.js";
-import { lingerStep } from "./linger.js";
+import { aimStep, initInput, resize } from "./input.js";
+import { buildWeather, weather } from "./weather.js";
+import { buildLinger, lingerStep } from "./linger.js";
 import { dayStep, wireTimeMenu } from "./daytime.js";
-import { clockStep } from "./clock.js";
+import { buildClocks, clockStep } from "./clock.js";
 import { audioStep, hearCamp } from "./audio.js";
-import { radioStep } from "./radio.js";
-import { jeepSeatStep } from "./jeepSeat.js";
-import { carStep } from "./car.js";
+import { buildRadio, radioStep } from "./radio.js";
+import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
+import { buildCar, carStep } from "./car.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
 import { ready, stats } from "./debug.js";   // the tools' window.__ names; it builds nothing, so daylight.js is still the last to build
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
+// the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
+// tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
+initInput();        // input.js
+buildWeather();     // weather.js: the ⚙️ Weather button and the rain streaks
+buildLinger();      // linger.js: the log seats light up
 wireTimeMenu();     // the ⚙️ menu's time slider and Day cycle button (daytime.js)
+buildClocks();      // clock.js: the tent's alarm clock and the dial on the hammock post
+buildRadio();       // radio.js: the radio on the snack table
+buildJeepSeats();   // jeepSeat.js: the jeep's doors and seats
+buildCar();         // car.js: the key, the dash radio and the dash clock
 createDaylight();   // the mist banks and the moon's place: last, after every module above has built its part (daylight.js)
 hearCamp(acts, opApi);   // audio.js hears the pot and the operator (it is evaluated before either exists)
 

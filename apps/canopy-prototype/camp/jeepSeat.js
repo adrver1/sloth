@@ -11,7 +11,7 @@
 // The seats join the jeep's API (jeep.js jeepApi): sit(side) / stand() / seatedIn()
 // ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks. The jeep's doors, boot
 // and hood are tap targets (targets.js), added here: open or close, and Get in / Get out on the front doors.
-// Exports jeepSeatStep (main.js, each frame).
+// Exports buildJeepSeats() (main.js, once) and jeepSeatStep (main.js, each frame).
 // The claims go through the sloths' camp life (sloth/hooks.js campLife); core.js pace is the checks' speed-up.
 import * as THREE from "three";
 import { camera, pace, uTime } from "./core.js";
@@ -24,9 +24,10 @@ import { campLife } from "./sloth/hooks.js";
 import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
 
-const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
 let jeepSeatStep = () => {};
-if (jeep) {
+function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
+  const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
+  if (!jeep) return;
   const S0 = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
   const EYE_UP = 0.55, STAND = 1.55, WALK = 1.7;   // STAND and WALK are player.js EYE and SPEED: keep in step
   const SIDES = { driver: { k: "P", x: 1 }, passenger: { k: "D", x: -1 } };
@@ -138,4 +139,4 @@ if (jeep) {
       options: () => [...doorOptions(d), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };
   }]));
 }
-export { jeepSeatStep };
+export { buildJeepSeats, jeepSeatStep };

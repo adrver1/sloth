@@ -9,21 +9,21 @@
 // 26 triangles. The jeep's own nodes (build_jeep.py): SeatP is the driver's cushion top, WheelHub the steering wheel's middle;
 // the dash's face toward the driver is at local z 0.14, from y 0.93 to 1.13. Left to right as you sit: the wheel (x 0.36),
 // the key, the clock up top in the middle, the radio in front of the passenger seat.
-// Exports carStep (main.js, each frame) and carApi (inCar, engine; null with ?jeep=none). Also adds engine() to the
+// Exports buildCar() (main.js, once), carStep (main.js, each frame) and carApi (inCar, engine; null with ?jeep=none). Also adds engine() to the
 // jeep's API (jeep.js jeepApi) for audio.js, which car.js imports and so cannot import back.
 import * as THREE from "three";
 import { V, canvasTex, trisIn } from "./util.js";
 import { jeepApi } from "./jeep.js";
-import "./input.js";   // order only: built after input.js, as before, so the scene keeps its order
 import { addTarget } from "./targets.js";
 import { toast } from "./hud.js";
 import { audio } from "./audio.js";
 import { radioOptions, radioPlaying, radioSource } from "./radio.js";
 import { addClock, faceTex, hand } from "./clock.js";
 
-const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
 let carStep = () => {}, carApi = null;
-if (jeep) {
+function buildCar() {   // main.js, once the jeep, its seats, the radio and the clocks are in
+  const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
+  if (!jeep) return;
   const mat = (o) => new THREE.MeshLambertMaterial(o);   // textured and glowing faces (util.js lam is for plain colours)
   const DASH_Z = 0.137;
   const seatL = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
@@ -103,4 +103,4 @@ if (jeep) {
   J.engine = () => engine;
   carApi = { inCar, engine: J.engine };
 }
-export { carApi, carStep };
+export { buildCar, carApi, carStep };

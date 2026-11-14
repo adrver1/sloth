@@ -7,12 +7,11 @@
 //     out of place in the middle of the camp; picked the post over a board above the tent door and no dial)
 //   the jeep's dash clock lives in car.js and registers here with addClock.
 // Faces, numbers, rims and grain are painted on canvas textures; nothing modelled that paint can do. The tent and the hammock
-// post they stand by come from layout.js (TENT, HAMMOCK).
+// post they stand by come from layout.js (TENT, HAMMOCK). buildClocks() (main.js, once) makes the tent's and the post's.
 import * as THREE from "three";
 import { camera, scene } from "./core.js";
 import { V, canvasTex, lam, trisIn } from "./util.js";
 import { HAMMOCK, TENT } from "./layout.js";
-import "./input.js";   // order only: built after input.js, as before, so the scene keeps its order
 import { addTarget } from "./targets.js";
 import { toast } from "./hud.js";
 import { day } from "./daytime.js";
@@ -87,34 +86,37 @@ function makeAlarm() {
   const hh = hand(0.01, 0.045, 0x4a3426), mh = hand(0.007, 0.062, 0x4a3426); hh.position.z = Dp / 2 + 0.003; mh.position.z = Dp / 2 + 0.005; o.add(hh, mh);
   return { o, hands: [hh, mh], lume, R };
 }
-{
-  const at = TENT.fromLocal;   // the tent's own (Blender) frame (layout.js): x across, y toward the back
-  const crateTex = canvasTex(128, 128, (c, w) => { c.fillStyle = "#a8743f"; c.fillRect(0, 0, w, w); c.fillStyle = "#8a5c30";
-    for (let y = 0; y < w; y += 32) c.fillRect(0, y + 29, w, 3); c.fillStyle = "#5e3f22"; c.fillRect(0, 0, w, 4); c.fillRect(0, w - 4, w, 4); c.fillRect(0, 0, 4, w); c.fillRect(w - 4, 0, 4, w); });
-  const S = 0.3, cg = new THREE.BoxGeometry(S, S, S); cg.groups.splice(3, 1); cg.groups.forEach((g, i) => (g.materialIndex = 0));   // no bottom
-  const crate = new THREE.Mesh(cg, new THREE.MeshLambertMaterial({ map: crateTex })), spot = at(-0.32, 1.22); crate.position.copy(spot).setY(S / 2 + 0.06);
-  crate.rotation.y = TENT.yaw + Math.PI;   // square to the tent
-  scene.add(crate);
-  const A = makeAlarm(); A.o.position.copy(spot).setY(S + 0.06 + A.R - 0.004);
-  // face the middle of the tent (toward the doorway and the bed's foot), a little toward the pillow
-  const mid = at(-0.2, 0.2); A.o.rotation.y = Math.atan2(mid.x - spot.x, mid.z - spot.z) - 0.35; A.o.rotation.x = -0.08;
-  A.o.name = "TentClock"; scene.add(A.o);
-  console.log(`LOG tent crate: ${trisIn(crate)} tris`);
-  addClock({ obj: A.o, hands: A.hands, lume: A.lume, reach: 2.6, name: "tent" });
-}
+// the two clocks in the camp (the jeep's is car.js's)
+function buildClocks() {
+  {
+    const at = TENT.fromLocal;   // the tent's own (Blender) frame (layout.js): x across, y toward the back
+    const crateTex = canvasTex(128, 128, (c, w) => { c.fillStyle = "#a8743f"; c.fillRect(0, 0, w, w); c.fillStyle = "#8a5c30";
+      for (let y = 0; y < w; y += 32) c.fillRect(0, y + 29, w, 3); c.fillStyle = "#5e3f22"; c.fillRect(0, 0, w, 4); c.fillRect(0, w - 4, w, 4); c.fillRect(0, 0, 4, w); c.fillRect(w - 4, 0, 4, w); });
+    const S = 0.3, cg = new THREE.BoxGeometry(S, S, S); cg.groups.splice(3, 1); cg.groups.forEach((g, i) => (g.materialIndex = 0));   // no bottom
+    const crate = new THREE.Mesh(cg, new THREE.MeshLambertMaterial({ map: crateTex })), spot = at(-0.32, 1.22); crate.position.copy(spot).setY(S / 2 + 0.06);
+    crate.rotation.y = TENT.yaw + Math.PI;   // square to the tent
+    scene.add(crate);
+    const A = makeAlarm(); A.o.position.copy(spot).setY(S + 0.06 + A.R - 0.004);
+    // face the middle of the tent (toward the doorway and the bed's foot), a little toward the pillow
+    const mid = at(-0.2, 0.2); A.o.rotation.y = Math.atan2(mid.x - spot.x, mid.z - spot.z) - 0.35; A.o.rotation.x = -0.08;
+    A.o.name = "TentClock"; scene.add(A.o);
+    console.log(`LOG tent crate: ${trisIn(crate)} tris`);
+    addClock({ obj: A.o, hands: A.hands, lume: A.lume, reach: 2.6, name: "tent" });
+  }
 
-// ---------------------------------------------------------------- the sun-and-moon dial on the hammock post (Adriaen picked 2026-11-13)
-{
-  // small and weathered, nailed to the hammock's near post at eye height, facing the fire: disc front and back (24), a little
-  // pointer (1, both sides): 25 triangles
-  const R = 0.17, o = new THREE.Group(), tex = dialTex({ faded: true }), face = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0 });
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(R, 12), face); o.add(disc, new THREE.Mesh(new THREE.CircleGeometry(R, 12).rotateY(Math.PI).translate(0, 0, -0.004), lam(0x6b5442)));
-  const ptr = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([V(-0.035, 0.05, 0), V(0.035, 0.05, 0), V(0, -0.012, 0)]), lam(0x8a3a30, { side: THREE.DoubleSide }));
-  ptr.position.set(0, R + 0.005, 0.008); o.add(ptr);
-  const hA = HAMMOCK.a, toFire = hA.clone().setY(0).negate().normalize();   // the near post (layout.js)
-  o.position.copy(hA).addScaledVector(toFire, 0.075).setY(1.55); o.rotation.y = Math.atan2(toFire.x, toFire.z);
-  o.name = "Dial"; scene.add(o);
-  addClock({ obj: o, disc, lume: face, glow: 0.3, name: "dial post" });
+  // ---------------------------------------------------------------- the sun-and-moon dial on the hammock post (Adriaen picked 2026-11-13)
+  {
+    // small and weathered, nailed to the hammock's near post at eye height, facing the fire: disc front and back (24), a little
+    // pointer (1, both sides): 25 triangles
+    const R = 0.17, o = new THREE.Group(), tex = dialTex({ faded: true }), face = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0 });
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(R, 12), face); o.add(disc, new THREE.Mesh(new THREE.CircleGeometry(R, 12).rotateY(Math.PI).translate(0, 0, -0.004), lam(0x6b5442)));
+    const ptr = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([V(-0.035, 0.05, 0), V(0.035, 0.05, 0), V(0, -0.012, 0)]), lam(0x8a3a30, { side: THREE.DoubleSide }));
+    ptr.position.set(0, R + 0.005, 0.008); o.add(ptr);
+    const hA = HAMMOCK.a, toFire = hA.clone().setY(0).negate().normalize();   // the near post (layout.js)
+    o.position.copy(hA).addScaledVector(toFire, 0.075).setY(1.55); o.rotation.y = Math.atan2(toFire.x, toFire.z);
+    o.name = "Dial"; scene.add(o);
+    addClock({ obj: o, disc, lume: face, glow: 0.3, name: "dial post" });
+  }
 }
 
 // hands from the hour the light shows: they spin forward while the sky eases to the new hour
@@ -127,4 +129,4 @@ function step(dt, dusk) {
     if (c.shake > 0) { c.shake = Math.max(0, c.shake - dt); c.obj.rotation.z = c.base + Math.sin(c.shake * 60) * 0.06 * c.shake; }   // a little rattle when you set it
   }
 }
-export { addClock, clocks, step as clockStep };   // clocks: every clock (the scenarios read them)
+export { addClock, buildClocks, clocks, step as clockStep };   // clocks: every clock (the scenarios read them)

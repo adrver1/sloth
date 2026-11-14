@@ -1,7 +1,7 @@
 // Canopy Camp weather (camp review B7): warm rain. A box of falling streaks round the camera (one draw of line segments),
 // kept off the tent and its planks so you can shelter there, and the light it brings: grey-green fog, a dimmer sun, no
 // shafts. Weather is set in the ⚙️ menu: Clear, Rain, or Changing (a shower every few minutes). ?weather=rain sets it.
-// main.js steps it each frame and hands weather.wet (0 dry .. 1 pouring) to daylight.js for the light; audio.js makes the rain's sound.
+// buildWeather() (main.js, once) wires the ⚙️ button and makes the streaks; main.js steps it each frame and hands weather.wet (0 dry .. 1 pouring) to daylight.js for the light; audio.js makes the rain's sound.
 import * as THREE from "three";
 import { $, D, KEYS, OPT, camera, scene, store } from "./core.js";
 import { rand } from "./util.js";
@@ -10,17 +10,20 @@ import { TENT } from "./layout.js";
 const MODES = ["clear", "rain", "changing"], NAME = { clear: "Clear ☀️", rain: "Rain 🌧️", changing: "Changing 🌦️" };
 let mode = MODES.includes(OPT.weather) ? OPT.weather : MODES.includes(store.get(KEYS.weather)) ? store.get(KEYS.weather) : "clear";
 const show = () => { $("weather").textContent = "Weather: " + NAME[mode]; };
-$("weather").onclick = () => { mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set(KEYS.weather, mode); show(); };
-show();
 
 // the drops: N streaks in a 18 x 12 x 18 m box that follows the camera; each falls at its own speed, a little slanted
 const N = D.fx ? (D.fx > 1 ? 1400 : 900) : 450, BOX = 9, TOP = 11, LEN = 0.38;
 const pos = new Float32Array(N * 6), drop = new Float32Array(N * 4);   // x, y, z, speed
 function reset(i, anyY) { drop.set([camera.position.x + rand(-BOX, BOX), anyY ? rand(-1, TOP) : TOP + rand(0, 2), camera.position.z + rand(-BOX, BOX), rand(8, 11)], i * 4); }
-for (let i = 0; i < N; i++) reset(i, true);
-const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-const mat = new THREE.LineBasicMaterial({ color: 0xc8d6e0, transparent: true, opacity: 0, depthWrite: false });
-const rain = new THREE.LineSegments(geo, mat); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
+let geo, mat, rain;
+function buildWeather() {
+  $("weather").onclick = () => { mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set(KEYS.weather, mode); show(); };
+  show();
+  for (let i = 0; i < N; i++) reset(i, true);
+  geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  mat = new THREE.LineBasicMaterial({ color: 0xc8d6e0, transparent: true, opacity: 0, depthWrite: false });
+  rain = new THREE.LineSegments(geo, mat); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
+}
 
 // dry under the tent: its roof and planks (layout.js TENT.dry, in the tent's own frame), below 3.4 m
 const dry = (x, z, y) => y <= 3.4 && TENT.dry(x, z);
@@ -45,4 +48,4 @@ weather.step = (dt) => {
   geo.attributes.position.needsUpdate = true;
 };
 const setWeather = (m) => { mode = m; raining = m === "rain"; weather.wet = raining ? 1 : 0; show(); };   // at once (the tools: debug.js __weather)
-export { setWeather, weather };
+export { buildWeather, setWeather, weather };
