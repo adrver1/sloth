@@ -31,7 +31,25 @@ export const sloPath = (() => {
   const curve = new THREE.CatmullRomCurve3([P(PATH_A, RC - 2), P(PATH_A, RC + 0.5), P(PATH_A - 0.1, RC + 2.5), P(PATH_A + 0.06, RC + 4.3), GLADE.clone().setLength(RC + 5.2), GLADE.clone().setLength(RC + 6.5)]);
   return { curve, pts: curve.getSpacedPoints(48) };
 })();
-export const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
+// the karaoke trip (Adriaen 2026-11-12/14, on its own branch until it merges): the path goes on round the glade tree, on the side
+// away from the bench, and leaves the glade as a road straight away from the camp, like the jeep's, until it is lost in a thicket
+// near where the ground ends (FAR). An arrow sign at its start points down it; trip.js asks "Go to karaoke?" there, or when you have
+// walked far enough down it, and plays the wagon cut scene along `curve` (the straight stretch). `trail` is the whole walkable road.
+const GU = GLADE.clone().normalize(), GW = V(-GU.z, 0, GU.x), atGlade = (a, b) => GLADE.clone().addScaledVector(GU, a).addScaledVector(GW, b);
+export const tripPath = (() => {
+  const dir = (b) => GU.clone().multiplyScalar(Math.cos(b)).addScaledVector(GW, Math.sin(b)), D = dir(1.0), S0 = atGlade(1.0, 2.5), at = (s) => S0.clone().addScaledVector(D, s);
+  const curve = new THREE.CatmullRomCurve3([at(0), at(3), at(6), at(9)]);
+  const trail = new THREE.CatmullRomCurve3([at(0), at(3), at(6), at(9), at(10.4).addScaledVector(dir(1.0 + Math.PI / 2), 0.25), at(9).addScaledVector(dir(1.3), 3.0)]);   // a slight bend at the end, into the trees
+  return { curve, pts: curve.getSpacedPoints(40), trail, trailPts: trail.getSpacedPoints(60) };
+})();
+// the glade path (from the camp, glade.js's thread), round the glade tree and down the trip's road: drawn as ONE strip (forest.js),
+// so there are no seams at the joins (Adriaen 2026-11-13). It starts just past the log seats round the fire, as the glade path does.
+export const route = (() => {
+  const curve = new THREE.CatmullRomCurve3([V(Math.cos(PATH_A) * 3.0, 0, Math.sin(PATH_A) * 3.0), V(Math.cos(PATH_A) * 5.0, 0, Math.sin(PATH_A) * 5.0), ...sloPath.curve.points.slice(0, 5), atGlade(-2.6, 1.25), atGlade(-0.6, 2.25), ...tripPath.trail.points].map((q) => q.clone().setY(0)));
+  const pts = curve.getSpacedPoints(160), near = (c) => pts.reduce((b, q, i) => (q.distanceTo(c) < pts[b].distanceTo(c) ? i : b), 0) / 160;
+  return { curve, pts, wide: [near(atGlade(-2.0, 1.7)), near(tripPath.curve.points[0])] };   // where (0..1) it widens from the glade path to the road's width
+})();
+export const pathLane = (x, z) => Math.min(polyDist(sloPath.pts, x, z)[0], polyDist(route.pts, x, z)[0]);   // the paths themselves
 export const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 // the two big mossy trees: one at the clearing's edge behind the fire, one in the glade
 // the glade's tree stands 0.4 m off the glade's middle, away from where the karaoke route passes it (Adriaen 2026-11-14: clear of the path)

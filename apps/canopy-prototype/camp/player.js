@@ -6,7 +6,7 @@ import { camera } from "./core.js";
 import { keys, stickV } from "./hud.js";
 import { track } from "./forest.js";
 import { V, polyDist } from "./util.js";
-import { GLADE, GLADE_R, PATH_W, RC, d0, sloPath, t0 } from "./layout.js";
+import { GLADE, GLADE_R, PATH_W, RC, d0, sloPath, t0, tripPath } from "./layout.js";
 import { blockers } from "./campProps.js";
 import { groundHeight } from "./terrain.js";
 
@@ -36,7 +36,9 @@ function collide(p) {
   if (r > lim) {
     const [q, d] = walkPts.length > 1 ? onTrack(p) : [null, 1e9];
     const [pd, px, pz] = polyDist(sloPath.pts, p.x, p.z), dg = Math.hypot(p.x - GLADE.x, p.z - GLADE.z), GR = GLADE_R - 0.4;
+    const tp = polyDist(tripPath.trailPts, p.x, p.z);   // the karaoke trip's trail, walkable to its end
     if (dg < GR) {}                                                                          // in the sloth tree's glade
+    else if (tp[0] < 1.3) { if (tp[0] > 0.9) { const c = V(tp[1], 0, tp[2]); p.sub(c).multiplyScalar(0.9 / tp[0]).add(c); } }   // on the karaoke trail: keep to it
     else if (pd < PATH_W + 0.4) { if (pd > PATH_W) { const c = V(px, 0, pz); p.sub(c).multiplyScalar(PATH_W / pd).add(c); } }   // on the path: keep to it
     else if (d < WALK_W + 0.4) { if (d > WALK_W) p.sub(q).multiplyScalar(WALK_W / d).add(q); }   // on the track: keep to it
     else if (dg < GR + 0.8) p.sub(GLADE).multiplyScalar(GR / dg).add(GLADE);
