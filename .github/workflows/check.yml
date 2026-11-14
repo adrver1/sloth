@@ -3,7 +3,8 @@
 #   tools/check-imports.cjs   every camp module parses, every named import matches an export, every models/ path written as a
 #                             plain string exists, and no KTX2 light map is older than its PNG
 #   tools/check-python.py     every Python file in props/, characters/ and stickers/renderer/ compiles
-#   tools/sync-shared.cjs --check   the fur.js copies match shared/fur.js
+#   tools/sync-shared.cjs --check   the fur.js copies match shared/fur.js, and the other pages' sloth.txt and ponytail.txt
+#                             copies match each other (so any app folder's change runs the check, not only the camp's)
 # The headless page check (npm run probe, tools/camp-probe.cjs --strict) is not run here yet: it needs a browser and takes
 # about half a minute under SwiftShader. Run it by hand before a merge.
 name: Check
@@ -11,7 +12,7 @@ name: Check
 on:
   pull_request:
     paths:
-      - apps/canopy-prototype/**
+      - apps/**
       - shared/**
       - props/**
       - characters/**

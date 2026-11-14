@@ -87,11 +87,12 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - When you change what a file does or exports, update its header in the same commit. Write plain, full sentences. Do not leave comments about code that is gone; git history keeps it.
 - Read `head -30` of a file before reading it whole. Examples: `camp/util.js`, `camp/targets.js`, `camp/debug.js`, `props/lib/__init__.py`.
 
-## 11. `fur.js` is edited only in `shared/`
+## 11. `fur.js` is edited only in `shared/`, and shared models stay equal
 
 - Rule: edit `shared/fur.js`, then run `npm run sync-shared` (`tools/sync-shared.cjs`) to rewrite the copies in each app folder. `npm run check-shared` exits 1 if a copy differs.
 - Why: there were six copies in three variants (props-11, hygiene-14). Each app folder is published on its own, so it needs its own copy.
 - The copies start with a `GENERATED from shared/fur.js` line. Never edit them.
+- The other pages' `models/sloth.txt` (five folders) and `models/ponytail.txt` (two) are in `sync-shared.cjs` `SAME`: the first folder listed holds the source; repack it, then run `npm run sync-shared`. Canopy Camp's own `sloth.txt` is a newer pack on purpose and is not in the group (R2-223).
 
 ## 12. Generators (`props/`, `characters/sloth_baby/`)
 
