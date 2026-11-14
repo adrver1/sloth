@@ -16,7 +16,7 @@ const lanternGlow = [];   // where each lantern's light is (lanterns.js): the gr
 // near post up to the big tree behind the fire
 const LANTERN_LAYOUT = lanternLayout(LANTERN_TIES);
 // CAMP: the camp layout in the names operator.js, audio.js and radio.js know, built from layout.js's own vectors (the same objects, no
-// copies). sloth/hooks.js adds .sloths to it. (It also carried the lantern strings' points, which nothing read: review props-08.)
+// copies). (It also carried the lantern strings' points, which nothing read: review props-08.)
 const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
 window.__camp = CAMP;   // alias: operator.js, audio.js and radio.js read it; props/shadow/export_casters.cjs exports tent and hammock
 // blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking

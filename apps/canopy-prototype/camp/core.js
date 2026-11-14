@@ -36,11 +36,11 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 // left alone while PRs #14, #20 and #21 changed them; the PRs are merged, so they can be switched to imports. The sloths' modules
 // (sloths.js, sloth/, lab.js) read none of them any more: they import. The first four are aliases of the exported object named
 // here; __campLife is made of exports (places.js, sloth/); __car and __op have no export yet.
-//   __camp       campProps.js CAMP        operator.js, audio.js, radio.js (and export_casters.cjs, below); sloth/hooks.js adds .sloths
+//   __camp       campProps.js CAMP        operator.js, audio.js, radio.js (and export_casters.cjs, below)
 //   __jeep       jeep.js jeepApi          input.js, car.js, audio.js, jeepSeat.js (and export_casters.cjs)
 //   __laundry    layout.js LAUNDRY        export_casters.cjs only (set by campProps.js only when the line is shown)
 //   __acts       campLife.js acts         operator.js, audio.js
-//   __campLife   sloth/hooks.js: places.js claim, release, holder, host, join, addMover, movers; path (sloth/walk.js findPath);
+//   __campLife   sloth/hooks.js: places.js claim, release, holder, host, addMover, movers; path (sloth/walk.js findPath);
 //                lend, giveBack (sloth/lend.js); sloths (the named ones); eatGift (sloth/gifts.js)     input.js, operator.js, jeepSeat.js
 //   __car        car.js (inCar, engine)   jeepSeat.js adds doorOptions to it, which input.js reads; audio.js reads the engine
 //   __op         operator.js              audio.js (his sounds); a debug hook as well
