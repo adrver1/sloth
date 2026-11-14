@@ -6,7 +6,7 @@
 //   exitStep(s, T, sd, spot)     the exit phase (the jeep): waits for the door, onto the sill, down to the ground
 // Climbing (Adriaen 2026-11-12: "climb down the tree rather than a vine"): a branch sloth turns round on its branch, goes
 // hand over hand along it to the trunk, turns onto the trunk and climbs down it tail first, facing the bark, then steps
-// off onto the ground (wayIn.js climbUp is the same the other way). Trunk radius from barkProfile; speed is hang_walk's.
+// off onto the ground (wayIn.js climbUp is the same the other way). Trunk radius from poses.js barkOf; speed is hang_walk's.
 import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { scene } from "../core.js";
@@ -15,14 +15,14 @@ import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { CRAWL, HW, HW_POST, WALK_TS, setTrip } from "./state.js";
 import { play } from "./clips.js";
-import { ROPE_L, barkProfile, climbYaw, linePose, postPose, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
+import { ROPE_L, barkOf, climbYaw, linePose, postPose, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
 import { climbV, glide, postV, slide, toGround } from "./moves.js";
 import { brush } from "./spots.js";
 
 const tmp = V();
 function climbDown(s, then) {
   const { curve: c, t, t0, tree, out } = s.spot, L = c.getLength();
-  const yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkProfile(tree, out, yTop), back = (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u).negate());
+  const yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkOf(s.spot), back = (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u).negate());
   play(s, "hang_walk", 1.2, HW);
   glide(s, back(t), 2.5, () => slide(s, t, t0, climbV(s) / L, back, () => {
     play(s, "hang_walk", 1.5, -HW);

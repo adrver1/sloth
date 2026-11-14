@@ -1,7 +1,8 @@
 // Canopy Camp forest: bark with baked AO and moss, the clearing floor with the path and track ribbons (the layout itself is layout.js),
 // the two big mossy trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants.
-// Exports buildForest() (main.js, once), FLOOR_OVERLAYS, branchCurves (the big trees' low branches), grassTex (the clearing's
-// grass tile, for ground.js), track and trackDist, and leafGeo, leafM, leafScale
+// Exports buildForest() (main.js, once), FLOOR_OVERLAYS, branchCurves (the big trees' low branches), heroWood (the big
+// trees' wood, one mesh) and trunkR(y) (their trunk's widest radius at height y; both for the sloths' climbs, review R2-082),
+// grassTex (the clearing's grass tile, for ground.js), track and trackDist, and leafGeo, leafM, leafScale
 // and perClump (the leaf card, its material, its size range and how many go in a clump) for glade.js's bushes.
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
@@ -50,6 +51,11 @@ function trackDist(x, z) { return Math.min(jeepDist(x, z), pathDist(x, z)); }   
 
 const FLOOR_OVERLAYS = [];   // the path and track ribbons drawn on the floor: they take the ground's contact shadow (groundLife.shadeOn)
 const branchCurves = [], TOP = 15;   // the big trees' low branches (the sloths hang from them), and their height
+// a big tree's trunk: a cylinder 1.05 across at the foot to 0.6 at the top, with a wobble of up to about 10% and a root flare
+// (heroTrees). trunkR(y) is its radius at height y at its widest, which the sloths' climbs start from (sloth/poses.js).
+const TRUNK_FOOT = 1.05, TRUNK_TOP = 0.6;
+const trunkR = (y) => (TRUNK_FOOT + (TRUNK_TOP - TRUNK_FOOT) * y / TOP) * (1.1 + 0.7 * Math.exp(-1.5 * y));
+let heroWood = null;   // the big trees' bark, branches and lianas: one mesh (heroTrees), which the sloths' climbs measure
 let grassTex, leafGeo, leafM, perClump, leafScale;   // set by buildForest
 // buildForest (main.js, once, right after the sky) runs the steps below in this order. Every step but the crowns and the
 // verge draws from the forest stream, so the order is what keeps the forest as it was baked: do not move a step.
@@ -157,7 +163,7 @@ function trackRoad() {
 function heroTrees() {
   // ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
   for (const [k, c] of HERO.entries()) {
-    const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, 14, 16, true); g.translate(0, TOP / 2, 0);
+    const g = new THREE.CylinderGeometry(TRUNK_TOP, TRUNK_FOOT, TOP, 14, 16, true); g.translate(0, TOP / 2, 0);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
@@ -196,7 +202,7 @@ function heroTrees() {
     }
     return g;
   }
-  scene.add(new THREE.Mesh(merge(woodGeos), barkMat));
+  heroWood = new THREE.Mesh(merge(woodGeos), barkMat); scene.add(heroWood);
 }
 
 function forestWall() {
@@ -383,4 +389,4 @@ function ferns() {
   }
 }
 
-export { buildForest, FLOOR_OVERLAYS, branchCurves, grassTex, leafGeo, leafM, leafScale, perClump, track, trackDist };
+export { buildForest, FLOOR_OVERLAYS, branchCurves, grassTex, heroWood, leafGeo, leafM, leafScale, perClump, track, trackDist, trunkR };

@@ -1,6 +1,6 @@
 // Canopy Camp sloths, poses: where a sloth is and which way it is turned on a branch, a trunk, a post, the hammock's rope or
 // the laundry line, as { p: position, q: quaternion }, and the small yaw helpers. Pure: no scene objects are made or moved
-// (barkProfile only casts rays at the trees), and no random numbers are drawn.
+// (barkOf only casts rays at the big trees' wood), and no random numbers are drawn.
 //   UP                                the world's up
 //   yawQ(yaw)                         a quaternion turned by yaw about UP
 //   yawOf(object)                     the yaw an object faces in the world (a sloth faces its own -Z)
@@ -9,15 +9,15 @@
 //   underAt(s, at, head)              hanging back-down under a branch or pole at `at`, its head toward `head`
 //   trunkAt(s, tree, out, y, R)       upright on a trunk at height y, facing the bark on the side `out`; R(y) is the bark's radius
 //   treeOf(curve)                     the big tree a branch grows from (its foot, on the ground)
-//   trunkR0(y), barkProfile(tree, out, yTop), branchBase(curve, tree)   the trunk's radius by formula, as measured on one
-//                                     side, and the first point along a branch that is clear of the bark
+//   barkOf(spot), branchBase(curve, tree)   a branch spot's trunk radius as measured on its side (a function of y, kept
+//                                     on the spot as spot.bark), and the first point along a branch that is clear of the bark
 //   HAMMOCK_IN, climbYaw              from the hammock toward the fire, and the yaw of a sloth climbing its post
 //   ROPE_L, ropePose(s, u)            the hammock's rope from the post's knot to the sling: its length, and hanging under it
 //                                     u metres down from the knot (in the swing's frame, swing.js)
 //   linePose(s, t)                    hanging under the laundry line at fraction t from its end a: { at, p, q }
 //   postPose(spot, y)                 upright on the spot's post (the hammock's or the line's) at height y
 import * as THREE from "three";
-import { scene } from "../core.js";
+import { heroWood, trunkR } from "../forest.js";
 import { V, wrapPi, yawTo } from "../util.js";
 import { HAMMOCK, HERO, LAUNDRY } from "../layout.js";
 
@@ -37,25 +37,26 @@ function underAt(s, at, head) {
 const trunkAt = (s, tree, out, y, R) => ({ p: tree.clone().addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y), q: yawQ(Math.atan2(out.x, out.z)) });
 const treeOf = (c) => HERO.reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
 // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths.
-// Their sloths climb down the trunk and back up it (climbDown, climbUp below). Trunk radius after forest.js (1.05 at the
-// foot to 0.6 at 15 m, with the root flare).
-const trunkR0 = (y) => (1.05 - 0.03 * y) * (1.1 + 0.7 * Math.exp(-1.5 * y));
-// the bark's real distance from the tree's centre on one side, measured once per climb by casting rays at the tree's wood
-// every 20 cm up (the trunk wobbles and flares, so a formula leaves the sloth floating in front of it)
+// Their sloths climb down the trunk and back up it (wayOut.js climbDown, wayIn.js climbUp). The trunk's radius by formula is
+// forest.js trunkR.
+// the bark's real distance from the tree's centre on one side, measured by casting rays at the big trees' wood (forest.js
+// heroWood) every 20 cm up to yTop + 0.4 (the trunk wobbles and flares, so a formula leaves the sloth floating in front of
+// it). The climbs measure it once per spot (spot.bark) and keep it, since a branch spot's height never changes (review R2-082).
 const ray = new THREE.Raycaster();
-let woodMesh = null;
 function barkProfile(tree, out, yTop) {
-  woodMesh ??= scene.children.filter((m) => m.isMesh && !m.isInstancedMesh && !m.isSkinnedMesh && !m.material.transparent && m.geometry.attributes.position.count > 2000);   // trunks, branches and other big solid meshes
   const ys = [], rs = [];
   for (let y = 0; y <= yTop + 0.4; y += 0.2) {   // (the first ray at 0.1 up, clear of the floor)
-    let r = trunkR0(y);
-    if (woodMesh) { ray.set(tree.clone().addScaledVector(out, 5).setY(Math.max(0.1, y)), out.clone().negate()); ray.far = 5; const h = ray.intersectObjects(woodMesh, false)[0]; if (h) r = 5 - h.distance; }
+    let r = trunkR(y);
+    if (heroWood) { ray.set(tree.clone().addScaledVector(out, 5).setY(Math.max(0.1, y)), out.clone().negate()); ray.far = 5; const h = ray.intersectObject(heroWood, false)[0]; if (h) r = 5 - h.distance; }
     ys.push(y); rs.push(r);
   }
   return (y) => { const k = Math.max(0, Math.min(ys.length - 1.001, y / 0.2)), i = Math.floor(k); return rs[i] + (rs[i + 1] - rs[i]) * (k - i); };
 }
+// a branch spot's bark profile, measured the first time one of its climbs needs it, up to the branch's base (the highest
+// any sloth climbs the trunk there) and kept on the spot
+const barkOf = (spot) => (spot.bark ??= barkProfile(spot.tree, spot.out, spot.curve.getPointAt(spot.t0).y));
 function branchBase(c, tree) {                      // the first point along the branch clear of the bark
-  for (let t = 0; t <= 1; t += 0.02) { const p = c.getPointAt(t); if (Math.hypot(p.x - tree.x, p.z - tree.z) > trunkR0(p.y) + 0.25) return t; }
+  for (let t = 0; t <= 1; t += 0.02) { const p = c.getPointAt(t); if (Math.hypot(p.x - tree.x, p.z - tree.z) > trunkR(p.y) + 0.25) return t; }
   return 0.3;
 }
 const HAMMOCK_IN = (() => {                               // from the hammock toward the fire
@@ -75,4 +76,4 @@ function linePose(s, t) {                           // hanging back-down under t
 }
 const postPose = (spot, y) => ({ p: spot.door.clone().setY(y), q: yawQ(spot.climbYaw ?? climbYaw) });
 
-export { HAMMOCK_IN, ROPE_L, UP, barkProfile, branchBase, climbYaw, linePose, postPose, ropePose, treeOf, trunkAt, trunkR0, turnTo, underAt, yawOf, yawQ };
+export { HAMMOCK_IN, ROPE_L, UP, barkOf, branchBase, climbYaw, linePose, postPose, ropePose, treeOf, trunkAt, turnTo, underAt, yawOf, yawQ };

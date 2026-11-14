@@ -19,7 +19,8 @@
 // sloth is in) } and what its way in needs:
 // climb (up a post first), car + sill (through the jeep's door), line + t + top + climbYaw (along the laundry line),
 // via (a point to pass on the way to the door), noHop, asleep (it sleeps there most of the time), branch + top, tan, curve,
-// t, t0, tree, out (hanging at t along a branch of that tree). What its sloth does there: doze ([clip, timeScale] asleep
+// t, t0, tree, out (hanging at t along a branch of that tree), bark (its trunk's
+// measured radius, poses.js barkOf, set by its first climb). What its sloth does there: doze ([clip, timeScale] asleep
 // there, clips.js dozeClip), sitUp (it can sit up for a stretch, clips.js canStretch), bench (Sunny's log seat: s'mores, the
 // wave with its left paw, and the operator may borrow it there), claims (the places it holds too, claimHome). A guest spot
 // is a copy with guest, of (the home it was copied from), key (the place it claims, places.js), bed and maxSc.
@@ -29,11 +30,11 @@ import { jeepApi } from "../jeep.js";
 import { LIVED, scene } from "../core.js";
 import { V, yawTo } from "../util.js";
 import { HAMMOCK, LAUNDRY, RC, SEATS, TENT } from "../layout.js";
-import { branchCurves } from "../forest.js";
+import { branchCurves, trunkR } from "../forest.js";
 import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "../swing.js";
 import { bedKey, claim, release, seatKey } from "../places.js";
 import { SL, guests, sloths, spots } from "./state.js";
-import { HAMMOCK_IN, branchBase, treeOf, trunkR0 } from "./poses.js";
+import { HAMMOCK_IN, branchBase, treeOf } from "./poses.js";
 
 const PIV = HAMMOCK_PIVOT, DOWN = V(0, -1, 0), ray = new THREE.Raycaster();
 let hammock = null, brush = null;
@@ -99,7 +100,7 @@ function buildSpots() {
     const tan = tip.tan.clone(); if (tan.x * tip.p.x + tan.z * tip.p.z > 0) tan.negate();   // head toward the fire, as the wild ones
     const tree = treeOf(tip.c), t0 = branchBase(tip.c, tree), out = tip.c.getPointAt(t0).sub(tree).setY(0).normalize();
     spots.push({ name: "branch", branch: true, top: tip.p.clone(), tan, curve: tip.c, t: tip.t, t0, tree, out, parent: scene, clip: "cling", scale: SL,
-      doze: ["cling", 0.22], door: tree.clone().addScaledVector(out, trunkR0(0) + 0.35) });
+      doze: ["cling", 0.22], door: tree.clone().addScaledVector(out, trunkR(0) + 0.35) });
   }
 }
 

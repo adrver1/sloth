@@ -18,7 +18,7 @@ import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { HW, HW_POST, setTrip } from "./state.js";
 import { clipOf, play } from "./clips.js";
-import { ROPE_L, UP, barkProfile, linePose, postPose, ropePose, trunkAt, turnTo, underAt, yawQ } from "./poses.js";
+import { ROPE_L, UP, barkOf, linePose, postPose, ropePose, trunkAt, turnTo, underAt, yawQ } from "./poses.js";
 import { climbV, glide, postV, slide } from "./moves.js";
 import { brush, claimHome, sizeIn } from "./spots.js";
 import { doze } from "./naps.js";
@@ -44,7 +44,7 @@ function placeHome(s) {                             // straight into its spot, a
   atHome(s, true);
 }
 function climbUp(s, spot) {                          // up the trunk and out along the branch to its tip
-  const { curve: c, t, t0, tree, out } = spot, L = c.getLength(), yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkProfile(tree, out, yTop);
+  const { curve: c, t, t0, tree, out } = spot, L = c.getLength(), yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkOf(spot);
   play(s, "hang_walk", 1.5, HW);
   glide(s, trunkAt(s, tree, out, 0.02, bark), 2.5, () => slide(s, 0.02, yTop, climbV(s), (y) => trunkAt(s, tree, out, y, bark), () =>
     glide(s, underAt(s, c.getPointAt(t0), c.getTangentAt(t0)), 3, () => slide(s, t0, t, climbV(s) / L, (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u)),
