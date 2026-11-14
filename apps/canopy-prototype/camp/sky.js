@@ -92,13 +92,15 @@ function buildSky() {
       }
     }
   });
-  const domeGeo = new THREE.SphereGeometry(FAR, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
+  // 24 x 8 segments (360 triangles): the UVs are planar, so the clouds need no finer mesh, and the low rim hides behind the backdrop (review R2-077)
+  const domeGeo = new THREE.SphereGeometry(FAR, 24, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
   { const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / (2 * FAR), 0.5 - p.getZ(i) / (2 * FAR)); }
   dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
   dome.position.y = 27; scene.add(dome);
   // the night sky (camp review B1, Adriaen 2026-11-12): a second dome, deep blue to near black at the rim, with stars and a few faint
   // wisps, faded in over the day dome with dusk; and the moon, a soft disc with a halo, up in the canopy gap where the start view sees
-  // it (one sprite each, no fog). Same dome geometry, so 2 draws more at night only.
+  // it (one sprite each, no fog). Same dome geometry; once the night dome is fully opaque daylight.js hides the day dome under it,
+  // so the night costs 1 draw more than the day, and 2 while the two cross-fade.
   const nightTex = canvasTex(1024, 1024, (g, w, h) => {
     const { R: Q } = lcg(777);
     const c = w / 2, gr = g.createRadialGradient(c, c, 0, c, c, c);
