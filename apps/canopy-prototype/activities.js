@@ -20,7 +20,7 @@ const NEAR = 2.5;                          // tap range
 
 // camp: the scene, the camera, you (me) and the sloths; places { woodPile: { at, built }, fire, pot: { at, r }, table:
 // { at, yaw }, crate (or null) }; looks (what lights up for a thing, by name); the wood and glow textures; and what the camp
-// does for the chores: burst (a word over a sloth), toast, addBlocker and boostFire (the logs make the camp's fire bigger)
+// does for the chores: burst (a word over a sloth), toast(text, sound) (the message, and the sound that goes with it, if any), addBlocker and boostFire (the logs make the camp's fire bigger)
 export function createActivities({ scene, camera, me, sloths, places: { woodPile, fire, pot, table, crate }, looks, woodTex, glowTex, burst, toast, addBlocker, boostFire }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   if (woodTex) paintLogs(woodTex);
@@ -47,15 +47,15 @@ export function createActivities({ scene, camera, me, sloths, places: { woodPile
   // somewhere you take one thing from, and that takes it back: free hands or that thing in them
   const source = (what, take) => ({ when: () => !held() || held() === what, act: () => { if (held()) { carry.putBack(); return; } take(); }, why: () => held() && full });
 
-  thing({ name: "woodpile", at: pile.at, r: 0.55, look: pile.stand, ...source("log", () => { carry.hold("log"); toast("Got a log 🪵"); }),
+  thing({ name: "woodpile", at: pile.at, r: 0.55, look: pile.stand, ...source("log", () => { carry.hold("log"); toast("Got a log 🪵", "knock"); }),
     label: () => held() === "log" ? "Put the log back 🪵" : "Take a log 🪵" });
   // the fire and the pot over it are one place: what a tap does there depends on what you hold
   thing({ name: "fire", at: fire, r: 0.6, when: () => held() === "log" || soupChore.wants(),
     act() {
-      if (held() === "log") { if (burning.length >= MAX_LOGS) { toast("The fire is roaring already 🔥"); return; } carry.hold(null); fireChore.addLog(); told("log"); return; }
+      if (held() === "log") { if (burning.length >= MAX_LOGS) { toast("The fire is roaring already 🔥", "roar"); return; } carry.hold(null); fireChore.addLog(); told("log"); return; }
       if (held() === "water") { carry.hold(null); soupChore.pour(); soup.by = "you"; canister.pail.visible = true; told("water"); return; }
       if (held() === "veg") { carry.hold(null); soupChore.addVeg(); told("veg"); return; }
-      carry.hold("bowl"); soupChore.ladle(); toast("Set it on a log seat 🍲");
+      carry.hold("bowl"); soupChore.ladle(); toast("Set it on a log seat 🍲", "clink");
     },
     label() {
       if (held() === "veg") { const [n, e] = carry.now("veg"); return `Add the ${n} to the pot ${e}`; }
@@ -75,11 +75,11 @@ export function createActivities({ scene, camera, me, sloths, places: { woodPile
   // the water pail under the snack table (built here, after the fire's sphere: the order things are made in is kept)
   const canister = soupChore.placePail(table);
   thing({ name: "canister", at: canister.at, r: 0.3, look: [canister.pail], when: () => (!held() && soup.stage === "empty") || held() === "water",
-    act() { if (held()) { carry.putBack(); return; } carry.hold("water"); canister.pail.visible = false; toast("Got the water 💧"); },
+    act() { if (held()) { carry.putBack(); return; } carry.hold("water"); canister.pail.visible = false; toast("Got the water 💧", "slosh"); },
     label: () => held() === "water" ? "Put the pail back 💧" : "Take the pail of water 💧",
     why: () => held() ? full : soup.stage !== "empty" ? "Water's in already" : null });
   // the kitchen crate: one vegetable at a time, a different one each time
-  if (crate) thing({ name: "crate", at: crate, r: 0.4, look: looks.crate ?? null, ...source("veg", () => { const [n, e] = carry.takeNext("veg"); toast(`Got a ${n} ${e}`); }),
+  if (crate) thing({ name: "crate", at: crate, r: 0.4, look: looks.crate ?? null, ...source("veg", () => { const [n, e] = carry.takeNext("veg"); toast(`Got a ${n} ${e}`, "knock"); }),
     label: () => { const [n, e] = held() === "veg" ? carry.now("veg") : carry.next("veg"); return held() === "veg" ? `Put the ${n} back ${e}` : `Take a ${n} ${e}`; } });
   // the fruit plate on the snack table (split off the Table model, activities/fruitBowl.js): one fruit at a time to give to a
   // sloth or the operator (Adriaen 2026-11-13: veg from the crate, fruit from the fruit bowl)
@@ -88,7 +88,7 @@ export function createActivities({ scene, camera, me, sloths, places: { woodPile
   if (tableObj) {
     tableObj.updateMatrixWorld(true);
     const bowlAt = fruitBowl ? fruitBowl.localToWorld(fruitBowl.geometry.boundingBox.getCenter(V())) : tableObj.localToWorld(V(-0.2, 0.72, 0.05));   // the plate's middle
-    thing({ name: "fruitbowl", at: bowlAt, r: 0.28, look: [fruitBowl ?? tableObj], ...source("fruit", () => { const [n, e] = carry.takeNext("fruit"); toast(`Got ${an(n)} ${n} ${e}`.trim()); }),
+    thing({ name: "fruitbowl", at: bowlAt, r: 0.28, look: [fruitBowl ?? tableObj], ...source("fruit", () => { const [n, e] = carry.takeNext("fruit"); toast(`Got ${an(n)} ${n} ${e}`.trim(), "knock"); }),
       label: () => { const [n, e] = held() === "fruit" ? carry.now("fruit") : carry.next("fruit"); return (held() === "fruit" ? `Put the ${n} back ${e}` : `Take ${an(n)} ${n} ${e}`).trim(); } });
   }
   // the log seats: somewhere to set a bowl down

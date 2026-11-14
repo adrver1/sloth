@@ -53,7 +53,8 @@ export function createCarry({ camera, me, toast }) {
     const what = held;
     returned[what]?.();
     hold(null);
-    toast(what === "log" ? "Log back on the pile 🪵" : what === "water" ? "Pail put back 💧" : what === "veg" ? `The ${VN[at.veg]} is back in the crate` : what === "fruit" ? `The ${FN[at.fruit]} is back in the bowl` : "Bowl back in the pot 🍲");
+    toast(what === "log" ? "Log back on the pile 🪵" : what === "water" ? "Pail put back 💧" : what === "veg" ? `The ${VN[at.veg]} is back in the crate` : what === "fruit" ? `The ${FN[at.fruit]} is back in the bowl` : "Bowl back in the pot 🍲",
+      what === "log" ? "knock" : what === "bowl" ? "clink" : null);   // the log knocks back on the pile, the bowl clinks on the pot
   }
   return {
     get held() { return held; }, hold, putBack, takeNext, next, now,

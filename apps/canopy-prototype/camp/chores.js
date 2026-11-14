@@ -5,12 +5,13 @@
 // Exports buildChores(): main.js calls it once, after the ground, the tent and the air; it makes the activities (acts,
 // exported and returned), which input.js passes taps to,
 // the operator reads (operator/cook.js and day.js cook with it, talk.js lets you give him the food in your hand), and main.js updates
-// each frame; main.js also hands it to audio.js (hearCamp), for the pot's sounds. It also adds the things you can use to the
-// tap targets (targets.js).
+// each frame; audio.js imports it too, for the pot's sounds. It also adds the things you can use to the tap targets
+// (targets.js). A chore's message can name a sound to go with it (toast(text, sound)), which audio.js cue() plays.
 import * as THREE from "three";
 import { createActivities } from "../activities.js";
 import { LIVED, camera, scene } from "./core.js";
 import { toast } from "./hud.js";
+import { cue } from "./audio.js";
 import { FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, glowTex } from "./campProps.js";
 import { CRATE, FIRE, SOUP_POT, TABLE, WOOD_PILE } from "./layout.js";
 import { sloths } from "./sloths.js";
@@ -31,7 +32,7 @@ function buildChores() {
     places: { woodPile: { at: WOOD_PILE.at, built: !!WOODPILE }, fire: FIRE, pot: SOUP_POT, table: TABLE, crate: LIVED ? CRATE.at : null },   // built: the props' pile stands there (not with ?lived=0, when the fire chore stacks plain logs)
     looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
       .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)),
-    woodTex: WOOD_TEX ?? null, glowTex, burst, toast, addBlocker: (c, r) => blockers.push([c, r]), boostFire });
+    woodTex: WOOD_TEX ?? null, glowTex, burst, toast: (text, sound) => { toast(text); if (sound) cue(sound); }, addBlocker: (c, r) => blockers.push([c, r]), boostFire });
   // the things you can use light up and open a menu (targets.js): only ever the one thing a tap does now (the thing's own
   // label, activities.js)
   const sph = new THREE.Sphere();

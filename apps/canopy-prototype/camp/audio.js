@@ -6,8 +6,10 @@
 // doors; a soft tock on every menu button. Most of it is heard by watching the camp's state each frame (squish, munch,
 // yawn, wave, his clip), so the other modules need no sound calls.
 // Music: four generated stations (Slow drift, the default: ambient tape loops; campfire guitar, kalimba, music-box lullaby), quiet under the nature sounds.
-// Nothing plays until the first tap or key (browsers block it before that). main.js calls audioStep(dt, dusk) every frame,
-// It reads the chores (chores.js acts) and the operator (operator.js opApi) once main.js has built them.
+// Nothing plays until the first tap or key (browsers block it before that). Importing this file builds nothing: main.js
+// calls initAudio() once (the tap listeners, the Tap for sound pill, the ⚙️ Sound button) and audioStep(dt, dusk) every
+// frame. It reads the chores (chores.js acts) and the operator (operator.js opApi) once main.js has built them. The chores
+// name their own sounds: chores.js plays cue(name) with a chore's message ("knock", "slosh", "clink", "roar").
 // The radio prop drives it through `audio`: start, volume, muted, music, musicVolume, station, next,
 // tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange.
 // The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted, ?station= picks one (core.js OPT). Settings are kept per viewer (KEYS.audio).
@@ -25,10 +27,14 @@ import { rand as R } from "./util.js";   // a number between a and b from Math.r
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix: music sits well under the camp
 const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
-const set = Object.assign({ volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" }, (() => { try { return JSON.parse(store.get(KEYS.audio) || "{}"); } catch { return {}; } })());
-if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
-if (!OPT.sound) set.muted = true;
-if (STATIONS.some((s) => s.id === OPT.station)) set.station = OPT.station;
+// the settings: these defaults until initAudio() reads the viewer's saved ones and the URL (?sound=0, ?station=)
+const set = { volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" };
+function loadSettings() {
+  Object.assign(set, (() => { try { return JSON.parse(store.get(KEYS.audio) || "{}"); } catch { return {}; } })());
+  if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
+  if (!OPT.sound) set.muted = true;
+  if (STATIONS.some((s) => s.id === OPT.station)) set.station = OPT.station;
+}
 const listeners = new Set();
 const keep = () => { store.set(KEYS.audio, JSON.stringify(set)); listeners.forEach((f) => { try { f(audio.state()); } catch {} }); showBtn(); };
 
@@ -436,35 +442,24 @@ function start() {
   if (!started) { started = true; routeMusic(); setInterval(musicTick, 100); keep(); }   // music keeps time even when frames drop
   return true;
 }
-// start only on events that count as a tap everywhere (iOS ignores pointerdown and touchstart for audio)
-for (const ev of ["pointerup", "keydown", "touchend", "click"]) addEventListener(ev, () => { start(); setTimeout(showHint, 600); }, { capture: true, passive: true });
-// a small pill if the sound still hasn't started after a tap (some phones and in-app browsers): tapping it starts it for sure
-const hint = document.createElement("button"); hint.textContent = "🔇 Tap for sound";
-hint.style.cssText = "position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:4;display:none;font:600 15px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";
-hint.addEventListener("pointerdown", (e) => e.stopPropagation()); hint.onclick = (e) => { e.stopPropagation(); start(); setTimeout(showHint, 400); };
-document.body.append(hint);
-function showHint() { hint.style.display = ac && !set.muted && ac.state !== "running" ? "block" : "none"; }
-document.addEventListener("click", (e) => { if (e.target.closest?.("button")) { start(); if (ac?.state === "running") SFX.tock(); } }, true);
+// the "Tap for sound" pill (made by initAudio): shown if the sound still hasn't started after a tap
+let hint = null;
+const HINT_CSS = "position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:4;display:none;font:600 15px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";
+function showHint() { if (hint) hint.style.display = ac && !set.muted && ac.state !== "running" ? "block" : "none"; }
 // switching tabs or apps (Adriaen 2026-11-14: the sound didn't come back): pause while hidden, and on the way back try to
 // resume at once. Phones often refuse that without a tap (iOS can also leave the context "running" but silent), so the next
 // tap anywhere wakes it again inside the tap, and the Tap for sound pill shows if it is still off.
 let kick = false;
 function wake() { if (!ac || !started || set.muted || document.hidden) return; kick = true; ac.resume().catch(() => {}); setTimeout(showHint, 700); }
-document.addEventListener("visibilitychange", () => { if (!ac) return; if (document.hidden) ac.suspend().catch(() => {}); else wake(); });
-addEventListener("pageshow", wake); addEventListener("focus", wake);
 
-
-// your chores (activities.js), heard through the message they show: a log picked up, the water pail, a vegetable, a bowl
-const toastEl = $("toast"); let toastWas = "";
-if (toastEl) new MutationObserver(() => {
-  const x = toastEl.textContent; if (x === toastWas || !ac || ac.state !== "running") { toastWas = x; return; } toastWas = x;
+// a chore's sound (chores.js plays it with the chore's message: a log picked up, the water pail, a vegetable, a bowl),
+// heard in your hands, a little in front of and below the camera. "roar" is the fire's burst of crackles.
+function cue(name) {
+  if (ac?.state !== "running") return;
+  if (name === "roar") { for (let i = 0; i < 4; i++) setTimeout(() => ac && SFX.crackle(i === 0), i * 90); return; }
   const near = camera.getWorldPosition(new THREE.Vector3()).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 0.6).setY(camera.position.y - 0.4);
-  if (/🪵/.test(x)) SFX.knock(near);
-  else if (/💧/.test(x) && /^Got/.test(x)) SFX.slosh(near);
-  else if (/🍲/.test(x) && !/bubbling/.test(x)) SFX.clink(near);
-  else if (/^Got/.test(x)) SFX.knock(near);
-  if (/🔥/.test(x)) for (let i = 0; i < 4; i++) setTimeout(() => ac && SFX.crackle(i === 0), i * 90);
-}).observe(toastEl, { childList: true, characterData: true, subtree: true });
+  SFX[name]?.(near);
+}
 
 // ---------------------------------------------------------------- the API (the radio prop) and the ⚙️ fallback
 const audio = {
@@ -489,10 +484,29 @@ const audio = {
   _bus: () => bus,
 };
 
-// ⚙️ fallback: one button that cycles All (music and camp) → Nature only (no music) → Off
-const btn = $("sound");
+// ⚙️ fallback: one button that cycles All (music and camp), then Nature only (no music), then Off
+let btn = null;
 function showBtn() { if (!btn) return; btn.textContent = "Sound: " + (set.muted ? "Off 🔇" : set.music ? "All 🔊" : "Nature only 🌿"); }
-if (btn) btn.onclick = () => { start(); if (set.muted) { set.muted = false; set.music = true; mus.st = null; } else if (set.music) set.music = false; else set.muted = true; applyGain(); keep(); };
-showBtn();
 
-export { audio, audioStep };
+// ---------------------------------------------------------------- initAudio(): main.js calls it once, with initInput()
+// It reads the saved settings, listens for the first tap or key (browsers block sound before that), makes the Tap for sound
+// pill, wakes the sound when you come back to the tab, and wires the ⚙️ Sound button.
+function initAudio() {
+  loadSettings();
+  // start only on events that count as a tap everywhere (iOS ignores pointerdown and touchstart for audio)
+  for (const ev of ["pointerup", "keydown", "touchend", "click"]) addEventListener(ev, () => { start(); setTimeout(showHint, 600); }, { capture: true, passive: true });
+  // a small pill if the sound still hasn't started after a tap (some phones and in-app browsers): tapping it starts it for sure
+  hint = document.createElement("button"); hint.textContent = "🔇 Tap for sound";
+  hint.style.cssText = HINT_CSS;
+  hint.addEventListener("pointerdown", (e) => e.stopPropagation()); hint.onclick = (e) => { e.stopPropagation(); start(); setTimeout(showHint, 400); };
+  document.body.append(hint);
+  document.addEventListener("click", (e) => { if (e.target.closest?.("button")) { start(); if (ac?.state === "running") SFX.tock(); } }, true);
+  document.addEventListener("visibilitychange", () => { if (!ac) return; if (document.hidden) ac.suspend().catch(() => {}); else wake(); });
+  addEventListener("pageshow", wake); addEventListener("focus", wake);
+  btn = $("sound");
+  if (btn) btn.onclick = () => { start(); if (set.muted) { set.muted = false; set.music = true; mus.st = null; } else if (set.music) set.music = false; else set.muted = true; applyGain(); keep(); };
+  showBtn();
+}
+
+export { audio, audioStep, cue, initAudio };
+

@@ -86,7 +86,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
       addVeg() { if (!wantsVeg()) return false; addVeg(); return true; },
       get stage() { return soup.stage; },
       ladle() { if (soup.stage !== "ready" || soup.bowls >= BOWLS) return false; ladle(); return true; },
-      handToYou() { if (carry.held) return false; carry.hold("bowl"); toast("A bowl of soup for you 🍲"); return true; },   // into your hands, if they're free
+      handToYou() { if (carry.held) return false; carry.hold("bowl"); toast("A bowl of soup for you 🍲", "clink"); return true; },   // into your hands, if they're free
       setDown() { const s = seats.filter((q) => !q.bowl).sort((a, b) => flat(a.c, me.pos) - flat(b.c, me.pos))[0]; if (!s) return false; serve(s); return true; },   // else on the seat nearest you
     },
     // the pot: the surface eases to its stage's colour; cooking bubbles harder as it goes (faster with a big fire: flare),
@@ -96,7 +96,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
       if (soup.stage === "cooking") {
         soup.cook += dt * (1 + 0.25 * flare); const k = Math.min(1, soup.cook / COOK);
         if (Math.random() < dt * (2 + 10 * k)) bubble(0.8 + 0.6 * k);
-        if (k >= 1) { soup.stage = "ready"; soup.fade = 1; const s = nearSloth(fire, 6)[0]; if (s) { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), "*smells good*", 1, 2.2, 60); } toast("Soup's ready 🍲"); if (soup.by === "you") told("soup"); }
+        if (k >= 1) { soup.stage = "ready"; soup.fade = 1; const s = nearSloth(fire, 6)[0]; if (s) { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), "*smells good*", 1, 2.2, 60); } toast("Soup's ready 🍲", "clink"); if (soup.by === "you") told("soup"); }
       } else if (soup.stage === "ready") {
         soup.fade = Math.max(0, soup.fade - dt / 2); surf.material.opacity = soup.fade; surf.visible = soup.fade > 0.01;
         if (Math.random() < dt * 2) bubble(0.7);

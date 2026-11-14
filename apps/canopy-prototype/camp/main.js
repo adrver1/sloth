@@ -27,7 +27,7 @@ import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
 import { dayStep, wireTimeMenu } from "./daytime.js";
 import { buildClocks, clockStep } from "./clock.js";
-import { audioStep } from "./audio.js";
+import { audioStep, initAudio } from "./audio.js";
 import { buildRadio, radioStep } from "./radio.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
@@ -55,6 +55,7 @@ await buildOperator();                 // operator.js: waits for his downloads (
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
 initInput();                           // input.js
+initAudio();                           // audio.js: the first-tap listeners, the Tap for sound pill, the ⚙️ Sound button
 buildWeather();                        // weather.js: the ⚙️ Weather button and the rain streaks
 buildLinger();                         // linger.js: the log seats light up
 wireTimeMenu();                        // daytime.js: the ⚙️ menu's time slider and Day cycle button
