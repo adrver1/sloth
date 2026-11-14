@@ -4,6 +4,8 @@
 //   V(x, y, z)                    a Vector3
 //   sstep(a, b, x)                smoothstep: 0 below a, 1 above b
 //   rand(a, b)                    a number between a and b from Math.random: for noise that must not touch any seeded stream
+//   vnoise(x, z)                  smooth value noise, 0..1, on an integer lattice with a fixed integer hash: the same on every
+//                                 device (the terrain's height, the ground's colour patches)
 //   lcg(seed)                     a private random stream { rnd, R } (Park-Miller, 16807): its own numbers, so drawing from it
 //                                 leaves the named streams (core.js rng) alone. Same seed, same numbers as the copies it replaced
 //   canvasTex(w, h, draw, opts)   a CanvasTexture painted by draw(ctx, w, h); opts { srgb = true, aniso = 4 }
@@ -30,6 +32,13 @@ export const V = (x, y, z) => new THREE.Vector3(x, y, z);
 export const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export const rand = (a, b) => a + Math.random() * (b - a);
+
+const hash = (i, j) => { let h = (i * 374761393 + j * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+export function vnoise(x, z) {
+  const i = Math.floor(x), j = Math.floor(z), fx = x - i, fz = z - j, u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+  const a = hash(i, j), b = hash(i + 1, j), c = hash(i, j + 1), d = hash(i + 1, j + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
 
 export function lcg(seed) {
   let s = seed;

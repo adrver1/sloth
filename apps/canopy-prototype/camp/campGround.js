@@ -13,13 +13,13 @@ import { blockers } from "./campProps.js";
 import { FAR, RC, TENT } from "./layout.js";
 import { cabinLive } from "./jeep.js";
 import { gladePlants } from "./glade.js";   // filled by buildGlade before the ground is built: its plants go in the ground's one draw
-import { groundHeight, vnoise } from "./terrain.js";
+import { groundHeight } from "./terrain.js";
 import { forestFloorTex } from "./sky.js";
 
 let groundLife = null;
 // baked: the ground mask core.js downloaded (PRE.groundMask), or null: then ground.js paints its wear map live
 function buildGround(baked) {
-  groundLife = createGround({ baked, height: groundHeight, far: FAR, forestMap: forestFloorTex, noise: vnoise, scene, RC, blockers, grassMap: grassTex, S, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [], extra: gladePlants,
+  groundLife = createGround({ baked, height: groundHeight, far: FAR, forestMap: forestFloorTex, scene, RC, blockers, grassMap: grassTex, S, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [], extra: gladePlants,
     bare: TENT.bare,   // no grass in the tent or through its planks
     // the baked ground shadows (for a set with no bake, ground.js renders them live) and the night light baked with the
     // props; only the jeep's set has a night bake, so ?jeep=none asks for none and lights the ground live (no 404s)

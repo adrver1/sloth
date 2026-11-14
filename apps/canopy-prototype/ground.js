@@ -12,23 +12,19 @@
 // Exports createGround({ scene, RC, blockers, ... }) (campGround.js, once); what it returns, and who reads each part, is listed at its return.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";
-import { canvasTex, lcg, patchMaterial, rand, sstep, swap, tris } from "./camp/util.js";
+import { canvasTex, lcg, patchMaterial, rand, sstep, swap, tris, vnoise } from "./camp/util.js";
 import { SUN } from "./camp/layout.js";
 // the contact shadow on whatever sits on the floor: a dark brown laid over it by the shadow map, faded at night (the night
 // bake holds the night's shadows); xz is the point's world x, z; the floor inlines the same line on its own shadow lookup
 const SHADE = (xz) => `outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), texture2D(uShadeT, ${xz} / (2.0 * uR) + 0.5).r * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight) * step(length(${xz}), uR));`;
 
-// value noise on an integer lattice, the same as camp/terrain.js vnoise (an integer hash, so the page and the shader agree), and the
-// big colour patches it drives: drier and yellower, or bluer and greener, 5 to 10 m across; the plants take the same tint as the ground
-const NOISE_GLSL = `
-  float hs(int i, int j) { uint h = uint(i) * 374761393u + uint(j) * 668265263u; h = (h ^ (h >> 13u)) * 1274126177u; h ^= h >> 16u; return float(h) / 4294967296.0; }
-  float vnoise(vec2 p) { vec2 i = floor(p), f = p - i, u = f * f * (3.0 - 2.0 * f); int x = int(i.x), y = int(i.y);
-    float a = hs(x, y), b = hs(x + 1, y), c = hs(x, y + 1), d = hs(x + 1, y + 1); return a + (b - a) * u.x + (c - a) * u.y + (a - b - c + d) * u.x * u.y; }
+// the big colour patches the noise drives: drier and yellower, or bluer and greener, 5 to 10 m across; the plants take the same tint as the ground
+const MACRO_GLSL = `
   vec3 macroTint(float m) { return mix(vec3(1.1, 1.02, 0.74), vec3(0.8, 0.97, 0.95), m); }
 `;
 const macroTint = (m, c) => c.multiply(new THREE.Color(1.1 + (0.8 - 1.1) * m, 1.02 + (0.97 - 1.02) * m, 0.74 + (0.95 - 0.74) * m));
 
-export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null, extra = [] }) {
+export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, extra = [] }) {
   // extra: more plants as [x, z, atlas cell, size], placed by the caller (camp/glade.js: the sloth tree's glade, outside the clearing)
   // height (camp/terrain.js groundHeight): the floor, the plants and the roots follow it; far > 0 makes the floor one mesh out to far metres,
   // the forest floor included (forestMap is its tile, 6 m across), instead of the flat clearing disc
@@ -213,15 +209,33 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   // the baked night light on the ground (props/camp/bake_camp_lightmap.py: fire, lanterns, stove and moon, with the props' and the
   // jeep's shadows), one channel per light, coloured and mixed as on the props (bakedlight.js), the warm ones a little by day too; uGNon = 0 until it loads
   const uGN = { value: null }, uGJ = { value: null }, uGDP = { value: null }, uGDD = { value: null }, uGDB = { value: null }, uGNon = { value: 0 };   // uGD: the cabin light's spill through each door (patch round the jeep)   // uGJ: the jeep's headlights (R) and cabin light (G)
+  // the floor's value noise (util.js vnoise), baked once into one texture over the floor instead of hashed per pixel (R2-167: five
+  // noise calls, about 20 integer hashes, on every ground pixel): R the colour patches (0.13 per m, the plants' tint below), G the
+  // mottle at 1 m (0.9), B the second grass tile's patches in the clearing and the moss patches on the forest floor (0.35; they
+  // never meet), A the mottle at 3 m (0.33). 256 texels over 2 x NH metres (about 4 to a 1 m cell), linear, no mipmaps, like the noise it replaces
+  const NH = far || RR, NN = 256, nz = new Uint8Array(NN * NN * 4);
+  for (let j = 0; j < NN; j++) for (let i = 0; i < NN; i++) {
+    const x = ((i + 0.5) / NN * 2 - 1) * NH, z = ((j + 0.5) / NN * 2 - 1) * NH, k = (j * NN + i) * 4;
+    nz[k] = 255 * vnoise(x * 0.13 + 3.7, z * 0.13 - 1.2) + 0.5; nz[k + 1] = 255 * vnoise(x * 0.9 - 4.1, z * 0.9 + 8.3) + 0.5;
+    nz[k + 2] = 255 * vnoise(x * 0.35 + 2, z * 0.35 + 2) + 0.5; nz[k + 3] = 255 * vnoise(x * 0.33 - 6, z * 0.33 + 2.5) + 0.5;
+  }
+  const noiseTex = new THREE.DataTexture(nz, NN, NN); noiseTex.magFilter = noiseTex.minFilter = THREE.LinearFilter; noiseTex.needsUpdate = true;
+  // the grass and dirt tiles' mean colours, which the shader read from their last mip level on every pixel: the mean of the decoded
+  // texels, as the sRGB mip chain gives it (the dirt is decoded once more in the shader, so its mean is too)
+  const lin = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const meanLin = (tex) => { const { width: w, height: h } = tex.image, d = tex.image.getContext("2d").getImageData(0, 0, w, h).data, m = [0, 0, 0];
+    for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) m[c] += lin(d[i + c] / 255);
+    return new THREE.Vector3(...m.map((v) => v / (w * h))); };
+  const grassM = meanLin(grassMap), dirtM = meanLin(dirtTex); dirtM.set(lin(dirtM.x), lin(dirtM.y), lin(dirtM.z));
   const mat = new THREE.MeshLambertMaterial({ map: grassMap });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGJ, uGDP, uGDD, uGDB, uGNon, uShadeT: uShade, uShadeK }); bindLight(sh);
     if (baked) sh.defines = { ...sh.defines, BAKED: 1 };
     if (far) sh.defines = { ...sh.defines, FAR: 1 };
     if (!fx) sh.defines = { ...sh.defines, LOWFX: 1 };
-    Object.assign(sh.uniforms, { uLitter: { value: litterTex }, uForest: { value: forestMap || grassMap }, uRC: { value: RC } });
+    Object.assign(sh.uniforms, { uLitter: { value: litterTex }, uForest: { value: forestMap || grassMap }, uRC: { value: RC }, uNoise: { value: noiseTex }, uNH: { value: NH }, uGrassM: { value: grassM }, uDirtM: { value: dirtM } });
     sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw;"], ["#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz; vNw = normal;"]);
-    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB, uShadeT, uLitter, uForest; uniform float uR, uRC, uNight, uGNon, uShadeK; vec3 albedoG; float hB = 0.0;\n" + NOISE_GLSL + LIGHT_GLSL],
+    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB, uShadeT, uLitter, uForest, uNoise; uniform float uR, uRC, uNight, uGNon, uShadeK, uNH; uniform vec3 uGrassM, uDirtM; vec3 albedoG; float hB = 0.0;\n" + MACRO_GLSL + LIGHT_GLSL],
       ["#include <lights_fragment_begin>", liveChunk()],   // keeps the live cabin light's share apart (Cabin: live)
       ["#include <normal_fragment_maps>", `#include <normal_fragment_maps>
         #ifndef LOWFX
@@ -236,21 +250,21 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
         // edge is ragged, packed path centres, moss in the shade, leaf litter at the rim and against things, the forest floor beyond
         float rr = length(vG), inD = step(rr, uR);
         vec2 uvC = vG / (2.0 * uR) + 0.5;
-        float mN = vnoise(vG * 0.13 + vec2(3.7, -1.2)), mS = vnoise(vG * 0.9 + vec2(-4.1, 8.3));
+        vec4 nz = texture2D(uNoise, vG / (2.0 * uNH) + 0.5); float mN = nz.r, mS = nz.g;   // the baked noise fields (noiseTex)
         #ifndef LOWFX
           vec3 g2 = texture2D(map, vG * 0.071 * mat2(0.8, 0.6, -0.6, 0.8)).rgb * diffuse;   // a second, turned grass tile: the 3 m repeat stops showing
-          diffuseColor.rgb = mix(diffuseColor.rgb, g2, 0.5 * smoothstep(0.35, 0.65, vnoise(vG * 0.35 + 2.0)));
+          diffuseColor.rgb = mix(diffuseColor.rgb, g2, 0.5 * smoothstep(0.35, 0.65, nz.b));
         #endif
-        float hg = dot(diffuseColor.rgb, vec3(1.0)) / max(1e-3, dot(textureLod(map, vec2(0.5), 10.0).rgb * diffuse, vec3(1.0))) - 1.0;   // grass height: the blades are lighter
+        float hg = dot(diffuseColor.rgb, vec3(1.0)) / max(1e-3, dot(uGrassM * diffuse, vec3(1.0))) - 1.0;   // grass height: the blades are lighter
         vec4 mk = texture2D(uMask, uvC);
-        vec3 dt = sRGBTransferEOTF(texture2D(uDirt, vG * 0.45)).rgb, dtM = sRGBTransferEOTF(textureLod(uDirt, vec2(0.5), 10.0)).rgb;
+        vec3 dt = sRGBTransferEOTF(texture2D(uDirt, vG * 0.45)).rgb, dtM = uDirtM;
         float dR = dot(dt, vec3(1.0)) / dot(dtM, vec3(1.0)), hd = dR - 1.0;   // the dirt tile against its mean; dirt height: the pebbles stand up
         vec3 gr = diffuseColor.rgb * mix(vec3(1.18, 1.1, 0.82), vec3(0.72, 0.9, 0.62), mk.g) * macroTint(mN);   // dry and pale ... lush and deep, and drier or bluer in big patches
         float dB = mk.r, dC = mk.r;
         #ifdef BAKED
           dB = texture2D(uMask, uvC, 2.0).r; dC = texture2D(uMask, uvC, 4.5).r;   // the wear a little blurred, and well blurred (1 in a path's middle)
         #endif
-        gr *= (0.84 + 0.32 * mS) * (0.78 + 0.34 * vnoise(vG * 0.33 + vec2(-6.0, 2.5)));   // mottled at 1 m and 3 m: no two patches the same
+        gr *= (0.84 + 0.32 * mS) * (0.78 + 0.34 * nz.a);   // mottled at 1 m and 3 m: no two patches the same
         gr = mix(gr, gr * vec3(0.98, 0.9, 0.7) * 0.82, 0.6 * smoothstep(0.04, 0.45, dB));   // trampled, darker and browner next to the dirt
         float shd = texture2D(uShadeT, uvC).r * inD;                          // the baked sun and sky shadow: where it's shady
         float moss = smoothstep(0.22, 0.55, shd + 0.3 * (mS - 0.5)) * (0.3 + 0.7 * smoothstep(uR - 4.5, uR - 0.8, rr));
@@ -275,7 +289,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
         #ifdef FAR
           vec3 fc = texture2D(uForest, vG / 6.0).rgb * macroTint(mN) * 0.9;
           float away = smoothstep(0.02, 0.3, dot(vNw.xz, normalize(vec2(4.0, -3.0)))) * smoothstep(uR, uR + 2.0, rr);
-          fc = mix(fc, vec3(0.07, 0.14, 0.025) * (0.7 + 0.6 * mS), 0.7 * max(away, 0.6 * smoothstep(0.6, 0.8, vnoise(vG * 0.4 + 9.0))));
+          fc = mix(fc, vec3(0.07, 0.14, 0.025) * (0.7 + 0.6 * mS), 0.7 * max(away, 0.6 * smoothstep(0.6, 0.8, nz.b)));
           c = mix(fc, c, inC);
         #endif
         // leaf litter: two turned layers of painted leaves, each leaf with its own height in alpha, so a leaf shows whole or not at all
@@ -434,7 +448,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
     const [m, j, cellA] = i < nCamp ? [im, i, cells[0]] : [glade, i - nCamp, cells[1]];
     q.setFromAxisAngle(up, R(0, 6.28)); m4.compose(new THREE.Vector3(x, height(x, z), z), q, new THREE.Vector3(size * (type === 3 ? 1.6 : 1.1), size, size * (type === 3 ? 1.6 : 1.1))); m.setMatrixAt(j, m4);
     const dry = 1 - sample(x, z, 1); m.setColorAt(j, col.setRGB(1, 1, 1).lerp(new THREE.Color(1.15, 1.08, 0.75), type < 2 ? dry * 0.5 : 0).multiplyScalar(type === 6 ? R(0.6, 0.85) : R(0.8, 1.05)));
-    if (noise) { m.getColorAt(j, col); m.setColorAt(j, macroTint(noise(x * 0.13 + 3.7, z * 0.13 - 1.2), col)); }   // the ground's big colour patches
+    m.getColorAt(j, col); m.setColorAt(j, macroTint(vnoise(x * 0.13 + 3.7, z * 0.13 - 1.2), col));   // the ground's big colour patches (noiseTex R)
     cellA[j] = type;
   });
   im.geometry.setAttribute("aCell", new THREE.InstancedBufferAttribute(cells[0], 1));

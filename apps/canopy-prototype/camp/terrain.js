@@ -11,16 +11,9 @@
 // forest.js), so this changes no load order, but it does tie the height function to the page's boot module.
 import { JEEP } from "./core.js";
 import { FAR, HERO, JEEP_TRACK, RC, pathDist } from "./layout.js";
-import { lineDist, sstep } from "./util.js";
+import { lineDist, sstep, vnoise } from "./util.js";
 
 const mounds = [];                                    // [x, z, radius, height, outX, outZ]: out = 0,0 for a round mound
-// value noise on an integer lattice (a fixed integer hash, so it is the same on every device), smooth, 0..1
-const hash = (i, j) => { let h = (i * 374761393 + j * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
-function vnoise(x, z) {
-  const i = Math.floor(x), j = Math.floor(z), fx = x - i, fz = z - j, u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
-  const a = hash(i, j), b = hash(i + 1, j), c = hash(i, j + 1), d = hash(i + 1, j + 1);
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-}
 const fbm = (x, z) => 0.55 * vnoise(x, z) + 0.3 * vnoise(x * 2.1 + 5.2, z * 2.1 - 1.3) + 0.15 * vnoise(x * 4.3 - 7.1, z * 4.3 + 2.9);
 export const jeepDist = JEEP === "none" ? () => 1e9 : (x, z) => lineDist(JEEP_TRACK.pts, x, z);
 // a big tree with a mound (layout.js HERO: the one at the clearing's edge) sits on it on its forest side only: the sloths come down its camp side
@@ -49,4 +42,3 @@ export function heightGrid(n = 128) {
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) out[j * n + i] = +groundHeight(((i + 0.5) / n * 2 - 1) * FAR, ((j + 0.5) / n * 2 - 1) * FAR).toFixed(3);
   return { n, far: FAR, rows: "+z", data: out };
 }
-export { vnoise };
