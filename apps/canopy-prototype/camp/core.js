@@ -111,12 +111,13 @@ const renderer = new THREE.WebGLRenderer({ canvas: $("c"), antialias: D.aa, powe
 renderer.setPixelRatio(Math.min(devicePixelRatio, D.pr));   // main.js lowers it if the frame rate drops
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 // ---------------------------------------------------------------- downloads, all started at once (camp review P2, 2026-11-12)
-// Every model, the light maps and the ground mask start loading here, while the forest below is grown, instead of one after
+// Every model, the light maps and the ground's baked maps start loading here, while the forest below is grown, instead of one after
 // another further down. Each section awaits its own entry in PRE (null when it isn't shown). The loading card counts them.
 const LIVED = OPT.lived;   // ?lived=0 hides the lived-in props to compare
 let loadN = 0, loadDone = 0;
 const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
 initKtx(renderer);
+const tex = (url) => new THREE.TextureLoader().loadAsync(url).catch(() => null);
 const lmLoad = async (n) => { const t = await loadLightMap(`models/${n}_${LMSET}.png`).catch(() => loadLightMap(`models/${n}_2k.png`));
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
 const PRE = {
@@ -130,7 +131,11 @@ const PRE = {
   fire: pre(glb("models/fire.txt")),
   jeep: JEEP !== "none" ? pre(glb(`models/jeep_${JEEP}.txt`)) : null,
   jeepLod: JEEP === "expedition" ? pre(glb("models/jeep_expedition_lod.txt").catch(() => null)) : null,
-  groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: "models/camp_ground_picked.jpg" }); im.onerror = () => ok(null); im.src = "models/camp_ground_picked_mask.png"; })),
+  // the ground (campGround.js): the baked wear mask, soil, shadows and night light, each null when it is missing
+  groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = "models/camp_ground_picked_mask.png"; })),
+  groundSoil: pre(tex("models/camp_ground_picked.jpg")),
+  groundShadow: pre(tex(`models/camp_shadow_picked_${JEEP}.png`)),
+  groundNight: JEEP === "expedition" ? pre(loadLightMap("models/camp_ground_night_picked_expedition.png").catch(() => null)) : null,   // only the jeep's set has a night bake
 };
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(S.fog[0], S.fog[1]);

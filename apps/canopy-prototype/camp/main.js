@@ -47,7 +47,7 @@ buildSloths();                         // sloths.js: the wild sloths, then the c
 // ground, painted round the blockers as they stand then; the tent's walls join the blockers only after that
 buildDeadwood();                       // deadwood.js
 buildGlade();                          // glade.js: its plants go into the ground's draw
-buildGround(await PRE.groundMask);     // campGround.js: waits for the ground mask's download
+await buildGround();                   // campGround.js: waits for the ground's baked maps
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
 buildChores();                         // chores.js: your activities
