@@ -77,7 +77,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - Rule: a module does one job, which its header can say in one sentence. When a module grows past about 400 lines or 25 KB, or gains a second job, split it into a folder with the old file as the way in.
 - Why: the 910-line `sloths.js`, the 46 KB `audio.js` and the five-job `campLife.js` were hard to read and to change safely (sloths-29, operator-15, operator-17).
 - Examples: `camp/sloths.js` with `camp/sloth/`, `camp/operator.js` with `camp/operator/`, `camp/audio.js` with `camp/audio/`.
-- Still large: `apps/canopy-prototype/ground.js` (476 lines, 47 KB) and `camp/forest.js` (31 KB, split into nine named steps called by `buildForest`). Split them when you next change them a lot.
+- Still large: `apps/canopy-prototype/ground.js` (476 lines, 47 KB). Split it when you next change it a lot. `camp/forest.js` is split the same way: its steps live in `camp/forest/`.
 
 ## 10. File headers
 
