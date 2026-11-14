@@ -1,5 +1,4 @@
 // Canopy Camp sloths, the arms, posed on the bones after the clip has run:
-//   aimBone(bone, dir, w)   turns a bone (it points along its own +Y) toward the world direction dir, by the weight w
 //   giftArm(s)              the right arm reaches out for a gift and brings it to the lips (gifts eaten away from the eat clip)
 // and read off them:
 //   armBones(o, side)       the upper arm and forearm bones of the model o, side "R" or "L"
@@ -8,14 +7,10 @@
 //   lpawOf(s, out)          the left paw
 import * as THREE from "three";
 import { V, sstep } from "../util.js";
+import { aimBone } from "../actor.js";
 import { FACE, mouthOf } from "./face.js";
 
-const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), q1 = new THREE.Quaternion(), vb = V(), UPV = V(0, 1, 0);
-function aimBone(b, dir, w) {                          // turn bone b (it points along its own +Y) toward world dir, by w
-  const bq = b.getWorldQuaternion(qa), y = vb.copy(UPV).applyQuaternion(bq);
-  qb.setFromUnitVectors(y, dir).slerp(q1.identity(), 1 - w).multiply(bq);
-  b.quaternion.copy(b.parent.getWorldQuaternion(q1).invert().multiply(qb));
-}
+const qa = new THREE.Quaternion(), vb = V(), UPV = V(0, 1, 0);
 // the two bones of an arm in a sloth model o, side "R" or "L" (the rig's names came with and without a dot)
 const armBones = (o, side) => [o.getObjectByName(`upper_arm${side}`) || o.getObjectByName(`upper_arm.${side}`), o.getObjectByName(`forearm${side}`) || o.getObjectByName(`forearm.${side}`)];
 const shoulder = V(), elbow = V(), qPaw = new THREE.Quaternion();
@@ -43,4 +38,4 @@ function giftArm(s) {
   up.updateMatrixWorld(true); fo.getWorldPosition(gE); aimBone(fo, gGoal.clone().sub(gE).normalize(), w);
 }
 
-export { aimBone, armBones, giftArm, lpawOf, pawOf };
+export { armBones, giftArm, lpawOf, pawOf };

@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { R, camera, scene } from "../core.js";
 import { V } from "../util.js";
 import { sprite } from "../sloths.js";
-import { aimBone } from "./ik.js";
+import { aimBone } from "../actor.js";
 import { B, UP, clips, csDir, cur, mixer, play, root } from "./model.js";
 import { op } from "./state.js";
 import { turnToward, yawTo } from "./walk.js";

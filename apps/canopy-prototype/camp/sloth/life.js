@@ -9,7 +9,8 @@ import { R, camera } from "../core.js";
 import { V, sstep } from "../util.js";
 import { LIVELY, SL, sloths } from "./state.js";
 import { FACE, mouthOf, yawnStep } from "./face.js";
-import { aimBone, giftArm } from "./arms.js";
+import { aimBone } from "../actor.js";
+import { giftArm } from "./arms.js";
 
 const FUR_NEAR = 8, LOOK_NEAR = 4.5;
 const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), oq = new THREE.Quaternion(), va = V(), vb = V(), wa = V(), wf = V();

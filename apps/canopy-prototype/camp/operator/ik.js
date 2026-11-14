@@ -1,18 +1,14 @@
-// Canopy Camp operator, bones after the clip: aim a bone, a two-bone reach for an arm, and a hand's rotation from where its
-// fingers and palm should point. Pure functions over a bone map B (the rig's names: upper_armL, forearmL, handL and the
-// same with R); they know nothing of the operator's state, so another character on this rig could use them.
-// Exports aimBone(bone, dir, w), reach(B, side, target, pole, w), handQuat(side, fingers, palm), turnHand(B, side, q, w)
-// and THUMB, the hands' local thumb axes (handPose.js); PALM, the palm axes, is used only here.
+// Canopy Camp operator, bones after the clip: a two-bone reach for an arm, and a hand's rotation from where its fingers and
+// palm should point. Pure functions over a bone map B (the rig's names: upper_armL, forearmL, handL and the same with R);
+// they know nothing of the operator's state, so another character on this rig could use them. reach aims the bones with
+// actor.js aimBone, which the sloths share.
+// Exports reach(B, side, target, pole, w), handQuat(side, fingers, palm), turnHand(B, side, q, w) and THUMB, the hands'
+// local thumb axes (handPose.js); PALM, the palm axes, is used only here.
 import * as THREE from "three";
 import { V } from "../util.js";
+import { aimBone } from "../actor.js";
 
 const Y = V(0, 1, 0);                                  // a bone points along its own +Y
-const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), vb = V();
-export function aimBone(b, dir, w = 1) {                      // turn bone b (it points along its own +Y) toward world dir, by w
-  const bq = b.getWorldQuaternion(qa), y = vb.copy(Y).applyQuaternion(bq);
-  qb.setFromUnitVectors(y, dir).slerp(qc.identity(), 1 - w).multiply(bq);
-  b.quaternion.copy(b.parent.getWorldQuaternion(qc).invert().multiply(qb));
-}
 export function reach(B, side, target, pole, w = 1) {   // two-bone reach: put the wrist at world target, the elbow toward pole
   if (w <= 0) return;
   const up = B["upper_arm" + side], fo = B["forearm" + side], ha = B["hand" + side];
