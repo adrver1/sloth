@@ -49,16 +49,21 @@ export const JEEP_TRACK = (() => {
 })();
 
 // ---------------------------------------------------------------- the camp: log seats round the fire, tent, hammock, table
+export const FIRE = V(0, 0, 0);   // the campfire stands at the origin
 // three log seats round the fire, the gap toward the gate: angle round the fire, where each stands and its yaw
 export const SEAT_R = 2.1;
 export const SEATS = [0, 1, 2].map((i) => { const a = A0 + Math.PI + (i - 1) * 1.15; return { angle: a, at: V(Math.cos(a) * SEAT_R, 0, Math.sin(a) * SEAT_R), yaw: -a + Math.PI / 2 }; });
+// the ways in to the fire between the logs, as angles round it: the gate's gap, and half way between each pair of seats
+// (0.575 is half the seats' 1.15). The operator stands in one to reach the pot (operator/places.js fireGap)
+export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 // the walk-in tent (build_camp.py wall_tent): its door faces the fire. Its own (Blender) frame: bx across, by toward the back
 // (-by toward the fire). toLocal(x, z) gives [a: ahead of the tent's centre toward the fire, b: across]; fromLocal(bx, by, y)
-// a world point. W, yf, yb: the walls' half width, front and back; DW: the doorway's half width; stove, chimney: where they are
+// a world point. W, yf, yb: the walls' half width, front and back; DW: the doorway's half width; stove, chimney: where they are;
+// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy)
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
   const t = tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
-  return { at: t, yaw: Math.atan2(-t.x, -t.z), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32],   // chimney: the pipe's mouth (Z0 + H + 0.62)
+  return { at: t, yaw: Math.atan2(-t.x, -t.z), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth (Z0 + H + 0.62)
     toLocal: (x, z) => { const dx = x - t.x, dz = z - t.z; return [dx * fx + dz * fz, dx * fz - dz * fx]; },
     fromLocal: (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz),
     // in toLocal's terms: no grass in the tent or through its planks (ground.js), and dry under its roof and planks (weather.js)

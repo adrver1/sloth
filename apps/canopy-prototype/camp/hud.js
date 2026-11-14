@@ -1,4 +1,5 @@
 // Canopy Camp HUD: the toast message and tap picking (a ray from the screen into a list of objects).
+// Exports toast(text), pickAt(x, y, objects) and its ray, and what input.js fills in for player.js: keys (held down) and stickV (the phone stick).
 import * as THREE from "three";
 import { $, camera } from "./core.js";
 

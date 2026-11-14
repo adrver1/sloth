@@ -9,26 +9,28 @@
 // Nothing plays until the first tap or key (browsers block it before that). main.js calls audioStep(dt, dusk) every frame.
 // The radio prop drives it through `audio` (also window.__audio): start, volume, muted, music, musicVolume, station, next,
 // tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange.
-// The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted. Settings are kept per viewer.
+// The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted, ?station= picks one (core.js OPT). Settings are kept per viewer (KEYS.audio).
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): the bus gains below are the knobs.
 import * as THREE from "three";
-import { $, camera, qs, store } from "./core.js";
+import { $, KEYS, OPT, camera, store } from "./core.js";
 import { sloths } from "./sloths.js";
 import { me } from "./player.js";
 import { weather } from "./weather.js";
-import { SOUP_POT } from "./campProps.js";
+import { SOUP_POT, TENT } from "./layout.js";
+import { jeepApi } from "./jeep.js";
+import { rand as R } from "./util.js";   // a number between a and b from Math.random, as the copy that stood here
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix: music sits well under the camp
 const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
-const set = Object.assign({ volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" }, (() => { try { return JSON.parse(store.get("canopy-audio") || "{}"); } catch { return {}; } })());
+const set = Object.assign({ volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" }, (() => { try { return JSON.parse(store.get(KEYS.audio) || "{}"); } catch { return {}; } })());
 if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
-if (qs.get("sound") === "0") set.muted = true;
-if (STATIONS.some((s) => s.id === qs.get("station"))) set.station = qs.get("station");
+if (!OPT.sound) set.muted = true;
+if (STATIONS.some((s) => s.id === OPT.station)) set.station = OPT.station;
 const listeners = new Set();
-const keep = () => { store.set("canopy-audio", JSON.stringify(set)); listeners.forEach((f) => { try { f(audio.state()); } catch {} }); showBtn(); };
+const keep = () => { store.set(KEYS.audio, JSON.stringify(set)); listeners.forEach((f) => { try { f(audio.state()); } catch {} }); showBtn(); };
 
 let ac = null, master, comp, bus = {}, NOISE, BROWN, CRICKET;
-const R = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
 
 // ---------------------------------------------------------------- the graph: three buses into a gentle compressor
@@ -169,11 +171,7 @@ function startBeds() {
   night.g = gain(bus.nature, 0);
   for (let i = 0; i < 4; i++) { const a = i * 1.6 + 0.4, s = ac.createBufferSource(); s.buffer = CRICKET; s.loop = true; s.playbackRate.value = R(0.85, 1.15); s.connect(spot(new THREE.Vector3(Math.cos(a) * 12, 0.3, Math.sin(a) * 12), 4, gain(night.g, R(0.06, 0.1)))); s.start(t + R(0, 1)); }
 }
-const underTent = (p) => {   // as weather.js dry(): inside the tent's roof and planks
-  const t = window.__camp?.tentAt; if (!t) return false;
-  const L = t.length(), fx = -t.x / L, fz = -t.z / L, dx = p.x - t.x, dz = p.z - t.z, a = dx * fx + dz * fz, b = dx * fz - dz * fx;
-  return a > -1.9 && a < 2.2 && Math.abs(b) < 2.0;
-};
+const underTent = (p) => TENT.dry(p.x, p.z);   // inside the tent's roof and planks (layout.js, as weather.js)
 
 // ---------------------------------------------------------------- music: three generated stations
 // Notes as MIDI numbers; a lookahead scheduler queues them 0.3 s ahead. Each station plays an 8-bar phrase made once and
@@ -314,11 +312,11 @@ function watchSloths(dt) {
   if ((sleepT -= dt) < 0) { sleepT = R(3.2, 4.2); let best = null, bd = 4; for (const s of sloths) if (s.asleep) { const d = s.o.getWorldPosition(tmp).distanceTo(camera.position); if (d < bd) { bd = d; best = s; } } if (best) SFX.breath(slothAt(best)); }
 }
 function watchOperator(dt) {
-  const O = window.__op; if (!O) return;
+  const O = window.__op; if (!O) return;   // operator.js opApi: a global, since this module is evaluated before the operator's (core.js says why)
   const p = O.root.position, head = tmp.copy(p).setY(p.y + 1.6).clone();
   if (opLast) { const d = Math.hypot(p.x - opLast.x, p.z - opLast.z); if (d < 0.5) { opStepD += d; if (opStepD > 0.64) { opStepD = 0; SFX.step(p.clone().setY(0.05)); } } }
   opLast = p.clone();
-  // cooking (op.stir, op.veg in operator.js): the stirring stick knocks the pot, vegetables plop in
+  // cooking (op.stir, op.veg in operator/state.js): the stirring stick knocks the pot, vegetables plop in
   const o = O.op || {}, pot = potAt();
   if (o.stir && (stirT -= dt) < 0) { stirT = R(0.6, 1.1); SFX.knock(pot); SFX.bubble(); }
   if (opWas.veg && !o.veg) SFX.plop(pot);
@@ -335,11 +333,11 @@ function watchOperator(dt) {
   Object.assign(opWas, { line, clip: st.clip || "", kind: st.kind });
 }
 function watchJeep() {
-  const J = window.__jeep; if (!J?.doors) return;
+  const J = jeepApi; if (!J?.doors) return;
   J.doors.forEach((d, i) => { const o = d.open; if (opWas.door[i] !== undefined && o !== opWas.door[i]) SFX.door(d.o.getWorldPosition(new THREE.Vector3()), o); opWas.door[i] = o; });
   // the engine (car.js: off → crank → run): a click of the key and the starter cranking, the engine catching with a rev,
   // a steady idle while it runs, and a few last chugs as it dies when you turn it off
-  const st = window.__car?.engine?.() ?? "off", was = opWas.engine ?? "off", at = J.node.getWorldPosition(new THREE.Vector3()).setY(0.7);
+  const st = J.engine?.() ?? "off", was = opWas.engine ?? "off", at = J.node.getWorldPosition(new THREE.Vector3()).setY(0.7);
   if (st !== was) {
     if (st === "crank") ENGINE.crank(at);
     if (st === "run") { ENGINE.idle(at, true); }
@@ -395,6 +393,7 @@ function audioStep(dt, dusk = 0) {
   if ((crackleT -= dt) < 0) { crackleT = R(0.03, 0.35); SFX.crackle(Math.random() < 0.04); }
   // the pot (activities.js soup, read through __acts.cook): quiet when empty, a faint simmer of water, a lively bubble while
   // it cooks, a gentle one when it's soup; water pouring in (yours or his) when it fills. Without that, a gentle simmer.
+  // (window.__acts is campLife.js's acts: a global for the same reason as window.__op in watchOperator)
   const stage = window.__acts?.cook?.stage ?? "ready", rate = { empty: 0, water: 0.6, cooking: 6, ready: 2 }[stage] ?? 2;
   if (potStage === "empty" && stage === "water") SFX.pour(potAt());
   if (potStage === "water" && stage === "cooking") SFX.plop(potAt());

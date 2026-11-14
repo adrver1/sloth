@@ -2,6 +2,7 @@
 // use; "Sit by the fire" sets you down on it, facing the flames, with the eye lowered to a seated 0.83 m (player.js eases it).
 // While you sit and don't look round yourself, the view drifts slowly over the fire and the soup, like letting your gaze
 // wander. Walking (stick or keys) stands you up; so does "Stand up" on the seat.
+// Exports lingerStep(dt) (main.js, each frame). window.__sit(i) sits you on seat i for the checks (core.js lists it).
 import * as THREE from "three";
 import { scene, uTime } from "./core.js";
 import { V, wrapPi } from "./util.js";
