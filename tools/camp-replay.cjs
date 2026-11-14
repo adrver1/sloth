@@ -14,7 +14,7 @@
 const path = require('path'), fs = require('fs'), crypto = require('crypto');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const ROOT = path.resolve(arg('root', path.resolve(__dirname, '..'))), FRAMES = +arg('frames', 480), SHOTS = arg('shots', ''), QS = arg('query', ''), PORT = +arg('port', 8811);
-const { serve, launch, routeThree, watch, virtualise, loadCamp, stepFrames, fingerprint } = require('./camp-page.cjs');   // the shared set-up
+const { serve, launch, routeThree, stubFonts, watch, virtualise, loadCamp, stepFrames, fingerprint } = require('./camp-page.cjs');   // the shared set-up
 const srv = serve(ROOT, PORT);
 
 async function compare(A, B) {
@@ -33,7 +33,7 @@ async function compare(A, B) {
 (async () => {
   const ci = process.argv.indexOf('--compare'); if (ci > 0) return compare(process.argv[ci + 1], process.argv[ci + 2]);
   const { browser: b, page: p } = await launch();
-  await routeThree(p);
+  await routeThree(p); await stubFonts(p);
   const { errs, programs } = await watch(p);
   await p.addInitScript(virtualise);
   await loadCamp(p, PORT, QS, errs);

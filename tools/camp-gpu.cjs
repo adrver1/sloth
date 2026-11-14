@@ -26,7 +26,7 @@ const { openCamp } = require('./camp-page.cjs');   // the server, the browser an
     p.on('pageerror', (e) => errs.push('pageerror: ' + e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
     p.on('response', (r) => { if (r.status() >= 400) errs.push(r.status() + ' ' + r.url().slice(-80)); });
   };
-  const { page: p, tReady, close } = await openCamp({ root: ROOT, port: PORT, query: QS, before, timeout: 180000, gpu: true, headed: has('headed'),
+  const { page: p, tReady, close } = await openCamp({ root: ROOT, port: PORT, query: QS, before, timeout: 180000, fonts: true, gpu: true, headed: has('headed'),
     width: VW, height: VH, dpr: DPR, touch: PHONE, args: ['--enable-gpu-rasterization', '--disable-gpu-vsync', '--disable-frame-rate-limit'],
     userAgent: PHONE ? 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36' : undefined });
   const nav = await p.evaluate(() => { const n = performance.getEntriesByType('navigation')[0]; return { domContentLoaded: Math.round(n.domContentLoadedEventEnd), load: Math.round(n.loadEventEnd), programsAtReady: window.__programs }; });

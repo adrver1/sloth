@@ -12,13 +12,15 @@
 //                                   SwiftShader, or with gpu (or CAMP_GPU=1) on the machine's real GPU. The browser is
 //                                   CHROMIUM=<path> when it is set (CHROME= is read too, its old name), else the repo's
 //                                   playwright build, else the preinstalled /opt/pw-browsers/chromium. args adds flags.
-//   openCamp({ root, port, query, url, before, timeout, ...launch options })   serves the checkout (root: this repo; port 0,
+//   openCamp({ root, port, query, url, before, timeout, fonts, ...launch options })   serves the checkout (root: this repo; port 0,
 //                                   the default, takes a free one), opens the browser, routes three.js, runs before(page)
 //                                   (listeners and init scripts the tool needs), opens camp.html with query (or the page
 //                                   at url, a path from the root) and waits for window.__ready on the real clock.
 //                                   Returns { page, browser, port, tReady (ms), close() }
 //   routeThree(page)                three.js from node_modules; its uuids draw from a stream of their own, so that making one
 //                                   object more or fewer does not shift the numbers the page itself draws
+//   stubFonts(page)                 Google Fonts answered with empty CSS (openCamp does it unless fonts: true, which
+//                                   camp-gpu.cjs passes so screenshots on a machine with a network get Fredoka)
 //   watch(page)                     { errs, cons, programs() }: page errors, console errors and HTTP errors; every console
 //                                   line; and how many shader programs were linked
 //   virtualise                      runs in the page before any script: the virtual clock, timers on it, seeded Math.random
@@ -54,12 +56,13 @@ async function launch({ width = 480, height = 300, touch = false, dpr = 1, gpu =
   return { browser, page };
 }
 
-async function openCamp({ root = path.resolve(__dirname, '..'), port = 0, query = '', url, before, timeout = 240000, ...opts } = {}) {
+async function openCamp({ root = path.resolve(__dirname, '..'), port = 0, query = '', url, before, timeout = 240000, fonts = false, ...opts } = {}) {
   const srv = serve(path.resolve(root), port), at = await listening(srv);
   const { browser, page } = await launch(opts);
   const close = async () => { await browser.close().catch(() => {}); srv.close(); };
   try {
     await routeThree(page);
+    if (!fonts) await stubFonts(page);
     if (before) await before(page);
     const t0 = Date.now();
     await page.goto(`http://localhost:${at}${url || '/apps/canopy-prototype/camp.html' + query}`);
@@ -73,6 +76,10 @@ async function routeThree(page) {
   if (!core.includes('const d3 = __ur()')) { console.error('three.core.js: generateUUID not found'); process.exit(2); }
   const at = new RegExp(`cdn\\.jsdelivr\\.net/npm/three@${THREE_VER.replace(/\./g, '\\.')}/(.*)`);
   await page.route(at, (rt) => { const m = rt.request().url().match(at); if (m[1] === 'build/three.core.js') return rt.fulfill({ body: core, contentType: 'text/javascript' }); rt.fulfill({ path: path.join(NM, 'three', m[1]), contentType: m[1].endsWith('.wasm') ? 'application/wasm' : 'text/javascript' }); });
+}
+
+// Google Fonts answered with empty CSS, so a run without a network does not wait on them (the page then uses its fallback font)
+async function stubFonts(page) {
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (rt) => rt.fulfill({ body: '', contentType: 'text/css' }));
 }
 
@@ -143,4 +150,4 @@ function fingerprint() {
   return { objects: rows.length, draws, tris, calls: st.calls, rtris: st.tris, fog, rows };
 }
 
-module.exports = { THREE_VER, serve, listening, launch, openCamp, routeThree, watch, virtualise, loadCamp, stepFrames, fingerprint, chromium };
+module.exports = { THREE_VER, serve, listening, launch, openCamp, routeThree, stubFonts, watch, virtualise, loadCamp, stepFrames, fingerprint, chromium };
