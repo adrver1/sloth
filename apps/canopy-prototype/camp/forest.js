@@ -5,7 +5,7 @@ import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
 import { D, JEEP, LOOK, OPT, R, S, hex, leafMat, rnd, scene, setSeed } from "./core.js";
 import { V, canvasTex, lcg, rand, sstep } from "./util.js";
-import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
+import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_A, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
@@ -74,10 +74,14 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
     g.putImageData(img, 0, 0);
   });
   earth.wrapT = THREE.RepeatWrapping;
-  const n = 40, pos = [], uv = [], col = [], idx = [], L = sloPath.curve.getLength();
+  // the ribbon starts in the camp, just past the log seats round the fire, and runs out between the tent and the laundry line
+  // onto the glade path (Adriaen 2026-11-14: "continue past the tent to the camp"); sloPath itself, which the player and the
+  // terrain follow, still starts at RC - 2
+  const way = new THREE.CatmullRomCurve3([V(Math.cos(PATH_A) * 3.0, 0, Math.sin(PATH_A) * 3.0), V(Math.cos(PATH_A) * 5.0, 0, Math.sin(PATH_A) * 5.0), ...sloPath.curve.points]);
+  const n = 48, pos = [], uv = [], col = [], idx = [], L = way.getLength();
   for (let i = 0; i <= n; i++) {
-    const t = i / n, p = sloPath.curve.getPointAt(t), d = sloPath.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
-    const a = sstep(RC - 1.6, RC - 0.4, r) * (1 - sstep(L - 1.2, L, t * L));   // fades in over the baked ground's path a metre inside the clearing, so the way out shows from the camp; fades out into the glade
+    const t = i / n, p = way.getPointAt(t), d = way.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
+    const a = sstep(0, 1.0, t * L) * (1 - sstep(L - 1.2, L, t * L));   // fades in at the seats, out into the glade
     for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * PATH_HALF * 1.35); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2.5); col.push(1, 1, 1, a); }   // 2 m wide, about 1.2 m of it bare earth (was 0.75 m)
     if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
   }

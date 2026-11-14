@@ -5,7 +5,7 @@
 // The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
 // the track (from window.__ground.layout) and a "place" block (where each baked prop and light stands) to
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Only the sun's
-// direction is typed again there (the bake stops if the two differ). PATH_A, SEAT_R and JEEP_OUT are exported for checks;
+// direction is typed again there (the bake stops if the two differ). SEAT_R and JEEP_OUT are exported for checks (PATH_A also starts the path ribbon in forest.js);
 // no module imports them.
 // Older names still read through other modules (by files the clean-up has not reached yet, core.js names them): forest.js re-exports A0, RC and HERO;
 // campProps.js re-exports SOUP_POT, puts tentAt, hA, hB, tb on window.__camp and the laundry line on window.__laundry.
