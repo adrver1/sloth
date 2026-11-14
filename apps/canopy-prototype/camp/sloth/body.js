@@ -31,7 +31,7 @@ function warmStep(lanternGlow, fl, dusk) {             // each frame (main.js): 
 }
 function makeSloth(sc = SL) {
   const o = clone(SLOTH.scene); o.scale.setScalar(sc);
-  furify(o, { shells: D.shells, lambert: OPT.slothmat !== "old", warm: SLOTH_WARM });   // ?slothmat=old: the GLB's physical material, as before
+  furify(o, { shells: D.shells, lambert: OPT.slothmat !== "old", warm: SLOTH_WARM, lod: true });   // ?slothmat=old: the GLB's physical material, as before
   o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur) { m.geometry.computeBoundingSphere(); m.boundingSphere = m.geometry.boundingSphere.clone(); m.boundingSphere.radius *= 2; } });
   o.traverse((m) => { if (m.userData.fur) { const b = m.parent.children.find((q) => q.isSkinnedMesh && !q.userData.fur); m.boundingSphere = b.boundingSphere.clone(); m.frustumCulled = true; } });
   if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
@@ -50,7 +50,7 @@ function makeSloth(sc = SL) {
     k: 1,                        // a camp sloth's own size factor (cast.js scale; Pip 0.72): its size in a spot is spot.scale * k
     head: o.getObjectByName("head"),   // the head bone
     arm: armBones(o, "R"), armL: armBones(o, "L"),   // [upper arm, forearm] bones, right and left
-    shells: o.userData.furShells || [],   // the fur shells, shown only near the camera (life.js)
+    shells: o.userData.furShells || [], furTier: -1,   // the fur shells and how many layers it shows by distance (life.js)
     eyes,                        // eyes(closed): shuts or opens them (face.js eyeKit)
     mouth: undefined,            // the mouth card, made the first time it yawns or chews (face.js mouthOf)
     mixer, act,                  // its animation mixer and the clip playing now (clips.js play)

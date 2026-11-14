@@ -9,7 +9,9 @@
 // Camp, review 2026-11-12: cheaper, and matches the Lambert props). Each sloth's shell mesh is in root.userData.furShells.
 // { warm } (with lambert): uniforms { uWarm (float), uWarmPos (vec3[WARM_N]), uWarmK (float[WARM_N]) } for a warm glow from
 // nearby lanterns and the fire at night, falling off with distance (the camp's lights are baked, so without it the sloths
-// go black next to a lit lantern).
+// go black next to a lit lantern). The 10-light loop runs only while uWarm > 0.
+// { lod: true } with more than 2 shells: each shell mesh also gets a 2-layer geometry of the same fur length, for a page to
+// swap in further away (shell.userData.furLod = { full, two }; Canopy Camp sloth/life.js).
 import * as THREE from "three";
 
 const FUR = [[0x8f, 0x7c, 0x62], [0x6a, 0x58, 0x44]];   // palette fur swatches (light, dark)
@@ -61,7 +63,8 @@ function patch(mat, frag, decl = "", nrm = "", pos = "", fdecl = "", warm = null
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl + (warm ? WARM_GLSL : ""))
       .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag);
-    if (warm) sh.fragmentShader = sh.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>");
+    // the warm loop only while there is warmth (uWarm is 0 by day): a uniform branch, nearly free
+    if (warm) sh.fragmentShader = sh.fragmentShader.replace("#include <opaque_fragment>", "if (uWarm > 0.0) outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>");
     Object.assign(sh.uniforms, mat.userData.u || {}, warm || {});
   };
   mat.customProgramCacheKey = () => "fur" + mat.type + !!warm + frag + pos;
@@ -118,7 +121,7 @@ function shellMat(map, len, lambert = false, warm = null) {
 const baseMats = new Map();
 
 export const FUR_ON = !/[?&]fur=0\b/.test(location.search);   // ?fur=0: the original flat sloth, kept as a backup
-export function furify(root, { shells = 4, length = 0.0075, colors = null, lambert = false, warm = null } = {}) {
+export function furify(root, { shells = 4, length = 0.0075, colors = null, lambert = false, warm = null, lod = false } = {}) {
   if (!FUR_ON) return root;
   const meshes = [];
   root.traverse((m) => m.isSkinnedMesh && !m.userData.fur && meshes.push(m));
@@ -132,6 +135,7 @@ export function furify(root, { shells = 4, length = 0.0075, colors = null, lambe
     sh.bind(m.skeleton, m.bindMatrix);
     sh.frustumCulled = false;
     sh.userData.fur = true;
+    if (lod && shells > 2) sh.userData.furLod = { full: sh.geometry, two: shellGeo(m.geometry, 2) };   // the same length in two layers
     m.parent.add(sh);
     (root.userData.furShells ??= []).push(sh);
   }

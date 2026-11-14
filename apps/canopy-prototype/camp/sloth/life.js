@@ -1,7 +1,7 @@
 // Canopy Camp sloths, the life every sloth has on top of its clip, wild or named (review 2026-11-12, P5, B4):
-//   slothLife(s, dt)   (inside, for slothsStep, which hands it the camera's view direction camDir once a frame) fur shells only within FUR_NEAR of the camera, blinks, a look at you when
-//                      you come close (LOOK_NEAR), a slow wave when you keep looking at it, the gift arm, the sinking head
-//                      of a sleeper, a yawn, munching
+//   slothLife(s, dt)   (inside, for slothsStep, which sets the camera's view direction camDir once a frame) fur shells
+//                      by distance (furStep), blinks, a look at you when you come close (LOOK_NEAR), a slow wave when
+//                      you keep looking at it, the gift arm, the sinking head of a sleeper, a yawn, munching
 //   slothsStep(dt)     each frame, for every sloth (main.js): its clip, slothLife, the squish of a boop and a nod
 // Blinks draw from the sloths' stream (core.js rng("sloths")) as they happen.
 import * as THREE from "three";
@@ -13,7 +13,15 @@ import { FACE, mouthOf, yawnStep } from "./face.js";
 import { aimBone } from "../actor.js";
 import { giftArm } from "./arms.js";
 
-const FUR_NEAR = 8, LOOK_NEAR = 4.5;
+const FUR_NEAR = 8, FUR_FULL = 3, LOOK_NEAR = 4.5;
+// the fur by distance (review R2-074): every layer of the detail level within FUR_FULL, two layers of the same length out to
+// FUR_NEAR (fur.js lod), none beyond. A 0.3 m margin keeps it from flicking between two tiers at the line.
+function furStep(s, d) {
+  const t = s.furTier, tier = d > FUR_NEAR + (t > 0 ? 0.3 : 0) ? 0 : d > FUR_FULL + (t === 2 ? 0.3 : 0) ? 1 : 2;
+  if (tier === t) return;
+  s.furTier = tier;
+  for (const m of s.shells) { m.visible = tier > 0; const L = m.userData.furLod; if (L) m.geometry = tier === 2 ? L.full : L.two; }
+}
 // scratch objects, reused every frame so slothLife allocates nothing; camDir is the camera's view direction, set once a
 // frame by slothsStep for every sloth (review R2-083)
 const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), oq = new THREE.Quaternion();
@@ -24,7 +32,7 @@ const va = V(), vb = V(), vc = V(), wa = V(), wf = V(), camDir = V();
 const GAZE_S = 3, WAVE_S = 4.6;
 function slothLife(s, dt) {                            // after the clip: fur by distance, blinks, a look at you when you're close, a wave
   s.head.getWorldPosition(va); const d = va.distanceTo(camera.position);
-  const far = d > FUR_NEAR; if (s.shells[0] && s.shells[0].visible === far) s.shells.forEach((m) => (m.visible = !far));
+  furStep(s, d);
   if (!s.asleep) {
     s.blink -= dt;
     if (s.blink < 0) { s.eyes(true); if (s.blink < -0.14) { s.eyes(false); s.blink = R(2.5, 7); } }
