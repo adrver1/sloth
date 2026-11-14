@@ -93,7 +93,7 @@ function arrive(s) {                                // at its spot's door (a car
 // its route (as if it were its home), sleeps a long while, then leaves the same way and goes home. A place the operator
 // is using may still take it (places.js join), else it picks another.
 function napTrip(s) {                               // a cozy place free (or shared with the operator); false if none
-  const own = s.spot, ok = guests.filter((g) => !(g.car && youDrive()) && !(g.name === own.name && own.name !== "tent") && (s.sc < 2.0 || g.name !== "hammock"));
+  const own = s.spot, ok = guests.filter((g) => !(g.car && youDrive()) && !(g.of === own && !g.bed) && !(s.sc >= g.maxSc));   // not beside its own home (Hazel may take the bed)
   let pick = ok[Math.floor(R(0, ok.length))]; if (!pick) return false;
   const b0 = holder(bedKey(0)); if (pick.key === bedKey(1) && b0 && !camp.includes(b0)) pick = guests.find((g) => g.key === bedKey(0));   // he lies along the whole bed
   const h = holder(pick.key);
@@ -103,12 +103,12 @@ function napTrip(s) {                               // a cozy place free (or sha
   goHome(s); return true;
 }
 function homeStep(s, sd, spot, out) {
-  if (spot.name === "seat") smoreStep(s, sd);
+  if (spot.bench) smoreStep(s, sd);
   napStep(s, sd, s.spot.guest ? () => leave(s) : undefined);
   s.errand -= sd;
   if (s.errand < 0 && !s.smore && !s.wave && !s.dozing && !s.roused && !s.once) {
-    const mate = R(0, 1) < 0.2 && out < MAX_OUT - 1 && camp.find((q) => q !== s && q.trip.phase === "home" && !q.dozing && !q.smore && !q.gift && !q.spot.guest && q.spot.name !== "hammock");
-    if (mate && s.spot.name !== "hammock" && startCards(s, mate, leave)) return 2;
+    const mate = R(0, 1) < 0.2 && out < MAX_OUT - 1 && camp.find((q) => q !== s && q.trip.phase === "home" && !q.dozing && !q.smore && !q.gift && !q.spot.guest && !q.spot.asleep);
+    if (mate && !s.spot.asleep && startCards(s, mate, leave)) return 2;
     if (out < MAX_OUT) { leave(s); return 1; }
     s.errand = R(6, 15);
   }

@@ -1,4 +1,5 @@
-// Canopy Camp sloths, the camp step: each frame, what every named sloth is doing, by the phase of its trip (s.trip.phase):
+// Canopy Camp sloths, the camp step: each frame, what every named sloth is doing, by the phase of its trip (s.trip.phase;
+// state.js PHASES lists them with what each one is):
 //   home      in its spot (day.js homeStep)          walk     on the ground along a path (walk.js)
 //   greet     saying hello (walk.js)                 eat      at a food place, or playing cards there (eating.js)
 //   fix       at the jeep's engine (fix.js)          rest     sitting in the clearing (day.js)
@@ -25,8 +26,9 @@ import { doorStep } from "./wayIn.js";
 import { homeStep, restStep } from "./day.js";
 import { keep } from "./saved.js";
 
-// each phase's step, called as step(s, T, sd, spot); "home" is called by name below (it counts who is out), "held" has none
-const PHASE = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, rest: restStep, exit: exitStep, door: doorStep,
+// each phase's step (the phases and what they are: state.js PHASES), called as step(s, T, sd, spot); "home" is called by
+// name below (it counts who is out), "held" has none
+const STEP = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, rest: restStep, exit: exitStep, door: doorStep,
   slide: slideStep, glide: glideStep };
 
 function campStep(dt) {
@@ -42,7 +44,7 @@ function campStep(dt) {
     if (s.once && s.act.time >= s.act.getClip().duration - 0.02) { const f = s.once; s.once = null; f(); }   // a stretch or a bite done
     if (s.gift?.clip) giftStep(s, sd);   // eating what you gave it: its day waits until it's done
     else if (T.phase === "home") out += homeStep(s, sd, spot, out);
-    else PHASE[T.phase]?.(s, T, sd, spot);
+    else STEP[T.phase]?.(s, T, sd, spot);
     if (T.phase !== "home" && s.smore) stopSmore(s);
     if (s.gift && !s.gift.clip) giftFly(s, sd);
     zStep(s, sd);

@@ -44,7 +44,7 @@ function slothLife(s, dt) {                            // after the clip: fur by
   }
   if (s.wave && s.arm[1]) {                            // upper arm up and out beside the head, the forearm swinging slowly side to side
     const k = s.wave, e = sstep(0, 0.9, k) * (1 - sstep(WAVE_S - 0.9, WAVE_S, k));
-    const left = s.spot?.name === "seat" && s.armL?.[1], arm = left ? s.armL : s.arm, sg = left ? -1 : 1;   // Sunny waves with its left: the right holds the s'more stick (Adriaen)
+    const left = s.spot?.bench && s.armL?.[1], arm = left ? s.armL : s.arm, sg = left ? -1 : 1;   // Sunny waves with its left: the right holds the s'more stick (Adriaen)
     s.o.getWorldQuaternion(oq);
     aimBone(arm[0], wa.set(0.55 * sg, 0.8, -0.25).normalize().applyQuaternion(oq), e);
     const sw = Math.sin((k - 0.9) * 2 * Math.PI * 0.55) * 0.5 * sstep(0.6, 1.2, k);

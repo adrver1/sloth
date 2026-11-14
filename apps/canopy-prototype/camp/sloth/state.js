@@ -7,15 +7,30 @@
 //   wild      the ones in the trees (filled once the named ones are placed)
 //   spots     the homes in the camp, one per named sloth, in the order they are filled (spots.js builds them; spots[0] is
 //             the hammock); guests: the cozy places a sloth goes to for a nap away from home (spots.js)
-//   LIVELY    the phases of a camp sloth's day in which it looks at you and waves (see life.js)
-//   GROUND    the phases in which it is on the ground, where the others walk round it
+//   PHASES    every phase of a camp sloth's trip (s.trip.phase) with what it is (step.js has each one's frame step):
+//             lively: it looks at you and waves (life.js); ground: it is on the ground, where the others walk round it
+//             (walk.js, places.js movers); lend: the operator may pick it up (lend.js; at home only Sunny on its log);
+//             out: it is away from its spot, not in it or on its way in or out (jeepSeat.js: the driver's seat is free)
+//   LIVELY, GROUND, LENDABLE, OUT   the sets of phases with each of those, made from PHASES
 //   SPEED     (inside) crawling and climbing are 1.4x what they first were (Adriaen: "sliiightly faster"): CRAWL metres a second per
 //             unit of size, WALK_TS the walk clip's pace, HW and HW_POST the hang_walk clip's pace on a branch and on a post
 //   MAX_OUT   how many may be away from home at once
 export const SL = 2.6;
 export const sloths = [], hit = [], camp = [], wild = [];
 export const spots = [], guests = [];
-export const LIVELY = new Set(["home", "eat", "rest", "greet"]);
-export const GROUND = new Set(["walk", "greet", "eat", "rest"]);
+// A new phase: add it here with its flags, and its step to step.js's STEP (or none, like home and held).
+export const PHASES = {
+  home: { lively: true },                                 // in its spot (day.js homeStep)
+  walk: { ground: true, lend: true, out: true },          // along a path on the ground (walk.js)
+  greet: { lively: true, ground: true, lend: true, out: true },   // sitting up to say hello to another (walk.js)
+  eat: { lively: true, ground: true, out: true },         // at a food place, or playing cards there (eating.js)
+  rest: { lively: true, ground: true, lend: true, out: true },    // sitting in the clearing (day.js)
+  fix: { out: true },                                     // at the jeep's engine (fix.js)
+  held: { out: true },                                    // borrowed by the operator (lend.js)
+  exit: {}, door: {},                                     // out through the jeep's door, and in (wayOut.js, wayIn.js)
+  slide: {}, glide: {},                                   // the two moves the ways in and out are made of (moves.js)
+};
+const having = (flag) => new Set(Object.keys(PHASES).filter((ph) => PHASES[ph][flag]));
+export const LIVELY = having("lively"), GROUND = having("ground"), LENDABLE = having("lend"), OUT = having("out");
 const SPEED = 1.4;
 export const CRAWL = 0.027 * 2.2 * SPEED, WALK_TS = 2.2 * SPEED, HW = 3.75 * SPEED, HW_POST = 2.5 * SPEED, MAX_OUT = 3;

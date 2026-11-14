@@ -1,7 +1,9 @@
 // Canopy Camp's seven named sloths (activities plan, "The seven sloths"; picked on names-prototype.html): each one's name,
 // trait, favourite snack and how to dress it. dress(head, root) hangs the trait off the head bone (the cape off the body
 // bone); call it after furify. Ported from names-prototype.html, where the traits were tried out side by side.
-// sloths.js reads name, scale and dress. trait and fav are shown nowhere in the camp yet: they are kept for a menu that
+// home: the spot it lives in (sloth/spots.js names: Hibi naps in the hammock, Sunny sits on the bench, Mango drives the jeep,
+// Pip hangs on the laundry line, Hazel peeks out of the tent, Figgy and Bandit hang from the two low branches); scale: its
+// size against the others (Pip is the smallest). sloths.js reads name, home, scale and dress. trait and fav are shown nowhere in the camp yet: they are kept for a menu that
 // introduces the seven (review sloths-20). Exports CAST.
 import * as THREE from "three";
 import { canvasTex, lam } from "./util.js";
@@ -44,21 +46,21 @@ function shellFrom(o, boneName, keep, off, mat, uvOf, minW = 0.5) {
   sh.userData.kept = tris.map((i) => loc[i]); return sh;
 }
 export const CAST = [
-  { name: "Hibi", trait: "flower by the ear", fav: "🌺 hibiscus", dress(h) { const f = hibiscusCard(); f.position.set(0.068, 0.11, -0.045); f.rotation.set(0, 0.45, -0.3); h.add(f); } },
-  { name: "Mango", trait: "orange bandana", fav: "🥭 mango", dress(h, o) {
+  { name: "Hibi", home: "hammock", trait: "flower by the ear", fav: "🌺 hibiscus", dress(h) { const f = hibiscusCard(); f.position.set(0.068, 0.11, -0.045); f.rotation.set(0, 0.45, -0.3); h.add(f); } },
+  { name: "Mango", home: "jeep", trait: "orange bandana", fav: "🥭 mango", dress(h, o) {
     const t = canvasTex(128, 128, (g, w, hh) => { g.fillStyle = "#ff8a1f"; g.fillRect(0, 0, w, hh); g.fillStyle = "#fff4dc"; for (let y = 6; y < hh; y += 16) for (let x = (y % 32 ? 0 : 8); x < w; x += 16) { g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); } });
     t.wrapS = t.wrapT = THREE.RepeatWrapping; const m = new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide });
     shellFrom(o, "head", (v) => v.y > (v.z < -0.02 ? 0.066 - 0.2 * (v.z + 0.02) : 0.066 - 0.9 * (v.z + 0.02)), 0.004, m, (v) => [Math.atan2(v.x, -v.z) / 1.6, v.y * 9]);
     const knot = card(0.075, 0.075, (g, s) => { g.fillStyle = "#ff8a1f"; g.strokeStyle = "#c95f0a"; g.lineWidth = 2; g.beginPath(); g.ellipse(32, 18, 9, 8, 0, 0, 7); g.fill(); g.stroke();
       for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(32 + sg * 4, 24); g.lineTo(32 + sg * 16, 60); g.lineTo(32 + sg * 4, 56); g.closePath(); g.fill(); g.stroke(); } });
     knot.position.set(0, 0.06, 0.06); knot.rotation.x = -0.15; h.add(knot); } },
-  { name: "Figgy", trait: "leaf hat", fav: "🟣 fig", dress(h) {
+  { name: "Figgy", home: "branch", trait: "leaf hat", fav: "🟣 fig", dress(h) {
     const C = new THREE.Vector3(0, 0.066, -0.02), RR = 0.088;
     const g = bentPlane(0.12, 0.2, 4, 6, (p, i) => { const u = p.getX(i) + 0.02, v = p.getY(i), r = Math.hypot(u, v) || 1e-6, a = r / RR;
       p.setXYZ(i, C.x + RR * Math.sin(a) * v / r, C.y + RR * Math.cos(a) * 0.95, C.z + RR * Math.sin(a) * -u / r); });
     const leaf = new THREE.Mesh(g, texMat(leafTex("#4caf3c", "#2f7a26"))); const hat = new THREE.Group(); hat.add(leaf); hat.rotation.set(-0.12, 0.9, 0.3); hat.position.set(0, 0.005, 0); h.add(hat);
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.005, 0.03, 5), lam(0x5a3f22)); stem.position.set(0, RR * 0.95 + C.y + 0.012, C.z + 0.01); stem.rotation.x = 0.4; hat.add(stem); } },
-  { name: "Bandit", trait: "banana-leaf cape", fav: "🍌 banana", dress(h, o) {
+  { name: "Bandit", home: "branch", trait: "banana-leaf cape", fav: "🍌 banana", dress(h, o) {
     const t = canvasTex(128, 128, (g, w, hh) => { g.fillStyle = "#79c046"; g.fillRect(0, 0, w, hh); g.strokeStyle = "#4f8f2c"; g.lineWidth = 5; g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w / 2, hh); g.stroke();
       g.lineWidth = 1.6; for (let y = -w; y < hh; y += 6) for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(w / 2, y); g.lineTo(w / 2 + sg * w / 2, y + w * 0.35); g.stroke(); }
       g.globalCompositeOperation = "destination-out"; for (let x = 0; x < w; x += 11) { g.beginPath(); g.moveTo(x, hh); g.lineTo(x + 5.5, hh - 9 - (x % 22 ? 0 : 6)); g.lineTo(x + 11, hh); g.fill(); } });
@@ -74,11 +76,11 @@ export const CAST = [
     const rx = r1 + 0.004;
     const tie = new THREE.Mesh(new THREE.TorusGeometry(1, 0.007 / rx, 3, 12), lam(0x3f7f24)); tie.rotation.x = Math.PI / 2; tie.scale.set(rx, rx * 0.8, rx); tie.position.set(0, top - 0.002, 0.002); h.parent.add(tie);
     const k = card(0.035, 0.035, (g) => { g.fillStyle = "#3f7f24"; g.beginPath(); g.arc(32, 26, 10, 0, 7); g.fill(); for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(32, 30); g.lineTo(32 + sg * 14, 62); g.lineTo(32 + sg * 4, 62); g.fill(); } }); k.position.set(0, top - 0.01, 0.002 - rx * 0.8 - 0.004); k.rotation.y = Math.PI; h.parent.add(k); } },
-  { name: "Pip", trait: "the smallest", fav: "🌺 hibiscus", scale: 0.72 },
-  { name: "Hazel", trait: "blue bow", fav: "🟣 fig", dress(h) { const bow = card(0.06, 0.04, (g, sz) => { g.fillStyle = "#5aa7e8"; g.strokeStyle = "#2f74b5"; g.lineWidth = 2;
+  { name: "Pip", home: "line", trait: "the smallest", fav: "🌺 hibiscus", scale: 0.72 },
+  { name: "Hazel", home: "tent", trait: "blue bow", fav: "🟣 fig", dress(h) { const bow = card(0.06, 0.04, (g, sz) => { g.fillStyle = "#5aa7e8"; g.strokeStyle = "#2f74b5"; g.lineWidth = 2;
       for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(32, 32); g.lineTo(32 + sg * 30, 12); g.lineTo(32 + sg * 30, 52); g.closePath(); g.fill(); g.stroke(); } g.beginPath(); g.arc(32, 32, 7, 0, 7); g.fill(); g.stroke(); });
     bow.position.set(-0.035, 0.128, -0.05); bow.rotation.set(-0.35, -0.3, 0.4); h.add(bow); } },
-  { name: "Sunny", trait: "yellow scarf", fav: "🥭 mango", dress(h) { const m = lam(0xffcf33);
+  { name: "Sunny", home: "seat", trait: "yellow scarf", fav: "🥭 mango", dress(h) { const m = lam(0xffcf33);
     const sc = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.017, 5, 12), m); sc.rotation.x = Math.PI / 2; sc.scale.set(1.08, 0.9, 1); sc.position.set(0, 0.012, -0.006); h.add(sc);
     const t = card(0.05, 0.07, (g) => { g.fillStyle = "#ffcf33"; g.strokeStyle = "#d9a300"; g.lineWidth = 2; for (const [x, a] of [[22, -0.15], [40, 0.25]]) { g.save(); g.translate(x, 4); g.rotate(a); g.fillRect(-8, 0, 16, 52); g.strokeRect(-8, 0, 16, 52); g.fillStyle = "#ff8a1f"; g.fillRect(-8, 46, 16, 4); g.restore(); } });
     t.position.set(0.02, -0.022, -0.06); t.rotation.set(0.25, 0, 0); h.add(t); } },

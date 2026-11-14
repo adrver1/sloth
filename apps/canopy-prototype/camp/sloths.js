@@ -10,7 +10,8 @@
 // the wayfinding grid, the things the sloths use, the named sloths, the guest spots, the saved state, and last the hooks.
 // Later steps use what earlier ones made. The modules in camp/sloth/ make nothing at their top level: that goes in a build
 // function called from here.
-// Exports: sloths (every sloth), hit (their tap spheres), and the frame steps main.js calls in this order: slothsStep(dt)
+// Exports: sloths (every sloth), hit (their tap spheres), OUT (the trip phases in which a camp sloth is away from its spot,
+// sloth/state.js; jeepSeat.js), and the frame steps main.js calls in this order: slothsStep(dt)
 // (sloth/life.js), campStep(dt) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
 import { OPT, rng } from "./core.js";
 const { R } = rng("sloths");
@@ -20,7 +21,7 @@ import { branchCurves } from "./forest.js";
 import { CAST } from "./cast.js";
 import { addLabButton } from "./labButton.js";
 import { addCrowd } from "./places.js";
-import { GROUND, camp, hit, sloths, spots, wild } from "./sloth/state.js";
+import { GROUND, OUT, camp, hit, sloths, spots, wild } from "./sloth/state.js";
 import { hang, warmStep } from "./sloth/body.js";
 import { slothsStep } from "./sloth/life.js";
 import { treeOf } from "./sloth/poses.js";
@@ -56,12 +57,12 @@ function buildSloths() {
     addCrowd(() => camp.filter((o) => GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * o.sc]));   // the sloths on the ground are movers (places.js)
     // the things they use: where the paw is at the grab and the fruits, the spanner, the cards, the s'more stick and marshmallow
     buildTable(); buildSpanner(); buildCards(); buildSmore();
-    // the seven named sloths (cast.js), each in its own spot: Hibi naps in the hammock, Sunny sits on the bench and toasts
-    // s'mores, Mango drives the jeep, Pip (the smallest) hangs on the laundry line, Hazel peeks out of the tent, and Figgy and
-    // Bandit hang from the two low branches at the edge of camp
-    const WHO = { hammock: ["Hibi"], seat: ["Sunny"], jeep: ["Mango"], line: ["Pip"], tent: ["Hazel"], branch: ["Figgy", "Bandit"] };
+    // the seven named sloths (cast.js), each in its own spot (its cast entry's home; the two branch sloths take the two
+    // branches in cast order). A spot that is not there (no jeep, no laundry line) leaves its sloth out.
+    const homed = new Set();
     for (const spot of spots) {
-      const nm = WHO[spot.name]?.shift(), c = CAST.find((k) => k.name === nm); if (!c) continue;
+      const c = CAST.find((k) => k.home === spot.name && !homed.has(k)); if (!c) continue;
+      homed.add(c);
       const k = c.scale ?? 1;   // its own size against the others (Pip is the smallest), kept as s.k for every spot it goes to
       hang(V(0, 0, 0), V(1, 0, 0), spot.scale * k);
       const s = sloths.at(-1); c.dress?.(s.head, s.o);
@@ -77,4 +78,4 @@ function buildSloths() {
   }
   addLabButton();   // the move lab's button in the ⚙️ menu, and ?lab (labButton.js), once there are sloths to inspect
 }
-export { buildSloths, campStep, hammockStep, hit, sloths, slothsStep, warmStep };
+export { OUT, buildSloths, campStep, hammockStep, hit, sloths, slothsStep, warmStep };

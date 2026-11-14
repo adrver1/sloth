@@ -134,7 +134,7 @@ const labStep = (dt) => {
     `at ${s.o.getWorldPosition(wp).toArray().map((v) => v.toFixed(2)).join(", ")} · size ${s.sc.toFixed(2)}`;
   box.querySelectorAll("[data-do]").forEach((b) => {
     const ph = T.phase, d = b.dataset.do;
-    b.disabled = d === "leave" ? ph !== "home" : d === "wander" || d === "home" ? !L.GROUND.has(ph) || ph === "greet" : d === "smore" ? s.spot.name !== "seat" || ph !== "home" : d === "nap" ? !!s.dozing || (ph !== "home" && ph !== "rest") || !!s.spot.asleep : d === "wake" ? !s.dozing : d === "stretch" ? !(ph === "home" || ph === "rest") : d === "fix" ? !s.spot.car || ph !== "home" : d === "trip" || d === "cards" ? ph !== "home" || !!s.spot.guest : false;
+    b.disabled = d === "leave" ? ph !== "home" : d === "wander" || d === "home" ? !L.GROUND.has(ph) || ph === "greet" : d === "smore" ? !s.spot.bench || ph !== "home" : d === "nap" ? !!s.dozing || (ph !== "home" && ph !== "rest") || !!s.spot.asleep : d === "wake" ? !s.dozing : d === "stretch" ? !(ph === "home" || ph === "rest") : d === "fix" ? !s.spot.car || ph !== "home" : d === "trip" || d === "cards" ? ph !== "home" || !!s.spot.guest : false;
   });
 };
 

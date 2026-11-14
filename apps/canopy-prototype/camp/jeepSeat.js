@@ -19,7 +19,7 @@ import { V, ease, wrapPi, yawFrom, yawTo } from "./util.js";
 import { jeepApi } from "./jeep.js";
 import { addTargets } from "./targets.js";
 import { me } from "./player.js";
-import { sloths } from "./sloths.js";
+import { OUT, sloths } from "./sloths.js";
 import { claim, release } from "./places.js";
 import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
@@ -41,9 +41,8 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   const eyeWorld = () => jeep.position.y + S0.y + EYE_UP;
 
   // a sloth in (or getting into or out of) the driver's seat: the jeep sloth at home, a guest napping there, one at the door
-  const OUTSIDE = new Set(["walk", "greet", "eat", "rest", "fix", "held"]);
   const slothIn = (side) => side === "driver"
-    ? sloths.find((s) => s.spot?.car && !OUTSIDE.has(s.trip?.phase))
+    ? sloths.find((s) => s.spot?.car && !OUT.has(s.trip?.phase))   // sloth/state.js OUT: the phases away from its spot
     : sloths.find((s) => { const p = s.o.getWorldPosition(V()), l = jeep.worldToLocal(p); return l.y > 0.4 && Math.abs(l.x - SIDES.passenger.seat.x) < 0.3 && Math.abs(l.z - SIDES.passenger.seat.z) < 0.4; });
 
   let cur = null;   // { side, phase: "walk" | "door" | "in" | "settle" | "sat" | "open" | "out", t, ... }
