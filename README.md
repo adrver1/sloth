@@ -34,8 +34,8 @@ Each app is a static page. Its models sit next to it as base64 `.txt` files. The
 
 | Group | Modules |
 | --- | --- |
-| Shared base | `core.js` (URL options, renderer, scene, camera, the seeded stream, every download started at once), `util.js` (small helpers), `layout.js` (where everything stands), `places.js` (who holds which seat, bed or spot, and who is walking about), `targets.js` (the things that light up and open a menu), `actor.js` (what the sloths and the operator share: bone aim, clip cross-fade, sleep Zs, turning to face), `fx.js`, `hud.js`, `save.js` |
-| World | `sky.js`, `forest.js`, `terrain.js`, `campGround.js` (with `../ground.js`), `campAir.js` (with `../atmosphere.js`), `deadwood.js`, `lanterns.js`, `daytime.js`, `daylight.js` (with `../bakedlight.js`), `weather.js` |
+| Shared base | `core.js` (URL options, renderer, scene, camera, the seeded stream, every download started at once), `util.js` (small helpers, and yawTo/yawFrom for turning to face), `layout.js` (where everything stands), `places.js` (who holds which seat, bed or spot, and who is walking about), `targets.js` (the things that light up and open a menu), `actor.js` (what the sloths and the operator share: bone aim, clip cross-fade, sleep Zs), `fx.js`, `hud.js`, `save.js` |
+| World | `sky.js`, `forest.js`, `terrain.js`, `campGround.js` (with `../ground.js`), `glade.js` (the sloth tree's glade at the end of the footpath), `campAir.js` (with `../atmosphere.js`), `deadwood.js`, `lanterns.js`, `daytime.js`, `daylight.js` (with `../bakedlight.js`), `weather.js` |
 | Props and things to use | `campProps.js`, `campLife.js` (the order the lived-in parts are set down), `chores.js` (with `../activities.js` and `../activities/`), `food.js`, `canister.js`, `swing.js`, `tentInside.js`, `jeep.js`, `jeepSeat.js`, `car.js`, `clock.js`, `radio.js`, `linger.js` |
 | Sloths | `sloths.js` (the way in), `cast.js` (the seven names), `sloth/` (one job per module: body, clips, face, spots, the ways in and out, day, naps, eating, cards, step...) |
 | Operator | `operator.js` (the way in), `operator/` (model, state, places, walk, day, cook, buddy, talk, the poses after the clip) |
