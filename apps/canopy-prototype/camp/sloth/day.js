@@ -91,14 +91,15 @@ function arrive(s) {                                // at its spot's door (a car
   enterSpot(s);
 }
 // nap trips (Adriaen 2026-11-12): now and then an errand is a nap somewhere cozy instead of food. The sloth goes there by
-// its route (as if it were its home), sleeps a long while, then leaves the same way and goes home. A place the operator
-// is using may still take it (places.js join), else it picks another.
+// its route (as if it were its home), sleeps a long while, then leaves the same way and goes home. It picks among the
+// places no other camp sloth holds; one the operator is using may still take it (places.js join). Review R2-205: it used
+// to pick from all of them and give up when another sloth held the pick.
 function napTrip(s) {                               // a cozy place free (or shared with the operator); false if none
-  const own = s.spot, ok = guests.filter((g) => !(g.car && youDrive()) && !(g.of === own && !g.bed) && !(s.sc >= g.maxSc));   // not beside its own home (Hazel may take the bed)
+  const own = s.spot, ok = guests.filter((g) => !(g.car && youDrive()) && !(g.of === own && !g.bed) && !(s.sc >= g.maxSc)   // not beside its own home (Hazel may take the bed)
+    && !camp.includes(holder(g.key)));
   let pick = ok[Math.floor(R(0, ok.length))]; if (!pick) return false;
   const b0 = holder(bedKey(0)); if (pick.key === bedKey(1) && b0 && !camp.includes(b0)) pick = guests.find((g) => g.key === bedKey(0));   // he lies along the whole bed
-  const h = holder(pick.key);
-  if (h && camp.includes(h)) return false;
+  const h = holder(pick.key);                       // only ever the operator now
   if (h) { walkTo(s, pick.via ?? pick.door, () => { if (!join(pick.key, s)) goHome(s); }); return true; }   // he's in it: ask to join him
   moveInto(s, pick);
   goHome(s); return true;
