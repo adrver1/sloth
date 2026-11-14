@@ -6,6 +6,10 @@ Vertex-colour light for the props/ generators, both into the "Col" colour attrib
                                                    styles, the jeep, a builder run on its own)
     flat_colours(objs, glow=())                    the plain base colours, no light, for props the light bake lights
                                                    (props/camp/bake_camp_lightmap.py); alpha 0 marks glowing faces
+    pick_device(scene, choice="auto")              puts Cycles on the fastest GPU backend there is (OptiX, CUDA, Metal,
+                                                   HIP), else the CPU, prints which, and returns "GPU" or "CPU"; call it
+                                                   after the last reset(), because a factory reset also resets the
+                                                   preferences that hold the GPU choice (review R2-226)
 
 Before the AO bake each object (unless it has the "coarse" property) has its transforms applied (apply=True) or, with
 split=True, its long edges split by densify() so the per-vertex AO has room to vary ("ao_edge" sets the length). The
@@ -97,3 +101,27 @@ def flat_colours(objs, glow=()):
         me.color_attributes.active_color = col
         m = baked_material()
         me.materials.clear(); me.materials.append(m)
+
+
+def pick_device(scene, choice="auto"):
+    """Set scene.cycles.device to the fastest GPU backend available ("auto": OptiX, CUDA, Metal, then HIP; or one backend
+    by name; "cpu" for the CPU), enabling that backend's devices in the Cycles preferences, and print the choice."""
+    scene.render.engine = "CYCLES"
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    if choice.lower() != "cpu":
+        for backend in (["OPTIX", "CUDA", "METAL", "HIP"] if choice == "auto" else [choice.upper()]):
+            try:
+                prefs.compute_device_type = backend
+            except TypeError:
+                continue                                # this Blender build has no such backend
+            prefs.get_devices()
+            gpus = [d for d in prefs.devices if d.type == backend]
+            if gpus:
+                for d in prefs.devices:
+                    d.use = d.type == backend
+                scene.cycles.device = "GPU"
+                print(f"  Cycles device: GPU, {backend} ({', '.join(d.name for d in gpus)})", flush=True)
+                return "GPU"
+    scene.cycles.device = "CPU"
+    print(f"  Cycles device: CPU ({'asked for' if choice.lower() == 'cpu' else 'no supported GPU found'})", flush=True)
+    return "CPU"

@@ -5,6 +5,7 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 
     blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --samples 512
     # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 4096
+    # --device auto (the default) bakes on the fastest GPU there is, else the CPU, and prints which; --device cpu forces it
 
 1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
@@ -49,6 +50,7 @@ ap.add_argument("--margin", type=float, default=6)    # texels between islands a
 ap.add_argument("--unwrap-only", action="store_true")
 ap.add_argument("--ground", type=int, default=1024, help="ground map size")
 ap.add_argument("--jeep", default="expedition")
+ap.add_argument("--device", default="auto", help="Cycles device: auto (the fastest GPU, else the CPU), cpu, or a backend such as optix")
 a = ap.parse_args(argv)
 T0 = time.time()
 GLOW = ("ru_glass", "wt_glow")
@@ -59,7 +61,7 @@ import build_camp  # noqa: E402
 import build_fire  # noqa: E402
 import build_laundry  # noqa: E402
 import build_lived  # noqa: E402
-from lib.bake import flat_colours  # noqa: E402
+from lib.bake import flat_colours, pick_device  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.mesh import apply_all  # noqa: E402
 
@@ -273,7 +275,8 @@ sc = bpy.context.scene
 w = bpy.data.worlds.new("sky"); w.use_nodes = True; sc.world = w
 bgn = w.node_tree.nodes["Background"]
 sc.world.light_settings.distance = 0.6
-sc.render.engine = "CYCLES"; sc.cycles.samples = a.samples; sc.cycles.use_adaptive_sampling = False
+# after the last reset(): the factory reset also resets the preferences that choose the GPU (review R2-226)
+pick_device(sc, a.device); sc.cycles.samples = a.samples; sc.cycles.use_adaptive_sampling = False
 sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 3
 bk = sc.render.bake
 bk.target = "IMAGE_TEXTURES"; bk.margin = 8; bk.use_clear = True
