@@ -10,7 +10,7 @@
 // the operator, camp/operator/cook.js), update(dt, flare) }.
 import * as THREE from "three";
 import { makePail } from "../camp/canister.js";
-import { V } from "../camp/util.js";
+import { V, timers } from "../camp/util.js";
 import { EV, emit } from "../camp/events.js";
 import { bowlGeo, bowlMat, bubbleTex, flat, soupGeo, soupMat, surfTex } from "./parts.js";
 
@@ -19,7 +19,10 @@ const STAGE = { empty: 0x2e2824, water: 0x86a9b0, 1: 0xc8a466, 2: 0xd9852f, 3: 0
 
 export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toast, told }) {
   const pot = { at: potAt.at.clone(), r: potAt.r };
-  const soup = { stage: "empty", veg: 0, cook: 0, bowls: 0, fade: 1 };   // stage: empty, water, cooking, ready
+  // stage: empty, water, cooking, ready. bowls: ladled out of this pot. refill: the last bowl emptied the pot and nothing has
+  // gone in since, so putting that bowl back fills it again
+  const soup = { stage: "empty", veg: 0, cook: 0, bowls: 0, fade: 1, refill: false };
+  const later = timers();   // the splash's bubbles, the bubbling message and the pot emptying, in frame time (review R2-050)
   const surf = new THREE.Mesh(new THREE.CircleGeometry(pot.r + 0.002, 12).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: surfTex, color: STAGE.empty, transparent: true, depthWrite: true }));
   surf.position.copy(pot.at).setY(pot.at.y + 0.012); surf.renderOrder = 1; scene.add(surf);
   const surfCol = new THREE.Color(STAGE.empty), surfTo = new THREE.Color(STAGE.empty);
@@ -30,20 +33,26 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
     b.live = true; b.t = 0; b.life = 0.5 + Math.random() * 0.7; b.big = big * (0.02 + Math.random() * 0.025); b.o.visible = true; b.o.position.set(pot.at.x + Math.cos(a) * r, pot.at.y + 0.022, pot.at.z + Math.sin(a) * r);
   }
   function pour() {   // the water goes in: the surface turns to water with a burst of bubbles
-    soup.stage = "water"; soup.veg = 0; surfTo.set(STAGE.water); soup.fade = 1;
-    for (let i = 0; i < 8; i++) setTimeout(() => bubble(1.4), i * 70);
+    soup.stage = "water"; soup.veg = 0; soup.refill = false; surfTo.set(STAGE.water); soup.fade = 1;
+    for (let i = 0; i < 8; i++) later.after(i * 0.07, () => bubble(1.4));
     burst(pot.at.clone().add(V(0, 0.25, 0)), "splash!", 1, 1.2, 60);
   }
   function addVeg() {
     soup.veg++; surfTo.set(STAGE[Math.min(3, soup.veg)]);
     burst(pot.at.clone().add(V(0, 0.25, 0)), "plop!", 1, 1.2, 60); for (let i = 0; i < 4; i++) bubble(1.2);
-    if (soup.veg === 2 && soup.stage === "water") { soup.stage = "cooking"; soup.cook = 0; setTimeout(() => toast("The soup is bubbling 🍲"), 700); }
+    if (soup.veg === 2 && soup.stage === "water") { soup.stage = "cooking"; soup.cook = 0; later.after(0.7, () => toast("The soup is bubbling 🍲")); }
   }
-  function ladle() {   // a bowl out of the pot; after the last one it is empty again
+  function ladle() {   // a bowl out of the pot; a moment after the last one it is empty again (unless that bowl went back first)
     soup.bowls++;
-    if (soup.bowls >= BOWLS) setTimeout(() => { soup.stage = "empty"; soup.veg = 0; soup.bowls = 0; surfTo.set(STAGE.empty); surf.material.opacity = 1; soup.fade = 1; }, 400);
+    if (soup.bowls >= BOWLS) later.after(0.4, () => { if (soup.stage !== "ready" || soup.bowls < BOWLS) return;
+      soup.stage = "empty"; soup.veg = 0; soup.bowls = 0; soup.refill = true; surfTo.set(STAGE.empty); surf.material.opacity = 1; soup.fade = 1; });
   }
-  carry.onPutBack("bowl", () => { if (soup.stage === "ready" && soup.bowls > 0) soup.bowls--; });   // its soup goes back in the pot
+  // a bowl put back: its soup goes back in the pot. The last bowl fills the emptied pot again, as long as no water has gone
+  // in since (the soup was lost before: review R2-049); the surface stays faded, so the modelled soup shows
+  carry.onPutBack("bowl", () => {
+    if (soup.stage === "ready" && soup.bowls > 0) soup.bowls--;
+    else if (soup.stage === "empty" && soup.refill) { soup.stage = "ready"; soup.veg = 2; soup.bowls = BOWLS - 1; soup.refill = false; soup.fade = 0; surfCol.set(STAGE[2]); surfTo.set(STAGE[2]); }
+  });
   // the bowls on the log seats: each seat holds one; a bowl is eaten up after a while and goes
   const seats = [];
   scene.traverse((o) => { if (/^Seat(_\d)?$/.test(o.name) && o.parent === scene) { const b = new THREE.Box3().setFromObject(o), c = b.getCenter(V()); seats.push({ o, top: b.max.y, c, bowl: null }); } });
@@ -92,6 +101,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
     // the pot: the surface eases to its stage's colour; cooking bubbles harder as it goes (faster with a big fire: flare),
     // then the disc fades and the modelled soup shows
     update(dt, flare) {
+      later.step(dt);
       surfCol.lerp(surfTo, Math.min(1, dt * 1.5)); surf.material.color.copy(surfCol);
       if (soup.stage === "cooking") {
         soup.cook += dt * (1 + 0.25 * flare); const k = Math.min(1, soup.cook / COOK);

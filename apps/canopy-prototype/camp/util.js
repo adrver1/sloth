@@ -16,6 +16,9 @@
 //   yawFrom(a, b)                 the yaw that faces from point a toward point b
 //   ease(k)                       the smoothstep curve for a k that is already 0..1 (sstep without the clamp)
 //   lam(color, opts)              a MeshLambertMaterial of that colour
+//   timers()                      a queue of calls to make later in frame time, { after(sec, fn), step(dt) }: its owner steps
+//                                 it each frame, so opApi.sim and the replays, which step faster than real time, run them on
+//                                 time (setTimeout runs on the wall clock: review R2-050)
 //   patchMaterial(mat, id, hook)  adds a shader hook after the material's current one, with a program cache key made of
 //                                 the id, this hook's source, the key of the hook before it (its source, or its own key when
 //                                 patchMaterial put it there, so stacked hooks all stay in the key) and the source of any
@@ -64,6 +67,20 @@ export const wrapPi = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < 
 export const yawTo = (d) => Math.atan2(-d.x, -d.z);
 export const yawFrom = (a, b) => Math.atan2(-(b.x - a.x), -(b.z - a.z));
 export const ease = (k) => k * k * (3 - 2 * k);
+
+export function timers() {
+  const q = [];
+  return {
+    after(sec, fn) { q.push({ t: sec, fn }); },
+    // each call whose time has come runs once, in the order they were queued; one queued while they run waits for the next step
+    step(dt) {
+      if (!q.length) return;
+      const due = [];
+      for (let i = 0; i < q.length;) if ((q[i].t -= dt) <= 0) due.push(q.splice(i, 1)[0].fn); else i++;
+      for (const fn of due) fn();
+    },
+  };
+}
 
 export const lam = (color, opts) => new THREE.MeshLambertMaterial({ color, ...opts });
 

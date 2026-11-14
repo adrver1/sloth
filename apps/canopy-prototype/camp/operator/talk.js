@@ -8,7 +8,7 @@
 import * as THREE from "three";
 import { camera, rng, scene } from "../core.js";
 const { R } = rng("operator");
-import { V } from "../util.js";
+import { V, timers } from "../util.js";
 import { acts as chores } from "../chores.js";   // your chores (activities.js): the food in your hand
 import { addTarget } from "../targets.js";
 import { EV, on } from "../events.js";
@@ -19,6 +19,7 @@ import { ME, freeHand, op } from "./state.js";
 
 const tq = new THREE.Quaternion(), vM = V(), vU = V(), vB = V(), LIFT = V(0, 0.025, 0), OVER = V(0, 0.34, 0);   // scratch (review R2-019)
 let bubble = null, say = null, tapCol = null;
+const later = timers();   // a remark a moment after what you did, the thanks after the munching: in his frame time, stepped by talkStep (review R2-050)
 // the bubble's state as last written, so a frame touches its style only when something changed and never forces a layout
 // (review R2-019): shown, on screen, its half width (measured once per line, in speak) and the position written
 const bub = { shown: false, vis: true, half: 0, left: "", top: "" };
@@ -28,7 +29,7 @@ function react({ kind, by, name } = {}) { if (by === ME || !LINES["react_" + kin
   if (camera.position.distanceTo(root.position) > 9 || Math.random() > 0.7) return;
   op.cd.react = R(35, 50);
   let l = pickLine("react_" + kind); if (l.includes("{name}")) l = l.replace("{name}", name || "that one").replace(/^t/, "T");
-  setTimeout(() => { if (!op.sleeping && op.talk.t <= 0) speak(l); }, 800);
+  later.after(0.8, () => { if (!op.sleeping && op.talk.t <= 0) speak(l); });
 }
 function buildTalk() {
   on(EV.act, react);
@@ -65,7 +66,8 @@ function gift() {
     op.talk.fly = null;
     scene.add(s); op.talk.food = { m: s, t: 0 };
     const a = clips.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.timeScale = 1.6; a.setEffectiveWeight(1); a.play(); op.talk.munch = 2.2; op.talk.smile = 4;   // munching
-    setTimeout(() => { a.timeScale = 1; if (!bag.thanks?.length) bag.thanks = [...LINES.thanks].sort(() => Math.random() - 0.5); speak(bag.thanks.pop().replace("{food}", f.name)); }, 2200);
+    later.after(2.2, () => { a.timeScale = 1; if (op.sleeping) return;   // no thanks in his sleep
+      if (!bag.thanks?.length) bag.thanks = [...LINES.thanks].sort(() => Math.random() - 0.5); speak(bag.thanks.pop().replace("{food}", f.name)); });
   } });
 }
 function speak(txt) {
@@ -75,6 +77,7 @@ function speak(txt) {
   if (!op.sleeping) { const a = clips.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.setEffectiveWeight(1); a.play(); }
 }
 function talkStep(dt) {
+  later.step(dt);
   op.talk.t = Math.max(0, op.talk.t - dt); op.talk.smile = Math.max(0, op.talk.smile - dt);
   op.talk.munch = Math.max(0, (op.talk.munch || 0) - dt);
   const hd = op.talk.hand?.side;
