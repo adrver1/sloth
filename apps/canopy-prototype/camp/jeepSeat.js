@@ -20,7 +20,7 @@ import { jeepApi } from "./jeep.js";
 import { addTargets } from "./targets.js";
 import { me } from "./player.js";
 import { sloths } from "./sloths.js";
-import { claim as claimPlace, release } from "./places.js";
+import { claim, release } from "./places.js";
 import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
 
@@ -56,19 +56,19 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
     pts.push(s.door.clone());
     return [from.clone().setY(0), ...pts.map((q) => W(q).setY(0))];
   }
-  function claim(side, on) { on ? claimPlace(`jeep:${side}`, "player") : release(`jeep:${side}`, "player"); }
+  function holdSeat(side, on) { const key = `jeep:${side}`; on ? claim(key, "player") : release(key, "player"); }   // the place "jeep:driver" or "jeep:passenger"
   function sit(side = "driver") {
     if (cur) return false;
     const s = SIDES[side]; if (!s) return false;
     const who = slothIn(side); if (who) { toast(`${who.name} is in that seat 🦥`); return false; }
-    claim(side, true);
+    holdSeat(side, true);
     const path = route(me.pos, s); let len = 0; for (let i = 1; i < path.length; i++) len += path[i].distanceTo(path[i - 1]);
     cur = { side, s, phase: "walk", t: 0, path, len, yaw0: me.yaw };
     me.seat = seat; me.sitK = 1; seat.drop = 0; seat.pos.copy(me.pos);
     return true;
   }
   function stand() {
-    if (cur && (cur.phase === "walk" || cur.phase === "door")) { claim(cur.side, false); cur = null; me.seat = null; me.sitK = 0; return true; }   // walked off on the way
+    if (cur && (cur.phase === "walk" || cur.phase === "door")) { holdSeat(cur.side, false); cur = null; me.seat = null; me.sitK = 0; return true; }   // walked off on the way
     if (!cur || cur.phase !== "sat") return false;
     cur.phase = "open"; cur.t = 0; J.open(cur.s.k); me.seat = seat;   // walking cleared it; stay put until you are out
     return true;
@@ -115,7 +115,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
       const k = Math.min(1, T.t / 1.1); setIn(1 - k, sideYaw(s) + Math.PI, T.yaw0);
       me.yaw = T.yaw0 + wrapPi(sideYaw(s) + Math.PI - T.yaw0) * ease(k);
       me.pitch += (0 - me.pitch) * Math.min(1, dt * 3);
-      if (k >= 1) { const k2 = s.k; setStand(W(s.door).setY(0)); me.seat = null; me.sitK = 0; me.drop = 0; claim(T.side, false); cur = null; setTimeout(() => J.close(k2), 700); }
+      if (k >= 1) { const k2 = s.k; setStand(W(s.door).setY(0)); me.seat = null; me.sitK = 0; me.drop = 0; holdSeat(T.side, false); cur = null; setTimeout(() => J.close(k2), 700); }
     }
   };
   // the front doors' menus: Get in on the closed or open door, Get out while you sit there

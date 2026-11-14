@@ -12,7 +12,7 @@ import { blockers } from "./campProps.js";
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
 // uses jeepApi (the tools see it as window.__jeep, debug.js): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
 // cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
-// jeepSeat.js adds sitting in the front seats to the same object: sit(side), stand(), seatedIn(), seatBusy(side).
+// Sitting in the front seats is not part of jeepApi: jeepSeat.js has its own seatApi (sit, stand, seatedIn, seatBusy), and no other module adds to jeepApi.
 // cabinLive.receive(object): that object takes the cabin light's shadow (campGround.js gives it the floor and the baked props).
 let jeepStep = () => {}, jeepApi = null, cabinLive = null;
 // buildJeep (main.js, once the props stand): waits for the jeep's downloads and parks it; nothing with ?jeep=none
