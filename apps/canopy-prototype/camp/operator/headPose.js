@@ -43,12 +43,20 @@ function poseHead(dt) {
     op.gaze = Math.abs(v.x) < 0.25 && Math.abs(v.y) < 0.35 && v.z < 1 ? op.gaze + dt : 0;
     if (op.gaze > 3) { op.gaze = -12; const a = play("wave", 0.3, { once: true }); mixer.addEventListener("finished", function f(e) { if (e.action === a) { mixer.removeEventListener("finished", f); play("idle", 0.4); } }); }
   }
-  // eyes: blink now and then; shut in his sleep (the blink clip held at its middle); a smile with a sloth
+  // eyes: blink now and then; shut in his sleep (the blink clip paused at its middle); a smile with a sloth or after a line
+  // (the happy clip paused 1.5 s in). Both are started and stopped only when they change: a paused or zero-speed action is
+  // not isRunning() in three, so testing that every frame restarted the smile each frame and never stopped it (review R2-008).
   const bl = clips.blink;
-  if (op.sleeping) { bl.reset().play(); bl.time = bl.getClip().duration * 0.5; bl.timeScale = 0; }
-  else { if (bl.timeScale === 0) { bl.timeScale = 1; bl.stop(); } op.anim.blink -= dt; if (op.anim.blink < 0) { bl.reset().play(); op.anim.blink = R(2, 5); } }
-  const smile = op.happy || (op.talk.smile > 0 && op.talk.t <= 0 && !op.sleeping);
-  const hp = clips.happy; if (smile && !hp.isRunning()) { hp.reset().play(); hp.time = 1.5; hp.timeScale = 0; } else if (!smile && hp.isRunning()) hp.stop();
+  if (op.sleeping !== op.anim.shut) {
+    op.anim.shut = op.sleeping;
+    if (op.sleeping) { bl.reset(); bl.time = bl.getClip().duration * 0.5; bl.paused = true; bl.play(); } else bl.stop();
+  }
+  if (!op.sleeping) { op.anim.blink -= dt; if (op.anim.blink < 0) { bl.reset().play(); op.anim.blink = R(2, 5); } }
+  const smile = op.happy || (op.talk.smile > 0 && op.talk.t <= 0 && !op.sleeping), hp = clips.happy;
+  if (smile !== op.anim.smiling) {
+    op.anim.smiling = smile;
+    if (smile) { hp.reset(); hp.time = 1.5; hp.paused = true; hp.setEffectiveWeight(1); hp.play(); } else hp.fadeOut(0.3);
+  }
   // breathing in his sleep, and the Z's
   if (op.sleeping) { op.anim.zz = (op.anim.zz + dt / 3) % 1; zAt(zz, B.head, op.anim.zz, ZS); zz.material.opacity = Math.sin(Math.PI * op.anim.zz) * 0.75; }
   else zz.material.opacity = 0;

@@ -18,7 +18,8 @@ const op = {
   pass: null,                                          // stepping round someone in his way { side, t, d }
   // his head and face
   look: 0, gaze: 0, happy: false,                      // head down (-) or round; how long you have looked at him; a smile
-  anim: { blink: 2, zz: 0, look: 0 },                  // s to the next blink; the Z's phase; how far his head has turned to you
+  anim: { blink: 2, zz: 0, look: 0, shut: false, smiling: false },   // s to the next blink; the Z's phase; how far his head has
+                                                       // turned to you; his eyes held shut asleep; the smile held on (headPose.js)
   // his hands
   ik: null,                                            // what they reach for after the clip { R, L, book, hug, sleep, nap }
   inHand: null,                                        // the prop in his right hand (handProps.js hold)
