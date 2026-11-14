@@ -59,7 +59,8 @@ export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 // the walk-in tent (build_camp.py wall_tent): its door faces the fire. Its own (Blender) frame: bx across, by toward the back
 // (-by toward the fire). toLocal(x, z) gives [a: ahead of the tent's centre toward the fire, b: across]; fromLocal(bx, by, y)
 // a world point. W, yf, yb: the walls' half width, front and back; DW: the doorway's half width; stove, chimney: where they are;
-// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy)
+// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there, and the sloths nap there: sloth/spots.js
+// buildGuests, sloth/wayOut.js bedOut). In a group at the tent turned by its yaw (the sloths' tent frame), that is (bx, 0, -by).
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
   const t = tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
@@ -70,9 +71,15 @@ export const TENT = (() => {
     bare: (x, z) => { const [a, b] = TENT.toLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; },
     dry: (x, z) => { const [a, b] = TENT.toLocal(x, z); return a > -1.9 && a < 2.2 && Math.abs(b) < 2.0; } };
 })();
-// the hammock between two posts (a and b), and where it hangs from
+// the hammock between two posts (a and b), and where it hangs from. The rest is the hammock model's own shape (build_camp.py),
+// in its frame (x along the span, y up from the ground): pivot, the height of the rope knots, the line the sling swings
+// about (swing.js); knotX, where the knots are along the span (on each post, at +-knotX); endX and endY, where each rope
+// meets the sling's end (+-endX, endY below the knots); sling, the height of the sling's bed; roof, the band of y over
+// which the swing fades out, so the posts and the leaves on top stay put. swing.js bends the sling in its vertex shader
+// with these, and the sloths climb the rope along them (sloth/poses.js, review R2-141).
 const hA = d0.clone().multiplyScalar(-1.5).addScaledVector(t0, -4.6), hB = hA.clone().addScaledVector(d0, -2.6).addScaledVector(t0, -1.2);
-export const HAMMOCK = { a: hA, b: hB, mid: hA.clone().add(hB).multiplyScalar(0.5), yaw: (() => { const hd = hB.clone().sub(hA); return -Math.atan2(hd.z, hd.x); })() };
+export const HAMMOCK = { a: hA, b: hB, mid: hA.clone().add(hB).multiplyScalar(0.5), yaw: (() => { const hd = hB.clone().sub(hA); return -Math.atan2(hd.z, hd.x); })(),
+  pivot: 1.75, knotX: 1.43, endX: 1.03, endY: -0.40, sling: 0.72, roof: [1.8, 1.95] };
 export const TABLE = { at: d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.2), yaw: 0.6 };   // the snack table
 // the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame (l0) and the hammock's
 // near post (post) up to the big tree behind the fire (tree)

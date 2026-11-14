@@ -11,8 +11,7 @@ import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { scene } from "../core.js";
 import { V, yawFrom, yawTo } from "../util.js";
-import { LAUNDRY } from "../layout.js";
-import { HAMMOCK_PIVOT } from "../swing.js";
+import { HAMMOCK, LAUNDRY, TENT } from "../layout.js";
 import { CRAWL, HW, HW_POST, WALK_TS, setTrip } from "./state.js";
 import { play } from "./clips.js";
 import { ROPE_L, barkOf, climbYaw, linePose, postPose, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
@@ -37,14 +36,15 @@ function downPost(s, spot, top, then) {             // from the top of a post, t
 }
 // out of the tent bed (Adriaen 2026-11-13: "add a climb out of bed animation", not a glide): turn to the open side and
 // crawl to the edge, reach down over it nose first, step down onto the floor, then off to the door. Tent frame: the bed
-// lies along the left wall at x -0.92 (about 0.6 wide), the floor 0.02 up, +z out of the door.
+// lies along the left wall with its middle line at x = layout.js TENT.bed[0] (about 0.6 wide, so its open edge is about
+// 0.3 m further in), the floor 0.02 up, +z out of the door.
 function bedOut(s, spot, go) {
-  const z = spot.at.z, top = spot.at.y, side = -Math.PI / 2, Q = (yaw, pitch = 0) => yawQ(yaw).multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), pitch));
+  const x = TENT.bed[0], z = spot.at.z, top = spot.at.y, side = -Math.PI / 2, Q = (yaw, pitch = 0) => yawQ(yaw).multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), pitch));
   play(s, "walk", 1.2, WALK_TS);
-  glide(s, { p: V(-0.62, top, z), q: Q(side) }, 2.4, () =>                                   // round and to the edge
-    glide(s, { p: V(-0.5, top - 0.06, z), q: Q(side, -0.55) }, 1.2, () =>                    // paws over, nose down
-      glide(s, { p: V(-0.36, 0.02, z), q: Q(side, -0.3) }, 1.4, () =>                       // down onto the floor
-        glide(s, { p: V(-0.25, 0.02, z + 0.05), q: Q(side + 0.4) }, 1.0, () => {            // level again, turning to the door
+  glide(s, { p: V(x + 0.30, top, z), q: Q(side) }, 2.4, () =>                                   // round and to the edge
+    glide(s, { p: V(x + 0.42, top - 0.06, z), q: Q(side, -0.55) }, 1.2, () =>                    // paws over, nose down
+      glide(s, { p: V(x + 0.56, 0.02, z), q: Q(side, -0.3) }, 1.4, () =>                       // down onto the floor
+        glide(s, { p: V(x + 0.67, 0.02, z + 0.05), q: Q(side + 0.4) }, 1.0, () => {            // level again, turning to the door
           const door = spot.door, away = yawFrom(s.o.getWorldPosition(tmp), door);
           scene.attach(s.o); play(s, "walk", 1, WALK_TS);
           glide(s, { p: door.clone(), q: yawQ(away) }, 2.2, () => {
@@ -64,7 +64,7 @@ function exitSpot(s, go) {
   }
   if (spot.climb) {                                 // the hammock: out of the sling, up the rope to the knot, down the post
     play(s, "hang_walk", 2, -HW_POST);
-    return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, postV(s), (u, sd, P) => ropePose(s, u, P), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
+    return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, postV(s), (u, sd, P) => ropePose(s, u, P), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK.pivot - 0.2 * s.sc, go); }));
   }
   if (spot.car) { setTrip(s, "exit", { go }); jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
   const away = spot.via ? yawFrom(spot.door, spot.via) : yawFrom(s.o.getWorldPosition(tmp), spot.door);

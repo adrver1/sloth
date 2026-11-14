@@ -11,7 +11,8 @@ import { addBlocker } from "./campProps.js";
 // passenger side (local +X) toward the fire. Its three doors and the hood open and close from their menus (jeepSeat.js adds jeepApi.doors as tap targets, targets.js):
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
 // uses jeepApi (the tools see it as window.__jeep, debug.js): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
-// cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
+// cargo (middle of the cargo deck), cargoSlots (four spots on it), engineFront (on the ground before the bumper) and engineSeat (on
+// the front of the engine bay: sloth/fix.js), all world positions. Both stay null with ?jeep=none.
 // Sitting in the front seats is not part of jeepApi: jeepSeat.js has its own seatApi (sit, stand, seatedIn, seatBusy), and no other module adds to jeepApi.
 // cabinLive.receive(object): that object takes the cabin light's shadow (campGround.js gives it the floor and the baked props).
 let jeepStep = () => {}, jeepApi = null, cabinLive = null;
@@ -91,6 +92,9 @@ async function buildJeep() {
     open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
     isOpen: (w = "B") => !!doors[w] && Math.abs(doors[w].cur) > Math.abs(doors[w].open) * 0.8,
     seat: world("SeatP"), sill: world("DoorSill"), cargo: world("Boot"),
+    // the engine fix (sloth/fix.js): where a sloth stands before the front bumper, and where it sits on the front of the
+    // engine bay to work, in the jeep's frame (+Z ahead) as build_jeep.py shapes the bonnet (review R2-141)
+    engineFront: local(0.3, 0, 2.35).setY(0), engineSeat: local(0.25, 0.94, 1.5),
     lights: { get cabin() { return cab; } },
     cargoSlots: [[-0.3, -0.75], [0.3, -0.75], [-0.3, -1.3], [0.3, -1.3]].map(([x, z]) => local(x, boot.y, z)),
   };

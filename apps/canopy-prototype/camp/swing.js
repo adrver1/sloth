@@ -1,7 +1,7 @@
 // Canopy Camp swing: the two props a sloth sets moving (camp review sloths-32: they are props, not sloths; they lived in
 // sloths.js). Both add a vertex-shader hook after the prop's baked-light hook (campProps.js lnight) with util.js
-// patchMaterial, as the other modules do (review props-13).
-//   HAMMOCK_PIVOT          how high the hammock's rope knots are: the line it swings about
+// patchMaterial, as the other modules do (review props-13). The hammock's shape (its pivot line, knots, ropes and the band
+// that stays put) is layout.js HAMMOCK (review R2-141).
 //   makeHammockSwing()     adds a group at the hammock's pivot line to the scene and gives the Hammock mesh a material of
 //                          its own that swings the sling and its ropes about that line (the posts and the leaves on top stay
 //                          put). Returns { swing: the group that swings with it (the napper lies in it), push: 0..1, a harder
@@ -16,10 +16,8 @@ import { scene, uTime } from "./core.js";
 import { HAMMOCK, LAUNDRY } from "./layout.js";
 import { patchMaterial } from "./util.js";
 
-const HAMMOCK_PIVOT = 1.75;
-
 function makeHammockSwing() {
-  const PIV = HAMMOCK_PIVOT, sway = { value: 0 };
+  const H0 = HAMMOCK, PIV = H0.pivot, f = (x) => x.toFixed(3), sway = { value: 0 };
   const hg = new THREE.Group(); hg.position.set(HAMMOCK.mid.x, PIV, HAMMOCK.mid.z); hg.rotation.y = HAMMOCK.yaw; scene.add(hg);
   const swing = new THREE.Group(); hg.add(swing);
   const ham = scene.getObjectByName("Hammock");
@@ -28,9 +26,9 @@ function makeHammockSwing() {
     patchMaterial(mat, "sway", (sh) => {
       sh.uniforms.uSway = sway;
       sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uSway;").replace("#include <begin_vertex>", `#include <begin_vertex>
-        float sw = uSway * (1.0 - smoothstep(1.03, 1.43, abs(transformed.x))) * (1.0 - smoothstep(1.8, 1.95, transformed.y));
-        vec2 q = transformed.yz - vec2(${PIV.toFixed(2)}, 0.0); float cs = cos(sw), sn = sin(sw);
-        transformed.yz = vec2(${PIV.toFixed(2)}, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
+        float sw = uSway * (1.0 - smoothstep(${f(H0.endX)}, ${f(H0.knotX)}, abs(transformed.x))) * (1.0 - smoothstep(${f(H0.roof[0])}, ${f(H0.roof[1])}, transformed.y));
+        vec2 q = transformed.yz - vec2(${f(PIV)}, 0.0); float cs = cos(sw), sn = sin(sw);
+        transformed.yz = vec2(${f(PIV)}, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
     });
     ham.material = mat;
   }
@@ -66,4 +64,4 @@ function makeClothBrush() {
   };
 }
 
-export { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing };
+export { makeClothBrush, makeHammockSwing };

@@ -71,10 +71,10 @@ const HAMMOCK_IN = (() => {                               // from the hammock to
   const hd = HAMMOCK.b.clone().sub(HAMMOCK.a), inward = V(-hd.z, 0, hd.x).normalize(); if (inward.dot(HAMMOCK.mid) > 0) inward.negate(); return inward;
 })();
 // the hammock route, in the swing's frame (x along the span, the knots on the pivot line): up the -x post to its rope knot
-// (x -1.43, y 0), then hand over hand down the rope to the sling's end (x -1.03, y -0.40), hanging back-down under it
+// (x -knotX, y 0), then hand over hand down the rope to the sling's end (x -endX, y endY; layout.js HAMMOCK), hanging back-down under it
 // as on a branch (hang_walk), then onto the sling. hang_walk keeps its paws on a line 0.10 (x scale) over its belly,
 // spanning 0..0.20 toward its head, so the same clip climbs the post when the sloth is upright facing it.
-const KNOT = V(-1.43, 0, 0), ROPE_END = V(-1.03, -0.40, 0), ROPE = ROPE_END.clone().sub(KNOT), ROPE_L = ROPE.length(); ROPE.normalize();
+const KNOT = V(-HAMMOCK.knotX, 0, 0), ROPE_END = V(-HAMMOCK.endX, HAMMOCK.endY, 0), ROPE = ROPE_END.clone().sub(KNOT), ROPE_L = ROPE.length(); ROPE.normalize();
 const climbYaw = Math.atan2(HAMMOCK_IN.x, HAMMOCK_IN.z);
 const ropePose = (s, u, into = newPose()) => underAt(s, into.at.copy(KNOT).addScaledVector(ROPE, u), ROPE, into);   // hanging under the rope, its grip centre u metres down from the knot
 const lineY = (k) => LL.a.y - LL.sag * 4 * k * (1 - k);   // the laundry line's height at fraction k from a

@@ -8,7 +8,7 @@
 //   warmStep(lanternGlow, fl, dusk)   each frame (main.js): sets SLOTH_WARM, the uniforms (kept in here) of the warm glow
 //                      the sloths take at night from the lanterns and the fire (fur.js warm)
 // review 2026-11-12 (P5, B4): Lambert body and fur like the camp; a fixed padded bounding sphere so off-screen sloths are
-// culled; an 8x6 tap sphere.
+// culled; an 8x6 tap sphere, one geometry and material shared by all.
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { WARM_N, furify } from "../../fur.js";
@@ -22,6 +22,8 @@ import { armBones } from "./arms.js";
 import { underAt } from "./poses.js";
 
 let tinted = false;
+// every sloth's tap sphere shares one geometry and one invisible material (review R2-141); input.js raycasts against them
+const HIT_GEO = new THREE.SphereGeometry(0.42, 8, 6), HIT_MAT = new THREE.MeshBasicMaterial({ visible: false });
 // at night the camp's light is baked into the props, so the sloths take a warm glow from the lanterns and the fire nearby
 // (fur.js warm; warmStep sets it each frame: lantern positions, the fire, and uWarm = dusk with the fire's flicker)
 const SLOTH_WARM = { uWarm: { value: 0 }, uWarmPos: { value: Array.from({ length: WARM_N }, () => V(0, -99, 0)) }, uWarmK: { value: new Array(WARM_N).fill(0) } };
@@ -39,7 +41,7 @@ function makeSloth(sc = SL) {
   const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
   act.play(); act.time = R(0, 4); act.timeScale = 0.6;   // (kept as s.act)
   scene.add(o);
-  const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); scene.add(box);
+  const box = new THREE.Mesh(HIT_GEO, HIT_MAT); scene.add(box);
   const eyes = eyeKit(o), blink = R(1, 6), napT = R(4, 40);   // (eyeKit draws no numbers; then two seeded draws)
   // Every field a sloth has, with what it means. The ones that start undefined are set later by the module named; the
   // camp's other modules read and set these too (input.js: squish, nod, munch; operator.js: trip, spot, asleep, and its

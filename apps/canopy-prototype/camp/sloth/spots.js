@@ -31,12 +31,12 @@ import { LIVED, scene } from "../core.js";
 import { V, yawTo } from "../util.js";
 import { HAMMOCK, LAUNDRY, RC, SEATS, TENT } from "../layout.js";
 import { branchCurves, trunkR } from "../forest.js";
-import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "../swing.js";
+import { makeClothBrush, makeHammockSwing } from "../swing.js";
 import { bedKey, claim, release, seatKey } from "../places.js";
 import { SL, guests, sloths, spots } from "./state.js";
 import { HAMMOCK_IN, branchBase, treeOf } from "./poses.js";
 
-const PIV = HAMMOCK_PIVOT, DOWN = V(0, -1, 0), ray = new THREE.Raycaster();
+const SLING = HAMMOCK.sling - HAMMOCK.pivot, DOWN = V(0, -1, 0), ray = new THREE.Raycaster();
 let hammock = null, brush = null;
 
 function buildSpots() {
@@ -51,7 +51,7 @@ function buildSpots() {
   // each spot: where the sloth ends up (local to its group), the clip it plays there, its size there, and the door on the
   // ground it crawls to before climbing in
   spots.push(
-    { name: "hammock", parent: swing, at: V(0.08, 0.72 - PIV, 0), yaw: -Math.PI / 2, clip: "nap", scale: 2.2, asleep: true,
+    { name: "hammock", parent: swing, at: V(0.08, SLING, 0), yaw: -Math.PI / 2, clip: "nap", scale: 2.2, asleep: true,
       doze: ["nap", 1], sitUp: true, door: hA.clone().setY(0).addScaledVector(inward, 0.1 * 2.2), climb: true },   // the foot of the -x post, fire side: climbs it, then the rope
     { name: "seat", parent: seat, at: V(0, 0, 0), yaw: 0, clip: "reach", scale: 1.9, bench: true, claims: [seatKey(0)],
       doze: ["curl", 1], sitUp: true, door: at.clone().setY(0).addScaledVector(at.clone().setY(0).normalize(), 0.8) },   // gets on from behind the log, away from the fire
@@ -112,11 +112,12 @@ function buildGuests() {
   // (of: the home spot it was copied from; doze: it sleeps in the clip it lies in; maxSc: only a sloth smaller than that fits
   // beside the one already in the hammock)
   const guest = (from, g) => guests.push({ ...from, ...g, of: from, doze: [g.clip ?? from.clip, 1], guest: true, home: false, who: null });
-  if (H) guest(H, { key: "hammock:1", at: V(-0.42, 0.72 - PIV + 0.04, 0.02), asleep: false, maxSc: 2.0 });
+  if (H) guest(H, { key: "hammock:1", at: V(-0.42, SLING + 0.04, 0.02), asleep: false, maxSc: 2.0 });
   if (Jp && jeepApi?.seat) guest(Jp, { key: "jeep:P", at: Jp.parent.worldToLocal(jeepApi.seat.clone()), yaw: Math.PI, clip: "curl", scale: 2.2, sitUp: false });
-  if (Tp) {                                         // the bed along the tent's left wall (tentInside.js), tent frame: x -0.92, z -1.2 .. 0.4
+  if (Tp) {                                         // the bed along the tent's left wall (tentInside.js), its middle at layout.js TENT.bed
     const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = Tp.parent.localToWorld(V(x, 0, z)); ray.set(V(w.x, 1.2, w.z), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? h.point.y : 0.3; };
-    for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = -0.92 + dx, z = -0.45; guest(Tp, { bed: true, key: bedKey(i), at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, sitUp: true }); }
+    const [bx, by] = TENT.bed;                      // in the tent frame (bx, -by); the two lie 4 cm toward the door from its middle
+    for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = bx + dx, z = 0.04 - by; guest(Tp, { bed: true, key: bedKey(i), at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, sitUp: true }); }
   }
 }
 

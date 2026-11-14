@@ -26,8 +26,8 @@ function buildSpanner() {
   spanner.visible = false; scene.add(spanner);
 }
 function fixEngine(s, done) {
-  const J = jeepApi, n = J.node, front = n.localToWorld(V(0.3, 0, 2.35)).setY(0);
-  walkTo(s, front, () => { setTrip(s, "fix", { st: "turn", front, sit: n.localToWorld(V(0.25, 0.94, 1.5)), done }); play(s, "idle", 1); J.open("H"); });
+  const J = jeepApi, front = J.engineFront.clone();   // where it stands and where it sits to work (jeep.js jeepApi)
+  walkTo(s, front, () => { setTrip(s, "fix", { st: "turn", front, sit: J.engineSeat.clone(), done }); play(s, "idle", 1); J.open("H"); });
 }
 function fixStep(s, T, sd) {
   const J = jeepApi, n = J.node, back = yawOf(n);   // facing the windscreen from the front (the jeep looks along its +Z)

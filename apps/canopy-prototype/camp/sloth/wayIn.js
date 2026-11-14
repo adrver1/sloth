@@ -16,8 +16,7 @@ import { jeepApi } from "../jeep.js";
 import { rng } from "../core.js";
 const { R } = rng("slothDay");
 import { yawFrom } from "../util.js";
-import { LAUNDRY } from "../layout.js";
-import { HAMMOCK_PIVOT } from "../swing.js";
+import { HAMMOCK, LAUNDRY } from "../layout.js";
 import { HW, HW_POST, setTrip } from "./state.js";
 import { clipOf, play } from "./clips.js";
 import { ROPE_L, UP, barkOf, linePose, postPose, ropePose, trunkAt, turnTo, underAt, yawQ } from "./poses.js";
@@ -63,7 +62,7 @@ function settleIn(s, fade) {                         // about 4 s (6 into the ha
 // up the post hand over hand until its arms reach the rope knot (or the line), then round to hang under the rope and down
 // it into the sling, or along the line to its gap (wayOut.js exitSpot is the same the other way)
 function upPost(s, spot) {
-  const top = spot.top ?? HAMMOCK_PIVOT - 0.2 * s.sc, L = LAUNDRY.a.distanceTo(LAUNDRY.b);
+  const top = spot.top ?? HAMMOCK.pivot - 0.2 * s.sc, L = LAUNDRY.a.distanceTo(LAUNDRY.b);
   const along = () => spot.line
     ? slide(s, 0.05, spot.t, postV(s) / L, (u, sd, P) => { linePose(s, u, P); brush?.(P.at, true, sd); return P; }, () => { play(s, "cling", 3, 0.6); atHome(s); })
     : slide(s, 0.1, ROPE_L - 0.05, postV(s), (u, sd, P) => ropePose(s, u, P), () => settleIn(s, 3));
