@@ -126,10 +126,10 @@ def cloth(img):
     # the towel folded over the line: a quad on each side, the back one shorter so the fold shows
     q.append(hanging(0.1, 0.28, 0.5, (4, 0, 196, 252), y=-0.012, peg_above=0.025))
     q.append(hanging(0.1, 0.28, 0.36, (4, 0, 196, 160), y=0.012, peg_above=0.0))
-    # three socks past the sloth's gap
+    # three socks past the sloth's gap, 4 mm behind the line's upright strip (in its plane they z-fought with it, R2-151)
     for t, (u0, u1) in ((0.58, (200, 280)), (0.68, (280, 360)), (0.78, (360, 440))):
         w = 0.085 / L
-        q.append(hanging(t - w / 2, t + w / 2, 0.21, (u0, 0, u1, 206), peg_above=0.03))
+        q.append(hanging(t - w / 2, t + w / 2, 0.21, (u0, 0, u1, 206), y=-0.004, peg_above=0.03))
     return textured("LaundryCloth", q, img)
 
 

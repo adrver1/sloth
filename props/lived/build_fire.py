@@ -266,7 +266,7 @@ def pot(M):
     p.append(lathe([(0.0, sz), (0.148, sz - 0.004)], 10, M["soup"], z0=POT_Z))
     for i in range(9):                                             # bits in the soup: carrot coins, potato, peas, herbs
         a, d = rng.uniform(0, 2 * math.pi), 0.11 * math.sqrt(rng.uniform(0.05, 1))
-        at = (math.cos(a) * d, math.sin(a) * d, SOUP.z + 0.002)
+        at = (math.cos(a) * d, math.sin(a) * d, SOUP.z + 0.002 + 0.0006 * i)   # each a step higher: overlapping bits z-fought (R2-152)
         kind = ("carrot", "potato", "pea", "carrot", "potato", "herb", "pea", "carrot", "herb")[i]
         n, r, sx = {"carrot": (6, 0.018, 1), "potato": (4, 0.015, 1.2), "pea": (4, 0.009, 1), "herb": (4, 0.012, 2.2)}[kind]
         p.append(flat(n, r, at, M[kind], sx, rng.uniform(0, 3)))
