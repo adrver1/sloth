@@ -32,13 +32,17 @@ LOG.yaw = Math.atan2(LOG.at.z - G.z, LOG.at.x - G.x) + Math.PI / 2 + 0.25;
 const STONES = [[at(3.3, -0.85), 0.32], [at(3.7, -0.65), 0.2], [at(2.9, 2.05), 0.26], [at(3.9, 2.9), 0.36]];
 const SHROOMS = [[LOG.at.clone().addScaledVector(V(Math.cos(LOG.yaw), 0, Math.sin(LOG.yaw)), 1.25), 5], [at(TRUNK + 0.35, 2.6).add(TREE).sub(G), 4]];
 const STAND = at(2.2, 0);   // the trodden spot under the low branches, where the path ends
-const pathEnd = (x, z) => { let d = 1e9; for (let i = sloPath.pts.length - 12; i < sloPath.pts.length; i++) d = Math.min(d, Math.hypot(sloPath.pts[i].x - x, sloPath.pts[i].z - z)); return d; };
-// how worn the ground is: the path's last stretch running on to the trodden spot (0 grass .. 1 bare earth)
+const LAST = sloPath.pts.slice(-12);   // the path's last stretch, which runs into the glade
+const pathEnd = (x, z) => { let d = 1e9; for (const q of LAST) d = Math.min(d, Math.hypot(q.x - x, q.z - z)); return d; };
+// how worn the ground is: the path's last stretch running on to the trodden spot (0 grass .. 1 bare earth). It is 0 farther than
+// 0.8 m from that lane and the path's last stretch and farther than 1.15 m from STAND; WORN_BOX is the box round all of that.
 const worn = (x, z) => {
   const s = STAND, e = end, dx = s.x - e.x, dz = s.z - e.z, t = Math.max(0, Math.min(1, ((x - e.x) * dx + (z - e.z) * dz) / (dx * dx + dz * dz)));
   const lane = Math.hypot(x - (e.x + dx * t), z - (e.z + dz * t));
   return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)));
 };
+const WORN_BOX = new THREE.Box2().setFromPoints([end, STAND].map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(1.15)
+  .union(new THREE.Box2().setFromPoints(LAST.map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(0.8));
 const taken = (x, z, pad) => Math.hypot(x - TREE.x, z - TREE.z) < TRUNK + 0.15 + pad || Math.hypot(x - BENCH.at.x, z - BENCH.at.z) < 0.85 + pad
   || STONES.some(([c, r]) => Math.hypot(x - c.x, z - c.z) < r + pad) || (() => { const ax = Math.cos(LOG.yaw), az = Math.sin(LOG.yaw), u = (x - LOG.at.x) * ax + (z - LOG.at.z) * az, v = -(x - LOG.at.x) * az + (z - LOG.at.z) * ax;
     return Math.abs(u) < LOG.len / 2 + pad && Math.abs(v) < LOG.r + 0.1 + pad; })();
@@ -55,9 +59,12 @@ function buildGlade() {
     blob(TREE.x - G.x, TREE.z - G.z, TRUNK + 1.3, "rgba(78,104,40,A)", 0.85);                                                          // moss round the tree's foot, under the roots
     blob(TREE.x - G.x, TREE.z - G.z, TRUNK + 0.4, "rgba(70,62,40,A)", 0.6);                                                           // bare and dark where the canopy drips
     for (let i = 0; i < 14; i++) { const a = R(0, 6.28), r = R(0.6, GLADE_R - 0.6); blob(Math.cos(a) * r, Math.sin(a) * r, R(0.3, 0.7), "rgba(255,246,190,A)", R(0.18, 0.3)); }   // sun flecks through the leaves
-    // the trodden earth from the path's end to the spot under the branches: soft-edged, a little darker in the middle where most feet go
+    // the trodden earth from the path's end to the spot under the branches: soft-edged, a little darker in the middle where most feet go.
+    // Only the pixels inside WORN_BOX can be worn, about a tenth of the disc (review R2-016).
     const img = g.getImageData(0, 0, PX, PX), d = img.data, mud = [143, 118, 83], mid = [118, 96, 66];
-    for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) {
+    const px = (w, c) => Math.max(0, Math.min(PX - 1, Math.floor(((w - c) / FR + 1) * PX / 2)));   // world x or z to its pixel column or row
+    const x0 = px(WORN_BOX.min.x, G.x), x1 = px(WORN_BOX.max.x, G.x) + 1, y0 = px(WORN_BOX.min.y, G.z), y1 = px(WORN_BOX.max.y, G.z) + 1;
+    for (let y = y0; y <= Math.min(PX - 1, y1); y++) for (let x = x0; x <= Math.min(PX - 1, x1); x++) {
       const wx = G.x + (x / PX * 2 - 1) * FR, wz = G.z + (y / PX * 2 - 1) * FR, w0 = worn(wx, wz); if (w0 <= 0.01) continue;
       const n = 0.5 + 0.5 * Math.sin(wx * 9.1 + wz * 3.3) * Math.sin(wx * 2.7 - wz * 8.3), w = Math.min(1, w0 * (0.85 + 0.3 * n)), c = sstep(0.75, 1, w0), i = (y * PX + x) * 4;
       for (let j = 0; j < 3; j++) d[i + j] = d[i + j] * (1 - w) + (mud[j] * (1 - c) + mid[j] * c) * w;
@@ -73,9 +80,12 @@ function buildGlade() {
         g.globalAlpha = R(0.55, 0.9); g.fillStyle = ["#b8743a", "#d3a24a", "#8a5a2c", "#a8823c"][i % 4]; g.beginPath(); g.ellipse(W(x), W(z), R(2, 3.6), R(1, 1.8), R(0, 3), 0, 7); g.fill(); }
     }
     g.globalAlpha = 1;
-    // the edge: a ragged soft fade into the forest floor
-    const e = g.getImageData(0, 0, PX, PX), ed = e.data;
-    for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) { const dx = x / PX * 2 - 1, dz = y / PX * 2 - 1, r = Math.hypot(dx, dz) * FR, a = Math.atan2(dz, dx);
+    // the edge: a ragged soft fade into the forest floor. The rim lies between GLADE_R - 0.3 and GLADE_R + 0.8, so inside IN the
+    // floor stays opaque as painted and beyond OUT it is clear; only the ring between needs the rim worked out (review R2-016).
+    const e = g.getImageData(0, 0, PX, PX), ed = e.data, IN = ((GLADE_R - 0.3 - 0.9) / FR) ** 2, OUT = ((GLADE_R + 0.8 + 0.6) / FR) ** 2;
+    for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) { const dx = x / PX * 2 - 1, dz = y / PX * 2 - 1, r2 = dx * dx + dz * dz;
+      if (r2 < IN) continue; if (r2 > OUT) { ed[(y * PX + x) * 4 + 3] = 0; continue; }
+      const r = Math.hypot(dx, dz) * FR, a = Math.atan2(dz, dx);
       const rim = GLADE_R + 0.25 + 0.35 * Math.sin(a * 5 + 1) + 0.2 * Math.sin(a * 11 + 2.3); ed[(y * PX + x) * 4 + 3] = 255 * (1 - sstep(rim - 0.9, rim + 0.6, r)); }
     g.putImageData(e, 0, 0);
   });
