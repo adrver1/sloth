@@ -47,30 +47,30 @@ const fade = el('<div class="trip-fade"></div>');
 const card = el('<div class="trip-ask" hidden role="dialog" aria-label="Go to karaoke?"><h2>Go to karaoke? 🎤</h2><p></p><button class="yes" type="button">Yes, let\'s go!</button><button class="no" type="button">Not now</button></div>');
 for (const ev of ["pointerdown", "pointerup"]) card.addEventListener(ev, (e) => e.stopPropagation());
 
-// ---------------------------------------------------------------- the sign: an arrow board on a post (picked A), by the glade where the path starts
+// ---------------------------------------------------------------- the sign: a square board on a post, where the road starts past the glade
+// tree. Adriaen 2026-11-14: the arrow board along the road could only be read once you were nearly past it, so it is now a board
+// facing you as you come round the tree, an arrow pointing up (straight on) over "Karaoke".
 const SIGN_T = 0.1;
 const sign = (() => {
   const g = new THREE.Group(), wood = lam(0x6e4a28);
   const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.3, 0.08), wood); post.position.y = 0.65; g.add(post);   // 12 tris
-  const face = (flip) => canvasTex(256, 128, (c, w, h) => {
-    if (flip) { c.translate(w, 0); c.scale(-1, 1); }
-    c.fillStyle = "#c08a50"; c.beginPath(); c.moveTo(6, 14); c.lineTo(w - 50, 14); c.lineTo(w - 6, h / 2); c.lineTo(w - 50, h - 14); c.lineTo(6, h - 14); c.closePath(); c.fill();
-    c.strokeStyle = "#7a5230"; c.lineWidth = 5; c.stroke();
-    c.fillStyle = "rgba(90,58,32,.25)"; for (let i = 0; i < 5; i++) c.fillRect(14, 30 + i * 16, w - 80, 2);   // the grain
-    if (flip) { c.setTransform(1, 0, 0, 1, 0, 0); }
-    c.fillStyle = "#5a3a20"; c.font = "bold 44px Fredoka, Trebuchet MS, sans-serif"; c.textAlign = "center"; c.fillText("Karaoke ♪", flip ? w / 2 + 22 : w / 2 - 22, 80);
+  const front = canvasTex(256, 224, (c, w, h) => {
+    c.fillStyle = "#c08a50"; c.fillRect(6, 6, w - 12, h - 12); c.strokeStyle = "#7a5230"; c.lineWidth = 6; c.strokeRect(6, 6, w - 12, h - 12);
+    c.fillStyle = "rgba(90,58,32,.22)"; for (let i = 0; i < 9; i++) c.fillRect(16, 24 + i * 22, w - 32, 2);   // the grain
+    c.fillStyle = "#5a3a20"; c.beginPath(); c.moveTo(w / 2, 22); c.lineTo(w / 2 + 44, 74); c.lineTo(w / 2 + 16, 74); c.lineTo(w / 2 + 16, 118); c.lineTo(w / 2 - 16, 118);
+    c.lineTo(w / 2 - 16, 74); c.lineTo(w / 2 - 44, 74); c.closePath(); c.fill();   // straight on
+    c.font = "bold 46px Fredoka, Trebuchet MS, sans-serif"; c.textAlign = "center"; c.fillText("Karaoke ♪", w / 2, 178);
   });
-  for (const [flip, ry] of [[false, 0], [true, Math.PI]]) {   // two one-sided quads back to back, so the words read from both sides (4 tris)
-    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lam(0xffffff, { map: face(flip), alphaTest: 0.5 })); b.rotation.y = ry; b.position.set(0.25, 1.12, ry ? -0.045 : 0.045); g.add(b);
+  const back = canvasTex(64, 56, (c, w, h) => { c.fillStyle = "#a97a46"; c.fillRect(0, 0, w, h); c.fillStyle = "rgba(90,58,32,.25)"; for (let i = 0; i < 5; i++) c.fillRect(2, 6 + i * 10, w - 4, 1); });
+  for (const [map, ry] of [[front, 0], [back, Math.PI]]) {   // two one-sided quads back to back (4 tris)
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.56), lam(0xffffff, { map })); b.rotation.y = ry; b.position.set(0, 1.3, ry ? -0.045 : 0.045); g.add(b);
   }
-  const p = curve.getPointAt(SIGN_T), d = curve.getTangentAt(SIGN_T), side = V(-d.z, 0, d.x).normalize();
-  if (side.dot(V(-p.x, 0, -p.z)) < 0) side.negate();   // on the camp's side of the path, so you see it coming out of the glade
+  const p = curve.getPointAt(SIGN_T), d = curve.getTangentAt(SIGN_T).setY(0).normalize(), side = V(-d.z, 0, d.x);
+  if (side.dot(V(-p.x, 0, -p.z)) < 0) side.negate();   // on the camp's side of the road
   g.position.copy(p).addScaledVector(side, 1.05); g.position.y = groundHeight(g.position.x, g.position.z);
-  // the board faces the glade, its arrow pointing the way the path bends off; either face reads right (the back one is mirrored)
-  const n = GLADE.clone().sub(g.position).setY(0).normalize(), bend = curve.getPointAt(0.7).sub(g.position).setY(0), X = bend.addScaledVector(n, -bend.dot(n)).normalize();
-  // then turned 50° toward the way the path runs (Adriaen 2026-11-13: it should point more down the path), still readable from the glade
-  const along = curve.getTangentAt(Math.min(1, SIGN_T + 0.08)).setY(0).normalize(), turn = Math.atan2(X.z * along.x - X.x * along.z, X.dot(along));
-  g.rotation.y = Math.atan2(-X.z, X.x) + Math.sign(turn) * Math.min(Math.abs(turn), 50 * Math.PI / 180);
+  // its face looks back down the road, toward the tree you come round (turned a little toward the glade, so it reads from there too)
+  const n = d.clone().negate().lerp(GLADE.clone().sub(g.position).setY(0).normalize(), 0.3).normalize();
+  g.rotation.y = Math.atan2(n.x, n.z);
   scene.add(g); return g;
 })();
 console.info(`karaoke trip: sign ${tris(sign)} triangles`);
