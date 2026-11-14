@@ -1,8 +1,8 @@
-// Canopy Camp operator, his day: the things he does, one after another. Each is a generator that runs a step a frame: soup
-// from the pot on a log seat, a mug from the kitchen crate, a book, warming his hands at the fire, a stroll, sleep in the
-// tent bed, playing with a sloth, sitting with you by the fire, and making the soup (cook.js). What comes next is drawn by
-// weight (other weights at night), never the same thing twice in a row. With ?lived=0 there is no kitchen crate, so no mug
-// and no cooking.
+// Canopy Camp operator, his day: the things he does, one after another. Each is a generator that runs a step a frame: a bowl
+// of soup from the pot on a log seat (only while the soup is ready, as one of its three bowls), a mug from the kitchen crate,
+// a book, warming his hands at the fire, a stroll, sleep in the tent bed, playing with a sloth, sitting with you by the fire,
+// and making the soup (cook.js). What comes next is drawn by weight (other weights at night), never the same thing twice in
+// a row. With ?lived=0 there is no kitchen crate, so no mug, no cooking and no soup.
 // Exports lifeStep(dt) (step.js, each frame; an error in an activity is logged and his day starts again) and jumpTo(kind)
 // (the checks, opChecks.jump: stop what he is doing cleanly, start that activity now, then carry on).
 import * as THREE from "three";
@@ -45,11 +45,15 @@ function* seatWith(activity) {                         // claim a seat, sit, do 
   unhost(); dropAll(); yield* standUp(); releasePlace();
 }
 const DO = {
-  *eat() {                                             // a bowl of soup from the pot, eaten on a log seat
+  *eat() {                                             // a bowl of soup from the pot, eaten on a log seat: only when the soup is
+    // ready, and his bowl is one of the pot's three (review R2-185); if the last one went while he reached, he goes on empty-handed
+    if (chores.cook.stage !== "ready") return;
     yield* walkTo(fireGap(root.position)); yield* faceFire();
     const pot = SOUP_POT.at;
-    for (let t = 0; t < 1.6;) { t += yield; op.ik = { R: [pot.clone().add(V(0, 0.12, 0)), Math.sin(Math.min(1, t / 1.6) * Math.PI) ** 2] }; }
-    op.ik = null; bowl.visible = spoon.visible = true; op.eat = { t: 0, spoon: 0 };   // the bowl in both hands, the spoon in his right
+    let got = null;                                    // the ladle goes in once, when his hand is in the pot
+    for (let t = 0; t < 1.6;) { t += yield; op.ik = { R: [pot.clone().add(V(0, 0.12, 0)), Math.sin(Math.min(1, t / 1.6) * Math.PI) ** 2] }; if (got === null && t > 0.8) got = chores.cook.ladle(); }
+    op.ik = null; if (!got) return;
+    bowl.visible = spoon.visible = true; op.eat = { t: 0, spoon: 0 };   // the bowl in both hands, the spoon in his right
     yield* seatWith(function* () {
       for (let t = 0, T = R(22, 38); t < T && !op.buddy;) { const dt = yield; t += dt; op.eat.spoon = Math.min(1, t / 1.5); op.eat.t += dt; }
     });
@@ -168,7 +172,7 @@ function* lifeLoop() {
   }
 }
 function pick() {
-  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (LIVED || !NEEDS_CRATE.has(k)) && (k !== "play" || slothLife) && (k !== "cook" || (op.cd.cook <= 0 && chores.cook.can())));
+  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (LIVED || !NEEDS_CRATE.has(k)) && (k !== "play" || slothLife) && (k !== "cook" || (op.cd.cook <= 0 && chores.cook.can())) && (k !== "eat" || chores.cook.stage === "ready"));
   let r = R(0, w.reduce((s, [, v]) => s + v, 0)); for (const [k, v] of w) if ((r -= v) <= 0) return k; return w[0][0];
 }
 
