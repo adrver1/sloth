@@ -1,5 +1,6 @@
 // Canopy Camp sloths, the face: which way it points, the eyes that open and shut, the mouth card and the yawn.
 //   FACE            which way the face points in the head bone's frame
+//   buildFace()     makes the mouth card's texture, material and geometry (sloths.js, once, first in its body)
 //   eyeKit(o)       per sloth: a function (closed) that shuts or opens its eyes, by swapping the UVs of its eye vertices
 //   mouthOf(s)      the sloth's mouth card (made the first time): it opens for a yawn and as it chews
 //   yawnStep(s, dt) a yawn while s.yawn > 0, about 2.8 s (life.js calls it each frame)
@@ -33,9 +34,14 @@ function eyeKit(o) {                                   // per sloth: its own cop
 }
 // a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
 // muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.
-const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();
-  g.fillStyle = "#e07a8a"; g.beginPath(); g.ellipse(32, 48, 16, 11, 0, 0, 7); g.fill(); });
-const mouthMat = new THREE.MeshBasicMaterial({ map: mouthTex, alphaTest: 0.5 }), mouthGeo = new THREE.PlaneGeometry(0.036, 0.034);
+// buildFace() makes the card's texture, material and geometry; sloths.js calls it first thing, where they were always made
+// (after deadwood.js's), so the materials keep their ids and draw order
+let mouthMat, mouthGeo;
+function buildFace() {
+  const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();
+    g.fillStyle = "#e07a8a"; g.beginPath(); g.ellipse(32, 48, 16, 11, 0, 0, 7); g.fill(); });
+  mouthMat = new THREE.MeshBasicMaterial({ map: mouthTex, alphaTest: 0.5 }); mouthGeo = new THREE.PlaneGeometry(0.036, 0.034);
+}
 // the mouth card sits on the smile (head frame y 0.031, z -0.083), a little below and in front of it so it opens downward;
 // the nose is at y 0.046 (Adriaen 2026-11-13: the yawn was on the nose)
 function mouthOf(s) {                                 // also opens and closes as it chews (eating, below)
@@ -50,4 +56,4 @@ function yawnStep(s, dt) {
   if (k > 2.8) { s.yawn = 0; s.mouth.visible = false; if (!s.asleep) s.eyes(false); }
 }
 
-export { FACE, eyeKit, mouthOf, yawnStep };
+export { FACE, buildFace, eyeKit, mouthOf, yawnStep };

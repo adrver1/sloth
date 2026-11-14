@@ -8,6 +8,7 @@
 // holds a module's place in that order when main.js needs no name from it.
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
+import "../fur.js";   // order only: fur.js is evaluated second, as it always was (sloth/body.js uses it)
 import { $, DETAIL, OPT, camera, renderer, scene, uTime } from "./core.js";
 import { V } from "./util.js";
 import { GLADE, sloPath } from "./layout.js";

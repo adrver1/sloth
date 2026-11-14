@@ -6,8 +6,10 @@
 // characters/sloth_baby/sloth_rig.py. ?campsloths=0 leaves the named ones out; window.__campFast speeds them up for
 // checks, window.__errand(name) sends one off now (sloth/hooks.js).
 // The order below is the order things are made in, which the scene's objects, the materials and the seeded random numbers
-// (core.js R) all depend on: the wild sloths, then the spots, the wayfinding grid, the things the sloths use, the named
-// sloths, the guest spots, the saved state, and last the hooks. Keep it when adding to it.
+// (core.js R) all depend on: the mouth card's material, the wild sloths, then the spots, the wayfinding grid, the things the
+// sloths use, the named sloths, the guest spots, the saved state, and last the hooks. Keep it when adding to it. The modules
+// in camp/sloth/ are evaluated before deadwood.js, so their top level makes no texture, material, geometry or mesh: that
+// goes in a build function called from here.
 // Exports: sloths (every sloth), hit (their tap spheres), and the frame steps main.js calls in this order: slothsStep(dt)
 // (sloth/life.js), campStep(dt, seat) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
 import * as THREE from "three";
@@ -16,6 +18,7 @@ import { V } from "./util.js";
 import { HERO } from "./layout.js";
 import { branchCurves } from "./forest.js";
 import { CAST } from "./cast.js";
+import "./save.js";   // order only: save.js is evaluated right after cast.js, as it was before the split
 import { burst, fx, sprite } from "./fx.js";
 import { addLabButton } from "./labButton.js";
 import { addCrowd } from "./places.js";
@@ -23,6 +26,7 @@ import { GROUND, camp, hit, sloths, spots, wild } from "./sloth/state.js";
 import { hang, warmStep } from "./sloth/body.js";
 import { slothsStep } from "./sloth/life.js";
 import { treeOf } from "./sloth/poses.js";
+import { buildFace } from "./sloth/face.js";
 import { buildGuests, buildSpots } from "./sloth/spots.js";
 import { buildNav } from "./sloth/walk.js";
 import { hammockStep } from "./sloth/naps.js";
@@ -36,6 +40,7 @@ import { restore } from "./sloth/saved.js";
 import { campStep, findSeats } from "./sloth/step.js";
 import { addHooks } from "./sloth/hooks.js";
 
+buildFace();   // the mouth card's texture, material and geometry, made here, after deadwood.js's (sloth/face.js)
 // one wild sloth in each big tree, on the low branch reaching furthest out, so the branches nearest the fire stay free for
 // the camp's two branch sloths (the tripod sloth is gone; Adriaen: too close to the fire)
 for (const tree of HERO) {
