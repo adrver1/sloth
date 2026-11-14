@@ -39,7 +39,7 @@ function lookStart(e) {
 function lookMove(e) {
   const L = looks.get(e.pointerId); if (!L) return;
   const dx = e.clientX - L.x, dy = e.clientY - L.y; L.x = e.clientX; L.y = e.clientY; L.moved += Math.hypot(dx, dy);
-  if (looks.size === 2) { const [a, b] = [...looks.values()]; fovAdd = THREE.MathUtils.clamp(fov0 + (pinch0 - Math.hypot(a.x - b.x, a.y - b.y)) * 0.06, -20, 6); resize(); return; }
+  if (looks.size === 2) { const [a, b] = [...looks.values()]; zoomTo(fov0 + (pinch0 - Math.hypot(a.x - b.x, a.y - b.y)) * 0.06); return; }
   me.yaw -= dx * 0.005; me.pitch = THREE.MathUtils.clamp(me.pitch - dy * 0.004, -1.2, 1.2); me.lastDrag = uTime.value;
 }
 const lookEnd = (e) => {
@@ -117,7 +117,10 @@ function tap(x, y) {
   if (h || pickAt(x, y, allTargets().flatMap((t) => t.picks))) toast("Get a bit closer");
 }
 
-function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
+// zooming only changes the field of view (a tall phone screen sees wider); resize() also sizes the canvas
+function setFov() { camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
+function zoomTo(add) { fovAdd = THREE.MathUtils.clamp(add, -20, 6); setFov(); }   // -20 (zoomed in) .. +6 degrees
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; setFov(); }
 
 // ---------------------------------------------------------------- initInput (main.js, once the sloths and the chores are built)
 // the listeners, the highlight, the pill menu and the sloths' tap targets
@@ -136,7 +139,7 @@ function initInput() {
   $("c").addEventListener("pointerdown", lookStart);
   $("c").addEventListener("pointermove", lookMove);
   $("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
-  addEventListener("wheel", (e) => { fovAdd = THREE.MathUtils.clamp(fovAdd + e.deltaY * 0.02, -20, 6); resize(); }, { passive: true });
+  addEventListener("wheel", (e) => { zoomTo(fovAdd + e.deltaY * 0.02); }, { passive: true });
   glow = createHighlight(scene, renderer, { width: coarse ? 3.5 : 3 });
   $("c").addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") hover = { x: e.clientX, y: e.clientY }; });
   $("c").addEventListener("pointerleave", () => (hover = null));
