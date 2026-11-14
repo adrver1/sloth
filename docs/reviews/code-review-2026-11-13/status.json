@@ -446,7 +446,7 @@
    "note": "camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js"
   },
   "operator-16": {
-   "status": "fixed",
+   "status": "partly fixed",
    "commits": [
     "571f821"
    ],
@@ -699,10 +699,11 @@
    "note": "the five jobs are campGround.js, tentInside.js, campAir.js and chores.js; campLife.js only holds their order. It keeps its name (main.js imports it): rename it with main.js's next change"
   },
   "operator-17": {
-   "status": "fixed",
+   "status": "partly fixed",
    "commits": [
     "bedef9b",
-    "87b1b03"
+    "87b1b03",
+    "44eb928"
    ],
    "note": "each thing carries its own label; activities/ carry.js, fireChore.js, soupChore.js, fruitBowl.js, parts.js; 12 options instead of 19. The Put it back pill still carries its own CSS (camp.html was not in this round)"
   },

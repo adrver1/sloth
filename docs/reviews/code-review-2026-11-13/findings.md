@@ -8,8 +8,8 @@ Flags: **rebake** = needs a GPU bake to verify; **restructure** = changes how mo
 
 | Status | Findings |
 |---|---|
-| fixed | 42 |
-| partly fixed | 32 |
+| fixed | 40 |
+| partly fixed | 34 |
 | checked, still open | 2 |
 | planned | 6 |
 | waiting on Adriaen | 15 |
@@ -41,8 +41,6 @@ Flags: **rebake** = needs a GPU bake to verify; **restructure** = changes how mo
 | [hygiene-07](#hygiene-07) | medium | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
 | [hygiene-08](#hygiene-08) | medium | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
 | [hygiene-14](#hygiene-14) | medium | fixed | [9561718](https://github.com/adrver1/sloth/commit/9561718) | shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs |
-| [operator-16](#operator-16) | medium | fixed | [571f821](https://github.com/adrver1/sloth/commit/571f821) | camp/operator/: state, model, ik, handProps, places, walk, buddy, day, cook, lines, talk, handPose, fidget, headPose, step; one state object with named fields and reset(part). The scripts still clean up through dropAll and reset, not try/finally |
-| [operator-17](#operator-17) | medium | fixed | [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03) | each thing carries its own label; activities/ carry.js, fireChore.js, soupChore.js, fruitBowl.js, parts.js; 12 options instead of 19. The Put it back pill still carries its own CSS (camp.html was not in this round) |
 | [props-01](#props-01) | medium | fixed | [a8c698a](https://github.com/adrver1/sloth/commit/a8c698a) |  |
 | [props-08](#props-08) | medium | fixed | [2626429](https://github.com/adrver1/sloth/commit/2626429), [bfca46a](https://github.com/adrver1/sloth/commit/bfca46a) | exports, with the window names kept as aliases for the files that still read them; the jeep's seats, door options and engine are on jeepApi, and window.__car is only a debug hook |
 | [props-11](#props-11) | medium | fixed | [9561718](https://github.com/adrver1/sloth/commit/9561718) | shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs |
@@ -76,6 +74,8 @@ Flags: **rebake** = needs a GPU bake to verify; **restructure** = changes how mo
 | [genlived-04](#genlived-04) | medium | partly fixed | [c473b25](https://github.com/adrver1/sloth/commit/c473b25) | the bake calls each builder's make() directly: no exec, no patching. The GLB round trip stays (through a temporary folder) because the glTF export triangulates and splits vertices, and the atlas is built on that result |
 | [operator-12](#operator-12) | medium | partly fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [978fcba](https://github.com/adrver1/sloth/commit/978fcba) | camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js |
 | [operator-15](#operator-15) | medium | partly fixed | [a6d52a9](https://github.com/adrver1/sloth/commit/a6d52a9) | the five jobs are campGround.js, tentInside.js, campAir.js and chores.js; campLife.js only holds their order. It keeps its name (main.js imports it): rename it with main.js's next change |
+| [operator-16](#operator-16) | medium | partly fixed | [571f821](https://github.com/adrver1/sloth/commit/571f821) | camp/operator/: state, model, ik, handProps, places, walk, buddy, day, cook, lines, talk, handPose, fidget, headPose, step; one state object with named fields and reset(part). The scripts still clean up through dropAll and reset, not try/finally |
+| [operator-17](#operator-17) | medium | partly fixed | [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03), [44eb928](https://github.com/adrver1/sloth/commit/44eb928) | each thing carries its own label; activities/ carry.js, fireChore.js, soupChore.js, fruitBowl.js, parts.js; 12 options instead of 19. The Put it back pill still carries its own CSS (camp.html was not in this round) |
 | [operator-19](#operator-19) | medium | partly fixed | [bfca46a](https://github.com/adrver1/sloth/commit/bfca46a), [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b) | the operator imports acts, and the fire's boost has one owner (camp/chores.js boostFire). Left: audio.js's two globals (see crosscut-03), the window events (camp-act, camp-food) have no one module, and the chores still set s.nod on a sloth |
 | [props-06](#props-06) | medium | partly fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [978fcba](https://github.com/adrver1/sloth/commit/978fcba) | camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js |
 | [props-13](#props-13) | medium | partly fixed | [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [2ce6f7a](https://github.com/adrver1/sloth/commit/2ce6f7a) | util.js patchMaterial; sloths.js and operator.js still chain their hooks by hand (next round) |
@@ -2270,7 +2270,7 @@ Fix: With Adriaen's go-ahead: move the tent walls, bed and stove blockers and th
 ### operator-16 · medium · L · separation
 **operator.js is one module doing nine jobs, with a loose state bag reset by hand in two places**  _(restructure)_
 
-**Status: fixed** in [571f821](https://github.com/adrver1/sloth/commit/571f821). Camp/operator/: state, model, ik, handProps, places, walk, buddy, day, cook, lines, talk, handPose, fidget, headPose, step; one state object with named fields and reset(part). The scripts still clean up through dropAll and reset, not try/finally
+**Status: partly fixed** in [571f821](https://github.com/adrver1/sloth/commit/571f821). Camp/operator/: state, model, ik, handProps, places, walk, buddy, day, cook, lines, talk, handPose, fidget, headPose, step; one state object with named fields and reset(part). The scripts still clean up through dropAll and reset, not try/finally
 
 Where: `apps/canopy-prototype/camp/operator.js:160`; `apps/canopy-prototype/camp/operator.js:271, 672`; `apps/canopy-prototype/camp/operator.js:453-576`
 
@@ -2282,7 +2282,7 @@ Fix: With Adriaen's go-ahead, after PR #14: split into camp/operator/ model.js (
 ### operator-17 · medium · M · separation
 **activities.js is one 250-line closure with a 19-key options bag and its own UI**  _(restructure)_
 
-**Status: fixed** in [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03). Each thing carries its own label; activities/ carry.js, fireChore.js, soupChore.js, fruitBowl.js, parts.js; 12 options instead of 19. The Put it back pill still carries its own CSS (camp.html was not in this round)
+**Status: partly fixed** in [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03), [44eb928](https://github.com/adrver1/sloth/commit/44eb928). Each thing carries its own label; activities/ carry.js, fireChore.js, soupChore.js, fruitBowl.js, parts.js; 12 options instead of 19. The Put it back pill still carries its own CSS (camp.html was not in this round)
 
 Where: `apps/canopy-prototype/activities.js:61`; `apps/canopy-prototype/activities.js:104-112`; `apps/canopy-prototype/activities.js:193-235`
 
