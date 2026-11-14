@@ -6,7 +6,7 @@
 # copied, the old prototypes (the prototypes/ folder) and any 4K light map are left out, the
 # base64 models and KTX2 maps are decoded to binary files, which camp.html is told to load (R2-214), and
 # index.html files at the root and in the folder forward to camp.html (review R2-208). The build stops when the site
-# is over 30 MB (about 22 MB on 2026-11-14). The static checks in check.yml run first, and nothing is published
+# is over 30 MB (about 20 MB on 2026-11-14). The static checks in check.yml run first, and nothing is published
 # when they fail.
 # Site: https://adrver1.github.io/sloth/ (camp at canopy-prototype/camp.html)
 name: Deploy camp

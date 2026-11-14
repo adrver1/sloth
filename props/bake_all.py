@@ -15,7 +15,7 @@ in several different places", and bake the whole scene as one). Run it whenever 
           and the props' GLBs/txt. The 4K maps stay on the desktop (.gitignore, review R2-207): ?lm=4k works there, and a
           clone or Pages falls back to the 2K maps
   ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), base64 in <map>.ktx2.txt next to the PNGs (artifacts
-          don't serve .ktx2; the .ktx2 itself is deleted, and .gitignore covers one a stopped bake leaves), which stay as the fallback, and camp_lights.json "ktx2": each converted map with its PNG's hash;
+          don't serve .ktx2; the .ktx2 itself is deleted, and .gitignore covers one a stopped bake leaves), which stay as the fallback, and camp_lights.json "ktx2": each converted map with its PNG's hash, merged into the entries already there;
           needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH
   layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (prop spots, the jeep's track, the path,
           the deadwood, the ground's height, and the "place" block: where the page stands each baked prop and light, which
@@ -84,7 +84,9 @@ if "ktx" in steps:
     # tells the page which maps have a .ktx2.txt (it tries no other, so the 4K maps do not 404), stamped with the first 16 hex
     # digits of each source PNG's sha256, so tools/check-imports.cjs finds a .ktx2.txt that is older than its PNG
     stamp = {os.path.basename(f)[:-4]: hashlib.sha256(open(f, "rb").read()).hexdigest()[:16] for f in maps}
-    jf = os.path.join(M, "camp_lights.json"); j = json.load(open(jf)); j["ktx2"] = stamp; json.dump(j, open(jf, "w"), indent=1)
+    jf = os.path.join(M, "camp_lights.json"); j = json.load(open(jf))
+    j["ktx2"] = {**(j["ktx2"] if isinstance(j.get("ktx2"), dict) else {}), **stamp}   # merged, so a run with fewer maps (--jeep none) keeps the others
+    json.dump(j, open(jf, "w"), indent=1)
 if "ground" in steps:
     env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}     # PYTHONPATH may hold Blender's own libraries
     run([sys.executable, os.path.join(ROOT, "props/ground/bake_ground.py"), "--props", "picked"], env=env)
