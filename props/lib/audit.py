@@ -12,7 +12,7 @@ show, such as the soup pot whose outside faced in (seen only from the back, so t
 
 The line it prints for each object:
 
-    audit Pot: 236 tris, enclosed 2%, player-hidden 54%, back-only 100, flips 0, degenerate 0, overlaps 4
+    audit Pot: 248 tris, enclosed 2%, player-hidden 11%, back-only 0, flips 0, degenerate 0, overlaps 4
 
     enclosed       triangles no viewpoint above the ground sees (any direction, three shells round the object)
     player-hidden  triangles no player eye sees (eyes 1.13 and 1.55 m up, on rings 0.6 to 8 m out from the object)
@@ -50,7 +50,7 @@ RINGS = (0.6, 1.2, 2.5, 5.0, 8.0)              # metres out from the object's fo
 ANGLES = 24
 KNOWN = {                                      # "<GLB name>/<object>": the faults it had on 2026-11-14 (see the docstring)
     "lived/TentSide": {"back_only": 2},
-    "fire/Pot": {"back_only": 100, "overlaps": 4},           # the pot's outside faces in (review R2-021)
+    "fire/Pot": {"overlaps": 4},                              # bits lying on each other in the soup
     "laundry/LaundryCloth": {"overlaps": 3},
     "camp_picked/Tent": {"back_only": 26},
     "jeep_expedition/Jeep": {"overlaps": 15},

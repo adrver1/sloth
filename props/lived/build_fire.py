@@ -205,27 +205,27 @@ def fire(M):
     return join(p, "Fire"), join(em, "Embers")
 
 
-def lathe(profile, segs, m, z0=0.0):
-    """Spin a (radius, z) profile round the z axis into a closed-ish body."""
+def lathe(profile, segs, m, z0=0.0, flip=False):
+    """Spin a (radius, z) profile round the z axis into a body. spin() faces each band by the profile's direction times
+    the turn, so a profile running outward and up (the pot's outside) comes out facing in; flip=True reverses every face
+    (review R2-146). The soup disc, whose one band runs outward at the top, already faces up and needs no flip."""
     bm = bmesh.new()
     vs = [bm.verts.new((r, 0, z0 + z)) for r, z in profile]
     es = [bm.edges.new((vs[i], vs[i + 1])) for i in range(len(vs) - 1)]
     bmesh.ops.spin(bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1), angle=2 * math.pi, steps=segs, use_duplicate=False)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
+    if flip:
+        bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
     o = obj_from_bm(bm, "lathe")
     return with_material(o, m)
 
 
-def ribbon_arch(pts, w, m):
-    """A thin wire as two crossed flat strips along the points (4 triangles a segment), instead of a round rod."""
+def wire(pts, r, m):
+    """A thin round wire along the points: a three-sided tube with no caps (its ends sit in the lugs), smooth shaded so it
+    reads round, seen from every side (6 triangles a segment; review R2-147 replaced two one-sided crossed strips)."""
     bm = bmesh.new()
-    for off in (Vector((w, 0, 0)), None):
-        for i in range(len(pts) - 1):
-            a, b = pts[i], pts[i + 1]
-            o = off if off is not None else (b - a).cross(Vector((1, 0, 0))).normalized() * w
-            bm.faces.new([bm.verts.new(v) for v in (a - o, b - o, b + o, a + o)])
-    o = obj_from_bm(bm, "wire")
-    return with_material(o, m, smooth=False)
+    sweep(bm, pts, [r] * len(pts), 3, cap_b=False)
+    return with_material(obj_from_bm(bm, "wire"), m)
 
 
 def flat(n, r, at, m, sx=1.0, yaw=0.0):
@@ -244,13 +244,12 @@ def flat(n, r, at, m, sx=1.0, yaw=0.0):
 
 
 def pot(M):
-    """The open iron pot, trimmed (camp review 2026-11-12, about 230 triangles): a 10-sided lathe with a rolled rim and
-    the inside wall only down to the soup, the soup with flat bits on it, three feet, two lugs and a wire bail of
-    crossed strips. Returns the pot and the top of the bail (where the chain hooks on)."""
+    """The open iron pot, trimmed (camp review 2026-11-12, 248 triangles): a 10-sided lathe with a rolled rim and
+    the inside wall only down to the soup, the soup with flat bits on it, three feet, two lugs and a round wire bail. Returns the pot and the top of the bail (where the chain hooks on)."""
     sz = SOUP.z - POT_Z
     prof = [(0.0, 0.0), (0.1, 0.0), (0.155, 0.05), (0.163, 0.13), (0.168, 0.158),   # outside up to the rim
             (0.152, 0.158), (0.147, sz - 0.004)]                                   # over the lip, down to the soup
-    p = [lathe(prof, 10, M["iron"], z0=POT_Z)]
+    p = [lathe(prof, 10, M["iron"], z0=POT_Z, flip=True)]
     p.append(lathe([(0.0, sz), (0.148, sz - 0.004)], 10, M["soup"], z0=POT_Z))
     for i in range(9):                                             # bits in the soup: carrot coins, potato, peas, herbs
         a, d = rng.uniform(0, 2 * math.pi), 0.11 * math.sqrt(rng.uniform(0.05, 1))
@@ -266,7 +265,7 @@ def pot(M):
         p.append(cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, POT_Z), m=M["iron"], verts=4))
     pivot = POT_Z + 0.15
     pts = [Vector((0, -0.175 * math.cos(t), pivot + 0.17 * math.sin(t))) for t in [k / 6 * math.pi for k in range(7)]]
-    p.append(ribbon_arch(pts, 0.006, M["iron"]))
+    p.append(wire(pts, 0.007, M["iron"]))
     peak = pts[3]
     for s in (-1, 1):                                              # the lugs the bail turns in
         p.append(box((0.03, 0.02, 0.03), at=(0, s * 0.168, pivot), m=M["iron"]))
