@@ -1,0 +1,82 @@
+[
+[
+5,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 1);"
+],
+[
+60,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0.7, 0.7);"
+],
+[
+90,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+],
+[
+95,
+"const T = window.__T, J = T.jeep, me = T.me; me.pos.set(0.84, 0, 6.5); me.vel.set(0, 0, 0); me.yaw = Math.atan2(-(0.9 - (0.84)), -(7.89 - (6.5))); me.pitch = 0; T.log.push(['go', 0.84, 6.5]);window.__stick(0, 1);"
+],
+[
+140,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(1, 0);"
+],
+[
+160,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(-1, 0.2);"
+],
+[
+185,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+],
+[
+190,
+"const T = window.__T, J = T.jeep, me = T.me; me.pos.set(-1.54, 0, 15.0); me.vel.set(0, 0, 0); me.yaw = Math.atan2(-(-1.83 - (-1.54)), -(18.41 - (15.0))); me.pitch = 0; T.log.push(['go', -1.54, 15.0]);window.__stick(0, 1);"
+],
+[
+290,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(1, 0);"
+],
+[
+330,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+],
+[
+335,
+"const T = window.__T, J = T.jeep, me = T.me; me.pos.set(1.02, 0, -8.02); me.vel.set(0, 0, 0); me.yaw = Math.atan2(-(1.61 - (1.02)), -(-9.85 - (-8.02))); me.pitch = 0; T.log.push(['go', 1.02, -8.02]);window.__stick(0, 1);"
+],
+[
+380,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(1, 0.3);"
+],
+[
+400,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(-1, 0.3);"
+],
+[
+425,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 1); me.yaw = Math.atan2(-(0.22 - me.pos.x), -(-16.41 - me.pos.z));"
+],
+[
+520,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);"
+],
+[
+525,
+"const T = window.__T, J = T.jeep, me = T.me; me.pos.set(5.5, 0, 3.0); me.vel.set(0, 0, 0); me.yaw = Math.atan2(-(11 - (5.5)), -(6 - (3.0))); me.pitch = 0; T.log.push(['go', 5.5, 3.0]);window.__stick(0, 1);"
+],
+[
+580,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0.8, 0.2);"
+],
+[
+620,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0); T.key('ArrowUp', true);"
+],
+[
+635,
+"const T = window.__T, J = T.jeep, me = T.me; T.key('ArrowUp', false); T.key('KeyA', true);"
+],
+[
+650,
+"const T = window.__T, J = T.jeep, me = T.me; T.key('KeyA', false);"
+]
+]

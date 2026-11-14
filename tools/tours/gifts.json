@@ -1,0 +1,50 @@
+[
+[
+2,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.log.push(['food', Object.keys(F).sort().join()]); T.log.push(['ph', ph()]);"
+],
+[
+4,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.call(\"gift S('Sunny')\", () => { const r = (life.eatGift(S('Sunny'), F.makeFood ? F.makeFood(\"mango\") : Object.values(F).find((f) => typeof f === 'function')(\"mango\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; });T.call(\"gift S('Figgy')\", () => { const r = (life.eatGift(S('Figgy'), F.makeFood ? F.makeFood(\"apple\") : Object.values(F).find((f) => typeof f === 'function')(\"apple\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; });T.call(\"gift W[0]\", () => { const r = (life.eatGift(W[0], F.makeFood ? F.makeFood(\"banana\") : Object.values(F).find((f) => typeof f === 'function')(\"banana\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; });T.call(\"gift S('Hibi')\", () => { const r = (life.eatGift(S('Hibi'), F.makeFood ? F.makeFood(\"fig\") : Object.values(F).find((f) => typeof f === 'function')(\"fig\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; }); T.log.push(['ph', ph()]);"
+],
+[
+30,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__boop(0); window.__boop(3); window.__feed(1); window.__feed(5); T.log.push(['ph', ph()]);"
+],
+[
+60,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.call(\"gift S('Mango')\", () => { const r = (life.eatGift(S('Mango'), F.makeFood ? F.makeFood(\"lime\") : Object.values(F).find((f) => typeof f === 'function')(\"lime\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; });T.call(\"gift S('Hazel')\", () => { const r = (life.eatGift(S('Hazel'), F.makeFood ? F.makeFood(\"apple\") : Object.values(F).find((f) => typeof f === 'function')(\"apple\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; });T.call(\"gift S('Pip')\", () => { const r = (life.eatGift(S('Pip'), F.makeFood ? F.makeFood(\"banana\") : Object.values(F).find((f) => typeof f === 'function')(\"banana\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; });T.call(\"gift W[1]\", () => { const r = (life.eatGift(W[1], F.makeFood ? F.makeFood(\"mango\") : Object.values(F).find((f) => typeof f === 'function')(\"mango\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; }); T.log.push(['ph', ph()]);"
+],
+[
+70,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.call(\"gift S('Mango')\", () => { const r = (life.eatGift(S('Mango'), F.makeFood ? F.makeFood(\"apple\") : Object.values(F).find((f) => typeof f === 'function')(\"apple\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; }); T.log.push(['ph', ph()]);"
+],
+[
+110,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__campFast = 4; L.leave(S('Sunny')); L.leave(S('Bandit')); T.log.push(['ph', ph()]);"
+],
+[
+130,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.call(\"gift S('Sunny')\", () => { const r = (life.eatGift(S('Sunny'), F.makeFood ? F.makeFood(\"mango\") : Object.values(F).find((f) => typeof f === 'function')(\"mango\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; });T.call(\"gift S('Bandit')\", () => { const r = (life.eatGift(S('Bandit'), F.makeFood ? F.makeFood(\"fig\") : Object.values(F).find((f) => typeof f === 'function')(\"fig\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; }); T.log.push(['ph', ph()]);"
+],
+[
+200,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); dispatchEvent(new CustomEvent('camp-food', { detail: { kind: 'soup', at: T.mods['camp/layout.js'].SEATS[2].at.clone().setY(0.4) } })); dispatchEvent(new CustomEvent('camp-food', { detail: {} })); T.log.push(['ph', ph()]);"
+],
+[
+260,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); for (let i = 0; i < M.sloths.length; i++) window.__boop(i); T.log.push(['ph', ph()]);"
+],
+[
+300,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); L.nap(S('Hazel')); L.nap(S('Figgy')); L.nap(S('Sunny')); T.log.push(['ph', ph()]);"
+],
+[
+360,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__boop(M.sloths.indexOf(S('Hazel'))); window.__feed(M.sloths.indexOf(S('Figgy')));T.call(\"gift S('Sunny')\", () => { const r = (life.eatGift(S('Sunny'), F.makeFood ? F.makeFood(\"apple\") : Object.values(F).find((f) => typeof f === 'function')(\"apple\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; }); T.log.push(['ph', ph()]);"
+],
+[
+420,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); for (const s of L.camp) if (s.trip.phase === 'rest') { T.call(\"gift s\", () => { const r = (life.eatGift(s, F.makeFood ? F.makeFood(\"lime\") : Object.values(F).find((f) => typeof f === 'function')(\"lime\"), T.cam.position.clone())); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; }) }; T.log.push(['ph', ph()]);"
+]
+]

@@ -6,6 +6,7 @@
   "scripts": {
     "serve": "npx http-server -p 8765 -c-1 .",
     "replay": "node tools/camp-replay.cjs",
+    "scenarios": "node tools/camp-scenarios.cjs",
     "sync-shared": "node tools/sync-shared.cjs",
     "check-shared": "node tools/sync-shared.cjs --check"
   },

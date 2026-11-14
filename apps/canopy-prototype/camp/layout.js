@@ -1,16 +1,14 @@
 // Canopy Camp layout: where everything in the camp stands, in one place (camp review C1: world-12, props-06, crosscut-10,
-// operator-12, world-16). Only numbers, vectors and pure functions: no scene, no DOM, no random numbers (what is placed from the
-// seeded stream, the forest wall, the ferns, the deadwood, stays where it is drawn), so any module can import it at any point
-// without changing the order the camp is built in. Units are metres; y is up, the fire is at the origin.
+// operator-12, world-16). Only numbers, vectors and pure functions: no scene, no DOM, no random numbers (what is placed at random, the forest wall, the
+// ferns, the deadwood, stays where it is drawn), so any module can import it at any point. Units are metres; y is up, the fire is at the origin.
 // The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
-// the track (from window.__ground.layout) and a "place" block (where each baked prop and light stands) to
+// the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Only the sun's
-// direction is typed again there (the bake stops if the two differ). SEAT_R and JEEP_OUT are exported for checks (PATH_A also starts the path ribbon in forest.js);
-// no module imports them.
-// Older names still read through other modules (by files the clean-up has not reached yet, core.js names them): forest.js re-exports A0, RC and HERO;
-// campProps.js re-exports SOUP_POT, puts tentAt, hA, hB, tb on window.__camp and the laundry line on window.__laundry.
+// direction is typed again there (the bake stops if the two differ). SEAT_R and JEEP_OUT are exported for checks; no module
+// imports them. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
+// campProps.js's CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry for the bake (debug.js).
 import * as THREE from "three";
-import { V, polyDist } from "./util.js";
+import { V, polyDist, yawTo } from "./util.js";
 
 // ---------------------------------------------------------------- the clearing and the ground
 export const RC = 9;      // the clearing's radius: a round clearing with the camp in it; the forest wall starts past RC
@@ -50,16 +48,21 @@ export const JEEP_TRACK = (() => {
 })();
 
 // ---------------------------------------------------------------- the camp: log seats round the fire, tent, hammock, table
+export const FIRE = V(0, 0, 0);   // the campfire stands at the origin
 // three log seats round the fire, the gap toward the gate: angle round the fire, where each stands and its yaw
 export const SEAT_R = 2.1;
 export const SEATS = [0, 1, 2].map((i) => { const a = A0 + Math.PI + (i - 1) * 1.15; return { angle: a, at: V(Math.cos(a) * SEAT_R, 0, Math.sin(a) * SEAT_R), yaw: -a + Math.PI / 2 }; });
+// the ways in to the fire between the logs, as angles round it: the gate's gap, and half way between each pair of seats
+// (0.575 is half the seats' 1.15). The operator stands in one to reach the pot (operator/places.js fireGap)
+export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 // the walk-in tent (build_camp.py wall_tent): its door faces the fire. Its own (Blender) frame: bx across, by toward the back
 // (-by toward the fire). toLocal(x, z) gives [a: ahead of the tent's centre toward the fire, b: across]; fromLocal(bx, by, y)
-// a world point. W, yf, yb: the walls' half width, front and back; DW: the doorway's half width; stove, chimney: where they are
+// a world point. W, yf, yb: the walls' half width, front and back; DW: the doorway's half width; stove, chimney: where they are;
+// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy)
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
   const t = tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
-  return { at: t, yaw: Math.atan2(-t.x, -t.z), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32],   // chimney: the pipe's mouth (Z0 + H + 0.62)
+  return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth (Z0 + H + 0.62)
     toLocal: (x, z) => { const dx = x - t.x, dz = z - t.z; return [dx * fx + dz * fz, dx * fz - dz * fx]; },
     fromLocal: (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz),
     // in toLocal's terms: no grass in the tent or through its planks (ground.js), and dry under its roof and planks (weather.js)
@@ -75,13 +78,13 @@ export const TABLE = { at: d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.
 export const LANTERN_TIES = { l0: tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8), post: hA.clone().setY(2.35), tree: HERO[0] };
 
 // ---------------------------------------------------------------- the lived-in props (props/lived/)
-const facing = (p) => Math.atan2(-p.x, -p.z);   // the yaw that turns a prop's front to the fire
-export const WOOD_PILE = (() => { const at = V(-0.55, 0, -3.15), yaw = facing(at); return { at, yaw, side: V(Math.cos(yaw), 0, -Math.sin(yaw)) }; })();   // side: its local +X, where the chopping stump stands
-export const CRATE = (() => { const at = V(4.55, 0, 1.7); return { at, yaw: facing(at) }; })();   // the kitchen crate beside the snack table, its front to the fire
+// the wood pile and the crate are turned by yawTo(at): it points their local -Z away from the fire, so their fronts (+Z) face it
+export const WOOD_PILE = (() => { const at = V(-0.55, 0, -3.15), yaw = yawTo(at); return { at, yaw, side: V(Math.cos(yaw), 0, -Math.sin(yaw)) }; })();   // side: its local +X, where the chopping stump stands
+export const CRATE = (() => { const at = V(4.55, 0, 1.7); return { at, yaw: yawTo(at) }; })();   // the kitchen crate beside the snack table, its front to the fire
 export const SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };   // the soup's surface in the pot over the fire; atmosphere.js lets steam rise off all of it
 // the laundry line (build_laundry.py): two forked sticks east of the fire, between the table and the tent. A and B are
 // roughly where the line is tied; it is 3 m post to post. a, b: its ends; sag at the middle; hang: the gap kept free for a
-// sloth (t = 0.42 along it); dir: a to b. posts: the sticks' feet. sloths.js reads a, b, sag, hang and dir (window.__laundry).
+// sloth (t = 0.42 along it); dir: a to b. posts: the sticks' feet. The sloths (sloth/poses.js, sloth/spots.js, swing.js) read a, b, sag, hang and dir.
 export const LAUNDRY = (() => {
   const A = V(1.3, 0, 4.3), B = V(4.0, 0, 3.0), mid = A.clone().lerp(B, 0.5), yaw = Math.atan2(-(B.z - A.z), B.x - A.x);
   const dir = B.clone().sub(A).normalize(), L = 3.0, t = 0.42;

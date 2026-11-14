@@ -1,0 +1,86 @@
+[
+[
+2,
+"const T = window.__T, J = T.jeep, me = T.me; window.__campFast = 6; T.call('errand', () => T.errand('Mango')?.name);T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+20,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+40,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+60,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+80,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+100,
+"const T = window.__T, J = T.jeep, me = T.me; { const j = J.node.position, c = T.centre('DoorP'); T.near('DoorP', 2.6, [2 * c.x - j.x, 2 * c.z - j.z]); }T.call('sit driver', () => J.sit('driver'));T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+108,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(1, 0);T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+112,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+120,
+"const T = window.__T, J = T.jeep, me = T.me; T.call('sit driver again', () => J.sit('driver'));T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+121,
+"const T = window.__T, J = T.jeep, me = T.me; T.call('sit while busy', () => J.sit('passenger'));"
+],
+[
+140,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+160,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+180,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);T.call('stand too early or ok', () => J.stand());"
+],
+[
+200,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+220,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);window.__stick(0, 1);"
+],
+[
+224,
+"const T = window.__T, J = T.jeep, me = T.me; window.__stick(0, 0);T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+260,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+300,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);T.call('sit passenger from the camp side', () => J.sit('passenger'));"
+],
+[
+360,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+420,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);T.call('stand', () => J.stand());"
+],
+[
+480,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+]
+]

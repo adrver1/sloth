@@ -1,9 +1,8 @@
-// Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, the seeded random stream, every download
+// Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, the named seeded random streams (rng), every download
 // started at once (PRE, camp review P2) and the look's leaf material (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
-import { canvasTex, sstep } from "./util.js";
 import { SUN } from "./layout.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
@@ -11,47 +10,33 @@ import { SUN } from "./layout.js";
 //   option   values                        default                           read by
 //   detail   low | medium | high           saved, else medium                core.js (D: counts, effects, resolution), main.js (DETAIL)
 //   lm       2k | 1k | 4k (4k: local only) saved, else 1k on phones, 2k     core.js (the light maps)
-//   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campLife.js (JEEP)
-//   seed     a number                      7                                 core.js (the shared stream), forest.js (its restart)
-//   lived    1 | 0                         1                                 core.js, campProps.js, campLife.js (LIVED)
-//   op       1 | 0                         1                                 core.js (the operator's downloads); operator.js reads qs itself
+//   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campGround.js (JEEP)
+//   seed     a number                      7                                 core.js rng (every named stream)
+//   lived    1 | 0                         1                                 core.js, campProps.js, chores.js (LIVED)
+//   op       1 | 0                         1                                 core.js (the operator's downloads), operator.js (0 leaves him out)
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
 //   time     an hour, 0 up to 24 (21.5)    saved, else 12                    daytime.js (the hour set; anything else counts as 12)
 //   cycle    1 | 0                         saved, else 0                     daytime.js (the day runs on by itself)
 //   pos      x,z in metres                 by the fire (player.js)           main.js (where you stand at the start)
 //   yaw      radians                       facing the fire (player.js)       main.js (where you look at the start)
 //   pitch    radians                       0.08 (player.js)                  main.js
+//   campsloths 1 | 0                       1                                 sloths.js, sloth/step.js, sloth/naps.js (0: only the two wild sloths, no camp sloths)
+//   slothmat lambert | old                 lambert                           sloth/body.js (old: the sloth GLB's own physical material)
+//   lab      (present)                     absent                            labButton.js (opens the move lab, lab.js, at the start)
+//   touch    present or not                on a phone (a coarse pointer)     input.js (the phone stick and its hint, on a desktop too)
+//   sound    0                             saved, else on                    audio.js (0 starts muted)
+//   station  drift | campfire | kalimba | lullaby   saved, else drift        audio.js (checks it against its stations)
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
-// still read with qs in files this clean-up has not reached yet (move them here in its next round): touch (input.js),
-// campsloths, slothmat, lab (sloths.js), op once more (operator.js), sound, station (audio.js).
 const qs = new URLSearchParams(location.search);
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
-// state, one part per owner). audio.js keeps the sound settings under "canopy-audio", which it still types itself (next round).
-const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save" };
-// ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
-// API: sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read these (and jeepSeat.js and lab.js the ones with no
-// export). Those six files (and activities.js) were left alone while PRs #14, #20 and #21 changed them; the PRs are merged, so the
-// next round can switch them to imports. The first four and __me are aliases of the exported object named here (__me stays until
-// player.js stops importing sloths.js); __campLife, __car, __op and the lab's three have no export yet.
-//   __camp       campProps.js CAMP        sloths.js, operator.js, audio.js, radio.js (and export_casters.cjs, below)
-//   __jeep       jeep.js jeepApi          sloths.js, input.js, car.js, audio.js (and export_casters.cjs)
-//   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown; and export_casters.cjs)
-//   __acts       campLife.js acts         operator.js, audio.js
-//   __campLife   sloths.js (its life)     input.js, operator.js, jeepSeat.js, lab.js
-//   __me         main.js (player.js me)   sloths.js (the player's seat)
-//   __car        car.js (inCar, engine)   jeepSeat.js adds doorOptions to it, which input.js reads; audio.js reads the engine
-//   __op         operator.js              audio.js (his sounds); a debug hook as well
-//   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); jeepSeat.js reads __campFast, camp-replay.cjs sets it
-// tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.
-//   __ready, __scene (main.js)                          all three tools
-//   __stats (main.js)                                   camp-probe.cjs, camp-replay.cjs
-//   __camp, __jeep, __laundry (above), __ground (campLife.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
-//   __time, __boop, __feed, __stick (main.js), __sit (linger.js), __weather (weather.js)   camp-replay.cjs's tour
-// debug hooks for checks by hand in the browser console: __rest, __face, __slothS (main.js), __clocks (clock.js), __errand,
-// __path, __spots, __sloth (sloths.js), __op (operator.js), __audio (audio.js), __radio (radio.js), __camera (car.js).
+// state, one part per owner), audio (audio.js: volume, muted, music, its volume and the station, as one JSON object).
+const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save", audio: "canopy-audio" };
+// ---------------------------------------------------------------- window.__ names on camp.html (review C2, crosscut-03/04, boot-04)
+// The modules talk through imports only. The window.__ names are for the headless tools (camp-probe.cjs, camp-replay.cjs,
+// camp-scenarios.cjs and props/shadow/export_casters.cjs) and are all set in debug.js, which lists them with their readers.
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
 // they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
-// "Canopy camp: start every download at once" (the looks were archived there). Their branches below and in forest.js, sky.js and campLife.js are dead code.
+// "Canopy camp: start every download at once" (the looks were archived there). Their branches below and in forest.js and sky.js are dead code (campGround.js still passes LOOK to ground.js).
 const LOOK = "moss";
 const $ = (id) => document.getElementById(id);
 // settings: one ⚙️ button opens the detail and light-map choices (the old row took a quarter of a phone screen)
@@ -75,6 +60,12 @@ const OPT = {
   pos: qs.has("pos") ? qs.get("pos").split(",").map(Number) : null,   // the start view: null keeps player.js's own
   yaw: qs.has("yaw") ? +qs.get("yaw") : null,
   pitch: qs.has("pitch") ? +qs.get("pitch") : null,
+  campsloths: qs.get("campsloths") !== "0",
+  slothmat: qs.get("slothmat") === "old" ? "old" : "lambert",
+  lab: qs.has("lab"),
+  touch: qs.has("touch"),
+  sound: qs.get("sound") !== "0",
+  station: qs.get("station"),
 };
 const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
@@ -94,11 +85,22 @@ const CABIN = "live";   // the jeep's cabin light is live (one shadowed spot lig
 $("lm").onclick = () => { store.set(KEYS.lm, LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
-// seeded random, so every visit grows the same tree and hides sloths in the same spots
-let seed = OPT.seed;
-const setSeed = (n) => { seed = n; };   // the forest restarts the seeded stream for its layout
-const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-const R = (a, b) => a + rnd() * (b - a);
+// seeded random, so every visit grows the same tree and hides sloths in the same spots. Each system draws from its own named
+// stream (rng("forest"), rng("sloths"), ...), seeded from ?seed and the name, so one system drawing more or less, or earlier,
+// never moves another's numbers. The same name always hands back the same stream, so the sloth modules share one.
+// start: the stream's own start instead of one mixed from ?seed and the name (forest.js keeps the start its layout was baked with)
+const streams = new Map();
+function rng(name, start) {
+  let st = streams.get(name);
+  if (st) return st;
+  let seed = OPT.seed | 0;
+  if (start !== undefined) seed = start | 0;
+  else for (let i = 0; i < name.length; i++) seed = Math.imul(seed ^ name.charCodeAt(i), 0x01000193);   // FNV-style mix of the name into the seed
+  const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };   // mulberry32
+  st = { rnd, R: (a, b) => a + rnd() * (b - a) };
+  streams.set(name, st);
+  return st;
+}
 
 // ---------------------------------------------------------------- look settings (structure differs, not just colour)
 const S = {
@@ -143,6 +145,9 @@ scene.add(new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
 const uTime = { value: 0 };
+// the camp's pace: fast runs the sloths' day and the jeep seats that many times as fast (unset: 1). The move lab (lab.js) sets it,
+// and the tools through window.__campFast (debug.js)
+const pace = { fast: undefined };
 const leafMat = (opts, sway) => {
   const m = S.flat ? new THREE.MeshLambertMaterial({ flatShading: true, ...opts }) : new THREE.MeshLambertMaterial(opts);
   if (sway) m.onBeforeCompile = (sh) => {
@@ -164,6 +169,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, store, sun, uTime };
-export { qs };   // back-compat: audio.js, input.js, operator.js and sloths.js still read their own options with it (see the table above)
-export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here, and car.js and radio.js import canvasTex (util.js is their home)
+export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime };

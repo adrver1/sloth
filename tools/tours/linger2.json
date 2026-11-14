@@ -1,0 +1,34 @@
+[
+[
+5,
+"const T = window.__T, J = T.jeep, me = T.me; T.near('Seat_1', 2.2);"
+],
+[
+8,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Seat_1');"
+],
+[
+10,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Seat_1'); T.choose('Sit by the fire');"
+],
+[
+50,
+"const T = window.__T, J = T.jeep, me = T.me; { const s = T.screen('Seat_1'); T.log.push(['screen', s.map((v) => +v.toFixed(2))]); T.tapAt(240, 280); T.log.push(['menu after tap low', T.menu()]); if (!T.menu()) { const L = T.mods['camp/layout.js']; me.pitch = -0.9; } }"
+],
+[
+53,
+"const T = window.__T, J = T.jeep, me = T.me; T.tapAt(240, 200); T.log.push(['menu', T.menu()]); T.choose('Stand up'); T.log.push(['seat after', !!me.seat]);"
+],
+[
+56,
+"const T = window.__T, J = T.jeep, me = T.me; T.tapAt(240, 250); T.log.push(['menu', T.menu()]); T.choose('Stand up'); T.log.push(['seat after', !!me.seat]);"
+],
+[
+60,
+"const T = window.__T, J = T.jeep, me = T.me; for (const y of [150, 180, 210, 240, 270, 295]) { if (!me.seat) break; T.tapAt(240, y); const m = T.menu(); T.log.push(['tap y', y, m]); if (m) { T.choose('Stand up'); T.tapAt(2, 2); } } T.log.push(['seat after', !!me.seat]);"
+],
+[
+90,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['end', !!me.seat, me.sitK]);"
+]
+]

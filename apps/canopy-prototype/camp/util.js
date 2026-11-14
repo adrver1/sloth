@@ -1,17 +1,19 @@
 // Canopy Camp helpers: the small functions every module used to paste in again (camp review world-15, crosscut-09, props-13).
 // Nothing runs on import (no scene, no renderer, no DOM until a helper is called), so the pages' shared modules outside camp/
-// (ground.js, atmosphere.js) can import it too. The seeded stream the layout draws from is not here: it lives in core.js.
+// (ground.js, atmosphere.js) can import it too. The named seeded streams (rng) are not here: they live in core.js, next to ?seed.
 //   V(x, y, z)                    a Vector3
 //   sstep(a, b, x)                smoothstep: 0 below a, 1 above b
 //   rand(a, b)                    a number between a and b from Math.random: for noise that must not touch any seeded stream
 //   lcg(seed)                     a private random stream { rnd, R } (Park-Miller, 16807): its own numbers, so drawing from it
-//                                 leaves the shared seeded stream alone. Same seed, same numbers as the copies it replaced
+//                                 leaves the named streams (core.js rng) alone. Same seed, same numbers as the copies it replaced
 //   canvasTex(w, h, draw, opts)   a CanvasTexture painted by draw(ctx, w, h); opts { srgb = true, aniso = 4 }
 //   polyDist(pts, x, z)           distance in x, z to a polyline, and the nearest point on it: [d, x, z]
 //   lineDist(pts, x, z)           the same distance alone, without the array
 //   tris(geometry)                its triangle count
 //   trisIn(object)                the triangles of every mesh in it (the count each prop prints when it is built)
 //   wrapPi(angle)                 the same angle within -PI..PI: the short way round from one yaw to another
+//   yawTo(dir)                    the yaw that faces along the direction dir (x, z): a character's or a prop's front is its own -Z
+//   yawFrom(a, b)                 the yaw that faces from point a toward point b
 //   ease(k)                       the smoothstep curve for a k that is already 0..1 (sstep without the clamp)
 //   lam(color, opts)              a MeshLambertMaterial of that colour
 //   patchMaterial(mat, id, hook)  adds a shader hook after the material's current one, with a program cache key made of
@@ -59,6 +61,8 @@ export const tris = (g) => (g.index ? g.index.count : g.attributes.position.coun
 export const trisIn = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) n += tris(m.geometry); }); return n; };
 
 export const wrapPi = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+export const yawTo = (d) => Math.atan2(-d.x, -d.z);
+export const yawFrom = (a, b) => Math.atan2(-(b.x - a.x), -(b.z - a.z));
 export const ease = (k) => k * k * (3 - 2 * k);
 
 export const lam = (color, opts) => new THREE.MeshLambertMaterial({ color, ...opts });

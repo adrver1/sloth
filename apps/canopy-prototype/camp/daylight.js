@@ -3,16 +3,15 @@
 // backdrop and the sky domes (sky.js), the moon, the light shafts (campProps.js) and the low banks of mist over the clearing.
 // Only colour and a few soft sprites, so nothing to bake.
 //   light            { dusk, gold, mist }, each 0..1: this frame's levels, once setLight has run
-//   createDaylight() builds the mist banks (and the old firefly cloud, kept hidden) and puts the moon where the start view
-//                    sees it. main.js calls it once, after every other module has built its part of the scene: the sprites
-//                    draw from the shared seeded stream (core.js R), last of all, and join the scene last
+//   createDaylight() builds the mist banks and puts the moon where the start view sees it. main.js calls it once, last
+//                    (it reads the scene's lights and the sky that the other steps built); the sprites draw from their
+//                    own stream (core.js rng("daylight"))
 //   setLight(hour, wet)   the levels for an hour (daytime.js `shown`) and how wet it is (weather.js, 0..1)
 //   daylightStep(dt, wet) moves the mist banks and sets every colour from the levels
-// It builds nothing itself when it is imported, but its own imports (sky.js, terrain.js, campProps.js, player.js) are built
-// where it is first imported, so it stays last in main.js's import list: moved up, it builds the props before the forest and
-// the seeded stream comes out in another order (measured: the replay fingerprint moves).
+// It builds nothing when it is imported.
 import * as THREE from "three";
-import { D, R, S, scene, sun, uTime } from "./core.js";
+import { D, rng, S, scene, sun, uTime } from "./core.js";
+const { R } = rng("daylight");
 import { V } from "./util.js";
 import { RC } from "./layout.js";
 import { dome, moon, nightDome, sky, uSkyDusk, uSkyFog, uSkyHaze } from "./sky.js";
@@ -36,7 +35,7 @@ const mistOf = (h) => sm(h, 5, 6.3) * (1 - sm(h, 7.8, 10.5));                   
 const light = { dusk: 0, gold: 0, mist: 0 };
 function setLight(hour, wet) { light.dusk = duskOf(hour); light.gold = goldOf(hour) * (1 - wet); light.mist = mistOf(hour); }
 
-let hemiL, DAY, mistSprites, flies;
+let hemiL, DAY, mistSprites;
 function createDaylight() {
   hemiL = scene.children.find((o) => o.isHemisphereLight);
   DAY = { fog: new THREE.Color(S.fog[0]), hemi: hemiL.intensity, sun: sun.intensity, sky: hemiL.color.clone(), ground: hemiL.groundColor.clone(), sunC: sun.color.clone(), dens: scene.fog.density };
@@ -48,12 +47,6 @@ function createDaylight() {
       sp.scale.set(R(5, 8), R(1.2, 1.8), 1); sp.position.set(x, groundHeight(x, z) + R(0.35, 0.7), z); sp.userData = { a, r, w: R(0.01, 0.025) * (i % 2 ? 1 : -1) }; g.add(sp); }
     g.visible = false; scene.add(g); return g;
   })();
-  flies = (() => {
-    const n = 120, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const a = R(0, 6.28), r = R(2, RC + 6); p.set([Math.cos(a) * r, R(0.4, 7), Math.sin(a) * r], i * 3); }
-    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(p, 3));
-    const pts = new THREE.Points(g, new THREE.PointsMaterial({ map: glowTex, color: 0xd8ff7a, size: 0.14, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); scene.add(pts); return pts;
-  })();
-  flies.visible = false;   // atmosphere.js draws blinking fireflies instead
 }
 
 function daylightStep(dt, wet) {
@@ -65,7 +58,7 @@ function daylightStep(dt, wet) {
   hemiL.intensity = DAY.hemi * (1 - 0.72 * dusk) * (1 - 0.2 * wet); hemiL.color.copy(DAY.sky).lerp(NIGHT_SKY, dusk); hemiL.groundColor.copy(DAY.ground).lerp(NIGHT_GROUND, dusk);
   sun.intensity = DAY.sun * (1 - 0.62 * dusk + 0.35 * gold) * (1 - 0.5 * wet); sun.color.copy(DAY.sunC).lerp(GOLD_SUN, 0.8 * gold).lerp(MOONC, THREE.MathUtils.smoothstep(dusk, 0.35, 1));                      // the sun turns into cool moonlight
   sky.material.color.setRGB(1, 1, 1).lerp(BACK_GOLD, 0.7 * gold).lerp(BACK_DAWN, 0.6 * mist * (1 - dusk)).lerp(BACK_RAIN, 0.5 * wet).lerp(BACK_NIGHT, dusk); uSkyDusk.value = Math.min(1, dusk * 1.3); uSkyFog.value = scene.fog.color; uSkyHaze.value = 0.75 * Math.max(dusk, gold, mist * (1 - dusk), 0.7 * wet); dome.material.color.setScalar(1 - 0.75 * dusk).lerp(BACK_GOLD, 0.6 * gold); scene.background.set(S.sky[0]).lerp(DUSK, dusk);
-  nightDome.visible = moon.visible = dusk > 0.01; nightDome.material.opacity = Math.min(1, dusk * 1.3); moon.material.opacity = Math.max(0, dusk * 1.5 - 0.5); flies.material.opacity = dusk; flies.rotation.y += dt * 0.02;
+  nightDome.visible = moon.visible = dusk > 0.01; nightDome.material.opacity = Math.min(1, dusk * 1.3); moon.material.opacity = Math.max(0, dusk * 1.5 - 0.5);
   if (rayMat) rayMat.color.copy(RAY_DAY).lerp(RAY_GOLD, gold), rayMat.opacity = S.rays * Math.max(1 - dusk, 1.8 * gold) * (1 - wet) * (0.85 + 0.15 * Math.sin(uTime.value * 0.21) * Math.sin(uTime.value * 0.13 + 1.0));   // a slow shimmer as leaves move over the gap
 }
 
