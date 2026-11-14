@@ -388,8 +388,8 @@ def lift(objs, z):
 
 
 def headlight(x, y, z, r, M, ring="chrome"):
-    """A chrome ring on the body and the lens: one flat 12-gon in the ring (its own list, for the Lamps node the page
-    lights up at night). The ring hides the small gap between the lens and the body."""
+    """A chrome ring on the body and the lens: one flat 12-gon in the ring. Returns the ring and the lens as two lists (the
+    lens has the lamp material). The ring hides the small gap between the lens and the body."""
     p = [torus(r, r * 0.16, at=(x, y, z), rot=(math.pi / 2, 0, 0), m=M[ring], major=12, minor=3)]
     lens = poly([(x + r * 0.95 * math.cos(t * math.pi / 6), y, z + r * 0.95 * math.sin(t * math.pi / 6)) for t in range(12)], M["lamp"], (x, y - 1, z))
     return p, [lens]
@@ -398,7 +398,8 @@ def headlight(x, y, z, r, M, ring="chrome"):
 # ------------------------------------------------------------------ the shared body
 
 def hood_map(M):
-    """A big folded paper map spread over half the bonnet, with an orienteering compass lying on it. All flat polygons
+    """A big folded paper map spread over half the bonnet, with an orienteering compass lying on it, as one list of parts
+    that body() joins into the Hood, so they lift with it (review R2-156: no node or draw of their own). All flat polygons
     with the detail painted in coloured shapes: four folded panels in two paper shades, forests, a lake, a river and a
     red route on the map; a clear baseplate with a red arrow, a black bezel, a white dial with an N mark and a red and
     white needle on the compass."""
@@ -445,14 +446,14 @@ def hood_map(M):
     side = lambda s: C(s * nd[1] * 0.007, -s * nd[0] * 0.007 - 0.02, H + 0.002)
     q.append(poly([tip(1, 0.036), side(1), side(-1)], mat("compass_needle", (0.85, 0.15, 0.12)), kup))
     q.append(poly([tip(-1, 0.036), side(-1), side(1)], mat("compass_south", (0.22, 0.22, 0.24)), kup))
-    return m, q, {"Map": P(0, 0), "Compass": tuple(o)}
+    return m + q
 
 
 @dataclasses.dataclass
 class Body:
     """What body() makes and a style builder adds to, for finish(): parts (joined into Jeep), groups (each joined into its
-    own node: the doors, the hood, the glass, the cabin light, the loose props), origins (the origin of each group node that
-    is not on a hinge: the middle of its bottom, so the page can lift it) and empties (the page's marker points)."""
+    own node: the doors, the hood, the glass, the cabin light), origins (the origin of each group node that is not on a
+    hinge, such as the cabin light's lens) and empties (the page's marker points)."""
     parts: list
     groups: dict
     origins: dict = dataclasses.field(default_factory=dict)
@@ -573,10 +574,7 @@ def body(M, style, wheels=WHEELS):
     cz = ROOF - 0.056
     G["CabinLight"] = [poly([(-0.09, 0.2, cz), (0.09, 0.2, cz), (0.09, 0.3, cz), (-0.09, 0.3, cz)], M["lamp"], (0, 0.25, 0))]
     b.origins["CabinLight"] = (0, 0.25, cz)
-    G["Lamps"] = []
-    b.origins["Lamps"] = (0, FRONT - 0.03, LAMP_Z)
-    G["Map"], G["Compass"], on_map = hood_map(M)
-    b.origins.update(on_map)   # loose props on the bonnet, their own nodes (they ride on the hood: finish())
+    G["Hood"] += hood_map(M)                             # the map and compass on the bonnet, part of the hood
     # the engine, everything at least 3 cm under the closed hood (its underside is at BELT - 0.135 = 0.925)
     p.append(slim_box((0.5, 0.42, 0.2), at=(0, -1.0, SILL + 0.3), m=M["under"], bevel=0.015))           # the engine: block,
     p.append(slim_box((0.4, 0.32, 0.04), at=(0, -1.0, SILL + 0.42), m=M["trim"]))                         # rocker cover (top 0.89),
@@ -588,7 +586,7 @@ def body(M, style, wheels=WHEELS):
     hr = 0.15 if toy else LAMP_R
     for s in (-1, 1):
         ring, lens = headlight(s * LAMP_X, FRONT - 0.03, LAMP_Z, hr, M)
-        p += ring; G["Lamps"] += lens
+        p += ring + lens                                 # the lenses are plain parts of the body (no headlights at night)
         p.append(slim_box((0.12, 0.03, 0.05), at=(s * 0.6, FRONT - 0.02, 0.62), m=M["amber"]))
     front_bumper, back_bumper = bumpers(M, bevel=0.05 if toy else 0.025)
     p.append(front_bumper)
@@ -646,9 +644,6 @@ def finish(b):
         bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.context.view_layer.objects.active = o
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
         out[name] = o
-    for name in ("Map", "Compass"):                                    # the map and compass lie on the hood and lift with it
-        if name in out and "Hood" in out:
-            out[name].parent = out["Hood"]; out[name].matrix_parent_inverse = out["Hood"].matrix_world.inverted()
     for name, door in (("Glass", None), ("GlassP", "DoorP"), ("GlassD", "DoorD"), ("GlassB", "BackDoor")):
         o = join(G[name], name)
         if door:                                                       # rides on its door

@@ -41,7 +41,7 @@ async function buildJeep() {
   const boot = jeep.getObjectByName("Boot")?.position ?? V(0, 0.78, -1.06);
   // the cabin light (Adriaen 2026-11-12): on while any door stands open. CabinLight is its lens (unlit when on); the light it
   // throws is live: one shadowed spot light (cabSpot), redrawn while a door moves; it replaced the baked keyframes.
-  // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the Lamps lenses stay as plain parts.
+  // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the lenses are plain parts of the body.
   const cabinL = jeep.getObjectByName("CabinLight");
   const cabOn = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
   const OFF = new THREE.Color(0x8c8778), CL = new THREE.Color(0xffe2a8);
