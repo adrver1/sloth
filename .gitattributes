@@ -12,3 +12,6 @@ props/shadow/layout_picked.json -diff linguist-generated
 *.ktx2                        binary linguist-generated
 # The npm lock file: kept, but not shown line by line
 package-lock.json             -diff linguist-generated
+# The review's findings.md: written by docs/reviews/code-review-2026-11-13/build.py from findings.json and status.json, never by
+# hand (review R2-108). Still readable on GitHub; its diff is hidden, so a status change shows in status.json only.
+docs/reviews/*/findings.md     -diff linguist-generated
