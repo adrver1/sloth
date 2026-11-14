@@ -15,7 +15,7 @@
 // (mesh, no clips) and node scripts/pack_chars.mjs --clips idle,walk,seated_idle,stand_up,sip,hug,play,play_titanic,play_airplane,play_knees,wave,blink,happy,talk,phone,phone_down,step_down
 // <dir2> ../characters/bearded_operator/bearded_operator_survival.glb (its anims.glb: the same rig, with the play clips), then base64 each into models/.
 // ?op=0 leaves him out: nothing of him is made. Exports buildOperator(), opStep (main.js, each frame) and opApi (null with ?op=0): his root, state and the hooks the
-// checks drive him with (opApi.go("read"), .state()); main.js hands it to audio.js (hearCamp).
+// checks drive him with (opApi.go("read"), .state()); audio.js imports it too, for his sounds.
 import { OPT, PRE, camera } from "./core.js";
 import { A0 } from "./layout.js";
 import { V, trisIn, yawTo } from "./util.js";
