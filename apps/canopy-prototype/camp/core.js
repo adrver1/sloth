@@ -154,7 +154,8 @@ const leafMat = (opts, sway, clumpLit = false) => {
   // every leaf material one program, and each material keeps its own amount (review props-12). LEAF_N is a define, so it
   // keys the program too.
   const uSway = { value: sway };
-  if (sway) m.onBeforeCompile = (sh) => {
+  // A clumpLit material needs the hook for its aLeafN normal even when it does not sway.
+  if (sway || clumpLit) m.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = uTime; sh.uniforms.uSway = uSway;
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;\n#ifdef LEAF_N\nattribute vec3 aLeafN;\n#endif")
       .replace("#include <defaultnormal_vertex>", "#include <defaultnormal_vertex>\n#ifdef LEAF_N\ntransformedNormal = normalMatrix * aLeafN;\n#endif")

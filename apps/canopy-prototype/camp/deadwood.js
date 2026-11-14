@@ -1,6 +1,6 @@
 // Canopy Camp deadwood (camp review B6): a fallen mossy log, a cut stump and a dead standing trunk at the clearing's edge,
 // with orange shelf fungus on all three. Low poly (about 300 tris in all, one draw) with the detail painted into vertex
-// colours the way the forest trunks are (forest.js bake()): moss on the up-facing bark, pale wood with rings on the cut ends.
+// colours the way the forest trunks are (forest.js paintBark()): moss on the up-facing bark, pale wood with rings on the cut ends.
 // Lit live like the forest round them, so no light-map bake; their ground shadows join the GPU bake through deadwood (exported; window.__deadwood, debug.js).
 // buildDeadwood() (main.js, once the props and the sloths stand, before the ground) places and builds them.
 import * as THREE from "three";
