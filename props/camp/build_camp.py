@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, rod, rough_up, sweep, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, drop_ground_faces, join, mug, obj_from_bm, rod, rough_up, sweep, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
 SEAT_TOP = 0.36                   # rustic_seat(): the height of its flat sawn top (the log along X); build_lived.py sets things on it
@@ -237,7 +237,8 @@ def rustic_mats():
     return {k: mat(f"ru_{k}", c) for k, c in dict(
         rock=(0.45, 0.44, 0.42), rock2=(0.36, 0.35, 0.33), bark=(0.3, 0.21, 0.14), wood=(0.68, 0.52, 0.36), char=(0.08, 0.06, 0.05),
         ember=(0.7, 0.2, 0.05), canvas=(0.48, 0.5, 0.32), canvas2=(0.38, 0.4, 0.25), rope=(0.7, 0.62, 0.45), peg=(0.55, 0.42, 0.28),
-        sling=(0.32, 0.38, 0.26), glass=(0.92, 0.78, 0.45), tin=(0.55, 0.56, 0.58), white=(0.9, 0.88, 0.82), red=(0.65, 0.15, 0.12)).items()}
+        sling=(0.32, 0.38, 0.26), glass=(0.92, 0.78, 0.45), tin=(0.55, 0.56, 0.58), white=(0.9, 0.88, 0.82), red=(0.65, 0.15, 0.12),
+        enamel=(0.97, 0.96, 0.92), rim=(0.16, 0.24, 0.45), coffee=(0.2, 0.11, 0.06)).items()}   # the mug's, as build_lived.py's
 
 
 def rustic_fire(M):
@@ -357,19 +358,17 @@ def rustic_lantern(M):
 
 
 def rustic_table(M):
-    """The snack table (picked), trimmed (camp review 2026-11-12, about 190 triangles): two 8-sided stumps with no caps
-    (the top hides theirs), four plain plank boxes, a tin mug and a plate of three tomatoes."""
+    """The snack table (picked), trimmed (camp review 2026-11-12, about 180 triangles): two 8-sided stumps with no caps
+    (the top hides theirs), four plain plank boxes, a 6-sided enamel mug like the seat's (lib/mesh.py mug, review R2-194)
+    and an empty white plate: the page lays the fruit you can take on it (activities/fruitBowl.js, review R2-176)."""
     p = []
     for s in (-1, 1):
         leg = rough_up(cyl(0.2, 0.62, at=(s * 0.45, 0, 0.31), m=M["bark"], verts=8, smooth=False), 0.012, 10)
         p.append(drop_faces(leg, lambda n, c: abs(n.z) > 0.9))
     for k in range(4):
         p.append(box((1.3, 0.17, 0.05), at=(0, (k - 1.5) * 0.18, 0.645), m=M["wood"]))
-    p.append(drop_faces(cyl(0.05, 0.1, at=(0.3, 0.1, 0.72), m=M["tin"], verts=8, smooth=False), lambda n, c: n.z < -0.9))
+    p.append(mug(M, (0.3, 0.1, 0.67), n=6))                  # on the plank tops (z 0.67), its handle toward +X
     p.append(drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda n, c: n.z < -0.9))
-    for k in range(3):
-        bpy.ops.mesh.primitive_ico_sphere_add(radius=0.045, subdivisions=1, location=(-0.25 + k * 0.05, -0.05 + 0.02 * (k % 2), 0.74))
-        p.append(with_material(bpy.context.object, M["red"], smooth=False))
     return join(p, "Table")
 
 

@@ -1,7 +1,7 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), tubes (sweep, tube),
 shaping (bevel, rough_up, drop_faces, drop_ground_faces), object plumbing (apply_all, join, obj_from_bm, select_only) and
-anchor (a named empty the page reads a point from). Z up, metres;
+anchor (a named empty the page reads a point from), and mug (the enamel mug on the seat and the snack table). Z up, metres;
 every helper that makes an object links it into the current scene's collection and returns it.
 
     sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None)
@@ -178,6 +178,39 @@ def drop_ground_faces(objs, h=0.05):
             bm.to_mesh(o.data)
         bm.free()
     return objs
+
+
+def mug(M, at, n=8):
+    """The enamel mug (Adriaen 2026-11-12) standing at `at`: an n-sided body with no bottom, the blue rim painted as a
+    band at the top, coffee as one flat n-gon, and a 6 x 3 handle loop toward +X; M holds the "enamel", "rim" and
+    "coffee" materials. 96 triangles with n = 8 (build_lived.py's seat mug), 76 with n = 6 (build_camp.py's table mug,
+    review R2-194)."""
+    x0, y0, z0 = at
+    r, h = 0.042, 0.085
+    bm = bmesh.new()
+    ring = lambda rr, zz: [bm.verts.new((x0 + rr * math.cos(2 * math.pi * (i + 0.5) / n), y0 + rr * math.sin(2 * math.pi * (i + 0.5) / n), z0 + zz)) for i in range(n)]  # noqa: E731
+    lo, band, hi = ring(r, 0), ring(r, h - 0.008), ring(r, h)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((lo[i], lo[j], band[j], band[i])).material_index = 0
+        bm.faces.new((band[i], band[j], hi[j], hi[i])).material_index = 1
+    cof = ring(r * 0.86, h - 0.004)
+    bm.faces.new(cof).material_index = 2                                 # the coffee, just under the rim
+    for i in range(n):                                                   # the rim: a ring from the outside down to the coffee
+        j = (i + 1) % n
+        bm.faces.new((hi[i], hi[j], cof[j], cof[i])).material_index = 1
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    for f in bm.faces:
+        if f.calc_center_median().z > z0 + h - 0.006 and f.normal.z < 0:
+            f.normal_flip()
+    o = obj_from_bm(bm, "mug")
+    me = o.data
+    for k in ("enamel", "rim", "coffee"):
+        me.materials.append(M[k])
+    hd = torus(0.026, 0.006, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=6, minor=3)
+    for pl in hd.data.polygons:
+        pl.use_smooth = False
+    return join([o, hd], "mug")
 
 
 def anchor(name, at, size=1.0):

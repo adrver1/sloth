@@ -51,7 +51,7 @@ from lib.export import export_glb, report, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "camp"))
 from build_camp import DOOR_PLANK as PLANK, SEAT_BOARD, SEAT_TOP  # noqa: E402  (the seat and the tent planks, review R2-252)
-from lib.mesh import apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, quad, rod, rough_up, sweep, torus, tube  # noqa: E402
+from lib.mesh import apply_all, box, cyl, drop_faces, drop_ground_faces, join, mug, obj_from_bm, quad, rod, rough_up, sweep, tube  # noqa: E402
 
 rng = random.Random(11)
 
@@ -436,37 +436,6 @@ def page(w, d, side, M, lift):
     x1 = side * w
     q = [(0, -d / 2, lift), (x1, -d / 2, lift + 0.012), (x1, d / 2, lift + 0.012), (0, d / 2, lift)]
     return quad(q if side > 0 else q[::-1], M["page"])
-
-
-def mug(M, at):
-    """The enamel mug, trimmed (Adriaen 2026-11-12): an 8-sided body with no bottom, the blue rim painted as a band at
-    the top, coffee as one flat octagon, and a 6 x 3 handle loop (96 triangles instead of 244)."""
-    x0, y0, z0 = at
-    r, h, n = 0.042, 0.085, 8
-    bm = bmesh.new()
-    ring = lambda rr, zz: [bm.verts.new((x0 + rr * math.cos(2 * math.pi * (i + 0.5) / n), y0 + rr * math.sin(2 * math.pi * (i + 0.5) / n), z0 + zz)) for i in range(n)]  # noqa: E731
-    lo, band, hi = ring(r, 0), ring(r, h - 0.008), ring(r, h)
-    for i in range(n):
-        j = (i + 1) % n
-        bm.faces.new((lo[i], lo[j], band[j], band[i])).material_index = 0
-        bm.faces.new((band[i], band[j], hi[j], hi[i])).material_index = 1
-    cof = ring(r * 0.86, h - 0.004)
-    bm.faces.new(cof).material_index = 2                                 # the coffee, just under the rim
-    for i in range(n):                                                   # the rim: a ring from the outside down to the coffee
-        j = (i + 1) % n
-        bm.faces.new((hi[i], hi[j], cof[j], cof[i])).material_index = 1
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    for f in bm.faces:
-        if f.calc_center_median().z > z0 + h - 0.006 and f.normal.z < 0:
-            f.normal_flip()
-    o = obj_from_bm(bm, "mug")
-    me = o.data
-    for k in ("enamel", "rim", "coffee"):
-        me.materials.append(M[k])
-    hd = torus(0.026, 0.006, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=6, minor=3)
-    for pl in hd.data.polygons:
-        pl.use_smooth = False
-    return join([o, hd], "mug")
 
 
 def seat_things(M):
