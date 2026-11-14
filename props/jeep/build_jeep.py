@@ -7,15 +7,17 @@ The adventure jeep for the Canopy Camp game (apps/canopy-prototype/camp.html): a
                 snorkel, winch, mud up the sills
     camper      a camping rig: sand paint, a rooftop tent folded open over the side with a ladder to the ground
 
-    .venv/bin/python props/jeep/build_jeep.py                       # all three, plus a preview still of each
-    .venv/bin/python props/jeep/build_jeep.py --style camper --samples 64 --no-preview
+    .venv/bin/python props/jeep/build_jeep.py                                  # the expedition jeep and its far LOD
+    .venv/bin/python props/jeep/build_jeep.py --style all --preview            # all three, with every preview still
+    .venv/bin/python props/jeep/build_jeep.py --preview front,detail           # only these stills (Cycles, slow)
 
 Each style is one GLB (props/jeep/jeep_<style>.glb) standing on z = 0 with its front toward -Y (three.js +Z): the body
 Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive, the name is kept from when it was the passenger door), DoorD (the other front door)
 and BackDoor (with the spare), each with its origin on its hinge so the page swings it about the vertical; plus empties
 SeatP (driver cushion top, at the wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back) and Boot (middle of the cargo deck). It is the same convention and the same baked light as props/camp/build_camp.py, with the shared helpers of props/lib:
 Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
-Previews go to props/jeep/preview_<style>.png and preview_all.png.
+Previews are opt-in (--preview, Cycles on the CPU): props/jeep/preview_<style>_<view>.png for the views front, back,
+detail, open, door and wheel.
 """
 import argparse
 import math
@@ -166,7 +168,6 @@ def panel(a, b, c, d, m, t=0.012):
     return o
 
 
-VIEWS = []    # --views: only these preview stills (all when empty)
 TYRE = "mt"   # tread option (--tyre): "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders, "road" smooth with painted grooves
 
 
@@ -802,9 +803,9 @@ def mud(o, rgb=(0.36, 0.27, 0.18)):
                 col.data[li].color = (*c.lerp(m * (0.6 + 0.4 * c.length), k), 1)
 
 
-def preview(style, objs, samples):
-    """Stills of the baked prop on grass in soft daylight: front three-quarter, back, a close-up of the bonnet, and the
-    camp side with all three doors open."""
+def preview(style, objs, samples, views=()):
+    """Stills of the baked prop on grass in soft daylight: front three-quarter, back, a close-up of the bonnet, the camp
+    side with all three doors open, the driver's door and a wheel (views: only these tags; all when empty)."""
     sc = bpy.context.scene
     sc.render.engine = "CYCLES"
     sc.cycles.samples = samples
@@ -827,13 +828,12 @@ def preview(style, objs, samples):
     cam = bpy.context.object
     cam.data.lens = 42
     sc.camera = cam
-    outs = []
-    views = [("front", (-4.6, -5.6, 2.3), (0, 0, 0.95), False), ("back", (4.2, 5.8, 2.4), (0, 0, 0.95), False),
+    shots = [("front", (-4.6, -5.6, 2.3), (0, 0, 0.95), False), ("back", (4.2, 5.8, 2.4), (0, 0, 0.95), False),
              ("detail", (2.6, -3.0, 1.9), (0.45, -0.75, 1.05), False),                  # close on the bonnet, wipers and snorkel
              ("open", (4.6, 3.4, 2.5), (0.2, 0.4, 0.9), True), ("door", (3.4, -0.9, 1.6), (0.5, 0.25, 0.95), True),
              ("wheel", (2.5, -2.4, 0.75), (0.75, -1.1, 0.42), False)]
-    for tag, pos, aim, opened in views:
-        if VIEWS and tag not in VIEWS:
+    for tag, pos, aim, opened in shots:
+        if views and tag not in views:
             continue
         doors(objs, opened)
         cam.location = pos
@@ -842,9 +842,8 @@ def preview(style, objs, samples):
         path = os.path.join(HERE, f"preview_{style}_{tag}.png")
         sc.render.filepath = path
         bpy.ops.render.render(write_still=True)
-        outs.append(path)
+        print(f"  preview -> {path}")
     doors(objs, False)
-    return outs
 
 
 def doors(objs, opened):
@@ -912,7 +911,8 @@ def jeep_lod(M):
     return join(p, "JeepLOD")
 
 
-def build(style, samples, do_preview, preview_samples):
+def build(style, samples, views=None, preview_samples=48):
+    """Build, bake and export one style (views: None for no previews, else the preview tags to render, all when empty)."""
     reset()
     EMPTIES.clear()
     objs = {"toy": toy, "expedition": expedition, "camper": camper}[style]()
@@ -933,16 +933,15 @@ def build(style, samples, do_preview, preview_samples):
     print(f"{style} -> {path}")
     for e in EMPTIES:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
+    if views is not None:
+        preview(style, objs, preview_samples, views)
     if style == "expedition":                            # the far LOD, in its own scene and bake (it would shade the full jeep)
-        shots = preview(style, objs, preview_samples) if do_preview else []
         reset(); EMPTIES.clear()
         M = mats("ex", **EXPEDITION_COLOURS)
         lod = jeep_lod(M); apply_all(lod)
         mud_mask(lod); bake([lod], samples, apply=False); mud(lod)
         lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False)
         print(f"  JeepLOD -> {lpath}")
-        return shots
-    return preview(style, objs, preview_samples) if do_preview else []
 
 
 if __name__ == "__main__":
@@ -950,13 +949,13 @@ if __name__ == "__main__":
     ap.add_argument("--style", default="expedition", choices=[*STYLES, "all"])
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--preview-samples", type=int, default=48)
-    ap.add_argument("--no-preview", action="store_true")
-    ap.add_argument("--views", default="")
+    ap.add_argument("--preview", nargs="?", const="", default=None, metavar="VIEWS",
+                    help="also render Cycles preview stills: all of them, or only the comma-separated views given")
     ap.add_argument("--wheel", default=WHEEL, choices=["closed", "open"])
     ap.add_argument("--tyre", default=TYRE, choices=["at", "mt", "road"], help="the tread; only acts with --wheel open")
     a = ap.parse_args()
     TYRE = a.tyre
     WHEEL = a.wheel
-    VIEWS = a.views.split(",") if a.views else []
+    views = None if a.preview is None else [v for v in a.preview.split(",") if v]
     for s in (STYLES if a.style == "all" else [a.style]):
-        build(s, a.samples, not a.no_preview, a.preview_samples)
+        build(s, a.samples, views, a.preview_samples)
