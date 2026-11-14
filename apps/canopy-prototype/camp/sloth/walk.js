@@ -6,7 +6,8 @@
 //   isFree(p), findPath(from, to)   nav.js, over the camp's blockers (and clearLine(p, q), used only in here)
 //   walkTo(s, goal, arrive)       starts the walk phase along a path to goal; arrive() runs there
 //   walkStep(s, T, sd)            the walk phase, each frame
-//   greetStep(s, T, sd)           the greet phase: two that meet sit up, face each other, say hello and carry on
+//   greetStep(s, T, sd)           the greet phase: two that meet sit up, face each other, say hello and carry on (a pause
+//                                 inside a walk, on the walk's trip record, so the path is kept)
 // The words of a hello draw from the sloths' stream (core.js rng("sloths")) as they happen.
 import { camera, rng } from "../core.js";
 const { R } = rng("sloths");
@@ -16,15 +17,16 @@ import { blockers } from "../campProps.js";
 import { createNav } from "../nav.js";
 import { walkers } from "../places.js";
 import { burst } from "../fx.js";
-import { CRAWL, GROUND, WALK_TS, camp } from "./state.js";
+import { CRAWL, GROUND, WALK_TS, camp, setTrip } from "./state.js";
 import { play } from "./clips.js";
 import { UP, turnTo, yawOf } from "./poses.js";
 
 let clearLine, findPath, isFree;
+const wDir = V(), wPath0 = V(), wWas = V(), wFwd = V();   // walkStep's scratch vectors, reused every frame
 function buildNav() { ({ clearLine, findPath, isFree } = createNav({ blockers, half: RC + 0.5, rim: RC - 0.8, fireKeep: 2.3, body: 0.28 })); }
 
 function walkTo(s, goal, arrive) {
-  const T = s.trip; Object.assign(T, { phase: "walk", st: null, t: 0, path: findPath(s.o.position, goal), arrive, yaw: yawOf(s.o) });
+  setTrip(s, "walk", { path: findPath(s.o.position, goal), arrive, yaw: yawOf(s.o) });
   play(s, "walk", 1.5, WALK_TS);
 }
 // on the ground: follow the path, keep right of anyone ahead (a sloth or you), slow when close, and greet a sloth it meets
@@ -33,14 +35,14 @@ function walkStep(s, T, sd) {
   // a point near enough is passed only when the way on from here to the next one is clear, so in a narrow gap (the crate
   // and the table end) it still steps through the gap's corner instead of cutting it
   while (T.path.length > 1 && Math.hypot(pos.x - T.path[0].x, pos.z - T.path[0].z) < (T.snap ? 0.1 : 0.3) && (T.snap || T.path.length === 2 || clearLine(pos, T.path[1]))) { T.path.shift(); T.snap = false; }
-  const aim = T.path[0], dir = V(aim.x - pos.x, 0, aim.z - pos.z), dist = dir.length(); dir.divideScalar(Math.max(dist, 1e-4));
+  const aim = T.path[0], dir = wDir.set(aim.x - pos.x, 0, aim.z - pos.z), dist = dir.length(); dir.divideScalar(Math.max(dist, 1e-4));
   let slow = 1;
   const others = camp.filter((o) => o !== s && GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * (s.sc + o.sc) + 0.1, o]);
   others.push([camera.position, 0.45, null], ...walkers.map(([o, r]) => [o.position, r + 0.18 * s.sc + 0.1, null]));
   // giving way (Adriaen 2026-11-13: "wayfinding needs a bit of work", a sloth was walking into a log seat): it steps
   // aside to the right of anyone ahead, or to the left when the right is a blocker; someone sitting in a seat or a bed
   // (inside a blocker the path already goes round) is left out, so the operator on his log doesn't push it into the log
-  const path0 = dir.clone(); let side = 0;
+  const path0 = wPath0.copy(dir); let side = 0;
   for (const [p, near, o] of others) {
     const dx = p.x - pos.x, dz = p.z - pos.z, d = Math.hypot(dx, dz);
     if (d > near + 0.6) continue;
@@ -57,7 +59,7 @@ function walkStep(s, T, sd) {
   }
   const off = turnTo(T, yawTo(dir), sd * 2.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   const v = CRAWL * s.sc * sd * slow * (off > 1 ? 0.3 : 1) * (T.snap || dist < 0.35 ? Math.max(0.1, Math.cos(Math.min(off, 1.5))) : 1);   // close to a point: turn first, so it can't circle it
-  const was = pos.clone(); pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v); pos.y = 0;
+  const was = wWas.copy(pos); pos.addScaledVector(wFwd.set(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v); pos.y = 0;
   if (!isFree(pos) && isFree(was) && (T.path.length > 1 || isFree(aim))) {   // about to walk into something: slide along its path line instead
     // (Adriaen 2026-11-13, Mango stuck between the crate and the table end): the line from where it is to the next point
     // can clip a blocked cell the planned line (from a cell's middle) missed, so it slides along a wall: along the path

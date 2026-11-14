@@ -28,16 +28,16 @@ function smoreStep(s, dt) {
   if (s.smore?.eating) return chewStep(s, mallow, s.smore.from, s.smore.at);
   if (act.getClip().name !== "reach") return;
   if (!s.smore) { s.smoreT -= dt; if (s.smoreT < 0 && act.time < 0.3 && !s.dozing) s.smore = { hold: 0 }; else return; }
-  const S = s.smore;
-  if (act.time >= 3.9 && S.hold < 9) { act.timeScale = 0; S.hold += dt; S.held = true; } else act.timeScale = 1;
+  const sm = s.smore;
+  if (act.time >= 3.9 && sm.hold < 9) { act.timeScale = 0; sm.hold += dt; sm.held = true; } else act.timeScale = 1;
   pawOf(s, paw);
   const to = FIRE_AT.clone().sub(paw), L = Math.max(0.3, Math.min(1.15, to.length() - 0.7));
   smoreStick.position.copy(paw); smoreStick.quaternion.setFromUnitVectors(UP, to.normalize()); smoreStick.scale.set(1, L, 1);
   mallow.position.copy(paw).addScaledVector(to, L - 0.03); mallow.quaternion.copy(smoreStick.quaternion);
-  mallow.material.color.lerpColors(RAW, TOAST, Math.min(1, S.hold / 9));
+  mallow.material.color.lerpColors(RAW, TOAST, Math.min(1, sm.hold / 9));
   smoreStick.visible = mallow.visible = true;
-  if (S.held && S.hold >= 9 && act.time > 5.6) {    // drawn back in: it slides the marshmallow off the stick and eats it (no words: Adriaen)
-    smoreStick.visible = false; S.eating = true; S.from = mallow.position.clone(); S.at = 2.4; mallow.userData.base = V(1, 1, 1);
+  if (sm.held && sm.hold >= 9 && act.time > 5.6) {    // drawn back in: it slides the marshmallow off the stick and eats it (no words: Adriaen)
+    smoreStick.visible = false; sm.eating = true; sm.from = mallow.position.clone(); sm.at = 2.4; mallow.userData.base = V(1, 1, 1);
     playOnce(s, "eat", 0.8, () => { mallow.visible = false; mouthOf(s).visible = false; s.smore = null; s.smoreT = R(25, 45); play(s, "reach", 1.5); }, 2.4);
   }
 }

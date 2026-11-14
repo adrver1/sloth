@@ -1,8 +1,9 @@
 // Canopy Camp sloths, the body: one sloth from the model, with its fur, its clip and everything the other modules keep on it.
-//   hang(p, dir, sc)   makes a sloth hanging under a branch at p (poses.js underAt), its head toward dir, at size sc, adds
-//                      it to the scene with its tap sphere and to state.js's sloths and hit. Draws three numbers from the
-//                      sloths' stream. It is the one place a sloth object is made, and it lists every field one has, with
-//                      its meaning (review sloths-34).
+//   makeSloth(sc)      makes a sloth at size sc and returns it: adds it to the scene with its tap sphere and to state.js's
+//                      sloths and hit. Draws three numbers from the sloths' stream. It is the one place a sloth object is
+//                      made, and it lists every field one has, with its meaning (review sloths-34, R2-030). A camp sloth is
+//                      then put in its spot (wayIn.js placeHome).
+//   placeUnder(s, p, dir)   hangs s under a branch at p (poses.js underAt), its head toward dir (a wild sloth)
 //   warmStep(lanternGlow, fl, dusk)   each frame (main.js): sets SLOTH_WARM, the uniforms (kept in here) of the warm glow
 //                      the sloths take at night from the lanterns and the fire (fur.js warm)
 // review 2026-11-12 (P5, B4): Lambert body and fur like the camp; a fixed padded bounding sphere so off-screen sloths are
@@ -28,7 +29,7 @@ function warmStep(lanternGlow, fl, dusk) {             // each frame (main.js): 
   for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
   W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk;
 }
-function hang(p, dir, sc = SL) {                      // a sloth under a branch at p, its head toward dir
+function makeSloth(sc = SL) {
   const o = clone(SLOTH.scene); o.scale.setScalar(sc);
   furify(o, { shells: D.shells, lambert: OPT.slothmat !== "old", warm: SLOTH_WARM });   // ?slothmat=old: the GLB's physical material, as before
   o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur) { m.geometry.computeBoundingSphere(); m.boundingSphere = m.geometry.boundingSphere.clone(); m.boundingSphere.radius *= 2; } });
@@ -36,8 +37,8 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
   if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
   const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
   act.play(); act.time = R(0, 4); act.timeScale = 0.6;   // (kept as s.act)
-  const P = underAt({ sc }, p, dir); o.quaternion.copy(P.q); o.position.copy(P.p); scene.add(o);
-  const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(p).add(V(0, -0.25, 0)); scene.add(box);
+  scene.add(o);
+  const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); scene.add(box);
   const eyes = eyeKit(o), blink = R(1, 6), napT = R(4, 40);   // (in this order: eyeKit makes the eye meshes' own shapes, then two seeded draws)
   // Every field a sloth has, with what it means. The ones that start undefined are set later by the module named; the
   // camp's other modules read and set these too (input.js: squish, nod, munch; operator.js: trip, spot, asleep, and its
@@ -56,7 +57,8 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
     once: undefined,             // what to do when a clip played once has run through (clips.js playOnce)
     // where a tap finds it
     box,                         // its tap sphere (input.js); follows a camp sloth each frame (step.js)
-    p,                           // the point hearts and words fly to: the sphere's middle
+    p: V(),                      // where it is in the world: the point hearts and words fly to (a camp sloth: its sphere's
+                                 // middle, step.js; a wild one: its branch point, placeUnder)
     // who it is
     wild: undefined,             // true for the ones in the trees (sloths.js)
     name: undefined,             // a camp sloth's name (cast.js); the wild ones have none
@@ -82,7 +84,8 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
     // a camp sloth's day (sloths.js places it; day.js, wayIn.js, wayOut.js)
     spot: undefined,             // where it lives now: its home, or the guest spot of a nap trip (spots.js)
     ownSpot: undefined,          // its own home while it is away on a nap trip
-    trip: undefined,             // what it is doing: { phase, t (seconds in it), yaw, ... } (step.js lists the phases)
+    trip: undefined,             // what it is doing: { phase, t (seconds in it), yaw, ... }, a fresh one per phase
+                                 // (state.js setTrip; state.js PHASES lists the phases)
     errand: undefined,           // seconds at home until it next sets off
     greetCD: undefined,          // seconds until it may say hello again (walk.js)
     wantFood: undefined,         // the move lab's "Get food": the next errand is food (hooks.js)
@@ -98,6 +101,11 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
     armRest: undefined,          // its arm bones' rest turn, kept while the arm reaches for a gift (arms.js giftArm)
   };
   box.userData.s = s; sloths.push(s); hit.push(box);
+  return s;
+}
+function placeUnder(s, p, dir) {                      // under a branch at p, its head toward dir
+  const P = underAt(s, p, dir); s.o.quaternion.copy(P.q); s.o.position.copy(P.p);
+  s.box.position.copy(p).y -= 0.25; s.p.copy(p);
 }
 
-export { hang, warmStep };
+export { makeSloth, placeUnder, warmStep };

@@ -22,7 +22,7 @@ import { CAST } from "./cast.js";
 import { addLabButton } from "./labButton.js";
 import { addCrowd } from "./places.js";
 import { GROUND, OUT, camp, hit, sloths, spots, wild } from "./sloth/state.js";
-import { hang, warmStep } from "./sloth/body.js";
+import { makeSloth, placeUnder, warmStep } from "./sloth/body.js";
 import { slothsStep } from "./sloth/life.js";
 import { treeOf } from "./sloth/poses.js";
 import { buildFace } from "./sloth/face.js";
@@ -48,7 +48,7 @@ function buildSloths() {
     for (const c of mine) {
       const t = R(0.5, 0.8), p = c.getPointAt(t), tan = c.getTangentAt(t);
       if (tan.x * p.x + tan.z * p.z > 0) tan.negate();   // head toward the middle of the clearing, so you meet its face
-      if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) { hang(p, tan); sloths.at(-1).wild = true; break; }
+      if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) { const s = makeSloth(); placeUnder(s, p, tan); s.wild = true; break; }
     }
   }
   if (OPT.campsloths) {
@@ -64,8 +64,7 @@ function buildSloths() {
       const c = CAST.find((k) => k.home === spot.name && !homed.has(k)); if (!c) continue;
       homed.add(c);
       const k = c.scale ?? 1;   // its own size against the others (Pip is the smallest), kept as s.k for every spot it goes to
-      hang(V(0, 0, 0), V(1, 0, 0), spot.scale * k);
-      const s = sloths.at(-1); c.dress?.(s.head, s.o);
+      const s = makeSloth(spot.scale * k); c.dress?.(s.head, s.o);
       Object.assign(s, { name: c.name, k, spot, greetCD: R(0, 10), smoreT: R(8, 20), gaze: 0, waveCD: 0 });
       spot.who = s; camp.push(s); placeHome(s);
     }

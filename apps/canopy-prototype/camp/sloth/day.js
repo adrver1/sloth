@@ -19,7 +19,7 @@ const { R } = rng("sloths");
 import { V, yawFrom } from "../util.js";
 import { RC } from "../layout.js";
 import { bedKey, claim, holder, hosted, join, seatKey, seatLog, taken } from "../places.js";
-import { CRAWL, MAX_OUT, camp, guests } from "./state.js";
+import { CRAWL, MAX_OUT, camp, guests, setTrip } from "./state.js";
 import { moveBack, moveInto, releaseHome } from "./spots.js";
 import { play } from "./clips.js";
 import { yawQ } from "./poses.js";
@@ -46,7 +46,7 @@ function wanderPoint() {
 // leaving home: back out of its spot the way it came in, onto the ground, then off on its errand
 function leave(s) {
   if (s.gift?.clip) { scene.remove(s.gift.mesh); s.gift = null; s.once = null; }   // never left eating: the eat clip's end would never come
-  const spot = s.spot; spot.home = false; s.trip = { phase: "glide", t: 0, yaw: 0 }; releaseHome(s);
+  const spot = s.spot; spot.home = false; setTrip(s, "glide", { yaw: 0 }); releaseHome(s);
   wakeUp(s); s.yawn = 0; s.roused = null; if (s.mouth) s.mouth.visible = false;
   exitSpot(s, () => errand(s));
 }
@@ -72,7 +72,7 @@ function errand(s) {                                // a place at the table or t
 function wander(s) {
   const i = [1, 2].find((k) => holder(seatKey(k)) === "operator" && hosted(seatKey(k))), lg = i && seatKey(i);   // he's on a log: now and then go and sit with him
   if (lg && R(0, 1) < 0.25) { const o = seatLog(i); if (o) { const c = o.position.clone().setY(0); return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!join(lg, s)) goHome(s); }); } }
-  walkTo(s, wanderPoint(), () => { Object.assign(s.trip, { phase: "rest", t: 0, dur: R(5, 9), nap: R(0, 1) < 0.55 }); play(s, "idle", 1.2); });
+  walkTo(s, wanderPoint(), () => { setTrip(s, "rest", { dur: R(5, 9), nap: R(0, 1) < 0.55 }); play(s, "idle", 1.2); });
 }
 const youDrive = () => holder("jeep:driver") === "player";   // you in the jeep's driver seat (jeepSeat.js): its sloth waits
 function goHome(s) {
@@ -80,7 +80,7 @@ function goHome(s) {
   if (spot.car && youDrive()) return wander(s);   // a wander and a sit, then it tries again
   walkTo(s, spot.via ?? spot.door, () => {
     if (!spot.via) return arrive(s);
-    const T = s.trip, yaw = yawFrom(spot.via, spot.door); T.yaw = yaw;
+    const yaw = yawFrom(spot.via, spot.door); s.trip.yaw = yaw;
     glide(s, { p: spot.door.clone(), q: yawQ(yaw) }, spot.door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = yaw; arrive(s); });
   });
 }

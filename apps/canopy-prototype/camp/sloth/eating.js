@@ -12,7 +12,7 @@ import { rng, scene } from "../core.js";
 const { R } = rng("sloths");
 import { V, sstep } from "../util.js";
 import { release } from "../places.js";
-import { WALK_TS } from "./state.js";
+import { WALK_TS, setTrip } from "./state.js";
 import { EAT_GRAB, play, playOnce } from "./clips.js";
 import { UP, turnTo } from "./poses.js";
 import { move, moveStep } from "./moves.js";
@@ -22,7 +22,7 @@ import { fruit, restOn, sitFor } from "./table.js";
 import { cardsSit, cardsStep } from "./cards.js";
 
 const paw = V(), mouthW = V();
-function startEat(s, slot, done) { Object.assign(s.trip, { phase: "eat", st: "turn", t: 0, slot, cards: false, done }); play(s, "idle", 1); }
+function startEat(s, slot, done) { setTrip(s, "eat", { st: "turn", slot, cards: false, done }); play(s, "idle", 1); }
 function eatStep(s, T, sd) {
   const slot = T.slot, F = slot?.food;
   if (T.st === "turn") {                           // face the fruit, then up onto the table or up against the crate

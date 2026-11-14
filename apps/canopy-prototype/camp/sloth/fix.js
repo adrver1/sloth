@@ -12,6 +12,7 @@ import { jeepApi } from "../jeep.js";
 import { scene } from "../core.js";
 import { V } from "../util.js";
 import { release } from "../places.js";
+import { setTrip } from "./state.js";
 import { play } from "./clips.js";
 import { UP, turnTo, yawOf } from "./poses.js";
 import { move, moveStep } from "./moves.js";
@@ -26,7 +27,7 @@ function buildSpanner() {
 }
 function fixEngine(s, done) {
   const J = jeepApi, n = J.node, front = n.localToWorld(V(0.3, 0, 2.35)).setY(0);
-  walkTo(s, front, () => { Object.assign(s.trip, { phase: "fix", st: "turn", t: 0, front, sit: n.localToWorld(V(0.25, 0.94, 1.5)), done }); play(s, "idle", 1); J.open("H"); });
+  walkTo(s, front, () => { setTrip(s, "fix", { st: "turn", front, sit: n.localToWorld(V(0.25, 0.94, 1.5)), done }); play(s, "idle", 1); J.open("H"); });
 }
 function fixStep(s, T, sd) {
   const J = jeepApi, n = J.node, back = yawOf(n);   // facing the windscreen from the front (the jeep looks along its +Z)

@@ -27,7 +27,7 @@ const yawOf = (o) => { const f = V(0, 0, -1).applyQuaternion(o.getWorldQuaternio
 const qWorld = new THREE.Quaternion();
 const turnTo = (T, want, k) => { const d = wrapPi(want - T.yaw); T.yaw += d * Math.min(1, k); return Math.abs(d); };
 // poses for climbing: hanging back-down under a branch or pole at `at`, head toward `head`, and upright on a trunk at
-// height y, facing the bark on the side `out` points to. underAt is the one hanging pose: body.js hang() places a new
+// height y, facing the bark on the side `out` points to. underAt is the one hanging pose: body.js placeUnder() hangs a new
 // sloth with it, and the rope and the line below are it too. Its grip is 0.1 of its size over its belly and toward its head.
 function underAt(s, at, head) {
   const yl = head.clone().setY(head.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);

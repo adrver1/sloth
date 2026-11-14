@@ -13,7 +13,7 @@ import { scene } from "../core.js";
 import { V, yawFrom, yawTo } from "../util.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
-import { CRAWL, HW, HW_POST, WALK_TS } from "./state.js";
+import { CRAWL, HW, HW_POST, WALK_TS, setTrip } from "./state.js";
 import { play } from "./clips.js";
 import { ROPE_L, barkProfile, climbYaw, linePose, postPose, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
 import { climbV, glide, postV, slide, toGround } from "./moves.js";
@@ -22,12 +22,12 @@ import { brush } from "./spots.js";
 const tmp = V();
 function climbDown(s, then) {
   const { curve: c, t, t0, tree, out } = s.spot, L = c.getLength();
-  const yTop = c.getPointAt(t0).y - 0.25 * s.sc, R = barkProfile(tree, out, yTop), back = (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u).negate());
+  const yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkProfile(tree, out, yTop), back = (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u).negate());
   play(s, "hang_walk", 1.2, HW);
   glide(s, back(t), 2.5, () => slide(s, t, t0, climbV(s) / L, back, () => {
     play(s, "hang_walk", 1.5, -HW);
-    glide(s, trunkAt(s, tree, out, yTop, R), 3, () => slide(s, yTop, 0, climbV(s), (y) => trunkAt(s, tree, out, y, R),
-      () => toGround(s, tree.clone().addScaledVector(out, R(0) + 0.45), yawTo(out), then)));
+    glide(s, trunkAt(s, tree, out, yTop, bark), 3, () => slide(s, yTop, 0, climbV(s), (y) => trunkAt(s, tree, out, y, bark),
+      () => toGround(s, tree.clone().addScaledVector(out, bark(0) + 0.45), yawTo(out), then)));
   }));
 }
 function downPost(s, spot, top, then) {             // from the top of a post, tail first down to the ground
@@ -66,7 +66,7 @@ function exitSpot(s, go) {
     play(s, "hang_walk", 2, -HW_POST);
     return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, postV(s), (u) => ropePose(s, u), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
   }
-  if (spot.car) { s.trip.phase = "exit"; s.trip.go = go; jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
+  if (spot.car) { setTrip(s, "exit", { go }); jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
   const away = spot.via ? yawFrom(spot.door, spot.via) : yawFrom(s.o.getWorldPosition(tmp), spot.door);
   scene.attach(s.o); play(s, "walk", 1.5, WALK_TS);
   glide(s, { p: spot.door.clone(), q: yawQ(away) }, 2.5, () => {
@@ -79,7 +79,7 @@ function exitStep(s, T, sd, spot) {                 // out of the jeep: waits fo
   const J = jeepApi;
   if (!J.isOpen("P")) J.open("P");
   else if (T.t > 1) {
-    T.phase = "glide"; play(s, "hang_walk", 1, 2);
+    play(s, "hang_walk", 1, 2);
     glide(s, { p: spot.sill.clone(), q: yawQ(-Math.PI / 2) }, 3.5, () => {
       scene.attach(s.o); const yaw = yawOf(s.o);
       glide(s, { p: spot.door.clone(), q: yawQ(yaw) }, 2.5, () => { J.close("P"); s.trip.yaw = yaw; T.go(); });

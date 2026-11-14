@@ -14,11 +14,13 @@ import { aimBone } from "../actor.js";
 import { giftArm } from "./arms.js";
 
 const FUR_NEAR = 8, LOOK_NEAR = 4.5;
-const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), oq = new THREE.Quaternion(), va = V(), vb = V(), wa = V(), wf = V();
+// scratch objects, reused every frame so slothLife allocates nothing
+const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), oq = new THREE.Quaternion();
+const va = V(), vb = V(), vc = V(), wa = V(), wf = V(), camDir = V();
 // a slow wave (Adriaen 2026-11-12): when you keep looking right at a sloth for about 3 s (it stays near the middle of your
 // view, within 10 m) it looks back and slowly waves its right paw over its head, then waits a while before it waves again.
 // Done on the bones after the clip, so it works whatever it is doing (hanging, sitting, driving), except asleep or on the move.
-const GAZE_S = 3, WAVE_S = 4.6, camDir = V();
+const GAZE_S = 3, WAVE_S = 4.6;
 function slothLife(s, dt) {                            // after the clip: fur by distance, blinks, a look at you when you're close, a wave
   s.head.getWorldPosition(va); const d = va.distanceTo(camera.position);
   const far = d > FUR_NEAR; if (s.shells[0] && s.shells[0].visible === far) s.shells.forEach((m) => (m.visible = !far));
@@ -36,11 +38,11 @@ function slothLife(s, dt) {                            // after the clip: fur by
   const want = still && (d < LOOK_NEAR || s.wave) ? 1 : 0;
   s.look += (want - s.look) * Math.min(1, dt * 1.5);
   if (s.look >= 0.01) {
-    const hq = s.head.getWorldQuaternion(qa), face = vb.copy(FACE).applyQuaternion(hq), to = camera.position.clone().sub(va).normalize();
+    const hq = s.head.getWorldQuaternion(qa), face = vb.copy(FACE).applyQuaternion(hq), to = vc.copy(camera.position).sub(va).normalize();
     const turn = qb.setFromUnitVectors(face, to), ang = 2 * Math.acos(Math.min(1, Math.abs(turn.w)));
     const w = s.look * 0.75 * Math.min(1, 1.2 / Math.max(ang, 1e-3));   // at most about 70 degrees, three quarters of the way
-    turn.slerp(qa.identity(), 1 - Math.min(1, w)).multiply(s.head.getWorldQuaternion(new THREE.Quaternion()));
-    s.head.quaternion.copy(s.head.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(turn));
+    turn.slerp(qa.identity(), 1 - Math.min(1, w)).multiply(s.head.getWorldQuaternion(qc));
+    s.head.quaternion.copy(s.head.parent.getWorldQuaternion(qc).invert().multiply(turn));
   }
   if (s.wave && s.arm[1]) {                            // upper arm up and out beside the head, the forearm swinging slowly side to side
     const k = s.wave, e = sstep(0, 0.9, k) * (1 - sstep(WAVE_S - 0.9, WAVE_S, k));

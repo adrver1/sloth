@@ -16,7 +16,7 @@ const { R } = rng("sloths");
 import { yawFrom } from "../util.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
-import { HW, HW_POST } from "./state.js";
+import { HW, HW_POST, setTrip } from "./state.js";
 import { clipOf, play } from "./clips.js";
 import { ROPE_L, UP, barkProfile, linePose, postPose, ropePose, trunkAt, turnTo, underAt, yawQ } from "./poses.js";
 import { climbV, glide, postV, slide } from "./moves.js";
@@ -24,15 +24,16 @@ import { brush, claimHome, sizeIn } from "./spots.js";
 import { doze } from "./naps.js";
 
 function atHome(s, first) {
-  if (s.spot.guest) { s.trip.phase = "home"; s.spot.home = true; s.errand = 1e9; doze(s, R(60, 120)); s.dozeIn = 1.2; if (s.spot.car) setTimeout(() => jeepApi?.close("P"), 1500); return; }   // a nap trip: straight to sleep
-  s.trip.phase = "home"; s.spot.home = true; claimHome(s);
+  setTrip(s, "home");
+  if (s.spot.guest) { s.spot.home = true; s.errand = 1e9; doze(s, R(60, 120)); s.dozeIn = 1.2; if (s.spot.car) setTimeout(() => jeepApi?.close("P"), 1500); return; }   // a nap trip: straight to sleep
+  s.spot.home = true; claimHome(s);
   s.errand = first ? R(4, 45) : R(35, 80) * (s.spot.asleep || s.spot.car ? 1.6 : 1);
   if (s.spot.asleep) { if (first) { s.dozing = s.asleep = true; s.eyes(true); s.dozeT = R(30, 150); s.dozeIn = 0; } else { doze(s, R(90, 180)); s.dozeIn = 1.5; } }   // Hibi: back in the hammock, a yawn and a long nap
   if (s.spot.car && !first) setTimeout(() => jeepApi?.close("P"), 1500);
 }
 function placeHome(s) {                             // straight into its spot, as if it had always lived there
   const spot = s.spot; s.sc = sizeIn(s, spot); s.o.scale.setScalar(s.sc); s.act = s.mixer.existingAction(clipOf("cling"));
-  s.trip = { phase: "home", t: 0, yaw: 0 };
+  setTrip(s, "home", { yaw: 0 });
   if (spot.branch || spot.line) {
     const P = spot.line ? linePose(s, spot.t) : underAt(s, spot.curve.getPointAt(spot.t), spot.curve.getTangentAt(spot.t));
     s.o.position.copy(P.p); s.o.quaternion.copy(P.q);
@@ -43,9 +44,9 @@ function placeHome(s) {                             // straight into its spot, a
   atHome(s, true);
 }
 function climbUp(s, spot) {                          // up the trunk and out along the branch to its tip
-  const { curve: c, t, t0, tree, out } = spot, L = c.getLength(), yTop = c.getPointAt(t0).y - 0.25 * s.sc, R = barkProfile(tree, out, yTop);
+  const { curve: c, t, t0, tree, out } = spot, L = c.getLength(), yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkProfile(tree, out, yTop);
   play(s, "hang_walk", 1.5, HW);
-  glide(s, trunkAt(s, tree, out, 0.02, R), 2.5, () => slide(s, 0.02, yTop, climbV(s), (y) => trunkAt(s, tree, out, y, R), () =>
+  glide(s, trunkAt(s, tree, out, 0.02, bark), 2.5, () => slide(s, 0.02, yTop, climbV(s), (y) => trunkAt(s, tree, out, y, bark), () =>
     glide(s, underAt(s, c.getPointAt(t0), c.getTangentAt(t0)), 3, () => slide(s, t0, t, climbV(s) / L, (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u)),
       () => { play(s, "cling", 3, 0.6); atHome(s); }))));
 }
@@ -67,10 +68,10 @@ function upPost(s, spot) {
   }));
 }
 function enterSpot(s) {                             // at its spot's door: in the way each spot is reached
-  const spot = s.spot, T = s.trip;
+  const spot = s.spot;
   if (spot.branch) return climbUp(s, spot);
   if (spot.climb) return upPost(s, spot);
-  if (spot.car) { T.phase = "door"; T.t = 0; jeepApi.open("P"); return; }
+  if (spot.car) { setTrip(s, "door"); jeepApi.open("P"); return; }
   settleIn(s, 2.5);
 }
 function doorStep(s, T, sd, spot) {                 // waits, facing the door, until it has swung open, then about 4 s up onto the sill

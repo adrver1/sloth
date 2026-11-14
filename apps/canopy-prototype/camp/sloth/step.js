@@ -38,17 +38,19 @@ function campStep(dt) {
   const fast = pace.fast ?? 1, sd = dt * fast;   // ?? not ||: the lab's Pause and Step set 0 (review R2-044)
   let out = camp.filter((s) => s.trip.phase !== "home").length;
   for (const s of camp) {
-    const spot = s.spot, T = s.trip;   // as they are now: a clip's end (s.once) may start a new trip, which waits for the next frame
     if (fast !== 1) s.mixer.update(sd - dt);   // the clip at the same pace (slow motion and pause in the move lab too)
-    T.t += sd; s.greetCD -= sd;
+    s.trip.t += sd; s.greetCD -= sd;
     if (s.once && s.act.time >= s.act.getClip().duration - 0.02) { const f = s.once; s.once = null; f(); }   // a stretch or a bite done
+    // its trip and spot as they are now: the clip's end may have started a new phase (setTrip makes a fresh record), and
+    // the step below may start another, which the checks after it read
+    const spot = s.spot, T = s.trip;
     if (s.gift?.clip) giftStep(s, sd);   // eating what you gave it: its day waits until it's done
     else if (T.phase === "home") out += homeStep(s, sd, spot, out);
     else STEP[T.phase]?.(s, T, sd, spot);
-    if (T.phase !== "home" && s.smore) stopSmore(s);
+    if (s.trip.phase !== "home" && s.smore) stopSmore(s);
     if (s.gift && !s.gift.clip) giftFly(s, sd);
     zStep(s, sd);
-    if (spot.line && T.phase === "home") brush?.(s.o.position, false, dt);   // the towel swings back
+    if (s.spot.line && s.trip.phase === "home") brush?.(s.o.position, false, dt);   // the towel swings back
     // the hit sphere and the point hearts and words fly to follow the sloth
     s.o.getWorldPosition(s.box.position).y += 0.25 * s.sc / SL; s.p.copy(s.box.position);
   }

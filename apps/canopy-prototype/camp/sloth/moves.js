@@ -17,14 +17,14 @@
 // back about its own x in the middle, sc eases its size to sc.
 import * as THREE from "three";
 import { V, ease } from "../util.js";
-import { HW, HW_POST } from "./state.js";
+import { HW, HW_POST, setTrip } from "./state.js";
 import { play } from "./clips.js";
 import { UP, yawQ } from "./poses.js";
 
 const q0 = new THREE.Quaternion(), X = V(1, 0, 0);
 const climbV = (s) => 0.015 * HW * s.sc;              // m/s, with hang_walk at HW so the paws keep pace
 const postV = (s) => 0.015 * HW_POST * s.sc;          // the same at HW_POST, up and down a post, the rope and the line
-function slide(s, from, to, speed, pose, next) { s.trip.phase = "slide"; s.trip.sl = { u: from, to, speed, pose, next }; }
+function slide(s, from, to, speed, pose, next) { setTrip(s, "slide", { sl: { u: from, to, speed, pose, next } }); }
 function tween(s, T, to, dur, next) { T.t = 0; T.tw = { fp: s.o.position.clone(), fq: s.o.quaternion.clone(), sc0: s.sc, to, dur, next }; }
 function tweenStep(s, T) {
   const W = T.tw, to = W.to, k = Math.min(1, T.t / W.dur), e = ease(k), arc = Math.sin(Math.PI * k);
@@ -34,7 +34,7 @@ function tweenStep(s, T) {
   if (to.sc != null) { s.sc = W.sc0 + (to.sc - W.sc0) * e; s.o.scale.setScalar(s.sc); }
   if (k >= 1) W.next();
 }
-function glide(s, to, dur, next) { s.trip.phase = "glide"; tween(s, s.trip, to, dur, next); }
+function glide(s, to, dur, next) { tween(s, setTrip(s, "glide"), to, dur, next); }
 function toGround(s, at, yaw, then) {               // step off onto the ground at `at`, belly down, facing yaw
   play(s, "walk", 2, 1);
   glide(s, { p: at.clone().setY(0), q: yawQ(yaw) }, 2.5, () => { s.trip.yaw = yaw; then(); });

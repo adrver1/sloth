@@ -7,7 +7,7 @@
 import { rng, scene } from "../core.js";
 const { R } = rng("sloths");
 import { release } from "../places.js";
-import { LENDABLE, camp } from "./state.js";
+import { LENDABLE, camp, setTrip } from "./state.js";
 import { play } from "./clips.js";
 import { yawQ } from "./poses.js";
 import { quitGame } from "./cards.js";
@@ -21,13 +21,13 @@ function lend(s, who, opt = {}) {
   quitGame(s);   // its card game ends: the other one goes home
   stopSmore(s); wakeUp(s); s.once = null;
   releaseHome(s); s.spot.home = false;
-  scene.attach(s.o); s.trip = { phase: "held", t: 0, yaw: 0, who }; if (opt.asleep) { s.asleep = true; s.eyes(true); } return true;
+  scene.attach(s.o); setTrip(s, "held", { yaw: 0, who }); if (opt.asleep) { s.asleep = true; s.eyes(true); } return true;
 }
 function giveBack(s, at, yaw) {
   if (s.trip?.phase !== "held") return;
   if (s.asleep) wakeUp(s);   // it slept on in his arms
   scene.attach(s.o); s.o.position.set(at.x, 0, at.z); s.o.quaternion.copy(yawQ(yaw)); s.o.scale.setScalar(s.sc);
-  s.trip = { phase: "rest", t: 0, yaw, dur: R(1.5, 3) }; play(s, "idle", 0.6);
+  setTrip(s, "rest", { yaw, dur: R(1.5, 3) }); play(s, "idle", 0.6);
 }
 
 export { giveBack, lend };

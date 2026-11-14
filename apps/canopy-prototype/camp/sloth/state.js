@@ -1,5 +1,5 @@
-// Canopy Camp sloths, what the sloth modules share: the lists of sloths and the few constants more than one of them needs.
-// Nothing else lives here, nothing is built on import, and nothing is kept on window.
+// Canopy Camp sloths, what the sloth modules share: the lists of sloths, the few constants more than one of them needs, and
+// setTrip. Nothing else lives here, nothing is built on import, and nothing is kept on window.
 //   SL        a wild sloth's size (the model is 1; the camp sloths have their spot's size)
 //   sloths    every sloth, wild and named, in the order they were made (debug.js's __boop(i) and __feed(i) index it)
 //   hit       their tap spheres, one each (input.js casts its ray at these)
@@ -15,6 +15,9 @@
 //   SPEED     (inside) crawling and climbing are 1.4x what they first were (Adriaen: "sliiightly faster"): CRAWL metres a second per
 //             unit of size, WALK_TS the walk clip's pace, HW and HW_POST the hang_walk clip's pace on a branch and on a post
 //   MAX_OUT   how many may be away from home at once
+//   setTrip(s, phase, fields)   starts a phase on a fresh trip record { phase, t: 0, yaw, ...fields }, keeping only the yaw
+//             (fields may give its own), so nothing from an earlier phase is left on it (review R2-030: a rest kept the
+//             last rest's slept and never went home). The steps inside a phase (eat's st, a greet in a walk) keep its record.
 export const SL = 2.6;
 export const sloths = [], hit = [], camp = [], wild = [];
 export const spots = [], guests = [];
@@ -32,5 +35,6 @@ export const PHASES = {
 };
 const having = (flag) => new Set(Object.keys(PHASES).filter((ph) => PHASES[ph][flag]));
 export const LIVELY = having("lively"), GROUND = having("ground"), LENDABLE = having("lend"), OUT = having("out");
+export const setTrip = (s, phase, fields) => (s.trip = { phase, t: 0, yaw: s.trip?.yaw ?? 0, ...fields });
 const SPEED = 1.4;
 export const CRAWL = 0.027 * 2.2 * SPEED, WALK_TS = 2.2 * SPEED, HW = 3.75 * SPEED, HW_POST = 2.5 * SPEED, MAX_OUT = 3;
