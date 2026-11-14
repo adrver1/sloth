@@ -9,8 +9,8 @@
 // fades it with the time of day and the weather).
 import * as THREE from "three";
 import { D, LOOK, S, scene, sun } from "./core.js";
-import { V, canvasTex, lcg, sstep, tris } from "./util.js";
-import { GLADE, GLADE_R, pathLane, sloPath } from "./layout.js";
+import { V, canvasTex, lcg, polyDist, sstep, tris } from "./util.js";
+import { GLADE, GLADE_R, pathLane, route, sloPath } from "./layout.js";
 import { blockers, rayMat } from "./campProps.js";
 import { leafGeo, leafM, leafScale, perClump } from "./forest.js";
 
@@ -35,7 +35,7 @@ const pathEnd = (x, z) => { let d = 1e9; for (let i = sloPath.pts.length - 12; i
 const worn = (x, z) => {
   const s = STAND, e = end, dx = s.x - e.x, dz = s.z - e.z, t = Math.max(0, Math.min(1, ((x - e.x) * dx + (z - e.z) * dz) / (dx * dx + dz * dz)));
   const lane = Math.hypot(x - (e.x + dx * t), z - (e.z + dz * t));
-  return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)));
+  return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)), 1 - sstep(0.7, 1.25, polyDist(route.pts, x, z)[0]));   // and the karaoke trip's way round the tree (its branch)
 };
 const taken = (x, z, pad) => Math.hypot(x - G.x, z - G.z) < TRUNK + 0.15 + pad || Math.hypot(x - BENCH.at.x, z - BENCH.at.z) < 0.85 + pad
   || STONES.some(([c, r]) => Math.hypot(x - c.x, z - c.z) < r + pad) || (() => { const ax = Math.cos(LOG.yaw), az = Math.sin(LOG.yaw), u = (x - LOG.at.x) * ax + (z - LOG.at.z) * az, v = -(x - LOG.at.x) * az + (z - LOG.at.z) * ax;
