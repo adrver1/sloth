@@ -58,7 +58,7 @@ function splitBowl(T) {
   const m = new THREE.Mesh(b, T.material); m.name = "FruitBowl"; T.add(m); return m;
 }
 
-export function createActivities({ scene, camera, me, woodPile, woodTex, fire, pot: potAt, table, crate = null, blockers = [], fireCards = [], flames = [], fireLight, glowTex, burst, toast, sloths = [], addBlocker, looks = {} }) {
+export function createActivities({ scene, camera, me, woodPile, woodTex, fire, pot: potAt, table, crate, fireCards, flames, fireLight, glowTex, burst, toast, sloths, addBlocker, looks }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   // logs painted like the props thread's stack: its atlas (props/lived/wood_stack.jpg) has log ends on the top half and the logs
   // seen from above bottom right, so the sides take one log's strip (mirrored round, so no seam) and the caps one round end
@@ -74,7 +74,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire, p
   if (!woodPile.built) {
     const yaw = Math.atan2(-pileAt.x, -pileAt.z), g = new THREE.Group();
     [[-0.13, 0.06], [0, 0.06], [0.13, 0.06], [-0.065, 0.17], [0.065, 0.17], [0, 0.28]].forEach(([x, y]) => { const l = new THREE.Mesh(logGeo, logMat); l.rotation.z = Math.PI / 2; l.rotation.y = Math.PI / 2; l.position.set(x, y, 0); g.add(l); });
-    g.position.copy(pileAt); g.rotation.y = yaw; scene.add(g); stand = g; addBlocker?.(pileAt, 0.5);
+    g.position.copy(pileAt); g.rotation.y = yaw; scene.add(g); stand = g; addBlocker(pileAt, 0.5);
   }
   const nearSloth = (at, max = 4) => sloths.filter((s) => !s.wild && s.p).map((s) => [s, s.p.distanceTo(at)]).filter(([, d]) => d < max).sort((a, b) => a[1] - b[1]).map(([s]) => s);
 
@@ -268,7 +268,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire, p
       const f = 1 + 0.08 * flare + 0.12 * pop, w = 1 + 0.17 * flare + 0.15 * pop;   // wider more than taller: the pot hangs just over the flames
       for (const c of fireCards) c.scale.set(w, f, w);
       for (const s of flames) s.scale.multiplyScalar(w);
-      if (fireLight) fireLight.intensity *= 1 + 0.45 * flare + 0.4 * pop;
+      fireLight.intensity *= 1 + 0.45 * flare + 0.4 * pop;
       if (flare > 0.3 && Math.random() < dt * 3 * flare) spark();
       for (const s of sparks) { if (!s.live) continue; s.t += dt; s.o.position.addScaledVector(s.v, dt); s.v.y -= dt * 0.9; s.v.multiplyScalar(0.985);
         s.o.material.opacity = 1; s.o.scale.setScalar(0.07 * (1 - s.t / s.life)); if (s.t > s.life) { s.live = false; s.o.visible = false; } }

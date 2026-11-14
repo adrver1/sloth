@@ -32,7 +32,7 @@ const groundAt = groundHeight;                         // camp/terrain.js (the g
 const RADIUS = 0.3, WALK = 1.05, STRIDE = 1.28, ME = "operator";
 
 // ---------------------------------------------------------------- the model: one skinned mesh, 1,034 triangles, Lambert
-const root = new THREE.Group(), clipOf = (n) => ANIM.animations.find((a) => a.name === n);
+const root = new THREE.Group();
 let body, mixer, B = {}, acts = {}, cur = null, opApi = null;
 if (ON) {
   body = clone(OP.scene); root.add(body); scene.add(root);
@@ -101,7 +101,7 @@ function hold(prop) { op.inHand = prop; prop.visible = true; }   // placed at hi
 function drop(prop) { prop.visible = false; if (op.inHand === prop) op.inHand = null; }
 
 // ---------------------------------------------------------------- bones after the clip: reach, look
-const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), va = V(), vb = V(), vc = V(), vd = V();
+const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), va = V(), vb = V(), vc = V();
 function aimBone(b, dir, w = 1) {                      // turn bone b (it points along its own +Y) toward world dir, by w
   const bq = b.getWorldQuaternion(qa), y = vb.copy(UP).applyQuaternion(bq);
   qb.setFromUnitVectors(y, dir).slerp(qc.identity(), 1 - w).multiply(bq);
@@ -166,7 +166,7 @@ const fireGap = (from) => {                            // a spot just off the fi
 };
 
 // ---------------------------------------------------------------- walking: a path round the blockers, steering round movers
-const op = { kind: "start", it: null, place: null, seated: false, lying: false, buddy: null, prop: null, look: 0, face: 0, sleeping: false, ik: null, gaze: 0 };
+const op = { kind: "start", place: null, seated: false, lying: false, buddy: null, look: 0, sleeping: false, ik: null, gaze: 0 };
 function freeOf(p, r = RADIUS) { return !blockers.some(([c, br]) => Math.hypot(p.x - c.x, p.z - c.z) < br + r); }
 function pathTo(to) {
   const p = life().path?.(root.position, to, RADIUS);
@@ -259,7 +259,7 @@ function release() { if (op.place) life().release?.(op.place, ME); op.place = nu
 
 // ---------------------------------------------------------------- what he does
 const SIP = { hold: 1.25, top: 2.3 };                  // the sip clip: the mug at the chest at 1.25 s, at the lips 1.6 to 2.2 s
-function* sipping(n, prop) {                           // n sips from what's in his right hand, resting it at his chest between
+function* sipping(n) {                                 // n sips from what's in his right hand, resting it at his chest between
   const a = play("sip", 0.5, { at: SIP.hold }); a.timeScale = 0;
   for (let k = 0; k < n && !op.buddy; k++) {
     yield* wait(R(2.5, 6), () => op.buddy);
@@ -293,7 +293,7 @@ const DO = {
     yield* walkTo(front); yield* face(yawTo(crate.clone().sub(root.position)));
     for (let t = 0; t < 1.4;) { t += yield; op.ik = { R: [crate.clone().setY(0.45), Math.sin(Math.min(1, t / 1.4) * Math.PI) ** 2] }; }
     op.ik = null; hold(mug);
-    yield* seatWith(function* () { yield* sipping(Math.round(R(4, 7)), mug); });
+    yield* seatWith(function* () { yield* sipping(Math.round(R(4, 7))); });
   },
   *read() {                                            // a book on a log seat, both hands on it, now and then a look at the fire
     yield* seatWith(function* () {
@@ -316,14 +316,13 @@ const DO = {
     for (let k = 0; k < 30 && !to; k++) { const a = R(0, 6.28), r = R(1.6, RC - 1.8), p = V(Math.cos(a) * r, 0, Math.sin(a) * r); if (freeOf(p, 0.6)) to = p; }
     if (!to) return;
     yield* walkTo(to);
-    for (let t = 0, T = R(5, 10); t < T && !wantJoin();) { t += yield; op.look = Math.sin(t * 0.7) * 0.5; op.face = 0; }
+    for (let t = 0, T = R(5, 10); t < T && !wantJoin();) { t += yield; op.look = Math.sin(t * 0.7) * 0.5; }
     op.look = 0;
   },
   *sleep() {                                           // in the tent bed: sits on its edge, lies back, sleeps; at night until the day comes
     findPlaces(); if (!BED || !claim(BED.key)) return;
     host(BED.key);
     yield* walkTo(BED.door); yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.side, { near: 0.08 });
-    yield* face(yawTo(BED.across.clone().negate().multiplyScalar(-1)));
     const sitYaw = yawTo(BED.across);                  // his back to the bed: he faces across the tent, away from the wall
     yield* face(sitYaw);
     const edge = { at: BED.c.clone().addScaledVector(BED.across, 0.2).addScaledVector(BED.head, -0.25), yaw: sitYaw };

@@ -22,7 +22,7 @@ import { ground as forestFloor } from "./sky.js";   // before the ground, so its
 // the baked ground (props/ground/bake_ground.py) for the sets that have one; others paint their wear map live
 const groundBake = await PRE.groundMask;
 const groundLife = createGround({ baked: groundBake, height: groundHeight, far: FAR, forestMap: forestFloor.material.map, noise: vnoise, scene, RC, blockers, clearing, S, look: LOOK, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [],
-    bare: PROPS === "picked" ? TENT.bare : undefined,   // no grass in the tent or through its planks
+    bare: TENT.bare,   // no grass in the tent or through its planks
     shadowMap: `models/camp_shadow_${PROPS}_${JEEP}.png`, nightMap: `models/camp_ground_night_${PROPS}_${JEEP}.png` });   // night light, baked with the props   // baked ground shadows; for a set with no bake, ground.js renders them live
 forestFloor.visible = false;   // one ground now: the clearing, the bowl's rim and the forest floor (camp/terrain.js)
 for (const m of FLOOR_OVERLAYS) groundLife.shadeOn(m.material);
@@ -30,9 +30,9 @@ if (cabinLive) {   // Cabin: live: the floor and every baked prop take the cabin
   cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;
 }
 window.__ground = groundLife;   // tool contract: props/shadow/export_casters.cjs reads its layout for the bake
-// the walk-in tent (picked props; build_camp.py wall_tent, keep in step; layout.js TENT): walls stop you, the doorway lets
+// the walk-in tent (build_camp.py wall_tent, keep in step; layout.js TENT): walls stop you, the doorway lets
 // you in, the bed and the stove are in the way
-if (PROPS === "picked") {
+{
   const at = TENT.fromLocal;   // the tent's own (Blender) frame: x across, -y toward the fire
   const { W, yf, yb, DW } = TENT, wall = [];
   for (let y = yf; y <= yb + 0.01; y += 0.3) wall.push([-W, y], [W, y]);
@@ -50,11 +50,11 @@ if (PROPS === "picked") {
   amber(1.6, 0.035, true); amber(0.5, 0.42, false);
 }
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: SOUP_POT,
-  chimneys: PROPS === "picked" ? [TENT.fromLocal(...TENT.chimney)] : [], sloths, roam: RC - 1.5 });   // the tent stove's pipe mouth (build_camp.py wall_tent: STOVE, pipe top Z0 + H + 0.62)
+  chimneys: [TENT.fromLocal(...TENT.chimney)], sloths, roam: RC - 1.5 });   // the tent stove's pipe mouth (build_camp.py wall_tent: STOVE, pipe top Z0 + H + 0.62)
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
 const acts = createActivities({ scene, camera, me, woodPile: { at: WOOD_PILE.at, built: !!WOODPILE }, woodTex: WOOD_TEX ?? null,   // built: the props' pile stands there (not with ?lived=0, when activities.js stacks plain logs)
   fire: FIRE, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
-  pot: SOUP_POT, table: TABLE, crate: LIVED ? CRATE.at : null, blockers, sloths,
+  pot: SOUP_POT, table: TABLE, crate: LIVED ? CRATE.at : null, sloths,
   addBlocker: (c, r) => blockers.push([c, r]),
   looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
     .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)) });
