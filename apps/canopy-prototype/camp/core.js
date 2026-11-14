@@ -2,7 +2,7 @@
 // started at once (PRE, camp review P2) and the look's leaf material (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
+import { fetchBytes, initKtx, loadLightMap } from "../bakedlight.js";
 import { SUN } from "./layout.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
@@ -162,8 +162,8 @@ const leafMat = (opts, sway) => {
 };
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
-async function glb(url) {
-  const bin = b64bytes((await (await fetch(url)).text()).trim());
+async function glb(url) {   // url: the model's base64 .txt; fetchBytes takes the .glb instead where the host serves binary files
+  const bin = await fetchBytes(url);
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 

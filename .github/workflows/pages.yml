@@ -3,7 +3,8 @@
 # control room. Camp threads merge into claude/project-thread-otpcew first; a PR
 # from there to main publishes. The camp is plain static files (models and light maps are
 # committed, three.js loads from jsDelivr), so nothing is built: the folder is
-# copied, the old prototypes (index.html, nooks.html, names-prototype.html) and any 4K light map are left out, and
+# copied, the old prototypes (index.html, nooks.html, names-prototype.html) and any 4K light map are left out, the
+# base64 models and KTX2 maps are decoded to binary files, which camp.html is told to load (R2-214), and
 # index.html files at the root and in the folder forward to camp.html (review R2-208). The build stops when the site
 # is over 30 MB (about 22 MB on 2026-11-14). The static checks in check.yml run first, and nothing is published
 # when they fail.
@@ -43,6 +44,16 @@ jobs:
           cp -r apps/canopy-prototype _site/canopy-prototype
           C=_site/canopy-prototype
           rm -f $C/models/*_4k.png $C/index.html $C/nooks.html $C/names-prototype.html
+          # Pages serves binary files, so the base64 copies go back to what they encode (review R2-214): X.txt is a GLB and
+          # X.ktx2.txt a KTX2 map. camp.html's camp-models meta then tells bakedlight.js fetchBytes to load those instead.
+          for f in $C/models/*.txt; do
+            case "$f" in *.ktx2.txt) out="${f%.txt}"; want="KTX 20"; got=$(base64 -d "$f" | head -c 7 | tail -c 6) ;;
+                         *) out="${f%.txt}.glb"; want="glTF"; got=$(base64 -d "$f" | head -c 4) ;; esac
+            if [ "$got" != "$want" ]; then echo "::error::$f is not a base64 $want file"; exit 1; fi
+            base64 -d "$f" > "$out" && rm "$f"
+          done
+          grep -q '<meta name="camp-models" content="base64">' $C/camp.html || { echo "::error::camp.html has no camp-models meta"; exit 1; }
+          sed -i 's|<meta name="camp-models" content="base64">|<meta name="camp-models" content="binary">|' $C/camp.html
           sha=$(git rev-parse --short HEAD)
           forward() {   # $1: the index.html to write, $2: camp.html relative to it
             cat > "$1" <<HTML
