@@ -316,7 +316,7 @@ function watchOperator(dt) {
   const p = O.root.position, head = tmp.copy(p).setY(p.y + 1.6).clone();
   if (opLast) { const d = Math.hypot(p.x - opLast.x, p.z - opLast.z); if (d < 0.5) { opStepD += d; if (opStepD > 0.64) { opStepD = 0; SFX.step(p.clone().setY(0.05)); } } }
   opLast = p.clone();
-  // cooking (op.stir, op.veg in operator.js): the stirring stick knocks the pot, vegetables plop in
+  // cooking (op.stir, op.veg in operator/state.js): the stirring stick knocks the pot, vegetables plop in
   const o = O.op || {}, pot = potAt();
   if (o.stir && (stirT -= dt) < 0) { stirT = R(0.6, 1.1); SFX.knock(pot); SFX.bubble(); }
   if (opWas.veg && !o.veg) SFX.plop(pot);
