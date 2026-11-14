@@ -15,10 +15,9 @@ const UP = V(0, 1, 0);
 let root = null, body = null, mixer = null, cur = null;
 const B = {}, clips = {};
 
-// gltf and anims: the two downloads (core.js PRE.operator, PRE.operatorAnims), or null with ?op=0, when only the root is made
+// gltf and anims: the two downloads (core.js PRE.operator, PRE.operatorAnims)
 function buildModel(gltf, anims) {
   root = new THREE.Group();
-  if (!gltf) return;
   body = clone(gltf.scene); root.add(body); scene.add(root);
   body.traverse((m) => {
     if (m.isBone) B[m.name] = m;

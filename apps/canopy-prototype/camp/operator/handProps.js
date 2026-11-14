@@ -2,8 +2,7 @@
 // an open book (8) and, for cooking, the water pail (camp/canister.js, 60) carried by its bail, a long wooden stirring
 // spoon (a 4-sided stick stretched from his hand to the pot, 8) and a vegetable from the crate (camp/food.js). All faceted,
 // like him. They stand hidden in the scene; the per-frame hand pose (handPose.js) puts the ones in use at his hands.
-// Nothing is built when this module loads: operator.js calls buildHandProps after the model, so objects are made in a fixed
-// order (with ?op=0 too, as before).
+// Nothing is built when this module loads: operator.js calls buildHandProps after the model.
 // Exports the seven props, buildHandProps(), hold(prop), drop(prop) and dropAll() (everything down, his hands' state reset).
 import * as THREE from "three";
 import { scene } from "../core.js";

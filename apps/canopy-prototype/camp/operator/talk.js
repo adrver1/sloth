@@ -3,14 +3,12 @@
 // to his free hand (or his mouth), he munches it a bite at a time and thanks you. Now and then he remarks on what you just
 // did (window event "camp-act" from the chores and the taps). What a tap finds is an invisible column round him (24
 // triangles, never drawn: the skinned mesh is too costly to ray-test); no glow, like the sloths.
-// Exports buildTalk(on) (operator.js: the bubble and the column are made with ?op=0 too, as before, but only shown and
-// tappable when he is there), speak(text), talk(), gift(), talkStep(dt), mouthAt(out), tapCol and saying() (the bubble's text).
+// Exports buildTalk() (operator.js, once his model is in), speak(text), talk(), gift(), talkStep(dt), mouthAt(out), tapCol and saying() (the bubble's text).
 import * as THREE from "three";
 import { camera, rng, scene } from "../core.js";
 const { R } = rng("operator");
 import { V } from "../util.js";
 import { acts as chores } from "../campLife.js";   // your chores (activities.js): the food in your hand
-import "../input.js";   // order only: input.js is evaluated here, before the operator, as it always was
 import { addTarget } from "../targets.js";
 import { fx } from "../fx.js";
 import { LINES, bag, line, pickLine } from "./lines.js";
@@ -28,20 +26,18 @@ function react(e) {
   let l = pickLine("react_" + kind); if (l.includes("{name}")) l = l.replace("{name}", name || "that one").replace(/^t/, "T");
   setTimeout(() => { if (!op.sleeping && op.talk.t <= 0) speak(l); }, 800);
 }
-function buildTalk(on) {
-  if (on) addEventListener("camp-act", react);
+function buildTalk() {
+  addEventListener("camp-act", react);
   bubble = document.createElement("div");
   bubble.style.cssText = "position:fixed;left:0;top:0;z-index:3;pointer-events:none;transform:translate(-50%,-100%) scale(.85);opacity:0;transition:opacity .35s,transform .35s;" +
     "max-width:min(260px,70vw);text-align:center;font:600 16px/1.3 var(--display);color:var(--ink);background:rgb(255 248 238 / .96);border-radius:18px;padding:9px 14px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";
   const tail = document.createElement("i"); tail.style.cssText = "position:absolute;left:50%;bottom:-7px;width:14px;height:14px;margin-left:-7px;background:inherit;transform:rotate(45deg);border-radius:0 0 3px 0";
-  say = document.createElement("span"); bubble.append(say, tail); if (on) document.body.append(bubble);
+  say = document.createElement("span"); bubble.append(say, tail); document.body.append(bubble);
   // what a tap finds: an invisible column round him
   tapCol = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.75, 6), new THREE.MeshBasicMaterial({ visible: false }));
-  if (on) {
-    scene.add(tapCol); const sph = new THREE.Sphere();
-    addTarget(tapCol, () => ({ look: null, quiet: true, picks: [tapCol], at: (v) => { v.copy(tapCol.position); sph.center.copy(v); sph.radius = 0.6; return sph; },
-      ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => { const f = !op.sleeping && chores.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, gift]] : []), [op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]]; } }));
-  }
+  scene.add(tapCol); const sph = new THREE.Sphere();
+  addTarget(tapCol, () => ({ look: null, quiet: true, picks: [tapCol], at: (v) => { v.copy(tapCol.position); sph.center.copy(v); sph.radius = 0.6; return sph; },
+    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => { const f = !op.sleeping && chores.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, gift]] : []), [op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]]; } }));
 }
 const saying = () => say.textContent;
 function talk() { speak(line()); }

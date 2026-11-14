@@ -20,7 +20,7 @@ import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
 import { acts, atmo, groundLife, shadowStep } from "./campLife.js";
-import { opApi, opStep } from "./operator.js";
+import { buildOperator, opApi, opStep } from "./operator.js";
 import { aimStep, initInput, resize } from "./input.js";
 import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
@@ -36,6 +36,7 @@ import { ready, stats } from "./debug.js";   // the tools' window.__ names; it b
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
+await buildOperator();   // operator.js: waits for his downloads (?op=0: nothing)
 initInput();        // input.js
 buildWeather();     // weather.js: the ⚙️ Weather button and the rain streaks
 buildLinger();      // linger.js: the log seats light up

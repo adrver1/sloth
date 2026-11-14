@@ -5,7 +5,8 @@
 // the camp with the sloths through their camp life (sloth/hooks.js campLife): he claims the places he uses, registers as a mover
 // and steers round the others, and a sloth that comes to his seat or his bed joins him there (a cuddle on his lap, a nap on
 // his chest).
-// This file waits for his two downloads, builds his parts in a fixed order and holds the hooks the checks drive him with.
+// buildOperator() (main.js, once the sloths and the chores are in) waits for his two downloads, builds his parts and makes
+// the hooks the checks drive him with.
 // The parts are in operator/: state.js (the one state object and its resets), model.js (mesh, clips, shadow), ik.js (reach
 // and hands over a bone map), handProps.js, places.js, walk.js (walking, turning, sitting), buddy.js (with a sloth), day.js
 // (his activities and what comes next), cook.js, lines.js (what he says), talk.js (the bubble, gifts, the tap column),
@@ -13,7 +14,7 @@
 // Repack after a change in desk-at-night (engine/): in engine/web, node scripts/pack_chars.mjs <dir> ../characters/bearded_operator/bearded_operator.glb
 // (mesh, no clips) and node scripts/pack_chars.mjs --clips idle,walk,seated_idle,stand_up,sip,hug,play,play_titanic,play_airplane,play_knees,wave,blink,happy,talk,phone,phone_down,step_down
 // <dir2> ../characters/bearded_operator/bearded_operator_survival.glb (its anims.glb: the same rig, with the play clips), then base64 each into models/.
-// ?op=0 leaves him out. Exports opStep (main.js, each frame) and opApi (null with ?op=0): his root, state and the hooks the
+// ?op=0 leaves him out: nothing of him is made. Exports buildOperator(), opStep (main.js, each frame) and opApi (null with ?op=0): his root, state and the hooks the
 // checks drive him with (opApi.go("read"), .state()); main.js hands it to audio.js (hearCamp).
 import { OPT, PRE, camera } from "./core.js";
 import { A0 } from "./layout.js";
@@ -28,23 +29,20 @@ import { SEATS, releasePlace } from "./operator/places.js";
 import { op, reset, useLife } from "./operator/state.js";
 import { buildRest, opStep } from "./operator/step.js";
 import { buildTalk, gift, saying, talk, tapCol } from "./operator/talk.js";
-import { campLife } from "./sloth/hooks.js";   // made when the sloths were built (sloths.js), before this module runs
+import { campLife } from "./sloth/hooks.js";   // made when the sloths were built (sloths.js), before buildOperator runs
 
-const ON = OPT.op;
-const [OP, ANIM] = ON ? await Promise.all([PRE.operator, PRE.operatorAnims]) : [null, null];
 let opApi = null;
+async function buildOperator() {
+  if (!OPT.op) return;
+  const [OP, ANIM] = await Promise.all([PRE.operator, PRE.operatorAnims]);
+  useLife(campLife);   // claims, movers and loans: operator/state.js life()
+  // his parts: the model first (the others hang off its bones), then what he holds, his Z's, the clip's rest pose, his bubble
+  buildModel(OP, ANIM);
+  buildHandProps();
+  buildSleepZ(); buildRest();
+  buildTalk();
 
-useLife(campLife);   // claims, movers and loans: operator/state.js life()
-
-// built in this order, so every object, material and page element is made in the order it always was (with ?op=0 his root,
-// his hand props, the bubble and the tap column are still made, as before, but nothing of him is shown or stepped)
-buildModel(OP, ANIM);
-buildHandProps();
-if (ON) { buildSleepZ(); buildRest(); }
-buildTalk(ON);
-
-// start: standing by the woodpile side of the fire, looking at it
-if (ON) {
+  // start: standing by the woodpile side of the fire, looking at it
   const p = V(Math.cos(A0 + 0.9) * 2.6, 0, Math.sin(A0 + 0.9) * 2.6); root.position.copy(p); root.rotation.y = yawTo(p.clone().negate());
   play("idle", 0);
   opApi = { root, op, acts: clips, mixer, go: (k) => { op.next = k; },
@@ -57,4 +55,4 @@ if (ON) {
     jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); releasePlace(); reset("body"); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0); jumpTo(k); } };
 }
 
-export { opApi, opStep };
+export { buildOperator, opApi, opStep };

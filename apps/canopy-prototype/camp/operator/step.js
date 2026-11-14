@@ -1,7 +1,7 @@
 // Canopy Camp operator, each frame: his day moves on a step, the clips pose him, his feet stay planted while he sits down
 // or rises, then the poses laid over the clip in a fixed order (hands, a fidget, head and face), the tap column and the
 // speech bubble follow him, his shadow goes under him and you are nudged out of him.
-// Exports buildRest() (operator.js, after the Z's) and opStep(dt) (main.js, each frame; nothing with ?op=0).
+// Exports buildRest() (operator.js, after the Z's) and opStep(dt) (main.js, each frame; nothing with ?op=0, when he is not built).
 import { OPT } from "../core.js";
 import { V } from "../util.js";
 import { me } from "../player.js";
