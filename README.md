@@ -65,6 +65,7 @@ Import the layout from `camp/layout.js` and the helpers from `camp/util.js`; don
 - `npm run bake`, `npm run bake:layout`, `npm run bake:ktx`: `props/bake_all.py`, all steps or one. Only the GPU bake thread runs the bakes; other sessions run at most `bake:layout`.
 - `tools/stickers.cjs` (`npm run stickers`): serves the repo and makes every sticker in order (the four steps under Run and check).
 - `tools/serve.cjs` (`npm run serve`): the static server on :8765, with caching off.
+- `tools/playtime/`: Sloth Playtime's helpers. `shot.cjs` screenshots `apps/playtime/index.html` (with `npm run serve` running), and `fastbuild.py` builds a desk-at-night character's GLB from `engine/characters/` in bpy.
 
 What a Canopy Camp clean-up PR must show (no errors, interactions, screenshots, probe counts, GPU frame times) is written once, in CLAUDE.md, and the coding rules are in `docs/CODING-STANDARDS.md`.
 

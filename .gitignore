@@ -5,8 +5,9 @@ __pycache__/
 stickers/renderer/raw/
 stickers/renderer/anim_raw/
 stickers/renderer/out/
-stickers/renderer/out_flat/
 stickers/renderer/anim_out/
+# stk_post.py's contact sheet of the stills
+stickers/renderer/sheet.jpg
 props/jeep/preview_*.png
 shots/
 # The 4K light maps stay on the desktop that bakes them (?lm=4k works there); they are too big to commit or publish (review R2-207)
