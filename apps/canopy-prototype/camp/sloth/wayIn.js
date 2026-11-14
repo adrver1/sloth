@@ -6,6 +6,8 @@
 //   atHome(s, first)            (inside) it has arrived: it claims its place ("seat:Sunny") and gets the time to its next errand; a
 //                               guest (a nap trip) goes straight to sleep; first: placed there at the start
 //   doorStep(s, T, sd)          the door phase (the jeep): waits for its door, then up onto the sill (T.sill, in the world) and in
+//   doorShutStep(sd)            each frame (step.js campStep): shuts the jeep's door 1.5 s (at the sloths' pace) after a sloth
+//                               got in, a countdown in game time instead of a wall-clock setTimeout (review R2-118)
 // Every other step of the way in is a slide or a glide (moves.js): up the trunk and along the branch, up the post, round
 // onto the rope or the line and along it, and the settle into the spot, growing or shrinking to its size there (spots.js
 // sizeIn: the spot's size times the sloth's own factor s.k).
@@ -23,14 +25,18 @@ import { climbV, glide, postV, slide } from "./moves.js";
 import { brush, claimHome, sizeIn } from "./spots.js";
 import { doze } from "./naps.js";
 
+let doorShut = 0;                                    // seconds (at the sloths' pace) until the jeep's door "P" swings shut
 function atHome(s, first) {
-  setTrip(s, "home");
-  if (s.spot.guest) { s.spot.home = true; s.errand = 1e9; doze(s, R(60, 120)); s.dozeIn = 1.2; if (s.spot.car) setTimeout(() => jeepApi?.close("P"), 1500); return; }   // a nap trip: straight to sleep
-  s.spot.home = true; claimHome(s);
-  s.errand = first ? R(4, 45) : R(35, 80) * (s.spot.asleep || s.spot.car ? 1.6 : 1);
-  if (s.spot.asleep) { if (first) { s.dozing = s.asleep = true; s.eyes(true); s.dozeT = R(30, 150); s.dozeIn = 0; } else { doze(s, R(90, 180)); s.dozeIn = 1.5; } }   // Hibi: back in the hammock, a yawn and a long nap
-  if (s.spot.car && !first) setTimeout(() => jeepApi?.close("P"), 1500);
+  setTrip(s, "home"); s.spot.home = true;
+  if (s.spot.guest) { s.errand = 1e9; doze(s, R(60, 120)); s.dozeIn = 1.2; }   // a nap trip: straight to sleep
+  else {
+    claimHome(s);
+    s.errand = first ? R(4, 45) : R(35, 80) * (s.spot.asleep || s.spot.car ? 1.6 : 1);
+    if (s.spot.asleep) { if (first) { s.dozing = s.asleep = true; s.eyes(true); s.dozeT = R(30, 150); s.dozeIn = 0; } else { doze(s, R(90, 180)); s.dozeIn = 1.5; } }   // Hibi: back in the hammock, a yawn and a long nap
+  }
+  if (s.spot.car && !first) doorShut = 1.5;          // in through the jeep's door: it shuts behind it (doorShutStep)
 }
+function doorShutStep(sd) { if (doorShut > 0 && (doorShut -= sd) <= 0) jeepApi?.close("P"); }
 function placeHome(s) {                             // straight into its spot, as if it had always lived there
   const spot = s.spot; s.sc = sizeIn(s, spot); s.o.scale.setScalar(s.sc); s.act = s.mixer.existingAction(clipOf("cling"));
   setTrip(s, "home", { yaw: 0 });
@@ -81,4 +87,4 @@ function doorStep(s, T, sd) {                       // waits, facing the door, u
   else if (T.t > 2) { play(s, "hang_walk", 1, 2); glide(s, { p: sill, lift: 0.1, tip: -0.5 }, 4, () => settleIn(s, 3)); }   // hauls itself up, facing T.yaw
 }
 
-export { doorStep, enterSpot, placeHome };
+export { doorShutStep, doorStep, enterSpot, placeHome };

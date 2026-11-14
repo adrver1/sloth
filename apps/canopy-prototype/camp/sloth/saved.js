@@ -4,8 +4,9 @@
 // way to a nap trip wakes up there, asleep.
 //   restore()    puts the saved state back, once the named sloths and the guest spots are there (sloths.js), and has save.js
 //                take a fresh copy whenever the page is hidden or left (track), so the seconds of sleep still to go are right
-//   keep()       each frame: every 2 s, writes the save when who sleeps where has changed (who is asleep, not for how long
-//                still: review R2-081, it used to write every 2 s while anyone slept)
+//   keep(dt)     each frame (step.js; dt in real seconds, so a paused move lab still saves): every 2 s, writes the save
+//                when who sleeps where has changed (who is asleep, not for how long still: review R2-081, it used to
+//                write every 2 s while anyone slept). A countdown on the frame's dt, not the wall clock (review R2-118).
 import { holder } from "../places.js";
 import { load, save, track } from "../save.js";
 import { camp, guests, wild } from "./state.js";
@@ -31,9 +32,9 @@ function restore() {
 }
 const data = () => ({ camp: camp.map((s) => ({ name: s.name, ...snap(s) })), wild: wild.map(snap) });
 const key = (s) => `${s.spot?.guest ? s.spot.key : ""}:${s.dozing ? 1 : 0}`;   // who sleeps where, not for how long still
-let saveT = 0, saved = "";
-function keep() {
-  const now = performance.now(); if (now < saveT) return; saveT = now + 2000;
+let saveT = 0, saved = "";                     // seconds until the next look; the last key written
+function keep(dt) {
+  if ((saveT -= dt) > 0) return; saveT = 2;
   const k = camp.map((s) => s.name + key(s)).join() + "|" + wild.map(key).join();
   if (k !== saved) { saved = k; save("sloths", data()); }
 }

@@ -22,7 +22,7 @@ import { giftFly, giftStep } from "./gifts.js";
 import { stopSmore } from "./smore.js";
 import { fixStep } from "./fix.js";
 import { exitStep } from "./wayOut.js";
-import { doorStep } from "./wayIn.js";
+import { doorShutStep, doorStep } from "./wayIn.js";
 import { homeStep, restStep } from "./day.js";
 import { keep } from "./saved.js";
 
@@ -33,8 +33,9 @@ const STEP = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, res
 
 function campStep(dt) {
   if (!OPT.campsloths) return;
-  keep();
+  keep(dt);
   const fast = pace.fast ?? 1, sd = dt * fast;   // ?? not ||: the lab's Pause and Step set 0 (review R2-044)
+  doorShutStep(sd);
   let out = 0; for (const s of camp) if (s.trip.phase !== "home") out++;
   for (const s of camp) {
     if (fast !== 1) s.mixer.update(sd - dt);   // the clip at the same pace (slow motion and pause in the move lab too)
