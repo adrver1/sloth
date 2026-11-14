@@ -110,6 +110,8 @@ def main():
             if os.path.getsize(p) < 100_000 or q < 40:
                 break
             q -= 10
+        if os.path.getsize(p) >= 100_000:   # the lowest quality was not enough: stop, as crop() does, rather than ship it
+            raise SystemExit(f"{n}: {os.path.getsize(p) / 1000:.0f} KB at quality {q}, over WhatsApp's 100 KB for a sticker")
         im.save(f"{OUT}/{i + 1:02d}_{n}.png")
         tiles.append(im)
     tray = clean(sticker("wave").resize((96, 96), Image.LANCZOS))
