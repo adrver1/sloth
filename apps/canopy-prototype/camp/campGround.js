@@ -7,9 +7,9 @@
 // the tent's walls join the blockers, since the worn dirt is painted round the blockers as they are then; it makes groundLife
 // (exported and returned); and castSunShadows(), which main.js calls once, when everything that stands in the clearing is built.
 import { createGround } from "../ground.js";
-import { D, JEEP, S, renderer, scene, uTime } from "./core.js";
+import { D, JEEP, S, renderer, scene, uNight, uTime } from "./core.js";
 import { FLOOR_OVERLAYS, grassTex, track, trackDist } from "./forest.js";
-import { blockers, uNight } from "./campProps.js";
+import { blockers } from "./campProps.js";
 import { FAR, RC, TENT } from "./layout.js";
 import { cabinLive } from "./jeep.js";
 import { gladePlants } from "./glade.js";   // filled by buildGlade before the ground is built: its plants go in the ground's one draw

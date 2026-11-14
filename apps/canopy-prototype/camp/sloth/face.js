@@ -6,7 +6,7 @@
 //   yawnStep(s, dt) a yawn while s.yawn > 0, about 2.8 s (life.js calls it each frame)
 import * as THREE from "three";
 import { V, canvasTex, sstep } from "../util.js";
-import { SLOTH } from "../campProps.js";
+import { SLOTH } from "./state.js";
 
 const FACE = V();                                      // which way the face points in the head bone's frame (the sloth faces -Z at rest); set by buildFace
 let palette = null;

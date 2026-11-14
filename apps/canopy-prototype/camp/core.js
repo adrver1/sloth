@@ -140,6 +140,7 @@ scene.add(new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
 const uTime = { value: 0 };
+const uNight = { value: 0 };   // how far the night is in (0 day .. 1 rested; main.js sets it from the dusk): the baked night light, the ground, the operator's mood (R2-129)
 // the camp's pace: fast runs the sloths' day and the jeep seats that many times as fast (unset: 1). The move lab (lab.js) sets it,
 // and the tools through window.__campFast (debug.js)
 const pace = { fast: undefined };
@@ -167,4 +168,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, D, DETAIL, JEEP, KEYS, LIVED, OPT, PRE, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime, wireSettings };
+export { $, D, DETAIL, JEEP, KEYS, LIVED, OPT, PRE, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uNight, uTime, wireSettings };

@@ -1,13 +1,14 @@
 // Canopy Camp props: the camp's blockers (the layout itself is layout.js), the picked props with their baked light map (lnight), the lived-in props,
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
 // main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
-// at night) and motesStep (the drifting motes). Exports those, CAMP, SLOTH (the sloth model), the blockers (the list, read only:
+// at night) and motesStep (the drifting motes). Exports those, CAMP, the blockers (the list, read only:
 // addBlocker({ at, r, walk, wild, tag }) adds one, dropBlockers(tag) takes a tag's out again; see the block above them) and the props' parts
-// other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX, fireLight, glowTex, LANTERNS, rayMat, uNight), and buildProps()
-// (main.js, once), which builds them all.
+// other modules use (FIRE_CARDS, fireLight, glowTex, LANTERNS, and WOODPILE, WOOD_TEX and rayMat, which stay null when their part is
+// not built: ?lived=0, no sunbeams), and buildProps() (main.js, once), which builds them all. The sloth model is in sloth/state.js and
+// uNight in core.js (R2-129).
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
-import { D, LIVED, PRE, rng, S, scene, sun, uTime } from "./core.js";
+import { D, LIVED, PRE, rng, S, scene, sun, uNight, uTime } from "./core.js";
 const { R } = rng("props");
 import { V, canvasTex, patchMaterial, swap } from "./util.js";
 import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, TABLE, TENT, WOOD_PILE } from "./layout.js";
@@ -42,9 +43,15 @@ addBlocker({ at: TABLE.at, r: 0.75 }); addBlocker({ at: HAMMOCK.a, r: 0.3 }); ad
 for (const h of HERO) addBlocker({ at: h.at, r: 1.4 });
 for (const { angle: a, at: c } of SEATS) { const t = V(-Math.sin(a), 0, Math.cos(a));
   addBlocker({ at: c, r: 0.75, walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } }); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
+// put(root, name, x, z, yaw, y): a copy of the object of that name in a loaded model (name: one name, or a list tried in order)
+// stood at x, z (and y), turned to yaw, added to the scene; null when the model has none of those names
+function put(root, name, x, z, yaw, y = 0) {
+  const s = [name].flat().map((n) => root.getObjectByName(n)).find(Boolean); if (!s) return null;
+  const o = s.clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o;
+}
 const FIRE_CARDS = [];   // the fire's flame cards (the activities flare them)
-const uNight = { value: 0 };   // how far the baked night light is faded in (main.js sets it from the dusk)
-let glowTex, LANTERNS, fireLight, rayMat, motes, pools, SLOTH, LMTEX, LMSUN, WOODPILE, WOOD_TEX;   // set by buildProps
+let glowTex, LANTERNS, fireLight, motes, pools, LMTEX, LMSUN;   // set by buildProps
+let rayMat = null, WOODPILE = null, WOOD_TEX = null;   // set by buildProps when it builds their part (the sunbeams, the lived-in props)
 
 // ---------------------------------------------------------------- the camp's baked light (props/camp/bake_camp_lightmap.py: the whole scene, ground and props,
 // baked as one; Adriaen 2026-11-12). On each prop's second UV set (TEXCOORD_1):
@@ -111,19 +118,17 @@ async function buildProps() {
     }
   }
 
-  // the sloth model (sloths.js and camp/sloth/ make the sloths from it) and the light maps, loaded with everything else (core.js PRE)
-  SLOTH = await PRE.sloth;
+  // the light maps, loaded with everything else (core.js PRE)
   [LMTEX, LMSUN] = await PRE.lm;
   {
     const P = await PRE.props;
     const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
     P.scene.traverse((m) => { if (m.isMesh) m.material = lamL; });
     // the picked set holds each copy on its own (Seat_0, Seat_1 ...), since each is lit where it stands
-    const put = (n, x, z, yaw, y = 0, i = 0) => { const s = P.scene.getObjectByName(`${n}_${i}`) ?? P.scene.getObjectByName(n); if (!s) return null; const o = s.clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
-    SEATS.forEach(({ at, yaw }, i) => put("Seat", at.x, at.z, yaw, 0, i));
-    put("Tent", TENT.at.x, TENT.at.z, TENT.yaw);
-    put("Hammock", HAMMOCK.mid.x, HAMMOCK.mid.z, HAMMOCK.yaw);
-    put("Table", TABLE.at.x, TABLE.at.z, TABLE.yaw);
+    SEATS.forEach(({ at, yaw }, i) => put(P.scene, [`Seat_${i}`, "Seat"], at.x, at.z, yaw));
+    put(P.scene, "Tent", TENT.at.x, TENT.at.z, TENT.yaw);
+    put(P.scene, "Hammock", HAMMOCK.mid.x, HAMMOCK.mid.z, HAMMOCK.yaw);
+    put(P.scene, "Table", TABLE.at.x, TABLE.at.z, TABLE.yaw);
   }
   // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
   // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
@@ -131,15 +136,14 @@ async function buildProps() {
   if (LIVED) {
     const L = await PRE.lived, lm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
     L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, ...(m.name.startsWith("SeatTop") && { polygonOffset: true, polygonOffsetFactor: -2, color: SAWN }) })) : lm; });   // the stack, loose logs and seat tops are textured
-    const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
     const { at: wp, yaw: wy, side } = WOOD_PILE;
-    put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); put("LooseLogs", wp.x, wp.z, wy); WOODPILE = wp;   // the activities take logs from here
+    for (const n of ["WoodPile", "WoodStack", "LooseLogs"]) put(L.scene, n, wp.x, wp.z, wy); WOODPILE = wp;   // the activities take logs from here
     L.scene.getObjectByName("WoodStack").traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; });   // and paint them like the stack
     addBlocker({ at: wp, r: 0.55 }); addBlocker({ at: wp.clone().addScaledVector(side, 1.0), r: 0.35 });
-    put("SeatThings", SEATS[1].at.x, SEATS[1].at.z, SEATS[1].yaw);   // the middle seat
-    { const t = TENT.at; put("TentSide", t.x, t.z, TENT.yaw); put("MatRoll", t.x, t.z, TENT.yaw); }   // wellies and the rolled mat on the planks by the door (tent frame)
-    { const { at: k, yaw: ky } = CRATE; put("KitchenCrate", k.x, k.z, ky); put("KitchenThings", k.x, k.z, ky); addBlocker({ at: k, r: 0.35 }); }   // the kitchen crate beside the snack table, its front to the fire
-    SEATS.forEach(({ at, yaw }, i) => put(L.scene.getObjectByName(`SeatTop_${i}`) ? `SeatTop_${i}` : "SeatTop", at.x, at.z, yaw));   // the sawn top on each seat
+    put(L.scene, "SeatThings", SEATS[1].at.x, SEATS[1].at.z, SEATS[1].yaw);   // the middle seat
+    { const t = TENT.at; put(L.scene, "TentSide", t.x, t.z, TENT.yaw); put(L.scene, "MatRoll", t.x, t.z, TENT.yaw); }   // wellies and the rolled mat on the planks by the door (tent frame)
+    { const { at: k, yaw: ky } = CRATE; put(L.scene, "KitchenCrate", k.x, k.z, ky); put(L.scene, "KitchenThings", k.x, k.z, ky); addBlocker({ at: k, r: 0.35 }); }   // the kitchen crate beside the snack table, its front to the fire
+    SEATS.forEach(({ at, yaw }, i) => put(L.scene, [`SeatTop_${i}`, "SeatTop"], at.x, at.z, yaw));   // the sawn top on each seat
   }
   // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,
   // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, about 110 triangles).
@@ -189,15 +193,15 @@ async function buildProps() {
     const pts = [[0, 0, 3.4, 0.9, "255,140,60"], ...LANTERNS.lights.map((p) => [p.x, p.z, 1.4, 0.4, "255,200,120"])];
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const [x, z, r] of pts) { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); z0 = Math.min(z0, z - r); z1 = Math.max(z1, z + r); }
-    const S = Math.max(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const span = Math.max(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;   // the quad's side (not core.js S, the look)
     const tex = canvasTex(256, 256, (g, w) => {
       for (const [x, z, r, k, c] of pts) {
-        const u = (x - cx + S / 2) / S * w, v = (z - cz + S / 2) / S * w, gr = g.createRadialGradient(u, v, 0, u, v, r / S * w);
+        const u = (x - cx + span / 2) / span * w, v = (z - cz + span / 2) / span * w, gr = g.createRadialGradient(u, v, 0, u, v, r / span * w);
         gr.addColorStop(0, `rgba(${c},${k})`); gr.addColorStop(0.45, `rgba(${c},${k * 0.4})`); gr.addColorStop(1, `rgba(${c},0)`);
         g.globalCompositeOperation = "lighter"; g.fillStyle = gr; g.fillRect(0, 0, w, w);
       }
     });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(span, span).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
     m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); return m;
   })();
 }
@@ -214,4 +218,4 @@ function poolsStep(dusk, fl, nightBaked) { pools.visible = dusk > 0 && !nightBak
 // the motes drift slowly round the clearing
 function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
 
-export { addBlocker, buildProps, CAMP, dropBlockers, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, glowTex, LANTERNS, motesStep, poolsStep, rayMat, uNight };
+export { addBlocker, buildProps, CAMP, dropBlockers, FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, glowTex, LANTERNS, motesStep, poolsStep, rayMat };

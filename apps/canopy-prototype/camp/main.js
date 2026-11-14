@@ -6,10 +6,10 @@
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
-import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime, wireSettings } from "./core.js";
+import { $, DETAIL, OPT, PRE, camera, renderer, scene, uNight, uTime, wireSettings } from "./core.js";
 import { buildSky } from "./sky.js";
 import { buildForest } from "./forest.js";
-import { buildProps, fireStep, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
+import { buildProps, fireStep, LANTERNS, motesStep, poolsStep } from "./campProps.js";
 import { buildJeep, jeepStep } from "./jeep.js";
 import { buildSloths, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
@@ -42,7 +42,7 @@ buildForest();                         // forest.js: the big trees, the forest w
 await buildProps();                    // campProps.js: lanterns, fire, the baked props, the lived-in props, the laundry
 await buildJeep();                     // jeep.js (?jeep=none: nothing)
 // the characters: the sloths use the big trees' branches, the props and the jeep
-buildSloths();                         // sloths.js: the wild sloths, then the camp's seven in their spots
+await buildSloths();                   // sloths.js: the sloth model's download, the wild sloths, then the camp's seven in their spots
 // the lived-in clearing, set down on the finished props and sloths in this order: the deadwood and the glade first, then the
 // ground, painted round the blockers as they stand then; the tent's walls join the blockers only after that
 buildDeadwood();                       // deadwood.js

@@ -4,8 +4,8 @@
 // the tent until the ground was painted round it. The stove's amber light is two additive quads, no scene light.
 // Exports buildTentInside(): main.js calls it once, after the ground is built (the ground reads the blockers first).
 import * as THREE from "three";
-import { camera, scene, uTime } from "./core.js";
-import { addBlocker, dropBlockers, glowTex, uNight } from "./campProps.js";
+import { camera, scene, uNight, uTime } from "./core.js";
+import { addBlocker, dropBlockers, glowTex } from "./campProps.js";
 import { TENT } from "./layout.js";
 
 function buildTentInside() {

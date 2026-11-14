@@ -19,7 +19,7 @@ import { rng, scene } from "../core.js";
 const { R } = rng("sloths");
 import { V, sstep } from "../util.js";
 import { CRATE, RC, TABLE } from "../layout.js";
-import { SLOTH } from "../campProps.js";
+import { SLOTH } from "./state.js";
 import { EAT_GRAB, clipOf } from "./clips.js";
 import { armBones, pawOf } from "./arms.js";
 import { yawQ } from "./poses.js";
