@@ -569,9 +569,10 @@
     "ed5cbaf",
     "6a76fb7",
     "23ee011",
-    "93e09a3"
+    "93e09a3",
+    "f353638"
    ],
-   "note": "sloths.js is an 84-line entry module that builds the sloths in the old order; camp/sloth/ holds 24 modules with one job each (the longest is 123 lines), with state.js for what they share. The shared character layer with operator.js (C4, camp/actor.js) is a later round"
+   "note": "sloths.js is a 90-line entry module that builds the sloths in the old order; camp/sloth/ holds 24 modules with one job each (the longest is 123 lines), with state.js for what they share. The shared character layer with operator.js (C4, camp/actor.js) is a later round; the mouth card is made by face.js buildFace() at the old point, and order-only imports of fur.js (main.js) and save.js (sloths.js) keep every old module's evaluation order and draw counts"
   },
   "sloths-30": {
    "status": "partly fixed",
@@ -586,7 +587,7 @@
    "commits": [
     "8e8770b"
    ],
-   "note": "the sloths import jeepApi, layout.js (HAMMOCK, SEATS, TENT, TABLE, CRATE, LAUNDRY) and util.js; main.js hands the player's seat to campStep(dt, me.seat), so nothing is read from window"
+   "note": "the sloths import jeepApi, layout.js (HAMMOCK, SEATS, TENT, TABLE, CRATE, LAUNDRY) and util.js; main.js hands the player's seat to campStep(dt, me.seat), so nothing is read from window except __campFast (a check-only speed-up with no export, sloth/step.js)"
   },
   "sloths-32": {
    "status": "fixed",
@@ -713,9 +714,11 @@
    "commits": [
     "d109364",
     "b9a833a",
-    "8e70606"
+    "8e70606",
+    "537dbfb",
+    "2f77115"
    ],
-   "note": "s.lit, s.fav, s.friend, the wild sloths' perch, spot.ignore, removeMover, shutEyes and dozeClip's constant `? 1 : 1` are gone; cast.js says why it keeps trait and fav"
+   "note": "s.lit, s.fav, s.friend, the wild sloths' perch, spot.ignore, removeMover, shutEyes and dozeClip's constant `? 1 : 1` are gone; cast.js says why it keeps trait and fav; the split's exports that nothing imported (SLOTH_WARM, slothLife, rouse, wake, SPEED, clearLine, atHome) are module-private, and window.__campLife.join and __camp.sloths, which nothing read, are gone"
   },
   "sloths-24": {
    "status": "fixed",
@@ -734,9 +737,10 @@
   "sloths-26": {
    "status": "partly fixed",
    "commits": [
-    "89f77ba"
+    "89f77ba",
+    "52867ce"
    ],
-   "note": "wakeUp, claimHome and releaseHome, pawOf for either paw, armBones and yawQ are each written once; moveInto and yawToward are not done, and leave() and giveBack() keep their own `if (s.asleep)` eye-opening, because opening the eyes without the test would cut a blink short"
+   "note": "wakeUp, claimHome and releaseHome, pawOf for either paw, armBones and yawQ are each written once; moveInto and yawToward are not done, and leave() and giveBack() keep their own `if (s.asleep)` eye-opening, because opening the eyes without the test would cut a blink short; the z sprites have one maker (naps.js makeZs)"
   }
  }
 }
