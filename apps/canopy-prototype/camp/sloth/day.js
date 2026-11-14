@@ -12,15 +12,15 @@
 //   watchFood()                 listens for food you put out (activities.js, window event "camp-food" {kind, at}): the
 //                               nearest sloth at home comes over to eat it
 // What it does next, where it wanders and how long it sits draw from the seeded stream (core.js R) as they happen.
-import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { R, scene } from "../core.js";
 import { V } from "../util.js";
 import { RC } from "../layout.js";
 import { claim, holder, hosted, join, release, taken } from "../places.js";
 import { CRAWL, MAX_OUT, camp, guests } from "./state.js";
+import { releaseHome } from "./spots.js";
 import { play } from "./clips.js";
-import { UP } from "./poses.js";
+import { yawQ } from "./poses.js";
 import { glide } from "./moves.js";
 import { isFree, walkTo } from "./walk.js";
 import { doze, napStep } from "./naps.js";
@@ -39,7 +39,7 @@ function wanderPoint() {
 // leaving home: back out of its spot the way it came in, onto the ground, then off on its errand
 function leave(s) {
   if (s.gift?.clip) { scene.remove(s.gift.mesh); s.gift = null; s.once = null; }   // never left eating: the eat clip's end would never come
-  const spot = s.spot; spot.home = false; s.trip = { phase: "glide", t: 0, yaw: 0 }; release(`${spot.name}:${s.name}`, s); if (spot.name === "seat") release("log:0", s);
+  const spot = s.spot; spot.home = false; s.trip = { phase: "glide", t: 0, yaw: 0 }; releaseHome(s);
   if (s.asleep) { s.asleep = false; s.eyes(false); }
   s.dozing = false; s.yawn = 0; s.roused = null; if (s.mouth) s.mouth.visible = false;
   exitSpot(s, () => errand(s));
@@ -74,7 +74,7 @@ function goHome(s) {
   walkTo(s, spot.via ?? spot.door, () => {
     if (!spot.via) return arrive(s);
     const T = s.trip, yaw = Math.atan2(-(spot.door.x - spot.via.x), -(spot.door.z - spot.via.z)); T.yaw = yaw;
-    glide(s, { p: spot.door.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, yaw) }, spot.door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = yaw; arrive(s); });
+    glide(s, { p: spot.door.clone(), q: yawQ(yaw) }, spot.door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = yaw; arrive(s); });
   });
 }
 function arrive(s) {                                // at its spot's door (a car spot is never a branch or a post climb)

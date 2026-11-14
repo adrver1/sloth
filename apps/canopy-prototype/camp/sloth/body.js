@@ -13,8 +13,9 @@ import { V } from "../util.js";
 import { SLOTH } from "../campProps.js";
 import { SL, hit, sloths } from "./state.js";
 import { eyeKit } from "./face.js";
+import { armBones } from "./arms.js";
+import { underAt } from "./poses.js";
 
-const BR = { y: 0.10 * SL, z: 0.10 * SL };
 let tinted = false;
 // at night the camp's light is baked into the props, so the sloths take a warm glow from the lanterns and the fire nearby
 // (fur.js warm; warmStep sets it each frame: lantern positions, the fire, and uWarm = dusk with the fire's flicker)
@@ -32,13 +33,10 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
   if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
   const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
   act.play(); act.time = R(0, 4); act.timeScale = 0.6;   // (kept as s.act)
-  const yl = dir.clone().setY(dir.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-  const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
-  o.quaternion.setFromRotationMatrix(rot); o.position.copy(p).sub(V(0, BR.z * sc / SL, -BR.y * sc / SL).applyMatrix4(rot)); scene.add(o);
+  const P = underAt({ sc }, p, dir); o.quaternion.copy(P.q); o.position.copy(P.p); scene.add(o);
   const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(p).add(V(0, -0.25, 0)); scene.add(box);
   const s = { o, mixer, box, p, sc, head: o.getObjectByName("head"), squish: 0, nod: 0, shells: o.userData.furShells || [], eyes: eyeKit(o), blink: R(1, 6), look: 0, act, napT: R(4, 40), droop: 0, yawn: 0,
-    arm: [o.getObjectByName("upper_armR") || o.getObjectByName("upper_arm.R"), o.getObjectByName("forearmR") || o.getObjectByName("forearm.R")],
-    armL: [o.getObjectByName("upper_armL") || o.getObjectByName("upper_arm.L"), o.getObjectByName("forearmL") || o.getObjectByName("forearm.L")], gaze: 0, waveCD: 0, wave: 0 };
+    arm: armBones(o, "R"), armL: armBones(o, "L"), gaze: 0, waveCD: 0, wave: 0 };
   box.userData.s = s; sloths.push(s); hit.push(box);
 }
 

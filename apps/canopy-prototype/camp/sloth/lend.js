@@ -11,13 +11,15 @@ import { play } from "./clips.js";
 import { UP } from "./poses.js";
 import { quitGame } from "./cards.js";
 import { stopSmore } from "./smore.js";
+import { wakeUp } from "./naps.js";
+import { releaseHome } from "./spots.js";
 
 function lend(s, who, opt = {}) {
   const ph = s.trip?.phase; if (!camp.includes(s) || s.gift?.clip || !(["rest", "walk", "greet"].includes(ph) || (ph === "home" && s.spot.name === "seat"))) return false;
   if (s.trip.slot?.key && s.trip.slot.who === s) { s.trip.slot.who = null; release(s.trip.slot.key, s); }
   quitGame(s);   // its card game ends: the other one goes home
-  stopSmore(s); s.dozing = s.asleep = false; s.eyes(false); s.once = null;
-  release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") release("log:0", s); s.spot.home = false;
+  stopSmore(s); wakeUp(s); s.once = null;
+  releaseHome(s); s.spot.home = false;
   scene.attach(s.o); s.trip = { phase: "held", t: 0, yaw: 0, who }; if (opt.asleep) { s.asleep = true; s.eyes(true); } return true;
 }
 function giveBack(s, at, yaw) {

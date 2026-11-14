@@ -18,22 +18,23 @@
 //   postPose(spot, y)                 upright on the spot's post (the hammock's or the line's) at height y
 import * as THREE from "three";
 import { scene } from "../core.js";
-import { V } from "../util.js";
+import { V, wrapPi } from "../util.js";
 import { HAMMOCK, HERO, LAUNDRY } from "../layout.js";
 
 const UP = V(0, 1, 0), m4 = new THREE.Matrix4(), LL = LAUNDRY;
 const yawQ = (yaw) => new THREE.Quaternion().setFromAxisAngle(UP, yaw);
 const yawOf = (o) => { const f = V(0, 0, -1).applyQuaternion(o.getWorldQuaternion(qWorld)); return Math.atan2(-f.x, -f.z); };
 const qWorld = new THREE.Quaternion();
-const turnTo = (T, want, k) => { let d = want - T.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; T.yaw += d * Math.min(1, k); return Math.abs(d); };
-// poses for climbing: hanging back-down under a branch or pole at `at`, head toward `head` (as hang() places them), and
-// upright on a trunk at height y, facing the bark on the side `out` points to
+const turnTo = (T, want, k) => { const d = wrapPi(want - T.yaw); T.yaw += d * Math.min(1, k); return Math.abs(d); };
+// poses for climbing: hanging back-down under a branch or pole at `at`, head toward `head`, and upright on a trunk at
+// height y, facing the bark on the side `out` points to. underAt is the one hanging pose: body.js hang() places a new
+// sloth with it, and the rope and the line below are it too. Its grip is 0.1 of its size over its belly and toward its head.
 function underAt(s, at, head) {
   const yl = head.clone().setY(head.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
   m4.makeBasis(xl, yl, zl);
   return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
 }
-const trunkAt = (s, tree, out, y, R) => ({ p: tree.clone().addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y), q: new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(out.x, out.z)) });
+const trunkAt = (s, tree, out, y, R) => ({ p: tree.clone().addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y), q: yawQ(Math.atan2(out.x, out.z)) });
 const treeOf = (c) => HERO.reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
 // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths.
 // Their sloths climb down the trunk and back up it (climbDown, climbUp below). Trunk radius after forest.js (1.05 at the
@@ -66,18 +67,12 @@ const HAMMOCK_IN = (() => {                               // from the hammock to
 // spanning 0..0.20 toward its head, so the same clip climbs the post when the sloth is upright facing it.
 const KNOT = V(-1.43, 0, 0), ROPE_END = V(-1.03, -0.40, 0), ROPE = ROPE_END.clone().sub(KNOT), ROPE_L = ROPE.length(); ROPE.normalize();
 const climbYaw = Math.atan2(HAMMOCK_IN.x, HAMMOCK_IN.z);
-function ropePose(s, u) {                           // the sloth hanging under the rope, its grip centre u metres down from the knot
-  const yl = ROPE.clone().setY(ROPE.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-  m4.makeBasis(xl, yl, zl);
-  return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: KNOT.clone().addScaledVector(ROPE, u).sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
-}
+const ropePose = (s, u) => underAt(s, KNOT.clone().addScaledVector(ROPE, u), ROPE);   // hanging under the rope, its grip centre u metres down from the knot
 function linePose(s, t) {                           // hanging back-down under the laundry line at fraction t from a, its head toward b
   const L = LL.a.distanceTo(LL.b), y = (k) => LL.a.y - LL.sag * 4 * k * (1 - k);
   const at = LL.a.clone().addScaledVector(LL.dir, L * t).setY(y(t)), tan = LL.dir.clone().setY((y(t + 0.01) - y(t)) / (0.01 * L)).normalize();
-  const yl = tan.clone().setY(tan.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-  m4.makeBasis(xl, yl, zl);
-  return { at, q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
+  return { at, ...underAt(s, at, tan) };
 }
-const postPose = (spot, y) => ({ p: spot.door.clone().setY(y), q: new THREE.Quaternion().setFromAxisAngle(UP, spot.climbYaw ?? climbYaw) });
+const postPose = (spot, y) => ({ p: spot.door.clone().setY(y), q: yawQ(spot.climbYaw ?? climbYaw) });
 
 export { HAMMOCK_IN, ROPE_L, UP, barkProfile, branchBase, climbYaw, linePose, postPose, ropePose, treeOf, trunkAt, trunkR0, turnTo, underAt, yawOf, yawQ };

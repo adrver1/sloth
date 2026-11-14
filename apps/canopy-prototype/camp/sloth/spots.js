@@ -6,6 +6,8 @@
 //                   to two branches. It adds the hammock's swing, the seat's and the tent's groups to the scene.
 //   buildGuests()   fills state.js's guests: a second place in the hammock, the jeep's passenger seat and two in the tent's
 //                   bed. Called once the named sloths are in their spots (it copies the spots as they are then).
+//   claimHome(s), releaseHome(s)   s takes, or gives up, the place its spot is in the camp's registry (places.js), e.g.
+//                   "seat:Sunny" or "jeep:Mango"; the seat's sloth holds its log too ("log:0"), so no one else sits there
 //   hammock         the hammock's swing (swing.js makeHammockSwing), with zz for its napper's z's (naps.js)
 //   brush           brush(p, on, dt): the laundry swings aside where a sloth passes (swing.js); null without the line
 // A spot: { name, parent (the group it is local to), at, yaw, clip (what it plays there), scale (its size there), door (the
@@ -21,6 +23,7 @@ import { V } from "../util.js";
 import { HAMMOCK, LAUNDRY, RC, SEATS, TENT } from "../layout.js";
 import { branchCurves } from "../forest.js";
 import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "../swing.js";
+import { claim, release } from "../places.js";
 import { SL, guests, sloths, spots } from "./state.js";
 import { HAMMOCK_IN, branchBase, treeOf, trunkR0 } from "./poses.js";
 
@@ -104,4 +107,7 @@ function buildGuests() {
   }
 }
 
-export { brush, buildGuests, buildSpots, hammock };
+const claimHome = (s) => { claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") claim("log:0", s); };
+const releaseHome = (s) => { release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") release("log:0", s); };
+
+export { brush, buildGuests, buildSpots, claimHome, hammock, releaseHome };

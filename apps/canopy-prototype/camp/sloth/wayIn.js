@@ -12,21 +12,20 @@
 import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { R } from "../core.js";
-import { V } from "../util.js";
+import { V, ease } from "../util.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
-import { claim } from "../places.js";
 import { HW, HW_POST } from "./state.js";
 import { clipOf, play } from "./clips.js";
 import { ROPE_L, UP, barkProfile, climbYaw, linePose, ropePose, trunkAt, turnTo, underAt } from "./poses.js";
 import { climbV, glide, slide } from "./moves.js";
-import { brush } from "./spots.js";
+import { brush, claimHome } from "./spots.js";
 import { doze } from "./naps.js";
 
 const q0 = new THREE.Quaternion();
 function atHome(s, first) {
   if (s.spot.guest) { s.trip.phase = "home"; s.spot.home = true; s.errand = 1e9; doze(s, R(60, 120)); s.dozeIn = 1.2; if (s.spot.car) setTimeout(() => jeepApi?.close("P"), 1500); return; }   // a nap trip: straight to sleep
-  s.trip.phase = "home"; s.spot.home = true; claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") claim("log:0", s);   // e.g. "seat:Sunny", "jeep:Mango"
+  s.trip.phase = "home"; s.spot.home = true; claimHome(s);
   s.errand = first ? R(4, 45) : R(35, 80) * (s.spot.asleep || s.spot.car ? 1.6 : 1);
   if (s.spot.asleep) { if (first) { s.dozing = s.asleep = true; s.eyes(true); s.dozeT = R(30, 150); s.dozeIn = 0; } else { doze(s, R(90, 180)); s.dozeIn = 1.5; } }   // Hibi: back in the hammock, a yawn and a long nap
   if (s.spot.car && !first) setTimeout(() => jeepApi?.close("P"), 1500);
@@ -69,7 +68,7 @@ function doorStep(s, T, sd, spot) {                 // waits, facing the door, u
   else if (T.t > 2) { T.phase = "clamber"; T.t = 0; T.from = s.o.position.clone(); T.to = sill; play(s, "hang_walk", 1, 2); }
 }
 function clamberStep(s, T) {                        // about 4 s: hauls itself up onto the door sill
-  const k = Math.min(1, T.t / 4), e = k * k * (3 - 2 * k);
+  const k = Math.min(1, T.t / 4), e = ease(k);
   s.o.position.lerpVectors(T.from, T.to, e); s.o.position.y += Math.sin(Math.PI * k) * 0.1;
   s.o.quaternion.setFromAxisAngle(UP, T.yaw).multiply(q0.setFromAxisAngle(V(1, 0, 0), -0.5 * Math.sin(Math.PI * k)));
   if (k >= 1) settleIn(s, 3);
@@ -82,7 +81,7 @@ function climbStep(s, T, sd, spot) {                // up the post hand over han
   if (s.o.position.y >= top) { T.phase = "turn"; T.t = 0; spot.parent.attach(s.o); T.from = s.o.position.clone(); T.q = s.o.quaternion.clone(); }
 }
 function turnStep(s, T, sd, spot) {                 // about 3 s: swings round from the post to hang under the rope (or the line)
-  const k = Math.min(1, T.t / 3), e = k * k * (3 - 2 * k), R0 = spot.line ? linePose(s, 0.05) : ropePose(s, 0.1);
+  const k = Math.min(1, T.t / 3), e = ease(k), R0 = spot.line ? linePose(s, 0.05) : ropePose(s, 0.1);
   s.o.position.lerpVectors(T.from, R0.p, e); s.o.quaternion.slerpQuaternions(T.q, R0.q, e);
   if (k >= 1) { T.phase = spot.line ? "line" : "rope"; T.t = 0; T.u = spot.line ? 0.05 : 0.1; }
 }
@@ -97,7 +96,7 @@ function ropeStep(s, T, sd) {                       // down the rope to the slin
   if (T.u >= ROPE_L - 0.05) settleIn(s, 3);
 }
 function settleStep(s, T, sd, spot) {               // about 4 s: climbs up into its spot and settles
-  const k = Math.min(1, T.t / (spot.climb ? 6 : 4)), e = k * k * (3 - 2 * k);
+  const k = Math.min(1, T.t / (spot.climb ? 6 : 4)), e = ease(k);
   s.o.position.lerpVectors(T.from, spot.at, e); if (!spot.climb && !spot.noHop) s.o.position.y += Math.sin(Math.PI * e) * 0.12;
   s.o.quaternion.slerpQuaternions(T.q, q0.setFromAxisAngle(UP, spot.yaw), e);
   s.sc = T.sc0 + (spot.scale - T.sc0) * e; s.o.scale.setScalar(s.sc);

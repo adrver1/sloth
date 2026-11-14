@@ -4,10 +4,11 @@
 // back at home; one on its way to a nap trip wakes up there, asleep.
 //   restore()    puts the saved state back, once the named sloths and the guest spots are there (sloths.js)
 //   keep()       each frame: every 2 s, writes the save when who sleeps where has changed
-import { claim, holder, release } from "../places.js";
+import { claim, holder } from "../places.js";
 import { load, save } from "../save.js";
 import { camp, guests, wild } from "./state.js";
-import { doze } from "./naps.js";
+import { releaseHome } from "./spots.js";
+import { doze, wakeUp } from "./naps.js";
 import { placeHome } from "./wayIn.js";
 
 const snap = (s) => ({ nap: s.spot?.guest ? s.spot.key : null, sleep: s.dozing ? Math.max(5, Math.round(s.dozeT + Math.max(0, s.dozeIn))) : 0, napT: Math.round(s.napT) });
@@ -19,10 +20,9 @@ function restore() {
     if (Number.isFinite(d.napT)) s.napT = d.napT;
     const g = d.nap && guests.find((q) => q.key === d.nap);
     if (g && !holder(g.key)) {                  // back in the cozy spot it was napping in
-      release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") release("log:0", s);
-      s.spot.home = false; claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; placeHome(s);
+      releaseHome(s); s.spot.home = false; claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; placeHome(s);
     }
-    if (d.sleep > 0) doSleep(s, d); else if (s.spot.asleep && d.sleep === 0 && s.trip.phase === "home") { s.dozing = s.asleep = false; s.eyes(false); }
+    if (d.sleep > 0) doSleep(s, d); else if (s.spot.asleep && d.sleep === 0 && s.trip.phase === "home") wakeUp(s);
   }
   (got?.wild || []).forEach((d, i) => { if (wild[i] && d.sleep > 0) doSleep(wild[i], d); else if (wild[i] && Number.isFinite(d.napT)) wild[i].napT = d.napT; });
 }

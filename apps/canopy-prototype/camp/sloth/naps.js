@@ -5,6 +5,7 @@
 // only 10 to 25 s awake between, and yawns and stretches like the rest (Adriaen 2026-11-13). No errands or s'mores while
 // asleep.
 //   doze(s, dur)             a yawn, then asleep for dur seconds
+//   wakeUp(s)                the state of being awake: not dozing, not asleep, eyes open (what it does next is the caller's)
 //   wake(s, after)           awake: a stretch where it can sit up (after() when it has stretched), else a yawn
 //   rouse(s, back)           woken by a boop or by its nap trip running out: awake where it is for a while, then back to
 //                            sleep (back) or on with its day
@@ -21,8 +22,9 @@ import { canStretch, dozeClip, homeClip, play, playOnce } from "./clips.js";
 import { hammock } from "./spots.js";
 
 function doze(s, dur = s.spot?.asleep && s.trip?.phase === "home" ? R(90, 180) : R(50, 110)) { s.dozing = true; s.yawn = 1e-3; s.dozeIn = 2.4; s.dozeT = dur; }
+const wakeUp = (s) => { s.dozing = s.asleep = false; s.eyes(false); };
 function wake(s, after) {
-  s.dozing = false; s.asleep = false; s.eyes(false); s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
+  wakeUp(s); s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
   const [c, ts] = homeClip(s), back = after ?? (() => play(s, c, 1.5, ts));
   if (canStretch(s)) playOnce(s, "stretch", 1.5, back); else { s.yawn = 1e-3; play(s, c, 2, ts); after?.(); }
 }
@@ -30,7 +32,7 @@ function wake(s, after) {
 // else a yawn; often a slow wave at you; a while awake where it is; then, two times in three, back to sleep (a yawn and
 // nod off). A nap trip that runs out does the same and then gets up.
 function rouse(s, back) {
-  s.dozing = s.asleep = false; s.eyes(false); s.dozeIn = 0; s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
+  wakeUp(s); s.dozeIn = 0; s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
   s.roused = { t: 0, dur: R(4, 8), back, wave: R(0, 1) < 0.5, waved: false };
   const [c, ts] = homeClip(s);
   if (canStretch(s)) playOnce(s, "stretch", 1.5, () => play(s, c, 1.5, ts)); else { s.yawn = 1e-3; play(s, c, 2, ts); }
@@ -69,4 +71,4 @@ function hammockStep(dt) {
     z.material.opacity = napper?.asleep ? Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85) : 0; z.scale.set(0.3 + 0.35 * k, (0.3 + 0.35 * k) / 4, 1); });
 }
 
-export { doze, hammockStep, napStep, rouse, wake, zStep };
+export { doze, hammockStep, napStep, rouse, wake, wakeUp, zStep };

@@ -19,7 +19,7 @@ import { V, sstep } from "../util.js";
 import { CRATE, RC, TABLE } from "../layout.js";
 import { SLOTH } from "../campProps.js";
 import { EAT_GRAB, clipOf } from "./clips.js";
-import { pawOf } from "./arms.js";
+import { armBones, pawOf } from "./arms.js";
 import { yawQ } from "./poses.js";
 import { isFree } from "./walk.js";
 
@@ -27,7 +27,7 @@ const DOWN = V(0, -1, 0), tmp = V(), ray = new THREE.Raycaster();
 let POIS = null, fruitGeo = null;
 const GRAB = {};                                     // where the paw is at the grab, in the sloth's own frame at scale 1
 function buildTable() {
-  { const o = clone(SLOTH.scene), m = new THREE.AnimationMixer(o), arm = [o.getObjectByName("upper_armR") || o.getObjectByName("upper_arm.R"), o.getObjectByName("forearmR") || o.getObjectByName("forearm.R")];
+  { const o = clone(SLOTH.scene), m = new THREE.AnimationMixer(o), arm = armBones(o, "R");
     for (const n of ["eat", "eat_high"]) { m.stopAllAction(); const a = m.clipAction(clipOf(n)); a.play(); a.time = EAT_GRAB; m.update(0); o.updateMatrixWorld(true); GRAB[n] = pawOf({ arm }, V()); } }
   fruitGeo = new THREE.IcosahedronGeometry(0.5, 0);   // unit size, scaled to the fruit
 }

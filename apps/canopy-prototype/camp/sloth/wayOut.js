@@ -15,7 +15,7 @@ import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { CRAWL, HW, HW_POST, WALK_TS } from "./state.js";
 import { play } from "./clips.js";
-import { ROPE_L, UP, barkProfile, climbYaw, linePose, postPose, ropePose, trunkAt, underAt, yawOf } from "./poses.js";
+import { ROPE_L, barkProfile, climbYaw, linePose, postPose, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
 import { climbV, glide, slide, toGround } from "./moves.js";
 import { brush } from "./spots.js";
 
@@ -39,7 +39,7 @@ function downPost(s, spot, top, then) {             // from the top of a post, t
 // crawl to the edge, reach down over it nose first, step down onto the floor, then off to the door. Tent frame: the bed
 // lies along the left wall at x -0.92 (about 0.6 wide), the floor 0.02 up, +z out of the door.
 function bedOut(s, spot, go) {
-  const z = spot.at.z, top = spot.at.y, side = -Math.PI / 2, Q = (yaw, pitch = 0) => new THREE.Quaternion().setFromAxisAngle(UP, yaw).multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), pitch));
+  const z = spot.at.z, top = spot.at.y, side = -Math.PI / 2, Q = (yaw, pitch = 0) => yawQ(yaw).multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), pitch));
   play(s, "walk", 1.2, WALK_TS);
   glide(s, { p: V(-0.62, top, z), q: Q(side) }, 2.4, () =>                                   // round and to the edge
     glide(s, { p: V(-0.5, top - 0.06, z), q: Q(side, -0.55) }, 1.2, () =>                    // paws over, nose down
@@ -47,9 +47,9 @@ function bedOut(s, spot, go) {
         glide(s, { p: V(-0.25, 0.02, z + 0.05), q: Q(side + 0.4) }, 1.0, () => {            // level again, turning to the door
           const door = spot.door, away = Math.atan2(-(door.x - s.o.getWorldPosition(tmp).x), -(door.z - tmp.z));
           scene.attach(s.o); play(s, "walk", 1, WALK_TS);
-          glide(s, { p: door.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, away) }, 2.2, () => {
+          glide(s, { p: door.clone(), q: yawQ(away) }, 2.2, () => {
             const out = Math.atan2(-(spot.via.x - door.x), -(spot.via.z - door.z)); s.trip.yaw = out;
-            glide(s, { p: spot.via.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, out) }, door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = out; go(); });
+            glide(s, { p: spot.via.clone(), q: yawQ(out) }, door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = out; go(); });
           });
         }))));
 }
@@ -69,10 +69,10 @@ function exitSpot(s, go) {
   if (spot.car) { s.trip.phase = "exit"; s.trip.go = go; jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
   const away = spot.via ? Math.atan2(-(spot.via.x - spot.door.x), -(spot.via.z - spot.door.z)) : Math.atan2(-(spot.door.x - s.o.getWorldPosition(tmp).x), -(spot.door.z - tmp.z));
   scene.attach(s.o); play(s, "walk", 1.5, WALK_TS);
-  glide(s, { p: spot.door.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, away) }, 2.5, () => {
+  glide(s, { p: spot.door.clone(), q: yawQ(away) }, 2.5, () => {
     s.trip.yaw = away;
     if (!spot.via) return go();
-    glide(s, { p: spot.via.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, away) }, spot.door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = away; go(); });
+    glide(s, { p: spot.via.clone(), q: yawQ(away) }, spot.door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = away; go(); });
   });
 }
 function exitStep(s, T, sd, spot) {                 // out of the jeep: waits for the door, onto the sill, down to the ground
@@ -80,9 +80,9 @@ function exitStep(s, T, sd, spot) {                 // out of the jeep: waits fo
   if (!J.isOpen("P")) J.open("P");
   else if (T.t > 1) {
     T.phase = "glide"; play(s, "hang_walk", 1, 2);
-    glide(s, { p: spot.sill.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, -Math.PI / 2) }, 3.5, () => {
+    glide(s, { p: spot.sill.clone(), q: yawQ(-Math.PI / 2) }, 3.5, () => {
       scene.attach(s.o); const yaw = yawOf(s.o);
-      glide(s, { p: spot.door.clone(), q: new THREE.Quaternion().setFromAxisAngle(UP, yaw) }, 2.5, () => { J.close("P"); s.trip.yaw = yaw; T.go(); });
+      glide(s, { p: spot.door.clone(), q: yawQ(yaw) }, 2.5, () => { J.close("P"); s.trip.yaw = yaw; T.go(); });
     });
   }
 }

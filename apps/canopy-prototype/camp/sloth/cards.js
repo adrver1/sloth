@@ -20,6 +20,7 @@ import { play, playOnce } from "./clips.js";
 import { move } from "./moves.js";
 import { lpawOf } from "./arms.js";
 import { pois } from "./table.js";
+import { wakeUp } from "./naps.js";
 
 let cardMat = null, cardGeo = null, game = null;
 const pile = [], lpaw = V(), q0 = new THREE.Quaternion();
@@ -45,13 +46,13 @@ function cardsStep(s, T, sd) {
   const g = game, other = g?.players.find((q) => q !== s);
   lpawOf(s, lpaw); s.hand.position.copy(lpaw).y += 0.05 * s.sc / 2; s.hand.quaternion.copy(s.o.quaternion).multiply(q0.setFromAxisAngle(V(1, 0, 0), 0.35)); s.hand.scale.setScalar(s.sc / 2);   // held up before it, faces toward it
   if (!g || g.over) {                               // the game's over: down off the table and home
-    if (s.dozing) { s.dozing = s.asleep = false; s.eyes(false); s.yawn = 1e-3; }
+    if (s.dozing) { wakeUp(s); s.yawn = 1e-3; }
     if (s.once) return;
     s.hand.visible = false; T.st = "done"; play(s, "hang_walk", 1, -2); T.yaw = T.slot.yaw;
     return move(s, T, T.slot.p.clone(), 3.5, 0.12, -0.5, () => { T.slot.who = null; release(T.slot.key, s); if (g && g.players.every((q) => q.trip.st === "done" || q.trip.phase !== "eat")) { pile.forEach((c) => (c.visible = false)); game = null; } T.done(); });
   }
   if (s.dozing) {                                   // nodded off mid-game
-    s.dozeT -= sd; if (s.dozeT < 0 || s.squish > 0.9) { s.dozing = s.asleep = false; s.eyes(false); s.yawn = 1e-3; T.next = R(2, 4); }
+    s.dozeT -= sd; if (s.dozeT < 0 || s.squish > 0.9) { wakeUp(s); s.yawn = 1e-3; T.next = R(2, 4); }
     return;
   }
   if (other?.trip.st !== "cards") return;           // wait for the other to sit down
