@@ -1,6 +1,7 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), tubes (sweep, tube),
-shaping (bevel, rough_up, drop_faces, drop_ground_faces), and object plumbing (apply_all, join, obj_from_bm, select_only). Z up, metres;
+shaping (bevel, rough_up, drop_faces, drop_ground_faces), object plumbing (apply_all, join, obj_from_bm, select_only) and
+anchor (a named empty the page reads a point from). Z up, metres;
 every helper that makes an object links it into the current scene's collection and returns it.
 
     sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None)
@@ -177,6 +178,16 @@ def drop_ground_faces(objs, h=0.05):
             bm.to_mesh(o.data)
         bm.free()
     return objs
+
+
+def anchor(name, at, size=1.0):
+    """An empty called name at `at`, scaled by size, linked into the scene: a point the page reads from the GLB by name
+    instead of a number typed again in camp/layout.js (review R2-252), as the jeep's SeatP."""
+    e = bpy.data.objects.new(name, None)
+    e.location = at
+    e.scale = (size, size, size)
+    bpy.context.collection.objects.link(e)
+    return e
 
 
 def select_only(o):

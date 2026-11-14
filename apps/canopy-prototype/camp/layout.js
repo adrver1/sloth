@@ -5,7 +5,8 @@
 // the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Two values are
 // typed again there: the sun's direction (the bake stops if the two differ) and the lantern drop, lanterns.js JAR_Y, with no
-// check (review props-07). SEAT_R and JEEP_OUT are exported for checks; no module
+// check (review props-07). LAUNDRY and SOUP_POT restate build_laundry.py and build_fire.py; campProps.js checks them against
+// the anchors in those GLBs (review R2-252). SEAT_R and JEEP_OUT are exported for checks; no module
 // imports them. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
 // campProps.js's CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry for the bake (debug.js).
 import * as THREE from "three";
@@ -82,7 +83,7 @@ export const LANTERN_TIES = { l0: tentAt.clone().multiplyScalar(1 - 1.12 / tentA
 // the wood pile and the crate are turned by yawTo(at): it points their local -Z away from the fire, so their fronts (+Z) face it
 export const WOOD_PILE = (() => { const at = V(-0.55, 0, -3.15), yaw = yawTo(at); return { at, yaw, side: V(Math.cos(yaw), 0, -Math.sin(yaw)) }; })();   // side: its local +X, where the chopping stump stands
 export const CRATE = (() => { const at = V(4.55, 0, 1.7); return { at, yaw: yawTo(at) }; })();   // the kitchen crate beside the snack table, its front to the fire
-export const SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };   // the soup's surface in the pot over the fire; atmosphere.js lets steam rise off all of it
+export const SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };   // the soup's surface in the pot over the fire (build_fire.py SOUP, SOUP_R); atmosphere.js lets steam rise off all of it
 // the laundry line (build_laundry.py): two plain sticks east of the fire, between the table and the tent. A and B are
 // roughly where the line is tied; it is 3 m post to post. a, b: its ends; sag at the middle; hang: the gap kept free for a
 // sloth (t = 0.42 along it); dir: a to b. posts: the sticks' feet. The sloths (sloth/poses.js, sloth/spots.js, swing.js) read a, b, sag, hang and dir.

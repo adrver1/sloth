@@ -28,7 +28,8 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
    Thin double-sided cards (laundry, chain) take the brighter of their two sides.
    COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
-   the page places them as before; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt copies, and
+   the page places them as before; SeatTop as SeatTop_0-2, one per seat; the laundry's and the fire's ANCHORS empties
+   kept as built, review R2-252) with their models/*.txt copies, and
    apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png. The GLBs carry quantized normals, colours and UVs
    (KHR_mesh_quantization, lib/quantize.py), and the unlit Embers no normals (review R2-109).
 Where each prop and light stands comes from the page itself: the "place" block the layout step (export_casters.cjs)
@@ -68,6 +69,7 @@ import build_lived  # noqa: E402
 from lib.bake import flat_colours, pick_device  # noqa: E402
 from lib.audit import audit  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
+ANCHORS = build_laundry.ANCHORS + ("Soup",)    # the empties the lived sets carry for the page (review R2-252)
 
 
 # where the page stands each prop and light (step 2 uses it): checked before the minutes of building in step 1
@@ -159,14 +161,16 @@ def import_glb(path):
     return [o for o in bpy.data.objects if o not in before]
 
 
-sets, top = {}, None
+sets, anchors, top = {}, {}, None
 for sname, table in PLACE.items():
     new = import_glb(os.path.join(SCRATCH, f"{sname}.glb"))
     for o in new:
         if o.parent:
             mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
-    meshes = []
+    meshes, anchors[sname] = [], []
     for o in new:
+        if o.type == "EMPTY" and o.name.split(".")[0] in ANCHORS:    # points the page reads (review R2-252): left at the
+            o.name = o.name.split(".")[0]; anchors[sname].append(o); continue   # set's origin, not lit, written back in step 4
         if o.type != "MESH":
             bpy.data.objects.remove(o); continue
         key = o.name.split(".")[0]; o.name = key
@@ -423,5 +427,5 @@ export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
 for sname, meshes in sets.items():
     for o in meshes:
         o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)
-    export(meshes, os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
+    export(meshes + anchors[sname], os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
 print(f"camp light: {len(counts)} objects, {sum(counts.values())} triangles, {time.time() - T0:.0f} s")

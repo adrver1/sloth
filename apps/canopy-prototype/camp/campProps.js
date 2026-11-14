@@ -3,13 +3,14 @@
 // main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
 // at night) and motesStep (the drifting motes). Exports those, CAMP, SLOTH (the sloth model), blockers and the props' parts
 // other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX, fireLight, glowTex, lanternGlow, LANTERNS, rayMat, uNight), and buildProps()
-// (main.js, once), which builds them all.
+// (main.js, once), which builds them all. It checks layout.js LAUNDRY and SOUP_POT against the anchors in laundry.glb and
+// fire.glb once they load (checkAnchors, review R2-252).
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, rng, S, scene, sun, uTime } from "./core.js";
 const { R } = rng("props");
 import { V, canvasTex, patchMaterial } from "./util.js";
-import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, TABLE, TENT, WOOD_PILE } from "./layout.js";
+import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
@@ -28,6 +29,19 @@ const blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Objec
 for (const { angle: a, at: c } of SEATS) { const t = V(-Math.sin(a), 0, Math.cos(a));
   blockers.push(Object.assign([c, 0.75], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
 const FIRE_CARDS = [];   // the fire's flame cards (the activities flare them)
+// The anchors the builders put in the GLBs (review R2-252): laundry.glb's LineA, LineB and Hang (build_laundry.py) and fire.glb's
+// Soup, scaled by the soup's radius (build_fire.py). layout.js keeps LAUNDRY and SOUP_POT as plain values, since the sloths read
+// them at import, so this checks each value against its anchor once the model is placed, and logs a console error when they differ
+// by more than 5 mm (the probe and the play-tests list those). A GLB baked before R2-252 has no anchors, and nothing is checked.
+// want: [[anchor name, the layout.js point, the radius or undefined], ...]
+function checkAnchors(root, want, file) {
+  for (const [name, at, r] of want) {
+    const n = root.getObjectByName(name); if (!n) continue;
+    const p = n.getWorldPosition(V()), s = n.getWorldScale(V()).x;
+    if (p.distanceTo(at) > 0.005 || (r !== undefined && Math.abs(s - r) > 0.005))
+      console.error(`layout.js disagrees with ${file}'s ${name} anchor: (${p.toArray().map((v) => v.toFixed(3))}${r !== undefined ? `, r ${s.toFixed(3)}` : ""}); update layout.js`);
+  }
+}
 const uNight = { value: 0 };   // how far the baked night light is faded in (main.js sets it from the dusk)
 let glowTex, LANTERNS, fireLight, rayMat, motes, pools, SLOTH, LMTEX, LMSUN, WOODPILE, WOOD_TEX;   // set by buildProps
 
@@ -124,12 +138,13 @@ async function buildProps() {
     SEATS.forEach(({ at, yaw }, i) => put(L.scene.getObjectByName(`SeatTop_${i}`) ? `SeatTop_${i}` : "SeatTop", at.x, at.z, yaw));   // the sawn top on each seat
   }
   // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two plain sticks east of the fire,
-  // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, 90 triangles with the sticks).
+  // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads; the build prints the triangles).
   // The gap on the line at hang (layout.js LAUNDRY.hang) is kept free for a sloth to hang from. Shown with the lived-in props.
   if (LIVED) {
     const LD = await PRE.laundry;
     LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
     const o = LD.scene; o.position.copy(LAUNDRY.mid); o.rotation.y = LAUNDRY.yaw; scene.add(o);
+    checkAnchors(o, [["LineA", LAUNDRY.a], ["LineB", LAUNDRY.b], ["Hang", LAUNDRY.hang]], "laundry.glb");
     blockers.push([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
   }
   // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
@@ -146,6 +161,7 @@ async function buildProps() {
           : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : fm; });   // the legs: one tube each, nodes in the texture
       scene.add(o);
     }
+    checkAnchors(F.scene, [["Soup", SOUP_POT.at, SOUP_POT.r]], "fire.glb");   // the fire set stands at the origin
     const H = 0.8, flameMat = (ph) => new THREE.ShaderMaterial({
       uniforms: { uTime, uPh: { value: ph } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
       vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",

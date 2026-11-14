@@ -5,6 +5,8 @@ The laundry line for the Canopy Camp game (apps/canopy-prototype/camp.html), liv
     LaundryCloth  50  the line, a striped towel folded over it and three sloth-sized socks,
                       all textured quads on one drawn atlas (laundry.png, alpha cut on the page); the pegs are painted in
                       (triangles as of 2026-11-14; the export prints them)
+    LineA, LineB, Hang    empties: the line's tied ends and the sloth's gap (ANCHORS), so the page can check
+                      camp/layout.js LAUNDRY against the model (review R2-252)
 
 Triangles go where they show (Adriaen's rule, 2026-11-11): the line is two crossed strips, the towel is two quads (one
 each side of the line), each sock is one quad. A gap is left on the line at HANG_T for a sloth to hang from (the
@@ -34,7 +36,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import drop_ground_faces, join, obj_from_bm, rod  # noqa: E402
+from lib.mesh import anchor, drop_ground_faces, join, obj_from_bm, rod  # noqa: E402
 
 L = 3.0            # post to post
 H = 1.62           # where the line is tied on the posts
@@ -144,13 +146,19 @@ def posts():
     return drop_ground_faces([join(p, "LaundryPosts")])[0]    # no cap down in the ground (review R2-154)
 
 
+ANCHORS = ("LineA", "LineB", "Hang")
+
+
 def make():
-    """Make the laundry line in the current scene and return it as {name: object}: LaundryPosts (takes vertex colours)
-    and LaundryCloth (textured). No reset, no light, no export."""
+    """Make the laundry line in the current scene and return it as {name: object}: LaundryPosts (takes vertex colours),
+    LaundryCloth (textured) and the ANCHORS: empties at the line's two tied ends and at the gap kept for a hanging sloth,
+    which the page checks camp/layout.js LAUNDRY against (review R2-252). No reset, no light, no export."""
     img = os.path.join(HERE, "laundry.png")
     atlas(img)
     po = posts()                               # joined, so its transforms are already applied
-    return {"LaundryPosts": po, "LaundryCloth": cloth(img)}
+    marks = [anchor("LineA", (line_x(0), 0, line_z(0))), anchor("LineB", (line_x(1), 0, line_z(1))),
+             anchor("Hang", (line_x(HANG_T), 0, line_z(HANG_T)))]
+    return {"LaundryPosts": po, "LaundryCloth": cloth(img), **{e.name: e for e in marks}}
 
 
 def build(colour=None, path=None):
@@ -164,8 +172,7 @@ def build(colour=None, path=None):
     cl.hide_render = False
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
-    path = export_glb([po, cl], path or os.path.join(HERE, "laundry_preview.glb"), image_format="AUTO")
-    print(f"hang point (local, three.js): x {line_x(HANG_T):.3f}, y {line_z(HANG_T):.3f}, z 0")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "laundry_preview.glb"), image_format="AUTO")
     print(f"laundry -> {path}")
 
 

@@ -42,6 +42,9 @@ from lib.materials import mat  # noqa: E402
 from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, rod, rough_up, sweep, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
+SEAT_TOP = 0.361                  # rustic_seat(): the middle of its flat top board (the log along X); build_lived.py sets things on it
+SEAT_BOARD = (1.48, 0.46, 0.01)   # that board's length, depth and thickness
+DOOR_PLANK = 0.03                 # wall_tent(): the top of the loose planks before the door (build_lived.py stands the wellies on it)
 STYLES = ("storybook", "rustic", "jungle")      # the archived styles build() remakes; the picked set comes from the light bake
 rng = random.Random(7)
 
@@ -253,7 +256,7 @@ def rustic_fire(M):
 
 
 def rustic_seat(M):
-    """The seat (picked): a split half log on two short stumps, its flat top at z = 0.361."""
+    """The seat (picked): a split half log on two short stumps, its flat top board (SEAT_BOARD) centred at z = SEAT_TOP."""
     lg = cyl(0.25, 1.5, at=(0, 0, 0.0), rot=(0, math.pi / 2, 0), m=M["bark"], verts=24)
     apply_all(lg)
     bpy.ops.object.mode_set(mode="EDIT")
@@ -262,7 +265,7 @@ def rustic_seat(M):
     bpy.ops.object.mode_set(mode="OBJECT")
     rough_up(lg, 0.008, 12)
     lg.location.z = 0.36
-    top = box((1.48, 0.46, 0.01), at=(0, 0, 0.361), m=M["wood"])
+    top = box(SEAT_BOARD, at=(0, 0, SEAT_TOP), m=M["wood"])
     p = [lg, top]
     for s in (-1, 1):
         p.append(rough_up(cyl(0.16, 0.36, at=(s * 0.5, 0, 0.18), m=M["bark"], verts=14), 0.01, 10))
@@ -463,7 +466,7 @@ def wall_tent():
              "plank" if k % 2 else "plank2")
     for k in range(5):
         cy, ln, yaw, cx = yf - 0.115 - k * 0.185, 2 * (W + 0.2) + 0.08 * math.sin(k * 2.7), 0.018 * math.sin(k * 1.9 + 1), 0.04 * math.sin(k * 3.1)
-        c, s_, hw2, t = math.cos(yaw), math.sin(yaw), 0.086, 0.03
+        c, s_, hw2, t = math.cos(yaw), math.sin(yaw), 0.086, DOOR_PLANK
         P = lambda u, v, z: (cx + u * c - v * s_, cy + u * s_ + v * c, z)
         m = "plank" if k % 2 else "plank2"
         face([P(-ln / 2, -hw2, t), P(ln / 2, -hw2, t), P(ln / 2, hw2, t), P(-ln / 2, hw2, t)], m)

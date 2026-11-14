@@ -18,10 +18,12 @@ One GLB, every object at the fire's origin, z up (three.js y up). Triangles as o
     Pot        242  the pot, the soup and its bits, the feet, the lugs and the bail (baked)
     Chain       36  one textured quad per link (chain_link.png, alpha cut on the page)
     TripodLegs  66  the three bamboo legs (textured, bamboo.png)
+    Soup         -  an empty at the soup's surface, scaled by its radius (see below)
 
 The light bake writes props/lived/fire.glb; a run on its own writes props/lived/fire_preview.glb (git-ignored). The
 flames are animated cards made on the page. build() leaves the BAKED parts one colour attribute and no UVs; the
-textured ones keep their UVs and image. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
+textured ones keep their UVs and image. The soup's middle, where the page puffs steam, is SOUP, and the GLB carries it as
+the empty Soup, scaled by the soup's radius SOUP_R (review R2-252; the page checks camp/layout.js SOUP_POT against it).
 make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
 drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
 How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
@@ -44,12 +46,13 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
+from lib.mesh import anchor, apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
 
 rng = random.Random(23)
 LIFT = 0.3                             # how far the pot's base sits above 0.45 m, clear of the flames
 POT_Z = 0.45 + LIFT                    # the pot's base
 SOUP = Vector((0.0, 0.0, POT_Z + 0.135))   # the soup's surface, middle
+SOUP_R = 0.147                         # the pot's inside wall where it meets the soup
 TOP = Vector((0.0, 0.0, 1.75))         # where the tripod legs meet (tall, so the pot hangs on a long chain)
 
 
@@ -262,7 +265,7 @@ def pot(M):
     the inside wall only down to the soup, the soup with flat bits on it, three feet, two lugs and a round wire bail. Returns the pot and the top of the bail (where the chain hooks on)."""
     sz = SOUP.z - POT_Z
     prof = [(0.0, 0.0), (0.1, 0.0), (0.155, 0.05), (0.163, 0.13), (0.168, 0.158),   # outside up to the rim
-            (0.152, 0.158), (0.147, sz - 0.004)]                                   # over the lip, down to the soup
+            (0.152, 0.158), (SOUP_R, sz - 0.004)]                                  # over the lip, down to the soup
     p = [lathe(prof, 10, M["iron"], z0=POT_Z, flip=True)]
     p.append(lathe([(0.0, sz), (0.148, sz - 0.004)], 10, M["soup"], z0=POT_Z))
     for i in range(9):                                             # bits in the soup: carrot coins, potato, peas, herbs
@@ -342,6 +345,7 @@ def make():
     ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
     every = objs + [ch, tripod_legs()]
     drop_ground_faces(every)                  # the bottoms lying on the ground (review R2-154)
+    every.append(anchor("Soup", SOUP, SOUP_R))   # the soup's surface, scaled by its radius: the page checks SOUP_POT against it (R2-252)
     return {o.name: o for o in every}
 
 
@@ -362,7 +366,6 @@ def build(samples=32, colour=None, path=None):
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
     path = export_glb(list(every.values()), path or os.path.join(HERE, "fire_preview.glb"), image_format="AUTO")
-    print(f"soup surface (three.js): (0, {SOUP.z:.3f}, 0)")
     print(f"fire -> {path}")
 
 

@@ -18,7 +18,7 @@ look used. PROPS (above make()) lists them all, one row each with its builder an
 
 One GLB, one object per prop, each at its own origin, standing on z = 0 with its front toward -Y (three.js +Z). The
 light bake writes props/lived/lived.glb; a run on its own writes props/lived/lived_preview.glb (git-ignored).
-SeatThings shares the Seat's origin (props/camp/build_camp.py rustic(): log along X, flat top at z = 0.361), so the
+SeatThings shares the Seat's origin (props/camp/build_camp.py rustic_seat(): log along X, flat top at SEAT_TOP), so the
 page places it with the same transform as the seat it sits on. build() leaves the "baked" props one colour attribute
 and no UVs, and the page draws them with a plain Lambert material; the "textured" ones keep their UVs and image.
 Materials match the camp's rustic set, so the props sit with the picked camp.
@@ -49,10 +49,11 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake, pick_device  # noqa: E402
 from lib.export import export_glb, report, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "camp"))
+from build_camp import DOOR_PLANK as PLANK, SEAT_BOARD, SEAT_TOP  # noqa: E402  (the seat and the tent planks, review R2-252)
 from lib.mesh import apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, quad, rod, rough_up, sweep, torus, tube  # noqa: E402
 
 rng = random.Random(11)
-SEAT_TOP = 0.361
 
 
 PARTS = []          # piece names; each face carries its piece's index in the "part" attribute, for the triangle breakdown
@@ -495,7 +496,7 @@ def seat_things(M):
 
 
 def seat_top_texture(path):
-    """The sawn top of the half-log seat (1.48 x 0.46 m): pale wood with grain running along the log (no knots,
+    """The sawn top of the half-log seat (SEAT_BOARD): pale wood with grain running along the log (no knots,
     Adriaen), a drying crack, and the sawn edges a little darker and worn."""
     from PIL import Image, ImageDraw, ImageFilter
     r = random.Random(5)
@@ -528,7 +529,7 @@ def seat_top():
     """One textured quad laid on the seat's flat top (2 triangles); the page puts a copy on each of the three seats."""
     img = os.path.join(HERE, "seat_top.png")
     seat_top_texture(img)
-    hx, hy, z = 0.74, 0.23, SEAT_TOP + 0.0055                  # just over the top board (1.48 x 0.46, top face at 0.366)
+    hx, hy, z = SEAT_BOARD[0] / 2, SEAT_BOARD[1] / 2, SEAT_TOP + SEAT_BOARD[2] / 2 + 0.0005   # just over the top board's top face
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     f = bm.faces.new([bm.verts.new(c) for c in ((-hx, -hy, z), (hx, -hy, z), (hx, hy, z), (-hx, hy, z))])
@@ -540,8 +541,8 @@ def seat_top():
 
 
 # the tent side (props/camp/build_camp.py wall_tent, in the tent's own frame: x across, door toward -y, front wall at
-# y -0.95, loose planks before it with their tops at z 0.03). The doorway (|x| < 0.45) stays clear: you walk in there.
-PLANK = 0.03
+# y -0.95, loose planks before it with their tops at z PLANK, build_camp.DOOR_PLANK). The doorway (|x| < 0.45) stays clear:
+# you walk in there.
 # side outline of a welly (x toward the toe, z up): a heel block and an arch under the sole, a rounded toe, the
 # shaft flaring a little at the top
 BOOT = [(-0.09, 0), (-0.035, 0), (-0.03, 0.012), (0.045, 0.012), (0.05, 0), (0.15, 0), (0.185, 0.02), (0.195, 0.045),
