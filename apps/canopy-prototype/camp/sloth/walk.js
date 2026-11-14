@@ -83,7 +83,7 @@ function greet(s, o) {
 function greetStep(s, T, sd) {                        // sit up, face each other, say hello, carry on
   const o = T.with.o.position, pos = s.o.position;
   turnTo(T, yawFrom(pos, o), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
-  if (!T.said && T.t > 0.9) { T.said = true; s.nod = 1.2; s.squish = 0.5; if (T.lead) burst(pos.clone().lerp(o, 0.5).setY(0.75), HELLO[Math.floor(R(0, HELLO.length))], 1, 1.8, 64); }
+  if (!T.said && T.t > 0.9) { T.said = true; s.nod = 1.2; s.squish = 0.5; if (T.lead) burst(pos.clone().lerp(o, 0.5).setY(0.75), HELLO[Math.floor(R(0, HELLO.length))], 1.8, 64); }
   if (T.t > 3.4) { T.phase = "walk"; play(s, "walk", 1, WALK_TS); }
 }
 

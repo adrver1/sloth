@@ -44,7 +44,7 @@ const lookEnd = (e) => {
 };
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
 const told = (kind, s) => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by: "you", name: s.name } }));   // the operator may remark on it
-function boop(s) { told("boop", s); s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
+function boop(s) { told("boop", s); s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1.6, 64); }
 // feeding (Adriaen 2026-11-12: every camp sloth is already your friend, so no friend counter or "new friend"; and eating
 // shows no words or emojis): a flower flies from you to its mouth, it nods and munches it (slothLife's mouth)
 function feed(s, emoji = "🌺") {
