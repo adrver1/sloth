@@ -59,7 +59,7 @@ if "layout" in steps:
                 urllib.request.urlopen("http://localhost:8765/", timeout=1); break
             except OSError:
                 time.sleep(0.2)
-        run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), "picked", a.jeep])
+        run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), a.jeep])
     finally:
         srv.terminate()
 if "light" in steps:

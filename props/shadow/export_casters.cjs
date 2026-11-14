@@ -1,15 +1,15 @@
-// Writes props/shadow/layout_<props>.json, the clearing's layout as the live page has it (prop spots, the jeep's track,
+// Writes props/shadow/layout_picked.json, the clearing's layout as the live page has it (prop spots, the jeep's track,
 // the path to the glade, the tent, the hammock, the deadwood and the ground's height grid), for props/ground/bake_ground.py
 // and props/camp/bake_camp_lightmap.py, plus "place": where the page stands each baked prop and light (seats, tent,
 // hammock, table, wood pile, kitchen crate, laundry line, lantern lights, jeep, sun), read from the live page. The light
 // bake places everything from that block (it keeps no copy of its own). props/bake_all.py runs it first (its "layout" step) and serves the repo on :8765.
 //   python3 -m http.server 8765   (from the repo root, in the background; LAYOUT_PORT=<port> to use another port)
-//   node props/shadow/export_casters.cjs [props=picked] [jeep=expedition]
-// (It used to write casters_<props>_<jeep>.glb too, for a ground-shadow bake script that is gone: the light bake makes the
+//   node props/shadow/export_casters.cjs [jeep]     jeep: expedition (the default) or none; only expedition writes the file
+// (It used to write casters_picked_<jeep>.glb too, for a ground-shadow bake script that is gone: the light bake makes the
 // ground's shadows now. The file name stays so the bake steps and notes that name it still match.)
 const { chromium } = require("playwright"), fs = require("fs"), path = require("path");
-const [props = "picked", jeep = "expedition"] = process.argv.slice(2), root = path.resolve(__dirname, "../..");
-if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.error(`only picked props and the expedition jeep (or none) exist now, not ${props} / ${jeep}`); process.exit(2); }
+const [jeep = "expedition"] = process.argv.slice(2), root = path.resolve(__dirname, "../..");
+if (!["expedition", "none"].includes(jeep)) { console.error(`only the expedition jeep (or none) exists now, not ${jeep}`); process.exit(2); }
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROME || (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined), args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
   const p = await b.newPage({ viewport: { width: 400, height: 300 } });
@@ -41,6 +41,6 @@ if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.erro
   if (!out.error && !out.layout.deadwood.length) miss.push("deadwood");
   if (!out.error) for (const [k, v] of Object.entries(out.layout.place)) if (v === null || (Array.isArray(v) && (!v.length || v.includes(null)))) miss.push(`place.${k}`);
   if (miss.length) { console.error("layout incomplete, nothing written: " + miss.join(", ")); await b.close(); process.exit(1); }
-  if (jeep === "expedition") fs.writeFileSync(path.join(__dirname, `layout_${props}.json`), JSON.stringify(out.layout));   // for props/ground/bake_ground.py
-  console.log(`layout_${props}.json: ${out.layout.spots.length} spots, ${out.layout.deadwood.length} deadwood, track of ${out.layout.track.length}`); await b.close();
+  if (jeep === "expedition") fs.writeFileSync(path.join(__dirname, "layout_picked.json"), JSON.stringify(out.layout));   // for props/ground/bake_ground.py
+  console.log(`layout_picked.json: ${out.layout.spots.length} spots, ${out.layout.deadwood.length} deadwood, track of ${out.layout.track.length}`); await b.close();
 })();
