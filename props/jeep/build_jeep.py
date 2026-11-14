@@ -38,6 +38,8 @@ from lib.mesh import box as _box  # noqa: E402
 
 
 def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
+    """lib.mesh.box with a one-segment bevel, only on boxes whose smallest side is at least 5 cm (on smaller parts a bevel
+    would not read, so none is asked for)."""
     o = _box(size, at=at, rot=rot, m=m)
     if bevel and min(size) >= 0.05:
         apply_all(o)
@@ -246,11 +248,11 @@ def lathe(prof, n, at, axis_x, M, name="lathe", face=None):
 WHEEL = "closed"   # "closed": the whole wheel is one sealed lathe; "open": the earlier separate tyre, rim, hub and cap
 
 
-def wheel(x, y, R, Wt, M, chunky=True, axis_x=True):
-    return (wheel_closed if WHEEL == "closed" else wheel_open)(x, y, R, Wt, M, chunky, axis_x)
+def wheel(x, y, R, Wt, M, axis_x=True):
+    return (wheel_closed if WHEEL == "closed" else wheel_open)(x, y, R, Wt, M, axis_x)
 
 
-def wheel_closed(x, y, R, Wt, M, chunky=True, axis_x=True):
+def wheel_closed(x, y, R, Wt, M, axis_x=True):
     """The whole wheel as one sealed surface of revolution, 14 segments round: from the axle on the inside, out over the
     sidewall, across the tread, down the outer sidewall, into the dished rim and back to the axle at the hub. No gaps to
     see through, no hidden caps. Then 12 low mud-terrain lugs and five hex nuts."""
@@ -285,7 +287,7 @@ def wheel_closed(x, y, R, Wt, M, chunky=True, axis_x=True):
     return p
 
 
-def wheel_open(x, y, R, Wt, M, chunky=True, axis_x=True):
+def wheel_open(x, y, R, Wt, M, axis_x=True):
     """A tyre with a rounded shoulder and tread (style TYRE), a dished steel rim with a hub, on an axle along X
     (or along Y for the spare). The silhouette gets the segments; the tread pattern is low blocks or painted bands."""
     if "groove" not in M:
@@ -315,9 +317,9 @@ def wheel_open(x, y, R, Wt, M, chunky=True, axis_x=True):
                 w_, off, ln, ht = Wt * 0.5, lane * Wt * 0.12, 2 * math.pi * R / nb * 0.6, R * 0.07
             rc = core + ht * 0.1        # sunk into the tread band, so only the top shows
             if axis_x:
-                b = box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=M[t], bevel=0.012)
+                b = box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=M[t])
             else:
-                b = box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=M[t], bevel=0.012)
+                b = box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=M[t])
             p.append(b)
     # the rim: a lip, a dished face and a raised centre, then a hub and five nuts; a flat cap closes the inner side
     rim = [(rr, h * 1.02, "rim"), (rr * 0.88, h * 0.6, "rim"), (rr * 0.5, h * 0.6, "rim"), (rr * 0.42, h * 0.75, "hub")]
@@ -498,7 +500,7 @@ def body(M, style):
     for name, at in (("SeatP", (0.36, 0.18, SILL + 0.41)), ("DoorSill", (W / 2, 0.13, SILL + 0.11)), ("Boot", (0, 1.06, SILL + 0.33)), ("WheelHub", (0.36, -0.05, BELT + 0.09))):
         e = bpy.data.objects.new(name, None); e.location = at; bpy.context.collection.objects.link(e); EMPTIES.append(e)
     # glass: windscreen, side windows split by the B pillar, the rear door window
-    g, wt = M["glass"], W / 2 * 0.93 + 0.004
+    g = M["glass"]
     zt, zb = ROOF - 0.07, BELT + 0.06
     s0 = Vector((0, -0.42, BELT)); s1 = Vector((0, -0.16, ROOF)); up = (s1 - s0).normalized()
     nrm = Vector((0, -up.z, up.y)) * 0.01
@@ -510,14 +512,12 @@ def body(M, style):
         door = G["DoorP" if s > 0 else "DoorD"]
         G["GlassP" if s > 0 else "GlassD"].append(panel((wx(zb), -0.24, zb), (wx(zb), 0.52, zb), (wx(zt), 0.52, zt), (wx(zt), -0.07, zt), g))
         G["Glass"].append(panel((wx(zb), 0.68, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), 0.68, zt), g))
-        door.append(box((0.03, 0.14, 0.03), at=(s * (W / 2 + 0.012), 0.45, BELT - 0.12), m=M["trim"], bevel=0.008))   # handle
-        # mirror: a big squarish housing close to the door on a short foot at the front corner of the window (Adriaen's photo)
-        # (it rides on the door, so it swings open with it)
-        dr = G["DoorP" if s > 0 else "DoorD"]
-        # the housing sticks out sideways with its glass facing back
-        dr.append(box((0.06, 0.06, 0.08), at=(s * (W / 2 + 0.03), -0.28, BELT + 0.07), m=M["trim"], bevel=0.012))
-        dr.append(box((0.18, 0.065, 0.16), at=(s * (W / 2 + 0.105), -0.28, BELT + 0.17), m=M["trim"], bevel=0.02))
-        dr.append(box((0.14, 0.006, 0.12), at=(s * (W / 2 + 0.105), -0.246, BELT + 0.17), m=M["glass"]))
+        door.append(box((0.03, 0.14, 0.03), at=(s * (W / 2 + 0.012), 0.45, BELT - 0.12), m=M["trim"]))   # handle
+        # mirror: a big squarish housing close to the door on a short foot at the front corner of the window (Adriaen's
+        # photo); it rides on the door, so it swings open with it, and the housing sticks out sideways with its glass facing back
+        door.append(box((0.06, 0.06, 0.08), at=(s * (W / 2 + 0.03), -0.28, BELT + 0.07), m=M["trim"], bevel=0.012))
+        door.append(box((0.18, 0.065, 0.16), at=(s * (W / 2 + 0.105), -0.28, BELT + 0.17), m=M["trim"], bevel=0.02))
+        door.append(box((0.14, 0.006, 0.12), at=(s * (W / 2 + 0.105), -0.246, BELT + 0.17), m=M["glass"]))
     G["GlassB"].append(panel((-0.5, REAR + 0.004, zb + 0.04), (0.5, REAR + 0.004, zb + 0.04), (0.48, REAR + 0.002, zt - 0.02), (-0.48, REAR + 0.002, zt - 0.02), g))
     # roof gutters
     for s in (-1, 1):
@@ -547,29 +547,29 @@ def body(M, style):
     p.append(cyl(0.12, 0.05, at=(-0.2, -0.66, SILL + 0.415), m=M["chrome"], verts=10))              # air filter (top 0.89)
     p.append(box((0.2, 0.15, 0.14), at=(0.46, -0.66, SILL + 0.27), m=M["trim"]))                     # and battery (top 0.79)
     grille_z = (0.7, 0.95)
-    p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"], bevel=0.02))
+    p.append(box((0.82, 0.03, grille_z[1] - grille_z[0]), at=(0, FRONT - 0.005, sum(grille_z) / 2), m=M["grille"]))
     for k in range(3):                                   # three horizontal bars (its own face, no maker's grille)
-        p.append(box((0.78, 0.03, 0.035), at=(0, FRONT - 0.02, grille_z[0] + 0.06 + k * 0.065), m=M["bar"], bevel=0.008))
+        p.append(box((0.78, 0.03, 0.035), at=(0, FRONT - 0.02, grille_z[0] + 0.06 + k * 0.065), m=M["bar"]))
     hr = 0.15 if toy else 0.115
     for s in (-1, 1):
         ring, lens = headlight(s * 0.6, FRONT - 0.03, 0.83, hr, M)
         p += ring; G["Lamps"] += lens
-        p.append(box((0.12, 0.03, 0.05), at=(s * 0.6, FRONT - 0.02, 0.62), m=M["amber"], bevel=0.01))
+        p.append(box((0.12, 0.03, 0.05), at=(s * 0.6, FRONT - 0.02, 0.62), m=M["amber"]))
     p.append(box((W + 0.08, 0.2, 0.18), at=(0, FRONT - 0.06, SILL + 0.06), m=M["bumper"], bevel=0.05 if toy else 0.025))
-    p.append(box((0.4, 0.02, 0.12), at=(0, FRONT - 0.165, SILL + 0.06), m=M["plate"], bevel=0.01))
+    p.append(box((0.4, 0.02, 0.12), at=(0, FRONT - 0.165, SILL + 0.06), m=M["plate"]))
     # rear: bumper, tall taillights, the spare wheel on the door
     p.append(box((W + 0.08, 0.2, 0.18), at=(0, REAR + 0.05, SILL + 0.06), m=M["bumper"], bevel=0.05 if toy else 0.025))
     for s in (-1, 1):
-        p.append(box((0.09, 0.03, 0.22), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.78), m=M["red"], bevel=0.012))
-        p.append(box((0.09, 0.03, 0.06), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.64), m=M["amber"], bevel=0.01))
-    p.append(box((0.42, 0.02, 0.12), at=(0, REAR + 0.155, SILL + 0.06), m=M["plate"], bevel=0.01))
+        p.append(box((0.09, 0.03, 0.22), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.78), m=M["red"]))
+        p.append(box((0.09, 0.03, 0.06), at=(s * (W / 2 - 0.08), REAR + 0.01, 0.64), m=M["amber"]))
+    p.append(box((0.42, 0.02, 0.12), at=(0, REAR + 0.155, SILL + 0.06), m=M["plate"]))
     bd = G["BackDoor"]
     for z in (0.7, 1.35):                                     # hinges on the -X side, a handle on the other
-        p.append(box((0.05, 0.04, 0.09), at=(-0.66, REAR + 0.015, z), m=M["trim"], bevel=0.01))
-    bd.append(box((0.03, 0.12, 0.03), at=(0.55, REAR + 0.02, BELT - 0.12), rot=(0, 0, math.pi / 2), m=M["trim"], bevel=0.008))
+        p.append(box((0.05, 0.04, 0.09), at=(-0.66, REAR + 0.015, z), m=M["trim"]))
+    bd.append(box((0.03, 0.12, 0.03), at=(0.55, REAR + 0.02, BELT - 0.12), rot=(0, 0, math.pi / 2), m=M["trim"]))
     sr = R * 0.98
     bd.append(cyl(0.06, 0.12, at=(0.06, REAR + 0.06, 0.98), rot=(math.pi / 2, 0, 0), m=M["trim"], verts=12))
-    bd += lift(wheel(0.06, REAR + 0.22, sr, 0.24, M, chunky=not toy, axis_x=False), 0.98)
+    bd += lift(wheel(0.06, REAR + 0.22, sr, 0.24, M, axis_x=False), 0.98)
     cover = M.get("cover")
     if cover:
         bd.append(cyl(sr + 0.012, 0.25, at=(0.06, REAR + 0.22, 0.98), rot=(math.pi / 2, 0, 0), m=cover, verts=16))
@@ -578,7 +578,7 @@ def body(M, style):
     for y in (yf, yr):
         p.append(rod((-0.7, y, zc), (0.7, y, zc), 0.04, M["under"]))
         for s in (-1, 1):
-            p += lift(wheel(s * (W / 2 - 0.1), y, R, 0.27 if toy else 0.25, M, chunky=not toy), zc)
+            p += lift(wheel(s * (W / 2 - 0.1), y, R, 0.27 if toy else 0.25, M), zc)
             fl = torus(R + 0.1, 0.06 if toy else 0.045, at=(s * (W / 2 + 0.01), y, zc), rot=(0, math.pi / 2, 0), m=M["flare"], major=20, minor=3)
             apply_all(fl)
             for v in fl.data.vertices:          # widen the torus tube sideways into a flat band
@@ -587,7 +587,7 @@ def body(M, style):
     # side steps / sills
     for s in (-1, 1):
         p.append(box((0.06, 0.95, 0.06), at=(s * (W / 2 - 0.01), 0.0, SILL + 0.02), m=M["bumper"], bevel=0.015))
-    return p, R, G
+    return p, G
 
 
 # hinge of each door (x, y) and how far it opens (radians about Z); the page reads the same from the node positions
@@ -626,7 +626,7 @@ def finish(p, G):
 
 
 # ------------------------------------------------------------------ the three styles
-BASE = dict(seat=(0.3, 0.25, 0.21), inside=(0.17, 0.17, 0.18), glass=(0.11, 0.14, 0.17), seam=(0.08, 0.08, 0.08), trim=(0.1, 0.1, 0.1), grille=(0.05, 0.05, 0.06), lamp=(1.0, 0.96, 0.82),
+BASE = dict(seat=(0.3, 0.25, 0.21), inside=(0.17, 0.17, 0.18), glass=(0.11, 0.14, 0.17), trim=(0.1, 0.1, 0.1), grille=(0.05, 0.05, 0.06), lamp=(1.0, 0.96, 0.82),
             chrome=(0.78, 0.79, 0.8), amber=(0.98, 0.58, 0.12), red=(0.75, 0.08, 0.06), plate=(0.92, 0.9, 0.84), under=(0.1, 0.1, 0.1),
             tyre=(0.11, 0.11, 0.11), hub=(0.3, 0.3, 0.32))
 
@@ -639,13 +639,13 @@ def toy():
     M = mats("toy", paint=(0.5, 0.8, 0.68), paint2=(0.97, 0.93, 0.82), bar=(0.97, 0.93, 0.82), bumper=(0.97, 0.93, 0.82), flare=(0.97, 0.93, 0.82),
              rim=(0.97, 0.93, 0.82), cover=(0.97, 0.93, 0.82), wicker=(0.78, 0.6, 0.38), wicker2=(0.62, 0.45, 0.27), blanket=(0.95, 0.45, 0.5),
              blanket2=(1, 0.88, 0.9), petal=(1, 0.55, 0.65), mid=(1, 0.84, 0.3), leaf=(0.36, 0.62, 0.3), tyre=(0.2, 0.18, 0.17))
-    p, R, G = body(M, "toy")
+    p, G = body(M, "toy")
     # a wicker roof basket with a rolled picnic blanket and a little potted plant
     z = ROOF + 0.05
     for s in (-1, 1):
         p.append(cyl(0.02, 0.08, at=(s * 0.55, -0.0, ROOF + 0.02), m=M["wicker2"], verts=6))
         p.append(cyl(0.02, 0.08, at=(s * 0.55, 1.3, ROOF + 0.02), m=M["wicker2"], verts=6))
-    p.append(box((1.3, 1.45, 0.03), at=(0, 0.66, z), m=M["wicker2"], bevel=0.01))
+    p.append(box((1.3, 1.45, 0.03), at=(0, 0.66, z), m=M["wicker2"]))
     for k in range(4):
         h = z + 0.04 + k * 0.045
         for s in (-1, 1):
@@ -700,7 +700,7 @@ EXPEDITION_COLOURS = dict(paint=(0.36, 0.39, 0.25), paint2=(0.36, 0.39, 0.25), b
 
 def expedition():
     M = mats("ex", **EXPEDITION_COLOURS)
-    p, R, G = body(M, "expedition")
+    p, G = body(M, "expedition")
     # steel bumper with a winch and a pair of tow hooks
     p.append(box((0.42, 0.18, 0.16), at=(0, FRONT - 0.2, SILL + 0.1), m=M["rack"], bevel=0.02))
     p.append(cyl(0.065, 0.36, at=(0, FRONT - 0.22, SILL + 0.11), rot=(0, math.pi / 2, 0), m=M["rope"], verts=10))
@@ -713,7 +713,7 @@ def expedition():
     p.append(box((0.14, 0.27, 0.1), at=(0.79, -0.37, ROOF + 0.03), rot=(-0.12, 0, 0), m=M["rack"]))                 # intake head
     p.append(box((0.11, 0.01, 0.06), at=(0.79, -0.505, ROOF + 0.04), rot=(-0.12, 0, 0), m=M["grille"]))             # its mesh front
     # no front plate here: the winch shows instead (Adriaen, 2026-11-11). Its fairlead, where the rope comes out:
-    p.append(box((0.2, 0.03, 0.08), at=(0, FRONT - 0.3, SILL + 0.1), m=M["bumper"], bevel=0.01))
+    p.append(box((0.2, 0.03, 0.08), at=(0, FRONT - 0.3, SILL + 0.1), m=M["bumper"]))
     p.append(box((0.12, 0.034, 0.025), at=(0, FRONT - 0.3, SILL + 0.1), m=M["grille"]))
     p.append(rod((0, FRONT - 0.3, SILL + 0.1), (0, FRONT - 0.34, SILL + 0.06), 0.008, M["rope"], verts=5))
     p.append(torus(0.03, 0.008, at=(0, FRONT - 0.345, SILL + 0.03), rot=(0, math.pi / 2, 0), m=M["strap"], major=6, minor=3))
@@ -733,7 +733,7 @@ def expedition():
     # a shovel on the rear door
     # (blade clear above the bumper, beside the spare)
     G["BackDoor"].append(rod((0.52, REAR + 0.04, 0.88), (0.52, REAR + 0.04, 1.52), 0.016, M["crate"], verts=6))
-    G["BackDoor"].append(box((0.15, 0.02, 0.2), at=(0.52, REAR + 0.05, 0.8), m=M["rack"], bevel=0.01))
+    G["BackDoor"].append(box((0.15, 0.02, 0.2), at=(0.52, REAR + 0.05, 0.8), m=M["rack"]))
     return finish(p, G)
 
 
@@ -741,7 +741,7 @@ def camper():
     M = mats("ca", paint=(0.82, 0.74, 0.58), paint2=(0.95, 0.93, 0.88), bar=(0.95, 0.93, 0.88), bumper=(0.2, 0.2, 0.2), flare=(0.2, 0.2, 0.2),
              rim=(0.95, 0.93, 0.88), cover=(0.25, 0.42, 0.38), canvas=(0.27, 0.45, 0.4), canvas2=(0.95, 0.66, 0.33), base=(0.18, 0.18, 0.18),
              alu=(0.72, 0.73, 0.74), rope=(0.7, 0.62, 0.45))
-    p, R, G = body(M, "camper")
+    p, G = body(M, "camper")
     # rooftop tent folded open over the right side: one shell on the roof, the lid as the floor out over the ladder
     z = ROOF + 0.07
     x0, x1 = -0.72, 2.0
@@ -953,7 +953,7 @@ if __name__ == "__main__":
     ap.add_argument("--no-preview", action="store_true")
     ap.add_argument("--views", default="")
     ap.add_argument("--wheel", default=WHEEL, choices=["closed", "open"])
-    ap.add_argument("--tyre", default=TYRE, choices=["at", "mt", "road"])
+    ap.add_argument("--tyre", default=TYRE, choices=["at", "mt", "road"], help="the tread; only acts with --wheel open")
     a = ap.parse_args()
     TYRE = a.tyre
     WHEEL = a.wheel
