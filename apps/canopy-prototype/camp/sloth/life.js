@@ -1,5 +1,5 @@
 // Canopy Camp sloths, the life every sloth has on top of its clip, wild or named (review 2026-11-12, P5, B4):
-//   slothLife(s, dt)   (inside, for slothsStep) fur shells only within FUR_NEAR of the camera, blinks, a look at you when
+//   slothLife(s, dt)   (inside, for slothsStep, which hands it the camera's view direction camDir once a frame) fur shells only within FUR_NEAR of the camera, blinks, a look at you when
 //                      you come close (LOOK_NEAR), a slow wave when you keep looking at it, the gift arm, the sinking head
 //                      of a sleeper, a yawn, munching
 //   slothsStep(dt)     each frame, for every sloth (main.js): its clip, slothLife, the squish of a boop and a nod
@@ -14,7 +14,8 @@ import { aimBone } from "../actor.js";
 import { giftArm } from "./arms.js";
 
 const FUR_NEAR = 8, LOOK_NEAR = 4.5;
-// scratch objects, reused every frame so slothLife allocates nothing
+// scratch objects, reused every frame so slothLife allocates nothing; camDir is the camera's view direction, set once a
+// frame by slothsStep for every sloth (review R2-083)
 const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), oq = new THREE.Quaternion();
 const va = V(), vb = V(), vc = V(), wa = V(), wf = V(), camDir = V();
 // a slow wave (Adriaen 2026-11-12): when you keep looking right at a sloth for about 3 s (it stays near the middle of your
@@ -30,7 +31,7 @@ function slothLife(s, dt) {                            // after the clip: fur by
   }
   const T = s.trip, still = !s.asleep && (!T || LIVELY.has(T.phase));
   // the gaze: how long you have kept it near the middle of your view
-  camera.getWorldDirection(camDir); const off = Math.sqrt(Math.max(0, d * d - (camDir.dot(wa.copy(va).sub(camera.position))) ** 2));
+  const off = Math.sqrt(Math.max(0, d * d - (camDir.dot(wa.copy(va).sub(camera.position))) ** 2));
   s.gaze = still && d < 10 && camDir.dot(wa) > 0 && off < 0.5 + d * 0.04 ? s.gaze + dt : Math.max(0, s.gaze - dt * 1.5);
   s.waveCD -= dt;
   if (s.gaze > GAZE_S && s.waveCD <= 0 && !s.wave) { s.wave = 1e-3; s.waveCD = 15; s.gaze = 0; }
@@ -41,7 +42,7 @@ function slothLife(s, dt) {                            // after the clip: fur by
     const hq = s.head.getWorldQuaternion(qa), face = vb.copy(FACE).applyQuaternion(hq), to = vc.copy(camera.position).sub(va).normalize();
     const turn = qb.setFromUnitVectors(face, to), ang = 2 * Math.acos(Math.min(1, Math.abs(turn.w)));
     const w = s.look * 0.75 * Math.min(1, 1.2 / Math.max(ang, 1e-3));   // at most about 70 degrees, three quarters of the way
-    turn.slerp(qa.identity(), 1 - Math.min(1, w)).multiply(s.head.getWorldQuaternion(qc));
+    qc.copy(hq); turn.slerp(qa.identity(), 1 - Math.min(1, w)).multiply(qc);   // the head's world turn, kept from above
     s.head.quaternion.copy(s.head.parent.getWorldQuaternion(qc).invert().multiply(turn));
   }
   if (s.wave && s.arm[1]) {                            // upper arm up and out beside the head, the forearm swinging slowly side to side
@@ -65,6 +66,7 @@ function slothLife(s, dt) {                            // after the clip: fur by
 }
 // each frame, for every sloth (main.js): its clip, its life on top of the clip, the squish of a boop and a nod
 function slothsStep(dt) {
+  camera.getWorldDirection(camDir);
   for (const s of sloths) {
     s.mixer.update(dt);
     slothLife(s, dt);
