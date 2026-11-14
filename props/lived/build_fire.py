@@ -11,18 +11,19 @@ Adriaen picked from three fires and three kettles (the others are in git history
 
 One GLB, every object at the fire's origin, z up (three.js y up). Triangles as of 2026-11-14 (the export prints them):
 
-    Ring       176  the stones and the ash bed (baked)
-    Tripod      48  the rope lashing where the legs cross (baked)
+    Ring       139  the stones and the ash bed (baked)
+    Tripod      36  the rope lashing where the legs cross (baked)
     Fire       286  the teepee logs and kindling (baked)
     Embers      60  the glowing lumps in the ash (baked; drawn unlit on the page so they glow)
-    Pot        248  the pot, the soup and its bits, the feet, the lugs and the bail (baked)
+    Pot        242  the pot, the soup and its bits, the feet, the lugs and the bail (baked)
     Chain       36  one textured quad per link (chain_link.png, alpha cut on the page)
     TripodLegs  66  the three bamboo legs (textured, bamboo.png)
 
 The light bake writes props/lived/fire.glb; a run on its own writes props/lived/fire_preview.glb (git-ignored). The
 flames are animated cards made on the page. build() leaves the BAKED parts one colour attribute and no UVs; the
 textured ones keep their UVs and image. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
-make() only creates the objects in the current scene; build() resets, makes, lights and exports.
+make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
+drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
 How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
 build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
 (TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
@@ -43,7 +44,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, cyl, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
 
 rng = random.Random(23)
 LIFT = 0.3                             # how far the pot's base sits above 0.45 m, clear of the flames
@@ -131,7 +132,7 @@ def ring(M):
 
 def tripod(M):
     """The rope lashing where the three legs cross (baked like the rest); the legs themselves are tripod_legs()."""
-    return join([torus(0.05, 0.022, at=(0, 0, TOP.z - 0.06), m=M["rope"], major=8, minor=3)], "Tripod")
+    return join([torus(0.05, 0.022, at=(0, 0, TOP.z - 0.06), m=M["rope"], major=6, minor=3)], "Tripod")   # 6 round: it is small (R2-154)
 
 
 def bamboo_texture(path):
@@ -257,7 +258,7 @@ def flat(n, r, at, m, sx=1.0, yaw=0.0):
 
 
 def pot(M):
-    """The open iron pot, trimmed (camp review 2026-11-12, 248 triangles): a 10-sided lathe with a rolled rim and
+    """The open iron pot, trimmed (camp review 2026-11-12; 242 triangles since R2-154): a 10-sided lathe with a rolled rim and
     the inside wall only down to the soup, the soup with flat bits on it, three feet, two lugs and a round wire bail. Returns the pot and the top of the bail (where the chain hooks on)."""
     sz = SOUP.z - POT_Z
     prof = [(0.0, 0.0), (0.1, 0.0), (0.155, 0.05), (0.163, 0.13), (0.168, 0.158),   # outside up to the rim
@@ -273,9 +274,10 @@ def pot(M):
     for k in range(4):                                             # a few lighter swirls on the surface
         a = k / 4 * 2 * math.pi + 0.4
         p.append(flat(4, 0.022, (math.cos(a) * 0.07, math.sin(a) * 0.07, SOUP.z + 0.001), M["soup2"], 1.6, a + 1.2))
-    for k in range(3):                                             # three stubby feet
+    for k in range(3):                                             # three stubby feet, no top cap (inside the pot, R2-154)
         a = k / 3 * 2 * math.pi
-        p.append(cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, POT_Z), m=M["iron"], verts=4))
+        foot = cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, POT_Z), m=M["iron"], verts=4)
+        p.append(drop_faces(foot, lambda n, c: n.z > 0.9))
     pivot = POT_Z + 0.15
     pts = [Vector((0, -0.175 * math.cos(t), pivot + 0.17 * math.sin(t))) for t in [k / 6 * math.pi for k in range(7)]]
     p.append(wire(pts, 0.007, M["iron"]))
@@ -338,7 +340,9 @@ def make():
     for o in objs:                             # each is joined from parts (join() applied them): at the fire's origin
         o.location = (0, 0, 0)
     ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
-    return {o.name: o for o in objs + [ch, tripod_legs()]}
+    every = objs + [ch, tripod_legs()]
+    drop_ground_faces(every)                  # the bottoms lying on the ground (review R2-154)
+    return {o.name: o for o in every}
 
 
 def build(samples=32, colour=None, path=None):

@@ -49,7 +49,6 @@ EYES = (1.13, 1.55)                            # the player's eye heights the re
 RINGS = (0.6, 1.2, 2.5, 5.0, 8.0)              # metres out from the object's footprint
 ANGLES = 24
 KNOWN = {                                      # "<GLB name>/<object>": the faults it had on 2026-11-14 (see the docstring)
-    "lived/TentSide": {"back_only": 2},
     "camp_picked/Tent": {"back_only": 26},
     "jeep_expedition/Jeep": {"overlaps": 15},
     "jeep_expedition/DoorP": {"overlaps": 2},

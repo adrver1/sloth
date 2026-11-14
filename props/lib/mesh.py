@@ -1,6 +1,6 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), tubes (sweep, tube),
-shaping (bevel, rough_up, drop_faces), and object plumbing (apply_all, join, obj_from_bm, select_only). Z up, metres;
+shaping (bevel, rough_up, drop_faces, drop_ground_faces), and object plumbing (apply_all, join, obj_from_bm, select_only). Z up, metres;
 every helper that makes an object links it into the current scene's collection and returns it.
 
     sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None)
@@ -159,6 +159,24 @@ def drop_faces(o, test):
     bm.to_mesh(o.data)
     bm.free()
     return o
+
+
+def drop_ground_faces(objs, h=0.05):
+    """Delete the faces of each mesh in objs that point down (normal z under -0.7) with their centre less than h above
+    the ground (world z = 0): bottoms standing on the ground, which nobody sees and which still took light-map space
+    (review R2-154). Tested in world space, so an object keeps its transform. Returns objs."""
+    for o in objs:
+        if o.type != "MESH":
+            continue
+        mw, nw = o.matrix_world, o.matrix_world.to_3x3().inverted().transposed()
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        down = [f for f in bm.faces if (nw @ f.normal).normalized().z < -0.7 and (mw @ f.calc_center_median()).z < h]
+        if down:
+            bmesh.ops.delete(bm, geom=down, context="FACES")
+            bm.to_mesh(o.data)
+        bm.free()
+    return objs
 
 
 def select_only(o):

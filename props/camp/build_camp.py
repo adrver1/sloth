@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, sweep, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, rod, rough_up, sweep, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
 STYLES = ("storybook", "rustic", "jungle")      # the archived styles build() remakes; the picked set comes from the light bake
@@ -659,12 +659,15 @@ def picked():
     planks before the door; the jungle woven hammock, on plain octagon posts with painted nodes and no leaves on top.
     The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
     made, in the order the light bake's atlas has always seen them (seat, table, hammock, tent). The jar lanterns are
-    drawn by the page (lanterns.js), so the set has no lantern mesh (review R2-236)."""
+    drawn by the page (lanterns.js), so the set has no lantern mesh (review R2-236). The tent, hammock and table lose the
+    faces that point down onto the ground (lib/mesh.py drop_ground_faces, review R2-154)."""
     R, J = rustic_mats(), jungle_mats()
     seat, table = rustic_seat(R), rustic_table(R)
     hammock = jungle_hammock(J, plain_posts=True)
     hammock["coarse"] = True                    # Adriaen 2026-11-11: the densified cloth was ~7k triangles
-    return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Table": table}
+    tent = wall_tent()
+    drop_ground_faces([tent, hammock, table])   # the bottoms standing on the ground (review R2-154; the seat is rebuilt in R2-169)
+    return {"Seat": seat, "Tent": tent, "Hammock": hammock, "Table": table}
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): the light bake

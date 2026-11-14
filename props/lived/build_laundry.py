@@ -1,7 +1,7 @@
 """
 The laundry line for the Canopy Camp game (apps/canopy-prototype/camp.html), lived-in props batch 2 (2026-11-11).
 
-    LaundryPosts  40  two plain sticks pushed into the ground (baked, like the other props)
+    LaundryPosts  32  two plain sticks pushed into the ground (baked, like the other props)
     LaundryCloth  50  the line, a striped towel folded over it and three sloth-sized socks,
                       all textured quads on one drawn atlas (laundry.png, alpha cut on the page); the pegs are painted in
                       (triangles as of 2026-11-14; the export prints them)
@@ -14,7 +14,8 @@ sloth-life thread builds that sloth).
 
 One GLB, z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin. The light bake writes
 props/lived/laundry.glb; a run on its own writes props/lived/laundry_preview.glb (git-ignored).
-make() only creates the objects in the current scene; build() resets, makes, lights and exports.
+make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
+drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
 How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
 build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
 (TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
@@ -33,7 +34,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import join, obj_from_bm, rod  # noqa: E402
+from lib.mesh import drop_ground_faces, join, obj_from_bm, rod  # noqa: E402
 
 L = 3.0            # post to post
 H = 1.62           # where the line is tied on the posts
@@ -140,7 +141,7 @@ def posts():
         foot = Vector((s * (L / 2 + 0.06), 0, 0))
         top = Vector((s * L / 2, 0, H + 0.12))
         p.append(rod(foot, top, 0.03, M["pole"], verts=6))         # a plain stick; the line is tied round it
-    return join(p, "LaundryPosts")
+    return drop_ground_faces([join(p, "LaundryPosts")])[0]    # no cap down in the ground (review R2-154)
 
 
 def make():

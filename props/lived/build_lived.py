@@ -4,14 +4,14 @@ look used. PROPS (above make()) lists them all, one row each with its builder an
 2026-11-14 (build() prints them, with a breakdown per piece of the baked props):
 
     WoodStack      94  the stacked split logs by the fire as one textured block (renders of the detailed stack)
-    LooseLogs      60  three loose split logs by the pile (textured, on the stack's atlas)
+    LooseLogs      48  three loose split logs by the pile (textured, on the stack's atlas)
     SeatTop         2  the rustic seat's sawn top (textured; the page puts one on each of three seats)
-    MatRoll        28  the rolled sleeping mat by the tent (textured)
+    MatRoll        24  the rolled sleeping mat by the tent (textured)
     KitchenCrate   26  the kitchen crate (textured)
     WoodPile      178  the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
     SeatThings    120  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
-    TentSide      176  the pair of wellies by the tent (baked)
-    KitchenThings 160  the pan, plates, honey jar and spoon on the crate (baked)
+    TentSide      147  the pair of wellies by the tent (baked)
+    KitchenThings 130  the pan, plates, honey jar and spoon on the crate (baked)
 
     .venv/bin/python props/lived/build_lived.py
     .venv/bin/python props/lived/build_lived.py --samples 64
@@ -22,7 +22,8 @@ SeatThings shares the Seat's origin (props/camp/build_camp.py rustic(): log alon
 page places it with the same transform as the seat it sits on. build() leaves the "baked" props one colour attribute
 and no UVs, and the page draws them with a plain Lambert material; the "textured" ones keep their UVs and image.
 Materials match the camp's rustic set, so the props sit with the picked camp.
-make() only creates the objects in the current scene; build() resets, makes, lights and exports.
+make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
+drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
 How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
 build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
 (TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
@@ -48,7 +49,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake, pick_device  # noqa: E402
 from lib.export import export_glb, report, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, cyl, join, obj_from_bm, quad, rod, rough_up, sweep, torus, tube  # noqa: E402
+from lib.mesh import apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, quad, rod, rough_up, sweep, torus, tube  # noqa: E402
 
 rng = random.Random(11)
 SEAT_TOP = 0.361
@@ -692,6 +693,11 @@ def kitchen_crate():
     return o
 
 
+def top_only(o):
+    """o (an upright cylinder) without its bottom cap."""
+    return drop_faces(o, lambda n, c: n.z < -0.9)
+
+
 def kitchen_things(M):
     """What's in and by the crate: a frying pan standing in it with its handle up, a stack of enamel plates, a honey
     jar and a wooden spoon (plain low-sided shapes, baked like the other props)."""
@@ -705,12 +711,14 @@ def kitchen_things(M):
     p.append(pj)
     k0 = mark(p, 0, "Frying pan")
     # plates stacked on the floor of the crate, front right
-    p.append(cyl(0.085, 0.04, at=(0.12, -0.04, 0.04), m=M["plate"], verts=8, smooth=False))
-    p.append(cyl(0.086, 0.004, at=(0.12, -0.04, 0.0615), m=M["rim"], verts=8, smooth=False))
+    # (no caps nobody sees, review R2-154: the stack is open at both ends, under the rim and on the crate floor, and
+    # the rim and the jar's lid have only their top)
+    p.append(cyl(0.085, 0.04, at=(0.12, -0.04, 0.04), m=M["plate"], verts=8, smooth=False, caps=False))
+    p.append(top_only(cyl(0.086, 0.004, at=(0.12, -0.04, 0.0615), m=M["rim"], verts=8, smooth=False)))
     k0 = mark(p, k0, "Enamel plates")
     # the honey jar in the back corner of the crate, and a wooden spoon resting across the rim
-    p.append(cyl(0.045, 0.1, at=(0.17, 0.095, 0.07), m=M["honey"], verts=6, smooth=False))
-    p.append(cyl(0.05, 0.022, at=(0.17, 0.095, 0.131), m=M["lid"], verts=6, smooth=False))
+    p.append(cyl(0.045, 0.1, at=(0.17, 0.095, 0.07), m=M["honey"], verts=6, smooth=False, caps=False))
+    p.append(top_only(cyl(0.05, 0.022, at=(0.17, 0.095, 0.131), m=M["lid"], verts=6, smooth=False)))
     k0 = mark(p, k0, "Honey jar")
     p.append(rod((-0.2, -0.17, CH + 0.008), (0.06, -0.15, CH + 0.03), 0.008, M["handle"], verts=4))
     p.append(box((0.07, 0.045, 0.014), at=(0.1, -0.148, CH + 0.03), rot=(0, 0.15, 0.08), m=M["handle"]))
@@ -746,6 +754,7 @@ def make(samples=32):
         o = made[k]
         o.location = (0, 0, 0)
         o.name = k
+    drop_ground_faces(made.values())          # the bottoms standing on the ground (review R2-154)
     return {k: made[k] for k in BAKED + TEXTURED}
 
 
