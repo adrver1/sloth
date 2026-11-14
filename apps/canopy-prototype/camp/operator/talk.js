@@ -3,7 +3,8 @@
 // to his free hand (or his mouth), he munches it a bite at a time and thanks you. Now and then he remarks on what you just
 // did (window event "camp-act" from the chores and the taps). What a tap finds is an invisible column round him (24
 // triangles, never drawn: the skinned mesh is too costly to ray-test); no glow, like the sloths.
-// Exports buildTalk() (operator.js, once his model is in), speak(text), talk(), gift(), talkStep(dt), mouthAt(out), tapCol and saying() (the bubble's text).
+// Exports buildTalk() (operator.js, once his model is in), speak(text), talk(), gift(), talkStep(dt), mouthAt(out), tapCol,
+// saying() (the bubble's text) and chestOnScreen() (where his chest is on screen, for the checks: opApi.tapAt).
 import * as THREE from "three";
 import { camera, rng, scene } from "../core.js";
 const { R } = rng("operator");
@@ -15,8 +16,11 @@ import { LINES, bag, line, pickLine } from "./lines.js";
 import { B, clips, csDir, root } from "./model.js";
 import { ME, freeHand, op } from "./state.js";
 
-const tq = new THREE.Quaternion();
+const tq = new THREE.Quaternion(), vM = V(), vU = V(), vB = V(), LIFT = V(0, 0.025, 0), OVER = V(0, 0.34, 0);   // scratch (review R2-019)
 let bubble = null, say = null, tapCol = null;
+// the bubble's state as last written, so a frame touches its style only when something changed and never forces a layout
+// (review R2-019): shown, on screen, its half width (measured once per line, in speak) and the position written
+const bub = { shown: false, vis: true, half: 0, left: "", top: "" };
 // a remark on what you just did, when he's near, awake and not mid-sentence; at most one every 40 s or so, not every time
 function react(e) {
   const { kind, by, name } = e.detail || {}; if (by === ME || !LINES["react_" + kind]) return;
@@ -42,8 +46,10 @@ function buildTalk() {
 const saying = () => say.textContent;
 function talk() { speak(line()); }
 // food you hand him (camp activities: a vegetable or a bowl of soup): it flies to his mouth, he munches, then thanks you
-const mouthAt = (out) => B.head.getWorldPosition(out).addScaledVector(csDir(0, 0, -1), 0.12).add(V(0, 0.025, 0));
-const palmAt = (S, out) => B["hand" + S].getWorldPosition(out).addScaledVector(V(0, 1, 0).applyQuaternion(B["hand" + S].getWorldQuaternion(tq)), 0.07);
+const mouthAt = (out) => B.head.getWorldPosition(out).addScaledVector(csDir(0, 0, -1, vM), 0.12).add(LIFT);
+const palmAt = (S, out) => B["hand" + S].getWorldPosition(out).addScaledVector(vU.set(0, 1, 0).applyQuaternion(B["hand" + S].getWorldQuaternion(tq)), 0.07);
+// where his chest is on screen, in CSS pixels [x, y] (the checks, opApi.tapAt): worked out when asked, not every frame
+const chestOnScreen = () => { const v = B.chest.getWorldPosition(V()).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
 // one gift at a time: while the last one is flying to him or at his lips the menu offers none (a second one overwrote the
 // first's flight and left its food floating at his mouth: review R2-009)
 const munching = () => !!(op.talk.fly || op.talk.food);
@@ -65,24 +71,27 @@ function gift() {
 function speak(txt) {
   // its size is fixed when it appears: a fixed-position box shrinks to fit the room left of the screen edge, so as he moved
   // toward an edge the text re-wrapped (Adriaen: hard to read). Measure it free, then pin the width.
-  say.textContent = txt; bubble.style.width = ""; bubble.style.left = "0px"; bubble.style.width = bubble.offsetWidth + 1 + "px"; op.talk.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); op.talk.smile = op.talk.t + 3;
+  say.textContent = txt; bubble.style.width = ""; bubble.style.left = "0px"; bubble.style.width = bubble.offsetWidth + 1 + "px"; bub.half = bubble.offsetWidth / 2 + 8; bub.left = "0px"; op.talk.t = Math.min(7, 2.2 + txt.split(" ").length * 0.32); op.talk.smile = op.talk.t + 3;
   if (!op.sleeping) { const a = clips.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.setEffectiveWeight(1); a.play(); }
 }
 function talkStep(dt) {
-  { const v = B.chest.getWorldPosition(V()).project(camera); op.scr = [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }   // checks (opApi.tapAt)
   op.talk.t = Math.max(0, op.talk.t - dt); op.talk.smile = Math.max(0, op.talk.smile - dt);
   op.talk.munch = Math.max(0, (op.talk.munch || 0) - dt);
   const hd = op.talk.hand?.side;
   if (op.talk.fly) hd ? palmAt(hd, op.talk.fly.to) : mouthAt(op.talk.fly.to);
-  if (op.talk.food) { const F = op.talk.food; F.t += dt; if (hd) palmAt(hd, F.m.position).lerp(mouthAt(V()), 0.35 * THREE.MathUtils.smoothstep(F.t, 0.2, 0.4)); else mouthAt(F.m.position); F.m.scale.copy(F.m.userData.base).multiplyScalar(Math.max(0.1, 1 - 0.24 * Math.floor(F.t / 0.5)));
+  if (op.talk.food) { const F = op.talk.food; F.t += dt; if (hd) palmAt(hd, F.m.position).lerp(mouthAt(vB), 0.35 * THREE.MathUtils.smoothstep(F.t, 0.2, 0.4)); else mouthAt(F.m.position); F.m.scale.copy(F.m.userData.base).multiplyScalar(Math.max(0.1, 1 - 0.24 * Math.floor(F.t / 0.5)));
     if (F.t > 2.1) { scene.remove(F.m); op.talk.food = null; } }
   if (op.talk.t <= 0 && !op.talk.munch && clips.talk.isRunning() && clips.talk.getEffectiveWeight() > 0.99) clips.talk.fadeOut(0.3);
-  const on = op.talk.t > 0; bubble.style.opacity = on ? 1 : 0; bubble.style.transform = `translate(-50%,-100%) scale(${on ? 1 : 0.85})`;
-  if (!on && bubble.style.opacity === "0") return;
-  const v = B.head.getWorldPosition(V()).add(V(0, 0.34, 0)).project(camera);
-  if (v.z > 1) { bubble.style.opacity = 0; return; }
-  const half = bubble.offsetWidth / 2 + 8; bubble.style.left = THREE.MathUtils.clamp((v.x + 1) / 2 * innerWidth, half, innerWidth - half) + "px";   // kept whole on screen
-  bubble.style.top = THREE.MathUtils.clamp((1 - v.y) / 2 * innerHeight, 120, innerHeight - 60) + "px";
+  const on = op.talk.t > 0;
+  if (on !== bub.shown) { bub.shown = on; bub.vis = on; bubble.style.opacity = on ? 1 : 0; bubble.style.transform = `translate(-50%,-100%) scale(${on ? 1 : 0.85})`; }
+  if (!on) return;   // fading out where it was
+  const v = B.head.getWorldPosition(vB).add(OVER).project(camera), vis = v.z <= 1;
+  if (vis !== bub.vis) { bub.vis = vis; bubble.style.opacity = vis ? 1 : 0; }
+  if (!vis) return;
+  const left = Math.round(THREE.MathUtils.clamp((v.x + 1) / 2 * innerWidth, bub.half, innerWidth - bub.half)) + "px";   // kept whole on screen
+  const top = Math.round(THREE.MathUtils.clamp((1 - v.y) / 2 * innerHeight, 120, innerHeight - 60)) + "px";
+  if (left !== bub.left) bubble.style.left = bub.left = left;
+  if (top !== bub.top) bubble.style.top = bub.top = top;
 }
 
-export { buildTalk, gift, mouthAt, saying, speak, talk, talkStep, tapCol };
+export { buildTalk, chestOnScreen, gift, mouthAt, saying, speak, talk, talkStep, tapCol };

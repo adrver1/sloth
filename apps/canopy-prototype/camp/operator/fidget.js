@@ -16,20 +16,21 @@ function pickFid() {
     : { scratch: 2, stretch: 1.2, look: 2, point: op.seated ? 0.4 : 1.1, shift: 1.5 };
   let r = R(0, Object.values(w).reduce((a, b) => a + b, 0)); for (const [k, v] of Object.entries(w)) if ((r -= v) <= 0) return k; return "look";
 }
+const vH = V(), vFw = V(), vSd = V(), vT = V(), vC = V(), vP = V();   // scratch: a fidget frame allocates nothing (review R2-019)
 function fidget(F, e) {
-  const t = F.t, head = B.head.getWorldPosition(V()), fw = csDir(0, 0, -1), sd = csDir(1, 0, 0);
+  const t = F.t, head = B.head.getWorldPosition(vH), fw = csDir(0, 0, -1, vFw), sd = csDir(1, 0, 0, vSd);
   switch (F.kind) {
-    case "scratch": reach("R", head.clone().addScaledVector(fw, 0.13).addScaledVector(UP, -0.12).addScaledVector(sd, 0.015 + 0.012 * Math.sin(t * 13)), csDir(1, -0.5, 0.2), e);
+    case "scratch": reach("R", vT.copy(head).addScaledVector(fw, 0.13).addScaledVector(UP, -0.12).addScaledVector(sd, 0.015 + 0.012 * Math.sin(t * 13)), csDir(1, -0.5, 0.2, vP), e);
       B.head.rotateX(0.12 * e); B.head.rotateZ(-0.06 * e); break;   // fingers in his beard, chin up a little
-    case "stretch": for (const [S, x] of [["R", 1], ["L", -1]]) reach(S, head.clone().addScaledVector(UP, 0.42).addScaledVector(sd, 0.17 * x).addScaledVector(fw, -0.02), csDir(x, 0, 0.3), e);
+    case "stretch": for (const [S, x] of [["R", 1], ["L", -1]]) reach(S, vT.copy(head).addScaledVector(UP, 0.42).addScaledVector(sd, 0.17 * x).addScaledVector(fw, -0.02), csDir(x, 0, 0.3, vP), e);
       B.chest.rotateX(0.1 * e); B.head.rotateX(0.18 * e); break;   // both arms up over his head, leaning back
     case "look": { const a = Math.sin(t * 0.8) * 0.9 * e; B.neck.rotateY(a * 0.45); B.head.rotateY(a * 0.45); break; }   // a slow look round
-    case "point": reach("R", head.clone().addScaledVector(fw, 0.42).addScaledVector(UP, 0.36).addScaledVector(sd, 0.24), csDir(1, -0.3, 0), e);
+    case "point": reach("R", vT.copy(head).addScaledVector(fw, 0.42).addScaledVector(UP, 0.36).addScaledVector(sd, 0.24), csDir(1, -0.3, 0, vP), e);
       B.head.rotateX(0.35 * e); B.head.rotateY(-0.2 * e); break;   // "look, up there"
     case "shift": B.chest.rotateZ(0.07 * Math.sin(t * 1.1) * e); B.head.rotateZ(-0.04 * Math.sin(t * 1.1) * e); break;   // weight from foot to foot
-    case "rub": { const c = head.clone().addScaledVector(fw, 0.3).addScaledVector(UP, -0.42), r = 0.02 * Math.sin(t * 10);
-      reach("R", c.clone().addScaledVector(sd, 0.03 + r), csDir(1, -0.6, 0.2), e); reach("L", c.clone().addScaledVector(sd, -0.03 + r), csDir(-1, -0.6, 0.2), e); break; }   // warming his hands
-    case "yawn": reach("L", head.clone().addScaledVector(fw, 0.12).addScaledVector(UP, -0.06), csDir(-1, -0.5, 0.2), e);
+    case "rub": { const c = vC.copy(head).addScaledVector(fw, 0.3).addScaledVector(UP, -0.42), r = 0.02 * Math.sin(t * 10);
+      reach("R", vT.copy(c).addScaledVector(sd, 0.03 + r), csDir(1, -0.6, 0.2, vP), e); reach("L", vT.copy(c).addScaledVector(sd, -0.03 + r), csDir(-1, -0.6, 0.2, vP), e); break; }   // warming his hands
+    case "yawn": reach("L", vT.copy(head).addScaledVector(fw, 0.12).addScaledVector(UP, -0.06), csDir(-1, -0.5, 0.2, vP), e);
       B.head.rotateX(0.3 * e); B.neck.rotateX(0.1 * e); break;   // a hand over his mouth, head back
   }
 }

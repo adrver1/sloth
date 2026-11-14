@@ -53,7 +53,7 @@ function buildSloths() {
   if (OPT.campsloths) {
     buildSpots();   // the hammock, the seat, the jeep, the line, the tent and two branches
     buildNav();     // the wayfinding grid
-    addCrowd(() => camp.filter((o) => GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * o.sc]));   // the sloths on the ground are movers (places.js)
+    addCrowd((add) => { for (const o of camp) if (GROUND.has(o.trip.phase)) add(o.o.position, 0.18 * o.sc); });   // the sloths on the ground are movers (places.js)
     // the things they use: where the paw is at the grab and the fruits, the spanner, the cards, the s'more stick and marshmallow
     buildTable(); buildSpanner(); buildCards(); buildSmore();
     // the seven named sloths (cast.js), each in its own spot: Hibi naps in the hammock, Sunny sits on the bench and toasts

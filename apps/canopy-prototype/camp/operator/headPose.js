@@ -13,6 +13,7 @@ import { turnToward } from "./walk.js";
 
 let zz = null;
 function buildSleepZ() { zz = makeZ(); zz.material.opacity = 0; }
+const vHp = V(), vTo = V(), vF = V(), vDir = V(), vA = V(), vY = V();   // scratch: no allocation per frame (review R2-019)
 const ZS = { wob: 0.08, y0: 0.25, rise: 0.4, w0: 0.22, w1: 0.25 };   // how his z sways, rises and grows (actor.js zAt)
 function poseHead(dt) {
   // the head: a look down at a book or a sloth, round the camp, or at you when you're near and he's awake
@@ -22,24 +23,24 @@ function poseHead(dt) {
   // when you're near.
   const talking = op.talk.t > 0 || op.talk.smile > 1.5;
   if (!op.sleeping && !op.lying && (camD < 4 && op.look > -0.3 || talking && camD < 9)) {
-    const hp = B.head.getWorldPosition(V()), to = camera.position.clone().sub(hp), f = csDir(0, 0, -1).setY(0).normalize();
+    const hp = B.head.getWorldPosition(vHp), to = vTo.copy(camera.position).sub(hp), f = csDir(0, 0, -1, vF).setY(0).normalize();
     let a = Math.atan2(to.x, to.z) - Math.atan2(f.x, f.z); a = Math.atan2(Math.sin(a), Math.cos(a));
     const ok = Math.abs(a) < 2.1;
     op.anim.look = ok ? Math.min(1, op.anim.look + dt * 2) : Math.max(0, op.anim.look - dt * 2);
     if (op.anim.look > 0) {
-      const lim = 1.3, ca = THREE.MathUtils.clamp(a, -lim, lim), hz = Math.hypot(to.x, to.z), dir = f.clone().applyAxisAngle(UP, ca).multiplyScalar(hz).setY(to.y).normalize();
+      const lim = 1.3, ca = THREE.MathUtils.clamp(a, -lim, lim), hz = Math.hypot(to.x, to.z), dir = vDir.copy(f).applyAxisAngle(UP, ca).multiplyScalar(hz).setY(to.y).normalize();
       const w = talking ? 1 : 0.8;
-      aimBone(B.neck, dir.clone().lerp(UP, 0.8).normalize(), 0.55 * op.anim.look * w); aimBone(B.head, dir.clone().lerp(UP, 0.55).normalize(), 0.5 * op.anim.look * w);
+      aimBone(B.neck, vA.copy(dir).lerp(UP, 0.8).normalize(), 0.55 * op.anim.look * w); aimBone(B.head, vA.copy(dir).lerp(UP, 0.55).normalize(), 0.5 * op.anim.look * w);
     }
   } else op.anim.look = Math.max(0, op.anim.look - dt * 2);
   const down = talking ? op.look * Math.max(0, 1 - op.anim.look) : op.look;   // he looks up from his bowl or book to you
   if (down) B.head.rotateX(down * 0.6), B.neck.rotateX(down * 0.3);
   // standing about with his hands free when you talk to him: he turns to you (walking, listen() stops him first)
   if (talking && !op.seated && !op.lying && cur === clips.idle && !handsBusy())
-    turnToward(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2);
+    turnToward(yawTo(vA.set(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2);
   // a wave back when you keep looking at him for 3 s (standing about, not busy)
   if (op.kind === "stroll" && cur === clips.idle && camD < 9) {
-    const v = root.position.clone().add(V(0, 1.5, 0)).project(camera);
+    const v = vA.copy(root.position).add(vY.set(0, 1.5, 0)).project(camera);
     op.gaze = Math.abs(v.x) < 0.25 && Math.abs(v.y) < 0.35 && v.z < 1 ? op.gaze + dt : 0;
     if (op.gaze > 3) { op.gaze = -12; const a = play("wave", 0.3, { once: true }); mixer.addEventListener("finished", function f(e) { if (e.action === a) { mixer.removeEventListener("finished", f); play("idle", 0.4); } }); }
   }

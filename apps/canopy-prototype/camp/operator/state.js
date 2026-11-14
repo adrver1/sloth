@@ -26,13 +26,13 @@ const op = {
   inHand: null,                                        // the prop in his right hand (handProps.js hold)
   eat: null, pail: null, stir: null, veg: false,       // soup { t, spoon }; the pail { tilt, from, k }; stirring { t, k }; a vegetable in hand
   fid: null,                                           // a little fidget { kind, t, k, T }
-  // a sloth with him: the one he plays with or cuddles, and the hold { s, k, from, q0 } while it is in his hands
+  // a sloth with him: the one he plays with or cuddles, and the hold { s, k, from, q0, arms } while it is in his hands (arms:
+  // its two upper-arm bones, found by handPose.js on the first frame)
   buddy: null, carry: null,
   // talking: s left of the line, of the smile after, of the munching; the hand out for food, the food flying and at his lips
   talk: { t: 0, smile: 0, munch: 0, hand: null, fly: null, food: null },
   // s until he may sit with you again, cook again, remark again, fidget again
   cd: { join: 0, cook: 60, react: 0, fid: 4 },
-  scr: null,                                           // where his chest is on screen, for the checks (opApi.tapAt)
 };
 
 // hands: what dropping everything clears. body: what a jump to another activity (checks) clears on top of that.
