@@ -75,10 +75,11 @@ export function createActivities({ scene, camera, me, places: { woodPile, fire, 
     look: () => (held() === "log" ? looks.fireOnly : looks.pot) ?? null });   // the fire lights up for a log, the pot for everything else
   // the water pail under the snack table (built here, after the fire's sphere: the order things are made in is kept)
   const canister = soupChore.placePail(table);
-  thing({ name: "canister", at: canister.at, r: 0.3, look: [canister.pail], when: () => (!held() && soup.stage === "empty") || held() === "water",
+  // the pail is not there while the operator carries it (cook.takePail hides it): no second one from the empty spot (review R2-069)
+  thing({ name: "canister", at: canister.at, r: 0.3, look: [canister.pail], when: () => (!held() && soup.stage === "empty" && canister.pail.visible) || held() === "water",
     act() { if (held()) { carry.putBack(); return; } carry.hold("water"); canister.pail.visible = false; toast("Got the water 💧", "slosh"); },
     label: () => held() === "water" ? "Put the pail back 💧" : "Take the pail of water 💧",
-    why: () => held() ? full : soup.stage !== "empty" ? "Water's in already" : null });
+    why: () => held() ? full : soup.stage !== "empty" ? "Water's in already" : !canister.pail.visible ? "He's fetching water already 💧" : null });
   // the kitchen crate: one vegetable at a time, a different one each time
   if (crate) thing({ name: "crate", at: crate, r: 0.4, look: looks.crate ?? null, ...source("veg", () => { const [n, e] = carry.takeNext("veg"); toast(`Got a ${n} ${e}`, "knock"); }),
     label: () => { const [n, e] = held() === "veg" ? carry.now("veg") : carry.next("veg"); return held() === "veg" ? `Put the ${n} back ${e}` : `Take a ${n} ${e}`; } });
