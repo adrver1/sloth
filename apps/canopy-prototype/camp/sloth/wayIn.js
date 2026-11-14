@@ -7,7 +7,8 @@
 //                               guest (a nap trip) goes straight to sleep; first: placed there at the start
 //   doorStep(s, T, sd, spot)    the door phase (the jeep): waits for its door, then up onto the sill and in
 // Every other step of the way in is a slide or a glide (moves.js): up the trunk and along the branch, up the post, round
-// onto the rope or the line and along it, and the settle into the spot, growing or shrinking to its size there.
+// onto the rope or the line and along it, and the settle into the spot, growing or shrinking to its size there (spots.js
+// sizeIn: the spot's size times the sloth's own factor s.k).
 // The times to the next errand and the next nap draw from the sloths' stream (core.js rng("sloths")) as they happen.
 import { jeepApi } from "../jeep.js";
 import { rng } from "../core.js";
@@ -19,7 +20,7 @@ import { HW, HW_POST } from "./state.js";
 import { clipOf, play } from "./clips.js";
 import { ROPE_L, UP, barkProfile, linePose, postPose, ropePose, trunkAt, turnTo, underAt, yawQ } from "./poses.js";
 import { climbV, glide, postV, slide } from "./moves.js";
-import { brush, claimHome } from "./spots.js";
+import { brush, claimHome, sizeIn } from "./spots.js";
 import { doze } from "./naps.js";
 
 function atHome(s, first) {
@@ -30,7 +31,7 @@ function atHome(s, first) {
   if (s.spot.car && !first) setTimeout(() => jeepApi?.close("P"), 1500);
 }
 function placeHome(s) {                             // straight into its spot, as if it had always lived there
-  const spot = s.spot; s.sc = spot.scale; s.o.scale.setScalar(s.sc); s.act = s.mixer.existingAction(clipOf("cling"));
+  const spot = s.spot; s.sc = sizeIn(s, spot); s.o.scale.setScalar(s.sc); s.act = s.mixer.existingAction(clipOf("cling"));
   s.trip = { phase: "home", t: 0, yaw: 0 };
   if (spot.branch || spot.line) {
     const P = spot.line ? linePose(s, spot.t) : underAt(s, spot.curve.getPointAt(spot.t), spot.curve.getTangentAt(spot.t));
@@ -50,7 +51,7 @@ function climbUp(s, spot) {                          // up the trunk and out alo
 }
 function settleIn(s, fade) {                         // about 4 s (6 into the hammock): up into its spot, growing or shrinking to its size there
   const spot = s.spot; spot.parent.attach(s.o); play(s, spot.clip, fade);
-  glide(s, { p: spot.at, q: yawQ(spot.yaw), lift: spot.climb || spot.noHop ? 0 : 0.12, sc: spot.scale }, spot.climb ? 6 : 4, () => atHome(s));
+  glide(s, { p: spot.at, q: yawQ(spot.yaw), lift: spot.climb || spot.noHop ? 0 : 0.12, sc: sizeIn(s, spot) }, spot.climb ? 6 : 4, () => atHome(s));
 }
 // up the post hand over hand until its arms reach the rope knot (or the line), then round to hang under the rope and down
 // it into the sling, or along the line to its gap (wayOut.js exitSpot is the same the other way)

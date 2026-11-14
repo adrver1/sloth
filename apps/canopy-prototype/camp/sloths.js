@@ -62,10 +62,10 @@ function buildSloths() {
     const WHO = { hammock: ["Hibi"], seat: ["Sunny"], jeep: ["Mango"], line: ["Pip"], tent: ["Hazel"], branch: ["Figgy", "Bandit"] };
     for (const spot of spots) {
       const nm = WHO[spot.name]?.shift(), c = CAST.find((k) => k.name === nm); if (!c) continue;
-      if (c.scale) spot.scale *= c.scale;
-      hang(V(0, 0, 0), V(1, 0, 0), spot.scale);
+      const k = c.scale ?? 1;   // its own size against the others (Pip is the smallest), kept as s.k for every spot it goes to
+      hang(V(0, 0, 0), V(1, 0, 0), spot.scale * k);
       const s = sloths.at(-1); c.dress?.(s.head, s.o);
-      Object.assign(s, { name: c.name, spot, greetCD: R(0, 10), smoreT: R(8, 20), gaze: 0, waveCD: 0 });
+      Object.assign(s, { name: c.name, k, spot, greetCD: R(0, 10), smoreT: R(8, 20), gaze: 0, waveCD: 0 });
       spot.who = s; camp.push(s); placeHome(s);
     }
     { let tris = 0; for (const s of camp) s.o.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh && m.geometry) tris += triCount(m.geometry); });

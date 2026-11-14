@@ -46,6 +46,7 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
     // the body
     o,                           // the model's root (its place, turn and size in the scene)
     sc,                          // its size now (the model is 1); a camp sloth grows or shrinks to its spot's size (wayIn.js)
+    k: 1,                        // a camp sloth's own size factor (cast.js scale; Pip 0.72): its size in a spot is spot.scale * k
     head: o.getObjectByName("head"),   // the head bone
     arm: armBones(o, "R"), armL: armBones(o, "L"),   // [upper arm, forearm] bones, right and left
     shells: o.userData.furShells || [],   // the fur shells, shown only near the camera (life.js)

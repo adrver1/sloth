@@ -10,10 +10,12 @@
 //                   "seat:Sunny" or "jeep:Mango"; the seat's sloth holds its log too ("log:0"), so no one else sits there
 //   moveInto(s, g), moveBack(s)    a nap trip: s claims the guest spot g and makes it its spot (its home kept as
 //                   s.ownSpot); and gives it up and has its own home again (day.js, saved.js)
+//   sizeIn(s, spot) s's size there: spot.scale (for a sloth of the usual size) times s.k (its cast.js scale)
 //   hammock         the hammock's swing (swing.js makeHammockSwing), with zz and zk for its napper's z's (naps.js)
 //   brush           brush(p, on, dt): the laundry swings aside where a sloth passes (swing.js); null without the line
-// A spot: { name, parent (the group it is local to), at, yaw, clip (what it plays there), scale (its size there), door (the
-// point on the ground it crawls to before going in), who (its sloth), home (its sloth is in) } and what its way in needs:
+// A spot: { name, parent (the group it is local to), at, yaw, clip (what it plays there), scale (the size a sloth of the
+// usual size has there; sizeIn), door (the point on the ground it crawls to before going in), who (its sloth), home (its
+// sloth is in) } and what its way in needs:
 // climb (up a post first), car + sill (through the jeep's door), line + t + top + climbYaw (along the laundry line),
 // via (a point to pass on the way to the door), noHop, asleep (it sleeps there most of the time), branch + top, tan, curve,
 // t, t0, tree, out (hanging at t along a branch of that tree). A guest spot is a copy with guest, key (the place it claims,
@@ -109,10 +111,13 @@ function buildGuests() {
   }
 }
 
+// s's size in a spot: the spot's size for a sloth of the usual size, times s's own factor (cast.js scale, kept as s.k), so
+// Pip stays the smallest in a guest spot too (review R2-048: a guest spot used to give every sloth the same size)
+const sizeIn = (s, spot) => spot.scale * (s.k ?? 1);
 const claimHome = (s) => { claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") claim(seatKey(0), s); };
 const releaseHome = (s) => { release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") release(seatKey(0), s); };
 // a nap trip: s claims the guest spot g and lives there for now, its own home kept as s.ownSpot; and back to its own home
 const moveInto = (s, g) => { claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; };
 const moveBack = (s) => { release(s.spot.key, s); s.spot.who = null; s.spot = s.ownSpot; s.ownSpot = null; };
 
-export { brush, buildGuests, buildSpots, claimHome, hammock, moveBack, moveInto, releaseHome };
+export { brush, buildGuests, buildSpots, claimHome, hammock, moveBack, moveInto, releaseHome, sizeIn };
