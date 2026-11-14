@@ -53,7 +53,7 @@ export function createActivities({ scene, camera, me, sloths, places: { woodPile
   thing({ name: "fire", at: fire, r: 0.6, when: () => held() === "log" || soupChore.wants(),
     act() {
       if (held() === "log") { if (burning.length >= MAX_LOGS) { toast("The fire is roaring already 🔥", "roar"); return; } carry.hold(null); fireChore.addLog(); told("log"); return; }
-      if (held() === "water") { carry.hold(null); soupChore.pour(); soup.by = "you"; canister.pail.visible = true; told("water"); return; }
+      if (held() === "water") { carry.hold(null); soupChore.pour(); soup.by = "you"; pail.visible = true; told("water"); return; }
       if (held() === "veg") { carry.hold(null); soupChore.addVeg(); told("veg"); return; }
       carry.hold("bowl"); soupChore.ladle(); toast("Set it on a log seat 🍲", "clink");
     },
@@ -73,9 +73,10 @@ export function createActivities({ scene, camera, me, sloths, places: { woodPile
     },
     look: () => (held() === "log" ? looks.fireOnly : looks.pot) ?? null });   // the fire lights up for a log, the pot for everything else
   // the water pail under the snack table (built here, after the fire's sphere: the order things are made in is kept)
-  const canister = soupChore.placePail(table);
-  thing({ name: "canister", at: canister.at, r: 0.3, look: [canister.pail], when: () => (!held() && soup.stage === "empty") || held() === "water",
-    act() { if (held()) { carry.putBack(); return; } carry.hold("water"); canister.pail.visible = false; toast("Got the water 💧", "slosh"); },
+  const { at: pailAt, pail } = soupChore.placePail(table);
+  thing({ name: "canister", at: pailAt, r: 0.3, look: [pail],   // the thing keeps its first name: the scenario tours find it by it
+    when: () => (!held() && soup.stage === "empty") || held() === "water",
+    act() { if (held()) { carry.putBack(); return; } carry.hold("water"); pail.visible = false; toast("Got the water 💧", "slosh"); },
     label: () => held() === "water" ? "Put the pail back 💧" : "Take the pail of water 💧",
     why: () => held() ? full : soup.stage !== "empty" ? "Water's in already" : null });
   // the kitchen crate: one vegetable at a time, a different one each time

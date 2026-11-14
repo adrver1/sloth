@@ -40,7 +40,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
   - `camp/core.js` is the base every module imports. At import it makes the renderer, the scene with its fog, the camera, the hemisphere light and the sun, adds them to the scene, and starts every download in `PRE`.
   - `camp/save.js` reads its localStorage key and adds its `pagehide` and `visibilitychange` listeners at import. It builds nothing.
   - `camp/lab.js`, the move lab, is loaded on demand by `labButton.js` (a dynamic `import()`), so it builds its panel, its path line and its listeners at import.
-- Shared materials, geometries and canvas textures made at import (for example in `canister.js`, `food.js`, `forest.js`, `activities/parts.js`) are allowed: they add nothing to the scene until a build function uses them.
+- Shared materials, geometries and canvas textures made at import (for example in `pail.js`, `food.js`, `forest.js`, `activities/parts.js`) are allowed: they add nothing to the scene until a build function uses them.
 - Example: the build list at the top of `apps/canopy-prototype/camp/main.js`.
 
 ## 5. Per-module step functions; what the frame loop may contain

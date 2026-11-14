@@ -1,7 +1,9 @@
-// Canopy Camp water pail for the soup pot chore (Adriaen picked it 2026-11-12 over a jerrycan and a camp jug; it replaced a
+// Canopy Camp water pail (pail.js; it was canister.js, review R2-131) for the soup pot chore (Adriaen picked it 2026-11-12 over a jerrycan and a camp jug; it replaced a
 // plain textured box): a wooden stave bucket with two iron hoops and a wire bail handle, water showing inside. Staves, hoops
 // and grain are painted on its 8 sides. 60 triangles: shell 16 (open, both faces drawn, so you see the inner wall), water 8,
 // bail 36. No bottom: the water hides it. Built with its bottom at y 0, front toward +z.
+// Exports makePail() -> a new Group (activities/carry.js, activities/soupChore.js, operator/handProps.js); every pail shares the
+// texture, geometries and materials made here at import, which add nothing to the scene (CODING-STANDARDS section 4).
 import * as THREE from "three";
 import { canvasTex } from "./util.js";
 
