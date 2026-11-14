@@ -16,7 +16,7 @@ import { $, KEYS, OPT, camera, store } from "./core.js";
 import { sloths } from "./sloths.js";
 import { me } from "./player.js";
 import { weather } from "./weather.js";
-import { SOUP_POT } from "./campProps.js";
+import { SOUP_POT, TENT } from "./layout.js";
 import { rand as R } from "./util.js";   // a number between a and b from Math.random, as the copy that stood here
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix: music sits well under the camp
@@ -170,11 +170,7 @@ function startBeds() {
   night.g = gain(bus.nature, 0);
   for (let i = 0; i < 4; i++) { const a = i * 1.6 + 0.4, s = ac.createBufferSource(); s.buffer = CRICKET; s.loop = true; s.playbackRate.value = R(0.85, 1.15); s.connect(spot(new THREE.Vector3(Math.cos(a) * 12, 0.3, Math.sin(a) * 12), 4, gain(night.g, R(0.06, 0.1)))); s.start(t + R(0, 1)); }
 }
-const underTent = (p) => {   // as weather.js dry(): inside the tent's roof and planks
-  const t = window.__camp?.tentAt; if (!t) return false;
-  const L = t.length(), fx = -t.x / L, fz = -t.z / L, dx = p.x - t.x, dz = p.z - t.z, a = dx * fx + dz * fz, b = dx * fz - dz * fx;
-  return a > -1.9 && a < 2.2 && Math.abs(b) < 2.0;
-};
+const underTent = (p) => TENT.dry(p.x, p.z);   // inside the tent's roof and planks (layout.js, as weather.js)
 
 // ---------------------------------------------------------------- music: three generated stations
 // Notes as MIDI numbers; a lookahead scheduler queues them 0.3 s ahead. Each station plays an 8-bar phrase made once and

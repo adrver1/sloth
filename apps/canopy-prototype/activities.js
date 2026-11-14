@@ -58,7 +58,7 @@ function splitBowl(T) {
   const m = new THREE.Mesh(b, T.material); m.name = "FruitBowl"; T.add(m); return m;
 }
 
-export function createActivities({ scene, camera, me, woodPile, woodTex, fire = V(0, 0, 0), pot: potAt = null, table = null, crate = null, blockers = [], fireCards = [], flames = [], fireLight, glowTex, burst, toast, sloths = [], addBlocker, looks = {} }) {
+export function createActivities({ scene, camera, me, woodPile, woodTex, fire, pot: potAt, table, crate = null, blockers = [], fireCards = [], flames = [], fireLight, glowTex, burst, toast, sloths = [], addBlocker, looks = {} }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   // logs painted like the props thread's stack: its atlas (props/lived/wood_stack.jpg) has log ends on the top half and the logs
   // seen from above bottom right, so the sides take one log's strip (mirrored round, so no seam) and the caps one round end
@@ -69,9 +69,9 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
     uv.needsUpdate = true; logMat.map = woodTex; logMat.needsUpdate = true;
   }
   // the wood pile: the props thread's pile when it is there, else a plain stack of the same logs in the same spot
-  const pileAt = woodPile ? woodPile.clone() : V(-0.55, 0, -3.15);
+  const pileAt = woodPile.at.clone();
   let stand = null;
-  if (!woodPile) {
+  if (!woodPile.built) {
     const yaw = Math.atan2(-pileAt.x, -pileAt.z), g = new THREE.Group();
     [[-0.13, 0.06], [0, 0.06], [0.13, 0.06], [-0.065, 0.17], [0.065, 0.17], [0, 0.28]].forEach(([x, y]) => { const l = new THREE.Mesh(logGeo, logMat); l.rotation.z = Math.PI / 2; l.rotation.y = Math.PI / 2; l.position.set(x, y, 0); g.add(l); });
     g.position.copy(pileAt); g.rotation.y = yaw; scene.add(g); stand = g; addBlocker?.(pileAt, 0.5);
@@ -144,7 +144,7 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   }
 
   // ---------------------------------------------------------------- chunk 2: the soup pot
-  const pot = { at: potAt ? potAt.at.clone() : V(fire.x, 0.885, fire.z), r: potAt ? potAt.r : 0.147 };
+  const pot = { at: potAt.at.clone(), r: potAt.r };
   const soup = { stage: "empty", veg: 0, cook: 0, bowls: 0, fade: 1 };   // stage: empty, water, cooking, ready
   const surf = new THREE.Mesh(new THREE.CircleGeometry(pot.r + 0.002, 12).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: surfTex, color: STAGE.empty, transparent: true, depthWrite: true }));
   surf.position.copy(pot.at).setY(pot.at.y + 0.012); surf.renderOrder = 1; scene.add(surf);
@@ -216,8 +216,8 @@ export function createActivities({ scene, camera, me, woodPile, woodTex, fire = 
   }, () => (held === "log" ? looks.fireOnly : looks.pot) ?? null);   // the fire lights up for a log, the pot for everything else
   // the water pail, under the snack table out of the way (Adriaen 2026-11-13): between its legs (local x +-0.45), nudged
   // to the fire side of the top's middle so it peeks out; the table's own blocker keeps you off it, so it adds none
-  const tb = table || V(1.6, 0, 3.2);
-  const canAt = (() => { const ax = V(Math.sin(0.6), 0, Math.cos(0.6));   // the table top's short axis (campProps.js put("Table", .., 0.6))
+  const tb = table.at;
+  const canAt = (() => { const ax = V(Math.sin(table.yaw), 0, Math.cos(table.yaw));   // the table top's short axis
     const side = Math.sign(ax.dot(V(fire.x - tb.x, 0, fire.z - tb.z))) || 1;
     return tb.clone().setY(0).addScaledVector(ax, side * 0.2); })();
   const canister = makePail(); canister.position.copy(canAt); canister.rotation.y = Math.atan2(fire.x - canAt.x, fire.z - canAt.z); scene.add(canister);

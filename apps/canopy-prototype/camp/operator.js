@@ -12,9 +12,9 @@ import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { OPT, PRE, R, camera, scene, uTime } from "./core.js";
 import { load, save } from "./save.js";
-import { A0, RC } from "./forest.js";
+import { A0, CRATE, RC, SEAT_GAPS, SOUP_POT, TENT } from "./layout.js";
 import { V, canvasTex, ease, lam as plain, trisIn } from "./util.js";
-import { SLOTH, SOUP_POT, blockers, uNight } from "./campProps.js";
+import { SLOTH, blockers, uNight } from "./campProps.js";
 import { addTarget } from "./input.js";
 import { me } from "./player.js";
 import { fx, sprite } from "./sloths.js";
@@ -148,19 +148,18 @@ function findPlaces() {
     const tops = [log, scene.getObjectByName(`SeatTop_${i}`)].filter(Boolean), top = ray.intersectObjects(tops, true)[0]?.point.y ?? 0.42;
     SEATS.push({ key: `log:${i}`, at: at.setY(top), yaw: Math.atan2(c.x, c.z) });   // facing the fire
   }
-  const t = window.__camp?.tentAt, tent = scene.getObjectByName("Tent");
-  if (t && tent) {   // the bed along the tent's left wall (build_camp.py wall_tent: bed at (-W + 0.48, yb - 1.01), head toward +y)
-    const L = t.length(), fx = -t.x / L, fz = -t.z / L, at = (bx, by) => V(t.x + bx * fz - by * fx, 0, t.z - bx * fx - by * fz);
-    const c = at(-0.92, 0.49); ray.set(V(c.x, 3, c.z), DOWN); ray.far = 4;
+  const tent = scene.getObjectByName("Tent");
+  if (tent) {   // the bed along the tent's left wall (build_camp.py wall_tent: bed at (-W + 0.48, yb - 1.01), head toward +y; layout.js TENT.bed)
+    const at = TENT.fromLocal, [bx, by] = TENT.bed;   // the tent's own frame: x across, y toward the back
+    const c = at(bx, by); ray.set(V(c.x, 3, c.z), DOWN); ray.far = 4;
     const hits = ray.intersectObject(tent, true).filter((h) => h.point.y < 0.8 && h.point.y > 0.2), top = hits[0]?.point.y ?? 0.45;
-    const head = at(-0.92, 1.2).sub(at(-0.92, 0)).normalize();
+    const head = at(bx, 1.2).sub(at(bx, 0)).normalize();
     BED = { key: "bed:0", c: c.setY(top), head, side: at(-0.28, 0.35), door: at(0, -1.7), inside: at(0, -0.45), across: at(1, 0).sub(at(0, 0)).normalize() };
   }
   return true;
 }
 const fireGap = (from) => {                            // a spot just off the fire ring, in the gap between logs nearest `from`
-  const gaps = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
-  const a = gaps.sort((p, q) => Math.hypot(Math.cos(p) * 1.4 - from.x, Math.sin(p) * 1.4 - from.z) - Math.hypot(Math.cos(q) * 1.4 - from.x, Math.sin(q) * 1.4 - from.z))[0];
+  const a = [...SEAT_GAPS].sort((p, q) => Math.hypot(Math.cos(p) * 1.4 - from.x, Math.sin(p) * 1.4 - from.z) - Math.hypot(Math.cos(q) * 1.4 - from.x, Math.sin(q) * 1.4 - from.z))[0];
   return V(Math.cos(a) * 1.35, 0, Math.sin(a) * 1.35);
 };
 
@@ -280,7 +279,7 @@ function dropAll() { for (const p of [bowl, spoon, mug, book, pail, stick, veg])
 const DO = {
   *eat() {                                             // a bowl of soup from the pot, eaten on a log seat
     yield* walkTo(fireGap(root.position)); yield* face(yawTo(V(-root.position.x, 0, -root.position.z)));
-    const pot = SOUP_POT?.at ?? V(0, 0.885, 0);
+    const pot = SOUP_POT.at;
     for (let t = 0; t < 1.6;) { t += yield; op.ik = { R: [pot.clone().add(V(0, 0.12, 0)), Math.sin(Math.min(1, t / 1.6) * Math.PI) ** 2] }; }
     op.ik = null; bowl.visible = spoon.visible = true; op.eat = { t: 0, spoon: 0 };   // the bowl in both hands, the spoon in his right
     yield* seatWith(function* () {
@@ -288,7 +287,7 @@ const DO = {
     });
   },
   *drink() {                                           // a mug from the kitchen crate, drunk slowly on a log seat
-    const crate = V(4.55, 0, 1.7), front = crate.clone().addScaledVector(crate.clone().negate().normalize(), 0.75);
+    const crate = CRATE.at, front = crate.clone().addScaledVector(crate.clone().negate().normalize(), 0.75);
     yield* walkTo(front); yield* face(yawTo(crate.clone().sub(root.position)));
     for (let t = 0; t < 1.4;) { t += yield; op.ik = { R: [crate.clone().setY(0.45), Math.sin(Math.min(1, t / 1.4) * Math.PI) ** 2] }; }
     op.ik = null; hold(mug);
@@ -416,7 +415,7 @@ DO.cook = function* () {
   op.lean = 0;
   op.poured = false; op.pail = null; pail.visible = false;   // the pail goes back under the table (activities.js shows it there)
   // two vegetables from the crate, tossed in
-  const crate = V(4.55, 0, 1.7), front = crate.clone().addScaledVector(crate.clone().negate().normalize(), 0.75);
+  const crate = CRATE.at, front = crate.clone().addScaledVector(crate.clone().negate().normalize(), 0.75);
   for (let n = 0; n < 2 && K.wantsVeg(); n++) {
     yield* walkTo(front); yield* face(yawTo(crate.clone().sub(root.position)));
     for (let t = 0; t < 1.2;) { t += yield; op.ik = { R: [crate.clone().setY(0.45), Math.sin(Math.min(1, t / 1.2) * Math.PI) ** 2] }; }
@@ -424,7 +423,7 @@ DO.cook = function* () {
     yield* toPot();
     for (let t = 0; t < 0.5;) { t += yield; op.ik = { R: [cs(0.1, 1.35, -0.45), Math.min(1, t / 0.35)] }; }   // a little swing up
     op.veg = false; op.ik = null; const v = veg.children[0]; scene.attach(v); veg.visible = false;
-    fx.push({ s: v, fly: { from: v.position.clone(), to: (SOUP_POT?.at ?? V(0, 0.885, 0)).clone() }, t: 0, life: 0.6 });
+    fx.push({ s: v, fly: { from: v.position.clone(), to: SOUP_POT.at.clone() }, t: 0, life: 0.6 });
     yield* wait(0.6); if (!K.addVeg()) break;
     yield* wait(0.5);
   }
@@ -437,7 +436,7 @@ DO.cook = function* () {
   }
   // a bowl for you
   if (K.ladle()) {
-    for (let t = 0; t < 0.9;) { t += yield; op.ik = { R: [(SOUP_POT?.at ?? V(0, 0.885, 0)).clone().add(V(0, 0.15, 0)), Math.sin(Math.min(1, t / 0.9) * Math.PI) ** 2] }; }
+    for (let t = 0; t < 0.9;) { t += yield; op.ik = { R: [SOUP_POT.at.clone().add(V(0, 0.15, 0)), Math.sin(Math.min(1, t / 0.9) * Math.PI) ** 2] }; }
     op.ik = null; hold(bowl);
     let given = false;
     for (let tries = 0; tries < 4 && !given; tries++) {
@@ -665,13 +664,13 @@ function opStep(dt) {
     const P = op.pail, hang = B.handR.getWorldPosition(V()).add(V(0, -0.34, 0).applyQuaternion(root.quaternion));
     pail.quaternion.copy(root.quaternion).multiply(qc.setFromAxisAngle(V(1, 0, 0), -1.25 * P.tilt));   // pouring: its mouth tipped toward the pot
     if (P.tilt > 0) {   // held out over the pot's near rim, his hand on the bail
-      const pot = SOUP_POT?.at ?? V(0, 0.885, 0), over = pot.clone().add(V(root.position.x - pot.x, 0, root.position.z - pot.z).setLength(0.24)).setY(pot.y + 0.12);
+      const pot = SOUP_POT.at, over = pot.clone().add(V(root.position.x - pot.x, 0, root.position.z - pot.z).setLength(0.24)).setY(pot.y + 0.12);
       pail.position.lerpVectors(hang, over, THREE.MathUtils.smoothstep(P.tilt, 0, 0.5));
       reach("R", pail.position.clone().add(V(0, 0.3, 0).applyQuaternion(pail.quaternion)), csDir(1, -0.6, 0.2), Math.min(1, P.tilt * 2));
     } else if (P.from) pail.position.lerpVectors(P.from, hang, P.k); else pail.position.copy(hang);
   }
   if (op.stir) {
-    const S = op.stir, pot = SOUP_POT?.at ?? V(0, 0.885, 0), a = S.t * 2.2, tip = pot.clone().add(V(Math.cos(a) * 0.06, -0.02, Math.sin(a) * 0.06));
+    const S = op.stir, pot = SOUP_POT.at, a = S.t * 2.2, tip = pot.clone().add(V(Math.cos(a) * 0.06, -0.02, Math.sin(a) * 0.06));
     reach("R", cs(0.1 + Math.cos(a) * 0.03, 1.2, -0.42 + Math.sin(a) * 0.025), csDir(1, -0.6, 0.2), S.k);
     const g = B.handR.getWorldPosition(V()), d = tip.sub(g); stick.position.copy(g); stick.scale.set(1, d.length() + 0.06, 1); stick.quaternion.setFromUnitVectors(UP, d.normalize());
   }

@@ -8,7 +8,7 @@ import { D, JEEP, LIVED, LOOK, PRE, PROPS, S, camera, renderer, scene, uTime } f
 import { toast } from "./hud.js";
 import { FLOOR_OVERLAYS, clearing, track, trackDist } from "./forest.js";
 import { FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex, uNight } from "./campProps.js";
-import { CRATE, FAR, RC, SOUP_POT, TABLE, TENT } from "./layout.js";
+import { CRATE, FAR, FIRE, RC, SOUP_POT, TABLE, TENT, WOOD_PILE } from "./layout.js";
 import { cabinLive } from "./jeep.js";
 import { burst, sloths } from "./sloths.js";
 import { me } from "./player.js";
@@ -52,8 +52,9 @@ if (PROPS === "picked") {
 const atmo = createAtmosphere({ scene, camera, fx: D.fx, pot: SOUP_POT,
   chimneys: PROPS === "picked" ? [TENT.fromLocal(...TENT.chimney)] : [], sloths, roam: RC - 1.5 });   // the tent stove's pipe mouth (build_camp.py wall_tent: STOVE, pipe top Z0 + H + 0.62)
 // camp activities (activities.js, thread "Plan camp activities"): chores, snacks, the friendship book and the photo album, built in chunks
-const acts = createActivities({ scene, camera, me, woodPile: typeof WOODPILE !== "undefined" ? WOODPILE : null, woodTex: typeof WOOD_TEX !== "undefined" ? WOOD_TEX : null, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
-  pot: SOUP_POT, table: TABLE.at, crate: LIVED ? CRATE.at : null, blockers, sloths,
+const acts = createActivities({ scene, camera, me, woodPile: { at: WOOD_PILE.at, built: !!WOODPILE }, woodTex: WOOD_TEX ?? null,   // built: the props' pile stands there (not with ?lived=0, when activities.js stacks plain logs)
+  fire: FIRE, fireCards: FIRE_CARDS, flames, fireLight, glowTex, burst, toast,
+  pot: SOUP_POT, table: TABLE, crate: LIVED ? CRATE.at : null, blockers, sloths,
   addBlocker: (c, r) => blockers.push([c, r]),
   looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
     .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)) });

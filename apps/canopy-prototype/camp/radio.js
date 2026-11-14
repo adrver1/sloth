@@ -7,6 +7,7 @@
 import * as THREE from "three";
 import { scene } from "./core.js";
 import { V, canvasTex, lam } from "./util.js";
+import { TABLE } from "./layout.js";
 import { me } from "./player.js";
 import { addTarget } from "./input.js";
 import { toast } from "./hud.js";
@@ -39,10 +40,10 @@ const noteTex = canvasTex(64, 64, (c) => { c.fillStyle = "#fff8ee"; c.font = "70
 const notes = [0, 1].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex, transparent: true, opacity: 0, depthWrite: false })); s.scale.setScalar(0.09); radio.add(s); return s; });
 // on the snack table, its front to the fire
 {
-  const tb = window.__camp.tb, table = scene.getObjectByName("Table");
+  const tb = TABLE.at, table = scene.getObjectByName("Table");
   // the table's far end from where it was (Adriaen 2026-11-13: more to the left, there's more room), past the fruit bowl:
-  // 0.42 m along its long side (table local +x, the table is turned 0.6 rad), at its middle across
-  const ty = table ? table.rotation.y : 0.6, at = tb.clone().add(V(0.42 * Math.cos(ty) - 0.03 * Math.sin(ty), 0, -0.42 * Math.sin(ty) - 0.03 * Math.cos(ty)));
+  // 0.42 m along its long side (table local +x, the table is turned by layout.js TABLE.yaw), at its middle across
+  const ty = TABLE.yaw, at = tb.clone().add(V(0.42 * Math.cos(ty) - 0.03 * Math.sin(ty), 0, -0.42 * Math.sin(ty) - 0.03 * Math.cos(ty)));
   radio.rotation.y = Math.atan2(-at.x, -at.z) - 0.2;
   // stood on the planks under it (Adriaen 2026-11-13: it floated, sat on the fruit's height): the highest plank under each
   // corner of its base, found by a ray down, so it sits flush and doesn't hang over a gap between planks
