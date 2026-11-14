@@ -6,19 +6,18 @@
 //   the sun-and-moon dial, small and weathered on the hammock's near post at eye height, 25 triangles (Adriaen 2026-11-13:
 //     out of place in the middle of the camp; picked the post over a board above the tent door and no dial)
 //   the jeep's dash clock lives in car.js and registers here with addClock.
-// Faces, numbers, rims and grain are painted on canvas textures; nothing modelled that paint can do.
+// Faces, numbers, rims and grain are painted on canvas textures; nothing modelled that paint can do. The tent and the hammock
+// post they stand by come from layout.js (TENT, HAMMOCK).
 import * as THREE from "three";
-import { camera, canvasTex, scene } from "./core.js";
-import { V } from "./forest.js";
-import { me } from "./player.js";
+import { camera, scene } from "./core.js";
+import { V, canvasTex, lam, trisIn } from "./util.js";
+import { HAMMOCK, TENT } from "./layout.js";
 import { addTarget } from "./input.js";
 import { toast } from "./hud.js";
 import { day } from "./daytime.js";
 
 const MOMENTS = [["Morning 🌅", 7.5], ["Midday ☀️", 12], ["Golden hour 🌇", 17.5], ["Night 🌙", 22]];
-const lam = (o) => new THREE.MeshLambertMaterial(o);
-const tris = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) n += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); return n; };
-export const hand = (w, l, color) => new THREE.Mesh(new THREE.PlaneGeometry(w, l).translate(0, l * 0.4, 0), lam({ color, side: THREE.DoubleSide }));   // pivot near its base
+export const hand = (w, l, color) => new THREE.Mesh(new THREE.PlaneGeometry(w, l).translate(0, l * 0.4, 0), lam(color, { side: THREE.DoubleSide }));   // pivot near its base
 
 // a clock face: cream disc, rim, ticks and the four big numbers
 export function faceTex({ bg = "#fff3dc", rim = "#e25a6e", ink = "#4a3426", numbers = ["12", "3", "6", "9"], rimW = 0.09 } = {}) {
@@ -63,13 +62,13 @@ const clocks = [];
 function addClock({ obj, hands = null, disc = null, lume = null, glow = 0.55, reach = 3.5, ready = null, name }) {
   const c = { obj, hands, disc, lume, glow, shake: 0, base: obj.rotation.z, name };
   const picks = []; obj.traverse((m) => m.isMesh && picks.push(m));
-  const box = new THREE.Box3(), sph = new THREE.Sphere(), tmp = new THREE.Vector3();
+  const box = new THREE.Box3(), sph = new THREE.Sphere(), tmp = V();
   const at = (v) => { box.setFromObject(obj).getBoundingSphere(sph); v.copy(sph.center); sph.radius = Math.max(sph.radius, 0.2); return sph; };
   const set = (h, n) => () => { day.setHour(h); c.shake = 0.7; toast(n); };
   addTarget(obj, () => ({ look: obj, picks, at,
     ready: ready ?? (() => at(tmp).center.distanceTo(camera.position) < reach),
     options: () => [...MOMENTS.map(([n, h]) => [n, set(h, n)]), [day.cycle ? "Stop the clock ⏸️" : "Let the day run ⏳", () => { day.setCycle(!day.cycle); toast(day.cycle ? "The day runs on" : "The clock stops"); }]] }));
-  console.log(`LOG clock ${name}: ${tris(obj)} tris`);
+  console.log(`LOG clock ${name}: ${trisIn(obj)} tris`);
   clocks.push(c); return c;
 }
 
@@ -77,30 +76,29 @@ function addClock({ obj, hands = null, disc = null, lume = null, glow = 0.55, re
 // A red wind-up alarm clock (open 10-sided drum 20, face and back 20, two bells 12, hands 4 = 56) on an upturned crate used as
 // a bedside table (5 visible sides, 10), beside the pillow at the back of the tent.
 function makeAlarm() {
-  const R = 0.075, Dp = 0.05, red = lam({ color: 0xe25a6e }), o = new THREE.Group();
-  const lume = lam({ map: faceTex(), emissive: 0xfff0c8, emissiveIntensity: 0 });
+  const R = 0.075, Dp = 0.05, red = lam(0xe25a6e), o = new THREE.Group();
+  const lume = new THREE.MeshLambertMaterial({ map: faceTex(), emissive: 0xfff0c8, emissiveIntensity: 0 });
   o.add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, Dp, 10, 1, true).rotateX(Math.PI / 2), red),
     new THREE.Mesh(new THREE.CircleGeometry(R, 10).translate(0, 0, Dp / 2), lume),
     new THREE.Mesh(new THREE.CircleGeometry(R, 10).rotateY(Math.PI).translate(0, 0, -Dp / 2), red));
-  const bellG = new THREE.ConeGeometry(0.034, 0.028, 6, 1, true), bellM = lam({ color: 0xd9a94a, side: THREE.DoubleSide });
+  const bellG = new THREE.ConeGeometry(0.034, 0.028, 6, 1, true), bellM = lam(0xd9a94a, { side: THREE.DoubleSide });
   for (const s of [-1, 1]) { const b = new THREE.Mesh(bellG, bellM); b.position.set(s * 0.048, R + 0.004, 0); b.rotation.z = -s * 0.5; o.add(b); }
   const hh = hand(0.01, 0.045, 0x4a3426), mh = hand(0.007, 0.062, 0x4a3426); hh.position.z = Dp / 2 + 0.003; mh.position.z = Dp / 2 + 0.005; o.add(hh, mh);
   return { o, hands: [hh, mh], lume, R };
 }
 {
-  const t = window.__camp.tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
-  const at = (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz);   // the tent's own (Blender) frame, as campLife.js tentAt3
+  const at = TENT.fromLocal;   // the tent's own (Blender) frame (layout.js): x across, y toward the back
   const crateTex = canvasTex(128, 128, (c, w) => { c.fillStyle = "#a8743f"; c.fillRect(0, 0, w, w); c.fillStyle = "#8a5c30";
     for (let y = 0; y < w; y += 32) c.fillRect(0, y + 29, w, 3); c.fillStyle = "#5e3f22"; c.fillRect(0, 0, w, 4); c.fillRect(0, w - 4, w, 4); c.fillRect(0, 0, 4, w); c.fillRect(w - 4, 0, 4, w); });
   const S = 0.3, cg = new THREE.BoxGeometry(S, S, S); cg.groups.splice(3, 1); cg.groups.forEach((g, i) => (g.materialIndex = 0));   // no bottom
-  const crate = new THREE.Mesh(cg, lam({ map: crateTex })), spot = at(-0.32, 1.22); crate.position.copy(spot).setY(S / 2 + 0.06);
-  const yaw = Math.atan2(fx, fz) + Math.PI;   // facing the tent's door... turned round below to face the bed
-  crate.rotation.y = yaw; scene.add(crate);
+  const crate = new THREE.Mesh(cg, new THREE.MeshLambertMaterial({ map: crateTex })), spot = at(-0.32, 1.22); crate.position.copy(spot).setY(S / 2 + 0.06);
+  crate.rotation.y = TENT.yaw + Math.PI;   // square to the tent
+  scene.add(crate);
   const A = makeAlarm(); A.o.position.copy(spot).setY(S + 0.06 + A.R - 0.004);
   // face the middle of the tent (toward the doorway and the bed's foot), a little toward the pillow
   const mid = at(-0.2, 0.2); A.o.rotation.y = Math.atan2(mid.x - spot.x, mid.z - spot.z) - 0.35; A.o.rotation.x = -0.08;
   A.o.name = "TentClock"; scene.add(A.o);
-  console.log(`LOG tent crate: ${tris(crate)} tris`);
+  console.log(`LOG tent crate: ${trisIn(crate)} tris`);
   addClock({ obj: A.o, hands: A.hands, lume: A.lume, reach: 2.6, name: "tent" });
 }
 
@@ -108,11 +106,11 @@ function makeAlarm() {
 {
   // small and weathered, nailed to the hammock's near post at eye height, facing the fire: disc front and back (24), a little
   // pointer (1, both sides): 25 triangles
-  const R = 0.17, o = new THREE.Group(), tex = dialTex({ faded: true }), face = lam({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0 });
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(R, 12), face); o.add(disc, new THREE.Mesh(new THREE.CircleGeometry(R, 12).rotateY(Math.PI).translate(0, 0, -0.004), lam({ color: 0x6b5442 })));
-  const ptr = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([V(-0.035, 0.05, 0), V(0.035, 0.05, 0), V(0, -0.012, 0)]), lam({ color: 0x8a3a30, side: THREE.DoubleSide }));
+  const R = 0.17, o = new THREE.Group(), tex = dialTex({ faded: true }), face = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0 });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(R, 12), face); o.add(disc, new THREE.Mesh(new THREE.CircleGeometry(R, 12).rotateY(Math.PI).translate(0, 0, -0.004), lam(0x6b5442)));
+  const ptr = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([V(-0.035, 0.05, 0), V(0.035, 0.05, 0), V(0, -0.012, 0)]), lam(0x8a3a30, { side: THREE.DoubleSide }));
   ptr.position.set(0, R + 0.005, 0.008); o.add(ptr);
-  const { hA } = window.__camp, toFire = hA.clone().setY(0).negate().normalize();
+  const hA = HAMMOCK.a, toFire = hA.clone().setY(0).negate().normalize();   // the near post (layout.js)
   o.position.copy(hA).addScaledVector(toFire, 0.075).setY(1.55); o.rotation.y = Math.atan2(toFire.x, toFire.z);
   o.name = "Dial"; scene.add(o);
   addClock({ obj: o, disc, lume: face, glow: 0.3, name: "dial post" });
@@ -128,5 +126,5 @@ function step(dt, dusk) {
     if (c.shake > 0) { c.shake = Math.max(0, c.shake - dt); c.obj.rotation.z = c.base + Math.sin(c.shake * 60) * 0.06 * c.shake; }   // a little rattle when you set it
   }
 }
-window.__clocks = clocks;   // checks
+window.__clocks = clocks;   // debug hook (core.js lists them): every clock, for checks by hand
 export { addClock, step as clockStep };

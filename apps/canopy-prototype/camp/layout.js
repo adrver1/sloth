@@ -2,10 +2,12 @@
 // operator-12, world-16). Only numbers, vectors and pure functions: no scene, no DOM, no random numbers (what is placed from the
 // seeded stream, the forest wall, the ferns, the deadwood, stays where it is drawn), so any module can import it at any point
 // without changing the order the camp is built in. Units are metres; y is up, the fire is at the origin.
-// Python mirrors: props/camp/bake_camp_lightmap.py and props/camp/build_camp.py type several of these numbers again (the tent,
-// hammock, table, crate, wood pile, laundry line, lantern ties and sun); props/shadow/export_casters.cjs writes the tent and
-// hammock (from window.__camp) and the track (from window.__ground.layout) to props/shadow/layout_picked.json. Keep them in step.
-// Older names still read through other modules: forest.js re-exports A0, d0, t0, RC, HERO, GLADE, GLADE_R, PATH_W, sloPath;
+// The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
+// the track (from window.__ground.layout) and a "place" block (where each baked prop and light stands) to
+// props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Only the sun's
+// direction is typed again there (the bake stops if the two differ). PATH_A, SEAT_R and JEEP_OUT are exported for checks;
+// no module imports them.
+// Older names still read through other modules (by files the clean-up has not reached yet, core.js names them): forest.js re-exports A0, RC and HERO;
 // campProps.js re-exports SOUP_POT, puts tentAt, hA, hB, tb on window.__camp and the laundry line on window.__laundry.
 import * as THREE from "three";
 import { V, polyDist } from "./util.js";
