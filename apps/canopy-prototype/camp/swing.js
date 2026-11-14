@@ -9,7 +9,7 @@
 //   makeClothBrush()       the laundry line's towel and socks sway in a breeze (uTime), and swing aside round the line where
 //                          a sloth brushes past. Returns brush(p, on, dt): p where the sloth is (world), on while it is at the
 //                          cloth; or null when there is no cloth
-// sloths.js calls both while it builds the camp sloths' spots, so the scene's objects keep their order; nothing runs on import.
+// sloth/spots.js buildSpots calls both while it builds the camp sloths' spots, so the scene's objects keep their order; nothing runs on import.
 import * as THREE from "three";
 import { scene, uTime } from "./core.js";
 import { HAMMOCK, LAUNDRY } from "./layout.js";

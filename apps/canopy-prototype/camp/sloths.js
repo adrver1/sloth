@@ -14,7 +14,7 @@
 // (sloth/life.js), campStep(dt, seat) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
 import * as THREE from "three";
 import { OPT, R } from "./core.js";
-import { V } from "./util.js";
+import { V, tris as triCount } from "./util.js";
 import { HERO } from "./layout.js";
 import { branchCurves } from "./forest.js";
 import { CAST } from "./cast.js";
@@ -69,7 +69,7 @@ if (OPT.campsloths) {
     Object.assign(s, { name: c.name, spot, greetCD: R(0, 10), smoreT: R(8, 20), gaze: 0, waveCD: 0 });
     spot.who = s; camp.push(s); placeHome(s);
   }
-  { let tris = 0; for (const s of camp) s.o.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh && m.geometry) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
+  { let tris = 0; for (const s of camp) s.o.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh && m.geometry) tris += triCount(m.geometry); });
     console.info(`camp sloths: ${camp.length} named (${camp.map((s) => s.name).join(", ")}), traits ${tris} triangles in all; s'mores stick 8 + marshmallow 12`); }
   buildGuests();   // the cozy places for a nap away from home
   wild.push(...sloths.filter((s) => s.wild));

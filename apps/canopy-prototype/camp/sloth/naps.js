@@ -47,12 +47,14 @@ function napStep(s, sd, after) {
     if (r.t > r.dur && !s.once && !s.wave && !s.yawn) { s.roused = null; if (r.back) doze(s); else after?.(); }
   } else if (!after) { s.napT -= sd; if (s.napT < 0 && !s.smore && !s.wave && !s.once) doze(s); }
 }
+// three z sprites, added to the scene in order (the first time a sleeper or the hammock's napper needs them)
+const makeZs = () => [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
 // z's rising off each sleeper, three at a time like the hammock napper's (Adriaen 2026-11-13: "sleeping sloths should have
 // zzzzs like the hammock sloth"); a little smaller on the small ones
 function zStep(s, dt) {
   const on = s.dozing && s.asleep && !s.spot?.asleep;
   if (!on && !s.zz) return;
-  s.zz ??= [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
+  s.zz ??= makeZs();
   s.zk = ((s.zk ?? R(0, 1)) + dt / 2.4) % 1;
   const f = Math.min(1, Math.max(0.6, s.sc / 2.2)), hush = s.squish > 0 ? 0 : 0.85;
   s.zz.forEach((z, i) => { const k = (s.zk + i / 3) % 1;
@@ -66,7 +68,7 @@ function hammockStep(dt) {
   const H = hammock, T = uTime.value, napper = spots[0].home ? spots[0].who : null;   // a slow swing, nudged harder for a while after a boop
   H.step(dt);
   if (napper?.squish > 0.9) H.push = 1;
-  H.zz ??= [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
+  H.zz ??= makeZs();
   H.zz.forEach((z, i) => { const k = (T / 2.4 + i / 3) % 1; if (napper) napper.head.getWorldPosition(z.position).add(V(0.1 * Math.sin(k * 6), 0.25 + 0.6 * k, 0));
     z.material.opacity = napper?.asleep ? Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85) : 0; z.scale.set(0.3 + 0.35 * k, (0.3 + 0.35 * k) / 4, 1); });
 }
