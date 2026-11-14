@@ -8,12 +8,12 @@ import { blockers } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
 // between the hammock and the first big tree (JEEP_AT, with its track, in layout.js), along the edge, its
-// passenger side (local +X) toward the fire. Its three doors and the hood open and close from their menus (input.js, through jeepApi.doors):
+// passenger side (local +X) toward the fire. Its three doors and the hood open and close from their menus (jeepSeat.js adds jeepApi.doors as tap targets, targets.js):
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
 // uses jeepApi (the tools see it as window.__jeep, debug.js): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
 // cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
 // jeepSeat.js adds sitting in the front seats to the same object: sit(side), stand(), seatedIn(), seatBusy(side).
-// cabinLive.receive(object): that object takes the cabin light's shadow (campLife.js gives it the floor and the baked props).
+// cabinLive.receive(object): that object takes the cabin light's shadow (campGround.js gives it the floor and the baked props).
 let jeepStep = () => {}, jeepApi = null, cabinLive = null;
 if (JEEP !== "none") {
   const J = await PRE.jeep, at = JEEP_AT, tan = JEEP_TAN;
@@ -85,7 +85,7 @@ if (JEEP !== "none") {
   };
   jeepApi = {
     node: jeep,
-    doors: Object.entries(doors).map(([k, d]) => ({ k, o: d.o, toggle: () => (d.want = d.want ? 0 : d.open), get open() { return d.want !== 0; } })),   // for the highlight and its menu (input.js)
+    doors: Object.entries(doors).map(([k, d]) => ({ k, o: d.o, toggle: () => (d.want = d.want ? 0 : d.open), get open() { return d.want !== 0; } })),   // for the highlight and its menu (jeepSeat.js, targets.js)
     open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
     isOpen: (w = "B") => !!doors[w] && Math.abs(doors[w].cur) > Math.abs(doors[w].open) * 0.8,
     seat: world("SeatP"), sill: world("DoorSill"), cargo: world("Boot"),

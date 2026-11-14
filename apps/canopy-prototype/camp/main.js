@@ -75,7 +75,7 @@ renderer.setAnimationLoop(() => {
   motesStep(dt);
   atmo.update(dt, uTime.value, dusk);
   audioStep(dt, dusk); radioStep(dt);
-  shadowStep();                                            // campLife.js: the sun shadows, re-cast while the props load
+  shadowStep();                                            // campGround.js's (handed on by campLife.js): the sun shadows, re-cast while the props load
   renderer.render(scene, camera);
   frames++; acc += raw;
   if (acc >= 1) {
