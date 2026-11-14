@@ -2,7 +2,9 @@
 // the path to the glade, the tent, the hammock, the deadwood and the ground's height grid), for props/ground/bake_ground.py
 // and props/camp/bake_camp_lightmap.py, plus "place": where the page stands each baked prop and light (seats, tent,
 // hammock, table, wood pile, kitchen crate, laundry line, lantern lights, jeep, sun), read from the live page. The light
-// bake places everything from that block (it keeps no copy of its own). props/bake_all.py runs it first (its "layout" step) and serves the repo on :8765.
+// bake places everything from that block (it keeps no copy of its own). props/bake_all.py runs it first (its "layout" step),
+// serving the repo on a free port it passes as LAYOUT_PORT. A page error, or a layout with a part missing, writes nothing
+// and exits 1, so the bake stops instead of baking quietly wrong (review R2-232).
 //   python3 -m http.server 8765   (from the repo root, in the background; LAYOUT_PORT=<port> to use another port)
 //   node props/shadow/export_casters.cjs [props=picked] [jeep=expedition]
 // (It used to write casters_<props>_<jeep>.glb too, for a ground-shadow bake script that is gone: the light bake makes the
@@ -13,7 +15,7 @@ if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.erro
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROME || (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined), args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
   const p = await b.newPage({ viewport: { width: 400, height: 300 } });
-  p.on("pageerror", (e) => console.log("PAGEERR", e.message));
+  const pageErrors = []; p.on("pageerror", (e) => { console.error("PAGEERR", e.message); pageErrors.push(e.message); });
   await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (r) => r.fulfill({ body: fs.readFileSync(root + "/node_modules/three/" + r.request().url().split("three@0.186.1/")[1]), contentType: "text/javascript" }));
   await p.route(/fonts\.(googleapis|gstatic)\.com|_lm_4k|camp_shadow_/, (r) => r.abort());
   await p.goto(`http://localhost:${process.env.LAYOUT_PORT || 8765}/apps/canopy-prototype/camp.html?jeep=${jeep}&lm=1k`);   // the smallest light maps: the layout needs none
@@ -40,6 +42,7 @@ if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.erro
   const miss = out.error ? [out.error] : ["spots", "track", "glade", "tent", "hammock", "height"].filter((k) => !out.layout[k] || out.layout[k].length === 0);
   if (!out.error && !out.layout.deadwood.length) miss.push("deadwood");
   if (!out.error) for (const [k, v] of Object.entries(out.layout.place)) if (v === null || (Array.isArray(v) && (!v.length || v.includes(null)))) miss.push(`place.${k}`);
+  if (pageErrors.length) miss.push(`${pageErrors.length} page error(s), first: ${pageErrors[0]}`);
   if (miss.length) { console.error("layout incomplete, nothing written: " + miss.join(", ")); await b.close(); process.exit(1); }
   if (jeep === "expedition") fs.writeFileSync(path.join(__dirname, `layout_${props}.json`), JSON.stringify(out.layout));   // for props/ground/bake_ground.py
   console.log(`layout_${props}.json: ${out.layout.spots.length} spots, ${out.layout.deadwood.length} deadwood, track of ${out.layout.track.length}`); await b.close();
