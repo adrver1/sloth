@@ -220,7 +220,7 @@ TRIS.push(['Sky dome', tris(sky.geometry)]);
 // Geomorphing hides the joins: every vertex also stores the height, normal and colour the next coarser ring would give it, and
 // the vertex shader slides toward those values over the outer part of each ring, so at its edge a ring already looks exactly
 // like the next one and nothing pops as rings move.
-const snowC = new THREE.Color('#fbf7f0'), rockC = new THREE.Color('#5d5652'), shadeC = new THREE.Color('#b7b0cc'), iceC = new THREE.Color('#d3e2ea'), trailC = new THREE.Color('#e8dfd4'), tmpC = new THREE.Color();
+const snowC = new THREE.Color('#fbf7f0'), rockC = new THREE.Color('#5d5652'), shadeC = new THREE.Color('#a9b3c9'), iceC = new THREE.Color('#d3e2ea'), trailC = new THREE.Color('#e8dfd4'), tmpC = new THREE.Color();
 const snowTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const r = mulberry(7);
   for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(206,218,234,${0.04 + r() * 0.06})`; g.beginPath(); g.ellipse(r() * w, r() * h, 20 + r() * 50, 3 + r() * 6, 0.2, 0, 7); g.fill(); }
   for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(r() * w, r() * h, 1, 1); } }, true);
@@ -311,7 +311,7 @@ const treeTex = (() => {
   const c = document.createElement('canvas'); c.width = c.height = ATLAS; const g = c.getContext('2d'), r = mulberry(41), RR = (a, b) => a + r() * (b - a);
   // painted like the cozy camp's foliage: chunky rounded clumps, dark underneath and light on top, and snow lying on them in
   // soft cream pillows with lavender shade, instead of fine needles
-  const NEEDLE = ['#1e4630', '#2a5a38', '#3a7043', '#4f8a4c', '#6aa257'], SNOW = ['#fffaf2', '#f6efe6', '#ece6ef'];
+  const NEEDLE = ['#142320', '#1b302b', '#243c34', '#304c40', '#42604d'], SNOW = ['#fffaf2', '#f6efe6', '#ece6ef'];
   const lobe = (x, y, rr, n) => { g.beginPath(); for (let i = 0; i < n; i++) { const a = (i / n) * 6.283 + RR(-0.3, 0.3), d = rr * RR(0.35, 0.6); g.moveTo(x + Math.cos(a) * d + rr * 0.55, y + Math.sin(a) * d); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, rr * RR(0.45, 0.62), 0, 7); } g.fill(); };
   const clump = (x, y, rr) => { g.fillStyle = NEEDLE[0]; lobe(x, y + rr * 0.18, rr, 6); g.fillStyle = NEEDLE[1 + ((r() * 2) | 0)]; lobe(x, y, rr * 0.9, 6); g.fillStyle = NEEDLE[3]; lobe(x - rr * 0.12, y - rr * 0.2, rr * 0.55, 4);
     g.fillStyle = NEEDLE[4]; g.globalAlpha = 0.8; lobe(x - rr * 0.2, y - rr * 0.32, rr * 0.28, 3); g.globalAlpha = 1; };
@@ -349,6 +349,27 @@ const treeTex = (() => {
     const cl = both(clump), pl = both(pillow);
     for (let i = 0; i < 150; i++) cl(X + RR(0, W), Y + RR(-10, H + 10), RR(18, 30));
     g.restore(); }
+  // Long Dark style sprays, seen from above: a twig from the trunk (left) to the tip (right) with side shoots, each shoot
+  // painted as overlapping brush strokes of needles, dark to light, the edge left ragged so the cut-out reads as needles;
+  // heavy lumps of snow along the middle with cool blue shade under them. o: w half width, taper, n shoots, nl needle
+  // length, up (shoot angle), snow lumps, col [back, mid..., light...]
+  const spray = ([X, Y, W, H], o) => { g.save(); g.clearRect(X, Y, W, H); g.beginPath(); g.rect(X, Y, W, H); g.clip(); g.lineCap = 'round';
+    const cy = Y + H / 2, half = (t) => H * o.w * Math.min(1, 0.35 + t / 0.15) * (1 - t) ** o.taper, at = (t) => [X + 8 + t * (W - 16), cy + Math.sin(t * 4 + 1) * 5];
+    const strokes = (layer, cols, wid, kLen) => { for (let i = 0; i < o.n; i++) { const t = (i + 0.5) / o.n, [sx, sy] = at(t), side = i % 2 ? 1 : -1, hw = half(t), ang = o.up * RR(0.8, 1.2), L = Math.min(hw / Math.sin(ang), W * (1 - t) + 30);
+        for (let k = 0; k < o.per; k++) { const f = r() ** 0.8, bx = sx + Math.cos(ang) * L * f, by = sy + side * Math.sin(ang) * L * f, nl = o.nl * kLen * RR(0.6, 1.1) * (1 - 0.4 * f) * (0.6 + 0.4 * (1 - t));
+          for (const sd of [-1, 1]) { const a = side * ang + sd * RR(0.5, 1.1); g.strokeStyle = cols[(r() * cols.length) | 0]; g.lineWidth = wid * RR(0.7, 1.2); g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + Math.cos(a) * nl, by + Math.sin(a) * nl); g.stroke(); } } } };
+    g.strokeStyle = o.col[0]; g.lineWidth = 7; g.beginPath(); g.moveTo(...at(0)); for (let t = 0.05; t <= 1.001; t += 0.05) g.lineTo(...at(t)); g.stroke();
+    strokes(0, [o.col[0]], 7, 1.05); strokes(1, o.col.slice(1, 4), 5, 0.95); strokes(2, o.col.slice(3), 3.5, 0.7);
+    // the snow: one continuous cap along the twig, its edges lumpy, blue shade under its lower edge, a few bright lumps on top
+    const cap = (dy, k) => { const top = [], bot = []; for (let i = 0; i <= 40; i++) { const t = 0.03 + (i / 40) * o.reach, [sx, sy] = at(t), hw = half(t) * o.sk * (1 - t / o.reach) ** 0.5;
+        top.push([sx, sy - hw * RR(0.35, 0.6) * k + dy]); bot.push([sx, sy + hw * RR(0.25, 0.45) * k + dy]); }
+      g.beginPath(); g.moveTo(...top[0]); for (const q of top) g.lineTo(...q); for (const q of bot.reverse()) g.lineTo(...q); g.closePath(); g.fill(); };
+    g.fillStyle = 'rgba(118,136,170,.8)'; cap(7, 1.05); g.fillStyle = '#e9ecef'; cap(0, 1); g.fillStyle = '#f7f8f8'; cap(-3, 0.6);
+    for (let i = 0; i < o.snow; i++) { const t = 0.05 + o.reach * 0.85 * r(), [sx, sy] = at(t), hw = half(t) * o.sk * (1 - t / o.reach) ** 0.5, x = sx + RR(-8, 8), y = sy + RR(-hw, hw) * 0.45, rx = RR(10, 22) * (1 - t * 0.5), ry = rx * RR(0.5, 0.7);
+      g.fillStyle = i % 3 ? '#f2f3f3' : 'rgba(118,136,170,.6)'; g.beginPath(); g.ellipse(x, y + (i % 3 ? 0 : ry * 0.6), rx, ry, 0, 0, 7); g.fill(); }
+    g.restore(); };
+  spray(RG.bough, { w: 0.46, taper: 0.55, n: 30, per: 14, nl: 34, up: 0.95, snow: 30, sk: 1, reach: 0.82, col: ['#0d1917', '#16282a', '#1b302b', '#22392f', '#2f4a3c', '#3e5b47'] });
+  spray(RG.tuft, { w: 0.44, taper: 0.4, n: 18, per: 18, nl: 52, up: 0.7, snow: 18, sk: 0.9, reach: 0.7, col: ['#141c15', '#1f2c21', '#273727', '#30432c', '#43553a', '#59693f'] });
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 })();
 // geometry helpers: every tree is modelled in a unit box (height 1, radius under 0.5) and scaled per instance
@@ -373,6 +394,16 @@ function treeBuilder() {
       for (let k = 0; k <= 2; k++) { const t = k / 2, w = wid * (k === 0 ? 0.35 : k === 1 ? 0.55 : 0.4), x = base[0] + dx * len * t, y = base[1] + 0.25 * droop * t - droop * t * t * 1.25 + droop * 0.0, z = base[2] + dz * len * t;
         const n = [dx * 0.75, 0.66, dz * 0.75], col = tmpC.setScalar(lit * (0.5 + 0.5 * t)).clone();
         pts.push([[x - sx * w, y, z - sz * w], n, reg, uOff + t * (1 - uOff), 0, col], [[x + sx * w, y, z + sz * w], n, reg, uOff + t * (1 - uOff), 1, col]); }
+      for (let k = 0; k < 2; k++) { const L0 = pts[k * 2], R0 = pts[k * 2 + 1], L1 = pts[k * 2 + 2], R1 = pts[k * 2 + 3]; tri(L0, R0, R1); tri(L0, R1, L1); }
+    },
+    // a painted spray (Long Dark style): a 2-segment card from `base` outward along angle a, drooping (negative droop curls
+    // it up), rolled round its length by `roll` so that from the side the layers read as a ragged fringe, not a line. 4 triangles
+    spray(base, a, len, wid, droop, roll, reg, lit, sn = 0.25, tint = WHITE) {
+      const dx = Math.cos(a), dz = Math.sin(a), sx = -dz, sz = dx, cr = Math.cos(roll), sr = Math.sin(roll), wv = [sx * cr, sr, sz * cr], pts = [];
+      const n = [dx * 0.35 - sx * sr, cr, dz * 0.35 - sz * sr];
+      for (let k = 0; k <= 2; k++) { const t = k / 2, w = (wid / 2) * (k === 2 ? 0.85 : 1), x = base[0] + dx * len * t * (1 - 0.15 * Math.abs(droop) * t), y = base[1] + 0.2 * droop * t - droop * t * t * 1.2, z = base[2] + dz * len * t * (1 - 0.15 * Math.abs(droop) * t);
+        const col = tmpC.copy(tint).multiplyScalar(lit * (0.5 + 0.5 * t)).clone();
+        pts.push([[x - wv[0] * w, y - wv[1] * w, z - wv[2] * w], n, reg, t, 0, col, sn], [[x + wv[0] * w, y + wv[1] * w, z + wv[2] * w], n, reg, t, 1, col, sn]); }
       for (let k = 0; k < 2; k++) { const L0 = pts[k * 2], R0 = pts[k * 2 + 1], L1 = pts[k * 2 + 2], R1 = pts[k * 2 + 3]; tri(L0, R0, R1); tri(L0, R1, L1); }
     },
     // a flat pad (one quad), centred at c, tilted outward, front face up
@@ -415,21 +446,26 @@ function treeBuilder() {
   return B;
 }
 const WHITE = new THREE.Color(1, 1, 1);
-// a snowy fir: T drooping, ragged tiers, each overlapping the one below, painted with needle clumps; snow lies on their tops
+// a snowy fir in the Long Dark's manner: a dark body you can't see through, ringed by T whorls of drooping painted sprays,
+// long at the bottom and short at the top, each whorl turned, the sprays rolled and uneven, and a pointed tip
 function firGeo(seed, T, W0) { const b = treeBuilder(), r = mulberry(seed);
-  b.trunk(0.024, 0.006, -0.05, 0.4, 5, 1, RG.bark, 0.0, 0.55, WHITE);
-  let y0 = 0.07; for (let k = 0; k < T; k++) { const t = k / (T - 1), R0 = W0 * (1 - t * 0.8) * (0.9 + 0.2 * r()), ya = Math.min(1, y0 + (0.27 - 0.05 * t) * (5 / T) * 1.1);
-    b.tier(y0, ya, R0, 12, r() * 6.283, 0.6 + 0.4 * t, r, [(r() - 0.5) * 0.05 * (1 - t), (r() - 0.5) * 0.05 * (1 - t)], [(r() - 0.5) * 0.18, (r() - 0.5) * 0.18]);
-    y0 += (0.68 / (T - 1)) * (0.8 + 0.4 * r()); y0 = Math.min(y0, 0.8); }
+  b.trunk(0.022, 0.008, -0.05, 0.3, 5, 1, RG.bark, 0.0, 0.4, WHITE);
+  b.trunk(W0 * 0.3, 0.012, 0.1, 0.9, 6, 2, RG.core, 0, 1, new THREE.Color(0.5, 0.52, 0.5), [0, 0], [0.45, 0.85]);
+  for (let k = 0; k < T; k++) { const t = k / T, y = 0.1 + t * 0.8 + (r() - 0.5) * 0.03, R0 = W0 * (1 - t) ** 0.9 * (0.85 + 0.3 * r()) + 0.05, n = Math.max(4, Math.round(7 - t * 3.5)), turn = r() * 6.283;
+    for (let j = 0; j < n; j++) { const a = turn + (j / n) * 6.283 + (r() - 0.5) * 0.6, len = R0 * (0.8 + 0.35 * r());
+      b.spray([Math.cos(a) * 0.012, y, Math.sin(a) * 0.012], a, len, len * 0.95, len * (0.3 + 0.35 * (1 - t)) * (0.7 + 0.6 * r()), (r() - 0.5) * 1.1, RG.bough, 0.5 + 0.5 * t, 0.2 + 0.15 * t); } }
+  b.tier(0.86, 1.0, 0.075, 6, r() * 6.283, 1, r);
   return b.geo(); }
 const TREES = {   // name: [geometry, share of the far forest's look (filled in by the bake)]
-  spruce: firGeo(11, 5, 0.5),
-  spruce2: firGeo(29, 6, 0.44),
+  spruce: firGeo(11, 8, 0.46),
+  spruce2: firGeo(29, 9, 0.38),
   pine: (() => { const b = treeBuilder(), r = mulberry(12);
-    b.trunk(0.024, 0.009, -0.05, 0.9, 6, 3, RG.bark, 0.0, 1.0, WHITE, [0.04, -0.02]);
-    // a Scots pine's crown: soft snowy puffs of needles clustered at the top of a long bare trunk, a few lower down
-    for (let i = 0; i < 8; i++) { const a = i * 2.39996 + r(), d = i === 0 ? 0 : 0.1 + 0.16 * Math.sqrt(i / 8), y = 0.9 - 0.2 * Math.sqrt(i / 8) + (r() - 0.5) * 0.05, lit = 0.65 + 0.35 * (y - 0.65) / 0.3, rr = 0.11 + 0.05 * r();
-      b.puff([0.04 + Math.cos(a) * d, y, -0.02 + Math.sin(a) * d], rr * 1.25, rr * 0.7, rr * 1.15, lit); }
+    b.trunk(0.024, 0.008, -0.05, 0.94, 6, 3, RG.bark, 0.0, 1.0, WHITE, [0.04, -0.02]);
+    // a tall pine: bare trunk, then a loose open crown of long-needled sprays in uneven whorls, tips curling up
+    for (let k = 0; k < 5; k++) { const t = k / 5, y = 0.56 + t * 0.36 + (r() - 0.5) * 0.04, n = k < 3 ? 4 : 3, turn = r() * 6.283, R0 = 0.3 * (1 - t * 0.7) + 0.04, ox = 0.04 * (y / 0.94) ** 2, oz = -0.02 * (y / 0.94) ** 2;
+      for (let j = 0; j < n; j++) { const a = turn + (j / n) * 6.283 + (r() - 0.5) * 0.9, len = R0 * (0.7 + 0.5 * r());
+        b.spray([ox + Math.cos(a) * 0.01, y, oz + Math.sin(a) * 0.01], a, len, len * 0.85, -len * (0.1 + 0.25 * r()), (r() - 0.5) * 1.2, RG.tuft, 0.55 + 0.45 * t, 0.3); } }
+    b.tier(0.9, 1.0, 0.06, 6, r() * 6.283, 1, r, [0.04, -0.02]);
     return b.geo(); })(),
   birch: (() => { const b = treeBuilder(), r = mulberry(13), tw = new THREE.Color(0.5, 0.44, 0.5);
     b.trunk(0.018, 0.005, -0.05, 0.86, 5, 3, RG.birch, 0, 1, WHITE, [0.05, 0.03]);
@@ -441,8 +477,9 @@ const TREES = {   // name: [geometry, share of the far forest's look (filled in 
     return b.geo(); })(),
 };
 const SPECIES = ['spruce', 'pine', 'birch', 'snag', 'spruce2'];
-const bushGeo = (() => { const b = treeBuilder(), r = mulberry(5);   // a round snow-capped bush: four overlapping puffs, 80 triangles
-  b.puff([0, 0.3, 0], 0.5, 0.42, 0.48, 0.95); for (let i = 0; i < 3; i++) { const a = i * 2.1 + r(); b.puff([Math.cos(a) * 0.36, 0.2, Math.sin(a) * 0.36], 0.32, 0.28, 0.32, 0.8); }
+const bushGeo = (() => { const b = treeBuilder(), r = mulberry(5);   // a low snowy mound of juniper: 12 painted sprays arching out and down from a raised middle, 48 triangles
+  for (let i = 0; i < 12; i++) { const hi = i >= 8, a = i * 2.39996 + r() * 0.5, len = hi ? 0.3 + 0.08 * r() : 0.5 + 0.12 * r();
+    b.spray([Math.cos(a) * 0.05, hi ? 0.42 : 0.3, Math.sin(a) * 0.05], a, len, len * 1.1, (hi ? 0.25 : 0.4) * (0.8 + 0.4 * r()), (r() - 0.5) * 0.8, RG.bough, hi ? 1 : 0.75, 0.4); }
   return b.geo(); })();
 const logGeo = (() => { const b = treeBuilder(), tint = new THREE.Color(0.9, 0.9, 0.9);   // a fallen trunk along +x, 6 sides, snow on its back: 12 + 8 triangles
   const P = [], s = 6; const g = new THREE.CylinderGeometry(0.5, 0.42, 1, s, 1, false).rotateZ(Math.PI / 2), p = g.attributes.position, n = g.attributes.normal, C = [];
@@ -496,8 +533,10 @@ const billboard = (sh) => {   // turn each card round its own upright axis to fa
     .replace('#include <begin_vertex>', `vec3 bc = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vec2 bd = normalize(cameraPosition.xz - bc.xz); vec3 transformed = vec3(position.x * bd.y, position.y, -position.x * bd.x);`);
 };
 const CARDS = bakeCards(), cardGeo = new THREE.PlaneGeometry(1, 1.04).translate(0, 0.5, 0);
-const rockGeo = (() => { const g = new THREE.IcosahedronGeometry(1, 0), p = g.attributes.position, C = []; g.computeVertexNormals();   // 20 triangles, snow on the tops
-  for (let i = 0; i < p.count; i++) { const top = p.getY(i) > 0.35; tmpC.set(top ? '#fbf7f0' : '#6c645e'); C.push(tmpC.r, tmpC.g, tmpC.b); }
+const rockGeo = (() => { const g = new THREE.IcosahedronGeometry(1, 0), p = g.attributes.position, C = [];   // a lumpy boulder, 20 triangles: snow on the faces that look up
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 0.78 + 0.45 * hash(Math.round(x * 50) + 99, Math.round(z * 50) + Math.round(y * 50) * 7); p.setXYZ(i, x * k * 1.35, Math.max(y * k * 0.75, -0.25), z * k * 1.1); }
+  g.computeVertexNormals(); const n = g.attributes.normal, r = mulberry(8);
+  for (let i = 0; i < p.count; i += 3) { const ny = (n.getY(i) + n.getY(i + 1) + n.getY(i + 2)) / 3, v = 0.85 + 0.3 * r(); tmpC.set(ny > 0.55 ? '#f1f0ee' : ny > 0.2 ? '#8f8c8a' : '#55514e'); if (ny <= 0.55) tmpC.multiplyScalar(v); for (let k = 0; k < 3; k++) C.push(tmpC.r, tmpC.g, tmpC.b); }
   g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return g; })();
 const ROCK_R = 700, LOG_R = 300, TILE = 256, SAPLING_R = 90;
 const NEAR_MAX = isPhone ? [600, 300, 300, 150, 600] : [1000, 500, 500, 250, 1000], CARD_MAX = isPhone ? 30000 : 50000, ROCK_MAX = 700, LOG_MAX = 400, SAPLING_MAX = isPhone ? 500 : 900;
@@ -602,8 +641,8 @@ const cabin = new THREE.Group(); cabin.position.set(0, TOP, 0); scene.add(cabin)
 const W = 12, D = 8, WH = 3.4, RH = 3.0, YB = 0.6, YT = YB + WH, RIDGE = YT + RH;
 const logTex = canvasTex(256, 512, (g, w, h) => { const n = 11, lh = h / n, r = mulberry(3);
   for (let k = 0; k < n; k++) { const y = k * lh, gr = g.createLinearGradient(0, y, 0, y + lh);
-    gr.addColorStop(0, '#3e2617'); gr.addColorStop(0.2, '#7d5232'); gr.addColorStop(0.5, '#a06c44'); gr.addColorStop(0.85, '#6b4329'); gr.addColorStop(1, '#3a2316');
-    g.fillStyle = gr; g.fillRect(0, y, w, lh); g.strokeStyle = 'rgba(50,30,18,.35)'; for (let i = 0; i < 6; i++) { const yy = y + r() * lh; g.beginPath(); g.moveTo(0, yy); g.lineTo(w, yy + R(-3, 3)); g.stroke(); }
+    gr.addColorStop(0, '#463d36'); gr.addColorStop(0.2, '#857a6c'); gr.addColorStop(0.5, '#a39784'); gr.addColorStop(0.85, '#6e6355'); gr.addColorStop(1, '#3c342e');
+    g.fillStyle = gr; g.fillRect(0, y, w, lh); g.strokeStyle = 'rgba(30,24,20,.45)'; for (let i = 0; i < 9; i++) { const yy = y + r() * lh; g.beginPath(); g.moveTo(0, yy); g.lineTo(w, yy + R(-3, 3)); g.stroke(); }
     g.fillStyle = '#cfc5b6'; g.fillRect(0, y + lh - 2, w, 3); } }, true);
 const stoneTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#4c4f55'; g.fillRect(0, 0, w, h); const r = mulberry(5);
   for (let i = 0; i < 40; i++) { const c = 90 + r() * 50 | 0; g.fillStyle = `rgb(${c},${c + 3},${c + 8})`; g.beginPath(); g.ellipse(r() * w, r() * h, 9 + r() * 10, 6 + r() * 6, r() * 3, 0, 7); g.fill(); } }, true);
@@ -612,8 +651,12 @@ const winTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#3a2416'; g.fil
   g.fillStyle = '#3a2416'; g.fillRect(w / 2 - 4, 12, 8, h - 24); g.fillRect(12, h / 2 - 4, w - 24, 8); g.fillStyle = '#f4f7fb'; g.fillRect(2, h - 13, w - 4, 11); });
 const doorTex = canvasTex(64, 128, (g, w, h) => { g.fillStyle = '#5b3a24'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(30,18,10,.6)'; for (let x = 0; x < w; x += 13) g.fillRect(x, 0, 2, h);
   const gr = g.createRadialGradient(w / 2, 30, 2, w / 2, 30, 20); gr.addColorStop(0, '#ffe7ad'); gr.addColorStop(1, '#d0782c'); g.fillStyle = gr; g.fillRect(16, 14, w - 32, 32); g.fillStyle = '#d9b36a'; g.fillRect(w - 14, 70, 5, 5); });
+const tinTex = canvasTex(128, 128, (g, w, h) => { const r = mulberry(4);   // corrugated tin gone to rust: ridges across, streaks running down
+  for (let x = 0; x < w; x += 8) { const gr = g.createLinearGradient(x, 0, x + 8, 0); gr.addColorStop(0, '#4a2a22'); gr.addColorStop(0.5, '#86503a'); gr.addColorStop(1, '#3a201a'); g.fillStyle = gr; g.fillRect(x, 0, 8, h); }
+  for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '170,90,45' : '60,50,48'},${0.25 + 0.35 * r()})`; g.fillRect(r() * w, r() * h * 0.5, 2 + r() * 6, h * (0.3 + 0.7 * r())); } }, true);
+tinTex.repeat.set(5, 1);
 const lam = (o) => hazed(new THREE.MeshLambertMaterial(o));
-const M = { log: lam({ map: logTex }), stone: lam({ map: stoneTex }), roof: lam({ color: '#33373e' }), snow: lam({ color: '#f3f7fc' }), wood: lam({ color: '#6e4a2f' }) };
+const M = { log: lam({ map: logTex }), stone: lam({ map: stoneTex }), roof: lam({ map: tinTex }), snow: lam({ color: '#f3f7fc' }), wood: lam({ color: '#5a5048' }) };
 const part = (geo, mat, x, y, z, parent = cabin) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
 { // walls: four log planes and the two gable triangles, one draw, 10 triangles
   const plane = (w, ry, x, z) => new THREE.PlaneGeometry(w, WH).rotateY(ry).translate(x, YB + WH / 2, z).toNonIndexed();
@@ -626,7 +669,7 @@ part(new THREE.BoxGeometry(W + 0.3, 0.9, D + 0.3), M.stone, 0, 0.15, 0);
 const roofSide = (ry, len, pitch, at, width, slab = 0.22) => {   // a roof slab hinged at `at`, sloping away along +z of its turn, with snow on it
   const turn = new THREE.Group(); turn.position.copy(at); turn.rotation.y = ry; cabin.add(turn);
   const tilt = new THREE.Group(); tilt.rotation.x = pitch; turn.add(tilt);
-  part(new THREE.BoxGeometry(width, slab, len), M.roof, 0, 0, len / 2, tilt); part(new THREE.BoxGeometry(width + 0.1, 0.28, len + 0.05), M.snow, 0, slab / 2 + 0.12, len / 2 + 0.02, tilt);
+  part(new THREE.BoxGeometry(width, slab, len), M.roof, 0, 0, len / 2, tilt); part(new THREE.BoxGeometry(width + 0.1, 0.28, len * 0.72), M.snow, 0, slab / 2 + 0.12, len * 0.36, tilt);   // the snow has slid, the rusty tin shows at the eaves
 };
 const pitch = Math.atan2(RH, D / 2), rlen = Math.hypot(RH, D / 2) + 0.75;
 roofSide(0, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4); roofSide(Math.PI, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4);
@@ -694,6 +737,7 @@ TRIS.push(['Fire lookout', placeTris(tower)], ['Fishing hut', placeTris(hut)]);
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
 // (models/*.txt, base64), in the camp's own arrangement round the fire, lit live here (their vertex colours carry the baked
 // shading). Added round them: a string of jar lanterns from the cabin to the tent, a flag, firelight and fire smoke.
+const mute = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, 0.6) * vec3(0.9, 0.92, 0.95);'); };   // the cozy camp's colours, toned down
 const CAMP = { x: 0.5, z: 11.5, turn: 0 }, campGroup = new THREE.Group(); campGroup.position.set(CAMP.x, TOP, CAMP.z); campGroup.rotation.y = CAMP.turn; scene.add(campGroup);
 const fireLight = new THREE.PointLight('#ff9a48', 0, 14, 1.5); fireLight.position.set(0, 0.9, 0); campGroup.add(fireLight);
 const flames = [];
@@ -706,7 +750,7 @@ const flames = [];
         node.traverse((o) => { if (!o.isMesh) return;
           const m0 = o.material, flame = node.name === 'Fire' || node.name === 'Embers';
           o.material = flame ? new THREE.MeshBasicMaterial({ color: node.name === 'Fire' ? '#ffb15a' : '#ff6a2a', vertexColors: !!o.geometry.attributes.color, transparent: node.name === 'Fire', opacity: 0.9, depthWrite: node.name !== 'Fire' })
-            : hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest }));
+            : hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest }), mute, 'mute');
           o.castShadow = !flame; o.receiveShadow = true; tris += tris0(o.geometry); if (node.name === 'Fire') flames.push(o); });
         campGroup.add(node); }
       TRIS.push([`Scout camp: ${file}`, tris]); tris = 0;
