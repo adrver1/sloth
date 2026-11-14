@@ -477,7 +477,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
     return m;
   }
   let nightBaked = false;
-  if (nightMap) loadLightMap(nightMap).then((t) => { t.anisotropy = 4;
+  if (nightMap) loadLightMap(nightMap).then((t) => {
     uGN.value = t; uGNon.value = 1; nightBaked = true; }).catch(() => {});
   uGJ.value = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); uGJ.value.needsUpdate = true;   // no jeep light until its map loads
   for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings

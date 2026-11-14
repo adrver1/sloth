@@ -5,7 +5,7 @@
 // trees or the sloths; a step only has to come after the steps whose parts it uses, as the comments say.
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
 import * as THREE from "three";
-import { stepLight } from "../bakedlight.js";
+import { doneLoading, stepLight } from "../bakedlight.js";
 import { $, DETAIL, OPT, PRE, camera, renderer, scene, uNight, uTime, wireSettings } from "./core.js";
 import { buildSky } from "./sky.js";
 import { buildForest } from "./forest.js";
@@ -48,6 +48,7 @@ await buildSloths();                   // sloths.js: the sloth model's download,
 buildDeadwood();                       // deadwood.js
 buildGlade();                          // glade.js: its plants go into the ground's draw
 buildGround(await PRE.groundMask);     // campGround.js: waits for the ground mask's download
+doneLoading();                         // bakedlight.js: frees the KTX2 workers once the props' and the ground's light maps are in
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
 buildChores();                         // chores.js: your activities
