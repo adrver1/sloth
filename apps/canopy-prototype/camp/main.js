@@ -26,6 +26,7 @@ import { opStep } from "./operator.js";
 import { aimStep, boop, feed, resize } from "./input.js";
 import { weather } from "./weather.js";
 import { lingerStep } from "./linger.js";
+import { tripStep } from "./trip.js";   // the karaoke trip (its own branch)
 import { day, dayStep, wireTimeMenu } from "./daytime.js";
 import { clockStep } from "./clock.js";
 import { audioStep } from "./audio.js";
@@ -50,7 +51,7 @@ await renderer.compileAsync(scene, camera).catch(() => {});
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
-  jeepSeatStep(dt); lingerStep(dt); step(dt);
+  jeepSeatStep(dt); lingerStep(dt); step(dt); tripStep(dt);   // the karaoke trip's cut scene takes the camera after the player has moved
   for (const s of sloths) {
     s.mixer.update(dt);
     slothLife(s, dt);
