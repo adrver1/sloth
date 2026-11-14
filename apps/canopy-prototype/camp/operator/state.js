@@ -28,7 +28,7 @@ const op = {
   eat: null, pail: null, stir: null, veg: false,       // soup { t, spoon }; the pail { tilt, from, k }; stirring { t, k }; a vegetable in hand
   fid: null,                                           // a little fidget { kind, t, k, T }
   // a sloth with him: the one he plays with or cuddles, and the hold { s, k, from, q0, arms } while it is in his hands (arms:
-  // its two upper-arm bones, found by handPose.js on the first frame)
+  // its two upper-arm bones, found once by buddy.js pickUp)
   buddy: null, carry: null,
   // talking: s left of the line, of the smile after, of the munching; the hand out for food, the food flying and at his lips
   talk: { t: 0, smile: 0, munch: 0, hand: null, fly: null, food: null },

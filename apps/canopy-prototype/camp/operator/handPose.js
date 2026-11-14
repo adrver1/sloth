@@ -20,8 +20,7 @@ const mA = new THREE.Matrix4(), eu = new THREE.Euler(), X = V(1, 0, 0);
 const va = V(), vb = V(), vAt = V(), vT = V(), vPole = V(), vX = V(), vF = V(), vP = V(), vD = V(), vTip = V(), vLips = V(), vG = V(), vUp = V(), vZ = V(), vS = V(), vFr = V(), vTh = V(), vFR = V(), vO = V();
 function poseHands(dt) {
   if (op.carry) {                                      // a sloth in his hands: its armpits where the clip puts his hands, his hands under its arms
-    const c = op.carry, sl = c.s.o, bone = (n) => sl.getObjectByName(n) || sl.getObjectByName(n.replace(/(L|R)$/, ".$1"));
-    c.arms ??= [bone("upper_armL"), bone("upper_armR")];   // found once per hold: a name search every frame walks the whole sloth
+    const c = op.carry, sl = c.s.o;                    // c.arms: its two upper-arm bones, found once in buddy.js pickUp
     const hm = B.handL.getWorldPosition(va).add(B.handR.getWorldPosition(vb)).multiplyScalar(0.5);
     sl.updateMatrixWorld(true); const pL = c.arms[0].getWorldPosition(vP), pR = c.arms[1].getWorldPosition(vF);
     const off = vD.copy(pL).add(pR).multiplyScalar(0.5).sub(sl.position);

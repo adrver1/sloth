@@ -28,9 +28,12 @@ function* lift(s, bone, local, quat, dur = 0.5) {      // move the sloth from wh
   }
   bone.add(s.o); s.o.position.copy(local); s.o.quaternion.copy(quat);
 }
+// one of the sloth's bones by its name (upper_armL), or the same name with a dot (upper_arm.L)
+const slothBone = (o, n) => o.getObjectByName(n) || o.getObjectByName(n.replace(/(L|R)$/, ".$1"));
 function* pickUp(clip, slothClip) {                    // lift the sloth into his hands: they hold it under its arms (handPose.js: op.carry)
   const s = op.buddy; play(clip, 0.45); slothPose(s, slothClip);
-  if (!op.carry) { scene.attach(s.o); op.carry = { s, k: 0, from: s.o.position.clone(), q0: s.o.quaternion.clone() }; }
+  // its two upper arms are found here, once per hold: a name search walks the whole sloth (review R2-084)
+  if (!op.carry) { scene.attach(s.o); op.carry = { s, k: 0, from: s.o.position.clone(), q0: s.o.quaternion.clone(), arms: [slothBone(s.o, "upper_armL"), slothBone(s.o, "upper_armR")] }; }
   for (let t = 0; t < 0.7;) { t += yield; op.carry.k = Math.max(op.carry.k, THREE.MathUtils.smoothstep(t, 0, 0.7)); }
 }
 // set the sloth down at `at` (a clear spot beside him by default, never inside a blocker: review R2-010), turned to `yaw`
