@@ -1,11 +1,10 @@
 // Canopy Camp sloths: the wild sloths hanging in the trees, the seven named sloths living in camp and going about their day
 // (errands to the snack table and crate, s'mores, saying hello, wayfinding), and their life: fur, blinks, looks and a wave.
-import { WARM_N, furify } from "../fur.js";
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { jeepApi } from "./jeep.js";
-import { D, LIVED, OPT, PROPS, R, S, camera, scene, uTime } from "./core.js";
+import { LIVED, OPT, PROPS, R, camera, scene, uTime } from "./core.js";
 import { V, canvasTex, sstep } from "./util.js";
 import { CRATE, HAMMOCK, HERO, LAUNDRY, RC, SEATS, TABLE, TENT } from "./layout.js";
 import { branchCurves } from "./forest.js";
@@ -16,164 +15,12 @@ import { burst, fx, sprite } from "./fx.js";
 import { createNav } from "./nav.js";
 import { addLabButton } from "./labButton.js";
 import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "./swing.js";
+import { SL, camp, hit, sloths } from "./sloth/state.js";
+import { hang, warmStep } from "./sloth/body.js";
+import { mouthOf } from "./sloth/face.js";
+import { slothsStep } from "./sloth/life.js";
 import { addCrowd, addMover, claim, holder, host, hosted, join, movers, release, taken, walkers } from "./places.js";
 
-const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL };
-const sloths = [], hit = [];
-let tinted = false;
-// review 2026-11-12 (P5, B4): Lambert body and fur like the camp; fur shells only within FUR_NEAR of the camera; a fixed
-// padded bounding sphere so off-screen sloths are culled; an 8x6 tap sphere; and a little life: they blink now and
-// then, and turn their heads to look at you when you come close (LOOK_NEAR).
-const FUR_NEAR = 8, LOOK_NEAR = 4.5;
-// at night the camp's light is baked into the props, so the sloths take a warm glow from the lanterns and the fire nearby
-// (fur.js warm; warmStep sets it each frame: lantern positions, the fire, and uWarm = dusk with the fire's flicker)
-const SLOTH_WARM = { uWarm: { value: 0 }, uWarmPos: { value: Array.from({ length: WARM_N }, () => V(0, -99, 0)) }, uWarmK: { value: new Array(WARM_N).fill(0) } };
-function warmStep(lanternGlow, fl, dusk) {             // each frame (main.js): where the lanterns are, the fire's flicker fl, how far the night is in
-  const W = SLOTH_WARM, n = Math.min(lanternGlow.length, WARM_N - 1);
-  for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
-  W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk;
-}
-const FACE = (() => {                                  // which way the face points in the head bone's frame (the sloth faces -Z at rest)
-  SLOTH.scene.updateMatrixWorld(true); const h = SLOTH.scene.getObjectByName("head");
-  return V(0, 0, -1).applyQuaternion(h.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(SLOTH.scene.getWorldQuaternion(new THREE.Quaternion())));
-})();
-let palette = null;
-function eyeKit(o) {                                   // per sloth: its own copy of the meshes' UVs with the eyes open and shut
-  const kit = [];
-  o.traverse((m) => {
-    if (!m.isSkinnedMesh || !m.material.map) return;
-    if (!palette) { const img = m.material.map.image, cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
-      const g = cv.getContext("2d"); g.drawImage(img, 0, 0); palette = { w: cv.width, h: cv.height, px: g.getImageData(0, 0, cv.width, cv.height).data }; }
-    const { w, h, px } = palette;
-    m.geometry = m.geometry.clone(); const uv = m.geometry.attributes.uv, kind = [];
-    for (let i = 0; i < uv.count; i++) {
-      const k = (Math.min(h - 1, Math.floor(uv.getY(i) * h)) * w + Math.min(w - 1, Math.floor(uv.getX(i) * w))) * 4, r = px[k], gg = px[k + 1], b = px[k + 2];
-      kind.push(r < 40 && gg < 40 && b < 45 ? "eye" : r > 235 && gg > 235 && b > 230 ? "eye" : r < 75 && r > gg && gg > b ? "patch" : "");
-    }
-    const pi = kind.indexOf("patch"); if (pi < 0) return;
-    const shut = new THREE.BufferAttribute(new Float32Array(uv.count * 2), 2);
-    for (let i = 0; i < uv.count; i++) shut.setXY(i, kind[i] === "eye" ? uv.getX(pi) : uv.getX(i), kind[i] === "eye" ? uv.getY(pi) : uv.getY(i));
-    kit.push([m.geometry, uv, shut]);
-  });
-  return (closed) => kit.forEach(([g, open, shut]) => { g.attributes.uv = closed ? shut : open; });
-}
-function hang(p, dir, sc = SL) {                      // a sloth under a branch at p, its head toward dir
-  const o = clone(SLOTH.scene); o.scale.setScalar(sc);
-  furify(o, { shells: D.shells, lambert: OPT.slothmat !== "old", warm: SLOTH_WARM });   // ?slothmat=old: the GLB's physical material, as before
-  o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur) { m.geometry.computeBoundingSphere(); m.boundingSphere = m.geometry.boundingSphere.clone(); m.boundingSphere.radius *= 2; } });
-  o.traverse((m) => { if (m.userData.fur) { const b = m.parent.children.find((q) => q.isSkinnedMesh && !q.userData.fur); m.boundingSphere = b.boundingSphere.clone(); m.frustumCulled = true; } });
-  if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
-  const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
-  act.play(); act.time = R(0, 4); act.timeScale = 0.6;   // (kept as s.act)
-  const yl = dir.clone().setY(dir.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-  const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
-  o.quaternion.setFromRotationMatrix(rot); o.position.copy(p).sub(V(0, BR.z * sc / SL, -BR.y * sc / SL).applyMatrix4(rot)); scene.add(o);
-  const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(p).add(V(0, -0.25, 0)); scene.add(box);
-  const s = { o, mixer, box, p, sc, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false, shells: o.userData.furShells || [], eyes: eyeKit(o), blink: R(1, 6), look: 0, act, napT: R(4, 40), droop: 0, yawn: 0,
-    arm: [o.getObjectByName("upper_armR") || o.getObjectByName("upper_arm.R"), o.getObjectByName("forearmR") || o.getObjectByName("forearm.R")],
-    armL: [o.getObjectByName("upper_armL") || o.getObjectByName("upper_arm.L"), o.getObjectByName("forearmL") || o.getObjectByName("forearm.L")], gaze: 0, waveCD: 0, wave: 0 };
-  s.lit = []; o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur && !s.lit.length) s.lit.push(m); });   // what lights up when a tap would boop it (camp/highlight.js)
-  box.userData.s = s; sloths.push(s); hit.push(box);
-}
-const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), va = V(), vb = V();
-// a slow wave (Adriaen 2026-11-12): when you keep looking right at a sloth for about 3 s (it stays near the middle of your
-// view, within 10 m) it looks back and slowly waves its right paw over its head, then waits a while before it waves again.
-// Done on the bones after the clip, so it works whatever it is doing (hanging, sitting, driving), except asleep or on the move.
-const GAZE_S = 3, WAVE_S = 4.6, camDir = V(), UPV = V(0, 1, 0);
-const LIVELY = new Set(["home", "eat", "rest", "greet"]);
-function aimBone(b, dir, w) {                          // turn bone b (it points along its own +Y) toward world dir, by w
-  const bq = b.getWorldQuaternion(qa), y = vb.copy(UPV).applyQuaternion(bq);
-  qb.setFromUnitVectors(y, dir).slerp(q1.identity(), 1 - w).multiply(bq);
-  b.quaternion.copy(b.parent.getWorldQuaternion(q1).invert().multiply(qb));
-}
-const q1 = new THREE.Quaternion(), oq = new THREE.Quaternion(), wa = V(), wf = V();
-function slothLife(s, dt) {                            // after the clip: fur by distance, blinks, a look at you when you're close, a wave
-  s.head.getWorldPosition(va); const d = va.distanceTo(camera.position);
-  const far = d > FUR_NEAR; if (s.shells[0] && s.shells[0].visible === far) s.shells.forEach((m) => (m.visible = !far));
-  if (!s.asleep) {
-    s.blink -= dt;
-    if (s.blink < 0) { s.eyes(true); if (s.blink < -0.14) { s.eyes(false); s.blink = R(2.5, 7); } }
-  }
-  const T = s.trip, still = !s.asleep && (!T || LIVELY.has(T.phase));
-  // the gaze: how long you have kept it near the middle of your view
-  camera.getWorldDirection(camDir); const off = Math.sqrt(Math.max(0, d * d - (camDir.dot(wa.copy(va).sub(camera.position))) ** 2));
-  s.gaze = still && d < 10 && camDir.dot(wa) > 0 && off < 0.5 + d * 0.04 ? s.gaze + dt : Math.max(0, s.gaze - dt * 1.5);
-  s.waveCD -= dt;
-  if (s.gaze > GAZE_S && s.waveCD <= 0 && !s.wave) { s.wave = 1e-3; s.waveCD = 15; s.gaze = 0; }
-  if (s.wave) { s.wave += dt; if (s.wave > WAVE_S || !still) s.wave = 0; }
-  const want = still && (d < LOOK_NEAR || s.wave) ? 1 : 0;
-  s.look += (want - s.look) * Math.min(1, dt * 1.5);
-  if (s.look >= 0.01) {
-    const hq = s.head.getWorldQuaternion(qa), face = vb.copy(FACE).applyQuaternion(hq), to = camera.position.clone().sub(va).normalize();
-    const turn = qb.setFromUnitVectors(face, to), ang = 2 * Math.acos(Math.min(1, Math.abs(turn.w)));
-    const w = s.look * 0.75 * Math.min(1, 1.2 / Math.max(ang, 1e-3));   // at most about 70 degrees, three quarters of the way
-    turn.slerp(qa.identity(), 1 - Math.min(1, w)).multiply(s.head.getWorldQuaternion(new THREE.Quaternion()));
-    s.head.quaternion.copy(s.head.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(turn));
-  }
-  if (s.wave && s.arm[1]) {                            // upper arm up and out beside the head, the forearm swinging slowly side to side
-    const k = s.wave, e = sstep(0, 0.9, k) * (1 - sstep(WAVE_S - 0.9, WAVE_S, k));
-    const left = s.spot?.name === "seat" && s.armL?.[1], arm = left ? s.armL : s.arm, sg = left ? -1 : 1;   // Sunny waves with its left: the right holds the s'more stick (Adriaen)
-    s.o.getWorldQuaternion(oq);
-    aimBone(arm[0], wa.set(0.55 * sg, 0.8, -0.25).normalize().applyQuaternion(oq), e);
-    const sw = Math.sin((k - 0.9) * 2 * Math.PI * 0.55) * 0.5 * sstep(0.6, 1.2, k);
-    aimBone(arm[1], wf.set((0.15 + sw) * sg, 1, -0.2).normalize().applyQuaternion(oq), e);
-  }
-  if (s.gift && !s.gift.clip && s.arm[1]) giftArm(s);
-  else if (s.armRest) { s.arm[0].quaternion.copy(s.armRest[0]); s.arm[1].quaternion.copy(s.armRest[1]); s.armRest = null; }   // the clip may not write a still bone again
-  // asleep (a doze, below): the head sinks; the curled-up clip already tucks it, so less then
-  s.droop += ((s.dozing && s.asleep ? 1 : 0) - s.droop) * Math.min(1, dt * 0.8);
-  if (s.droop > 0.01) s.head.rotation.x -= (s.act?.getClip().name === "curl" ? 0.12 : 0.4) * s.droop;
-  if (s.yawn) yawnStep(s, dt);
-  if (s.munch > 0) {                                   // munching what you fed it: the mouth opens and shuts a few times
-    s.munch = Math.max(0, s.munch - dt); const m = mouthOf(s), o = s.munch > 0.1 ? Math.max(0, Math.sin(s.munch * 9)) : 0;
-    m.visible = o > 0.08; m.scale.set(0.75, Math.max(0.01, o * 0.6), 1); s.head.rotation.x += 0.08 * o;
-  }
-}
-// each frame, for every sloth (main.js): its clip, its life on top of the clip, the squish of a boop and a nod
-function slothsStep(dt) {
-  for (const s of sloths) {
-    s.mixer.update(dt);
-    slothLife(s, dt);
-    if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; const sc = s.sc || SL; s.o.scale.set(sc * (1 + k), sc * (1 - k), sc * (1 + k)); }
-    if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
-  }
-}
-// a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
-// muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.
-// a gift eaten away from the eat clip (giftFly, in the life code below): a two-bone reach of the right arm, out in front to
-// take it, then up to the lips; the paw is at 0.82 of the forearm (pawOf)
-const gS = V(), gE = V(), gGoal = V(), gDir = V(), gPerp = V(), gM = V();
-function giftArm(s) {
-  const G = s.gift, t = G.t, w = sstep(0, 0.5, t) * (1 - sstep(3.6, 4.2, t)); if (!s.armRest) s.armRest = [s.arm[0].quaternion.clone(), s.arm[1].quaternion.clone()];
-  if (w <= 0) return;
-  const [up, fo] = s.arm; up.getWorldPosition(gS); fo.getWorldPosition(gE);
-  const l1 = gS.distanceTo(gE), l2 = l1 * 0.82, face = vb.copy(FACE).applyQuaternion(s.head.getWorldQuaternion(qa));
-  mouthOf(s).getWorldPosition(gM);
-  const bite = Math.max(0, Math.sin((t - 1.2) / 0.6 * Math.PI * 2));   // the paw in to the lips at each bite
-  const take = gM.clone().addScaledVector(face, 1.1 * l1).addScaledVector(UPV, -0.6 * l1), lips = gM.clone().addScaledVector(face, (0.35 - 0.12 * bite) * l1).addScaledVector(UPV, -0.25 * l1);
-  gGoal.copy(take).lerp(lips, sstep(0.8, 1.3, t));
-  const d = Math.min(Math.max(gS.distanceTo(gGoal), 0.01), (l1 + l2) * 0.999);
-  gDir.copy(gGoal).sub(gS).normalize(); gPerp.set(0, -1, 0).addScaledVector(gDir, gDir.y).normalize();   // the elbow down
-  const a = Math.acos(THREE.MathUtils.clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1));
-  aimBone(up, gDir.clone().multiplyScalar(Math.cos(a)).addScaledVector(gPerp, Math.sin(a)), w);
-  up.updateMatrixWorld(true); fo.getWorldPosition(gE); aimBone(fo, gGoal.clone().sub(gE).normalize(), w);
-}
-const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();
-  g.fillStyle = "#e07a8a"; g.beginPath(); g.ellipse(32, 48, 16, 11, 0, 0, 7); g.fill(); });
-const mouthMat = new THREE.MeshBasicMaterial({ map: mouthTex, alphaTest: 0.5 }), mouthGeo = new THREE.PlaneGeometry(0.036, 0.034);
-// the mouth card sits on the smile (head frame y 0.031, z -0.083), a little below and in front of it so it opens downward;
-// the nose is at y 0.046 (Adriaen 2026-11-13: the yawn was on the nose)
-function mouthOf(s) {                                 // also opens and closes as it chews (eating, below)
-  if (!s.mouth) { s.mouth = new THREE.Mesh(mouthGeo, mouthMat); s.mouth.position.set(0, 0.024, -0.087); s.mouth.rotation.set(-0.15, Math.PI, 0); s.mouth.visible = false; s.head.add(s.mouth); }
-  return s.mouth;
-}
-function yawnStep(s, dt) {
-  s.yawn += dt; const k = s.yawn, e = sstep(0.1, 1.0, k) * (1 - sstep(1.9, 2.8, k));
-  mouthOf(s);
-  s.head.rotation.x += 0.55 * e; s.mouth.visible = e > 0.03; s.mouth.scale.set(0.55 + 0.45 * e, Math.max(0.01, e), 1);
-  if (k > 0.5 && k < 2.4) s.eyes(true);
-  if (k > 2.8) { s.yawn = 0; s.mouth.visible = false; if (!s.asleep) s.eyes(false); }
-}
 const treeOf = (c) => HERO.reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
 // Adriaen 2026-11-12 ("simplify the gameplay loop"): no befriending. One wild sloth still hangs in each big tree (on the low
 // branch reaching furthest out, so the branches nearest the fire stay free for the camp's two branch sloths); the seven
@@ -202,9 +49,8 @@ for (const tree of HERO) {
 // Befriending belongs to the camp activities: it fires window event "sloth-befriended" with detail.id = index into sloths.
 // ?campsloths=0 turns the spots off; window.__campFast speeds the trips up for checks.
 let hammockSway = null, campStep = () => {}, hammockStep = () => {}, labApi;   // labApi: what the move lab drives (lab.js); undefined with ?campsloths=0
-const camp = [];   // the named camp sloths
 if (OPT.campsloths) {
-  const { a: hA, b: hB, mid: hm, yaw: hYaw } = HAMMOCK, hd = hB.clone().sub(hA);   // the hammock's posts, its middle and its yaw (layout.js)
+  const { a: hA, b: hB, mid: hm } = HAMMOCK, hd = hB.clone().sub(hA);   // the hammock's posts and its middle (layout.js)
   const clipOf = (n) => SLOTH.animations.find((a) => a.name === n);
   function shutEyes(o) {                              // asleep: the eyes (and their glints on the fur) take the dark patch colour round them
     const s = sloths.find((q) => q.o === o); if (!s) return;
