@@ -22,17 +22,17 @@ import { brush } from "./spots.js";
 const tmp = V();
 function climbDown(s, then) {
   const { curve: c, t, t0, tree, out } = s.spot, L = c.getLength();
-  const yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkOf(s.spot), back = (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u).negate());
+  const yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkOf(s.spot), back = (u, sd, P) => underAt(s, c.getPointAt(u, P?.at), c.getTangentAt(u, P?.dir).negate(), P);
   play(s, "hang_walk", 1.2, HW);
   glide(s, back(t), 2.5, () => slide(s, t, t0, climbV(s) / L, back, () => {
     play(s, "hang_walk", 1.5, -HW);
-    glide(s, trunkAt(s, tree, out, yTop, bark), 3, () => slide(s, yTop, 0, climbV(s), (y) => trunkAt(s, tree, out, y, bark),
+    glide(s, trunkAt(s, tree, out, yTop, bark), 3, () => slide(s, yTop, 0, climbV(s), (y, sd, P) => trunkAt(s, tree, out, y, bark, P),
       () => toGround(s, tree.clone().addScaledVector(out, bark(0) + 0.45), yawTo(out), then)));
   }));
 }
 function downPost(s, spot, top, then) {             // from the top of a post, tail first down to the ground
   play(s, "hang_walk", 1.5, -HW_POST);
-  glide(s, postPose(spot, top), 3, () => slide(s, top, 0, postV(s), (y) => postPose(spot, y),
+  glide(s, postPose(spot, top), 3, () => slide(s, top, 0, postV(s), (y, sd, P) => postPose(spot, y, P),
     () => { const yaw = (spot.climbYaw ?? climbYaw) + Math.PI; toGround(s, spot.door.clone().add(V(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(0.3)), yaw, then); }));
 }
 // out of the tent bed (Adriaen 2026-11-13: "add a climb out of bed animation", not a glide): turn to the open side and
@@ -60,11 +60,11 @@ function exitSpot(s, go) {
   if (spot.line) {                                  // hand over hand back along the line to post a, then down it
     const L = LAUNDRY.a.distanceTo(LAUNDRY.b);
     play(s, "hang_walk", 1.2, -HW_POST);
-    return slide(s, spot.t, 0.05, postV(s) / L, (u, sd) => { const P = linePose(s, u); brush?.(P.at, true, sd); return P; }, () => downPost(s, spot, spot.top, go));
+    return slide(s, spot.t, 0.05, postV(s) / L, (u, sd, P) => { linePose(s, u, P); brush?.(P.at, true, sd); return P; }, () => downPost(s, spot, spot.top, go));
   }
   if (spot.climb) {                                 // the hammock: out of the sling, up the rope to the knot, down the post
     play(s, "hang_walk", 2, -HW_POST);
-    return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, postV(s), (u) => ropePose(s, u), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
+    return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, postV(s), (u, sd, P) => ropePose(s, u, P), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
   }
   if (spot.car) { setTrip(s, "exit", { go }); jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
   const away = spot.via ? yawFrom(spot.door, spot.via) : yawFrom(s.o.getWorldPosition(tmp), spot.door);

@@ -1,27 +1,33 @@
 // Canopy Camp sloths, poses: where a sloth is and which way it is turned on a branch, a trunk, a post, the hammock's rope or
 // the laundry line, as { p: position, q: quaternion }, and the small yaw helpers. Pure: no scene objects are made or moved
 // (barkOf only casts rays at the big trees' wood), and no random numbers are drawn.
+// Each pose function takes an optional last argument `into`, a pose to write into (newPose()) instead of making a new one:
+// a slide (moves.js) passes its own, so a sloth posed along a branch, a trunk or a rope each frame makes no new objects.
+// A pose is { p, q, at, dir }: at and dir are spare vectors a caller may hand the pose as its own `at` and `head`.
+//   newPose()                         a pose to write into
 //   UP                                the world's up
 //   yawQ(yaw)                         a quaternion turned by yaw about UP
 //   yawOf(object)                     the yaw an object faces in the world (a sloth faces its own -Z)
 //   turnTo(T, want, k)                turns the trip's yaw T.yaw toward `want` by the share k, the short way round; returns
 //                                     how far off it still was
-//   underAt(s, at, head)              hanging back-down under a branch or pole at `at`, its head toward `head`
-//   trunkAt(s, tree, out, y, R)       upright on a trunk at height y, facing the bark on the side `out`; R(y) is the bark's radius
+//   underAt(s, at, head, into)        hanging back-down under a branch or pole at `at`, its head toward `head`
+//   trunkAt(s, tree, out, y, R, into) upright on a trunk at height y, facing the bark on the side `out`; R(y) is the bark's radius
 //   treeOf(curve)                     the big tree a branch grows from (its foot, on the ground)
 //   barkOf(spot), branchBase(curve, tree)   a branch spot's trunk radius as measured on its side (a function of y, kept
 //                                     on the spot as spot.bark), and the first point along a branch that is clear of the bark
 //   HAMMOCK_IN, climbYaw              from the hammock toward the fire, and the yaw of a sloth climbing its post
-//   ROPE_L, ropePose(s, u)            the hammock's rope from the post's knot to the sling: its length, and hanging under it
+//   ROPE_L, ropePose(s, u, into)      the hammock's rope from the post's knot to the sling: its length, and hanging under it
 //                                     u metres down from the knot (in the swing's frame, swing.js)
-//   linePose(s, t)                    hanging under the laundry line at fraction t from its end a: { at, p, q }
-//   postPose(spot, y)                 upright on the spot's post (the hammock's or the line's) at height y
+//   linePose(s, t, into)              hanging under the laundry line at fraction t from its end a (pose.at: the point on the line)
+//   postPose(spot, y, into)           upright on the spot's post (the hammock's or the line's) at height y
 import * as THREE from "three";
 import { heroWood, trunkR } from "../forest.js";
 import { V, wrapPi, yawTo } from "../util.js";
 import { HAMMOCK, HERO, LAUNDRY } from "../layout.js";
 
-const UP = V(0, 1, 0), m4 = new THREE.Matrix4(), LL = LAUNDRY;
+const UP = V(0, 1, 0), m4 = new THREE.Matrix4(), LL = LAUNDRY, LL_L = LL.a.distanceTo(LL.b);
+const newPose = () => ({ p: V(), q: new THREE.Quaternion(), at: V(), dir: V() });
+const yl = V(), zl = V(), xl = V(), grip = V();   // underAt's scratch
 const yawQ = (yaw) => new THREE.Quaternion().setFromAxisAngle(UP, yaw);
 const yawOf = (o) => { const f = V(0, 0, -1).applyQuaternion(o.getWorldQuaternion(qWorld)); return yawTo(f); };
 const qWorld = new THREE.Quaternion();
@@ -29,12 +35,14 @@ const turnTo = (T, want, k) => { const d = wrapPi(want - T.yaw); T.yaw += d * Ma
 // poses for climbing: hanging back-down under a branch or pole at `at`, head toward `head`, and upright on a trunk at
 // height y, facing the bark on the side `out` points to. underAt is the one hanging pose: body.js placeUnder() hangs a new
 // sloth with it, and the rope and the line below are it too. Its grip is 0.1 of its size over its belly and toward its head.
-function underAt(s, at, head) {
-  const yl = head.clone().setY(head.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-  m4.makeBasis(xl, yl, zl);
-  return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
+function underAt(s, at, head, into = newPose()) {
+  yl.copy(head).setY(head.y * 0.5).normalize(); zl.set(0, -1, 0).addScaledVector(yl, yl.y).normalize(); xl.crossVectors(yl, zl);
+  m4.makeBasis(xl, yl, zl); into.q.setFromRotationMatrix(m4);
+  into.p.copy(at).sub(grip.set(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)); return into;
 }
-const trunkAt = (s, tree, out, y, R) => ({ p: tree.clone().addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y), q: yawQ(Math.atan2(out.x, out.z)) });
+function trunkAt(s, tree, out, y, R, into = newPose()) {
+  into.p.copy(tree).addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y); into.q.setFromAxisAngle(UP, Math.atan2(out.x, out.z)); return into;
+}
 const treeOf = (c) => HERO.reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
 // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths.
 // Their sloths climb down the trunk and back up it (wayOut.js climbDown, wayIn.js climbUp). The trunk's radius by formula is
@@ -68,12 +76,12 @@ const HAMMOCK_IN = (() => {                               // from the hammock to
 // spanning 0..0.20 toward its head, so the same clip climbs the post when the sloth is upright facing it.
 const KNOT = V(-1.43, 0, 0), ROPE_END = V(-1.03, -0.40, 0), ROPE = ROPE_END.clone().sub(KNOT), ROPE_L = ROPE.length(); ROPE.normalize();
 const climbYaw = Math.atan2(HAMMOCK_IN.x, HAMMOCK_IN.z);
-const ropePose = (s, u) => underAt(s, KNOT.clone().addScaledVector(ROPE, u), ROPE);   // hanging under the rope, its grip centre u metres down from the knot
-function linePose(s, t) {                           // hanging back-down under the laundry line at fraction t from a, its head toward b
-  const L = LL.a.distanceTo(LL.b), y = (k) => LL.a.y - LL.sag * 4 * k * (1 - k);
-  const at = LL.a.clone().addScaledVector(LL.dir, L * t).setY(y(t)), tan = LL.dir.clone().setY((y(t + 0.01) - y(t)) / (0.01 * L)).normalize();
-  return { at, ...underAt(s, at, tan) };
+const ropePose = (s, u, into = newPose()) => underAt(s, into.at.copy(KNOT).addScaledVector(ROPE, u), ROPE, into);   // hanging under the rope, its grip centre u metres down from the knot
+const lineY = (k) => LL.a.y - LL.sag * 4 * k * (1 - k);   // the laundry line's height at fraction k from a
+function linePose(s, t, into = newPose()) {         // hanging back-down under the laundry line at fraction t from a, its head toward b
+  into.at.copy(LL.a).addScaledVector(LL.dir, LL_L * t).setY(lineY(t)); into.dir.copy(LL.dir).setY((lineY(t + 0.01) - lineY(t)) / (0.01 * LL_L)).normalize();
+  return underAt(s, into.at, into.dir, into);
 }
-const postPose = (spot, y) => ({ p: spot.door.clone().setY(y), q: yawQ(spot.climbYaw ?? climbYaw) });
+function postPose(spot, y, into = newPose()) { into.p.copy(spot.door).setY(y); into.q.setFromAxisAngle(UP, spot.climbYaw ?? climbYaw); return into; }
 
-export { HAMMOCK_IN, ROPE_L, UP, barkOf, branchBase, climbYaw, linePose, postPose, ropePose, treeOf, trunkAt, turnTo, underAt, yawOf, yawQ };
+export { HAMMOCK_IN, ROPE_L, UP, barkOf, branchBase, climbYaw, linePose, newPose, postPose, ropePose, treeOf, trunkAt, turnTo, underAt, yawOf, yawQ };

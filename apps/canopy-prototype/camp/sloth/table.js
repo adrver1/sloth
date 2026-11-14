@@ -88,12 +88,16 @@ function buildPlaces() {
 }
 const pois = () => POIS ?? [];
 function fruitStep(sd) {
-  for (const P of POIS ?? []) for (const q of P.slots) {   // fruit put out again a while after one is eaten
-    const F = q.food; if (!F.back) continue;
-    F.back = Math.max(0, F.back - sd); if (F.back > 0 || q.who) { if (!F.back) F.back = 1; continue; }
-    fruit(F.mesh); restOn(F); F.mesh.scale.multiplyScalar(0.01); F.grow = 0;
+  if (!POIS) return;
+  for (const P of POIS) for (const q of P.slots) {
+    const F = q.food;
+    if (F.back) {                                    // fruit put out again a while after one is eaten
+      F.back = Math.max(0, F.back - sd);
+      if (F.back > 0 || q.who) { if (!F.back) F.back = 1; }
+      else { fruit(F.mesh); restOn(F); F.mesh.scale.multiplyScalar(0.01); F.grow = 0; }
+    }
+    if (F.grow != null) { F.grow = Math.min(1, F.grow + sd); F.mesh.scale.copy(F.mesh.userData.base).multiplyScalar(Math.max(0.01, sstep(0, 1, F.grow))); if (F.grow >= 1) F.grow = null; }   // and grows to its size
   }
-  for (const P of POIS ?? []) for (const q of P.slots) { const F = q.food; if (F.grow != null) { F.grow = Math.min(1, F.grow + sd); F.mesh.scale.copy(F.mesh.userData.base).multiplyScalar(Math.max(0.01, sstep(0, 1, F.grow))); if (F.grow >= 1) F.grow = null; } }
 }
 
 export { buildPlaces, buildTable, fruit, fruitStep, pois, restOn, sitFor };

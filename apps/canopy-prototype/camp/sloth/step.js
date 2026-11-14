@@ -35,7 +35,7 @@ function campStep(dt) {
   if (!OPT.campsloths) return;
   keep();
   const fast = pace.fast ?? 1, sd = dt * fast;   // ?? not ||: the lab's Pause and Step set 0 (review R2-044)
-  let out = camp.filter((s) => s.trip.phase !== "home").length;
+  let out = 0; for (const s of camp) if (s.trip.phase !== "home") out++;
   for (const s of camp) {
     if (fast !== 1) s.mixer.update(sd - dt);   // the clip at the same pace (slow motion and pause in the move lab too)
     s.trip.t += sd; s.greetCD -= sd;

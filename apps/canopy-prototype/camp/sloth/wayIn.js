@@ -5,7 +5,7 @@
 //                               through the jeep's door, or straight up onto its seat or into the tent
 //   atHome(s, first)            (inside) it has arrived: it claims its place ("seat:Sunny") and gets the time to its next errand; a
 //                               guest (a nap trip) goes straight to sleep; first: placed there at the start
-//   doorStep(s, T, sd, spot)    the door phase (the jeep): waits for its door, then up onto the sill and in
+//   doorStep(s, T, sd)          the door phase (the jeep): waits for its door, then up onto the sill (T.sill, in the world) and in
 // Every other step of the way in is a slide or a glide (moves.js): up the trunk and along the branch, up the post, round
 // onto the rope or the line and along it, and the settle into the spot, growing or shrinking to its size there (spots.js
 // sizeIn: the spot's size times the sloth's own factor s.k).
@@ -46,8 +46,8 @@ function placeHome(s) {                             // straight into its spot, a
 function climbUp(s, spot) {                          // up the trunk and out along the branch to its tip
   const { curve: c, t, t0, tree, out } = spot, L = c.getLength(), yTop = c.getPointAt(t0).y - 0.25 * s.sc, bark = barkOf(spot);
   play(s, "hang_walk", 1.5, HW);
-  glide(s, trunkAt(s, tree, out, 0.02, bark), 2.5, () => slide(s, 0.02, yTop, climbV(s), (y) => trunkAt(s, tree, out, y, bark), () =>
-    glide(s, underAt(s, c.getPointAt(t0), c.getTangentAt(t0)), 3, () => slide(s, t0, t, climbV(s) / L, (u) => underAt(s, c.getPointAt(u), c.getTangentAt(u)),
+  glide(s, trunkAt(s, tree, out, 0.02, bark), 2.5, () => slide(s, 0.02, yTop, climbV(s), (y, sd, P) => trunkAt(s, tree, out, y, bark, P), () =>
+    glide(s, underAt(s, c.getPointAt(t0), c.getTangentAt(t0)), 3, () => slide(s, t0, t, climbV(s) / L, (u, sd, P) => underAt(s, c.getPointAt(u, P.at), c.getTangentAt(u, P.dir), P),
       () => { play(s, "cling", 3, 0.6); atHome(s); }))));
 }
 function settleIn(s, fade) {                         // about 4 s (6 into the hammock): up into its spot, growing or shrinking to its size there
@@ -59,10 +59,10 @@ function settleIn(s, fade) {                         // about 4 s (6 into the ha
 function upPost(s, spot) {
   const top = spot.top ?? HAMMOCK_PIVOT - 0.2 * s.sc, L = LAUNDRY.a.distanceTo(LAUNDRY.b);
   const along = () => spot.line
-    ? slide(s, 0.05, spot.t, postV(s) / L, (u, sd) => { const P = linePose(s, u); brush?.(P.at, true, sd); return P; }, () => { play(s, "cling", 3, 0.6); atHome(s); })
-    : slide(s, 0.1, ROPE_L - 0.05, postV(s), (u) => ropePose(s, u), () => settleIn(s, 3));
+    ? slide(s, 0.05, spot.t, postV(s) / L, (u, sd, P) => { linePose(s, u, P); brush?.(P.at, true, sd); return P; }, () => { play(s, "cling", 3, 0.6); atHome(s); })
+    : slide(s, 0.1, ROPE_L - 0.05, postV(s), (u, sd, P) => ropePose(s, u, P), () => settleIn(s, 3));
   play(s, "hang_walk", 1.2, HW_POST);
-  glide(s, postPose(spot, 0), 1.2, () => slide(s, 0, top, postV(s), (y) => postPose(spot, y), () => {   // round to face the post, then up
+  glide(s, postPose(spot, 0), 1.2, () => slide(s, 0, top, postV(s), (y, sd, P) => postPose(spot, y, P), () => {   // round to face the post, then up
     spot.parent.attach(s.o);
     glide(s, spot.line ? linePose(s, 0.05) : ropePose(s, 0.1), 3, along);   // about 3 s: round from the post to hang under the rope or the line
   }));
@@ -71,11 +71,11 @@ function enterSpot(s) {                             // at its spot's door: in th
   const spot = s.spot;
   if (spot.branch) return climbUp(s, spot);
   if (spot.climb) return upPost(s, spot);
-  if (spot.car) { setTrip(s, "door"); jeepApi.open("P"); return; }
+  if (spot.car) { setTrip(s, "door", { sill: spot.parent.localToWorld(spot.sill.clone()) }); jeepApi.open("P"); return; }   // the jeep stands still
   settleIn(s, 2.5);
 }
-function doorStep(s, T, sd, spot) {                 // waits, facing the door, until it has swung open, then about 4 s up onto the sill
-  const J = jeepApi, sill = spot.parent.localToWorld(spot.sill.clone());
+function doorStep(s, T, sd) {                       // waits, facing the door, until it has swung open, then about 4 s up onto the sill
+  const J = jeepApi, sill = T.sill;
   turnTo(T, yawFrom(s.o.position, sill), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   if (!J.isOpen("P")) J.open("P");
   else if (T.t > 2) { play(s, "hang_walk", 1, 2); glide(s, { p: sill, lift: 0.1, tip: -0.5 }, 4, () => settleIn(s, 3)); }   // hauls itself up, facing T.yaw

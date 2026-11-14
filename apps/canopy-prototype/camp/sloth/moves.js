@@ -3,8 +3,9 @@
 // Every way in and out of a spot (wayIn.js, wayOut.js) is made of slide and glide (review R2-027: they used to have
 // phases of their own).
 //   slide(s, from, to, speed, pose, next)       a parameter u runs from `from` to `to` at `speed` per second, the sloth posed
-//                                               by pose(u, sd) (along a branch, a trunk, a post, a rope, the line; sd is
-//                                               the frame's seconds): slideStep
+//                                               by pose(u, sd, into) (along a branch, a trunk, a post, a rope, the line; sd
+//                                               is the frame's seconds; into is the slide's own pose to write into, poses.js
+//                                               newPose): slideStep
 //   glide(s, to, dur, next)                     eases from where it is to `to` over dur seconds: glideStep. to is a tween
 //                                               target (below)
 //   toGround(s, at, yaw, then)                  steps off onto the ground at `at`, belly down, facing yaw (a glide)
@@ -19,7 +20,7 @@ import * as THREE from "three";
 import { V, ease } from "../util.js";
 import { HW, HW_POST, setTrip } from "./state.js";
 import { play } from "./clips.js";
-import { UP, yawQ } from "./poses.js";
+import { UP, newPose, yawQ } from "./poses.js";
 
 const q0 = new THREE.Quaternion(), X = V(1, 0, 0);
 const climbV = (s) => 0.015 * HW * s.sc;              // m/s, with hang_walk at HW so the paws keep pace
@@ -41,7 +42,7 @@ function toGround(s, at, yaw, then) {               // step off onto the ground 
 }
 function slideStep(s, T, sd) {
   const L = T.sl, step = L.speed * sd; L.u = Math.abs(L.to - L.u) <= step ? L.to : L.u + Math.sign(L.to - L.u) * step;
-  const P = L.pose(L.u, sd); s.o.position.copy(P.p); s.o.quaternion.copy(P.q);
+  const P = L.pose(L.u, sd, L.into ??= newPose()); s.o.position.copy(P.p); s.o.quaternion.copy(P.q);
   if (L.u === L.to) L.next();
 }
 const glideStep = tweenStep;
