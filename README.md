@@ -14,6 +14,10 @@ This work started in the desk-at-night repo (thread "Make fun extras with the sl
 | `apps/catch-the-baby/` | **Catch the Baby**, a small game. | https://claude.ai/artifact/Vo8KXUVinCcxegRHpVaWSD |
 | `apps/playtime/` | **Sloth Playtime.** The ponytail engineer's play clips with two sloths. | https://claude.ai/artifact/UUimcJPizJcUjnNKU6TyWd |
 | `apps/fur-options/` | **Sloth Fur Options.** The fur looks; 4 merged shell layers was the pick. | https://claude.ai/artifact/GNGvhQsK1cAjVCh1jdyLzA |
+| `apps/canopy-prototype/` | **Canopy Camp**, the camp game (`camp.html`); see the Canopy Camp section below. | GitHub Pages: https://adrver1.github.io/sloth/canopy-prototype/camp.html |
+| `props/` | The camp's Blender generators and bakes (`props/lib/`, `bake_all.py`); see Canopy Camp below. | |
+| `tools/` | The camp's headless checks (replay, scenarios, probe), the generator fingerprint and `sync-shared.cjs`. | |
+| `docs/reviews/` | The code reviews; `code-review-2026-11-13/findings.md` lists every finding with its status. | |
 | `stickers/renderer/` | The sticker renderer page and its scripts (still and animated, 512×512 WebP). | |
 | `stickers/packs/` | The finished sticker zips (furry, flat, animated, hearts) and the family sticker. | |
 | `characters/aussie_critters/` | The karaoke's Aussie crowd (platypus, wallaby, echidna, wombat): `build_critters.py` and `critter_rig.py` (idle, bop, cheer, and hop for the wallaby), plus the exported GLBs. Packed for the page with `pack_chars.mjs --own`, then base64 into `apps/karaoke/models/`. | |
