@@ -5,7 +5,7 @@ import { camera } from "./core.js";
 import { keys, stickV } from "./hud.js";
 import { track } from "./forest.js";
 import { V, polyDist, yawTo } from "./util.js";
-import { GLADE, GLADE_R, PATH_W, RC, d0, sloPath, t0 } from "./layout.js";
+import { GLADES, PATHS, RC, d0, t0 } from "./layout.js";
 import { blockers } from "./campProps.js";
 import { groundHeight } from "./terrain.js";
 
@@ -34,11 +34,15 @@ function collide(p) {
   const r = Math.hypot(p.x, p.z), lim = RC - 0.7;
   if (r > lim) {
     const [q, d] = walkPts.length > 1 ? onTrack(p) : [null, 1e9];
-    const [pd, px, pz] = polyDist(sloPath.pts, p.x, p.z), dg = Math.hypot(p.x - GLADE.x, p.z - GLADE.z), GR = GLADE_R - 0.4;
-    if (dg < GR) {}                                                                          // in the sloth tree's glade
-    else if (pd < PATH_W + 0.4) { if (pd > PATH_W) { const c = V(px, 0, pz); p.sub(c).multiplyScalar(PATH_W / pd).add(c); } }   // on the path: keep to it
+    // the paths and glades are layout.js PATHS and GLADES: the nearest glade, and the path you are on (within its lane + 0.4 m)
+    let gl = null, dc = 0, on = null, pd = 0, px = 0, pz = 0;   // dc: the distance to the glade's middle
+    for (const g of GLADES) { const c = Math.hypot(p.x - g.at.x, p.z - g.at.z); if (!gl || c - g.r < dc - gl.r) { gl = g; dc = c; } }
+    for (const w of PATHS) { const [d1, x1, z1] = polyDist(w.pts, p.x, p.z); if (d1 < w.lane + 0.4 && (!on || d1 - w.lane < pd - on.lane)) { on = w; pd = d1; px = x1; pz = z1; } }
+    const GR = gl ? gl.r - 0.4 : 0;
+    if (gl && dc < GR) {}                                                                    // in a glade
+    else if (on) { if (pd > on.lane) { const c = V(px, 0, pz); p.sub(c).multiplyScalar(on.lane / pd).add(c); } }   // on a path: keep to it
     else if (d < WALK_W + 0.4) { if (d > WALK_W) p.sub(q).multiplyScalar(WALK_W / d).add(q); }   // on the track: keep to it
-    else if (dg < GR + 0.8) p.sub(GLADE).multiplyScalar(GR / dg).add(GLADE);
+    else if (gl && dc < GR + 0.8) p.sub(gl.at).multiplyScalar(GR / dc).add(gl.at);           // just out of a glade: back into it
     else p.multiplyScalar(lim / r);
   }
   // push out of each blocker along the shortest way, so you slide round it instead of stopping; three passes, so a corner

@@ -54,7 +54,7 @@ let deadwood = null;   // set by buildDeadwood
 function buildDeadwood() {
   // ---------------------------------------------------------------- where: three spread-out spots at the edge, clear of the props, the
   // track, the big trees and the jeep
-  const ok = (x, z, r) => trackDist(x, z) > 2.2 + r && Math.hypot(x - JEEP_AT.x, z - JEEP_AT.z) > 3.6 + r && !blockers.some((b) => Math.hypot(x - b.at.x, z - b.at.z) < b.r + r + 0.8) && !HERO.some((h) => Math.hypot(x - h.x, z - h.z) < 2.6 + r);
+  const ok = (x, z, r) => trackDist(x, z) > 2.2 + r && Math.hypot(x - JEEP_AT.x, z - JEEP_AT.z) > 3.6 + r && !blockers.some((b) => Math.hypot(x - b.at.x, z - b.at.z) < b.r + r + 0.8) && !HERO.some(({ at: h }) => Math.hypot(x - h.x, z - h.z) < 2.6 + r);
   const spots = [];
   for (const [rad, need] of [[RC - 1.3, 1.4], [RC - 1.4, 0.6], [RC + 0.2, 0.5]]) {   // the log, the stump, the dead trunk
     const a0 = R(0, 6.28);
@@ -104,7 +104,7 @@ function buildDeadwood() {
   // roots (forest-ground note 2b): low half-round roots spreading 1.5 to 2.6 m from both big trees over the ground, across the sloths'
   // way down, so the trees sit in the ground instead of on it. 16 triangles each, in the same draw and bark as the deadwood.
   { const from = parts.length;
-    for (const [k, h] of HERO.entries()) for (let i = 0, n = k ? 8 : 10; i < n; i++) {
+    for (const { at: h, roots: n } of HERO) for (let i = 0; i < n; i++) {
       const a = (i / n) * 6.28 + R(-0.25, 0.25), L = R(1.5, 2.6), r0 = R(0.11, 0.15), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), bend = R(-0.35, 0.35);
       const P = [], U = [], I = [];
       for (let j = 0; j <= 2; j++) { const t = j / 2, rad = r0 * (1 - 0.75 * t), c = h.clone().addScaledVector(dir, 0.9 + t * L).addScaledVector(side, bend * t * t);

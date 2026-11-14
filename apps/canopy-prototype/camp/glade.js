@@ -11,7 +11,7 @@
 import * as THREE from "three";
 import { D, S, scene, sun } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
-import { GLADE, GLADE_R, HERO, RC, pathLane, sloPath } from "./layout.js";
+import { GLADE, GLADE_R, GLADES, RC, pathLane, sloPath } from "./layout.js";
 import { addBlocker, rayMat } from "./campProps.js";
 import { leafGeo, leafM, leafScale, perClump } from "./forest.js";
 import { groundHeight } from "./terrain.js";
@@ -22,7 +22,7 @@ const G = GLADE, FR = GLADE_R + 1.2;          // the floor disc's radius: soft e
 // the frame: `in` points from the glade's centre back down the path (where you arrive), `across` a quarter turn from it
 const end = sloPath.pts[sloPath.pts.length - 1], inDir = V(end.x - G.x, 0, end.z - G.z).normalize(), across = V(-inDir.z, 0, inDir.x);
 const at = (r, turn) => { const a = Math.atan2(inDir.z, inDir.x) + turn; return V(G.x + Math.cos(a) * r, 0, G.z + Math.sin(a) * r); };
-const TRUNK = 1.25, TREE = HERO[1];   // the big tree's foot with its flare (forest.js HERO trunk), and where it stands (a little off the glade's middle)
+const TRUNK = 1.25, TREE = GLADES.find((g) => g.at === GLADE).tree.at;   // the big tree's foot with its flare (forest.js heroTrees), and where it stands (a little off the glade's middle)
 
 // where things stand (also what the plants keep clear of)
 const BENCH = { at: at(3.05, 1.15), yaw: 0 };   // to the right as you arrive, looking at the tree

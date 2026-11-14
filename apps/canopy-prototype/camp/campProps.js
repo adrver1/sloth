@@ -40,7 +40,7 @@ function dropBlockers(tag) { for (let i = blockers.length - 1; i >= 0; i--) if (
 addBlocker({ at: V(0, 0, 0), r: 0.9, walk: { r: 0.75 } });   // the fire
 addBlocker({ at: TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), r: 1.9, tag: "tent" });   // the whole tent, until tentInside.js puts in its walls
 addBlocker({ at: TABLE.at, r: 0.75 }); addBlocker({ at: HAMMOCK.a, r: 0.3 }); addBlocker({ at: HAMMOCK.b, r: 0.3 });
-for (const h of HERO) addBlocker({ at: h, r: 1.4 });
+for (const h of HERO) addBlocker({ at: h.at, r: 1.4 });
 for (const { angle: a, at: c } of SEATS) { const t = V(-Math.sin(a), 0, Math.cos(a));
   addBlocker({ at: c, r: 0.75, walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } }); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
 const FIRE_CARDS = [];   // the fire's flame cards (the activities flare them)

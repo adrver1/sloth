@@ -23,8 +23,8 @@ function vnoise(x, z) {
 }
 const fbm = (x, z) => 0.55 * vnoise(x, z) + 0.3 * vnoise(x * 2.1 + 5.2, z * 2.1 - 1.3) + 0.15 * vnoise(x * 4.3 - 7.1, z * 4.3 + 2.9);
 export const jeepDist = JEEP === "none" ? () => 1e9 : (x, z) => lineDist(JEEP_TRACK.pts, x, z);
-// the big tree at the clearing's edge sits on a root mound on its forest side only: the sloths come down its camp side
-{ const h0 = HERO[0], l0 = Math.hypot(h0.x, h0.z); mounds.push([h0.x, h0.z, 2.6, 0.45, h0.x / l0, h0.z / l0]); }
+// a big tree with a mound (layout.js HERO: the one at the clearing's edge) sits on it on its forest side only: the sloths come down its camp side
+for (const { at: h, mound: m } of HERO) if (m) { const l = Math.hypot(h.x, h.z); mounds.push([h.x, h.z, m.r, m.h, h.x / l, h.z / l]); }
 export function addMound(x, z, r, h) { mounds.push([x, z, r, h, 0, 0]); }
 
 export function groundHeight(x, z) {

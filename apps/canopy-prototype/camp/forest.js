@@ -10,7 +10,7 @@ import { D, hex, JEEP, leafMat, OPT, rng, S, scene } from "./core.js";
 // under them that shape the ground the light and ground bakes were made on, stay where they were baked
 const { R, rnd } = rng("forest", 3000 + OPT.seed);
 import { V, canvasTex, lcg, rand, sstep } from "./util.js";
-import { GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_A, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
+import { HERO, JEEP_TRACK, PATHS, RC, TRACK_HALF, pathDist, pathLane } from "./layout.js";
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
@@ -73,7 +73,7 @@ function clearingFloor() {
     for (let i = 0; i < 1400; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.2, 0.6); g.lineWidth = 1.5; const x = R(0, w), y = R(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-2, 2), y - R(3, 8)); g.stroke(); }
   });
   grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(6, 6);
-  // the footpath to the glade: one ribbon of trodden earth (1 draw, 80 triangles); the glade's own floor is camp/glade.js
+  // the footpaths: one ribbon of trodden earth per path (the glade path: 1 draw, 96 triangles); the glade's own floor is camp/glade.js
   {
     const Q = rand;   // texture noise only
     // packed earth, warmer and lighter than the forest floor so it reads from the camp (Adriaen 2026-11-14: "more prominent"): two darker
@@ -93,21 +93,23 @@ function clearingFloor() {
       g.putImageData(img, 0, 0);
     });
     earth.wrapT = THREE.RepeatWrapping;
-    // the ribbon starts in the camp, just past the log seats round the fire, and runs out between the tent and the laundry line
-    // onto the glade path (Adriaen 2026-11-14: "continue past the tent to the camp"); sloPath itself, which the player and the
-    // terrain follow, still starts at RC - 2
-    const way = new THREE.CatmullRomCurve3([V(Math.cos(PATH_A) * 3.0, 0, Math.sin(PATH_A) * 3.0), V(Math.cos(PATH_A) * 5.0, 0, Math.sin(PATH_A) * 5.0), ...sloPath.curve.points]);
-    const n = 48, pos = [], uv = [], col = [], idx = [], L = way.getLength();
-    for (let i = 0; i <= n; i++) {
-      const t = i / n, p = way.getPointAt(t), d = way.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
-      const a = sstep(0, 1.0, t * L) * (1 - sstep(L - 1.2, L, t * L));   // fades in at the seats, out into the glade
-      for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * PATH_HALF * 1.35); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2.5); col.push(1, 1, 1, a); }   // 2 m wide, about 1.2 m of it bare earth (was 0.75 m)
-      if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
+    // one ribbon per path (layout.js PATHS): it starts at the path's lead points in the camp (the glade path's: just past the log
+    // seats round the fire, out between the tent and the laundry line, Adriaen 2026-11-14: "continue past the tent to the camp")
+    // and runs along the path's own curve, which the player and the terrain follow
+    for (const path of PATHS) {
+      const way = new THREE.CatmullRomCurve3([...path.lead, ...path.curve.points]);
+      const n = 48, pos = [], uv = [], col = [], idx = [], L = way.getLength();
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, p = way.getPointAt(t), d = way.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
+        const a = sstep(0, 1.0, t * L) * (1 - sstep(L - 1.2, L, t * L));   // fades in at the seats, out into the glade
+        for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * path.half * 1.35); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2.5); col.push(1, 1, 1, a); }   // 2 m wide, about 1.2 m of it bare earth (was 0.75 m)
+        if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+      g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: earth, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+      m.renderOrder = 1; scene.add(m); FLOOR_OVERLAYS.push(m);
     }
-    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    g.setAttribute("color", new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: earth, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
-    m.renderOrder = 1; scene.add(m); FLOOR_OVERLAYS.push(m);
   }
 }
 
@@ -156,7 +158,7 @@ function trackRoad() {
 
 function heroTrees() {
   // ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
-  for (const [k, c] of HERO.entries()) {
+  for (const { at: c, flare: k } of HERO) {
     const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, 14, 16, true); g.translate(0, TOP / 2, 0);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
@@ -206,7 +208,7 @@ function forestWall() {
     const g = bake(new THREE.CylinderGeometry(0.35, 0.65, 20, 8, 3, true).translate(0, 10, 0), 0, 9);
     for (let i = 0; i < 400 && wall.length < 70; i++) {
       const a = R(0, 6.28), r = RC + 1.2 + Math.pow(rnd(), 1.4) * 15, x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
+      if (HERO.some(({ at: h }) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
       wall.push([x, z, R(0.6, 1.4)]);
     }
     for (const [x, z, s] of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);   // each tree on its own root mound
@@ -252,7 +254,7 @@ function wallLeaves(wall) {
   const clumps = [];
   for (const [x, z, s, , y0] of wall) for (let k = 0; k < 2; k++) { const y = y0 + 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s, x, z, s]); }
   for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); clumps.push([p.x, p.y + (c.low ? 1.2 : 0.9), p.z, R(0.6, 0.9)]); }
-  for (const h of HERO) for (let k = 0; k < 18; k++) { const a = R(0, 6.28), r = R(0, 4.5); clumps.push([h.x + Math.cos(a) * r, TOP + R(-2, 1.5), h.z + Math.sin(a) * r, R(1.3, 1.9), h.x, h.z, 0]); }   // the big trees' crowns
+  for (const { at: h } of HERO) for (let k = 0; k < 18; k++) { const a = R(0, 6.28), r = R(0, 4.5); clumps.push([h.x + Math.cos(a) * r, TOP + R(-2, 1.5), h.z + Math.sin(a) * r, R(1.3, 1.9), h.x, h.z, 0]); }   // the big trees' crowns
   for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = Math.cos(a) * r, z = Math.sin(a) * r, y = R(0.4, 2.8); clumps.push([x, y + groundHeight(x, z), z, R(0.7, 1.2)]); }   // a thick leafy edge at eye height all round the clearing
   const leaves = new THREE.InstancedMesh(leafGeo, leafM, clumps.length * perClump);
   {

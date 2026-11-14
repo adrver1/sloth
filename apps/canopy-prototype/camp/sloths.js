@@ -42,7 +42,7 @@ function buildSloths() {
   buildFace();   // the mouth card's texture, material and geometry (sloth/face.js)
   // one wild sloth in each big tree, on the low branch reaching furthest out, so the branches nearest the fire stay free for
   // the camp's two branch sloths (the tripod sloth is gone; Adriaen: too close to the fire)
-  for (const tree of HERO) {
+  for (const { at: tree } of HERO) {
     const mine = branchCurves.filter((c) => c.low && treeOf(c).distanceTo(V(tree.x, 0, tree.z)) < 0.1).sort((a, b) => b.getPointAt(0.65).length() - a.getPointAt(0.65).length());
     for (const c of mine) {
       const t = R(0.5, 0.8), p = c.getPointAt(t), tan = c.getTangentAt(t);
