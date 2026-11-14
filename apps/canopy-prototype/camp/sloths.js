@@ -9,8 +9,8 @@
 // The order in buildSloths is the order things are made in: the mouth card's material, the wild sloths, then the spots,
 // the wayfinding grid, the things the sloths use, the named sloths, the guest spots, the saved state, and last the hooks.
 // Later steps use what earlier ones made. The modules in camp/sloth/ make nothing at their top level: that goes in a build
-// function called from here.
-// Exports: sloths (every sloth), hit (their tap spheres), OUT (the trip phases in which a camp sloth is away from its spot,
+// function called from here. The food places come later, in buildSlothPlaces, which main.js calls once every blocker is in.
+// Exports: buildSloths(), buildSlothPlaces(), sloths (every sloth), hit (their tap spheres), OUT (the trip phases in which a camp sloth is away from its spot,
 // sloth/state.js; jeepSeat.js), and the frame steps main.js calls in this order: slothsStep(dt)
 // (sloth/life.js), campStep(dt) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
 import { OPT, rng } from "./core.js";
@@ -29,7 +29,7 @@ import { buildFace } from "./sloth/face.js";
 import { buildGuests, buildSpots } from "./sloth/spots.js";
 import { buildNav } from "./sloth/walk.js";
 import { hammockStep } from "./sloth/naps.js";
-import { buildTable } from "./sloth/table.js";
+import { buildPlaces, buildTable } from "./sloth/table.js";
 import { buildCards } from "./sloth/cards.js";
 import { buildSmore } from "./sloth/smore.js";
 import { buildSpanner } from "./sloth/fix.js";
@@ -77,4 +77,7 @@ function buildSloths() {
   }
   addLabButton();   // the move lab's button in the ⚙️ menu, and ?lab (labButton.js), once there are sloths to inspect
 }
-export { OUT, buildSloths, campStep, hammockStep, hit, sloths, slothsStep, warmStep };
+// the food places at the snack table and the kitchen crate (sloth/table.js buildPlaces), once every blocker their ground
+// points must keep clear of is in (main.js: after the glade, the tent's walls and the chores)
+function buildSlothPlaces() { if (OPT.campsloths) buildPlaces(); }
+export { OUT, buildSloths, buildSlothPlaces, campStep, hammockStep, hit, sloths, slothsStep, warmStep };

@@ -4,9 +4,11 @@
 // stretched per kind.
 //   buildTable()        measures where the paw is at the grab of the two eat clips and makes the fruits' shape (sloths.js,
 //                       in its place in the build order)
+//   buildPlaces()       makes the places and puts a fruit at each, drawing from the sloths' stream (sloths.js
+//                       buildSlothPlaces, called by main.js once the blockers are in); without a table or a crate (?lived=0)
+//                       that one has none
 //   pois()              the places: [{ name: "table" | "crate", c, slots }], two on the table (its two ends) and two at the
-//                       crate; made the first time it is called once the props are in (it puts a fruit at each, drawing
-//                       from the sloths' stream), [] until then. A slot: { name, key (the place it claims, places.js), p
+//                       crate; [] before buildPlaces. A slot: { name, key (the place it claims, places.js), p
 //                       (where to walk to), u, yaw, clip (eat or eat_high), who, h (the table top), food: { at, mesh, back
 //                       (seconds until a new fruit), grow } }
 //   fruit(mesh)         a new fruit, or the same mesh as a new kind (draws two numbers)
@@ -44,22 +46,26 @@ const restOn = (F) => F.mesh.position.copy(F.at).setY(F.at.y + F.mesh.userData.b
 function sitFor(slot, sc) {                          // where it sits so that its paw meets the fruit (scale sc)
   return slot.food.at.clone().sub(GRAB[slot.clip].clone().multiplyScalar(sc).applyQuaternion(yawQ(slot.yaw))).setY(slot.h);
 }
-function edgeOf(obj, c, u, minY) {                    // how far from c along u the top of obj reaches
-  let edge = 0;
-  for (let d = 0; d < 1.5; d += 0.02) { ray.set(V(c.x + u.x * d, 3, c.z + u.z * d), DOWN); ray.far = 4; const h = ray.intersectObject(obj, true)[0]; if (h && h.point.y > minY) edge = d; }
-  return edge;
+// how far from c along u the top of obj reaches (to 2 cm, up to 1.48 m). It walks in from the far side of obj's bounding
+// box and stops at the first hit, so it casts a handful of rays a direction instead of 75 (review R2-080).
+function edgeOf(obj, box, c, u, minY) {             // box: obj's bounding box in the world
+  let reach = 0; for (const x of [box.min.x, box.max.x]) for (const z of [box.min.z, box.max.z]) reach = Math.max(reach, (x - c.x) * u.x + (z - c.z) * u.z);
+  for (let k = Math.min(74, Math.ceil(reach / 0.02)); k > 0; k--) {
+    const d = k * 0.02; ray.set(tmp.set(c.x + u.x * d, 3, c.z + u.z * d), DOWN); ray.far = 4;
+    const h = ray.intersectObject(obj, true)[0]; if (h && h.point.y > minY) return d;
+  }
+  return 0;
 }
-const topAt = (obj, p) => { ray.set(V(p.x, 3, p.z), DOWN); ray.far = 4; return ray.intersectObject(obj, true)[0]?.point.y ?? 0; };
-function pois() {                                   // two places on the table (its two ends) and two at the crate
-  if (POIS) return POIS;
-  const kc = scene.getObjectByName("KitchenCrate");   // (the lived-in props come in a moment after the rest)
-  if (kc && kc.getWorldPosition(tmp).distanceTo(CRATE.at) > 0.3) return [];
+const topAt = (obj, p) => { ray.set(tmp.set(p.x, 3, p.z), DOWN); ray.far = 4; return ray.intersectObject(obj, true)[0]?.point.y ?? 0; };
+// the places, made once in the build order (main.js, after the glade, the tent's walls and the chores have added their
+// blockers, since a place's ground point must be free on the sloths' grid). They used to be made on the first frame.
+function buildPlaces() {
   POIS = [];
   for (const [name, obj, c, minY, n] of [["table", scene.getObjectByName("Table"), TABLE.at, 0.5, 2], ["crate", scene.getObjectByName("KitchenCrate"), CRATE.at, 0.15, 2]]) {
     if (!obj) continue;
-    const cand = [];
+    const cand = [], box = new THREE.Box3().setFromObject(obj);
     for (let k = 0; k < 24; k++) {
-      const a = k / 24 * 2 * Math.PI, u = V(Math.cos(a), 0, Math.sin(a)), edge = edgeOf(obj, c, u, minY); if (!edge) continue;
+      const a = k / 24 * 2 * Math.PI, u = V(Math.cos(a), 0, Math.sin(a)), edge = edgeOf(obj, box, c, u, minY); if (!edge) continue;
       const g = c.clone().setY(0).addScaledVector(u, edge + (name === "table" ? 0.36 : 0.62));   // on the ground just off the edge
       if (Math.hypot(g.x, g.z) > RC - 1.2 || !isFree(g)) continue;
       cand.push({ u, edge, g });
@@ -82,8 +88,8 @@ function pois() {                                   // two places on the table (
     }
     POIS.push({ name, c, slots });
   }
-  return POIS;
 }
+const pois = () => POIS ?? [];
 function fruitStep(sd) {
   for (const P of POIS ?? []) for (const q of P.slots) {   // fruit put out again a while after one is eaten
     const F = q.food; if (!F.back) continue;
@@ -93,4 +99,4 @@ function fruitStep(sd) {
   for (const P of POIS ?? []) for (const q of P.slots) { const F = q.food; if (F.grow != null) { F.grow = Math.min(1, F.grow + sd); F.mesh.scale.copy(F.mesh.userData.base).multiplyScalar(Math.max(0.01, sstep(0, 1, F.grow))); if (F.grow >= 1) F.grow = null; } }
 }
 
-export { buildTable, fruit, fruitStep, pois, restOn, sitFor };
+export { buildPlaces, buildTable, fruit, fruitStep, pois, restOn, sitFor };

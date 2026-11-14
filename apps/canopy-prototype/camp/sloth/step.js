@@ -16,7 +16,7 @@ import { glideStep, slideStep } from "./moves.js";
 import { brush } from "./spots.js";
 import { greetStep, walkStep } from "./walk.js";
 import { napStep, zStep } from "./naps.js";
-import { fruitStep, pois } from "./table.js";
+import { fruitStep } from "./table.js";
 import { eatStep } from "./eating.js";
 import { giftFly, giftStep } from "./gifts.js";
 import { stopSmore } from "./smore.js";
@@ -33,7 +33,6 @@ const STEP = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, res
 
 function campStep(dt) {
   if (!OPT.campsloths) return;
-  pois();   // the food places, made once the props are in (table.js)
   keep();
   const fast = pace.fast ?? 1, sd = dt * fast;   // ?? not ||: the lab's Pause and Step set 0 (review R2-044)
   let out = camp.filter((s) => s.trip.phase !== "home").length;

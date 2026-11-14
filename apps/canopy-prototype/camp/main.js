@@ -11,7 +11,7 @@ import { buildSky } from "./sky.js";
 import { buildForest } from "./forest.js";
 import { buildProps, fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
 import { buildJeep, jeepStep } from "./jeep.js";
-import { buildSloths, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
+import { buildSloths, buildSlothPlaces, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
@@ -51,6 +51,7 @@ buildGround(await PRE.groundMask);     // campGround.js: waits for the ground ma
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
 buildChores();                         // chores.js: your activities
+buildSlothPlaces();                    // sloths.js: the food places at the table and the crate, clear of every blocker added above
 await buildOperator();                 // operator.js: waits for his downloads (?op=0: nothing)
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
