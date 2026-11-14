@@ -34,8 +34,13 @@ import { smoreStep } from "./smore.js";
 import { exitSpot } from "./wayOut.js";
 import { enterSpot } from "./wayIn.js";
 
+// a free point in the clearing at least 1.2 m (on the ground plane) from every camp sloth. o.p is where each one is in the
+// world; o.o.position is local for one in the hammock, the seat, the jeep or the tent (review R2-047).
 function wanderPoint() {
-  for (let k = 0; k < 60; k++) { const a = R(0, 2 * Math.PI), r = R(2.6, RC - 2), p = V(Math.cos(a) * r, 0, Math.sin(a) * r); if (isFree(p) && camp.every((o) => o.o.position.distanceTo(p) > 1.2)) return p; }
+  for (let k = 0; k < 60; k++) {
+    const a = R(0, 2 * Math.PI), r = R(2.6, RC - 2), p = V(Math.cos(a) * r, 0, Math.sin(a) * r);
+    if (isFree(p) && camp.every((o) => Math.hypot(o.p.x - p.x, o.p.z - p.z) > 1.2)) return p;
+  }
   return V(3, 0, -2);
 }
 // leaving home: back out of its spot the way it came in, onto the ground, then off on its errand
@@ -51,14 +56,14 @@ function errand(s) {                                // a place at the table or t
   if (s.ownSpot) { moveBack(s); return goHome(s); }   // back from a nap trip
   if (s.cardsTo) { const slot = s.cardsTo; s.cardsTo = null; walkTo(s, slot.p, () => { startEat(s, slot, () => goHome(s)); s.trip.cards = true; }); s.trip.slot = slot; return; }   // trip.slot: lend() frees it
   if (s.napTo) { const g = s.napTo; s.napTo = null; moveInto(s, g); return goHome(s); }
-  const want = s.wantFood; s.wantFood = false;   // the lab's Get food
+  const want = s.wantFood; s.wantFood = false;   // the lab's Get food: no nap trip and no engine fix this time (R2-045)
   if (!want && !bowl && R(0, 1) < 0.3 && napTrip(s)) return;
   if (bowl) {                                       // a bowl you set down (activities' "camp-food"): eat from it there
     const at = bowl, u = V(at.x, 0, at.z).normalize(), g = V(at.x, 0, at.z).addScaledVector(u, 0.9);
     const slot = { name: "bowl", p: g, u, yaw: Math.atan2(u.x, u.z), clip: "eat", who: s, h: 0, food: { at: at.clone().setY(at.y + 0.05), mesh: null, bowl: true } };
     return walkTo(s, g, () => startEat(s, slot, fed(s)));
   }
-  if (s.spot.car && jeepApi?.node?.getObjectByName("Hood") && (s.fixNext || (!s.wantFood && R(0, 1) < 0.45)) && claim("jeep:hood", s)) { s.fixNext = false; return fixEngine(s, () => goHome(s)); }
+  if (s.spot.car && jeepApi?.node?.getObjectByName("Hood") && (s.fixNext || (!want && R(0, 1) < 0.45)) && claim("jeep:hood", s)) { s.fixNext = false; return fixEngine(s, () => goHome(s)); }
   const free = pois().flatMap((P) => P.slots.filter((q) => !q.who && !taken(q.key) && q.food.mesh.visible && !q.food.back && (q.name === "table" || s.sc > 1.6)));   // the small ones can't reach over the crate's rim
   if (!free.length) return wander(s);
   const slot = free[Math.floor(R(0, free.length))]; slot.who = s; claim(slot.key, s);
