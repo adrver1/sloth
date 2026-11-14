@@ -6,7 +6,7 @@ import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
 import { D, JEEP, LOOK, OPT, R, S, hex, leafMat, rnd, scene, setSeed } from "./core.js";
 import { V, canvasTex, lcg, rand, sstep } from "./util.js";
-import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
+import { GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);

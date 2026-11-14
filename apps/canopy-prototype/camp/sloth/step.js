@@ -10,7 +10,7 @@
 //                        with ?campsloths=0.
 //   findSeats()          looks up the three log seats (sloths.js, once the props are in)
 // core.js pace (window.__campFast for the tools) speeds the sloths' day up for checks (the move lab slows and pauses it the same way).
-import { OPT, pace, scene } from "../core.js";
+import { OPT, pace } from "../core.js";
 import { claim, release, seatKey, seatLog } from "../places.js";
 import { SL, camp, wild } from "./state.js";
 import { glideStep, slideStep } from "./moves.js";
