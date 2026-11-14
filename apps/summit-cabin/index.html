@@ -62,7 +62,7 @@ td:last-child { text-align: right; color: var(--ink); }
       </div>
       <span class="lbl">Jump to</span>
       <div class="seg" id="jump" role="group" aria-label="Jump to a place">
-        <button data-p="porch" aria-pressed="false">Porch</button><button data-p="hut" aria-pressed="false">Lake hut</button><button data-p="tower" aria-pressed="false">Lookout</button>
+        <button data-p="porch" aria-pressed="false">Porch</button><button data-p="camp" aria-pressed="false">Camp</button><button data-p="hut" aria-pressed="false">Lake hut</button><button data-p="tower" aria-pressed="false">Lookout</button>
       </div>
       <div class="tricks">
         <span class="lbl">How it's done</span>
@@ -89,6 +89,7 @@ td:last-child { text-align: right; color: var(--ink); }
 //  - Places to walk to: the cabin, a fishing hut on a frozen lake, a fire lookout on its hill, with marked trails.
 //  - A painted horizon of far mountains on a ring at 22 km. Real-time shadows only round the player.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const $ = (id) => document.getElementById(id);
@@ -107,7 +108,7 @@ const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)
 
 // ---------------------------------------------------------------- the land
 // a steep peak with the cabin on a flat top and a cliff south of the porch; forested hills and valleys round it; a frozen
-// lake with a fishing hut 950 m north-west, a fire lookout on its own hill 1 km north-east, and high ranges from 4 km out.
+// lake with a fishing hut 950 m north-west, a fire lookout on its own hill 1 km north-east, and a ring of high mountains 2 to 4 km out.
 // Everything you see is the same ground, so you can walk to it.
 const LAKE_P = { x: -760, z: 560, r: 170 }, HILL_P = { x: 820, z: 620 };
 function hBase(x, z) {
@@ -116,7 +117,8 @@ function hBase(x, z) {
   h += (fbm(x / 1500, z / 1500, 5) - 0.45) * 420;
   h += (fbm(x / 240, z / 240, 3) - 0.5) * 36 * Math.min(1, r / 400);
   h += 150 * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 230 ** 2);   // the lookout's hill
-  h += sstep(4000, 9500, r) * (ridged(x / 3400 + 7, z / 3400 - 3, 5) * 1900 - 250);
+  // a ring of big mountains 2 to 4 km out closes the valley in, so the view is grand but never needs drawing far
+  h += sstep(1900, 3600, r) * (ridged(x / 1500 + 7, z / 1500 - 3, 5) * 1500 + 250) + sstep(3600, 6000, r) * 500;
   return h;
 }
 const TOP = hBase(0, 0) + 2;
@@ -248,7 +250,7 @@ float tn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
 // every tree is drawn (near model or card) out to 80% of CARD_R; over the last 20% the cards dither out as the painted forest fades in, so the forest's tone stays the same
 // trees per cell × mean size² / 100 at forest density f, matching tile(): old forest is denser and taller
 const treeCover = (f) => Math.min(1, 1.1 * f) * (0.75 + 0.5 * f) ** 2 * (49 + 56 + 64 / 3) / 100;
-const LEVELS = 10, NC = 40, NV = NC + 1, NB = NV + 2, levels = [], terrainMats = [];
+const LEVELS = 10, NC = isPhone ? 48 : 64, NV = NC + 1, NB = NV + 2, levels = [], terrainMats = [];
 for (let L = 0; L < LEVELS; L++) {
   const g = new THREE.BufferGeometry(), c = 2 ** (L + 1), half = { value: (NC / 2) * c };
   for (const [name, n] of [['position', 3], ['normal', 3], ['color', 3], ['uv', 2], ['hc', 1], ['nc', 3], ['cc', 3], ['fm', 1]]) g.setAttribute(name, new THREE.BufferAttribute(new Float32Array(NV * NV * n), n));
@@ -267,7 +269,7 @@ function updateLevel(lv) {
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; nor[k * 3] = nx; nor[k * 3 + 1] = ny; nor[k * 3 + 2] = nz; uv[k * 2] = x / 6; uv[k * 2 + 1] = z / 6;
     const s = 1 - ny, ice = onIce(x, z, h), f = ice ? 0 : forestAt(x, z, h, s);
     if (ice) tmpC.copy(iceC);
-    else { tmpC.copy(snowC).lerp(rockC, sstep(0.3, 0.5, s) * (0.6 + 0.4 * vnoise(x / 90, z / 90))).lerp(shadeC, 0.55 * f);   // trodden, shaded snow under the trees, the same at every distance
+    else { tmpC.copy(snowC).lerp(rockC, Math.min(1, sstep(0.24, 0.45, s) * (0.6 + 0.4 * vnoise(x / 90, z / 90)) + sstep(TOP + 250, TOP + 800, h) * sstep(0.1, 0.28, s) * (0.3 + 0.5 * vnoise(x / 160 + 4, z / 60))))   // rock shows on steep faces and on the high ribs of the mountains.lerp(shadeC, 0.55 * f);   // trodden, shaded snow under the trees, the same at every distance
       if (c <= 8) tmpC.lerp(trailC, 1 - sstep(1.2, 2.4, trailDist(x, z))); }
     col[k * 3] = tmpC.r; col[k * 3 + 1] = tmpC.g; col[k * 3 + 2] = tmpC.b; fm[k] = treeCover(f);
   }
@@ -325,7 +327,6 @@ const treeTex = (() => {
   // Scots pine tuft: a round cushion of clumps with a thick cap of snow
   { const [X, Y, W, H] = RG.tuft, cx = X + W / 2, cy = Y + H / 2; g.save(); g.beginPath(); g.rect(X, Y, W, H); g.clip();
     for (let i = 0; i < 46; i++) { const a = RR(0, 6.283), d = 175 * Math.sqrt(r()); clump(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.8, RR(34, 58)); }
-    for (let i = 0; i < 9; i++) { const a = RR(0, 6.283), d = 110 * Math.sqrt(r()); pillow(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.7 - 10, RR(40, 70), RR(24, 38)); }
     g.restore(); }
   // bare twigs fanning up and out from the bottom middle (tinted per tree by its vertex colours)
   { const [X, Y, W, H] = RG.twig; g.save(); g.beginPath(); g.rect(X, Y, W, H); g.clip(); g.lineCap = 'round';
@@ -347,7 +348,6 @@ const treeTex = (() => {
     const both = (f) => (x, ...a) => { f(x, ...a); f(x - W, ...a); f(x + W, ...a); };
     const cl = both(clump), pl = both(pillow);
     for (let i = 0; i < 150; i++) cl(X + RR(0, W), Y + RR(-10, H + 10), RR(18, 30));
-    for (let i = 0; i < 26; i++) pl(X + RR(0, W), Y + RR(10, H - 10), RR(14, 26), RR(7, 12));
     g.restore(); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 })();
@@ -355,7 +355,8 @@ const treeTex = (() => {
 function treeBuilder() {
   const P = [], N = [], UV = [], C = [];
   const uvOf = (reg, u, v) => [(reg[0] + u * reg[2]) / ATLAS, 1 - (reg[1] + (1 - v) * reg[3]) / ATLAS];
-  const vert = (p, n, reg, u, v, col) => { P.push(...p); N.push(...n); UV.push(...uvOf(reg, u, v)); C.push(col.r, col.g, col.b); };
+  const SN = [];   // how much snow lies at each vertex (0 to 1); the shader turns it into snow that follows the painted clumps
+  const vert = (p, n, reg, u, v, col, sn = 0) => { P.push(...p); N.push(...n); UV.push(...uvOf(reg, u, v)); C.push(col.r, col.g, col.b); SN.push(sn); };
   const tri = (a, b, c) => { for (const x of [a, b, c]) vert(...x); };
   const B = {
     // a tapered trunk of `sides` faces in `segs` rings, bark from region `reg` (v from v0 to v1), leaning by `lean` at the top
@@ -379,7 +380,18 @@ function treeBuilder() {
       const dx = Math.cos(a), dz = Math.sin(a), sx = -dz, sz = dx, h = size / 2, ty = Math.sin(tilt) * h, tc = Math.cos(tilt);
       const n = [dx * Math.sin(tilt), Math.cos(tilt), dz * Math.sin(tilt)], col = tmpC.setScalar(lit).clone();
       const P0 = [c[0] - dx * h * tc - sx * h, c[1] + ty, c[2] - dz * h * tc - sz * h], P1 = [c[0] - dx * h * tc + sx * h, c[1] + ty, c[2] - dz * h * tc + sz * h], P2 = [c[0] + dx * h * tc + sx * h, c[1] - ty, c[2] + dz * h * tc + sz * h], P3 = [c[0] + dx * h * tc - sx * h, c[1] - ty, c[2] + dz * h * tc - sz * h];
-      const v = (p, u, w) => [p, n, reg, u, w, col]; tri(v(P0, 0, 0), v(P1, 0, 1), v(P2, 1, 1)); tri(v(P0, 0, 0), v(P2, 1, 1), v(P3, 1, 0));
+      const v = (p, u, w) => [p, n, reg, u, w, col, 0.62]; tri(v(P0, 0, 0), v(P1, 0, 1), v(P2, 1, 1)); tri(v(P0, 0, 0), v(P2, 1, 1), v(P3, 1, 0));
+    },
+    // one drooping tier of a spruce: from a point on the trunk, out through a raised middle ring to a rim of N vertices that
+    // alternate between bough tips (out and down) and notches (in and up), so the edge is soft and scalloped. 3N triangles.
+    tier(y0, ya, R, N, turn, lit, rr) {
+      const ring = [], mid = [];
+      for (let j = 0; j <= N; j++) { const a = turn + (j / N) * Math.PI * 2, tip = j % 2 === 0, jit = 0.92 + 0.16 * rr(), rad = (tip ? R : R * 0.84) * jit, k = 1.25;
+        const nl = Math.hypot(k, 1), nrm = [(Math.cos(a) * k) / nl, 1 / nl, (Math.sin(a) * k) / nl];
+        ring.push([[Math.cos(a) * rad, tip ? y0 - 0.035 * R / 0.5 : y0 + 0.02, Math.sin(a) * rad], nrm, RG.core, j / N, 0, tmpC.setScalar(lit * (tip ? 1 : 0.62)).clone(), tip ? 0.5 + 0.2 * rr() : 0.2]);
+        const nl2 = Math.hypot(0.7, 1); mid.push([[Math.cos(a) * rad * 0.52, ya - (ya - y0) * 0.4, Math.sin(a) * rad * 0.52], [(Math.cos(a) * 0.7) / nl2, 1 / nl2, (Math.sin(a) * 0.7) / nl2], RG.core, j / N, 0.55, tmpC.setScalar(lit * 0.9).clone(), 0.64 + 0.2 * rr()]); }
+      for (let j = 0; j < N; j++) { const top = [[0, ya, 0], [0, 1, 0], RG.core, (j + 0.5) / N, 1, tmpC.setScalar(lit).clone(), 0.85];
+        tri(top, mid[j + 1], mid[j]); tri(mid[j], mid[j + 1], ring[j + 1]); tri(mid[j], ring[j + 1], ring[j]); }
     },
     // an upright card standing on the trunk axis and reaching outward along angle a (twigs), both faces shown
     fan(base, a, w, h, reg, tint) {
@@ -387,18 +399,17 @@ function treeBuilder() {
       const p = (s, t) => [base[0] + dx * (s - 0.5) * w + dx * w * 0.45, base[1] + t * h, base[2] + dz * (s - 0.5) * w + dz * w * 0.45];
       const v = (s, t) => [p(s, t), n, reg, s, t, t < 0.5 ? lo : hi]; tri(v(0, 0), v(1, 0), v(1, 1)); tri(v(0, 0), v(1, 1), v(0, 1));
     },
-    geo() { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N.map((x, i) => x), 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.computeBoundingSphere(); return g; },
+    geo() { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N.map((x, i) => x), 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.setAttribute('snow', new THREE.Float32BufferAttribute(SN, 1)); g.computeBoundingSphere(); return g; },
   };
   return B;
 }
 const WHITE = new THREE.Color(1, 1, 1);
 const TREES = {   // name: [geometry, share of the far forest's look (filled in by the bake)]
   spruce: (() => { const b = treeBuilder(), r = mulberry(11);
-    b.trunk(0.022, 0.004, -0.05, 1.0, 5, 1, RG.bark, 0.0, 0.55, WHITE);
-    // the full body: a clump-painted cone in two steps, so the boughs stick out of a lush, solid tree rather than a see-through rack
-    b.trunk(0.34, 0.2, 0.06, 0.5, 7, 1, RG.core, 0, 0.5, WHITE, [0, 0], [0.6, 0.82]); b.trunk(0.2, 0.012, 0.5, 0.97, 7, 1, RG.core, 0.5, 1, WHITE, [0, 0], [0.82, 1.05]);
-    const W = 7; for (let k = 0; k < W; k++) { const t = k / (W - 1), y = 0.1 + t * 0.8, R0 = 0.47 * (1 - t) ** 0.95 + 0.06, n = t < 0.45 ? 5 : t < 0.8 ? 4 : 3, lit = 0.7 + 0.3 * t;
-      for (let j = 0; j < n; j++) { const a = (j / n) * Math.PI * 2 + k * 2.4 + (r() - 0.5) * 0.5; b.bough([Math.cos(a) * 0.01, y + 0.02, Math.sin(a) * 0.01], a, R0 * (0.85 + 0.3 * r()), R0 * 1.45, R0 * 0.35, RG.bough, lit); } }
+    b.trunk(0.024, 0.006, -0.05, 0.4, 5, 1, RG.bark, 0.0, 0.55, WHITE);
+    // five drooping, scalloped tiers, each overlapping the one below, painted with needle clumps; snow lies on their tops
+    const T = 5; for (let k = 0; k < T; k++) { const t = k / (T - 1), y0 = 0.08 + t * 0.66, R0 = 0.5 * (1 - t * 0.78), ya = y0 + 0.24 + 0.04 * (1 - t);
+      b.tier(y0, Math.min(ya, 1), R0, 12, k * 0.9, 0.62 + 0.38 * t, r); }
     return b.geo(); })(),
   pine: (() => { const b = treeBuilder(), r = mulberry(12);
     b.trunk(0.024, 0.009, -0.05, 0.9, 6, 3, RG.bark, 0.0, 1.0, WHITE, [0.04, -0.02]);
@@ -424,8 +435,14 @@ const logGeo = (() => { const b = treeBuilder(), tint = new THREE.Color(0.9, 0.9
   for (let i = 0; i < p.count; i++) { const top = n.getY(i) > 0.45 && Math.abs(n.getX(i)) < 0.5; tmpC.set(top ? '#fbf7f0' : Math.abs(n.getX(i)) > 0.5 ? '#a07a52' : '#5e4634'); C.push(tmpC.r, tmpC.g, tmpC.b); }
   g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.deleteAttribute('uv'); return g; })();
 // the back of a bough or pad (its underside) is shaded and has no snow on it
-const underside = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-  if (!gl_FrontFacing) { float sn = smoothstep(0.3, 0.6, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b))); diffuseColor.rgb = mix(diffuseColor.rgb * 0.85, vec3(0.05, 0.11, 0.07), sn); }`); };
+// and snow lies on the tops: each vertex says how much (attribute snow), and the painted clumps break up its edge, so it sits
+// on the bright tops of the clumps and melts into the gaps between them
+const underside = (sh) => {
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float snow; varying float vSnow;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvSnow = snow;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vSnow;').replace('#include <color_fragment>', `#include <color_fragment>
+  if (!gl_FrontFacing) { float sn = smoothstep(0.3, 0.6, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b))); diffuseColor.rgb = mix(diffuseColor.rgb * 0.85, vec3(0.05, 0.11, 0.07), sn); }
+  else { float tl = dot(diffuseColor.rgb, vec3(0.3, 0.6, 0.1)) / max(dot(vColor.rgb, vec3(0.333)), 0.05);
+    float sk = smoothstep(0.5, 0.6, vSnow + (tl - 0.2) * 1.1); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.96, 0.93, 0.89) * (0.72 + 0.28 * vColor.g), sk); }`); };
 function bakeCards() {   // the impostors: each near tree drawn once from the side into its own cell of one texture, so the cards match them
   const CW = 256, rt = new THREE.WebGLRenderTarget(CW * SPECIES.length, CW, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter }), cam = new THREE.OrthographicCamera(-0.5, 0.5, 1.02, -0.02, -2, 2);
   const mat = new THREE.MeshBasicMaterial({ vertexColors: true, map: treeTex, alphaTest: 0.5, side: THREE.DoubleSide }); mat.onBeforeCompile = underside;   // plain colours: the scene lights the card like the tree
@@ -485,7 +502,7 @@ const tiles = new Map();
 // which style grows here: birches low down by the lake and at thin forest edges, pines and dead snags on high, dry ground
 function species(x, z, h, f, roll) {
   const low = 1 - sstep(LAKE + 30, LAKE + 140, h), high = sstep(TREELINE - 260, TREELINE - 40, h), edge = 1 - sstep(0.3, 0.75, f);
-  const pBirch = 0.04 + 0.35 * low * (0.5 + 0.5 * edge) + 0.12 * edge, pSnag = 0.03 + 0.12 * high, pPine = 0.12 + 0.3 * high + 0.1 * sstep(0.45, 0.6, fbm(x / 300 - 4, z / 300 + 9, 2));
+  const pBirch = 0.04 + 0.35 * low * (0.5 + 0.5 * edge) + 0.12 * edge, pSnag = 0.03 + 0.12 * high, pPine = 0.06 + 0.16 * high + 0.1 * sstep(0.45, 0.6, fbm(x / 300 - 4, z / 300 + 9, 2));
   return roll < pBirch ? 2 : roll < pBirch + pSnag ? 3 : roll < pBirch + pSnag + pPine ? 1 : 0;
 }
 const SIZE = [[7, 8], [12, 7], [8, 5], [6, 6]];   // height range per style: base + up to extra, in metres
@@ -654,6 +671,48 @@ const hut = new THREE.Group(); hut.position.set(HUT.x, HUT.y, HUT.z); hut.rotati
 }
 TRIS.push(['Fire lookout', placeTris(tower)], ['Fishing hut', placeTris(hut)]);
 
+// ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
+// The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
+// (models/*.txt, base64), in the camp's own arrangement round the fire, lit live here (their vertex colours carry the baked
+// shading). Added round them: a string of jar lanterns from the cabin to the tent, a flag, firelight and fire smoke.
+const CAMP = { x: 0.5, z: 11.5, turn: 0 }, campGroup = new THREE.Group(); campGroup.position.set(CAMP.x, TOP, CAMP.z); campGroup.rotation.y = CAMP.turn; scene.add(campGroup);
+const fireLight = new THREE.PointLight('#ff9a48', 0, 14, 1.5); fireLight.position.set(0, 0.9, 0); campGroup.add(fireLight);
+const flames = [];
+{ const KEEP = { fire: null, camp_picked_lm: ['Seat_0', 'Seat_1', 'Seat_2', 'Table', 'Tent'], lived: ['KitchenCrate', 'KitchenThings', 'LooseLogs', 'MatRoll', 'SeatThings', 'SeatTop_0', 'SeatTop_1', 'SeatTop_2', 'TentSide', 'WoodPile'] };
+  const loader = new GLTFLoader(); let tris = 0;
+  for (const [file, keep] of Object.entries(KEEP)) fetch(`models/${file}.txt`).then((r) => r.text()).then((t) => {
+    const bin = Uint8Array.from(atob(t.trim().replace(/^data:[^,]*,/, '')), (c) => c.charCodeAt(0));
+    loader.parse(bin.buffer, '', (gl) => {
+      for (const node of [...gl.scene.children]) { if (keep && !keep.includes(node.name)) continue;
+        node.traverse((o) => { if (!o.isMesh) return;
+          const m0 = o.material, flame = node.name === 'Fire' || node.name === 'Embers';
+          o.material = flame ? new THREE.MeshBasicMaterial({ color: node.name === 'Fire' ? '#ffb15a' : '#ff6a2a', vertexColors: !!o.geometry.attributes.color, transparent: node.name === 'Fire', opacity: 0.9, depthWrite: node.name !== 'Fire' })
+            : hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest }));
+          o.castShadow = !flame; o.receiveShadow = true; tris += tris0(o.geometry); if (node.name === 'Fire') flames.push(o); });
+        campGroup.add(node); }
+      TRIS.push([`Scout camp: ${file}`, tris]); tris = 0;
+    });
+  }).catch((e) => console.warn('camp props', e));
+}
+function tris0(g) { return (g.index ? g.index.count : g.attributes.position.count) / 3; }
+// a string of jar lanterns from the cabin's back corner to a pole by the tent, sagging between
+const lanterns = new THREE.Group(); scene.add(lanterns);
+const jarMat = new THREE.MeshLambertMaterial({ color: '#ffd9a0', emissive: '#ffb04a', emissiveIntensity: 0.6 }), ropeMat = hazed(new THREE.MeshLambertMaterial({ color: '#4a3a2c' }));
+{ const A = new THREE.Vector3(W / 2 - 0.2, TOP + YT + 0.1, D / 2 + 0.1), B = new THREE.Vector3(CAMP.x - 5.2, TOP + 2.6, CAMP.z + 3.4), pts = [];
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.75, 6), ropeMat); pole.position.set(B.x, TOP + 1.35, B.z); pole.castShadow = true; lanterns.add(pole);
+  for (let i = 0; i <= 16; i++) { const t = i / 16; pts.push(new THREE.Vector3().lerpVectors(A, B, t).add(v3.set(0, -0.9 * 4 * t * (1 - t), 0))); }
+  const rope = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.012, 4), ropeMat); lanterns.add(rope);
+  const jarGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.16, 7);
+  for (let i = 1; i < 8; i++) { const p = pts[i * 2]; const j = new THREE.Mesh(jarGeo, jarMat); j.position.set(p.x, p.y - 0.14, p.z); lanterns.add(j); }
+  TRIS.push(['Lantern string, pole and 7 jars', tris0(rope.geometry) + tris0(pole.geometry) + 7 * tris0(jarGeo)]); }
+// a scout flag on a pole: a green pennant that sways in the wind
+const flag = (() => { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, TOP, CAMP.z + 2.5); scene.add(g);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 5, 6), ropeMat); pole.position.y = 2.5; pole.castShadow = true; g.add(pole);
+  const tex = canvasTex(128, 64, (c, w, h) => { c.fillStyle = '#2f6a3c'; c.beginPath(); c.moveTo(0, 0); c.lineTo(w, h / 2); c.lineTo(0, h); c.fill(); c.fillStyle = '#f2d27a'; c.beginPath(); c.moveTo(18, 14); c.lineTo(34, 32); c.lineTo(18, 50); c.lineTo(26, 32); c.fill(); });
+  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.55, 6, 1).translate(0.55, 0, 0), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide })));
+  cloth.position.y = 4.65; cloth.castShadow = true; g.add(cloth); TRIS.push(['Flag and pole', tris0(pole.geometry) + tris0(cloth.geometry)]); return cloth; })();
+const fireSmoke = Array.from({ length: 10 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, depthWrite: false, fog: false })); s.userData.t = i / 10; scene.add(s); return s; });
+
 // chimney smoke: a few soft sprites rising and drifting with the wind
 const puff = canvasTex(64, 64, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(235,238,242,.75)'); gr.addColorStop(1, 'rgba(235,238,242,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
 const smoke = Array.from({ length: 14 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, transparent: true, depthWrite: false, fog: false })); s.userData.t = i / 14; scene.add(s); return s; });
@@ -701,7 +760,7 @@ const W_NOW = { ...WEATHER.clear }; let wTarget = WEATHER.clear, hazeOn = true;
 // First person. Keyboard: WASD or arrows, Shift to run. Phone: the stick to walk, the Run button, drag anywhere else to look.
 const me = { x: 0, z: -D / 2 - 1.6, y: TOP + YB + 1.65, yaw: 0, pitch: -0.12, run: false };
 const faceTo = (x, z, t) => Math.atan2(-(t.x - x), -(t.z - z));   // the yaw that looks from (x, z) at t
-const PLACES = { porch: [0, -D / 2 - 1.6, 0], hut: [HUT.x + (SHORE.x - HUT.x) * 0.45, HUT.z + (SHORE.z - HUT.z) * 0.45, HUT], tower: [TOWER.x - 26, TOWER.z - 20, TOWER] };
+const PLACES = { porch: [0, -D / 2 - 1.6, 0], hut: [HUT.x + (SHORE.x - HUT.x) * 0.45, HUT.z + (SHORE.z - HUT.z) * 0.45, HUT], tower: [TOWER.x - 26, TOWER.z - 20, TOWER], camp: [CAMP.x + 1.2, CAMP.z - 5.2, { x: CAMP.x - 0.4, z: CAMP.z + 2 }] };
 const keys = new Set(), stick = { x: 0, y: 0 }, touch = matchMedia('(pointer: coarse)').matches;
 if (touch) document.body.classList.add('touch');
 addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; keys.add(e.code); }); addEventListener('keyup', (e) => keys.delete(e.code)); addEventListener('blur', () => keys.clear());
@@ -793,6 +852,13 @@ function frame() {
   winMat.emissiveIntensity = glow; doorMat.emissiveIntensity = glow; porchLight.intensity = 9 * night; inside.intensity = 6 * night;
   // wind, smoke and snow
   wind.set(Math.sin(now * 0.13) * 0.6 + 1.2 + 6 * storm, 0, 0.6 + Math.cos(now * 0.11) * 0.4 + 3 * storm);
+  // the camp fire: flickering light and flames, smoke, the flag in the wind
+  const fl = 0.8 + 0.2 * Math.sin(now * 13) * Math.sin(now * 7.3 + 1);
+  fireLight.intensity = (5 + 8 * night) * fl; for (const f of flames) f.scale.set(1, 0.85 + 0.25 * fl, 1);
+  flag.rotation.y = -Math.atan2(wind.z, wind.x) + Math.sin(now * 3.1) * 0.25; flag.scale.y = 1 - 0.1 * Math.abs(Math.sin(now * 5));
+  for (const s of fireSmoke) { const u = s.userData; if (!s.material.map) s.material.map = puff; u.t = (u.t + dt * 0.12) % 1; const t = u.t;
+    s.position.set(CAMP.x, TOP + 1.2, CAMP.z).addScaledVector(wind, t * 3).add(v3.set(Math.sin(t * 7 + u.t) * 0.2, t * 6, 0)); s.scale.setScalar(0.4 + t * 1.8);
+    s.material.opacity = 0.35 * Math.sin(Math.PI * t) * (1 - 0.7 * storm); s.material.color.setScalar(0.4 + 0.6 * bright); }
   for (const s of smoke) { const u = s.userData; u.t = (u.t + dt * 0.09) % 1; const t = u.t;
     s.position.copy(chimneyTop).addScaledVector(wind, t * 9).add(v3.set(Math.sin(t * 9 + u.t) * 0.3, t * 9, 0)); s.scale.setScalar(0.6 + t * 2.6);
     s.material.opacity = 0.55 * Math.sin(Math.PI * t) * (1 - 0.7 * storm); s.material.color.setScalar(0.35 + 0.65 * bright); }
