@@ -1,5 +1,5 @@
 // Writes props/shadow/layout_<props>.json, the clearing's layout as the live page has it (the worn spots, camp/layout.js WEAR; the jeep's track,
-// the path to the glade, the tent, the hammock, the deadwood and the ground's height grid), for props/ground/bake_ground.py
+// the path to the glade, the tent, the hammock, and the deadwood), for props/ground/bake_ground.py
 // and props/camp/bake_camp_lightmap.py, plus "place": where the page stands each baked prop and light, read from the live
 // page: the log seats (Seat_0-2 as the page stood them), "anchors" (layout.js ANCHORS, the places the props' anchor tags
 // name, review R2-249), the lantern lights, the jeep and the sun. The light bake places everything from that block (it
@@ -35,11 +35,10 @@ if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.erro
       lanternLights: lanternGlow.map((v) => [v.x, v.y, v.z]), jeep: jn ? [jn.position.x, jn.position.z, jn.rotation.y] : null, sun: [sd.x, sd.y, sd.z] };
     return { layout: { ...L, glade: (window.__glade?.path || []).map((p) => [p.x, p.z]), tent: tent ? [tent.x, tent.z] : null,
       hammock: window.__camp?.hA ? [[window.__camp.hA.x, window.__camp.hA.z], [window.__camp.hB.x, window.__camp.hB.z]] : null,
-      deadwood: window.__deadwood?.layout || [],   // each with y, seated on the terrain: occluders in props/camp/bake_camp_lightmap.py
-      height: window.__terrainGrid?.(128) || null, place } };   // camp/terrain.js: the ground's height, 128 x 128 over 60 m (rows +z), for the bake's ground mesh
+      deadwood: window.__deadwood?.layout || [], place } };   // each with y, seated on the terrain: occluders in props/camp/bake_camp_lightmap.py
   });
   // a layout with parts missing would bake quietly wrong, so stop the bake here instead
-  const miss = out.error ? [out.error] : ["wear", "track", "glade", "tent", "hammock", "height"].filter((k) => !out.layout[k] || out.layout[k].length === 0);
+  const miss = out.error ? [out.error] : ["wear", "track", "glade", "tent", "hammock"].filter((k) => !out.layout[k] || out.layout[k].length === 0);
   if (!out.error && !out.layout.deadwood.length) miss.push("deadwood");
   const bad = (v) => v === null || (Array.isArray(v) && (!v.length || v.includes(null)));
   if (!out.error) for (const [k, v] of Object.entries(out.layout.place)) if (k === "anchors" ? !Object.keys(v).length || Object.values(v).some(bad) : bad(v)) miss.push(`place.${k}`);

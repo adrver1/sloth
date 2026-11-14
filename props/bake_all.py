@@ -20,7 +20,7 @@ in several different places", and bake the whole scene as one). Run it whenever 
           camp_lights.json without the "ktx2" flag; this step sets the flag only when every map's .ktx2.txt is newer than
           its PNG, so the page never loads an out-of-date KTX2 copy (review R2-005)
   layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (the worn spots, the jeep's track, the path,
-          the deadwood, the ground's height, and the "place" block: where the page stands each baked prop and light, which
+          the deadwood, and the "place" block: where the page stands each baked prop and light, which
           the light bake reads instead of keeping its own copy), served by this script on a free local port that it
           hands the exporter as LAYOUT_PORT (it stops if its server dies or never answers, review R2-042) ->
           props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>); it stops the bake if the page gave

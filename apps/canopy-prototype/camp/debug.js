@@ -18,12 +18,10 @@
 //   __glade          the glade and the sloths' path (layout.js)            export_casters.cjs
 //   __ground         groundLife (campGround.js)             export_casters.cjs (its layout)
 //   __deadwood       deadwood (deadwood.js): its layout and triangles      export_casters.cjs (the ground-shadow bake)
-//   __terrainGrid(n) the ground's height grid (terrain.js heightGrid)      export_casters.cjs
 // Exports stats and ready().
 import { pace, scene } from "./core.js";
 import { GLADE, sloPath } from "./layout.js";
 import { stickV } from "./hud.js";
-import { heightGrid } from "./terrain.js";
 import { deadwood } from "./deadwood.js";
 import { CAMP } from "./campProps.js";
 import { jeepApi } from "./jeep.js";
@@ -41,7 +39,7 @@ function ready() {
     __scene: scene, __stats: stats,
     __time: (h) => day.setHour(h, true), __boop: (i) => boop(sloths[i]), __feed: (i) => feed(sloths[i]), __stick: (x, y) => stickV.set(x, y),
     __sit: sit, __weather: setWeather,
-    __camp: CAMP, __glade: { at: GLADE, path: sloPath.pts }, __ground: groundLife, __deadwood: deadwood, __terrainGrid: heightGrid,
+    __camp: CAMP, __glade: { at: GLADE, path: sloPath.pts }, __ground: groundLife, __deadwood: deadwood,
   });
   if (jeepApi) window.__jeep = jeepApi;
   Object.defineProperty(window, "__campFast", { get: () => pace.fast, set: (v) => { pace.fast = v; }, configurable: true });

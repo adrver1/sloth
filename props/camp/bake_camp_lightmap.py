@@ -453,7 +453,10 @@ def add_occluders(layout, pl, jeep):
 
 def add_ground():
     """The real ground disc (a receiver), mapped straight onto the page's floor: image row 0 = page z -RR, column 0 = x -RR,
-    as ground.js looks it up with flipY false."""
+    as ground.js looks it up with flipY false. It is flat on purpose (review R2-204): the page's floor dips at most 3 cm in
+    the camp, and the bowl's rim (from 8.2 m out, 0.2 to 0.5 m high) moves a shadow falling on it by at most about 0.25 m
+    under the page's sun, while a sloped bake ground would also bake the slope's own shading into the shadow map, which
+    the page already shades live."""
     bpy.ops.mesh.primitive_plane_add(size=2 * RR, location=(0, 0, 0))
     ground = bpy.context.object; ground.name = "Ground"
     guv = ground.data.uv_layers.active.data
