@@ -43,7 +43,7 @@ for (const tree of HERO) {
   for (const c of mine) {
     const t = R(0.5, 0.8), p = c.getPointAt(t), tan = c.getTangentAt(t);
     if (tan.x * p.x + tan.z * p.z > 0) tan.negate();   // head toward the middle of the clearing, so you meet its face
-    if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) { hang(p, tan); Object.assign(sloths.at(-1), { wild: true, perch: { curve: c, t, tree } }); break; }
+    if (sloths.every((s) => s.p.distanceTo(p) > 1.6)) { hang(p, tan); sloths.at(-1).wild = true; break; }
   }
 }
 if (OPT.campsloths) {
@@ -61,7 +61,7 @@ if (OPT.campsloths) {
     if (c.scale) spot.scale *= c.scale;
     hang(V(0, 0, 0), V(1, 0, 0), spot.scale);
     const s = sloths.at(-1); c.dress?.(s.head, s.o);
-    Object.assign(s, { name: c.name, fav: c.fav.split(" ")[0], spot, greetCD: R(0, 10), smoreT: R(8, 20), gaze: 0, waveCD: 0 });
+    Object.assign(s, { name: c.name, spot, greetCD: R(0, 10), smoreT: R(8, 20), gaze: 0, waveCD: 0 });
     spot.who = s; camp.push(s); placeHome(s);
   }
   { let tris = 0; for (const s of camp) s.o.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh && m.geometry) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });

@@ -55,7 +55,7 @@ function buildSpots() {
     // so at scale 2.4 they hold the 0.16 rim of the jeep's wheel; it sits where that puts the hub, no lower than the cushion.
     const hubN = J.node.getObjectByName("WheelHub"), hub = hubN ? J.node.worldToLocal(hubN.getWorldPosition(V())) : V(0.36, 1.15, 0.05), dsc = 2.4;
     const drv = V(hub.x, Math.max(seatL.y, hub.y - 0.11 * dsc), hub.z - 0.10 * dsc);
-    spots.push({ name: "jeep", parent: J.node, at: drv, yaw: Math.PI, clip: "drive", scale: dsc, car: true, ignore: 2.2,
+    spots.push({ name: "jeep", parent: J.node, at: drv, yaw: Math.PI, clip: "drive", scale: dsc, car: true,
       sill: sillL, door: J.node.localToWorld(sillL.clone().add(V(0.5, 0, 0))).setY(0) });
   }
   // the laundry line (thread "lived-in props", layout.js LAUNDRY; there only with the lived-in props): it crawls round to the outer side of post a, climbs it
@@ -64,7 +64,7 @@ function buildSpots() {
   const LL = LIVED ? LAUNDRY : null;
   if (LL) {
     const sc = 1.7;
-    spots.push({ name: "line", parent: scene, clip: "cling", scale: sc, line: true, climb: true, ignore: 0.6,
+    spots.push({ name: "line", parent: scene, clip: "cling", scale: sc, line: true, climb: true,
       door: LL.a.clone().setY(0).addScaledVector(LL.dir, -0.1 * sc), climbYaw: Math.atan2(-LL.dir.x, -LL.dir.z), top: LL.a.y - 0.2 * sc,
       t: Math.max(0, Math.min(1, LL.hang.clone().sub(LL.a).dot(LL.dir) / LL.a.distanceTo(LL.b))) });
   }
@@ -74,7 +74,7 @@ function buildSpots() {
   // doorway at z 0.95, floor 0.02 up.
   if (PROPS === "picked") {
     const tg = new THREE.Group(); tg.position.copy(TENT.at).setY(0); tg.rotation.y = TENT.yaw; scene.add(tg); tg.updateMatrixWorld(true);
-    spots.push({ name: "tent", parent: tg, at: V(0, 0.04, 0.9), yaw: Math.PI, clip: "peek", scale: 1.9, noHop: true, ignore: 2.2,
+    spots.push({ name: "tent", parent: tg, at: V(0, 0.04, 0.9), yaw: Math.PI, clip: "peek", scale: 1.9, noHop: true,
       via: tg.localToWorld(V(0, 0, 1.7)).setY(0), door: tg.localToWorld(V(0, 0, 0.3)).setY(0) });
   }
   // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths
@@ -87,7 +87,7 @@ function buildSpots() {
     const tan = tip.tan.clone(); if (tan.x * tip.p.x + tan.z * tip.p.z > 0) tan.negate();   // head toward the fire, as the wild ones
     const tree = treeOf(tip.c), t0 = branchBase(tip.c, tree), out = tip.c.getPointAt(t0).sub(tree).setY(0).normalize();
     spots.push({ name: "branch", branch: true, top: tip.p.clone(), tan, curve: tip.c, t: tip.t, t0, tree, out, parent: scene, clip: "cling", scale: SL,
-      door: tree.clone().addScaledVector(out, trunkR0(0) + 0.35), ignore: 2.2 });
+      door: tree.clone().addScaledVector(out, trunkR0(0) + 0.35) });
   }
 }
 
