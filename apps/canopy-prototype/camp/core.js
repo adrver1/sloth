@@ -22,7 +22,9 @@ import { SUN } from "./layout.js";
 //   pitch    radians                       0.08 (player.js)                  main.js
 //   campsloths 1 | 0                       1                                 sloths.js, sloth/step.js, sloth/naps.js, labButton.js (0: only the two wild sloths, no camp sloths)
 //   slothmat lambert | old                 lambert                           sloth/body.js (old: the sloth GLB's own physical material)
-//   lab      (present)                     absent                            labButton.js (opens the move lab, lab.js, at the start)
+//   lab      (present)                     absent                            labButton.js (opens the move lab, lab.js, at the start, and shows its button)
+//   dev      (present)                     absent                            core.js wireSettings, main.js, labButton.js (shows the fps pill and the
+//                                                                            ⚙️ menu's Detail, Light and Move lab buttons; hidden from players)
 //   touch    present or not                on a phone (a coarse pointer)     input.js (the phone stick and its hint, on a desktop too)
 //   sound    0                             saved, else on                    audio/context.js (0 starts muted)
 //   station  drift | campfire | kalimba | lullaby   saved, else drift        audio/context.js (checks it against its stations)
@@ -61,6 +63,7 @@ const OPT = {
   campsloths: qs.get("campsloths") !== "0",
   slothmat: qs.get("slothmat") === "old" ? "old" : "lambert",
   lab: qs.has("lab"),
+  dev: qs.has("dev"),
   touch: qs.has("touch"),
   sound: qs.get("sound") !== "0",
   station: qs.get("station"),
@@ -77,7 +80,9 @@ const JEEP = OPT.jeep;
 const LMSET = OPT.lm;
 // the ⚙️ menu's own buttons: main.js calls wireSettings() once. One ⚙️ button opens the detail and light-map choices (the old
 // row took a quarter of a phone screen); Detail and Light each step to the next choice, keep it and reload without their URL option (which would win over the kept choice).
+// Detail, Light and the fps pill are for developers: shown only with ?dev (review R2-206).
 function wireSettings() {
+  $("detail").hidden = $("lm").hidden = $("perf").hidden = !OPT.dev;
   $("menu").onclick = () => { const o = $("opts"); o.hidden = !o.hidden; $("menu").setAttribute("aria-expanded", String(!o.hidden)); };
   $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
   $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); const u = new URL(location.href); u.searchParams.delete("detail"); location.replace(u); };

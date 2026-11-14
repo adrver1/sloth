@@ -85,7 +85,7 @@ addEventListener("resize", resize); resize();
 // start still counts as slow). Then, once a second: two seconds in a row slower than 1.4 times the target lower the
 // resolution by 0.25 (down to 1); a run of good seconds raises it by 0.25 again, up to the Detail level's own (D.pr). The run
 // is 10 s, doubled each time it has to lower again, so it does not see-saw. A second with a frame over 1.5 s (a hidden tab) is not judged.
-// The fps pill shows the resolution it uses now (for example 1.75×).
+// The fps pill (only with ?dev) shows the resolution it uses now (for example 1.75×); debug.js's stats are filled either way.
 const PR_MAX = renderer.getPixelRatio();
 const net = { pr: PR_MAX, t: 0, ivs: [], target: 0, slow: 0, good: 0, wait: 10, downs: 0, pause: false };
 let frames = 0, acc = 0;
@@ -109,7 +109,7 @@ function perfStep(raw) {
     }
   }
   Object.assign(stats, { fps: Math.round(fps), calls: i.calls, tris: i.triangles, pr: net.pr, detail: DETAIL });
-  $("perf").innerHTML = `${Math.round(fps)} fps · ${+net.pr.toFixed(2)}×<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
+  if (OPT.dev) $("perf").innerHTML = `${Math.round(fps)} fps · ${+net.pr.toFixed(2)}×<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
   frames = 0; acc = 0; net.pause = false;
 }
 // compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card.
