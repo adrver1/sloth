@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { $, OPT, R, camera, renderer, scene, uTime } from "./core.js";
 import { keys, pickAt, ray, stickV, toast } from "./hud.js";
-import { V } from "./forest.js";
+import { V } from "./util.js";
 import { COUNT, burst, flowerCrown, fx, hit, sloths, sprite } from "./sloths.js";
 import { me } from "./player.js";
 import { acts } from "./campLife.js";

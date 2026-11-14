@@ -14,14 +14,14 @@
 import * as THREE from "three";
 import { makePail } from "./camp/canister.js";
 import { FRUIT, VEG as VEG_KINDS, makeFood } from "./camp/food.js";
+import { V, canvasTex as utilTex } from "./camp/util.js";
 
-const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const NEAR = 2.5;                          // tap range
 const HOLD = 60, SETTLE = 180, MAX_LOGS = 3;
 const COOK = 20, BOWLS = 3, VN = VEG_KINDS.map((v) => v[0]), VEG = VEG_KINDS.map((v) => v[1]);
 const FN = FRUIT.map((f) => f[0]), FE = FRUIT.map((f) => f[1]);
 
-const canvasTex = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+const canvasTex = (w, h, draw) => utilTex(w, h, draw, { aniso: 1 });   // small textures seen up close: no anisotropic filtering, as before
 // a bark texture for logs: dark stripes along the length, a pale cut ring at one end of the strip
 const barkTex = canvasTex(64, 32, (g, w, h) => { g.fillStyle = "#6b4a32"; g.fillRect(0, 0, w, h); g.strokeStyle = "#4a3222"; g.lineWidth = 2;
   for (let y = 3; y < h; y += 5) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (y % 2 ? 1 : -1)); g.stroke(); } });

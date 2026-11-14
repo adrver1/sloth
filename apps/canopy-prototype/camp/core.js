@@ -171,4 +171,4 @@ async function glb(url) {
 
 export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, store, sun, uTime };
 export { qs };   // back-compat: sloths.js still reads its own options with it (see the table above)
-export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here, and car.js and radio.js import canvasTex (util.js is their home)
+export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here (util.js is their home)

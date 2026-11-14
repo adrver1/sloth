@@ -12,7 +12,8 @@ import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { OPT, PRE, R, camera, scene, uTime } from "./core.js";
 import { load, save } from "./save.js";
-import { A0, RC, V } from "./forest.js";
+import { A0, RC } from "./forest.js";
+import { V, canvasTex, ease, lam as plain, trisIn } from "./util.js";
 import { SLOTH, SOUP_POT, blockers, uNight } from "./campProps.js";
 import { addTarget } from "./input.js";
 import { me } from "./player.js";
@@ -45,8 +46,8 @@ if (ON) {
   for (const n of ["blink", "happy"]) { const a = acts[n]; a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; }
   // a soft round shadow under him (2 triangles): the props' shadows are baked, and he moves
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0.45,
-    map: (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      r.addColorStop(0, "rgba(30,24,16,1)"); r.addColorStop(0.55, "rgba(30,24,16,.5)"); r.addColorStop(1, "rgba(30,24,16,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })() }));
+    map: canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      r.addColorStop(0, "rgba(30,24,16,1)"); r.addColorStop(0.55, "rgba(30,24,16,.5)"); r.addColorStop(1, "rgba(30,24,16,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }, { srgb: false, aniso: 1 }) }));
   shadow.rotation.x = -Math.PI / 2; shadow.renderOrder = 1; scene.add(shadow); root.userData.shadow = shadow;
 }
 function play(name, fade = 0.35, { once = false, at = 0, speed = 1 } = {}) {
@@ -57,7 +58,7 @@ function play(name, fade = 0.35, { once = false, at = 0, speed = 1 } = {}) {
 }
 
 // ---------------------------------------------------------------- props in his hands: a soup bowl, a mug, an open book (64 tris)
-const lam = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
+const lam = (c) => plain(c, { flatShading: true });   // his props are faceted, like him
 const bowl = (() => {   // an enamel bowl 20 cm across (Adriaen: bigger), open, 8 sides (32 tris), with the soup's surface (8)
   const g = new THREE.Group(), b = new THREE.Mesh(new THREE.LatheGeometry([V(0.001, 0), V(0.06, 0.006), V(0.1, 0.065)], 8), lam(0x3f6f8f)); b.material.side = THREE.DoubleSide;
   const s = new THREE.Mesh(new THREE.CircleGeometry(0.09, 8), lam(0xc7752e)); s.rotation.x = -Math.PI / 2; s.position.y = 0.05; g.add(b, s); return g;
@@ -75,9 +76,8 @@ const mug = (() => {   // a tin mug, 8 sides, open top, bottom cap (22 tris), an
   g.add(m, bot, h); return g;
 })();
 const book = (() => {   // open book: two cover quads and two page quads (8 tris), spine along Y, pages facing +Z (the reader), halves cupped toward him
-  const g = new THREE.Group(), pages = (() => { const c = document.createElement("canvas"); c.width = 64; c.height = 32; const x = c.getContext("2d");
-    x.fillStyle = "#f1ead8"; x.fillRect(0, 0, 64, 32); x.fillStyle = "#b9b09a"; for (let y = 5; y < 28; y += 3) { x.fillRect(4, y, 24, 1); x.fillRect(36, y, 24, 1); } x.fillStyle = "#cfc6b0"; x.fillRect(31, 0, 2, 32);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const g = new THREE.Group(), pages = canvasTex(64, 32, (x) => {
+    x.fillStyle = "#f1ead8"; x.fillRect(0, 0, 64, 32); x.fillStyle = "#b9b09a"; for (let y = 5; y < 28; y += 3) { x.fillRect(4, y, 24, 1); x.fillRect(36, y, 24, 1); } x.fillStyle = "#cfc6b0"; x.fillRect(31, 0, 2, 32); }, { aniso: 1 });
   const W = 0.15, H = 0.22, open = 0.3;                 // a hardback, 30 cm open (Adriaen: bigger)
   for (const side of [-1, 1]) {
     const leaf = new THREE.Group(); leaf.rotation.y = -side * open;   // outer edges toward the reader, the spine away (Adriaen: it bent the wrong way)
@@ -332,7 +332,7 @@ const DO = {
     const lie = new THREE.Matrix4().makeBasis(V().crossVectors(BED.head, V(0, -1, 0)), BED.head, V(0, -1, 0)), lq = new THREE.Quaternion().setFromRotationMatrix(lie);
     const feet = BED.c.clone().addScaledVector(BED.head, -0.82).addScaledVector(BED.across, -0.1).setY(BED.c.y + 0.11), fq = root.quaternion.clone(); let from = root.position.clone();   // a little toward the wall: room for a sloth beside him
     play("idle", 0.9); op.lying = true;
-    for (let t = 0; t < 1.3;) { t += yield; const k = Math.min(1, t / 1.3), e = k * k * (3 - 2 * k); root.position.lerpVectors(from, feet, e); root.quaternion.slerpQuaternions(fq, lq, e); }
+    for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, feet, e); root.quaternion.slerpQuaternions(fq, lq, e); }
     op.sleeping = true; op.ik = { sleep: 1 };
     const night = () => uNight.value > 0.5;
     for (let t = 0, T = R(40, 80); (night() ? true : t < T);) {
@@ -347,7 +347,7 @@ const DO = {
     unhost();
     from = root.position.clone(); const q0 = root.quaternion.clone(), up = new THREE.Quaternion().setFromAxisAngle(UP, sitYaw);
     play("seated_idle", 0.9);
-    for (let t = 0; t < 1.3;) { t += yield; const k = Math.min(1, t / 1.3), e = k * k * (3 - 2 * k); root.position.lerpVectors(from, sr, e); root.quaternion.slerpQuaternions(q0, up, e); }
+    for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, sr, e); root.quaternion.slerpQuaternions(q0, up, e); }
     op.lying = false; root.rotation.set(0, sitYaw, 0); op.footLock = lock;
     yield* standUp(); release();
     yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.door);
@@ -475,7 +475,7 @@ function slothPose(s, clip) {
 function* lift(s, bone, local, quat, dur = 0.5) {      // move the sloth from where it is into his hold, then it rides on the bone
   scene.attach(s.o); const p0 = s.o.position.clone(), q0 = s.o.quaternion.clone();
   for (let t = 0; t < dur;) {
-    t += yield; const k = Math.min(1, t / dur), e = k * k * (3 - 2 * k);
+    t += yield; const e = ease(Math.min(1, t / dur));
     body.updateMatrixWorld(true); const wp = bone.localToWorld(local.clone()), wq = bone.getWorldQuaternion(new THREE.Quaternion()).multiply(quat);
     s.o.position.lerpVectors(p0, wp, e); s.o.position.y += Math.sin(e * Math.PI) * 0.12; s.o.quaternion.slerpQuaternions(q0, wq, e);
   }
@@ -603,7 +603,7 @@ function opStep(dt) {
     book.position.copy(c); book.quaternion.copy(root.quaternion).multiply(tq.setFromEuler(new THREE.Euler(-0.62, 0, 0.03 * Math.sin(uTime.value * 0.5)))); book.visible = k.book > 0.4;
     book.updateMatrixWorld(true);
     // a hand behind each half at its lower outer corner, palm flat on the cover, fingers up and in along its back
-    const e = k.book * k.book * (3 - 2 * k.book), bq = book.getWorldQuaternion(tq).clone(), bd = (x, y, z) => V(x, y, z).applyQuaternion(bq);
+    const e = ease(k.book), bq = book.getWorldQuaternion(tq).clone(), bd = (x, y, z) => V(x, y, z).applyQuaternion(bq);
     for (const [sd, S] of [[1, "R"], [-1, "L"]]) {
       reach(S, V(sd * 0.11, -0.09, 0).applyMatrix4(book.matrixWorld), csDir(sd, -1, 0.2), e);
       turnHand(S, handQuat(S, bd(-sd * 0.45, 1, 0), bd(-sd * 0.3, 0, 1)), e);
@@ -865,7 +865,7 @@ if (ON) {
     state: () => ({ kind: op.kind, at: root.position.toArray().map((v) => +v.toFixed(2)), place: op.place, seated: op.seated, lying: op.lying, sleeping: op.sleeping, buddy: op.buddy?.name ?? null, clip: cur?.getClip().name }),
     talk, gift, tapCol, fid: (k) => { op.fid = { kind: k, t: 0, k: 0, T: FID_T[k] * 3 }; fidCD = 99; }, cd: (o) => { if ("cook" in o) cookCD = o.cook; if ("join" in o) joinCD = o.join; if ("react" in o) reactCD = o.react; }, clearSpot, line: () => say.textContent, tapAt: () => op.scr, seats: () => SEATS.map((s) => [s.key, s.at.toArray().map((v) => +v.toFixed(2))]), why: () => ({ sl: op.sleeping, ly: op.lying, talk: talkSt.t, munch: talkSt.munch, cd: reactCD, carry: !!op.carry, cam: camera.position.distanceTo(root.position) }),
     sim: (sec) => { for (let t = 0; t < sec; t += 0.05) opStep(0.05); return window.__op.state(); },   // run his life ahead (checks)
-    tris: () => { let n = 0; root.traverse((m) => { if (m.isMesh) n += m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3; }); return n; },
+    tris: () => trisIn(root),
     jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); Object.assign(op, { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null, pass: null, cooking: false, fid: null }); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0);
       it = (function* () { op.kind = k; yield* DO[k](); op.kind = "idle"; yield* lifeLoop(); })(); it.next(); } };
 }

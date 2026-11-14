@@ -5,14 +5,14 @@
 // the station and two music notes float up.
 // Built here, painted on canvas: a box without a bottom (10), the needle (2), an aerial (6), two note cards (4): 22 triangles.
 import * as THREE from "three";
-import { canvasTex, scene } from "./core.js";
-import { V } from "./forest.js";
+import { scene } from "./core.js";
+import { V, canvasTex, lam } from "./util.js";
 import { me } from "./player.js";
 import { addTarget } from "./input.js";
 import { toast } from "./hud.js";
 import { audio } from "./audio.js";
 
-const W = 0.3, H = 0.19, Dp = 0.13, lam = (o) => new THREE.MeshLambertMaterial(o);
+const W = 0.3, H = 0.19, Dp = 0.13;
 const N = audio.stations.length, DIAL = { x0: -0.105, x1: 0.105, y: 0.035 };   // the dial window on the front, in metres from its middle
 // the front: walnut case, a cloth speaker grille, the dial window with a mark per station, two knobs
 const front = canvasTex(256, 160, (c, w, h) => {
@@ -26,14 +26,14 @@ const front = canvasTex(256, 160, (c, w, h) => {
 });
 // the glow of the dial lamp: only the window lights up
 const glowMap = canvasTex(256, 160, (c, w, h) => { c.fillStyle = "#000"; c.fillRect(0, 0, w, h); c.fillStyle = "#ffb347"; c.beginPath(); c.roundRect(40, 18, 176, 40, 10); c.fill(); });
-const wood = lam({ color: 0x7a4a2c }), face = lam({ map: front, emissive: 0xffffff, emissiveMap: glowMap, emissiveIntensity: 0 });
+const wood = lam(0x7a4a2c), face = new THREE.MeshLambertMaterial({ map: front, emissive: 0xffffff, emissiveMap: glowMap, emissiveIntensity: 0 });
 // a box without a bottom: BoxGeometry's groups are +x, -x, +y, -y, +z, -z; drop -y and paint +z
 const box = new THREE.BoxGeometry(W, H, Dp); box.groups.splice(3, 1);
 const radio = new THREE.Mesh(box, [wood, wood, wood, face, wood]);   // after the splice: +x, -x, +y, +z, -z
 box.groups.forEach((g, i) => (g.materialIndex = i));
-const needle = new THREE.Mesh(new THREE.PlaneGeometry(0.006, 0.034), lam({ color: 0xd2343f }));
+const needle = new THREE.Mesh(new THREE.PlaneGeometry(0.006, 0.034), lam(0xd2343f));
 needle.position.set(0, DIAL.y, Dp / 2 + 0.002); radio.add(needle);
-const aerial = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.004, 0.32, 3, 1, true).translate(0, 0.16, 0), lam({ color: 0x9a9a9a }));
+const aerial = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.004, 0.32, 3, 1, true).translate(0, 0.16, 0), lam(0x9a9a9a));
 aerial.position.set(W / 2 - 0.03, H / 2, -0.02); aerial.rotation.z = -0.5; radio.add(aerial);
 const noteTex = canvasTex(64, 64, (c) => { c.fillStyle = "#fff8ee"; c.font = "700 48px sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.shadowColor = "#8a5a3b"; c.shadowBlur = 4; c.fillText("♪", 32, 34); });
 const notes = [0, 1].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex, transparent: true, opacity: 0, depthWrite: false })); s.scale.setScalar(0.09); radio.add(s); return s; });

@@ -17,6 +17,7 @@ import { sloths } from "./sloths.js";
 import { me } from "./player.js";
 import { weather } from "./weather.js";
 import { SOUP_POT } from "./campProps.js";
+import { rand as R } from "./util.js";   // a number between a and b from Math.random, as the copy that stood here
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix: music sits well under the camp
 const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
@@ -28,7 +29,7 @@ const listeners = new Set();
 const keep = () => { store.set(KEYS.audio, JSON.stringify(set)); listeners.forEach((f) => { try { f(audio.state()); } catch {} }); showBtn(); };
 
 let ac = null, master, comp, bus = {}, NOISE, BROWN, CRICKET;
-const R = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
 
 // ---------------------------------------------------------------- the graph: three buses into a gentle compressor

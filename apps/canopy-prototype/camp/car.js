@@ -10,26 +10,23 @@
 // the dash's face toward the driver is at local z 0.14, from y 0.93 to 1.13. Left to right as you sit: the wheel (x 0.36),
 // the key, the clock up top in the middle, the radio in front of the passenger seat.
 import * as THREE from "three";
-import { camera, canvasTex, scene } from "./core.js";
-import { V } from "./forest.js";
-import { me } from "./player.js";
+import { camera } from "./core.js";
+import { V, canvasTex, trisIn } from "./util.js";
 import { addTarget } from "./input.js";
 import { toast } from "./hud.js";
 import { audio } from "./audio.js";
 import { radioOptions, radioPlaying, radioSource } from "./radio.js";
 import { addClock, faceTex, hand } from "./clock.js";
-import { sloths } from "./sloths.js";
 
 const J = window.__jeep, jeep = J?.node;
 let carStep = () => {};
 if (jeep) {
-  const lam = (o) => new THREE.MeshLambertMaterial(o);
+  const mat = (o) => new THREE.MeshLambertMaterial(o);   // textured and glowing faces (util.js lam is for plain colours)
   const DASH_Z = 0.137, local = (x, y, z) => jeep.localToWorld(V(x, y, z));
   const seatL = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
   // its front toward the driver (-z); a tilted part (its top leaning back) comes forward by as much as its lower edge would sink
   // into the dash, so none of it hides behind the dash face (Adriaen 2026-11-13: the clock's bottom half was cut off)
   const onDash = (o, x, y, tilt = 0, half = 0) => { o.position.set(x, y, DASH_Z - half * Math.abs(Math.sin(tilt))); o.rotation.set(tilt, Math.PI, 0); jeep.add(o); return o; };
-  const tris = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) n += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); return n; };
 
   // ---------------------------------------------------------------- in the jeep: getting in and out is jeepSeat.js (window.__jeep.sit / stand / seatedIn)
   const inCar = () => !!J.seatedIn?.();
@@ -43,11 +40,11 @@ if (jeep) {
     c.fillStyle = "#e0b84a"; c.beginPath(); c.roundRect(14, 26, 36, 34, 12); c.fill(); c.fillStyle = "#b08a2e"; c.beginPath(); c.arc(32, 50, 4, 0, 7); c.fill();   // the bow
     c.fillStyle = "#d8d8d8"; c.fillRect(28, 0, 8, 28);                                                                                                      // the blade going in
   });
-  const key = new THREE.Group(), keyQuad = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.09).translate(0, -0.045 + 0.007, 0), lam({ map: keyTex, alphaTest: 0.5, side: THREE.DoubleSide }));
+  const key = new THREE.Group(), keyQuad = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.09).translate(0, -0.045 + 0.007, 0), mat({ map: keyTex, alphaTest: 0.5, side: THREE.DoubleSide }));
   keyQuad.rotation.x = -0.35; keyQuad.position.z = 0.012; key.add(keyQuad);   // hanging down from the slot, its fob tipped toward you
-  const ring = new THREE.Mesh(new THREE.CircleGeometry(0.02, 6).translate(0, 0, 0.002), lam({ map: canvasTex(32, 32, (c, w) => { c.fillStyle = "#b8b8b8"; c.fillRect(0, 0, w, w); c.fillStyle = "#222"; c.fillRect(14, 6, 4, 20); }) }));
+  const ring = new THREE.Mesh(new THREE.CircleGeometry(0.02, 6).translate(0, 0, 0.002), mat({ map: canvasTex(32, 32, (c, w) => { c.fillStyle = "#b8b8b8"; c.fillRect(0, 0, w, w); c.fillStyle = "#222"; c.fillRect(14, 6, 4, 20); }) }));
   const ign = new THREE.Group(); ign.add(ring, key); onDash(ign, seatL.x - 0.27, 1.0);   // right of the steering column as you sit (the jeep looks along +z, so -x), below the wheel's rim
-  ign.name = "Ignition"; console.log(`LOG car key: ${tris(ign)} tris`);
+  ign.name = "Ignition"; console.log(`LOG car key: ${trisIn(ign)} tris`);
   // the engine: off → cranking (the key held over, the jeep shudders) → running (an idle tremble)
   let engine = "off", crank = 0, keyA = 0;
   const KEY_RUN = -0.9, KEY_CRANK = -1.25;
@@ -61,8 +58,7 @@ if (jeep) {
   // its face: a chrome bezel, a glowing display that shows the station, two knobs; the display is redrawn when the station changes
   const rc = document.createElement("canvas"); rc.width = 256; rc.height = 96;
   const rTex = new THREE.CanvasTexture(rc); rTex.colorSpace = THREE.SRGBColorSpace;
-  const gc = document.createElement("canvas"); gc.width = 256; gc.height = 96; { const g = gc.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, 256, 96); g.fillStyle = "#ffb347"; g.fillRect(52, 22, 152, 52); }
-  const gTex = new THREE.CanvasTexture(gc);
+  const gTex = canvasTex(256, 96, (g) => { g.fillStyle = "#000"; g.fillRect(0, 0, 256, 96); g.fillStyle = "#ffb347"; g.fillRect(52, 22, 152, 52); }, { srgb: false, aniso: 1 });   // the display's glow, as plain numbers
   let shown = "";
   function drawRadio() {
     const st = audio.station(), on = radioPlaying() && radioSource() === carRadio, k = (on ? st.id : "off");
@@ -74,13 +70,13 @@ if (jeep) {
     for (const x of [26, 230]) { c.fillStyle = "#cfcfcf"; c.beginPath(); c.arc(x, 48, 15, 0, 7); c.fill(); c.fillStyle = "#555"; c.fillRect(x - 2, 35, 4, 12); }
     rTex.needsUpdate = true;
   }
-  const rMat = lam({ map: rTex, emissive: 0xffffff, emissiveMap: gTex, emissiveIntensity: 0 });
+  const rMat = mat({ map: rTex, emissive: 0xffffff, emissiveMap: gTex, emissiveIntensity: 0 });
   const carRadio = onDash(new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), rMat), -0.22, 1.0, -0.1, 0.0375);
   carRadio.name = "CarRadio"; drawRadio();
   addTarget(carRadio, () => ({ look: carRadio, picks: [carRadio], at: (v) => { carRadio.getWorldPosition(v); return new THREE.Sphere(v.clone(), 0.1); }, ready: inCar, options: () => radioOptions(carRadio) }));
 
   // ---------------------------------------------------------------- the dash clock, high in the middle of the dash
-  const clock = new THREE.Group(), lume = lam({ map: faceTex({ bg: "#f6efe0", rim: "#3a3a3a", numbers: ["12", "3", "6", "9"], rimW: 0.12 }), emissive: 0xfff0c8, emissiveIntensity: 0 });
+  const clock = new THREE.Group(), lume = mat({ map: faceTex({ bg: "#f6efe0", rim: "#3a3a3a", numbers: ["12", "3", "6", "9"], rimW: 0.12 }), emissive: 0xfff0c8, emissiveIntensity: 0 });
   clock.add(new THREE.Mesh(new THREE.CircleGeometry(0.055, 10), lume));
   const hh = hand(0.007, 0.032, 0x2a2a2a), mh = hand(0.005, 0.044, 0x2a2a2a); hh.position.z = 0.002; mh.position.z = 0.003; clock.add(hh, mh);
   onDash(clock, -0.05, 1.065, -0.1, 0.055); clock.name = "CarClock";
