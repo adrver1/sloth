@@ -14,20 +14,27 @@
 import * as THREE from "three";
 
 const FUR = [[0x8f, 0x7c, 0x62], [0x6a, 0x58, 0x44]];   // palette fur swatches (light, dark)
-let pc, pg;
+// The texture's pixels, read once per image and shared by every geometry that uses it (R2-061: one cache for all
+// textures read the first texture's pixels for every other animal).
+const PIX = new WeakMap();
+function pixels(img) {
+  let p = PIX.get(img);
+  if (!p) {
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0);
+    p = { w: c.width, h: c.height, px: g.getImageData(0, 0, c.width, c.height).data };
+    PIX.set(img, p);
+  }
+  return p;
+}
 function prepare(geo, map, fur = FUR) {
   if (geo.userData.furReady) return;
-  if (!pc) {
-    const img = map.image;
-    pc = document.createElement("canvas"); pc.width = img.width; pc.height = img.height;
-    pg = pc.getContext("2d", { willReadFrequently: true }); pg.drawImage(img, 0, 0);
-  }
-  const px = pg.getImageData(0, 0, pc.width, pc.height).data;
+  const { w, h, px } = pixels(map.image);
   const uv = geo.attributes.uv, pos = geo.attributes.position, nr = geo.attributes.normal, n = pos.count;
   const mask = new Float32Array(n), smooth = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
-    const x = Math.min(pc.width - 1, Math.floor(uv.getX(i) * pc.width)), y = Math.min(pc.height - 1, Math.floor(uv.getY(i) * pc.height));
-    const o = (y * pc.width + x) * 4;
+    const x = Math.min(w - 1, Math.floor(uv.getX(i) * w)), y = Math.min(h - 1, Math.floor(uv.getY(i) * h));
+    const o = (y * w + x) * 4;
     mask[i] = fur.some((c) => Math.abs(c[0] - px[o]) + Math.abs(c[1] - px[o + 1]) + Math.abs(c[2] - px[o + 2]) < 40) ? 1 : 0;
   }
   // smoothed normals: average the flat normals of every vertex at the same spot, so shells don't split at facets
