@@ -54,7 +54,8 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
 6. export_models writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own
    origin, so the page places them from their tags; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt
    copies (all into --out instead, when given). Every node carries its tags as glTF extras (three.js userData).
-A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
+A three.js point (x, y, z) is Blender (x, -z, y); a yaw set as rotation.y on the page is the same angle about Blender's z
+(the fallen log, which deadwood.js turns with rotateY(-yaw), takes -yaw).
 The run's memory: one props-sized and one ground-sized float image are made once and reused by every bake pass, and each
 pass keeps only what is used (the RGB mean, or AO's first channel) as float32 (review R2-224).
 """
@@ -419,9 +420,9 @@ def add_occluders(layout, pl, jeep):
             occluders.append(o)
     for d in layout["deadwood"]:
         y = d.get("y", 0)                                    # seated on the terrain by the layout step
-        if d["name"] == "FallenLog":
-            bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], y + d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
-            o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, d["yaw"])   # lie along x, then yaw
+        if d["name"] == "FallenLog":                         # deadwood.js: along x, rotateY(-yaw), its axis 0.75 r above y
+            bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], y + 0.75 * d["r"], d["z"]))
+            o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, -d["yaw"])   # lie along x, then yaw (review R2-150)
         elif d["name"] == "Stump":
             bpy.ops.mesh.primitive_cylinder_add(vertices=9, radius=d["r"], depth=d["h"], location=B(d["x"], y + d["h"] / 2, d["z"]))
         elif d["name"] == "DeadTrunk":
