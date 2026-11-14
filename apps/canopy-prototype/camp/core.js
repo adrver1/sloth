@@ -26,7 +26,7 @@ import { SUN } from "./layout.js";
 //   touch    present or not                on a phone (a coarse pointer)     input.js (the phone stick and its hint, on a desktop too)
 //   sound    0                             saved, else on                    audio/context.js (0 starts muted)
 //   station  drift | campfire | kalimba | lullaby   saved, else drift        audio/context.js (checks it against its stations)
-//   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
+//   fur      1 | 0                         1                                 fur.js reads location itself (the pages in prototypes/ share it)
 const qs = new URLSearchParams(location.search);
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };   // a number, or null when it is missing or not a number
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
@@ -36,7 +36,7 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 // The modules talk through imports only. The window.__ names are for the headless tools (camp-probe.cjs, camp-replay.cjs,
 // camp-scenarios.cjs and props/shadow/export_casters.cjs) and are all set in debug.js, which lists them with their readers.
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
-// they live on in index.html (the forest look prototype), and camp.html with all three, with their branches in forest.js,
+// they live on in prototypes/index.html (the forest look prototype), and camp.html with all three, with their branches in forest.js,
 // glade.js and sky.js, is in git history before commit "Canopy camp: start every download at once".
 const $ = (id) => document.getElementById(id);
 

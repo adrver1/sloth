@@ -3,7 +3,7 @@
 # control room. Camp threads merge into claude/project-thread-otpcew first; a PR
 # from there to main publishes. The camp is plain static files (models and light maps are
 # committed, three.js loads from jsDelivr), so nothing is built: the folder is
-# copied, the old prototypes (index.html, nooks.html, names-prototype.html) and any 4K light map are left out, the
+# copied, the old prototypes (the prototypes/ folder) and any 4K light map are left out, the
 # base64 models and KTX2 maps are decoded to binary files, which camp.html is told to load (R2-214), and
 # index.html files at the root and in the folder forward to camp.html (review R2-208). The build stops when the site
 # is over 30 MB (about 22 MB on 2026-11-14). The static checks in check.yml run first, and nothing is published
@@ -43,7 +43,7 @@ jobs:
           mkdir -p _site
           cp -r apps/canopy-prototype _site/canopy-prototype
           C=_site/canopy-prototype
-          rm -f $C/models/*_4k.png $C/index.html $C/nooks.html $C/names-prototype.html
+          rm -rf $C/models/*_4k.png $C/prototypes
           # Pages serves binary files, so the base64 copies go back to what they encode (review R2-214): X.txt is a GLB and
           # X.ktx2.txt a KTX2 map. camp.html's camp-models meta then tells bakedlight.js fetchBytes to load those instead.
           for f in $C/models/*.txt; do

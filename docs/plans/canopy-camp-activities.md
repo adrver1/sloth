@@ -35,7 +35,7 @@ Planned with Adriaen on 2026-11-11 in the thread "Plan camp activities". Revised
 | Hazel | small blue bow | fig |
 | Sunny | yellow scarf at the neck | mango |
 
-Preview: `sloth-names-phone.png`, `sloth-names-desktop.png` here; page `apps/canopy-prototype/names-prototype.html`.
+Preview: `sloth-names-phone.png`, `sloth-names-desktop.png` here; page `apps/canopy-prototype/prototypes/names-prototype.html`.
 
 ## Sloth journal (was the friendship book)
 - Lies on the snack table; tap to open, one page per sloth. After the first time also opens from a small 📖 in the corner.
