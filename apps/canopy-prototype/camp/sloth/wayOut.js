@@ -11,6 +11,7 @@ import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { scene } from "../core.js";
 import { V } from "../util.js";
+import { yawFrom, yawTo } from "../actor.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { CRAWL, HW, HW_POST, WALK_TS } from "./state.js";
@@ -27,7 +28,7 @@ function climbDown(s, then) {
   glide(s, back(t), 2.5, () => slide(s, t, t0, climbV(s) / L, back, () => {
     play(s, "hang_walk", 1.5, -HW);
     glide(s, trunkAt(s, tree, out, yTop, R), 3, () => slide(s, yTop, 0, climbV(s), (y) => trunkAt(s, tree, out, y, R),
-      () => toGround(s, tree.clone().addScaledVector(out, R(0) + 0.45), Math.atan2(-out.x, -out.z), then)));
+      () => toGround(s, tree.clone().addScaledVector(out, R(0) + 0.45), yawTo(out), then)));
   }));
 }
 function downPost(s, spot, top, then) {             // from the top of a post, tail first down to the ground
@@ -45,10 +46,10 @@ function bedOut(s, spot, go) {
     glide(s, { p: V(-0.5, top - 0.06, z), q: Q(side, -0.55) }, 1.2, () =>                    // paws over, nose down
       glide(s, { p: V(-0.36, 0.02, z), q: Q(side, -0.3) }, 1.4, () =>                       // down onto the floor
         glide(s, { p: V(-0.25, 0.02, z + 0.05), q: Q(side + 0.4) }, 1.0, () => {            // level again, turning to the door
-          const door = spot.door, away = Math.atan2(-(door.x - s.o.getWorldPosition(tmp).x), -(door.z - tmp.z));
+          const door = spot.door, away = yawFrom(s.o.getWorldPosition(tmp), door);
           scene.attach(s.o); play(s, "walk", 1, WALK_TS);
           glide(s, { p: door.clone(), q: yawQ(away) }, 2.2, () => {
-            const out = Math.atan2(-(spot.via.x - door.x), -(spot.via.z - door.z)); s.trip.yaw = out;
+            const out = yawFrom(door, spot.via); s.trip.yaw = out;
             glide(s, { p: spot.via.clone(), q: yawQ(out) }, door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = out; go(); });
           });
         }))));
@@ -67,7 +68,7 @@ function exitSpot(s, go) {
     return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, 0.015 * HW_POST * s.sc, (u) => ropePose(s, u), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
   }
   if (spot.car) { s.trip.phase = "exit"; s.trip.go = go; jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
-  const away = spot.via ? Math.atan2(-(spot.via.x - spot.door.x), -(spot.via.z - spot.door.z)) : Math.atan2(-(spot.door.x - s.o.getWorldPosition(tmp).x), -(spot.door.z - tmp.z));
+  const away = spot.via ? yawFrom(spot.door, spot.via) : yawFrom(s.o.getWorldPosition(tmp), spot.door);
   scene.attach(s.o); play(s, "walk", 1.5, WALK_TS);
   glide(s, { p: spot.door.clone(), q: yawQ(away) }, 2.5, () => {
     s.trip.yaw = away;

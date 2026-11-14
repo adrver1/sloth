@@ -5,10 +5,10 @@
 import * as THREE from "three";
 import { R, camera } from "../core.js";
 import { V } from "../util.js";
-import { aimBone, makeZ, zAt } from "../actor.js";
+import { aimBone, makeZ, yawTo, zAt } from "../actor.js";
 import { B, UP, clips, csDir, cur, mixer, play, root } from "./model.js";
 import { op } from "./state.js";
-import { turnToward, yawTo } from "./walk.js";
+import { turnToward } from "./walk.js";
 
 let zz = null;
 function buildSleepZ() { zz = makeZ(); zz.material.opacity = 0; }

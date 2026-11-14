@@ -14,7 +14,8 @@ import { UP, cs, root } from "./model.js";
 import { crateFront, fireGap } from "./places.js";
 import { op } from "./state.js";
 import { speak } from "./talk.js";
-import { face, faceFire, wait, walkTo, yawTo } from "./walk.js";
+import { yawTo } from "../actor.js";
+import { face, faceFire, wait, walkTo } from "./walk.js";
 
 // cooking (Adriaen 2026-11-13): the soup from start to finish, the same steps as yours: the pail from under the snack table,
 // water in the pot, two vegetables from the crate tossed in, a stir while it bubbles, then a bowl ladled out and brought to

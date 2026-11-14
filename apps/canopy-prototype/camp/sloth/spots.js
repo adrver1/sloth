@@ -20,6 +20,7 @@ import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { LIVED, PROPS, scene } from "../core.js";
 import { V } from "../util.js";
+import { yawTo } from "../actor.js";
 import { HAMMOCK, LAUNDRY, RC, SEATS, TENT } from "../layout.js";
 import { branchCurves } from "../forest.js";
 import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "../swing.js";
@@ -68,7 +69,7 @@ function buildSpots() {
   if (LL) {
     const sc = 1.7;
     spots.push({ name: "line", parent: scene, clip: "cling", scale: sc, line: true, climb: true,
-      door: LL.a.clone().setY(0).addScaledVector(LL.dir, -0.1 * sc), climbYaw: Math.atan2(-LL.dir.x, -LL.dir.z), top: LL.a.y - 0.2 * sc,
+      door: LL.a.clone().setY(0).addScaledVector(LL.dir, -0.1 * sc), climbYaw: yawTo(LL.dir), top: LL.a.y - 0.2 * sc,
       t: Math.max(0, Math.min(1, LL.hang.clone().sub(LL.a).dot(LL.dir) / LL.a.distanceTo(LL.b))) });
   }
   brush = LL ? makeClothBrush() : null;   // swing.js: the towel and socks swing aside as it brushes past them

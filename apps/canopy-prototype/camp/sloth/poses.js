@@ -19,11 +19,12 @@
 import * as THREE from "three";
 import { scene } from "../core.js";
 import { V, wrapPi } from "../util.js";
+import { yawTo } from "../actor.js";
 import { HAMMOCK, HERO, LAUNDRY } from "../layout.js";
 
 const UP = V(0, 1, 0), m4 = new THREE.Matrix4(), LL = LAUNDRY;
 const yawQ = (yaw) => new THREE.Quaternion().setFromAxisAngle(UP, yaw);
-const yawOf = (o) => { const f = V(0, 0, -1).applyQuaternion(o.getWorldQuaternion(qWorld)); return Math.atan2(-f.x, -f.z); };
+const yawOf = (o) => { const f = V(0, 0, -1).applyQuaternion(o.getWorldQuaternion(qWorld)); return yawTo(f); };
 const qWorld = new THREE.Quaternion();
 const turnTo = (T, want, k) => { const d = wrapPi(want - T.yaw); T.yaw += d * Math.min(1, k); return Math.abs(d); };
 // poses for climbing: hanging back-down under a branch or pole at `at`, head toward `head`, and upright on a trunk at

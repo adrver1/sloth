@@ -1,10 +1,11 @@
 // Canopy Camp operator, getting about: a path round the blockers (the sloths' planner when it is there), steering round the
 // others walking about, stopping to listen when you speak to him, turning on the spot, and sitting down on a seat and
 // rising from it with his feet planted. All generators: an activity script runs them with yield*, one step a frame.
-// Exports yawTo(dir), turnToward(yaw, dt, rate), wait(s, until), walkTo(to, { near }), face(yaw), faceFire(), sitOn(seat),
+// Exports turnToward(yaw, dt, rate), wait(s, until), walkTo(to, { near }), face(yaw), faceFire(), sitOn(seat),
 // standUp().
 import { camera } from "../core.js";
 import { V } from "../util.js";
+import { yawTo } from "../actor.js";
 import { blockers } from "../campProps.js";
 import { me } from "../player.js";
 import { groundHeight as groundAt } from "../terrain.js";   // 0 across the camp floor
@@ -18,7 +19,6 @@ function pathTo(to) {
   if (p?.length) return p.map((q) => q.clone());
   return [to.clone()];                                // no planner: straight there, steering round what's in the way
 }
-const yawTo = (d) => Math.atan2(-d.x, -d.z);          // his forward is -Z
 function turnToward(yaw, dt, rate = 4) { let d = yaw - root.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); root.rotation.y += Math.sign(d) * Math.min(Math.abs(d), rate * dt); return Math.abs(d); }
 function* wait(s, until) { let t = 0; while (t < s) { if (until?.()) return; t += yield; } }
 function* walkTo(to, { near = 0.12 } = {}) {
@@ -100,4 +100,4 @@ function* standUp() {
 }
 
 function* faceFire() { yield* face(yawTo(V(-root.position.x, 0, -root.position.z))); }   // the fire is at the camp's origin
-export { face, faceFire, sitOn, standUp, turnToward, wait, walkTo, yawTo };
+export { face, faceFire, sitOn, standUp, turnToward, wait, walkTo };

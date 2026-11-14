@@ -13,6 +13,7 @@ import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { R } from "../core.js";
 import { V, ease } from "../util.js";
+import { yawFrom } from "../actor.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { HW, HW_POST } from "./state.js";
@@ -63,7 +64,7 @@ function enterSpot(s) {                             // at its spot's door: in th
 }
 function doorStep(s, T, sd, spot) {                 // waits, facing the door, until it has swung open
   const J = jeepApi, sill = spot.parent.localToWorld(spot.sill.clone());
-  turnTo(T, Math.atan2(-(sill.x - s.o.position.x), -(sill.z - s.o.position.z)), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+  turnTo(T, yawFrom(s.o.position, sill), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   if (!J.isOpen("P")) J.open("P");
   else if (T.t > 2) { T.phase = "clamber"; T.t = 0; T.from = s.o.position.clone(); T.to = sill; play(s, "hang_walk", 1, 2); }
 }

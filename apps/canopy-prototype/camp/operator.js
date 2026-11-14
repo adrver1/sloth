@@ -28,7 +28,7 @@ import { SEATS, release } from "./operator/places.js";
 import { op, reset } from "./operator/state.js";
 import { buildRest, opStep } from "./operator/step.js";
 import { buildTalk, gift, saying, talk, tapCol } from "./operator/talk.js";
-import { yawTo } from "./operator/walk.js";
+import { yawTo } from "./actor.js";
 
 const ON = OPT.op;
 const [OP, ANIM] = ON ? await Promise.all([PRE.operator, PRE.operatorAnims]) : [null, null];

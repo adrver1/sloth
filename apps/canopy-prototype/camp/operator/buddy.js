@@ -12,7 +12,7 @@ import { dropAll } from "./handProps.js";
 import { B, UP, body, cs, play, root } from "./model.js";
 import { BED } from "./places.js";
 import { ME, life, op } from "./state.js";
-import { yawTo } from "./walk.js";
+import { yawTo } from "../actor.js";
 
 function slothPose(s, clip) {
   const c = SLOTH.animations.find((q) => q.name === clip); if (!c) return;
@@ -67,7 +67,7 @@ function* cuddleSeated() {                             // a sloth joined him on 
 function* napTogether() {                              // a sloth joined him in bed: it curls up beside him, under his arm, and they both sleep
   const s = op.buddy; s.cuddled = true; scene.attach(s.o); slothPose(s, "curl");
   const at = BED.c.clone().addScaledVector(BED.across, 0.2).addScaledVector(BED.head, 0.05).setY(BED.c.y - 0.01);
-  const q1 = new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(-BED.across.x, -BED.across.z) + Math.PI * 0.1);   // facing him, a little toward his head
+  const q1 = new THREE.Quaternion().setFromAxisAngle(UP, yawTo(BED.across) + Math.PI * 0.1);   // facing him, a little toward his head
   const p0 = s.o.position.clone(), q0 = s.o.quaternion.clone();
   for (let t = 0; t < 1.2;) { t += yield; const e = THREE.MathUtils.smoothstep(t, 0, 1.2); s.o.position.lerpVectors(p0, at, e); s.o.position.y += Math.sin(e * Math.PI) * 0.25; s.o.quaternion.slerpQuaternions(q0, q1, e); }
   op.ik = { sleep: 1, nap: 0 };

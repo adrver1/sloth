@@ -15,6 +15,7 @@
 import { jeepApi } from "../jeep.js";
 import { R, scene } from "../core.js";
 import { V } from "../util.js";
+import { yawFrom } from "../actor.js";
 import { RC } from "../layout.js";
 import { claim, holder, hosted, join, release, taken } from "../places.js";
 import { CRAWL, MAX_OUT, camp, guests } from "./state.js";
@@ -73,7 +74,7 @@ function goHome(s) {
   if (spot.car && youDrive()) return wander(s);   // a wander and a sit, then it tries again
   walkTo(s, spot.via ?? spot.door, () => {
     if (!spot.via) return arrive(s);
-    const T = s.trip, yaw = Math.atan2(-(spot.door.x - spot.via.x), -(spot.door.z - spot.via.z)); T.yaw = yaw;
+    const T = s.trip, yaw = yawFrom(spot.via, spot.door); T.yaw = yaw;
     glide(s, { p: spot.door.clone(), q: yawQ(yaw) }, spot.door.distanceTo(spot.via) / (CRAWL * s.sc), () => { s.trip.yaw = yaw; arrive(s); });
   });
 }

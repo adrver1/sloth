@@ -18,7 +18,8 @@ import { UP, cs, play, root } from "./model.js";
 import { BED, claim, crateFront, findPlaces, fireGap, freeOf, freeSeat, release } from "./places.js";
 import { ME, RADIUS, life, op } from "./state.js";
 import { speak } from "./talk.js";
-import { face, faceFire, sitOn, standUp, wait, walkTo, yawTo } from "./walk.js";
+import { yawTo } from "../actor.js";
+import { face, faceFire, sitOn, standUp, wait, walkTo } from "./walk.js";
 
 const tmp = V();
 const SIP = { hold: 1.25, top: 2.3 };                  // the sip clip: the mug at the chest at 1.25 s, at the lips 1.6 to 2.2 s

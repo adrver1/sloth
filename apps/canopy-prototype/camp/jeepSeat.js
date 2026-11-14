@@ -16,6 +16,7 @@
 import * as THREE from "three";
 import { uTime } from "./core.js";
 import { V, ease, wrapPi } from "./util.js";
+import { yawFrom, yawTo } from "./actor.js";
 import { jeepApi } from "./jeep.js";
 import { me } from "./player.js";
 import { sloths } from "./sloths.js";
@@ -34,8 +35,7 @@ if (jeep) {
     s.door = V(s.x * (Math.abs(S0.x) + 0.99), 0, S0.z); // standing outside the open door
   }
   const W = (v) => jeep.localToWorld(v.clone());
-  const fwdYaw = () => { const f = V(0, 0, 1).transformDirection(jeep.matrixWorld); return Math.atan2(-f.x, -f.z); };
-  const yawTo = (a, b) => Math.atan2(-(b.x - a.x), -(b.z - a.z));
+  const fwdYaw = () => { const f = V(0, 0, 1).transformDirection(jeep.matrixWorld); return yawTo(f); };
   const eyeWorld = () => jeep.position.y + S0.y + EYE_UP;
   const life = () => window.__campLife;
 
@@ -80,7 +80,7 @@ if (jeep) {
     seat.pos.copy(p); me.pos.copy(p); seat.drop = g + STAND - h;
     me.yaw = yaw0 + wrapPi(yaw1 - yaw0) * ease(Math.min(1, k * 1.15)); seat.yaw = yaw1;
   }
-  const sideYaw = (s) => yawTo(W(s.door), W(s.seat));   // facing in through the door
+  const sideYaw = (s) => yawFrom(W(s.door), W(s.seat));   // facing in through the door
   jeepSeatStep = (dt) => {
     if (!cur) return;
     const T = cur, s = T.s; T.t += dt * (window.__campFast || 1);   // __campFast: quicker for checks
@@ -91,7 +91,7 @@ if (jeep) {
       while (i < T.path.length - 1 && d > T.path[i].distanceTo(T.path[i - 1])) { d -= T.path[i].distanceTo(T.path[i - 1]); i++; }
       const a = T.path[i - 1], b = T.path[i], seg = a.distanceTo(b), p = seg > 1e-4 ? a.clone().lerp(b, Math.min(1, d / seg)) : b.clone();
       setStand(p);
-      const want = T.len - T.t * WALK > 0.15 ? yawTo(a, b) : sideYaw(s);
+      const want = T.len - T.t * WALK > 0.15 ? yawFrom(a, b) : sideYaw(s);
       me.yaw += wrapPi(want - me.yaw) * Math.min(1, dt * 6);
       me.pitch += (-0.05 - me.pitch) * Math.min(1, dt * 4);
       if (T.len - T.t * WALK < 1.5) J.open(s.k);

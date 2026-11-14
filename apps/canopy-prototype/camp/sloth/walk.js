@@ -10,6 +10,7 @@
 // The words of a hello draw from the seeded stream (core.js R) as they happen.
 import { R, camera } from "../core.js";
 import { V } from "../util.js";
+import { yawFrom, yawTo } from "../actor.js";
 import { RC } from "../layout.js";
 import { blockers } from "../campProps.js";
 import { createNav } from "../nav.js";
@@ -54,7 +55,7 @@ function walkStep(s, T, sd) {
     const r = tryDir(1), l = tryDir(-1), ok = (d) => isFree(V(pos.x + d.x * step, 0, pos.z + d.z * step));
     if (ok(r)) dir.copy(r); else if (ok(l)) dir.copy(l); else slow = Math.min(slow, 0.25);   // boxed in: on along its path, slowly
   }
-  const off = turnTo(T, Math.atan2(-dir.x, -dir.z), sd * 2.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+  const off = turnTo(T, yawTo(dir), sd * 2.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   const v = CRAWL * s.sc * sd * slow * (off > 1 ? 0.3 : 1) * (T.snap || dist < 0.35 ? Math.max(0.1, Math.cos(Math.min(off, 1.5))) : 1);   // close to a point: turn first, so it can't circle it
   const was = pos.clone(); pos.addScaledVector(V(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v); pos.y = 0;
   if (!isFree(pos) && isFree(was) && (T.path.length > 1 || isFree(aim))) {   // about to walk into something: slide along its path line instead
@@ -79,7 +80,7 @@ function greet(s, o) {
 }
 function greetStep(s, T, sd) {                        // sit up, face each other, say hello, carry on
   const o = T.with.o.position, pos = s.o.position;
-  turnTo(T, Math.atan2(-(o.x - pos.x), -(o.z - pos.z)), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+  turnTo(T, yawFrom(pos, o), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   if (!T.said && T.t > 0.9) { T.said = true; s.nod = 1.2; s.squish = 0.5; if (T.lead) burst(pos.clone().lerp(o, 0.5).setY(0.75), HELLO[Math.floor(R(0, HELLO.length))], 1, 1.8, 64); }
   if (T.t > 3.4) { T.phase = "walk"; play(s, "walk", 1, WALK_TS); }
 }
