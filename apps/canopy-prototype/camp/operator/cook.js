@@ -1,7 +1,8 @@
 // Canopy Camp operator, making the soup (the chores' cook steps, activities/soupChore.js, the same pot and pail as yours).
 // Exports cook(), one of his activities (day.js DO.cook).
 import * as THREE from "three";
-import { R, camera, scene } from "../core.js";
+import { camera, rng, scene } from "../core.js";
+const { R } = rng("operator");
 import { CRATE, SOUP_POT } from "../layout.js";
 import { V, yawTo } from "../util.js";
 import { acts as chores } from "../campLife.js";

@@ -1,11 +1,11 @@
 // Canopy Camp helpers: the small functions every module used to paste in again (camp review world-15, crosscut-09, props-13).
 // Nothing runs on import (no scene, no renderer, no DOM until a helper is called), so the pages' shared modules outside camp/
-// (ground.js, atmosphere.js) can import it too. The seeded stream the layout draws from is not here: it lives in core.js.
+// (ground.js, atmosphere.js) can import it too. The named seeded streams (rng) are not here: they live in core.js, next to ?seed.
 //   V(x, y, z)                    a Vector3
 //   sstep(a, b, x)                smoothstep: 0 below a, 1 above b
 //   rand(a, b)                    a number between a and b from Math.random: for noise that must not touch any seeded stream
 //   lcg(seed)                     a private random stream { rnd, R } (Park-Miller, 16807): its own numbers, so drawing from it
-//                                 leaves the shared seeded stream alone. Same seed, same numbers as the copies it replaced
+//                                 leaves the named streams (core.js rng) alone. Same seed, same numbers as the copies it replaced
 //   canvasTex(w, h, draw, opts)   a CanvasTexture painted by draw(ctx, w, h); opts { srgb = true, aniso = 4 }
 //   polyDist(pts, x, z)           distance in x, z to a polyline, and the nearest point on it: [d, x, z]
 //   lineDist(pts, x, z)           the same distance alone, without the array

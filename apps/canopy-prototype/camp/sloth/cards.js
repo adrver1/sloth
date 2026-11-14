@@ -11,9 +11,10 @@
 //   cardsStep(s, T, sd)       its turn at the game, each frame; when the game is over it climbs down and its trip's done()
 //                             runs (eating.js startEat)
 //   quitGame(s)               its game ends (it was borrowed: lend.js); the other one goes home
-// The game's length, the pauses and where a card lands draw from the seeded stream (core.js R) as they happen.
+// The game's length, the pauses and where a card lands draw from the sloths' stream (core.js rng("sloths")) as they happen.
 import * as THREE from "three";
-import { R, scene } from "../core.js";
+import { rng, scene } from "../core.js";
+const { R } = rng("sloths");
 import { V, canvasTex } from "../util.js";
 import { claim, release, taken } from "../places.js";
 import { play, playOnce } from "./clips.js";

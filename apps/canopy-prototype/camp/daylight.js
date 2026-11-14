@@ -5,14 +5,15 @@
 //   light            { dusk, gold, mist }, each 0..1: this frame's levels, once setLight has run
 //   createDaylight() builds the mist banks (and the old firefly cloud, kept hidden) and puts the moon where the start view
 //                    sees it. main.js calls it once, after every other module has built its part of the scene: the sprites
-//                    draw from the shared seeded stream (core.js R), last of all, and join the scene last
+//                    draw from their own stream (core.js rng("daylight")) and join the scene last
 //   setLight(hour, wet)   the levels for an hour (daytime.js `shown`) and how wet it is (weather.js, 0..1)
 //   daylightStep(dt, wet) moves the mist banks and sets every colour from the levels
 // It builds nothing itself when it is imported, but its own imports (sky.js, terrain.js, campProps.js, player.js) are built
 // where it is first imported, so it stays last in main.js's import list: moved up, it builds the props before the forest and
 // the seeded stream comes out in another order (measured: the replay fingerprint moves).
 import * as THREE from "three";
-import { D, R, S, scene, sun, uTime } from "./core.js";
+import { D, rng, S, scene, sun, uTime } from "./core.js";
+const { R } = rng("daylight");
 import { V } from "./util.js";
 import { RC } from "./layout.js";
 import { dome, moon, nightDome, sky, uSkyDusk, uSkyFog, uSkyHaze } from "./sky.js";

@@ -3,7 +3,8 @@
 // him, blinks, eyes shut in his sleep, a smile, and the Z's over his head (one sprite).
 // Exports buildSleepZ() (operator.js, after the hand props) and poseHead(dt) (step.js, each frame, after his hands).
 import * as THREE from "three";
-import { R, camera } from "../core.js";
+import { camera, rng } from "../core.js";
+const { R } = rng("operator");
 import { V, yawTo } from "../util.js";
 import { aimBone, makeZ, zAt } from "../actor.js";
 import { B, UP, clips, csDir, cur, mixer, play, root } from "./model.js";

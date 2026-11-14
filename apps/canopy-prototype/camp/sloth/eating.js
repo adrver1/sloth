@@ -8,7 +8,8 @@
 //   eatStep(s, T, sd)                the eat phase, each frame: turn to the food, up onto the table, eat (or play cards)
 //   chewStep(s, mesh, from, t0)      during an eat clip, from t0 seconds in: the food goes from `from` into its paw and to
 //                                    its lips, a bite smaller each time the painted mouth closes
-import { R, scene } from "../core.js";
+import { rng, scene } from "../core.js";
+const { R } = rng("sloths");
 import { V, sstep } from "../util.js";
 import { release } from "../places.js";
 import { WALK_TS } from "./state.js";

@@ -2,7 +2,8 @@
 // daylight.js colours and fades them by the hour.
 import * as THREE from "three";
 import "./hud.js";   // run after the module before it, as one script did
-import { LOOK, R, S, hex, scene } from "./core.js";
+import { hex, LOOK, rng, S, scene } from "./core.js";
+const { R } = rng("sky");
 import { canvasTex, lcg } from "./util.js";
 import { FAR } from "./layout.js";
 

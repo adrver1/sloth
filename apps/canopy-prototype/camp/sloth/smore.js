@@ -5,9 +5,10 @@
 //                         in the build order)
 //   smoreStep(s, dt)      each frame for the sloth on the seat while it is at home
 //   stopSmore(s)          puts the stick away (it leaves its seat, or is borrowed)
-// The wait until the next one draws from the seeded stream (core.js R) as it happens.
+// The wait until the next one draws from the sloths' stream (core.js rng("sloths")) as it happens.
 import * as THREE from "three";
-import { R, scene } from "../core.js";
+import { rng, scene } from "../core.js";
+const { R } = rng("sloths");
 import { V } from "../util.js";
 import { play, playOnce } from "./clips.js";
 import { UP } from "./poses.js";

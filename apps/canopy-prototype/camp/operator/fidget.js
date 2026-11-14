@@ -3,7 +3,8 @@
 // night rub his hands, yawn. Each is a pose laid over the clip for a few seconds, eased in and out.
 // Exports fidgetStep(dt) (step.js, each frame, after his hands' pose) and FID_T (how long each lasts, s).
 import * as THREE from "three";
-import { R } from "../core.js";
+import { rng } from "../core.js";
+const { R } = rng("operator");
 import { V } from "../util.js";
 import { uNight } from "../campProps.js";
 import { B, UP, clips, csDir, cur, reach } from "./model.js";

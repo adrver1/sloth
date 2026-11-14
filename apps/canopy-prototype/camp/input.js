@@ -3,7 +3,8 @@
 // The things themselves are tap targets (targets.js), added by the modules that own them; input.js adds the sloths.
 // Exports aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) (debug.js) and resize() (main.js).
 import * as THREE from "three";
-import { $, OPT, R, camera, renderer, scene, uTime } from "./core.js";
+import { $, camera, OPT, renderer, rng, scene, uTime } from "./core.js";
+const { R } = rng("fx");
 import { keys, pickAt, ray, stickV, toast } from "./hud.js";
 import { V } from "./util.js";
 import { hit, sloths } from "./sloths.js";

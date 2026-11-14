@@ -11,9 +11,10 @@
 //   restStep(s, T, sd)          the rest phase: sitting in the clearing, often a nap there, then home
 //   watchFood()                 listens for food you put out (activities.js, window event "camp-food" {kind, at}): the
 //                               nearest sloth at home comes over to eat it
-// What it does next, where it wanders and how long it sits draw from the seeded stream (core.js R) as they happen.
+// What it does next, where it wanders and how long it sits draw from the sloths' stream (core.js rng("sloths")) as they happen.
 import { jeepApi } from "../jeep.js";
-import { R, scene } from "../core.js";
+import { rng, scene } from "../core.js";
+const { R } = rng("sloths");
 import { V, yawFrom } from "../util.js";
 import { RC } from "../layout.js";
 import { bedKey, claim, holder, hosted, join, release, seatKey, seatLog, taken } from "../places.js";

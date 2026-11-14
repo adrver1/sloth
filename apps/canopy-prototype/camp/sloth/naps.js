@@ -13,8 +13,9 @@
 //                            in after() instead of the next nap
 //   zStep(s, dt)             the three z's rising off a sleeper (not the hammock's own napper)
 //   hammockStep(dt)          the hammock's swing and its napper's z's, each frame (main.js)
-// Every length of a nap draws from the seeded stream (core.js R) as it happens.
-import { OPT, R, uTime } from "../core.js";
+// Every length of a nap draws from the sloths' stream (core.js rng("sloths")) as it happens.
+import { OPT, rng, uTime } from "../core.js";
+const { R } = rng("sloths");
 import { makeZ, zAt } from "../actor.js";
 import { spots } from "./state.js";
 import { canStretch, dozeClip, homeClip, play, playOnce } from "./clips.js";

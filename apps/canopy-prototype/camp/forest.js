@@ -5,7 +5,8 @@
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
-import { D, JEEP, LOOK, OPT, R, S, hex, leafMat, rnd, scene, setSeed } from "./core.js";
+import { D, hex, JEEP, leafMat, LOOK, OPT, rng, S, scene } from "./core.js";
+const { R, rnd } = rng("forest");
 import { V, canvasTex, lcg, rand, sstep } from "./util.js";
 import { GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_A, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
 
@@ -40,8 +41,7 @@ function merge(geos) {                               // position, normal, colour
 // ================================================================ layout (camp/layout.js)
 // a round clearing (radius RC) with the camp in it; two big mossy trees at its edge lean their low branches over it,
 // and that is where the sloths hang. Everything past the edge is the forest wall: instanced trunks, leaves and mist.
-// The forest restarts the seeded stream here, so it grows the same whatever drew from it before.
-setSeed(3000 + OPT.seed);
+// The forest draws from its own stream (core.js rng), so it grows the same whatever the other systems drew.
 // the jeep's track (layout.js JEEP_TRACK), unless ?jeep=none. trackDist() thins trunks, leaves and ferns off the track, the
 // path and the glade (scaled to zero, so the seeded layout of everything else stays the same).
 const track = JEEP === "none" ? null : JEEP_TRACK;
@@ -157,13 +157,12 @@ for (const [k, c] of HERO.entries()) {
   }
   // lianas from the low branches down to the ground
   // each hangs from a point on its branch to the ground, never over or onto a path (Adriaen 2026-11-14:
-  // the glade tree's vines came down onto the path). One draw from the seeded stream per liana as before, so nothing else moves;
-  // if that point would land on a path, the next points along the branch are tried, and with none clear the liana is left out
+  // the glade tree's vines came down onto the path): a random point on its branch first; if that would land on a path, the
+  // next points along the branch are tried, and with none clear the liana is left out
   for (let i = 0; i < 3; i++) {
     const b = branchCurves[branchCurves.length - 9 + i], t0 = R(0.55, 0.95), out = (q) => V(q.x - c.x, 0, q.z - c.z).normalize();
-    const first = (() => { const p0 = b.getPointAt(t0), p1 = p0.clone().multiplyScalar(1.08); p1.setY(groundHeight(p1.x, p1.z)); return [p0, p1, V(p0.x, 0, p0.z).normalize().multiplyScalar(0.4)]; })();   // as it always was
     const land = (t) => { const p0 = b.getPointAt(t), p1 = p0.clone().addScaledVector(out(p0), 0.35); p1.setY(groundHeight(p1.x, p1.z)); return [p0, p1, out(p0).multiplyScalar(0.25)]; };
-    const pick = [first, ...[0.95, 0.85, 0.75, 0.65, 0.55, 0.45, 0.35].map(land)].find(([p0, p1]) => pathLane(p1.x, p1.z) > 1.4 && pathLane(p0.x, p0.z) > 1.1 && jeepDist(p1.x, p1.z) > 1.8);   // neither its foot nor where it hangs from over a path
+    const pick = [t0, 0.95, 0.85, 0.75, 0.65, 0.55, 0.45, 0.35].map(land).find(([p0, p1]) => pathLane(p1.x, p1.z) > 1.4 && pathLane(p0.x, p0.z) > 1.1 && jeepDist(p1.x, p1.z) > 1.8);   // neither its foot nor where it hangs from over a path
     if (!pick) continue;
     const [p0, p1, bow] = pick, mid = p0.clone().lerp(p1, 0.5).add(bow);
     woodGeos.push(bake(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p1]), 8, 0.025, 3), 0, 7));

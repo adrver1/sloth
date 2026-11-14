@@ -161,12 +161,13 @@ function helpers([base, present]) {
 // ---------------------------------------------------------------- one scenario
 async function runOne(name, sc, root, port, outDir, shots) {
   const EVO = !!sc.evalorder;
-  // the seeded stream's draws are counted (core.js rnd); with evalorder, each module also notes when it starts and how many
+  // the seeded draws are counted (core.js rnd); with evalorder, each module also notes when it starts and how many
   // numbers were drawn by then
   const srv = page.serve(root, port, (f, d) => {
     if (!f.endsWith('.js') || !(EVO || f.endsWith('camp/core.js'))) return d;
     let t = d.toString('utf8');
-    if (f.endsWith('camp/core.js')) { if (!t.includes('const rnd = () => { seed |= 0;')) throw new Error('core.js rnd not found'); t = t.replace('const rnd = () => { seed |= 0;', 'const rnd = () => { window.__rndN = (window.__rndN || 0) + 1; seed |= 0;'); }
+    // the one shared stream of older checkouts, or every named stream (core.js rng) of newer ones, counted together
+    if (f.endsWith('camp/core.js')) for (const at of ['const rnd = () => { seed |= 0;', 'const rnd = () => { seed = (seed + 0x6d2b79f5) | 0;']) t = t.replace(at, at + ' window.__rndN = (window.__rndN || 0) + 1;');
     return Buffer.from(!EVO ? t : `(window.__evo ??= []).push(${JSON.stringify(path.relative(root, f).replace('apps/canopy-prototype/', ''))} + ' @' + (window.__rndN || 0) + ' m' + (window.__mrN || 0));` + t); });
   const { browser, page: p } = await page.launch({ width: sc.vw || 480, height: sc.vh || 300, touch: !!sc.touch });
   try { return await drive(name, sc, root, port, outDir, shots, p, EVO); } finally { await browser.close().catch(() => {}); srv.close(); }

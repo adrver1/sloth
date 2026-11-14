@@ -7,8 +7,9 @@
 //   walkTo(s, goal, arrive)       starts the walk phase along a path to goal; arrive() runs there
 //   walkStep(s, T, sd)            the walk phase, each frame
 //   greetStep(s, T, sd)           the greet phase: two that meet sit up, face each other, say hello and carry on
-// The words of a hello draw from the seeded stream (core.js R) as they happen.
-import { R, camera } from "../core.js";
+// The words of a hello draw from the sloths' stream (core.js rng("sloths")) as they happen.
+import { camera, rng } from "../core.js";
+const { R } = rng("sloths");
 import { V, yawFrom, yawTo } from "../util.js";
 import { RC } from "../layout.js";
 import { blockers } from "../campProps.js";

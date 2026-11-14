@@ -6,7 +6,7 @@
 //                       in its place in the build order)
 //   pois()              the places: [{ name: "table" | "crate", c, slots }], two on the table (its two ends) and two at the
 //                       crate; made the first time it is called once the props are in (it puts a fruit at each, drawing
-//                       from the seeded stream), [] until then. A slot: { name, key (the place it claims, places.js), p
+//                       from the sloths' stream), [] until then. A slot: { name, key (the place it claims, places.js), p
 //                       (where to walk to), u, yaw, clip (eat or eat_high), who, h (the table top), food: { at, mesh, back
 //                       (seconds until a new fruit), grow } }
 //   fruit(mesh)         a new fruit, or the same mesh as a new kind (draws two numbers)
@@ -15,7 +15,8 @@
 //   fruitStep(sd)       each frame: a fruit is put out again a while after one is eaten, and grows to its size
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { R, scene } from "../core.js";
+import { rng, scene } from "../core.js";
+const { R } = rng("sloths");
 import { V, sstep } from "../util.js";
 import { CRATE, RC, TABLE } from "../layout.js";
 import { SLOTH } from "../campProps.js";

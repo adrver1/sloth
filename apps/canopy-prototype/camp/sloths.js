@@ -5,14 +5,14 @@
 // spot, crawls to the snack table or the kitchen crate to eat, and goes back the way it came (sloth/day.js). Clips:
 // characters/sloth_baby/sloth_rig.py. ?campsloths=0 leaves the named ones out; core.js pace (window.__campFast
 // for the tools) speeds them up for checks.
-// The order below is the order things are made in, which the scene's objects, the materials and the seeded random numbers
-// (core.js R) all depend on: the mouth card's material, the wild sloths, then the spots, the wayfinding grid, the things the
-// sloths use, the named sloths, the guest spots, the saved state, and last the hooks. Keep it when adding to it. The modules
+// The order below is the order things are made in: the mouth card's material, the wild sloths, then the spots, the wayfinding grid, the things the
+// sloths use, the named sloths, the guest spots, the saved state, and last the hooks. Later steps use what earlier ones made. The modules
 // in camp/sloth/ are evaluated before deadwood.js, so their top level makes no texture, material, geometry or mesh: that
 // goes in a build function called from here.
 // Exports: sloths (every sloth), hit (their tap spheres), and the frame steps main.js calls in this order: slothsStep(dt)
 // (sloth/life.js), campStep(dt, seat) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
-import { OPT, R } from "./core.js";
+import { OPT, rng } from "./core.js";
+const { R } = rng("sloths");
 import { V, tris as triCount } from "./util.js";
 import { HERO } from "./layout.js";
 import { branchCurves } from "./forest.js";

@@ -5,7 +5,8 @@
 // other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX, fireLight, flames, glowTex, lanternGlow, LANTERNS, rayMat, uNight).
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
-import { D, LIVED, PRE, PROPS, R, S, scene, sun, uTime } from "./core.js";
+import { D, LIVED, PRE, PROPS, rng, S, scene, sun, uTime } from "./core.js";
+const { R } = rng("props");
 import { V, canvasTex, patchMaterial } from "./util.js";
 import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, TABLE, TENT, WOOD_PILE } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";

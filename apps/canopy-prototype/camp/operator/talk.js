@@ -6,7 +6,8 @@
 // Exports buildTalk(on) (operator.js: the bubble and the column are made with ?op=0 too, as before, but only shown and
 // tappable when he is there), speak(text), talk(), gift(), talkStep(dt), mouthAt(out), tapCol and saying() (the bubble's text).
 import * as THREE from "three";
-import { R, camera, scene } from "../core.js";
+import { camera, rng, scene } from "../core.js";
+const { R } = rng("operator");
 import { V } from "../util.js";
 import { acts as chores } from "../campLife.js";   // your chores (activities.js): the food in your hand
 import "../input.js";   // order only: input.js is evaluated here, before the operator, as it always was

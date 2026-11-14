@@ -8,10 +8,11 @@
 //   the phases of the way in, each frame (s, T, sd, spot): doorStep (waits for the jeep's door), clamberStep (up onto its
 //   sill), climbStep (up a post), turnStep (round from the post to hang under the rope or the line), lineStep (along the
 //   line), ropeStep (down the rope), settleStep (up into its spot, growing or shrinking to its size there)
-// The times to the next errand and the next nap draw from the seeded stream (core.js R) as they happen.
+// The times to the next errand and the next nap draw from the sloths' stream (core.js rng("sloths")) as they happen.
 import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
-import { R } from "../core.js";
+import { rng } from "../core.js";
+const { R } = rng("sloths");
 import { V, ease, yawFrom } from "../util.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";

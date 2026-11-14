@@ -1,4 +1,4 @@
-// Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, the seeded random stream, every download
+// Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, the named seeded random streams (rng), every download
 // started at once (PRE, camp review P2) and the look's leaf material (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -11,7 +11,7 @@ import { SUN } from "./layout.js";
 //   detail   low | medium | high           saved, else medium                core.js (D: counts, effects, resolution), main.js (DETAIL)
 //   lm       2k | 1k | 4k (4k: local only) saved, else 1k on phones, 2k     core.js (the light maps)
 //   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campGround.js (JEEP)
-//   seed     a number                      7                                 core.js (the shared stream), forest.js (its restart)
+//   seed     a number                      7                                 core.js rng (every named stream)
 //   lived    1 | 0                         1                                 core.js, campProps.js, chores.js (LIVED)
 //   op       1 | 0                         1                                 core.js (the operator's downloads), operator.js (0 leaves him out)
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
@@ -85,11 +85,20 @@ const CABIN = "live";   // the jeep's cabin light is live (one shadowed spot lig
 $("lm").onclick = () => { store.set(KEYS.lm, LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
 
-// seeded random, so every visit grows the same tree and hides sloths in the same spots
-let seed = OPT.seed;
-const setSeed = (n) => { seed = n; };   // the forest restarts the seeded stream for its layout
-const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-const R = (a, b) => a + rnd() * (b - a);
+// seeded random, so every visit grows the same tree and hides sloths in the same spots. Each system draws from its own named
+// stream (rng("forest"), rng("sloths"), ...), seeded from ?seed and the name, so one system drawing more or less, or earlier,
+// never moves another's numbers. The same name always hands back the same stream, so the sloth modules share one.
+const streams = new Map();
+function rng(name) {
+  let st = streams.get(name);
+  if (st) return st;
+  let seed = OPT.seed | 0;
+  for (let i = 0; i < name.length; i++) seed = Math.imul(seed ^ name.charCodeAt(i), 0x01000193);   // FNV-style mix of the name into the seed
+  const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };   // mulberry32
+  st = { rnd, R: (a, b) => a + rnd() * (b - a) };
+  streams.set(name, st);
+  return st;
+}
 
 // ---------------------------------------------------------------- look settings (structure differs, not just colour)
 const S = {
@@ -158,4 +167,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, pace, store, sun, uTime };
+export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime };

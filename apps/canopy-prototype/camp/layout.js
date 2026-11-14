@@ -1,7 +1,6 @@
 // Canopy Camp layout: where everything in the camp stands, in one place (camp review C1: world-12, props-06, crosscut-10,
-// operator-12, world-16). Only numbers, vectors and pure functions: no scene, no DOM, no random numbers (what is placed from the
-// seeded stream, the forest wall, the ferns, the deadwood, stays where it is drawn), so any module can import it at any point
-// without changing the order the camp is built in. Units are metres; y is up, the fire is at the origin.
+// operator-12, world-16). Only numbers, vectors and pure functions: no scene, no DOM, no random numbers (what is placed at random, the forest wall, the
+// ferns, the deadwood, stays where it is drawn), so any module can import it at any point. Units are metres; y is up, the fire is at the origin.
 // The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
 // the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Only the sun's

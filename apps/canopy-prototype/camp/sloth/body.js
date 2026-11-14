@@ -1,7 +1,7 @@
 // Canopy Camp sloths, the body: one sloth from the model, with its fur, its clip and everything the other modules keep on it.
 //   hang(p, dir, sc)   makes a sloth hanging under a branch at p (poses.js underAt), its head toward dir, at size sc, adds
 //                      it to the scene with its tap sphere and to state.js's sloths and hit. Draws three numbers from the
-//                      seeded stream. It is the one place a sloth object is made, and it lists every field one has, with
+//                      sloths' stream. It is the one place a sloth object is made, and it lists every field one has, with
 //                      its meaning (review sloths-34).
 //   warmStep(lanternGlow, fl, dusk)   each frame (main.js): sets SLOTH_WARM, the uniforms (kept in here) of the warm glow
 //                      the sloths take at night from the lanterns and the fire (fur.js warm)
@@ -10,7 +10,8 @@
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { WARM_N, furify } from "../../fur.js";
-import { D, OPT, R, S, scene } from "../core.js";
+import { D, OPT, rng, S, scene } from "../core.js";
+const { R } = rng("sloths");
 import { V } from "../util.js";
 import { SLOTH } from "../campProps.js";
 import { SL, hit, sloths } from "./state.js";

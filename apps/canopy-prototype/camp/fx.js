@@ -1,11 +1,12 @@
 // Canopy Camp fx: the words, hearts and z's that float in the air over the camp (camp review sloths-32: they are not sloths).
 //   sprite(text, size)               a sprite with the text painted on it (a new texture each time; nothing is cached)
-//   burst(at, text, n, life, size)   n of them drift up from `at` and fade over `life` seconds (boops, hellos); draws from the seeded stream
+//   burst(at, text, n, life, size)   n of them drift up from `at` and fade over `life` seconds (boops, hellos); draws from the "fx" stream (core.js rng)
 //   fx                               the list of what is in the air: { s, v, t, life } drifting, or { s, fly: { from, to }, t, life, done }
 //                                    flying from one point to another (input.js: food on its way to a sloth)
 //   fxStep(dt)                       moves and fades them each frame and takes the finished ones out (main.js)
 import * as THREE from "three";
-import { R, scene } from "./core.js";
+import { rng, scene } from "./core.js";
+const { R } = rng("fx");
 import { V, canvasTex, ease } from "./util.js";
 
 const sprite = (txt, size = 96) => {
