@@ -34,7 +34,8 @@ export const sloPath = (() => {
 export const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
 export const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 // the two big mossy trees: one at the clearing's edge behind the fire, one in the glade
-export const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
+// the glade's tree stands 0.4 m off the glade's middle, away from where the karaoke route passes it (Adriaen 2026-11-14: clear of the path)
+export const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone().add(V(0.35, 0, 0.19))];
 
 // ---------------------------------------------------------------- the jeep and its track
 // the jeep is parked at JEEP_AT along the clearing edge (facing JEEP_TAN, its right side to the fire) and came in on a muddy

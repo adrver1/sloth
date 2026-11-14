@@ -10,7 +10,7 @@
 import * as THREE from "three";
 import { D, LOOK, S, scene, sun } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
-import { GLADE, GLADE_R, RC, pathLane, sloPath } from "./layout.js";
+import { GLADE, GLADE_R, HERO, RC, pathLane, sloPath } from "./layout.js";
 import { blockers, rayMat } from "./campProps.js";
 import { leafGeo, leafM, leafScale, perClump } from "./forest.js";
 import { groundHeight } from "./terrain.js";
@@ -21,7 +21,7 @@ const G = GLADE, FR = GLADE_R + 1.2;          // the floor disc's radius: soft e
 // the frame: `in` points from the glade's centre back down the path (where you arrive), `across` a quarter turn from it
 const end = sloPath.pts[sloPath.pts.length - 1], inDir = V(end.x - G.x, 0, end.z - G.z).normalize(), across = V(-inDir.z, 0, inDir.x);
 const at = (r, turn) => { const a = Math.atan2(inDir.z, inDir.x) + turn; return V(G.x + Math.cos(a) * r, 0, G.z + Math.sin(a) * r); };
-const TRUNK = 1.25;   // the big tree's foot with its flare (forest.js HERO trunk)
+const TRUNK = 1.25, TREE = HERO[1];   // the big tree's foot with its flare (forest.js HERO trunk), and where it stands (a little off the glade's middle)
 
 // where things stand (also what the plants keep clear of)
 const BENCH = { at: at(3.05, 1.15), yaw: 0 };   // to the right as you arrive, looking at the tree
@@ -29,7 +29,7 @@ BENCH.yaw = Math.atan2(G.x - BENCH.at.x, G.z - BENCH.at.z);
 const LOG = { at: at(3.5, -2.95), len: 2.3, r: 0.24 };   // on the glade's far side, lying along its edge, clear of the karaoke road (it leaves round turn -2)
 LOG.yaw = Math.atan2(LOG.at.z - G.z, LOG.at.x - G.x) + Math.PI / 2 + 0.25;
 const STONES = [[at(3.3, -0.85), 0.32], [at(3.7, -0.65), 0.2], [at(2.9, 2.05), 0.26], [at(3.9, 2.9), 0.36]];
-const SHROOMS = [[LOG.at.clone().addScaledVector(V(Math.cos(LOG.yaw), 0, Math.sin(LOG.yaw)), 1.25), 5], [at(TRUNK + 0.35, 2.6), 4]];
+const SHROOMS = [[LOG.at.clone().addScaledVector(V(Math.cos(LOG.yaw), 0, Math.sin(LOG.yaw)), 1.25), 5], [at(TRUNK + 0.35, 2.6).add(TREE).sub(G), 4]];
 const STAND = at(2.2, 0);   // the trodden spot under the low branches, where the path ends
 const pathEnd = (x, z) => { let d = 1e9; for (let i = sloPath.pts.length - 12; i < sloPath.pts.length; i++) d = Math.min(d, Math.hypot(sloPath.pts[i].x - x, sloPath.pts[i].z - z)); return d; };
 // how worn the ground is: the path's last stretch running on to the trodden spot (0 grass .. 1 bare earth)
@@ -38,7 +38,7 @@ const worn = (x, z) => {
   const lane = Math.hypot(x - (e.x + dx * t), z - (e.z + dz * t));
   return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)));
 };
-const taken = (x, z, pad) => Math.hypot(x - G.x, z - G.z) < TRUNK + 0.15 + pad || Math.hypot(x - BENCH.at.x, z - BENCH.at.z) < 0.85 + pad
+const taken = (x, z, pad) => Math.hypot(x - TREE.x, z - TREE.z) < TRUNK + 0.15 + pad || Math.hypot(x - BENCH.at.x, z - BENCH.at.z) < 0.85 + pad
   || STONES.some(([c, r]) => Math.hypot(x - c.x, z - c.z) < r + pad) || (() => { const ax = Math.cos(LOG.yaw), az = Math.sin(LOG.yaw), u = (x - LOG.at.x) * ax + (z - LOG.at.z) * az, v = -(x - LOG.at.x) * az + (z - LOG.at.z) * ax;
     return Math.abs(u) < LOG.len / 2 + pad && Math.abs(v) < LOG.r + 0.1 + pad; })();
 
@@ -49,8 +49,8 @@ const floorTex = canvasTex(PX, PX, (g) => {
   const blob = (x, z, r, col, a) => { const gr = g.createRadialGradient(W(x), W(z), 0, W(x), W(z), r * PX / (2 * FR)); gr.addColorStop(0, col.replace("A", a)); gr.addColorStop(1, col.replace("A", 0)); g.fillStyle = gr; g.fillRect(0, 0, PX, PX); };
   g.fillStyle = "#" + leaf[3].clone().lerp(leaf[1], 0.35).getHexString(); g.fillRect(0, 0, PX, PX);
   for (let i = 0; i < 16; i++) { const a = R(0, 6.28), r = R(0, GLADE_R); blob(Math.cos(a) * r, Math.sin(a) * r, R(0.8, 2.0), rnd() < 0.5 ? "rgba(214,212,130,A)" : "rgba(52,110,60,A)", R(0.25, 0.45)); }   // drier and lusher patches
-  blob(0, 0, TRUNK + 1.3, "rgba(78,104,40,A)", 0.85);                                                          // moss round the tree's foot, under the roots
-  blob(0, 0, TRUNK + 0.4, "rgba(70,62,40,A)", 0.6);                                                           // bare and dark where the canopy drips
+  blob(TREE.x - G.x, TREE.z - G.z, TRUNK + 1.3, "rgba(78,104,40,A)", 0.85);                                                          // moss round the tree's foot, under the roots
+  blob(TREE.x - G.x, TREE.z - G.z, TRUNK + 0.4, "rgba(70,62,40,A)", 0.6);                                                           // bare and dark where the canopy drips
   for (let i = 0; i < 14; i++) { const a = R(0, 6.28), r = R(0.6, GLADE_R - 0.6); blob(Math.cos(a) * r, Math.sin(a) * r, R(0.3, 0.7), "rgba(255,246,190,A)", R(0.18, 0.3)); }   // sun flecks through the leaves
   // the trodden earth from the path's end to the spot under the branches: soft-edged, a little darker in the middle where most feet go
   const img = g.getImageData(0, 0, PX, PX), d = img.data, mud = [143, 118, 83], mid = [118, 96, 66];
