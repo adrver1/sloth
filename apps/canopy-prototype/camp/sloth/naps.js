@@ -6,8 +6,8 @@
 // asleep.
 //   doze(s, dur)             a yawn, then asleep for dur seconds
 //   wakeUp(s)                the state of being awake: not dozing, not asleep, eyes open (what it does next is the caller's)
-//   wake(s, after)           awake: a stretch where it can sit up (after() when it has stretched), else a yawn
-//   rouse(s, back)           woken by a boop or by its nap trip running out: awake where it is for a while, then back to
+//   wake(s, after)           (inside, for napStep) awake: a stretch where it can sit up (after() when it has stretched), else a yawn
+//   rouse(s, back)           (inside, for napStep) woken by a boop or by its nap trip running out: awake where it is for a while, then back to
 //                            sleep (back) or on with its day
 //   napStep(s, sd, after)    each frame for a sloth that may sleep: nods off, sleeps, wakes; with after, a nap that ends
 //                            in after() instead of the next nap
@@ -71,4 +71,4 @@ function hammockStep(dt) {
     z.material.opacity = napper?.asleep ? Math.sin(Math.PI * k) * (napper.squish > 0 ? 0 : 0.85) : 0; z.scale.set(0.3 + 0.35 * k, (0.3 + 0.35 * k) / 4, 1); });
 }
 
-export { doze, hammockStep, napStep, rouse, wake, wakeUp, zStep };
+export { doze, hammockStep, napStep, wakeUp, zStep };

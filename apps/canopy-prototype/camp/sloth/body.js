@@ -3,8 +3,8 @@
 //                      it to the scene with its tap sphere and to state.js's sloths and hit. Draws three numbers from the
 //                      seeded stream. It is the one place a sloth object is made, and it lists every field one has, with
 //                      its meaning (review sloths-34).
-//   SLOTH_WARM         the uniforms of the warm glow the sloths take at night from the lanterns and the fire (fur.js warm)
-//   warmStep(lanternGlow, fl, dusk)   sets them each frame (main.js)
+//   warmStep(lanternGlow, fl, dusk)   each frame (main.js): sets SLOTH_WARM, the uniforms (kept in here) of the warm glow
+//                      the sloths take at night from the lanterns and the fire (fur.js warm)
 // review 2026-11-12 (P5, B4): Lambert body and fur like the camp; a fixed padded bounding sphere so off-screen sloths are
 // culled; an 8x6 tap sphere.
 import * as THREE from "three";
@@ -98,4 +98,4 @@ function hang(p, dir, sc = SL) {                      // a sloth under a branch 
   box.userData.s = s; sloths.push(s); hit.push(box);
 }
 
-export { SLOTH_WARM, hang, warmStep };
+export { hang, warmStep };

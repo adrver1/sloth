@@ -3,7 +3,7 @@
 //   enterSpot(s)                at its spot's door on the ground: in, the way each spot is reached: up the tree and along
 //                               the branch, up the post (then the rope into the hammock, or along the laundry line), in
 //                               through the jeep's door, or straight up onto its seat or into the tent
-//   atHome(s, first)            it has arrived: it claims its place ("seat:Sunny") and gets the time to its next errand; a
+//   atHome(s, first)            (inside) it has arrived: it claims its place ("seat:Sunny") and gets the time to its next errand; a
 //                               guest (a nap trip) goes straight to sleep; first: placed there at the start
 //   the phases of the way in, each frame (s, T, sd, spot): doorStep (waits for the jeep's door), clamberStep (up onto its
 //   sill), climbStep (up a post), turnStep (round from the post to hang under the rope or the line), lineStep (along the
@@ -103,4 +103,4 @@ function settleStep(s, T, sd, spot) {               // about 4 s: climbs up into
   if (k >= 1) atHome(s);
 }
 
-export { atHome, clamberStep, climbStep, doorStep, enterSpot, lineStep, placeHome, ropeStep, settleStep, turnStep };
+export { clamberStep, climbStep, doorStep, enterSpot, lineStep, placeHome, ropeStep, settleStep, turnStep };

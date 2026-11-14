@@ -3,7 +3,7 @@
 // berth round the fire (Adriaen: too close is too dangerous). On the way, a sloth gives way to the others and to you: it
 // keeps to the right of anyone ahead and slows when close.
 //   buildNav()                    makes the grid's three functions below (sloths.js, in its place in the build order)
-//   isFree(p), clearLine(p, q), findPath(from, to)   nav.js, over the camp's blockers
+//   isFree(p), findPath(from, to)   nav.js, over the camp's blockers (and clearLine(p, q), used only in here)
 //   walkTo(s, goal, arrive)       starts the walk phase along a path to goal; arrive() runs there
 //   walkStep(s, T, sd)            the walk phase, each frame
 //   greetStep(s, T, sd)           the greet phase: two that meet sit up, face each other, say hello and carry on
@@ -84,4 +84,4 @@ function greetStep(s, T, sd) {                        // sit up, face each other
   if (T.t > 3.4) { T.phase = "walk"; play(s, "walk", 1, WALK_TS); }
 }
 
-export { buildNav, clearLine, findPath, greetStep, isFree, walkStep, walkTo };
+export { buildNav, findPath, greetStep, isFree, walkStep, walkTo };

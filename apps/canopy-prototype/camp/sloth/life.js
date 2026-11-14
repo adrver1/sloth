@@ -1,6 +1,7 @@
 // Canopy Camp sloths, the life every sloth has on top of its clip, wild or named (review 2026-11-12, P5, B4):
-//   slothLife(s, dt)   fur shells only within FUR_NEAR of the camera, blinks, a look at you when you come close (LOOK_NEAR),
-//                      a slow wave when you keep looking at it, the gift arm, the sinking head of a sleeper, a yawn, munching
+//   slothLife(s, dt)   (inside, for slothsStep) fur shells only within FUR_NEAR of the camera, blinks, a look at you when
+//                      you come close (LOOK_NEAR), a slow wave when you keep looking at it, the gift arm, the sinking head
+//                      of a sleeper, a yawn, munching
 //   slothsStep(dt)     each frame, for every sloth (main.js): its clip, slothLife, the squish of a boop and a nod
 // Blinks draw from the seeded stream (core.js R) as they happen.
 import * as THREE from "three";
@@ -68,4 +69,4 @@ function slothsStep(dt) {
   }
 }
 
-export { slothLife, slothsStep };
+export { slothsStep };

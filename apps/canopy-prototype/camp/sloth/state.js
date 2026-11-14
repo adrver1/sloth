@@ -9,7 +9,7 @@
 //             the hammock); guests: the cozy places a sloth goes to for a nap away from home (spots.js)
 //   LIVELY    the phases of a camp sloth's day in which it looks at you and waves (see life.js)
 //   GROUND    the phases in which it is on the ground, where the others walk round it
-//   SPEED     crawling and climbing are 1.4x what they first were (Adriaen: "sliiightly faster"): CRAWL metres a second per
+//   SPEED     (inside) crawling and climbing are 1.4x what they first were (Adriaen: "sliiightly faster"): CRAWL metres a second per
 //             unit of size, WALK_TS the walk clip's pace, HW and HW_POST the hang_walk clip's pace on a branch and on a post
 //   MAX_OUT   how many may be away from home at once
 export const SL = 2.6;
@@ -17,4 +17,5 @@ export const sloths = [], hit = [], camp = [], wild = [];
 export const spots = [], guests = [];
 export const LIVELY = new Set(["home", "eat", "rest", "greet"]);
 export const GROUND = new Set(["walk", "greet", "eat", "rest"]);
-export const SPEED = 1.4, CRAWL = 0.027 * 2.2 * SPEED, WALK_TS = 2.2 * SPEED, HW = 3.75 * SPEED, HW_POST = 2.5 * SPEED, MAX_OUT = 3;
+const SPEED = 1.4;
+export const CRAWL = 0.027 * 2.2 * SPEED, WALK_TS = 2.2 * SPEED, HW = 3.75 * SPEED, HW_POST = 2.5 * SPEED, MAX_OUT = 3;
