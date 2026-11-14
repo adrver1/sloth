@@ -5,16 +5,16 @@
 // 2026-11-13, and tools/camp-scenarios.cjs reads the modules' exports instead.)
 //   name             what                                                  read by
 //   __ready          true once the camp runs (ready(), main.js)            all the tools: they wait for it
-//   __scene          the three.js scene (core.js)                          all the tools
+//   __scene          the three.js scene (core.js)                          all the tools (camp-page.cjs's fingerprint)
 //   __stats          fps, draw calls, triangles, resolution (stats, filled by main.js once a second)   camp-probe.cjs, camp-replay.cjs
-//   __time(h)        jumps the day to hour h (daytime.js)                  camp-replay.cjs's tour
-//   __boop(i), __feed(i)   you boop or feed sloth i (input.js)             camp-replay.cjs's tour
-//   __stick(x, y)    the phone stick held at x, y (hud.js stickV)          camp-replay.cjs's tour
-//   __sit(i)         you sit on log seat i (linger.js sit)                 camp-replay.cjs's tour
+//   __time(h)        jumps the day to hour h (daytime.js)                  camp-replay.cjs's tour, the scenario tours (tools/tours/)
+//   __boop(i), __feed(i)   you boop or feed sloth i (input.js)             camp-replay.cjs's tour, the scenario tours
+//   __stick(x, y)    the phone stick held at x, y (hud.js stickV)          camp-replay.cjs's tour, the scenario tours
+//   __sit(i)         you sit on log seat i (linger.js sit)                 camp-replay.cjs's tour, the scenario tours
 //   __weather(mode)  the weather set at once (weather.js setWeather)       camp-replay.cjs's tour
 //   __campFast       the camp's pace (core.js pace.fast): 6 runs the sloths' day and the jeep seats six times as fast   camp-replay.cjs's tour, the scenarios
 //   __camp           CAMP: the tent and the hammock's posts (campProps.js)   props/shadow/export_casters.cjs (the bake's layout)
-//   __jeep           jeepApi (jeep.js), when there is a jeep               export_casters.cjs (its place)
+//   __jeep           jeepApi (jeep.js), when there is a jeep               export_casters.cjs (its place); camp-scenarios.cjs on old checkouts
 //   __laundry        LAUNDRY (layout.js), when the line is shown           export_casters.cjs
 //   __glade          the glade and the sloths' path (layout.js)            export_casters.cjs
 //   __ground         groundLife (campGround.js, through campLife.js)       export_casters.cjs (its layout)

@@ -1,7 +1,7 @@
 // Canopy Camp sloths, what the sloth modules share: the lists of sloths and the few constants more than one of them needs.
 // Nothing else lives here, nothing is built on import, and nothing is kept on window.
 //   SL        a wild sloth's size (the model is 1; the camp sloths have their spot's size)
-//   sloths    every sloth, wild and named, in the order they were made (main.js's __boop(i) and __feed(i) index it)
+//   sloths    every sloth, wild and named, in the order they were made (debug.js's __boop(i) and __feed(i) index it)
 //   hit       their tap spheres, one each (input.js casts its ray at these)
 //   camp      the seven named sloths that live in the camp (empty with ?campsloths=0)
 //   wild      the ones in the trees (filled once the named ones are placed)
