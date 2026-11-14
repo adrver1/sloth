@@ -24,7 +24,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
   // stage: empty, water, cooking, ready. bowls: ladled out of this pot. refill: the last bowl emptied the pot and nothing has
   // gone in since, so putting that bowl back fills it again
   const soup = { stage: "empty", veg: 0, cook: 0, bowls: 0, fade: 1, refill: false };
-  const later = timers();   // the splash's bubbles, the bubbling message and the pot emptying, in frame time (review R2-050)
+  const later = timers();   // the splash's bubbles, the bubbling message, the pot emptying and the sloths' sniffs at a bowl, in frame time (review R2-050)
   const surf = new THREE.Mesh(new THREE.CircleGeometry(pot.r + 0.002, 12).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: surfTex, color: STAGE.empty, transparent: true, depthWrite: true }));
   surf.position.copy(pot.at).setY(pot.at.y + 0.012); surf.renderOrder = 1; scene.add(surf);
   const surfCol = new THREE.Color(STAGE.empty), surfTo = new THREE.Color(STAGE.empty);
@@ -65,7 +65,9 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
     const at = seat.c.clone().addScaledVector(along, (toMe.dot(along) >= 0 ? 1 : -1) * 0.32).setY(seat.top);
     const g = new THREE.Group(), s = new THREE.Mesh(soupGeo, soupMat); g.add(new THREE.Mesh(bowlGeo, bowlMat), s); g.position.copy(at); g.scale.setScalar(1.3); scene.add(g);
     const b = { g, s, t: 0, seat }; seat.bowl = b; bowlsOut.push(b);
-    emit(EV.cheer, { at, max: 4, words: ["*sniff sniff*", "🍲"], life: 2, delay: 600, gap: 700 });   // the two nearest sloths perk up
+    // the two nearest sloths perk up, one after the other
+    later.after(0.6, () => emit(EV.cheer, { at, max: 4, words: ["*sniff sniff*"], life: 2 }));
+    later.after(1.3, () => emit(EV.cheer, { at, max: 4, words: ["🍲"], life: 2, skip: 1 }));
     emit(EV.food, { kind: "soup", at: at.clone() });   // and the nearest one at home comes to eat it (sloth/day.js watchFood)
   }
   // the water pail, under the snack table out of the way (Adriaen 2026-11-13): between its legs (local x +-0.45), nudged

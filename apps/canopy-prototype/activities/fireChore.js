@@ -8,7 +8,7 @@
 // belongs to the camp: update() hands boostFire(wide, tall, light) the factors and the camp applies them (camp/chores.js).
 // The sloth's blink is asked for with camp/events.js EV.cheer; sloths.js picks the sloth.
 import * as THREE from "three";
-import { yawTo } from "../camp/util.js";
+import { timers, yawTo } from "../camp/util.js";
 import { pool } from "../atmosphere.js";
 import { EV, emit } from "../camp/events.js";
 import { logGeo, logMat } from "./parts.js";
@@ -35,6 +35,7 @@ export function createFireChore({ scene, fire, glowTex, boostFire }) {
   // one material per slot, made on its first log and kept: each log chars on its own, and no clone is left behind when it
   // burns away (made then, not now, so it takes the wood texture parts.js may set after this is built)
   const mats = [];
+  const later = timers();   // the sloth's blink a moment after the log goes on, in frame time (review R2-050)
   function addLog() {
     const slot = [0, 1, 2].find((k) => !burning.some((b) => b.slot === k)), a = ANG[slot];
     const mat = (mats[slot] ??= logMat.clone()); mat.color.setScalar(1);
@@ -43,7 +44,7 @@ export function createFireChore({ scene, fire, glowTex, boostFire }) {
     burning.push({ m, t: 0, slot }); pop = 1;
     for (let i = 0; i < 14; i++) spark();
     // the camp sloth nearest the fire turns to it with a slow, happy blink
-    emit(EV.cheer, { at: fire, max: 6, words: ["*happy blink*"], life: 2.2, delay: 900 });
+    later.after(0.9, () => emit(EV.cheer, { at: fire, max: 6, words: ["*happy blink*"], life: 2.2 }));
   }
   const level = () => burning.reduce((s, b) => s + (b.t < HOLD ? 1 : Math.max(0, 1 - (b.t - HOLD) / SETTLE)), 0);
   const sparks = pool(scene, 24, glowTex, THREE.AdditiveBlending, 5); sparks.mat.uniforms.tint.value.set(0xffb35a);
@@ -57,6 +58,7 @@ export function createFireChore({ scene, fire, glowTex, boostFire }) {
     burning, level, addLog,
     get flare() { return flare; },
     update(dt) {
+      later.step(dt);
       // burning logs char and shrink as they settle; the fire's size follows how many are burning
       for (let i = burning.length - 1; i >= 0; i--) { const b = burning[i]; b.t += dt; const k = b.t < HOLD ? 0 : Math.min(1, (b.t - HOLD) / SETTLE);
         b.m.material.color.setScalar(1 - 0.75 * Math.min(1, b.t / 40)); b.m.scale.set(1 - 0.5 * k, 1 - 0.7 * k, 1 - 0.5 * k);

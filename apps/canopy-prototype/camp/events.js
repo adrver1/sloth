@@ -8,10 +8,10 @@
 //                                    sloth's. Heard by operator/talk.js (react).
 //     EV.food   { kind, at }         food set down for the sloths (activities/soupChore.js serve: a bowl on a log seat). Heard
 //                                    by sloth/day.js watchFood: the nearest sloth at home goes to eat it.
-//     EV.cheer  { at, max, words, life, delay, gap }   the camp sloths nearest `at` (within max m), one per word, perk up: a
-//                                    nod and the word over its head for life s, the first after delay ms and each next one gap
-//                                    ms later (activities/fireChore.js, soupChore.js). Heard by sloths.js; the chores no longer
-//                                    pick sloths or write their nods.
+//     EV.cheer  { at, max, words, life, skip }   the camp sloths nearest `at` (within max m), after the first skip of them
+//                                    (default 0), one per word, perk up at once: a nod and the word over its head for life s
+//                                    (activities/fireChore.js, soupChore.js, which queue the emit in their frame time when it
+//                                    should come later). Heard by sloths.js; the chores no longer pick sloths or write their nods.
 //   on(name, fn)       fn(detail) runs on every emit of name
 //   emit(name, detail) runs every fn added for name with detail
 const EV = { act: "act", food: "food", cheer: "cheer" };

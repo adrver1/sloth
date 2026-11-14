@@ -40,11 +40,12 @@ import { restore } from "./sloth/saved.js";
 import { campStep, findSeats } from "./sloth/step.js";
 import { addHooks } from "./sloth/hooks.js";
 
-// a chore near some camp sloths (events.js EV.cheer): the nearest ones, one per word, nod and say it (review R2-031: the
-// chores used to pick the sloths and write their nods themselves)
-function cheer({ at, max, words, life, delay = 0, gap = 0 }) {
+// a chore near some camp sloths (events.js EV.cheer): the nearest ones after the first `skip`, one per word, nod and say it
+// at once; a chore that wants them later queues the emit in its own frame time (review R2-031: the chores used to pick the
+// sloths and write their nods themselves; R2-050: no setTimeout)
+function cheer({ at, max, words, life, skip = 0 }) {
   const near = sloths.filter((s) => !s.wild && s.p).map((s) => [s, s.p.distanceTo(at)]).filter(([, d]) => d < max).sort((a, b) => a[1] - b[1]).map(([s]) => s);
-  words.forEach((w, i) => { const s = near[i]; if (s) setTimeout(() => { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), w, 1, life, 60); }, delay + i * gap); });
+  words.forEach((w, i) => { const s = near[skip + i]; if (s) { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), w, 1, life, 60); } });
 }
 
 function buildSloths() {
