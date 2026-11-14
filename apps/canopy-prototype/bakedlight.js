@@ -75,13 +75,17 @@ vec3 lmDoors(vec3 d) { return uLCol[5] * (d.x + d.y + d.z) * uLJ.y; }   // d: ea
 float doorKey(vec4 k, float f) { f *= 4.0; return f < 1.0 ? k.x * f : f < 2.0 ? mix(k.x, k.y, f - 1.0) : f < 3.0 ? mix(k.y, k.z, f - 2.0) : mix(k.z, k.w, min(f - 3.0, 1.0)); }
 vec2 lmDoorUv(vec2 xz) { return (xz - uGP.xy) / uGP.z; }   // the door patch's UV for a ground point (page x, z)
 vec3 nightTone(vec3 x) { float l = max(dot(x, vec3(0.2126, 0.7152, 0.0722)), 1e-4); return min(x * (1.0 - exp(-l)) / l, vec3(1.0)); }
+// the warm lights' share by day, as a multiple of the surface colour, eased off so it never passes WARM_CAP times it, hue kept:
+// unbounded, it turned the fire ring's stones, the ash bed and the tripod's legs near-white and flat orange by day (R2-160)
+const float WARM_CAP = 0.6;
+vec3 dayWarm(vec3 w) { float l = max(dot(w, vec3(0.2126, 0.7152, 0.0722)), 1e-4); return w * (WARM_CAP * (1.0 - exp(-l / WARM_CAP)) / l); }
 `;
 // the colour a surface of albedo `base` takes, from its camp light q (vec4) and jeep light j (vec2):
-// day = the live light + a share of the warm camp lights + the jeep's lights when on; night = all of them, baked, unlit
+// day = the live light + a share of the warm camp lights (eased off by dayWarm) + the jeep's lights when on; night = all of them, baked, unlit
 // spot = true where the shader's light loop went through liveChunk: the page's one spot light (the live cabin light, Cabin: live)
 // stays on at night instead of being blended away with the rest of the live light
 export const LIGHT_MIX = (base, q, j, night, doors = "vec3(0.0)", spot = false) => `
-  outgoingLight += ${base} * (lmWarm(${q}) * uLDay + lmJeep(${j}) + lmDoors(${doors})) * 6.4 * (1.0 - ${night});
+  outgoingLight += ${base} * (dayWarm(lmWarm(${q}) * uLDay * 6.4) + (lmJeep(${j}) + lmDoors(${doors})) * 6.4) * (1.0 - ${night});
   outgoingLight = mix(outgoingLight, nightTone(6.4 * ${base} * (lmNight(${q}) + lmJeep(${j}) + lmDoors(${doors}))), ${night});${spot ? `
   outgoingLight += spotDiffuse * ${night};` : ""}`;
 // three.js's light loop, keeping the spot lights' share apart (spotDiffuse) for LIGHT_MIX

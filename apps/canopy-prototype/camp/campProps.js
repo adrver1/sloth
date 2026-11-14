@@ -237,7 +237,9 @@ async function buildProps() {
 // the fire's flicker: the fire's point light, brighter toward night (the flame cards' own flicker is their shader). Returns the flicker (0.7 .. 1), which the baked light, the sloths' glow and the pools follow too.
 function fireStep(dusk) {
   const fl = 0.85 + 0.15 * Math.sin(uTime.value * 13) * Math.sin(uTime.value * 7.3);
-  fireLight.intensity = (D.fx ? 6 : 0) * fl * (1 + 1.5 * dusk);
+  // by day a fifth of the dusk's light: the baked warm light (bakedlight.js dayWarm) already warms what stands round the fire, and
+  // the full light on top of it, an arm's length away, turned the ring's stones and the ash bed near-white (R2-160)
+  fireLight.intensity = (D.fx ? 6 : 0) * fl * (0.3 + 2.2 * dusk);
   return fl;
 }
 // the light pools on the ground: faded in with dusk, flickering with the fire; not shown where the ground's night light is baked
