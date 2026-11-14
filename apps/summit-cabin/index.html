@@ -110,7 +110,8 @@ const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)
 // a steep peak with the cabin on a flat top and a cliff south of the porch; forested hills and valleys round it; a frozen
 // lake with a fishing hut 950 m north-west, a fire lookout on its own hill 1 km north-east, and a ring of high mountains 2 to 4 km out.
 // Everything you see is the same ground, so you can walk to it.
-const LAKE_P = { x: -760, z: 560, r: 170 }, HILL_P = { x: 820, z: 620 };
+const LAKE_P = { x: -760, z: 560, r: 170 }, HILL_P = { x: 150, z: 55 };
+const BIG = { x: 60, z: -700, rx: 560, rz: 330 };   // the big lake filling the valley below the cliff
 // the level's walls: a tall mountain right behind the camp, and a steep one to the west that the road tunnels into
 const NORTH_M = { x: -120, z: 300, sx: 200, sz: 170, h: 900 }, WEST_M = { x: -470, z: 10, sx: 180, sz: 280, h: 620 };
 function hBase(x, z) {
@@ -118,7 +119,7 @@ function hBase(x, z) {
   let h = 700 / (1 + (e / 520) ** 1.7);   // round only near the top, then concave, so every slope below is in view
   h += (fbm(x / 1500, z / 1500, 5) - 0.45) * 420;
   h += (fbm(x / 240, z / 240, 3) - 0.5) * 36 * Math.min(1, r / 400);
-  h += 150 * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 230 ** 2);   // the lookout's hill
+  h += 140 * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 62 ** 2);   // the watch hill, close by, a little higher than the summit
   // the two walls are real mountains: a smooth mass broken up by ridges and gullies (ridged noise), steep but never sheer
   h += NORTH_M.h * Math.exp(-(((x - NORTH_M.x) / NORTH_M.sx) ** 2 + ((z - NORTH_M.z) / NORTH_M.sz) ** 2)) * (0.6 + 0.7 * ridged(x / 260 + 3, z / 260 + 1, 4));
   { const d = Math.hypot((x - WEST_M.x) / WEST_M.sx, (z - WEST_M.z) / WEST_M.sz); h += WEST_M.h * sstep(1.55, 0.35, d) * (0.55 + 0.75 * ridged(x / 220 - 5, z / 220 + 2, 4)); }
@@ -141,6 +142,10 @@ const ROAD = (() => {   // sampled every 2 m: [x, z, s, y]; b0 where the bridge 
       pts.push([x, z, s, y]); } }
   return { pts, b0, portal, y };
 })();
+const BIG_H = (() => { const hs = []; for (let i = 0; i < 400; i++) { const a = (i * 2.39996) % 6.283, k = Math.sqrt((i + 0.5) / 400); hs.push(hBase(BIG.x + Math.cos(a) * BIG.rx * k, BIG.z + Math.sin(a) * BIG.rz * k)); } hs.sort((a, b) => a - b); return hs[60]; })();
+const bigE = (x, z) => Math.hypot((x - BIG.x) / BIG.rx, (z - BIG.z) / BIG.rz);
+// the watch hill's top, flattened for the tower
+const HT = (() => { let best = [0, 0, -1e9]; for (let i = -6; i <= 6; i++) for (let j = -6; j <= 6; j++) { const x = HILL_P.x + i * 4, z = HILL_P.z + j * 4, h = hBase(x, z); if (h > best[2]) best = [x, z, h]; } return { x: best[0], z: best[1], y: best[2] }; })();
 const ROAD_Y = (s) => (s < ROAD.b0 ? TOP - 0.07 * s : ROAD.y);
 const roadNear = (x, z) => (x > -8 || x < ROAD.portal.x - 20 || z > 22 || z < -30 ? null : polyNear(ROAD.pts, x, z));
 // the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks down over the valleys
@@ -153,20 +158,31 @@ function height(x, z) {
   const rd = roadNear(x, z);
   if (rd && rd.d < 14 && rd.s < ROAD.b0) h += (ROAD_Y(rd.s) - 0.05 - h) * (1 - sstep(3.5, 13, rd.d)) * (r < 18 ? 0 : 1);   // the road bed
   if (rd && x < ROAD.portal.x + 14 && x > ROAD.portal.x - 3) h = Math.min(h, h + (ROAD.y - 2 - h) * (1 - sstep(7, 10.5, Math.abs(z - ROAD.portal.z))));   // the tunnel's cutting
+  { const e = bigE(x, z); if (e < 2.2) { const dm = Math.max(0, e - 1) * BIG.rz; h = Math.min(h, BIG_H + dm * 0.35 + Math.max(0, dm - 120) ** 2 * 0.012); } }   // the big lake's bowl
+  { const dh = Math.hypot(x - HT.x, z - HT.z); if (dh < 18) h += (HT.y - h) * (1 - sstep(11, 18, dh)); }   // the hilltop, flat for the tower
   return Math.max(Math.min(LAKE, LAKE_H), h);
 }
-const onIce = (x, z, h) => h <= LAKE + 0.05 || (h <= LAKE_H + 0.05 && Math.hypot(x - LAKE_P.x, z - LAKE_P.z) < LAKE_P.r + 1);
+const onIce = (x, z, h) => h <= LAKE + 0.05 || (h <= BIG_H + 0.05 && bigE(x, z) < 1.05) || (h <= LAKE_H + 0.05 && Math.hypot(x - LAKE_P.x, z - LAKE_P.z) < LAKE_P.r + 1);
 const TREELINE = LAKE + 720;   // above the summit, so the cabin sits in a forest clearing with the view framed by trees
 // the lookout stands on the top of its hill; the fishing hut out on the ice, 45 m from the shore nearest the cabin
-const TOWER = (() => { let best = [0, 0, -1e9]; for (let i = -15; i <= 15; i++) for (let j = -15; j <= 15; j++) { const x = HILL_P.x + i * 10, z = HILL_P.z + j * 10, h = height(x, z); if (h > best[2]) best = [x, z, h]; } return { x: best[0], z: best[1], y: best[2] }; })();
+const TOWER = { x: HT.x, z: HT.z, y: height(HT.x, HT.z) };
 const SHORE = (() => { const k = Math.hypot(LAKE_P.x, LAKE_P.z); return { x: LAKE_P.x - (LAKE_P.x / k) * LAKE_P.r, z: LAKE_P.z - (LAKE_P.z / k) * LAKE_P.r }; })();
 const HUT = { x: SHORE.x + (LAKE_P.x - SHORE.x) * 0.3, z: SHORE.z + (LAKE_P.z - SHORE.z) * 0.3, y: LAKE_H };
 // two marked trails from the cabin: one down to the lake, one over to the lookout
-const TRAILS = [
-  [[8, 8], [70, 80], [220, 210], [400, 350], [580, 480], [TOWER.x - 10, TOWER.z - 8]],
-];
+// the way up to the watch hill: a timber boardwalk from the summit's trail head, landings where the ground is level and stair
+// flights where it climbs (or dips), always just above the snow, railed both sides, ending on the hilltop by the tower
+const BW = (() => { const d = Math.hypot(HT.x - 80, HT.z - 78), c2 = [78, 34], kk = Math.hypot(HT.x - c2[0], HT.z - c2[1]), ctrl = [[15.5, 15.5], [38, 30], c2, [HT.x - ((HT.x - c2[0]) / kk) * 11, HT.z - ((HT.z - c2[1]) / kk) * 11]];
+  const pts = []; let y = TOP + 0.02, s = 0, climb = 0;
+  for (let i = 0; i < ctrl.length - 1; i++) { const [ax, az] = ctrl[i], [bx, bz] = ctrl[i + 1], L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 0.5);
+    for (let k = i ? 1 : 0; k <= n; k++) { const x = ax + ((bx - ax) * k) / n, z = az + ((bz - az) * k) / n, yt = height(x, z) + 0.35; if (pts.length) s += L / n;
+      if (climb === 0 && yt > y + 0.2) climb = 1; else if (climb === 0 && yt < y - 3) climb = -1;
+      const y0 = y; if (climb > 0) { y += 0.65 * (L / n); if (y >= yt + 1.1) climb = 0; } else if (climb < 0) { y -= 0.65 * (L / n); if (y <= yt + 0.4) climb = 0; }
+      pts.push([x, z, s, y, y !== y0 ? 1 : 0]); } }
+  return pts; })();
+const bwY = (b) => { const P = BW[b.i], Q = BW[Math.min(b.i + 1, BW.length - 1)], k = Q[2] > P[2] ? (b.s - P[2]) / (Q[2] - P[2]) : 0; return P[3] + (Q[3] - P[3]) * k; };
+const TRAILS = [BW.filter((p, i) => i % 10 === 0 || i === BW.length - 1).map((p) => [p[0], p[1]])];
 function trailDist(x, z) { let best = 1e9; for (const t of TRAILS) for (let i = 0; i < t.length - 1; i++) { const [ax, az] = t[i], [bx, bz] = t[i + 1], dx = bx - ax, dz = bz - az, k = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz))); best = Math.min(best, Math.hypot(x - ax - dx * k, z - az - dz * k)); } return best; }
-const LOOK_TRAIL = withS(TRAILS[0]), JEEP = { x: -12, z: 1.2, turn: Math.PI / 2 };   // the jeep that brought us, parked at the head of the road
+const LOOK_TRAIL = BW, JEEP = { x: -12, z: 1.2, turn: Math.PI / 2 };   // the jeep that brought us, parked at the head of the road
 // where you may walk: the summit inside its rail and rocks, the road to the tunnel, the lookout trail (wider as it leaves the
 // summit) and the lookout's hilltop. Everything else is fenced off by what you see: the cliff rail, rocks, the mountain walls.
 const lip = (x) => -8.5 + 3 * Math.sin(x / 9), PLAT_R = 22;
@@ -176,8 +192,8 @@ const trailHalf = (s) => Math.min(20, 2.5 + s * 0.35);
 function walkable(x, z) {
   if (Math.hypot(x, z) < edgeR(Math.atan2(z, x)) - 0.4) return true;
   const rd = roadNear(x, z); if (rd && rd.d < 2.4 && x > ROAD.portal.x + 1.2) return true;
-  const t = polyNear(LOOK_TRAIL, x, z); if (t.d < trailHalf(t.s)) return true;
-  return Math.hypot(x - TOWER.x, z - TOWER.z) < 160;
+  if (polyNear(BW, x, z).d < 0.85) return true;   // on the boardwalk, between its rails
+  return Math.hypot(x - HT.x, z - HT.z) < 12.5;   // the hilltop, inside its rail
 }
 function forestAt(x, z, h, s) {
   if (onIce(x, z, h)) return 0;
@@ -253,7 +269,7 @@ TRIS.push(['Sky dome', tris(sky.geometry)]);
 // Geomorphing hides the joins: every vertex also stores the height, normal and colour the next coarser ring would give it, and
 // the vertex shader slides toward those values over the outer part of each ring, so at its edge a ring already looks exactly
 // like the next one and nothing pops as rings move.
-const snowC = new THREE.Color('#fbf7f0'), rockC = new THREE.Color('#4b4b4f'), shadeC = new THREE.Color('#a9b3c9'), iceC = new THREE.Color('#d3e2ea'), trailC = new THREE.Color('#e8dfd4'), tmpC = new THREE.Color(), rockV = new THREE.Color();
+const snowC = new THREE.Color('#fbf7f0'), rockC = new THREE.Color('#4b4b4f'), shadeC = new THREE.Color('#a9b3c9'), iceC = new THREE.Color('#93a9bb'), trailC = new THREE.Color('#e8dfd4'), tmpC = new THREE.Color(), rockV = new THREE.Color();
 const snowTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const r = mulberry(7);
   for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(206,218,234,${0.04 + r() * 0.06})`; g.beginPath(); g.ellipse(r() * w, r() * h, 20 + r() * 50, 3 + r() * 6, 0.2, 0, 7); g.fill(); }
   for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(r() * w, r() * h, 1, 1); } }, true);
@@ -307,7 +323,7 @@ function updateLevel(lv) {
     let nx = H(i - 1, j) - H(i + 1, j), ny = 2 * c, nz = H(i, j - 1) - H(i, j + 1); const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; nor[k * 3] = nx; nor[k * 3 + 1] = ny; nor[k * 3 + 2] = nz; uv[k * 2] = x / 6; uv[k * 2 + 1] = z / 6;
     const s = 1 - ny, ice = onIce(x, z, h), f = ice ? 0 : forestAt(x, z, h, s);
-    if (ice) tmpC.copy(iceC);
+    if (ice) tmpC.copy(iceC).lerp(snowC, sstep(0.45, 0.75, vnoise(x / 160 + z / 400, z / 45)) * 0.75);   // blue-grey ice with wind-blown snow streaks
     else { rockV.copy(rockC).multiplyScalar(0.62 + 0.7 * vnoise(x / 11 + z / 17, h / 5));   // rock in bands and streaks, not one flat colour
       const ledge = sstep(0.5, 0.68, vnoise(h / 9 + x / 70, (x - z) / 45)) * (1 - sstep(0.55, 0.8, s));   // snow caught on ledges and in gullies
       tmpC.copy(snowC).lerp(rockV, Math.min(1, sstep(0.24, 0.45, s) * (0.6 + 0.4 * vnoise(x / 90, z / 90)) + sstep(TOP + 250, TOP + 800, h) * sstep(0.1, 0.28, s) * (0.3 + 0.5 * vnoise(x / 160 + 4, z / 60))) * (1 - ledge)).lerp(shadeC, 0.55 * f);   // rock on steep faces and high ribs; trodden, shaded snow under the trees
@@ -761,17 +777,6 @@ const hut = new THREE.Group(); hut.position.set(HUT.x, HUT.y, HUT.z); hut.rotati
   const dr = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 1.7), doorMat); dr.position.set(0.55, 0.85, 1.11); hut.add(dr);
   part(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 5, 1, true), M.roof, 0.8, 3.0, -0.4, hut);
 }
-{ // trail poles every 25 m, red tops, painted by vertex colour: 12 triangles each
-  const g = new THREE.BoxGeometry(0.08, 1.8, 0.08).translate(0, 0.9, 0), p = g.attributes.position, C = [];
-  for (let i = 0; i < p.count; i++) { tmpC.set(p.getY(i) > 1.5 ? '#c4372a' : '#4a3424'); C.push(tmpC.r, tmpC.g, tmpC.b); }
-  g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
-  const spots = [];
-  for (const t of TRAILS) { let carry = 0; for (let i = 0; i < t.length - 1; i++) { const [ax, az] = t[i], [bx, bz] = t[i + 1], L = Math.hypot(bx - ax, bz - az);
-    for (let d = 25 - carry; d < L; d += 25) { const x = ax + ((bx - ax) * d) / L + 1.6, z = az + ((bz - az) * d) / L; if (Math.hypot(x, z) > 22) spots.push([x, z]); } carry = (carry + L) % 25; } }
-  const poles = new THREE.InstancedMesh(g, hazed(new THREE.MeshLambertMaterial({ vertexColors: true })), spots.length);
-  spots.forEach(([x, z], i) => poles.setMatrixAt(i, m4.makeTranslation(x, height(x, z) - 0.1, z))); poles.castShadow = true; scene.add(poles);
-  TRIS.push([`Trail poles (${spots.length} × 12)`, tris(g, spots.length)]);
-}
 TRIS.push(['Fire lookout', placeTris(tower)], ['Fishing hut', placeTris(hut)]);
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
@@ -840,23 +845,42 @@ const woodC = (top) => tmpC.set(top ? '#f1f0ee' : '#6b625a').clone();
 const snowTopBox = (w, h, d, wood = '#6b625a') => { const g = new THREE.BoxGeometry(w, h, d), n = g.attributes.normal, C = [];
   for (let i = 0; i < n.count; i++) { tmpC.set(n.getY(i) > 0.5 ? '#f1f0ee' : wood); if (n.getY(i) < -0.5) tmpC.multiplyScalar(0.6); C.push(tmpC.r, tmpC.g, tmpC.b); } g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return g; };
 const fenceMat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true }));
-{ // the rail: posts every 2.4 m round the edge from the trail head, clockwise along the cliff, to the road; two rails between
-  const ps = []; for (let a = 0.66; a > -3.06; ) { const r = edgeR(a); ps.push([Math.cos(a) * r, Math.sin(a) * r]); a -= 2.4 / Math.max(r, 4); }
+function railLine(ps, label) {
+
   const postG = snowTopBox(0.16, 1.25, 0.16).translate(0, 0.62, 0), railG = snowTopBox(1, 0.1, 0.09);
   const posts = new THREE.InstancedMesh(postG, fenceMat, ps.length), rails = new THREE.InstancedMesh(railG, fenceMat, (ps.length - 1) * 2);
   ps.forEach(([x, z], i) => { posts.setMatrixAt(i, m4.makeTranslation(x, groundAt(x, z) - 0.05, z));
     if (i) { const [px, pz] = ps[i - 1], L = Math.hypot(x - px, z - pz), yaw = -Math.atan2(z - pz, x - px), y0 = (groundAt(x, z) + groundAt(px, pz)) / 2;
       for (const [k, hh] of [[0, 0.5], [1, 1.02]]) rails.setMatrixAt((i - 1) * 2 + k, m4.compose(v3.set((x + px) / 2, y0 + hh + (k ? 0 : 0.04 * Math.sin(i * 2.1)), (z + pz) / 2), q.setFromAxisAngle(up, yaw), sc.set(L + 0.1, 1, 1))); } });
   posts.castShadow = rails.castShadow = true; scene.add(posts, rails);
-  TRIS.push([`Cliff rail (${ps.length} posts × 12, ${(ps.length - 1) * 2} rails × 12)`, tris(postG, ps.length) + tris(railG, (ps.length - 1) * 2)]);
+  TRIS.push([`${label} (${ps.length} posts × 12, ${(ps.length - 1) * 2} rails × 12)`, tris(postG, ps.length) + tris(railG, (ps.length - 1) * 2)]);
+}
+{ // the rail: posts every 2.4 m round the edge from the trail head, clockwise along the cliff, to the road; and round the hilltop
+  const ps = []; for (let a = 0.66; a > -3.06; ) { const r = edgeR(a); ps.push([Math.cos(a) * r, Math.sin(a) * r]); a -= 2.4 / Math.max(r, 4); }
+  railLine(ps, 'Cliff rail');
+  const end = BW[BW.length - 1], a0 = Math.atan2(end[1] - HT.z, end[0] - HT.x), hp = [];
+  for (let a = a0 + 0.2; a < a0 + 6.283 - 0.2; a += 2.4 / 13) hp.push([HT.x + Math.cos(a) * 13, HT.z + Math.sin(a) * 13]);
+  railLine(hp, 'Hilltop rail');
+}
+{ // the boardwalk itself: every piece a scaled snow-topped box in one draw (deck planks, stair treads, stringers, rails, posts, legs)
+  const M4 = [], put = (x, y, z, sx, sy, sz, yaw = 0, pitch = 0) => M4.push(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, pitch, 'YZX')), new THREE.Vector3(sx, sy, sz)));
+  const runs = []; let st = 0; for (let i = 1; i <= BW.length; i++) if (i === BW.length || BW[i][4] !== BW[st][4]) { runs.push([st, i - 1, BW[st][4]]); st = i - 1; }
+  for (const [i0, i1, stair] of runs) { const A = BW[i0], B = BW[i1], dx = B[0] - A[0], dz = B[1] - A[1], L = Math.hypot(dx, dz); if (L < 0.05) continue; const yaw = -Math.atan2(dz, dx), nx = -dz / L, nz = dx / L, rise = B[3] - A[3];
+    if (!stair) put((A[0] + B[0]) / 2, A[3] - 0.06, (A[1] + B[1]) / 2, L + 0.02, 0.12, 1.9, yaw);   // a landing
+    else { const n = Math.max(1, Math.round(Math.abs(rise) / 0.22)); for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; put(A[0] + dx * t, A[3] + rise * ((k + (rise > 0 ? 1 : 0)) / n) - 0.06, A[1] + dz * t, L / n + 0.05, 0.1, 1.9, yaw); }   // treads
+      for (const sd of [-1, 1]) put((A[0] + B[0]) / 2 + nx * 0.98 * sd, (A[3] + B[3]) / 2 - 0.15, (A[1] + B[1]) / 2 + nz * 0.98 * sd, Math.hypot(L, rise), 0.28, 0.08, yaw, Math.atan2(rise, L)); }   // stringers
+    for (const sd of [-1, 1]) put((A[0] + B[0]) / 2 + nx * 1.0 * sd, (A[3] + B[3]) / 2 + 1.0, (A[1] + B[1]) / 2 + nz * 1.0 * sd, Math.hypot(L, rise) + 0.05, 0.09, 0.09, yaw, Math.atan2(rise, L)); }   // hand rails
+  for (let i = 0; i < BW.length; i += 4) { const [x, z, , y] = BW[i], P2 = BW[Math.min(i + 1, BW.length - 1)], P1 = BW[Math.max(i - 1, 0)], dx = P2[0] - P1[0], dz = P2[1] - P1[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
+    for (const sd of [-1, 1]) { const px = x + nx * 1.0 * sd, pz = z + nz * 1.0 * sd, g = height(px, pz); put(px, (y + 1.05 + g) / 2, pz, 0.12, y + 1.05 - g + 0.3, 0.12); } }   // posts from the ground up through the rail
+  const geo = snowTopBox(1, 1, 1), walk = new THREE.InstancedMesh(geo, fenceMat, M4.length); M4.forEach((m, i) => walk.setMatrixAt(i, m)); walk.castShadow = walk.receiveShadow = true; scene.add(walk);
+  TRIS.push([`Boardwalk and stairs (${BW[BW.length - 1][2].toFixed(0)} m, climbs ${(BW[BW.length - 1][3] - TOP).toFixed(0)} m; ${M4.length} boards × 12)`, tris(geo, M4.length)]);
 }
 { // boulders: a wall of them behind the camp where the mountain begins, and a few along the lookout trail and round its hill
   const spots = [];
   for (let a = 2.74; a > 0.98; a -= 0.1) { const r = PLAT_R + 1.5 + Math.sin(a * 13) * 0.8; spots.push([Math.cos(a) * r, Math.sin(a) * r, 1.5 + 0.7 * Math.abs(Math.sin(a * 7.3))]); }
-  const P = LOOK_TRAIL, L = P[P.length - 1][2];
-  for (let s2 = 14; s2 < L; s2 += 16) { let i = 0; while (i < P.length - 2 && P[i + 1][2] < s2) i++; const [ax, az, as] = P[i], [bx, bz, bs] = P[i + 1], k = (s2 - as) / (bs - as), x = ax + (bx - ax) * k, z = az + (bz - az) * k, l = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / l, nz = (bx - ax) / l, w = trailHalf(s2) + 1.2;
+  if (false) for (let s2 = 14; s2 < 0; s2 += 16) { let i = 0; while (i < P.length - 2 && P[i + 1][2] < s2) i++; const [ax, az, as] = P[i], [bx, bz, bs] = P[i + 1], k = (s2 - as) / (bs - as), x = ax + (bx - ax) * k, z = az + (bz - az) * k, l = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / l, nz = (bx - ax) / l, w = trailHalf(s2) + 1.2;
     for (const sd of [-1, 1]) spots.push([x + nx * w * sd, z + nz * w * sd, 1.1 + 0.6 * Math.abs(Math.sin(s2 * 0.37 + sd))]); }
-  for (let a = 0; a < 6.283; a += 0.09) spots.push([TOWER.x + Math.cos(a) * 162, TOWER.z + Math.sin(a) * 162, 1.2 + 0.7 * Math.abs(Math.sin(a * 5.1))]);
+  if (false) for (let a = 0; a < 6.283; a += 0.09) spots.push([TOWER.x + Math.cos(a) * 162, TOWER.z + Math.sin(a) * 162, 1.2 + 0.7 * Math.abs(Math.sin(a * 5.1))]);
   const edge = new THREE.InstancedMesh(rockGeo, rocks.material, spots.length);
   spots.forEach(([x, z, sz], i) => edge.setMatrixAt(i, m4.compose(v3.set(x, height(x, z) + sz * 0.2, z), q.setFromAxisAngle(up, i * 2.4), sc.set(sz, sz, sz)))); edge.castShadow = true; scene.add(edge);
   TRIS.push([`Edge boulders (${spots.length} × 20)`, tris(rockGeo, spots.length)]);
@@ -869,10 +893,10 @@ const roadTex = canvasTex(128, 256, (g, w, h) => { const r = mulberry(31);   // 
   for (const ex of [0, 1]) { const gr = g.createLinearGradient(ex ? w * 0.88 : 0, 0, ex ? w : w * 0.12, 0); gr.addColorStop(ex ? 0 : 1, 'rgba(245,246,248,0)'); gr.addColorStop(ex ? 1 : 0, 'rgba(245,246,248,1)'); g.fillStyle = gr; g.fillRect(ex ? w * 0.88 : 0, 0, w * 0.12, h); } }, true);
 const roadMat = hazed(new THREE.MeshLambertMaterial({ map: roadTex, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
 { // the road on land: a 5 m ribbon laid on its bed
-  const P = [], UV = [], I = [], pts = ROAD.pts.filter((p) => p[2] <= ROAD.b0 + 2);
+  const P = [], UV = [], I = [], pts = ROAD.pts.filter((p) => p[2] <= ROAD.b0 + 4);
   pts.forEach(([x, z, s2], i) => { const n = pts[Math.min(i + 1, pts.length - 1)], m = pts[Math.max(i - 1, 0)], dx = n[0] - m[0], dz = n[1] - m[1], l = Math.hypot(dx, dz), nx = -dz / l, nz = dx / l;
     for (const sd of [-1, 1]) { const px = x + nx * 2.6 * sd, pz = z + nz * 2.6 * sd; P.push(px, Math.max(height(px, pz), ROAD_Y(s2) - 0.05) + 0.06, pz); UV.push(sd < 0 ? 0 : 1, s2 / 7); }
-    if (i) I.push((i - 1) * 2, i * 2, (i - 1) * 2 + 1, (i - 1) * 2 + 1, i * 2, i * 2 + 1); });
+    if (i) I.push((i - 1) * 2, (i - 1) * 2 + 1, i * 2, (i - 1) * 2 + 1, i * 2 + 1, i * 2); });
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setIndex(I); g.computeVertexNormals();
   const road = new THREE.Mesh(g, roadMat); road.receiveShadow = true; scene.add(road); TRIS.push(['Road on land', I.length / 3]);
 }
@@ -902,7 +926,7 @@ const bridge = new THREE.Group(); scene.add(bridge);
     g.beginPath(); g.moveTo(w * 0.29, h); g.lineTo(w * 0.29, h * 0.5); g.ellipse(w / 2, h * 0.5, w * 0.21, h * 0.17, 0, Math.PI, 0); g.lineTo(w * 0.71, h); g.fill();
     g.fillStyle = '#e8eef4'; for (let i = 0; i < 18; i++) { const x = w * (0.3 + 0.4 * r()); g.beginPath(); g.moveTo(x - 4, h * 0.36); g.lineTo(x + 4, h * 0.36); g.lineTo(x, h * (0.4 + 0.08 * r())); g.fill(); }
     g.fillStyle = '#f4f4f2'; g.fillRect(w * 0.2, h * 0.22, w * 0.6, h * 0.04); });
-  const mouth = new THREE.Mesh(new THREE.PlaneGeometry(22, 16.5).rotateY(Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5 })));
+  const mouth = new THREE.Mesh(new THREE.PlaneGeometry(22, 16.5).rotateY(Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5 }), (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <logdepthbuf_fragment>', '#include <logdepthbuf_fragment>\n gl_FragDepth -= 0.0035;'); }, 'mouth'));   // its rock is coarse far away; the painted mouth must still show
   mouth.position.set(ROAD.portal.x + 0.3, ROAD.y - 0.7 + 16.5 * 0.5, ROAD.portal.z); mouth.receiveShadow = true; scene.add(mouth);
   TRIS.push(['Tunnel mouth (painted)', 2]);
 }
@@ -917,9 +941,9 @@ const bridge = new THREE.Group(); scene.add(bridge);
 { // mud: wheel ruts from the road to the jeep, and the paths worn between jeep, porch, camp, woodpile and the trail head
   const S = 44, PX = 1024, k = PX / S, tex = canvasTex(PX, PX, (g) => { const r = mulberry(23), at = ([x, z]) => [(x + S / 2) * k, (z + S / 2) * k];
     const path = (pts, wid, col, a) => { g.lineCap = g.lineJoin = 'round'; for (let pass = 0; pass < 3; pass++) { g.strokeStyle = col; g.globalAlpha = a * (pass === 0 ? 0.35 : pass === 1 ? 0.55 : 0.9); g.lineWidth = wid * k * (pass === 0 ? 1.8 : pass === 1 ? 1.3 : 0.8);
-      g.beginPath(); pts.forEach((p, i) => { const [x, y] = at(p); const j = pass ? (r() - 0.5) * 6 : 0; i ? g.lineTo(x + j, y + j) : g.moveTo(x, y); }); g.stroke(); } g.globalAlpha = 1; };
-    const ruts = (pts) => { for (const o of [-0.8, 0.8]) path(pts.map(([x, z], i) => { const n = pts[Math.min(i + 1, pts.length - 1)], m = pts[Math.max(i - 1, 0)], dx = n[0] - m[0], dz = n[1] - m[1], l = Math.hypot(dx, dz) || 1; return [x - (dz / l) * o, z + (dx / l) * o]; }), 0.4, '#54443a', 0.7); };
-    path([[-22, 2.6], [-17, 2.4], [-13, 1.6], [-9, 1.4]], 2.8, '#8a7a6a', 0.55); ruts([[-22, 2.6], [-17, 2.4], [-13.5, 1.4], [-10, 1.2]]); ruts([[-21, 3.5], [-16, 5], [-12, 4.6], [-9.5, 3.2]]);
+      g.beginPath(); pts.forEach((p, i) => { const [x, y] = at(p); const j = pass && wid > 0.6 ? (r() - 0.5) * 4 : 0; i ? g.lineTo(x + j, y + j) : g.moveTo(x, y); }); g.stroke(); } g.globalAlpha = 1; };
+    const ruts = (pts) => { for (const o of [-0.8, 0.8]) path(pts.map(([x, z], i) => { const n = pts[Math.min(i + 1, pts.length - 1)], m = pts[Math.max(i - 1, 0)], dx = n[0] - m[0], dz = n[1] - m[1], l = Math.hypot(dx, dz) || 1; return [x - (dz / l) * o, z + (dx / l) * o]; }), 0.32, '#5e4d40', 0.55); };
+    path([[-22, 2.6], [-17, 2.4], [-13, 1.6], [-9, 1.4]], 2.8, '#8a7a6a', 0.55); ruts([[-24, 2.7], [-20, 2.6], [-17, 2.2], [-14.5, 1.6], [-13, 1.3]]);
     const foot = (pts) => { path(pts, 1.3, '#9c8c7b', 0.6); path(pts, 0.6, '#55453a', 0.85); };
     foot([[-9.5, -0.5], [-8.2, -4.5], [-5, -7], [-1.5, -7.4]]); foot([[3, -7.3], [7.4, -5.6], [7.6, 0], [6.8, 5.5], [3.5, 7.4]]);
     foot([[2.5, 8.2], [7.5, 11], [11, 11.5], [15.5, 15.5], [19, 19.5]]); foot([[-8, 2.6], [-6, 6.5], [-2.2, 8.4]]); foot([[-9.5, 2.8], [-8.6, 2.2]]);
@@ -976,7 +1000,7 @@ const W_NOW = { ...WEATHER.clear }; let wTarget = WEATHER.clear, hazeOn = true;
 // First person. Keyboard: WASD or arrows, Shift to run. Phone: the stick to walk, the Run button, drag anywhere else to look.
 const me = { x: 0, z: -D / 2 - 1.6, y: TOP + YB + 1.65, yaw: 0, pitch: -0.12, run: false };
 const faceTo = (x, z, t) => Math.atan2(-(t.x - x), -(t.z - z));   // the yaw that looks from (x, z) at t
-const PLACES = { porch: [0, -D / 2 - 1.6, 0], tower: [TOWER.x - 26, TOWER.z - 20, TOWER], camp: [CAMP.x + 1.2, CAMP.z - 5.2, { x: CAMP.x - 0.4, z: CAMP.z + 2 }] };
+const PLACES = { porch: [0, -D / 2 - 1.6, 0], tower: [HT.x - 6, HT.z - 6, { x: 0, z: 0 }], camp: [CAMP.x + 1.2, CAMP.z - 5.2, { x: CAMP.x - 0.4, z: CAMP.z + 2 }] };
 const keys = new Set(), stick = { x: 0, y: 0 }, touch = matchMedia('(pointer: coarse)').matches;
 if (touch) document.body.classList.add('touch');
 addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; keys.add(e.code); }); addEventListener('keyup', (e) => keys.delete(e.code)); addEventListener('blur', () => keys.clear());
@@ -991,7 +1015,8 @@ cv.addEventListener('pointerup', () => { look = null; }); cv.addEventListener('p
   const end = () => { id = null; stick.x = stick.y = 0; knob.style.transform = ''; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); }
 $('run').onclick = () => { me.run = !me.run; $('run').setAttribute('aria-pressed', String(me.run)); };
 // standing on the cabin's floor and porch; walls, the hut and the lookout's legs push you out
-function groundAt(x, z) { if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; const g = height(x, z), rd = roadNear(x, z); return rd && rd.s >= ROAD.b0 && rd.d < 3.2 ? Math.max(g, ROAD.y) : g; }   // on the bridge you walk on its deck
+function groundAt(x, z) { if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
+  if (x > 0 && x < HT.x + 5 && z > -10 && z < HT.z + 40) { const b = polyNear(BW, x, z); if (b.d < 1.3) return Math.max(g, bwY(b) + 0.06); } return g; }   // on the bridge or the boardwalk you walk on its boards   // on the bridge you walk on its deck
 function pushOut(x, z, cx, cz, hx, hz, turn) {   // out of a box (half sizes hx, hz, turned by `turn`)
   const c = Math.cos(turn), s = Math.sin(turn), lx = (x - cx) * c - (z - cz) * s, lz = (x - cx) * s + (z - cz) * c;
   if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) return [x, z];
@@ -1023,7 +1048,7 @@ function walk(dt) {
   camera.position.set(me.x, me.y, me.z); camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
 }
 const press = (group, attr, val) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === val)));
-const jump = (p) => { const [x, z, t] = PLACES[p]; me.x = x; me.z = z; me.yaw = t ? faceTo(x, z, t) : 0; me.pitch = t === TOWER ? 0.25 : -0.08; me.y = groundAt(x, z) + 1.65; };
+const jump = (p) => { const [x, z, t] = PLACES[p]; me.x = x; me.z = z; me.yaw = t ? faceTo(x, z, t) : 0; me.pitch = p === 'tower' ? -0.18 : -0.08; me.y = groundAt(x, z) + 1.65; };
 $('jump').onclick = (e) => { const p = e.target.dataset?.p; if (p) jump(p); };
 $('weather').onclick = (e) => { const w = e.target.dataset?.w; if (!w) return; wTarget = WEATHER[w]; press($('weather'), 'w', w); };
 $('hazeOn').onchange = (e) => { hazeOn = e.target.checked; };
@@ -1094,6 +1119,6 @@ function frame() {
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [near.map((m) => m.count).join('/'), saplings.count, logs.count, cards.count, rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable };
+window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [near.map((m) => m.count).join('/'), saplings.count, logs.count, cards.count, rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H };
 window.__ready = true;
 </script>
