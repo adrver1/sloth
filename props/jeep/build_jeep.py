@@ -748,8 +748,8 @@ def expedition(wheels=WHEELS):
     b = body(M, "expedition", wheels); p, G = b.parts, b.groups
     # steel bumper with a winch (its drum would sit inside the box, so it is not modelled: review R2-168) and a pair of tow hooks
     p.append(winch(M, bevel=0.02))
-    for s in (-1, 1):                    # each tow hook the part of a ring outside the bumper (the rest is inside it)
-        p.append(arc(0.04, 0.012, math.radians(150), math.radians(390), 4, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"]))
+    for s in (-1, 1):                    # each tow hook the part of a ring outside the bumper; both open ends go into the bumper
+        p.append(arc(0.04, 0.012, math.radians(150), math.radians(420), 5, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"]))
     # snorkel, angular like the aftermarket ones: a flat box duct along the top of the wing, a square riser up the A pillar
     # (raked like the windscreen, clear of the mirror) and a wedge-shaped intake head on top facing forward
     p += snorkel(M)
