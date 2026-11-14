@@ -68,8 +68,9 @@ function buildSloths() {
       Object.assign(s, { name: c.name, k, spot, greetCD: R(0, 10), smoreT: R(8, 20), gaze: 0, waveCD: 0 });
       spot.who = s; camp.push(s); placeHome(s);
     }
-    { let tris = 0; for (const s of camp) s.o.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh && m.geometry) tris += triCount(m.geometry); });
-      console.info(`camp sloths: ${camp.length} named (${camp.map((s) => s.name).join(", ")}), traits ${tris} triangles in all; s'mores stick 8 + marshmallow 12`); }
+    { const per = []; let all = 0;   // every trait mesh (cast.js marks them), skinned or not, with its triangles
+      for (const s of camp) s.o.traverse((m) => { if (m.userData.trait) { const n = triCount(m.geometry); all += n; per.push(`${s.name} ${m.name.replace("trait_", "")} ${n}`); } });
+      console.info(`camp sloths: ${camp.length} named (${camp.map((s) => s.name).join(", ")}); trait triangles: ${per.join(", ")} (${all} in all); s'mores stick 8 + marshmallow 12`); }
     buildGuests();   // the cozy places for a nap away from home
     wild.push(...sloths.filter((s) => s.wild));
     restore();       // who was asleep, and who was napping where (the camp's save)
