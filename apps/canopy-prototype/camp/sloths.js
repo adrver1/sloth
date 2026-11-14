@@ -72,6 +72,7 @@ if (OPT.campsloths) {
   findSeats(); watchFood(); addHooks();
 }
 addLabButton();   // the move lab's button in the ⚙️ menu, and ?lab (labButton.js): here, where it has always been added
+// COUNT and flowerCrown: input.js imports both but uses neither (its own chain removes the import, then these two can go)
 const COUNT = sloths.length;
 
 function flowerCrown(s) {
