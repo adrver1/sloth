@@ -15,10 +15,13 @@ import { burst, fx, sprite } from "./fx.js";
 import { createNav } from "./nav.js";
 import { addLabButton } from "./labButton.js";
 import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "./swing.js";
-import { SL, camp, hit, sloths } from "./sloth/state.js";
+import { CRAWL, GROUND, HW, HW_POST, MAX_OUT, SL, WALK_TS, camp, hit, sloths } from "./sloth/state.js";
 import { hang, warmStep } from "./sloth/body.js";
 import { mouthOf } from "./sloth/face.js";
 import { slothsStep } from "./sloth/life.js";
+import { canStretch, clipOf, dozeClip, homeClip, play, playOnce } from "./sloth/clips.js";
+import { HAMMOCK_IN, ROPE_L, UP, barkProfile, branchBase, climbYaw, linePose, postPose, ropePose, trunkAt, trunkR0, turnTo, underAt, yawOf, yawQ } from "./sloth/poses.js";
+import { climbV, glide, glideStep, move, moveStep, slide, slideStep, toGround } from "./sloth/moves.js";
 import { addCrowd, addMover, claim, holder, host, hosted, join, movers, release, taken, walkers } from "./places.js";
 
 const treeOf = (c) => HERO.reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
@@ -50,19 +53,18 @@ for (const tree of HERO) {
 // ?campsloths=0 turns the spots off; window.__campFast speeds the trips up for checks.
 let hammockSway = null, campStep = () => {}, hammockStep = () => {}, labApi;   // labApi: what the move lab drives (lab.js); undefined with ?campsloths=0
 if (OPT.campsloths) {
-  const { a: hA, b: hB, mid: hm } = HAMMOCK, hd = hB.clone().sub(hA);   // the hammock's posts and its middle (layout.js)
-  const clipOf = (n) => SLOTH.animations.find((a) => a.name === n);
+  const hA = HAMMOCK.a;   // the hammock's first post (layout.js)
   function shutEyes(o) {                              // asleep: the eyes (and their glints on the fur) take the dark patch colour round them
     const s = sloths.find((q) => q.o === o); if (!s) return;
     s.asleep = true; s.eyes(true);
   }
 
+  const q0 = new THREE.Quaternion(), tmp = V(), ray = new THREE.Raycaster(), inward = HAMMOCK_IN;
   // the hammock (swing.js): the sling swings about the line between the rope knots, and the napper lies in the group
   // that swings with it
   const PIV = HAMMOCK_PIVOT;
   hammockSway = makeHammockSwing(); hammockSway.zz = null;   // zz: the napper's three z's (campStep)
   const swing = hammockSway.swing;
-  const inward = V(-hd.z, 0, hd.x).normalize(); if (inward.dot(hm) > 0) inward.negate();   // from the hammock toward the fire
   // the log seat right of the gap, facing the fire and the kettle
   const sa = SEATS[0].angle, at = V(SEATS[0].at.x, 0.33, SEATS[0].at.z).addScaledVector(V(-Math.sin(sa), 0, Math.cos(sa)), -0.12);   // on the log's top, 12 cm along it
   const seat = new THREE.Group(); seat.position.copy(at); seat.rotation.y = Math.atan2(at.x, at.z); scene.add(seat);
@@ -107,28 +109,6 @@ if (OPT.campsloths) {
     spots.push({ name: "tent", parent: tg, at: V(0, 0.04, 0.9), yaw: Math.PI, clip: "peek", scale: 1.9, noHop: true, ignore: 2.2,
       via: tg.localToWorld(V(0, 0, 1.7)).setY(0), door: tg.localToWorld(V(0, 0, 0.3)).setY(0) });
   }
-  // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths.
-  // Their sloths climb down the trunk and back up it (climbDown, climbUp below). Trunk radius after forest.js (1.05 at the
-  // foot to 0.6 at 15 m, with the root flare).
-  const trunkR0 = (y) => (1.05 - 0.03 * y) * (1.1 + 0.7 * Math.exp(-1.5 * y));
-  // the bark's real distance from the tree's centre on one side, measured once per climb by casting rays at the tree's wood
-  // every 20 cm up (the trunk wobbles and flares, so a formula leaves the sloth floating in front of it)
-  const ray = new THREE.Raycaster();
-  let woodMesh = null;
-  function barkProfile(tree, out, yTop) {
-    woodMesh ??= scene.children.filter((m) => m.isMesh && !m.isInstancedMesh && !m.isSkinnedMesh && !m.material.transparent && m.geometry.attributes.position.count > 2000);   // trunks, branches and other big solid meshes
-    const ys = [], rs = [];
-    for (let y = 0; y <= yTop + 0.4; y += 0.2) {   // (the first ray at 0.1 up, clear of the floor)
-      let r = trunkR0(y);
-      if (woodMesh) { ray.set(tree.clone().addScaledVector(out, 5).setY(Math.max(0.1, y)), out.clone().negate()); ray.far = 5; const h = ray.intersectObjects(woodMesh, false)[0]; if (h) r = 5 - h.distance; }
-      ys.push(y); rs.push(r);
-    }
-    return (y) => { const k = Math.max(0, Math.min(ys.length - 1.001, y / 0.2)), i = Math.floor(k); return rs[i] + (rs[i + 1] - rs[i]) * (k - i); };
-  }
-  function branchBase(c, tree) {                      // the first point along the branch clear of the bark
-    for (let t = 0; t <= 1; t += 0.02) { const p = c.getPointAt(t); if (Math.hypot(p.x - tree.x, p.z - tree.z) > trunkR0(p.y) + 0.25) return t; }
-    return 0.3;
-  }
   const tips = [];
   for (const c of branchCurves.filter((c) => c.low)) for (const t of [0.8, 0.9, 1]) { const p = c.getPointAt(t); if (Math.hypot(p.x, p.z) < RC + 0.3) tips.push({ p, tan: c.getTangentAt(t), c, t }); }
   tips.sort((a, b) => Math.hypot(a.p.x, a.p.z) - Math.hypot(b.p.x, b.p.z));
@@ -139,52 +119,6 @@ if (OPT.campsloths) {
     const tree = treeOf(tip.c), t0 = branchBase(tip.c, tree), out = tip.c.getPointAt(t0).sub(tree).setY(0).normalize();
     spots.push({ name: "branch", branch: true, top: tip.p.clone(), tan, curve: tip.c, t: tip.t, t0, tree, out, parent: scene, clip: "cling", scale: SL,
       door: tree.clone().addScaledVector(out, trunkR0(0) + 0.35), ignore: 2.2 });
-  }
-  const UP = V(0, 1, 0), q0 = new THREE.Quaternion(), tmp = V();
-  // the hammock route, in the swing's frame (x along the span, the knots on the pivot line): up the -x post to its rope knot
-  // (x -1.43, y 0), then hand over hand down the rope to the sling's end (x -1.03, y -0.40), hanging back-down under it
-  // as on a branch (hang_walk), then onto the sling. hang_walk keeps its paws on a line 0.10 (x scale) over its belly,
-  // spanning 0..0.20 toward its head, so the same clip climbs the post when the sloth is upright facing it.
-  const KNOT = V(-1.43, 0, 0), ROPE_END = V(-1.03, -0.40, 0), ROPE = ROPE_END.clone().sub(KNOT), ROPE_L = ROPE.length(); ROPE.normalize();
-  const climbYaw = Math.atan2(inward.x, inward.z), m4 = new THREE.Matrix4();
-  function ropePose(s, u) {                           // the sloth hanging under the rope, its grip centre u metres down from the knot
-    const yl = ROPE.clone().setY(ROPE.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-    m4.makeBasis(xl, yl, zl);
-    return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: KNOT.clone().addScaledVector(ROPE, u).sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
-  }
-  function linePose(s, t) {                           // hanging back-down under the laundry line at fraction t from a, its head toward b
-    const L = LL.a.distanceTo(LL.b), y = (k) => LL.a.y - LL.sag * 4 * k * (1 - k);
-    const at = LL.a.clone().addScaledVector(LL.dir, L * t).setY(y(t)), tan = LL.dir.clone().setY((y(t + 0.01) - y(t)) / (0.01 * L)).normalize();
-    const yl = tan.clone().setY(tan.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-    m4.makeBasis(xl, yl, zl);
-    return { at, q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
-  }
-  const ONCE = new Set(["stretch", "eat", "eat_high"]);   // played once, then s.once() (see campStep)
-  function play(s, name, fade, timeScale = 1, at = 0) {
-    const next = s.mixer.clipAction(clipOf(name)), once = ONCE.has(name); s.once = null;
-    if (once) { next.setLoop(THREE.LoopOnce, 1); next.clampWhenFinished = true; }
-    if (s.act === next && !once) { next.timeScale = timeScale; return; }
-    next.reset(); next.time = at; next.timeScale = timeScale; next.play();
-    if (s.act && s.act !== next) s.act.crossFadeTo(next, fade, false);
-    s.act = next;
-  }
-  function playOnce(s, name, fade, then, at = 0) { play(s, name, fade, 1, at); s.once = then; }
-  // poses for climbing: hanging back-down under a branch or pole at `at`, head toward `head` (as hang() places them), and
-  // upright on a trunk at height y, facing the bark on the side `out` points to
-  function underAt(s, at, head) {
-    const yl = head.clone().setY(head.y * 0.5).normalize(), zl = V(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = V().crossVectors(yl, zl);
-    m4.makeBasis(xl, yl, zl);
-    return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
-  }
-  const trunkAt = (s, tree, out, y, R) => ({ p: tree.clone().addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y), q: new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(out.x, out.z)) });
-  const climbV = (s) => 0.015 * HW * s.sc;              // m/s, with hang_walk at HW so the paws keep pace
-  // two generic moves: slide (a parameter u runs to `to` at `speed` per second, posed by pose(u)) and glide (ease from where
-  // it is to a pose over dur seconds); each calls next() when done
-  function slide(s, from, to, speed, pose, next) { s.trip.phase = "slide"; s.trip.sl = { u: from, to, speed, pose, next }; }
-  function glide(s, to, dur, next) { const T = s.trip; T.phase = "glide"; T.t = 0; T.gl = { fp: s.o.position.clone(), fq: s.o.quaternion.clone(), to, dur, next }; }
-  function toGround(s, at, yaw, then) {               // step off onto the ground at `at`, belly down, facing yaw
-    play(s, "walk", 2, 1);
-    glide(s, { p: at.clone().setY(0), q: new THREE.Quaternion().setFromAxisAngle(UP, yaw) }, 2.5, () => { s.trip.yaw = yaw; then(); });
   }
   // climbing (Adriaen 2026-11-12: "climb down the tree rather than a vine"): a branch sloth turns round on its branch, goes
   // hand over hand along it to the trunk, turns onto the trunk and climbs down it tail first, facing the bark, then steps
@@ -216,8 +150,6 @@ if (OPT.campsloths) {
   // then leaves its spot (no more than MAX_OUT at once), crawls to the snack table or the kitchen crate, sits and eats its
   // favourite there, sometimes wanders off for a sit and a look round, then goes home the way it first came. Two that meet
   // stop, sit up, face each other and say hello. Crawling and climbing are 1.4x what they were (Adriaen: "sliiightly faster").
-  const SPEED = 1.4, CRAWL = 0.027 * 2.2 * SPEED, WALK_TS = 2.2 * SPEED, HW = 3.75 * SPEED, HW_POST = 2.5 * SPEED, MAX_OUT = 3;
-  const GROUND = new Set(["walk", "greet", "eat", "rest"]);
   let POIS = null;
   // who is where (places.js): a place is claimed by whoever uses it, and anyone walking about is a mover. `life` is what
   // the camp's other characters and the player's modules get of it and of the sloths (window.__campLife).
@@ -277,7 +209,6 @@ if (OPT.campsloths) {
     m.rotation.set(0, R(0, 6.3), 0.3); m.visible = true; if (!m.parent) scene.add(m); return m;
   }
   const restOn = (F) => F.mesh.position.copy(F.at).setY(F.at.y + F.mesh.userData.base.y / 2);   // lying on the surface at F.at
-  const yawQ = (yaw) => new THREE.Quaternion().setFromAxisAngle(UP, yaw);
   function sitFor(slot, sc) {                          // where it sits so that its paw meets the fruit (scale sc)
     return slot.food.at.clone().sub(GRAB[slot.clip].clone().multiplyScalar(sc).applyQuaternion(yawQ(slot.yaw))).setY(slot.h);
   }
@@ -325,9 +256,6 @@ if (OPT.campsloths) {
     for (let k = 0; k < 60; k++) { const a = R(0, 2 * Math.PI), r = R(2.6, RC - 2), p = V(Math.cos(a) * r, 0, Math.sin(a) * r); if (isFree(p) && camp.every((o) => o.o.position.distanceTo(p) > 1.2)) return p; }
     return V(3, 0, -2);
   }
-  const yawOf = (o) => { const f = V(0, 0, -1).applyQuaternion(o.getWorldQuaternion(qWorld)); return Math.atan2(-f.x, -f.z); };
-  const qWorld = new THREE.Quaternion();
-  const turnTo = (T, want, k) => { let d = want - T.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; T.yaw += d * Math.min(1, k); return Math.abs(d); };
   function atHome(s, first) {
     if (s.spot.guest) { s.trip.phase = "home"; s.spot.home = true; s.errand = 1e9; doze(s, R(60, 120)); s.dozeIn = 1.2; if (s.spot.car) setTimeout(() => jeepApi?.close("P"), 1500); return; }   // a nap trip: straight to sleep
     s.trip.phase = "home"; s.spot.home = true; life.claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") life.claim("log:0", s);   // e.g. "seat:Sunny", "jeep:Mango"
@@ -348,7 +276,6 @@ if (OPT.campsloths) {
     atHome(s, true);
   }
   // leaving home: back out of its spot the way it came in, onto the ground, then off on its errand
-  const postPose = (spot, y) => ({ p: spot.door.clone().setY(y), q: new THREE.Quaternion().setFromAxisAngle(UP, spot.climbYaw ?? climbYaw) });
   function downPost(s, spot, top, then) {             // from the top of a post, tail first down to the ground
     play(s, "hang_walk", 1.5, -HW_POST);
     glide(s, postPose(spot, top), 3, () => slide(s, top, 0, 0.015 * HW_POST * s.sc, (y) => postPose(spot, y),
@@ -434,7 +361,7 @@ if (OPT.campsloths) {
     if (T.st === "turn") {
       turnTo(T, back, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
       if (!J.isOpen("H")) J.open("H"); else if (T.t > 2.5) { T.yaw = back; play(s, "hang_walk", 1, 2); move(s, T, T.sit, 4, 0.15, -0.5, () => { T.st = "reach"; T.t = 0; play(s, "eat", 0.8); }); }
-    } else if (T.st === "move") eatStep(s, T, sd);
+    } else if (T.st === "move") moveStep(s, T);
     else if (T.st === "reach") { if (s.act.time > 1.5) { T.st = "work"; T.t = 0; s.act.paused = true; } }
     else if (T.st === "work") {                      // the paw dips and turns at the engine, now and then a look at its work
       s.act.time = 1.85 + 0.28 * Math.sin(T.t * 3.2) * (0.6 + 0.4 * Math.sin(T.t * 0.7));
@@ -446,8 +373,6 @@ if (OPT.campsloths) {
     }
   }
   function startEat(s, slot) { Object.assign(s.trip, { phase: "eat", st: "turn", t: 0, slot, cards: false }); play(s, "idle", 1); }
-  // a move inside the eat phase: from where it is to `to` over dur s, lifted by `lift` in the middle, tipped back by `tip`
-  function move(s, T, to, dur, lift, tip, then) { T.mv = { fp: s.o.position.clone(), to, dur, lift, tip, then }; T.st = "move"; T.t = 0; }
   function eatStep(s, T, sd) {
     const slot = T.slot, F = slot?.food;
     if (T.st === "turn") {                           // face the fruit, then up onto the table or up against the crate
@@ -457,12 +382,8 @@ if (OPT.campsloths) {
         else { play(s, "walk", 1, WALK_TS); move(s, T, sit, 1.6, 0, 0, () => chew(s, T)); }
       }
       s.o.quaternion.setFromAxisAngle(UP, T.yaw);
-    } else if (T.st === "move") {
-      const M = T.mv, k = Math.min(1, T.t / M.dur), e = k * k * (3 - 2 * k);
-      s.o.position.lerpVectors(M.fp, M.to, e); s.o.position.y += Math.sin(Math.PI * k) * M.lift;
-      s.o.quaternion.setFromAxisAngle(UP, T.yaw).multiply(q0.setFromAxisAngle(V(1, 0, 0), M.tip * Math.sin(Math.PI * k)));
-      if (k >= 1) M.then();
-    } else if (T.st === "cards") cardsStep(s, T, sd);
+    } else if (T.st === "move") moveStep(s, T);
+    else if (T.st === "cards") cardsStep(s, T, sd);
     else if (T.st === "eat") {
       if (!F.mesh && s.act.time > EAT_GRAB - 0.1) { F.mesh = fruit(); F.mesh.position.copy(pawOf(s, paw)); }   // a bowl: the fruit comes up out of it
       if (F.mesh) chewStep(s, F.mesh, F.from ??= F.at.clone().setY(F.at.y + (F.mesh.userData.base?.y ?? 0) / 2), EAT_GRAB);
@@ -674,9 +595,6 @@ if (OPT.campsloths) {
   // just slow right down; the tent one lays its head down. They wake on their own or when booped or fed; sitting ones
   // then have a big stretch, the others a yawn. The hammock napper (Hibi) naps longest, 1.5 to 3 minutes, with only 10 to 25 s
   // awake between, and yawns and stretches like the rest (Adriaen 2026-11-13). No errands or s'mores while asleep.
-  const homeClip = (s) => s.trip?.phase === "rest" ? ["idle", 1] : !s.spot ? ["cling", 0.6] : [s.spot.clip, s.spot.clip === "cling" ? 0.6 : 1];
-  const dozeClip = (s) => s.spot?.guest || s.spot?.asleep ? [s.spot.clip, s.spot.clip === "nap" ? 1 : 1] : s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
-  const canStretch = (s) => s.trip?.phase === "rest" || (["seat", "jeep", "hammock"].includes(s.spot?.name) && s.spot.clip !== "curl") || (s.spot?.guest && s.spot.name === "tent");   // sitting, or lying where it can sit up (hammock, bed)
   function doze(s, dur = s.spot?.asleep && s.trip?.phase === "home" ? R(90, 180) : R(50, 110)) { s.dozing = true; s.yawn = 1e-3; s.dozeIn = 2.4; s.dozeT = dur; }
   function wake(s, after) {
     s.dozing = false; s.asleep = false; s.eyes(false); s.napT = s.spot?.asleep ? R(10, 25) : R(20, 45);
@@ -848,15 +766,9 @@ if (OPT.campsloths) {
         s.o.position.lerpVectors(T.from, T.to, e); s.o.position.y += Math.sin(Math.PI * k) * 0.1;
         s.o.quaternion.setFromAxisAngle(UP, T.yaw).multiply(q0.setFromAxisAngle(V(1, 0, 0), -0.5 * Math.sin(Math.PI * k)));
         if (k >= 1) settleIn(s, 3);
-      } else if (T.phase === "slide") {              // see slide(): along a branch, a trunk, a post, a rope or the line
-        const L = T.sl, step = L.speed * sd; L.u = Math.abs(L.to - L.u) <= step ? L.to : L.u + Math.sign(L.to - L.u) * step;
-        const P = L.pose(L.u); s.o.position.copy(P.p); s.o.quaternion.copy(P.q);
-        if (L.u === L.to) L.next();
-      } else if (T.phase === "glide") {              // see glide()
-        const G = T.gl, k = Math.min(1, T.t / G.dur), e = k * k * (3 - 2 * k);
-        s.o.position.lerpVectors(G.fp, G.to.p, e); s.o.quaternion.slerpQuaternions(G.fq, G.to.q, e);
-        if (k >= 1) G.next();
-      } else if (T.phase === "climb") {              // up the post hand over hand until its arms reach the rope knot (or the line)
+      } else if (T.phase === "slide") slideStep(s, T, sd);   // along a branch, a trunk, a post, a rope or the line
+      else if (T.phase === "glide") glideStep(s, T);
+      else if (T.phase === "climb") {              // up the post hand over hand until its arms reach the rope knot (or the line)
         if (T.t < sd + 1e-6) play(s, "hang_walk", 1.2, HW_POST);
         turnTo(T, spot.climbYaw ?? climbYaw, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
         const top = spot.top ?? PIV - 0.2 * s.sc;
