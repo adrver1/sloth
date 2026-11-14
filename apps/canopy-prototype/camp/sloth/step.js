@@ -5,12 +5,10 @@
 //   exit      out through the jeep's door (wayOut.js)  door     in through it (wayIn.js)
 //   slide, glide   the two generic moves every other step of the way in and out is made of (moves.js)
 //   held      borrowed (lend.js): nothing here moves it
-//   campStep(dt, seat)   each frame (main.js): seat is the log seat you are on (player.js me.seat) or null. Does nothing
-//                        with ?campsloths=0.
-//   findSeats()          looks up the three log seats (sloths.js, once the props are in)
+//   campStep(dt)         each frame (main.js). Does nothing with ?campsloths=0. (The log seat you sit on is claimed by
+//                        linger.js, so no sloth sits on you.)
 // core.js pace (window.__campFast for the tools) speeds the sloths' day up for checks (the move lab slows and pauses it the same way).
 import { OPT, pace } from "../core.js";
-import { claim, release, seatKey, seatLog } from "../places.js";
 import { SL, camp, wild } from "./state.js";
 import { glideStep, slideStep } from "./moves.js";
 import { brush } from "./spots.js";
@@ -30,22 +28,10 @@ import { keep } from "./saved.js";
 const PHASE = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, rest: restStep, exit: exitStep, door: doorStep,
   slide: slideStep, glide: glideStep };
 
-// you on a log seat by the fire (linger.js) hold it as "log:<i>" (Seat_<i>), so no one sits on you
-let mySeat = -1, LOGS = [];
-function findSeats() { LOGS = [0, 1, 2].map(seatLog); }
-function seatWatch(st) {                            // st: the seat you are on (player.js me.seat), or null
-  let i = -1;
-  if (st) { let best = 1.2; LOGS.forEach((o, k) => { if (o) { const d = Math.hypot(o.position.x - st.pos.x, o.position.z - st.pos.z); if (d < best) { best = d; i = k; } } }); }
-  if (i === mySeat) return;
-  const key = (k) => seatKey(k, k === 0);   // Sunny's bench: you sit to its left (linger.js), Sunny keeps "log:0"
-  if (mySeat >= 0) release(key(mySeat), "player");
-  if (i >= 0) claim(key(i), "player");
-  mySeat = i;
-}
-function campStep(dt, seat) {
+function campStep(dt) {
   if (!OPT.campsloths) return;
   pois();   // the food places, made once the props are in (table.js)
-  seatWatch(seat); keep();
+  keep();
   const fast = pace.fast || 1, sd = dt * fast;
   let out = camp.filter((s) => s.trip.phase !== "home").length;
   for (const s of camp) {
@@ -67,4 +53,4 @@ function campStep(dt, seat) {
   fruitStep(sd);
 }
 
-export { campStep, findSeats };
+export { campStep };

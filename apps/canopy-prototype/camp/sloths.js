@@ -11,7 +11,7 @@
 // Later steps use what earlier ones made. The modules in camp/sloth/ make nothing at their top level: that goes in a build
 // function called from here.
 // Exports: sloths (every sloth), hit (their tap spheres), and the frame steps main.js calls in this order: slothsStep(dt)
-// (sloth/life.js), campStep(dt, seat) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
+// (sloth/life.js), campStep(dt) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
 import { OPT, rng } from "./core.js";
 const { R } = rng("sloths");
 import { V, tris as triCount } from "./util.js";
@@ -35,7 +35,7 @@ import { buildSpanner } from "./sloth/fix.js";
 import { placeHome } from "./sloth/wayIn.js";
 import { watchFood } from "./sloth/day.js";
 import { restore } from "./sloth/saved.js";
-import { campStep, findSeats } from "./sloth/step.js";
+import { campStep } from "./sloth/step.js";
 import { addHooks } from "./sloth/hooks.js";
 
 function buildSloths() {
@@ -73,7 +73,7 @@ function buildSloths() {
     buildGuests();   // the cozy places for a nap away from home
     wild.push(...sloths.filter((s) => s.wild));
     restore();       // who was asleep, and who was napping where (the camp's save)
-    findSeats(); watchFood(); addHooks();
+    watchFood(); addHooks();
   }
   addLabButton();   // the move lab's button in the ⚙️ menu, and ?lab (labButton.js), once there are sloths to inspect
 }

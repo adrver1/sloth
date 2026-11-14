@@ -80,7 +80,7 @@ renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
   jeepSeatStep(dt); lingerStep(dt); step(dt);
   slothsStep(dt);                                          // sloths.js: every sloth's clip, its life on top of it, the squish of a boop and its nod
-  campStep(dt, me.seat);                                   // sloths.js: the camp sloths' day; no one sits on the seat you are on
+  campStep(dt);                                            // sloths.js: the camp sloths' day (linger.js has claimed the log you sit on)
   labStep(dt);                                             // labButton.js: the move lab, while it is open
   hammockStep(dt);                                         // sloths.js: the hammock's swing and its napper's z's
   opStep(dt);
