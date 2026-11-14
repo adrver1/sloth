@@ -191,7 +191,7 @@ THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
   gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(mistC, 1.0)).rgb, 1.0 - exp(-hfog(uMist, 1.0 / 45.0, uMistTop, cameraPosition, frd, ft)));
   gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(uFogCol, 1.0)).rgb, 1.0 - exp(-uFogDen * ft));
 #endif`;
-function hazed(mat, extra) { mat.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U); extra?.(sh); }; if (extra) mat.customProgramCacheKey = () => extra.toString(); return mat; }
+function hazed(mat, extra, key = '') { mat.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U); extra?.(sh); }; if (extra) mat.customProgramCacheKey = () => extra.toString() + key; return mat; }   // key: tells apart materials whose extra differs only in captured values
 
 function canvasTex(w, h, draw, repeat) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
 const tris = (geo, n = 1) => ((geo.index ? geo.index.count : geo.attributes.position.count) / 3) * n;
@@ -225,7 +225,7 @@ const snowTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fi
 // Far forest: the ground takes the colour the tree cards would give it there. How much of the ground the trees hide depends on
 // how flat you look across it (cotangent of the view angle): looking down from the summit you see snow between the trees, looking
 // across a far slope you see a wall of trees. uTreeCol and uTreeK (cover per unit cotangent) are measured from the card itself.
-const uTreeCol = { value: new THREE.Color('#33463c') }, uTreeK = { value: 0.2 }, uCardR = { value: 1600 }, NEAR = isPhone ? 130 : 170, CARD_R = 1600;
+const uTreeCol = { value: new THREE.Color('#33463c') }, uTreeK = { value: 0.2 }, NEAR = isPhone ? 130 : 170, CARD_R = isPhone ? 1300 : 1600, uCardR = { value: CARD_R };
 const morph = (half) => (sh) => {
   sh.uniforms.uHalf = half; sh.uniforms.uTreeCol = uTreeCol; sh.uniforms.uTreeK = uTreeK; sh.uniforms.uCardR = uCardR;
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float hc; attribute vec3 nc; attribute vec3 cc; attribute float fm; uniform float uHalf, uTreeK, uCardR; varying float vForest;')
@@ -233,13 +233,13 @@ const morph = (half) => (sh) => {
       vColor = vec4(mix(color.rgb, cc, mph), 1.0);
       vec3 vd = cameraPosition - position; float fd = length(vd.xz); vd = normalize(vd);
       float cover = 1.0 - exp(-uTreeK * fm * length(vd.xz) / max(dot(vd, normalize(mix(normal, nc, mph))), 0.04));
-      float keep = clamp(1.15 - fd / uCardR, 0.0, 1.0); vForest = cover * (1.0 - keep * keep);`)   // only where the cards have thinned out (placeThings)
+      vForest = cover * smoothstep(0.8 * uCardR, uCardR, fd);`)   // only where the cards fade out (placeThings)
     .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = normalize(mix(normal, nc, mph));')
     .replace('#include <begin_vertex>', 'vec3 transformed = vec3(position.x, mix(position.y, hc, mph), position.z);');
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uTreeCol; varying float vForest;')
     .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, uTreeCol, vForest);');
 };
-// the forest darkens the far ground only as fast as the tree cards thin out (placeThings), so the forest's overall tone stays the same at every distance
+// every tree is drawn (near model or card) out to 80% of CARD_R; over the last 20% the cards dither out as the painted forest fades in, so the forest's tone stays the same
 // trees per cell × mean size² / 100 at forest density f, matching tile(): old forest is denser and taller
 const treeCover = (f) => Math.min(1, 1.1 * f) * (0.75 + 0.5 * f) ** 2 * (49 + 56 + 64 / 3) / 100;
 const LEVELS = 10, NC = 40, NV = NC + 1, NB = NV + 2, levels = [], terrainMats = [];
@@ -294,7 +294,7 @@ function updateTerrain(px, pz) {   // fine to coarse, since each ring cuts its h
 // down, bright at the tips). Four styles: Norway spruce (most of the forest), Scots pine (orange bark, flat snowy pads on top,
 // more on high ground), bare birch (by the lake and at forest edges) and dead grey snags (more toward the treeline).
 // Trees stand on a jittered 12 m grid, worked out once per 256 m tile and kept. Near you a tree is its full model, further out
-// the same tree is a 2-triangle card painted from that model, and past 1.6 km the forest is the colour painted into the ground.
+// the same tree is a 2-triangle card painted from that model, and from 1.3 to 1.6 km (1 to 1.3 km on phones) the cards dither out into the colour painted into the ground. No tree is ever skipped nearer than that.
 const TCELL = 12, ATLAS = 1024;
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v3 = new THREE.Vector3(), sc = new THREE.Vector3();
 // the atlas: [x, y, w, h] in canvas pixels
@@ -433,13 +433,13 @@ function farForestLook(count) {
   SPECIES.forEach((n, i) => { const w = count[i]; tot += w; const L = CARDS.look[i], fa = w * L.fill; a += fa; r += fa * L.col[0]; g += fa * L.col[1]; b += fa * L.col[2]; });
   if (!tot) return; uTreeCol.value.setRGB(r / a, g / a, b / a);
   // cover per unit cotangent = trees per m² × the card's average filled area (size² × 1.04 × fill); treeCover() holds the rest;
-  // 1.8 for the trees' dark sides, matched by an A/B screenshot of cards vs painted forest
-  uTreeK.value = 1.8 * (1 / (TCELL * TCELL)) * 1.04 * (a / tot) * 100;
+  // 4.5 for the trees' dark sides and overlap, matched by A/B screenshots of cards vs painted forest (porch and a mid slope)
+  uTreeK.value = 4.5 * (1 / (TCELL * TCELL)) * 1.04 * (a / tot) * 100;
 }
 // near trees and far cards overlap for 30 m and swap with a dither (screen-door fade), so no tree pops from one to the other
-const fade = (lo, hi, cardSide) => (sh) => {
+const fade = (lo, hi, cardSide, outLo = 0, outHi = 0) => (sh) => {
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vFade;')
-    .replace('#include <begin_vertex>', `#include <begin_vertex>\nvec3 ip = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vFade = smoothstep(${lo.toFixed(1)}, ${hi.toFixed(1)}, length(ip.xz - cameraPosition.xz));${cardSide ? '' : ' vFade = 1.0 - vFade;'}`);
+    .replace('#include <begin_vertex>', `#include <begin_vertex>\nvec3 ip = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vFade = smoothstep(${lo.toFixed(1)}, ${hi.toFixed(1)}, length(ip.xz - cameraPosition.xz));${cardSide ? '' : ' vFade = 1.0 - vFade;'}${outHi ? ` vFade *= 1.0 - smoothstep(${outLo.toFixed(1)}, ${outHi.toFixed(1)}, length(ip.xz - cameraPosition.xz));` : ''}`);
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vFade;')
     .replace('#include <clipping_planes_fragment>', 'if (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) > vFade) discard;\n#include <clipping_planes_fragment>');
 };
@@ -458,14 +458,14 @@ const rockGeo = (() => { const g = new THREE.IcosahedronGeometry(1, 0), p = g.at
   for (let i = 0; i < p.count; i++) { const top = p.getY(i) > 0.35; tmpC.set(top ? '#eef3f8' : '#5a5f66'); C.push(tmpC.r, tmpC.g, tmpC.b); }
   g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return g; })();
 const ROCK_R = 700, LOG_R = 300, TILE = 256, SAPLING_R = 90;
-const NEAR_MAX = isPhone ? [900, 300, 300, 150] : [1500, 500, 500, 250], CARD_MAX = isPhone ? 12000 : 20000, ROCK_MAX = 700, LOG_MAX = 400, SAPLING_MAX = isPhone ? 500 : 900;
-const treeMat = (lo, hi) => hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: treeTex, alphaTest: 0.5, side: THREE.DoubleSide }), (sh) => { fade(lo, hi, false)(sh); underside(sh); keepAlpha(ATLAS, ATLAS)(sh); });
+const NEAR_MAX = isPhone ? [900, 300, 300, 150] : [1500, 500, 500, 250], CARD_MAX = isPhone ? 30000 : 50000, ROCK_MAX = 700, LOG_MAX = 400, SAPLING_MAX = isPhone ? 500 : 900;
+const treeMat = (lo, hi) => hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: treeTex, alphaTest: 0.5, side: THREE.DoubleSide }), (sh) => { fade(lo, hi, false)(sh); underside(sh); keepAlpha(ATLAS, ATLAS)(sh); }, `tree${lo}`);
 const nearMat = treeMat(NEAR - 30, NEAR), near = SPECIES.map((n, i) => new THREE.InstancedMesh(TREES[n], nearMat, NEAR_MAX[i]));
 const saplings = new THREE.InstancedMesh(TREES.spruce, treeMat(SAPLING_R - 25, SAPLING_R), SAPLING_MAX);   // small spruces in the snow, near you only
-const cards = new THREE.InstancedMesh(cardGeo, hazed(new THREE.MeshLambertMaterial({ map: CARDS.tex, alphaTest: 0.5, side: THREE.DoubleSide }), (sh) => { fade(NEAR - 30, NEAR, true)(sh); billboard(sh); keepAlpha(256 * SPECIES.length, 256)(sh); }), CARD_MAX);
+const cards = new THREE.InstancedMesh(cardGeo, hazed(new THREE.MeshLambertMaterial({ map: CARDS.tex, alphaTest: 0.5, side: THREE.DoubleSide }), (sh) => { fade(NEAR - 30, NEAR, true, 0.8 * CARD_R, CARD_R)(sh); billboard(sh); keepAlpha(256 * SPECIES.length, 256)(sh); }), CARD_MAX);
 const cardSp = new THREE.InstancedBufferAttribute(new Float32Array(CARD_MAX), 1); cardGeo.setAttribute('aSp', cardSp);
-const rocks = new THREE.InstancedMesh(rockGeo, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), ROCK_MAX);
-const logs = new THREE.InstancedMesh(logGeo, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), LOG_MAX);
+const rocks = new THREE.InstancedMesh(rockGeo, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), fade(ROCK_R - 120, ROCK_R - 20, false), 'rocks'), ROCK_MAX);
+const logs = new THREE.InstancedMesh(logGeo, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), fade(LOG_R - 80, LOG_R - 10, false), 'logs'), LOG_MAX);
 const ALL = [...near, saplings, cards, rocks, logs];
 for (const m of ALL) { m.frustumCulled = false; m.count = 0; scene.add(m); }
 for (const m of [...near, saplings, rocks, logs]) { m.castShadow = m.receiveShadow = true; }
@@ -507,7 +507,7 @@ function placeThings(px, pz) {
   const put = (mesh, n, x, y, z, s, turn, flat) => { q.setFromAxisAngle(up, turn); m4.compose(v3.set(x, y, z), q, flat ? sc.set(s * 1.3, s * 0.7, s) : sc.set(s, s, s)); mesh.setMatrixAt(n, m4); };
   const tree = (x, y, z, s, turn, thin, sp) => { const d2 = (x - px) ** 2 + (z - pz) ** 2; seen[sp] += s * s;
     if (d2 < NEAR * NEAR && nn[sp] < NEAR_MAX[sp]) put(near[sp], nn[sp]++, x, y, z, s, turn);
-    if (d2 > (NEAR - 30) ** 2 && d2 < CARD_R * CARD_R && nc < CARD_MAX && thin < Math.min(1, 1.15 - Math.sqrt(d2) / CARD_R) ** 2) { m4.compose(v3.set(x, y - 0.2, z), q.identity(), sc.set(s, s, s)); cards.setMatrixAt(nc, m4); cardSp.array[nc++] = sp; } };
+    if (d2 > (NEAR - 30) ** 2 && d2 < CARD_R * CARD_R && nc < CARD_MAX) { m4.compose(v3.set(x, y - 0.2, z), q.identity(), sc.set(s, s, s)); cards.setMatrixAt(nc, m4); cardSp.array[nc++] = sp; } };
   for (let i = 0; i < SUMMIT_TREES.length; i += 7) tree(...SUMMIT_TREES.slice(i, i + 7));
   const t0 = Math.floor((px - CARD_R) / TILE), t1 = Math.floor((px + CARD_R) / TILE), u0 = Math.floor((pz - CARD_R) / TILE), u1 = Math.floor((pz + CARD_R) / TILE);
   const order = [];
@@ -732,7 +732,7 @@ $('wire').onchange = (e) => { for (const m of terrainMats) m.wireframe = e.targe
 const fmt = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
 $('hour').oninput = () => { $('hourOut').textContent = fmt(+$('hour').value); };
 function showTris() {
-  const rows = [['Terrain rings (10, round you)', levels.reduce((n, l) => n + l.tris, 0)], ...SPECIES.map((n, i) => [`${n[0].toUpperCase() + n.slice(1)} near (${near[i].count} × ${tris(TREES[n])})`, near[i].count * tris(TREES[n])]), [`Young spruces (${saplings.count} × ${tris(TREES.spruce)})`, saplings.count * tris(TREES.spruce)], [`Tree cards to 1.6 km (${cards.count} × 2)`, cards.count * 2], [`Rocks (${rocks.count} × 20)`, rocks.count * 20], [`Fallen logs (${logs.count} × ${tris(logGeo)})`, logs.count * tris(logGeo)], ...TRIS];
+  const rows = [['Terrain rings (10, round you)', levels.reduce((n, l) => n + l.tris, 0)], ...SPECIES.map((n, i) => [`${n[0].toUpperCase() + n.slice(1)} near (${near[i].count} × ${tris(TREES[n])})`, near[i].count * tris(TREES[n])]), [`Young spruces (${saplings.count} × ${tris(TREES.spruce)})`, saplings.count * tris(TREES.spruce)], [`Tree cards (${cards.count} × 2)`, cards.count * 2], [`Rocks (${rocks.count} × 20)`, rocks.count * 20], [`Fallen logs (${logs.count} × ${tris(logGeo)})`, logs.count * tris(logGeo)], ...TRIS];
   $('tris').innerHTML = rows.map(([n, t]) => `<tr><td>${n}</td><td>${Math.round(t).toLocaleString('en')}</td></tr>`).join('') + `<tr><td><b>Total</b></td><td><b>${Math.round(rows.reduce((s, [, t]) => s + t, 0)).toLocaleString('en')}</b></td></tr>`;
   return rows;
 }
