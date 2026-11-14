@@ -30,7 +30,10 @@ function serve(root, port, transform) {
 }
 
 async function launch({ width = 480, height = 300, touch = false } = {}) {
-  const args = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+  // CAMP_GPU=1 uses the machine's real GPU (ANGLE on D3D11 on Windows): much faster on a desktop with a graphics card. Pixels can
+  // differ a little from SwiftShader's, so compare runs made the same way.
+  const args = process.env.CAMP_GPU ? ['--ignore-gpu-blocklist', ...(process.platform === 'win32' ? ['--use-angle=d3d11'] : [])]
+    : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
   const browser = await chromium.launch({ args }).catch(() => chromium.launch({ args, executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' }));
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, ...(touch ? { hasTouch: true, isMobile: true } : {}) });
   return { browser, page };
