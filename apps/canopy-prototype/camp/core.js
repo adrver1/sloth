@@ -143,20 +143,28 @@ const uTime = { value: 0 };
 // the camp's pace: fast runs the sloths' day and the jeep seats that many times as fast (unset: 1). The move lab (lab.js) sets it,
 // and the tools through window.__campFast (debug.js)
 const pace = { fast: undefined };
-const leafMat = (opts, sway) => {
+// leafMat(opts, sway, clumpLit): a Lambert leaf material that sways in the wind. With clumpLit, each card is lit by its own
+// per-instance normal (the aLeafN attribute: forest.js clumpN, pointing out of the card's clump and a little up) on both sides,
+// so a clump shades light on top and dark underneath like one mass; lit by their own random card normals, many leaves rendered
+// near-black (review R2-175). Every mesh drawn with a clumpLit material must carry aLeafN (forest.js withLeafN).
+const leafMat = (opts, sway, clumpLit = false) => {
   const m = new THREE.MeshLambertMaterial(opts);
+  if (clumpLit) m.defines = { LEAF_N: "" };
   // The sway is a uniform, not a number in the shader text: the hook's source is the same for every sway, so three gives
-  // every leaf material one program, and each material keeps its own amount (review props-12).
+  // every leaf material one program, and each material keeps its own amount (review props-12). LEAF_N is a define, so it
+  // keys the program too.
   const uSway = { value: sway };
   if (sway) m.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = uTime; sh.uniforms.uSway = uSway;
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;")
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;\n#ifdef LEAF_N\nattribute vec3 aLeafN;\n#endif")
+      .replace("#include <defaultnormal_vertex>", "#include <defaultnormal_vertex>\n#ifdef LEAF_N\ntransformedNormal = normalMatrix * aLeafN;\n#endif")
       .replace("#include <begin_vertex>", `#include <begin_vertex>
         #ifdef USE_INSTANCING
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.4 + ip.x * 1.7 + ip.z * 1.3) + 0.5 * sin(uTime * 2.3 + ip.y * 2.1);
         transformed += vec3(1.0, 0.4, 0.6) * (w * uSway) * (0.5 + position.y);
         #endif`);
+    sh.fragmentShader = sh.fragmentShader.replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\n#ifdef LEAF_N\nnormal = normalize(vNormal);\n#endif");   // the same normal on both sides
   };
   return m;
 };

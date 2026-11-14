@@ -1,8 +1,9 @@
 // Canopy Camp forest: bark with baked AO and moss, the clearing floor with the path and track ribbons (the layout itself is layout.js),
 // the two big mossy trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants.
 // Exports buildForest() (main.js, once), FLOOR_OVERLAYS, branchCurves (the big trees' low branches), grassTex (the clearing's
-// grass tile, for ground.js), track and trackDist, and leafGeo, leafM, leafScale, perClump and cards(n) (the leaf card,
-// its material, its size range, how many leaves a clump draws from its stream and how many of n become cards) for glade.js's bushes.
+// grass tile, for ground.js), track and trackDist, and leafGeo, leafM, leafScale, perClump, cards(n), clumpN and withLeafN (the
+// leaf card, its material, its size range, how many leaves a clump draws from its stream, how many of n become cards, a leaf's
+// light normal and the card geometry that carries them) for glade.js's bushes.
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import { D, hex, JEEP, leafMat, OPT, rng, S, scene } from "./core.js";
@@ -243,9 +244,20 @@ function wallTrunk() {
 // where the camera nearly always is, so near leaves write depth first and hide the alpha-tested ones behind them (R2-162).
 // A card scaled to nothing (kept off the track and the path) is simply not added.
 const EYE = 5;   // metres: below it the eye-height edge, above it the canopy and the crowns
+// a card set: n, when given, is the card's light normal (clumpN), for the leaf cards' clumpLit material (core.js leafMat)
 function cardSet() {
-  const mats = [], cols = [];
-  return { mats, cols, add(m, c) { m.toArray(mats, mats.length); cols.push(c.r, c.g, c.b); } };
+  const mats = [], cols = [], nrm = [];
+  return { mats, cols, nrm, add(m, c, n) { m.toArray(mats, mats.length); cols.push(c.r, c.g, c.b); if (n) nrm.push(n.x, n.y, n.z); } };
+}
+// A leaf's light normal (review R2-175): out from its clump's centre (u is the leaf's offset from it), blended 70/30 with up
+const UP = V(0, 1, 0);
+const clumpN = (u, out = V()) => out.copy(u).normalize().multiplyScalar(0.7).addScaledVector(UP, 0.3).normalize();
+// geo for one instanced mesh with its cards' light normals (nrm: 3 numbers per instance): the card's own buffers are shared
+function withLeafN(geo, nrm) {
+  const g = new THREE.BufferGeometry(); g.setIndex(geo.index); for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]);
+  if (!geo.boundingSphere) geo.computeBoundingSphere(); g.boundingSphere = geo.boundingSphere;
+  g.setAttribute("aLeafN", new THREE.InstancedBufferAttribute(nrm instanceof Float32Array ? nrm : new Float32Array(nrm), 3));
+  return g;
 }
 function addSectors(set, geo, mat, { wedges = 8, split = false } = {}) {
   const M = set.mats, groups = new Map();
@@ -258,7 +270,9 @@ function addSectors(set, geo, mat, { wedges = 8, split = false } = {}) {
   const geoR = geo.boundingSphere.center.length() + geo.boundingSphere.radius;   // the card's reach from its own origin
   for (const g of groups.values()) {
     g.sort((a, b) => a[0] - b[0]);
-    const s = new THREE.InstancedMesh(geo, mat, g.length), A = s.instanceMatrix.array;
+    const N = set.nrm.length ? new Float32Array(g.length * 3) : null;
+    if (N) g.forEach(([, i], j) => N.set(set.nrm.slice(i * 3, i * 3 + 3), j * 3));
+    const s = new THREE.InstancedMesh(N ? withLeafN(geo, N) : geo, mat, g.length), A = s.instanceMatrix.array;
     g.forEach(([, i], j) => { for (let k = 0; k < 16; k++) A[j * 16 + k] = M[i * 16 + k]; s.setColorAt(j, c.fromArray(set.cols, i * 3)); });
     // a tight sphere: round the middle of the cards' box, out to the farthest card's corner (three's own sphere is a running
     // union that depends on the order and comes out larger than this)
@@ -294,7 +308,7 @@ function leafCard() {
         g.restore();
       }
     });
-    leafGeo = new THREE.PlaneGeometry(1, 1); leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04); perClump = Math.round(24 * D.leaves); leafScale = [0.8 * 1.35, 1.25 * 1.35];
+    leafGeo = new THREE.PlaneGeometry(1, 1); leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04, true); perClump = Math.round(24 * D.leaves); leafScale = [0.8 * 1.35, 1.25 * 1.35];
   }
 }
 
@@ -306,9 +320,9 @@ function wallLeaves(wall) {
   for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = RC + R(0.3, 2.2), x = Math.cos(a) * r, z = Math.sin(a) * r, y = R(0.4, 2.8); clumps.push([x, y + groundHeight(x, z), z, R(0.7, 1.2)]); }   // a thick leafy edge at eye height all round the clearing
   const leaves = cardSet();
   {
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(), n = V(); let i = 0;
     const clump = cardSet(), keep = cards(perClump);
-    for (const [x, y, z, r] of clumps) { clump.mats.length = clump.cols.length = 0; let cut = false; for (let k = 0; k < perClump; k++) {
+    for (const [x, y, z, r] of clumps) { clump.mats.length = clump.cols.length = clump.nrm.length = 0; let cut = false; for (let k = 0; k < perClump; k++) {
       const tight = y > 4 ? 0.6 : 1;                  // up in the crowns: leaves packed close and bigger, so they overlap into a mass
       const u = V(R(-1, 1), R(-0.5, 0.8) * (tight < 1 ? 0.7 : 1), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()) * tight);
       e.set(R(0, 6.28), R(0, 6.28), R(0, 6.28)); q.setFromEuler(e);
@@ -316,10 +330,10 @@ function wallLeaves(wall) {
       const k0 = y + u.y < 4.5 && Math.min(jeepDist(x + u.x, z + u.z), pathLane(x + u.x, z + u.z)) < 1.9 ? 0 : s;   // keep the track and the path open at eye height
       if (!k0) cut = true;
       c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
-      if (k < keep) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); clump.add(m, c); }
+      if (k < keep) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); clump.add(m, c, clumpN(u, n)); }
     }
     // a clump the path or track clipped goes as a whole: its last few leaves left alone looked like they floated (Adriaen 2026-11-14)
-    if (!cut) { leaves.mats.push(...clump.mats); leaves.cols.push(...clump.cols); } }
+    if (!cut) { leaves.mats.push(...clump.mats); leaves.cols.push(...clump.cols); leaves.nrm.push(...clump.nrm); } }
   }
   addSectors(leaves, leafGeo, leafM, { split: true });
   return clumps;
@@ -374,7 +388,7 @@ function crowns(wall, clumps) {
       tops.push([x, top + 0.4, z, 1.3 * s, 0, true]);                     // covers the cut top of the trunk (kept on every detail level)
     }
     scene.add(new THREE.Mesh(merge(geos), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-    const per = (f) => Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)), lm = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+    const per = (f) => Math.max(1, Math.round(perClump * (f || 0.5) * 0.6)), lm = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(), n = V(); let i = 0;
     // on low detail the spreading crown leaves past NEAR are left out (they are fog-grey there anyway); the clump that covers
     // each trunk's cut top stays (review R2-162)
     const far = D.leaves < 1;
@@ -383,7 +397,7 @@ function crowns(wall, clumps) {
       e.set(Q(0, 6.28), Q(0, 6.28), Q(0, 6.28)); q.setFromEuler(e);
       const sc = Q(leafScale[0], leafScale[1]) * 1.5 * Math.pow(D.leaves, -0.33);
       m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
-      if (k < cards(per(f)) && (!far || cover || Math.hypot(x, z) <= NEAR)) lm.add(m, c);
+      if (k < cards(per(f)) && (!far || cover || Math.hypot(x, z) <= NEAR)) lm.add(m, c, clumpN(u, n));
     }
     addSectors(lm, leafGeo, leafM);
   }
@@ -401,13 +415,13 @@ function verge() {
       for (const k of [-1, 1]) vc.push([p.x + side.x * k * Q2(2.2, 3.2), Q2(0.5, 2.6), p.z + side.z * k * Q2(2.2, 3.2), Q2(0.7, 1.2)]);
     }
     for (const v of vc) v[1] += groundHeight(v[0], v[2]);   // on the banks beside the track
-    const vm = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+    const vm = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(), n = V(); let i = 0;
     for (const [x, y, z, r] of vc) for (let k = 0; k < perClump; k++) {
       const u = V(Q2(-1, 1), Q2(-0.5, 0.8), Q2(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q2(0, 1)));
       e.set(Q2(0, 6.28), Q2(0, 6.28), Q2(0, 6.28)); q.setFromEuler(e);
       const sc = Q2(leafScale[0], leafScale[1]) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.6 ? 0 : 1);
       c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
-      if (sc && k < cards(perClump)) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.add(m, c); }
+      if (sc && k < cards(perClump)) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.add(m, c, clumpN(u, n)); }
     }
     addSectors(vm, leafGeo, leafM);
   }
@@ -437,4 +451,4 @@ function ferns() {
   }
 }
 
-export { buildForest, FLOOR_OVERLAYS, branchCurves, cards, grassTex, leafGeo, leafM, leafScale, perClump, track, trackDist };
+export { buildForest, FLOOR_OVERLAYS, branchCurves, cards, clumpN, grassTex, leafGeo, leafM, leafScale, perClump, track, trackDist, withLeafN };
