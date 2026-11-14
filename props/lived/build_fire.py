@@ -244,6 +244,12 @@ def lathe(profile, segs, m, z0=0.0):
     es = [bm.edges.new((vs[i], vs[i + 1])) for i in range(len(vs) - 1)]
     bmesh.ops.spin(bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1), angle=2 * math.pi, steps=segs, use_duplicate=False)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
+    # remove_doubles numbers what it keeps by memory address, so sort it by position: the same pot every run, and so the
+    # same light-map UVs (the bake's atlas, review R2-149)
+    pos = lambda v: tuple(round(c, 6) for c in v.co)  # noqa: E731
+    for seq, key in ((bm.verts, pos), (bm.edges, lambda e: sorted(map(pos, e.verts))), (bm.faces, lambda f: sorted(map(pos, f.verts)))):
+        rank = {x: i for i, x in enumerate(sorted(seq, key=key))}
+        seq.sort(key=lambda x: rank[x])
     o = obj_from_bm(bm, "lathe")
     return with_material(o, m)
 

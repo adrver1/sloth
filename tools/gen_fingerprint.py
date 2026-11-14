@@ -186,7 +186,7 @@ class Stop(Exception):
 
 def stabilise():
     """--stable: bmesh.ops.remove_doubles numbers what it keeps by memory address, so the same build can come out
-    renumbered from one run to the next (the fire's pot does). For a fingerprint run only, sort what it leaves by
+    renumbered from one run to the next (the fire's pot did until build_fire.py's lathe sorted it; other code may). For a fingerprint run only, sort what it leaves by
     position, so two runs of the same code compare exactly. Both runs of a comparison must use it."""
     import bmesh
     real = bmesh.ops.remove_doubles

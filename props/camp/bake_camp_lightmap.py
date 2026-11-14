@@ -8,10 +8,14 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
     # no GPU: a small, low-sample check of the light on the CPU, written to apps/canopy-prototype/lmpreview/ (git ignores
     # it) and seen on the page as camp.html?lmdir=lmpreview; it never touches models/ or the props' GLBs
     blender -b --python props/camp/bake_camp_lightmap.py -- --preview
+    # one prop changed (review R2-149): bake only it (and any neighbour whose light it changes) into its own rectangle
+    blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --objects Pot,Ring
 
 Options: --size (props map, default 4096; 512 with --preview), --samples (512; 8 with --preview), --ground (ground maps,
 1024; 256 with --preview), --angle and --margin (the light-map unwrap), --jeep, --unwrap-only (stop after the atlas, no
-bake), --preview (the sizes above, on the CPU, into --out), --out DIR (write every output into DIR instead of models/ and
+bake), --repack (new atlas rectangles for every prop), --objects Name,... (bake only these props into their rectangles,
+keep every other pixel of the props maps, and bake the ground maps whole; it stops if the atlas must be packed again,
+if any other prop's UVs changed since the last bake, or if a map is missing), --preview (the sizes above, on the CPU, into --out), --out DIR (write every output into DIR instead of models/ and
 props/; with --preview it defaults to apps/canopy-prototype/lmpreview). The preview's time is an estimate, not measured:
 about a minute on a laptop CPU (1/64 of the texels and of the samples of the full bake).
 
@@ -25,7 +29,10 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
    per log seat, Name_0-2); thin, no_shadow and unlit (the embers, not light-mapped) cast no shadow; unbaked objects (the
    picked jar lantern) are left out. A new prop needs only its tag in its builder's make(), and a new place an entry in
    layout.js ANCHORS. The picked set's old Fire is left out: the lived fire set replaces it on the page.
-   unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or a dummy) packed into one atlas.
+   unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or a dummy): each prop is projected
+   and packed on its own into its own rectangle of the atlas, kept in props/camp/atlas.json (see ATLAS), so changing one
+   prop leaves every other prop's UVs and its part of the maps as they were (review R2-149). A run into models/ writes
+   atlas.json with each prop's UV hash, which --objects checks.
 4. add_occluders and add_ground: the jeep and the deadwood (occluders only) and the real ground disc, so the WHOLE scene is
    baked as one (Adriaen 2026-11-12). add_lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky;
    night = the four CHANNELS, each baked on its own in white: the fire, 8 jar lanterns, the tent stove and a dim blue moon.
@@ -51,7 +58,7 @@ A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle
 The run's memory: one props-sized and one ground-sized float image are made once and reused by every bake pass, and each
 pass keeps only what is used (the RGB mean, or AO's first channel) as float32 (review R2-224).
 """
-import argparse, atexit, base64, json, math, os, shutil, sys, tempfile, time
+import argparse, atexit, base64, hashlib, json, math, os, shutil, sys, tempfile, time
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -94,6 +101,9 @@ def parse_args():
     ap.add_argument("--angle", type=float, default=60)
     ap.add_argument("--margin", type=float, default=6)    # texels between islands at --size
     ap.add_argument("--unwrap-only", action="store_true")
+    ap.add_argument("--repack", action="store_true", help="give every prop a new atlas rectangle (all of the maps change)")
+    ap.add_argument("--objects", help="Name,Name,...: bake only these props into their rectangles and keep the rest of the "
+                    "props maps (the ground maps are baked whole); every other prop's UVs must be as atlas.json recorded")
     ap.add_argument("--ground", type=int, help="ground map size (1024; 256 with --preview)")
     ap.add_argument("--jeep", default="expedition")
     ap.add_argument("--preview", action="store_true", help="small and fast on the CPU, into --out (never models/)")
@@ -131,8 +141,8 @@ def build_lived_sets(scratch):
     """The lived builders, with flat colours, each in its own fresh scene and written to a scratch GLB that build_scene
     imports. The round trip stays on purpose: the glTF export triangulates every face and splits vertices at hard edges
     and UV seams (WoodPile: 90 faces and 161 vertices as built, 178 triangles and 225 vertices as imported), and the
-    light-map unwrap (smart_project, then one pack for all objects) works on those faces, so building the props straight
-    into this scene would give every object a different atlas. The scratch folder keeps a failed or --unwrap-only run
+    light-map unwrap (smart_project and a pack, prop by prop) works on those faces, so building the props straight into
+    this scene would give every object different light-map UVs. The scratch folder keeps a failed or --unwrap-only run
     from leaving half-made props/lived/*.glb behind; export_models writes those."""
     build_lived.build(32, colour=flat, path=os.path.join(scratch, "lived.glb"))
     print("  built build_lived (flat colours)")
@@ -230,8 +240,112 @@ def build_scene(pl, scratch):
     return picked, sets, receivers, counts
 
 
+# ------------------------------------------------------------------ the atlas: one fixed rectangle per prop (review R2-149)
+# Each receiver packs its islands alone and is fitted into its own rectangle of the light map, kept in atlas.json, so a
+# change to one prop leaves every other prop's light-map UVs (and its part of the maps) as they were. The atlas is packed
+# again (new rectangles for all) only when a prop no longer fits its rectangle, a new prop comes in, or --repack asks.
+ATLAS = os.path.join(HERE, "atlas.json")
+GRID = 1024       # rectangle edges on a 1/1024 grid: whole pixels in every map size from 1K up (4 px at 4K)
+SLACK = 1.1       # a new rectangle has room for its prop to grow by a tenth before the atlas must be packed again
+
+
+def load_atlas():
+    try:
+        return json.load(open(ATLAS))
+    except (OSError, ValueError):
+        return {}
+
+
+def uv_box(o):
+    """The LM layer's island area and bounding box (u0, v0, u1, v1)."""
+    uv = o.data.uv_layers["LM"].data
+    area, us, vs = 0.0, [], []
+    for poly in o.data.polygons:
+        q = [uv[li].uv for li in poly.loop_indices]
+        area += abs(sum(q[i].x * q[(i + 1) % len(q)].y - q[(i + 1) % len(q)].x * q[i].y for i in range(len(q)))) / 2
+        us += [p.x for p in q]; vs += [p.y for p in q]
+    return area, (min(us), min(vs), max(us), max(vs))
+
+
+def uv_hash(o):
+    """A short hash of o's light-map UVs, each face corner as (position, UV), sorted: a prop whose hash moved needs its
+    part of the maps baked again. Sorted, so a mesh that only comes out numbered differently (the pot: remove_doubles
+    numbers what it keeps by memory address) keeps its hash."""
+    me = o.data
+    uv = np.empty(len(me.loops) * 2, np.float64); me.uv_layers["LM"].data.foreach_get("uv", uv)
+    co = np.empty(len(me.vertices) * 3, np.float64); me.vertices.foreach_get("co", co)
+    vi = np.empty(len(me.loops), np.int64); me.loops.foreach_get("vertex_index", vi)
+    rows = np.round(np.hstack([co.reshape(-1, 3)[vi], uv.reshape(-1, 2)]), 5)
+    return hashlib.sha1(rows[np.lexsort(rows.T[::-1])].tobytes()).hexdigest()[:16]
+
+
+def edit_alone(o, op):
+    """Runs op() in edit mode with o alone selected and every face and UV selected."""
+    bpy.ops.object.select_all(action="DESELECT")
+    o.select_set(True); bpy.context.view_layer.objects.active = o
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT"); bpy.ops.uv.select_all(action="SELECT")
+    op()
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def pack_alone(o, angle, margin, shape="AABB"):
+    """Projects o's light-map UVs afresh (smart_project at angle degrees, islands scaled alike) and packs them alone into
+    the unit square with margin (UV units of that square) round each island. Starting from a fresh projection every time
+    makes the result depend only on o's mesh and the margin, not on earlier packs (a pack turns islands, and the next
+    pack starts from them). Returns (fill, bbox): the share of the bounding box the islands cover, and the box.
+    Measuring packs islands by their boxes, which is instant; the final pack is concave, which takes up to a few seconds
+    a prop (KitchenCrate 4.5 s) and fills more."""
+    edit_alone(o, lambda: (bpy.ops.uv.smart_project(angle_limit=math.radians(angle), island_margin=0.0, area_weight=0.0, scale_to_bounds=False),
+                           bpy.ops.uv.average_islands_scale(),
+                           bpy.ops.uv.pack_islands(rotate=True, shape_method=shape, margin_method="ADD", margin=margin)))
+    area, box = uv_box(o)
+    return area / max((box[2] - box[0]) * (box[3] - box[1]), 1e-9), box
+
+
+def skyline(sizes):
+    """Packs {name: (w, h)} (whole GRID cells) into the GRID x GRID square, tallest first, each at its lowest spot (then
+    leftmost), turned a quarter where that sits lower. Returns {name: (x, y, w, h)}, or None when they do not fit."""
+    top, out, xs = np.zeros(GRID, np.int32), {}, {0}
+    for n in sorted(sizes, key=lambda n: (-max(sizes[n]), -min(sizes[n]), n)):
+        best = None
+        for w, h in sorted({sizes[n], sizes[n][::-1]}):
+            for x in sorted(c for c in xs | {GRID - w} if 0 <= c <= GRID - w):   # the left and right ends of the skyline's steps
+                y = int(top[x:x + w].max())
+                if y + h <= GRID and (best is None or (y, x) < best[:2]):
+                    best = (y, x, w, h)
+        if best is None:
+            return None
+        y, x, w, h = best
+        top[x:x + w] = y + h
+        xs |= {x, x + w}
+        out[n] = (x, y, w, h)
+    return out
+
+
+def allocate(need, aspect):
+    """New rectangles for every prop: area k x need (times SLACK), the aspect of its own packing, on the GRID, packed
+    into the unit square (skyline) with the largest k that fits. Returns (k, {name: [u0, v0, u1, v1]})."""
+    def pack(k):
+        sizes = {}
+        for n in need:
+            ar = k * SLACK * need[n]
+            sizes[n] = (max(math.ceil(math.sqrt(ar * aspect[n]) * GRID), 1), max(math.ceil(math.sqrt(ar / aspect[n]) * GRID), 1))
+        return skyline(sizes)
+    lo, hi = 0.0, 1.0 / sum(need.values())
+    while pack(hi):
+        lo, hi = hi, hi * 2
+    for _ in range(20):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if pack(mid) else (lo, mid)
+    return lo, {n: [x / GRID, y / GRID, (x + w) / GRID, (y + h) / GRID] for n, (x, y, w, h) in pack(lo).items()}
+
+
 def unwrap(receivers, a):
-    """The atlas: TEXCOORD_0 stays (texture UVs, or a dummy), LM is TEXCOORD_1, packed jointly."""
+    """The light-map UVs: TEXCOORD_0 stays (texture UVs, or a dummy), LM is TEXCOORD_1. Each prop is projected and packed
+    on its own and fitted into its rectangle from atlas.json (or new ones, see ATLAS). Returns the atlas as this run
+    used it ({"k": rectangle area per m2 of a prop's surface over how well it packs, "rects": {name: [u0, v0, u1, v1]}})
+    and whether it was packed again. The rectangles do not depend on --size; the margins inside them do."""
     for o in receivers:
         uvl = o.data.uv_layers
         while len(uvl) > 1:
@@ -239,24 +353,54 @@ def unwrap(receivers, a):
         if not len(uvl):
             uvl.new(name="UV0")
         uvl.active = uvl.new(name="LM")
-    bpy.ops.object.select_all(action="DESELECT")
+    old = load_atlas()
+    rects, k = dict(old.get("rects", {})), old.get("k")
+    inset = a.margin / 2 / a.size                                                # half the island margin at each rectangle's edge
+    area = {o.name: sum(p.area for p in o.data.polygons) for o in receivers}
+
+    def margin(o, r):
+        """The island margin for o packed alone, so that it is a.margin texels once o is scaled into rectangle r."""
+        rw, rh = r[2] - r[0] - 2 * inset, r[3] - r[1] - 2 * inset
+        _, box = pack_alone(o, a.angle, 0.01)
+        bw, bh = box[2] - box[0], box[3] - box[1]
+        s = max(min(rw / bw, rh / bh), min(rw / bh, rh / bw))                    # the scale it will get, either way round
+        return min(a.margin / a.size / max(s, 1e-9), 0.05)                       # capped, so a tiny rectangle's islands keep some room
+
+    def measure(margins):
+        """{name: rectangle area each prop needs per unit of k}, {name: its packing's aspect}, packed with margins."""
+        need, aspect = {}, {}
+        for o in receivers:
+            fill, box = pack_alone(o, a.angle, margins.get(o.name, 0.01))
+            need[o.name] = area[o.name] / fill                                   # m2 of surface over how well it packs
+            aspect[o.name] = (box[2] - box[0]) / max(box[3] - box[1], 1e-9)
+        return need, aspect
+
+    for n in set(rects) - set(area):
+        del rects[n]                                                             # a prop that is gone leaves its space free
+    need, _ = measure({o.name: margin(o, rects[o.name]) for o in receivers if o.name in rects})
+    why = [f"{n} is new" for n in need if n not in rects] + \
+          [f"{n} outgrew its rectangle" for n in need if n in rects and k and k * need[n] > (rects[n][2] - rects[n][0]) * (rects[n][3] - rects[n][1])]
+    repacked = bool(a.repack or why or not k)
+    if repacked:
+        print("  atlas packed again: " + ("; ".join(why[:6]) if why else "--repack" if a.repack else "no atlas.json yet"))
+        need, aspect = measure({})
+        k, rects = allocate(need, aspect)                                       # a first guess sets each prop's scale,
+        need, aspect = measure({o.name: margin(o, rects[o.name]) for o in receivers})
+        k, rects = allocate(need, aspect)                                       # and so its margins in texels
     for o in receivers:
-        o.select_set(True)
-    bpy.context.view_layer.objects.active = receivers[0]
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=math.radians(a.angle), island_margin=0.0, area_weight=0.0, scale_to_bounds=False)
-    bpy.ops.uv.select_all(action="SELECT")
-    bpy.ops.uv.average_islands_scale()
-    bpy.ops.uv.pack_islands(rotate=True, shape_method="CONCAVE", margin_method="ADD", margin=a.margin / a.size)
-    bpy.ops.object.mode_set(mode="OBJECT")
-    area = 0.0
-    for o in receivers:
-        uv = o.data.uv_layers["LM"].data
-        for poly in o.data.polygons:
-            q = [uv[li].uv for li in poly.loop_indices]
-            area += abs(sum(q[i].x * q[(i + 1) % len(q)].y - q[(i + 1) % len(q)].x * q[i].y for i in range(len(q)))) / 2
-    print(f"  atlas: {len(receivers)} objects, {area * 100:.0f}% of the image covered")
+        u0, v0, u1, v1 = rects[o.name]
+        rw, rh = u1 - u0 - 2 * inset, v1 - v0 - 2 * inset
+        _, box = pack_alone(o, a.angle, margin(o, rects[o.name]), "CONCAVE")
+        if (rw - rh) * ((box[2] - box[0]) - (box[3] - box[1])) < 0:             # the rectangle lies the other way: turn the islands
+            for d in o.data.uv_layers["LM"].data:
+                d.uv = (d.uv.y, -d.uv.x)
+            _, box = uv_box(o)
+        s = min(rw / (box[2] - box[0]), rh / (box[3] - box[1]))
+        for d in o.data.uv_layers["LM"].data:
+            d.uv = (u0 + inset + (d.uv.x - box[0]) * s, v0 + inset + (d.uv.y - box[1]) * s)
+    used = sum(uv_box(o)[0] for o in receivers)
+    print(f"  atlas: {len(receivers)} objects in their own rectangles, {used * 100:.0f}% of the image covered")
+    return {"k": k, "rects": rects}, repacked
 
 
 def add_occluders(layout, pl, jeep):
@@ -382,10 +526,11 @@ class Target:
         bpy.data.images.remove(self.img)
 
 
-def bake_light(a, receivers, occluders, ground, lights):
+def bake_light(a, receivers, occluders, ground, lights, only=None):
     """Every bake pass, through plain stand-ins (grey for props and occluders, one for the thin cards, white for the
-    ground); the props get their own materials back afterwards. Returns a dict of float32 maps: ao, sun_direct, sun_open,
-    ground_day, and lit / ground_lit {channel: map}."""
+    ground); the props get their own materials back afterwards. only: the names of the props to bake (--objects); the
+    rest still cast their shadows and light. Returns a dict of float32 maps: ao, sun_direct, sun_open, ground_day, and
+    lit / ground_lit {channel: map}."""
     bk = setup_render(a)
     g_all, n_all = grey("bake_grey"); g_thin, n_thin = grey("bake_grey_thin"); g_gnd, n_gnd = grey("bake_ground", 1.0)
     ground.data.materials.append(g_gnd)
@@ -403,31 +548,32 @@ def bake_light(a, receivers, occluders, ground, lights):
             o.data.materials[i] = g_all
     props = Target("LM_BAKE", a.size, (n_all, n_thin))
     gnd = Target("GROUND_BAKE", a.ground, (n_gnd,))
-    thin = [o for o in receivers if o.get("thin")]
+    bakes = [o for o in receivers if only is None or o.name in only]
+    thin = [o for o in bakes if o.get("thin")]
     sky = lights.sky.inputs["Strength"]
     out = {"lit": {}, "ground_lit": {}}
 
     lights.only("day")
-    out["ao"] = props.bake("AO", receivers, "AO", keep="r")                     # sky occlusion on the props
+    out["ao"] = props.bake("AO", bakes, "AO", keep="r")                     # sky occlusion on the props
     sky.default_value = 0.0; bk.use_pass_indirect = False                      # where the sun reaches each prop: its direct
-    out["sun_direct"] = props.bake("DIFFUSE", receivers, "SUN")                # light, over the same with nothing casting shadows
+    out["sun_direct"] = props.bake("DIFFUSE", bakes, "SUN")                # light, over the same with nothing casting shadows
     casts = {o.name: o.visible_shadow for o in receivers + occluders}
     for o in receivers + occluders: o.visible_shadow = False
-    out["sun_open"] = props.bake("DIFFUSE", receivers, "SUN_OPEN")
+    out["sun_open"] = props.bake("DIFFUSE", bakes, "SUN_OPEN")
     for o in receivers + occluders: o.visible_shadow = casts[o.name]
     bk.use_pass_indirect = True; sky.default_value = 1.0
     out["ground_day"] = gnd.bake("DIFFUSE", [ground], "GROUND_DAY")           # sun + sky on the ground
     for g in CHANNELS:                                                         # each light's share, props and ground (grey: white light)
         lights.only(g)
         if thin:                                                               # the back of each card; keep the brighter side
-            px = props.bake("DIFFUSE", receivers, g.upper(), keep="rgb")
+            px = props.bake("DIFFUSE", bakes, g.upper(), keep="rgb")
             for o in thin: o.data.flip_normals()
             px = np.maximum(px, props.bake("DIFFUSE", thin, g.upper() + "_BACK", keep="rgb"))
             for o in thin: o.data.flip_normals()
             out["lit"][g] = px.mean(-1)
             del px
         else:
-            out["lit"][g] = props.bake("DIFFUSE", receivers, g.upper())
+            out["lit"][g] = props.bake("DIFFUSE", bakes, g.upper())
         out["ground_lit"][g] = gnd.bake("DIFFUSE", [ground], "GROUND_" + g.upper())
     props.remove(); gnd.remove()
     for o in receivers:
@@ -457,29 +603,39 @@ def drop_ktx(png):
         os.remove(k); print(f"  removed the old {os.path.basename(k)}")
 
 
-def save(px, name, out):
+def save(px, name, out, only=None):
     """The props map px (n x n x 4 float32) at each of map_sizes(n), as 8-bit PNG. Each size is filled from px at full
-    size and scaled down from there (Image.copy() does not keep a generated image's pixels), then removed."""
+    size and scaled down from there (Image.copy() does not keep a generated image's pixels), then removed. only: the atlas
+    rectangles baked this run (--objects); every other pixel is kept from the map already there."""
     n = px.shape[0]
     for label, size in map_sizes(n):
+        f = os.path.join(out, f"{name}_{label}.png")
+        old = None if only is None else np.array(Image.open(f).convert("RGBA"))       # read before it is overwritten
         img = bpy.data.images.new(f"{name}_{label}", n, n, alpha=True)
         img.colorspace_settings.name = "Non-Color"; img.alpha_mode = "STRAIGHT"
         img.pixels.foreach_set(px.ravel())
         if size != n:
             img.scale(size, size)
-        f = os.path.join(out, f"{name}_{label}.png"); img.filepath_raw = f; img.file_format = "PNG"
+        img.filepath_raw = f; img.file_format = "PNG"
         img.save(); bpy.data.images.remove(img); drop_ktx(f)
+        if old is not None:
+            new = np.asarray(Image.open(f).convert("RGBA"))
+            for u0, v0, u1, v1 in only:                                           # rows from the top: v = 1 is row 0
+                r0, r1, c0, c1 = (round((1 - v1) * size), round((1 - v0) * size), round(u0 * size), round(u1 * size))
+                old[r0:r1, c0:c1] = new[r0:r1, c0:c1]
+            Image.fromarray(old, "RGBA").save(f, optimize=True)
         print(f"  {os.path.basename(f)}: {os.path.getsize(f) // 1024} KB")
 
 
-def write_maps(m, out, jeep):
-    """The props' two maps, the ground's two maps and camp_lights.json, into out."""
+def write_maps(m, out, jeep, only=None):
+    """The props' two maps, the ground's two maps and camp_lights.json, into out. only: the atlas rectangles baked this
+    run (--objects); the props maps keep every other pixel."""
     # props map 1: one channel per light; map 2: R = where the sun reaches, G = sky occlusion
-    save(np.stack([enc(m["lit"][g]) for g in CHANNELS], -1).astype(np.float32), "camp_lm", out)
+    save(np.stack([enc(m["lit"][g]) for g in CHANNELS], -1).astype(np.float32), "camp_lm", out, only)
     sun_open, sun_direct = m["sun_open"], m["sun_direct"]
     sv = np.where(sun_open > 0.02, np.clip(sun_direct / np.maximum(sun_open, 1e-6), 0, 1), 1.0)   # surfaces facing away: the page's N . L hides them anyway
-    print(f"  sun: mean visibility {sv[sun_open > 0.02].mean():.2f}")
-    save(np.stack([sv, np.clip(m["ao"], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun", out)   # B, A: free (were the jeep's lights)
+    print(f"  sun: mean visibility {sv[sun_open > 0.02].mean():.2f}" if (sun_open > 0.02).any() else "  sun: no prop faces the sun")
+    save(np.stack([sv, np.clip(m["ao"], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun", out, only)   # B, A: free (were the jeep's lights)
     # ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
     open_ = np.percentile(m["ground_day"], 99.5)
     shadow = np.clip(1 - m["ground_day"] / open_, 0, 1)[::-1]
@@ -511,6 +667,29 @@ def export_models(picked, sets, out):
         export(meshes, os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
 
 
+def check_objects(a, receivers, atlas, repacked):
+    """--objects: the set of props to bake, after checking that the rest of the maps still fit the scene: the atlas was
+    not packed again, the maps are there at every size, and every other prop's UVs are as the last bake recorded."""
+    if not a.objects:
+        return None
+    only = {n.strip() for n in a.objects.split(",") if n.strip()}
+    names = {o.name for o in receivers}
+    if only - names:
+        sys.exit(f"--objects names props the bake does not light: {', '.join(sorted(only - names))} (the props: {', '.join(sorted(names))})")
+    if repacked:
+        sys.exit("--objects: the atlas had to be packed again, so every prop's part of the maps moves: run the whole bake")
+    out = a.out or MODELS
+    gone = [f"{nm}_{lb}.png" for nm in ("camp_lm", "camp_lm_sun") for lb, _ in map_sizes(a.size) if not os.path.exists(os.path.join(out, f"{nm}_{lb}.png"))]
+    if gone:
+        sys.exit(f"--objects keeps the maps already in {out}, and these are missing: {', '.join(gone)}: run the whole bake")
+    rec = load_atlas().get("uv", {})
+    moved = sorted(o.name for o in receivers if o.name not in only and rec.get(o.name) != uv_hash(o))
+    if moved:
+        sys.exit(f"--objects: these props' UVs changed since the last bake, so bake them too (or the whole scene): {','.join(moved)}")
+    print(f"  baking only {', '.join(sorted(only))} into their rectangles; the rest of the props maps stays as it is")
+    return only
+
+
 def main():
     t0 = time.time()
     a = parse_args()
@@ -519,20 +698,24 @@ def main():
     atexit.register(shutil.rmtree, scratch, True)      # gone however the run ends (ignore_errors=True)
     build_lived_sets(scratch)
     picked, sets, receivers, counts = build_scene(pl, scratch)
-    unwrap(receivers, a)
+    atlas, repacked = unwrap(receivers, a)
     if a.unwrap_only:
         sys.exit(0)
+    only = check_objects(a, receivers, atlas, repacked)
     occluders = add_occluders(layout, pl, a.jeep)
     ground = add_ground()
     print(f"  scene: {len(receivers)} props, {len(occluders)} occluders (jeep parts and deadwood), ground {2 * RR} m square")
     lights = Lights(pl, next(o for o in picked if o.name == "Tent"))
-    maps = bake_light(a, receivers, occluders, ground, lights)
+    maps = bake_light(a, receivers, occluders, ground, lights, only)
     for o in occluders:
         bpy.data.objects.remove(o)
     bpy.data.objects.remove(ground)
-    write_maps(maps, a.out or MODELS, a.jeep)
+    write_maps(maps, a.out or MODELS, a.jeep, None if only is None else [atlas["rects"][n] for n in sorted(only)])
     del maps
     export_models(picked, sets, a.out)
+    if not a.out:                                    # the atlas and the UVs the committed maps were baked with
+        atlas["uv"] = {o.name: uv_hash(o) for o in receivers}
+        json.dump(atlas, open(ATLAS, "w"), indent=1, sort_keys=True)
     if not a.out:
         print("  the light maps' KTX2 copies are gone until props/bake_all.py --only ktx encodes them again")
     elif os.path.abspath(a.out).startswith(os.path.abspath(os.path.join(ROOT, "apps", "canopy-prototype")) + os.sep):

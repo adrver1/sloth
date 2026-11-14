@@ -36,8 +36,10 @@ entry is skipped; --force runs every chosen step anyway. Commit bake.lock.json w
     python props/bake_all.py --check               # which committed outputs are stale, and why; runs nothing (exit 1 if any)
 
 The layout step's inputs are the camp page's own files (apps/canopy-prototype, without models/ and lmpreview/), the
-exporter, three.js's version and its command line; the light step's are props/camp, props/lived (scripts and textures),
-props/lib, layout_picked.json, the jeep GLB, its command line, the Blender version and GPU_RUN's script.
+exporter, three.js's version and its command line; the light step's are props/camp and props/lib (scripts),
+props/lived (scripts and textures), layout_picked.json, the jeep GLB, its command line (without --objects), the Blender
+version and GPU_RUN's script. props/camp/atlas.json is one of the light step's outputs.
+--objects Name,... hands the light step bake_camp_lightmap.py's --objects: only those props are baked again.
 """
 import argparse, base64, glob, hashlib, json, os, shutil, socket, subprocess, sys, time, urllib.request
 
@@ -48,6 +50,7 @@ ap.add_argument("--size", type=int, default=4096, help="props light map size")
 ap.add_argument("--ground-size", type=int, default=1024, help="ground light maps size")
 ap.add_argument("--samples", type=int, default=512)
 ap.add_argument("--jeep", default="expedition", help="the toy and camper are archived")
+ap.add_argument("--objects", help="light step: bake only these props (Name,Name,...) into their atlas rectangles (bake_camp_lightmap.py --objects)")
 ap.add_argument("--force", action="store_true", help="run the chosen steps even when bake.lock.json says they are current")
 ap.add_argument("--check", action="store_true", help="report which steps' outputs are stale and run nothing")
 a = ap.parse_args()
@@ -143,7 +146,7 @@ def inputs(step):
         files = tree("apps/canopy-prototype", skip=("models", "lmpreview")) + [os.path.join(ROOT, "props/shadow/export_casters.cjs")]
         return {**hashes(files), "cmd": ["picked", a.jeep], "three": three}
     if step == "light":
-        files = tree("props/camp", "props/lived", "props/lib", exts=(".py", ".png", ".jpg", ".json"))
+        files = tree("props/camp", "props/lib", exts=(".py",)) + tree("props/lived", exts=(".py", ".png", ".jpg", ".json"))
         files += [LAYOUT_JSON, os.path.join(ROOT, "props", "jeep", f"jeep_{a.jeep}.glb")]
         gpu = file_hash(GPU_RUN) if GPU_RUN and os.path.isfile(GPU_RUN) else None    # outside the repo: by name, not path
         return {**hashes(files), "cmd": LIGHT_CMD, "blender": tool_version(BLENDER), "gpu_run": gpu}
@@ -159,7 +162,8 @@ def outputs(step):
     if step == "light":
         files = light_maps() + [os.path.join(MODELS, n) for n in (f"camp_shadow_picked_{a.jeep}.png", f"camp_ground_night_picked_{a.jeep}.png",
                                                                   "camp_lights.json", "camp_picked_lm.txt", "lived.txt", "fire.txt", "laundry.txt")]
-        files += [os.path.join(ROOT, "props/camp/camp_picked_lm.glb")] + [os.path.join(ROOT, "props/lived", f"{n}.glb") for n in ("lived", "fire", "laundry")]
+        files += [os.path.join(ROOT, "props/camp/camp_picked_lm.glb"), os.path.join(ROOT, "props/camp/atlas.json")]
+        files += [os.path.join(ROOT, "props/lived", f"{n}.glb") for n in ("lived", "fire", "laundry")]
         return hashes(files)
     if step == "ktx":
         return hashes([f[:-4] + ".ktx2.txt" for f in ktx_maps()])
@@ -223,7 +227,7 @@ def step_layout():
 
 
 def step_light():
-    blender(os.path.join(ROOT, "props/camp/bake_camp_lightmap.py"), *LIGHT_CMD)
+    blender(os.path.join(ROOT, "props/camp/bake_camp_lightmap.py"), *LIGHT_CMD, *(["--objects", a.objects] if a.objects else []))
 
 
 def step_ktx():
