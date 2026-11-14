@@ -213,7 +213,8 @@
  "labui": {
   "frames": 360,
   "every": 15,
-  "tour": "labui2.json"
+  "tour": "labui2.json",
+  "query": "?dev"
  },
  "q_lab": {
   "frames": 80,

@@ -93,10 +93,10 @@ function helpers([base, present]) {
   // a real tap: pointerdown and pointerup on the canvas at the thing's place on screen (input.js tap())
   T.tapAt = (x, y) => { const c = document.getElementById('c'); for (const t of ['pointerdown', 'pointerup']) c.dispatchEvent(new PointerEvent(t, { clientX: x, clientY: y, pointerId: 7, pointerType: 'touch', isPrimary: true, bubbles: true, cancelable: true })); };
   T.tap = (o) => { const [x, y, z] = T.screen(o); T.tapAt(x, y); const m = T.menu(); T.log.push(['tap', typeof o === 'string' ? o : o.name, Math.round(x), Math.round(y), +z.toFixed(4), m]); return m; };
-  const menuEl = () => [...document.body.children].find((e) => e.tagName === 'DIV' && e.style.transform.includes('-100%') && e.style.zIndex === '3' && e.querySelector('button'));   // a label with the same style can come first
-  T.menu = () => { const m = menuEl(); return m && m.style.display !== 'none' ? [...m.querySelectorAll('button')].map((b) => b.textContent) : null; };
+  const menuEl = () => document.getElementById('tapmenu');   // input.js's tap menu; its look is in camp.html, so it is shown only while style.display is flex
+  T.menu = () => { const m = menuEl(); return m && m.style.display === 'flex' ? [...m.querySelectorAll('button')].map((b) => b.textContent) : null; };
   T.menuPos = () => { const m = menuEl(); return m ? [m.style.display, m.style.left, m.style.top] : null; };
-  T.choose = (start) => { const m = menuEl(); const b = m && m.style.display !== 'none' ? [...m.querySelectorAll('button')].find((b) => b.textContent.startsWith(start)) : null; T.log.push(['choose', start, b ? b.textContent : null]); if (b) b.click(); return !!b; };
+  T.choose = (start) => { const m = menuEl(); const b = m && m.style.display === 'flex' ? [...m.querySelectorAll('button')].find((b) => b.textContent.startsWith(start)) : null; T.log.push(['choose', start, b ? b.textContent : null]); if (b) b.click(); return !!b; };
   T.call = (label, f) => { let r; try { r = f(); } catch (e) { r = 'THROW ' + e.message; } T.log.push([label, r === undefined ? null : r]); return r; };
   T.slider = (h) => { const e = document.getElementById('time'); e.value = String(h); e.dispatchEvent(new Event('input', { bubbles: true })); T.log.push(['slider', h, e.value, document.getElementById('clock').textContent]); };
   T.click = (id) => { document.getElementById(id).click(); T.log.push(['click', id, document.getElementById(id).textContent]); };
@@ -175,7 +175,7 @@ async function runOne(name, sc, root, port, outDir, shots) {
 }
 async function drive(name, sc, root, port, outDir, shots, p, EVO) {
   const FRAMES = sc.frames, EVERY = sc.every || 20;
-  await page.routeThree(p);
+  await page.routeThree(p); await page.stubFonts(p);
   const { errs, cons, programs } = await page.watch(p);
   await p.addInitScript(page.virtualise);
   if ((sc.audio || 'tie') === 'tie') await p.addInitScript(() => { Object.defineProperty(BaseAudioContext.prototype, 'currentTime', { get() { return (performance.now() - 1000) / 1000; } }); });
