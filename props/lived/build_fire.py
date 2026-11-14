@@ -28,7 +28,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset  # noqa: E402
+from lib.export import export_glb, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, box, cyl, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
 
@@ -364,7 +364,8 @@ BAKED = ("Ring", "Tripod", "Fire", "Embers", "Pot")       # the parts that take 
 
 def make():
     """Make the fire set in the current scene and return it as {name: object}, the BAKED parts first, all at the fire's
-    origin. No reset, no light, no export."""
+    origin and tagged to stand there (lib.export.tag): the flames cast no shadow (they light from inside the teepee), the
+    embers are drawn unlit and the chain is a thin card. No reset, no light, no export."""
     M = materials()
     ring_o, trip = ring(M), tripod(M)
     fire_o, emb = fire(M)
@@ -374,7 +375,9 @@ def make():
         apply_all(o)
         o.location = (0, 0, 0)
     ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
-    return {o.name: o for o in objs + [ch, tripod_legs()]}
+    every = {o.name: tag(o, "fire") for o in objs + [ch, tripod_legs()]}
+    tag(every["Fire"], no_shadow=1); tag(every["Embers"], unlit=1); tag(every["Chain"], thin=1)
+    return every
 
 
 def build(samples=32, colour=None, path=None):
@@ -393,7 +396,7 @@ def build(samples=32, colour=None, path=None):
     for o in objs:
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire.glb"), image_format="AUTO")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire.glb"), image_format="AUTO", extras=True)
     print(f"soup surface (three.js): (0, {SOUP.z:.3f}, 0)")
     print(f"fire -> {path}")
 

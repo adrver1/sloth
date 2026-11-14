@@ -18,7 +18,7 @@
    "apps/canopy-prototype/camp/audio/watch.js": "51515a8fa7f0afb5687f",
    "apps/canopy-prototype/camp/campAir.js": "3045350ffc1abae0f2b1",
    "apps/canopy-prototype/camp/campGround.js": "3f673d5c8bd1a271ffff",
-   "apps/canopy-prototype/camp/campProps.js": "2c500bb43604dac810f6",
+   "apps/canopy-prototype/camp/campProps.js": "2c5c2c0d7221c4393e45",
    "apps/canopy-prototype/camp/canister.js": "0b2180e1ebc5b0648df9",
    "apps/canopy-prototype/camp/car.js": "d79a21d58d717b0a89f5",
    "apps/canopy-prototype/camp/cast.js": "25afa13fe96fffc0b1d9",
@@ -28,7 +28,7 @@
    "apps/canopy-prototype/camp/daylight.js": "9c356549275f45b5148b",
    "apps/canopy-prototype/camp/daytime.js": "3cb2e1f682649efa17c1",
    "apps/canopy-prototype/camp/deadwood.js": "8ec6acb03407bdaf8563",
-   "apps/canopy-prototype/camp/debug.js": "fe773575ce92634839ac",
+   "apps/canopy-prototype/camp/debug.js": "ecc3915140e79ab053b8",
    "apps/canopy-prototype/camp/food.js": "378ad88dda37c3c2ea2e",
    "apps/canopy-prototype/camp/forest.js": "c2696e278da8061641ea",
    "apps/canopy-prototype/camp/fx.js": "ea40a53f8533ce1cef4b",
@@ -41,7 +41,7 @@
    "apps/canopy-prototype/camp/lab.js": "c50f79815ba5e49e9daf",
    "apps/canopy-prototype/camp/labButton.js": "568b2736b2d7e96c6b37",
    "apps/canopy-prototype/camp/lanterns.js": "9c811bc8c579ae256cff",
-   "apps/canopy-prototype/camp/layout.js": "1a1be90bd5f2c28b0f6e",
+   "apps/canopy-prototype/camp/layout.js": "eaf1f3a8d2ec0f50d826",
    "apps/canopy-prototype/camp/linger.js": "f5630d80c62232e06011",
    "apps/canopy-prototype/camp/main.js": "9ab215c5654b627bb2d2",
    "apps/canopy-prototype/camp/nav.js": "b63ec0ccb37a407dd17c",
@@ -106,11 +106,11 @@
     "picked",
     "expedition"
    ],
-   "props/shadow/export_casters.cjs": "7cb0f2e95ccb125b8505",
+   "props/shadow/export_casters.cjs": "1dd3c289457e6c8ea62e",
    "three": "0.186.1"
   },
   "outputs": {
-   "props/shadow/layout_picked.json": "f473087e1106b93c77d5"
+   "props/shadow/layout_picked.json": "33d89c5a11f8ed79ee0c"
   }
  }
 }

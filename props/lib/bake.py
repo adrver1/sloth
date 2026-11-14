@@ -4,8 +4,9 @@ Vertex-colour light for the props/ generators, both into the "Col" colour attrib
     bake(objs, samples, split=False, apply=True)   Cycles ambient occlusion (with a ground plane) times each face's base
                                                    colour, for props that carry their own light (the archived camp
                                                    styles, the jeep, a builder run on its own)
-    flat_colours(objs, glow=())                    the plain base colours, no light, for props the light bake lights
-                                                   (props/camp/bake_camp_lightmap.py); alpha 0 marks glowing faces
+    flat_colours(objs)                             the plain base colours, no light, for props the light bake lights
+                                                   (props/camp/bake_camp_lightmap.py); alpha 0 marks the faces of
+                                                   materials with the "glow" property (lantern glass, the stove's fire)
 
 Before the AO bake each object (unless it has the "coarse" property) has its transforms applied (apply=True) or, with
 split=True, its long edges split by densify() so the per-vertex AO has room to vary ("ao_edge" sets the length). The
@@ -81,8 +82,8 @@ def bake(objs, samples, split=False, apply=True):
         me.materials.append(baked_material(roughness=0.9))   # one plain material that uses the colour attribute
 
 
-def flat_colours(objs, glow=()):
-    """Plain base colours into "Col" (alpha 0 on faces whose material name is in glow), one "Baked" material each."""
+def flat_colours(objs):
+    """Plain base colours into "Col" (alpha 0 on faces whose material has the "glow" property), one "Baked" material each."""
     for o in objs:
         me = o.data
         for c in list(me.color_attributes):
@@ -91,7 +92,7 @@ def flat_colours(objs, glow=()):
         for poly in me.polygons:
             m = me.materials[poly.material_index] if me.materials else None
             base = Vector(m["base"]) if m and "base" in m else Vector((0.5, 0.5, 0.5))
-            al = 0.0 if m and m.name.split(".")[0] in glow else 1.0
+            al = 0.0 if m and m.get("glow") else 1.0
             for li in poly.loop_indices:
                 col.data[li].color = (base.x, base.y, base.z, al)
         me.color_attributes.active_color = col

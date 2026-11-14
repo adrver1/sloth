@@ -33,7 +33,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset, tris  # noqa: E402
+from lib.export import export_glb, reset, tag, tris  # noqa: E402
 from lib.materials import mat  # noqa: E402
 from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
 
@@ -232,11 +232,13 @@ def storybook():
 
 
 def rustic_mats():
-    """The rustic materials, by short name."""
-    return {k: mat(f"ru_{k}", c) for k, c in dict(
+    """The rustic materials, by short name. The jar's glass has the "glow" property: it glows at night (lib.bake.flat_colours)."""
+    M = {k: mat(f"ru_{k}", c) for k, c in dict(
         rock=(0.45, 0.44, 0.42), rock2=(0.36, 0.35, 0.33), bark=(0.3, 0.21, 0.14), wood=(0.68, 0.52, 0.36), char=(0.08, 0.06, 0.05),
         ember=(0.7, 0.2, 0.05), canvas=(0.48, 0.5, 0.32), canvas2=(0.38, 0.4, 0.25), rope=(0.7, 0.62, 0.45), peg=(0.55, 0.42, 0.28),
         sling=(0.32, 0.38, 0.26), glass=(0.92, 0.78, 0.45), tin=(0.55, 0.56, 0.58), white=(0.9, 0.88, 0.82), red=(0.65, 0.15, 0.12)).items()}
+    M["glass"]["glow"] = 1
+    return M
 
 
 def rustic_fire(M):
@@ -390,6 +392,7 @@ def wall_tent():
         fascia=(0.36, 0.26, 0.17), pipe=(0.22, 0.22, 0.24), glow=(0.45, 0.16, 0.06), stone=(0.45, 0.44, 0.42),
         ticking=(0.84, 0.82, 0.76), blanket=(0.62, 0.2, 0.15), pillow=(0.94, 0.93, 0.9),
         iron=(0.15, 0.15, 0.16), brass=(0.72, 0.56, 0.26), tin=(0.55, 0.56, 0.58)).items()}
+    M["glow"]["glow"] = 1                       # the stove's fire window glows at night (lib.bake.flat_colours)
     W, D, E, H, Y0, Z0 = 1.4, 1.225, 1.3, 2.7, 0.275, 0.0    # half width, half depth, wall height, ridge, body offset, floor (the back stays
     # in front of the low branches of the hero tree behind it, where the sloths hang)
     DW, DH = 0.45, 1.95                                       # doorway half width and height
@@ -660,12 +663,15 @@ def picked():
     """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent like his photos with loose
     planks before the door; the jungle woven hammock, on plain octagon posts with painted nodes and no leaves on top.
     The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
-    made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent)."""
+    made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent). Each is tagged
+    with where the page stands it (lib.export.tag, review R2-249); the lantern is unbaked: the page draws the jar lanterns
+    itself (lanterns.js) and the bake lights them only as lights."""
     R, J = rustic_mats(), jungle_mats()
     seat, lantern, table = rustic_seat(R), rustic_lantern(R), rustic_table(R)
     hammock = jungle_hammock(J, plain_posts=True)
     hammock["coarse"] = True                    # Adriaen 2026-11-11: the densified cloth was ~7k triangles
-    return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Lantern": lantern, "Table": table}
+    return {"Seat": tag(seat, "seats"), "Tent": tag(wall_tent(), "tent"), "Hammock": tag(hammock, "hammock"),
+            "Lantern": tag(lantern, unbaked=1), "Table": tag(table, "table")}
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good). The light bake

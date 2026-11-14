@@ -15,14 +15,13 @@
 //   __campFast       the camp's pace (core.js pace.fast): 6 runs the sloths' day and the jeep seats six times as fast   camp-replay.cjs's tour, the scenarios
 //   __camp           CAMP: the tent and the hammock's posts (campProps.js)   props/shadow/export_casters.cjs (the bake's layout)
 //   __jeep           jeepApi (jeep.js), when there is a jeep               export_casters.cjs (its place); camp-scenarios.cjs on old checkouts
-//   __laundry        LAUNDRY (layout.js), when the line is shown           export_casters.cjs
 //   __glade          the glade and the sloths' path (layout.js)            export_casters.cjs
 //   __ground         groundLife (campGround.js)             export_casters.cjs (its layout)
 //   __deadwood       deadwood (deadwood.js): its layout and triangles      export_casters.cjs (the ground-shadow bake)
 //   __terrainGrid(n) the ground's height grid (terrain.js heightGrid)      export_casters.cjs
 // Exports stats and ready().
-import { LIVED, pace, scene } from "./core.js";
-import { GLADE, LAUNDRY, sloPath } from "./layout.js";
+import { pace, scene } from "./core.js";
+import { GLADE, sloPath } from "./layout.js";
 import { stickV } from "./hud.js";
 import { heightGrid } from "./terrain.js";
 import { deadwood } from "./deadwood.js";
@@ -45,7 +44,6 @@ function ready() {
     __camp: CAMP, __glade: { at: GLADE, path: sloPath.pts }, __ground: groundLife, __deadwood: deadwood, __terrainGrid: heightGrid,
   });
   if (jeepApi) window.__jeep = jeepApi;
-  if (LIVED) window.__laundry = LAUNDRY;
   Object.defineProperty(window, "__campFast", { get: () => pace.fast, set: (v) => { pace.fast = v; }, configurable: true });
   window.__ready = true;
 }

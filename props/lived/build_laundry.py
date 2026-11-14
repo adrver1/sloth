@@ -25,7 +25,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset  # noqa: E402
+from lib.export import export_glb, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, join, obj_from_bm, rod  # noqa: E402
 
@@ -139,12 +139,13 @@ def posts():
 
 def make():
     """Make the laundry line in the current scene and return it as {name: object}: LaundryPosts (takes vertex colours)
-    and LaundryCloth (textured). No reset, no light, no export."""
+    and LaundryCloth (textured, a thin card), both tagged to stand at the laundry line (lib.export.tag). No reset, no
+    light, no export."""
     img = os.path.join(HERE, "laundry.png")
     atlas(img)
     po = posts()
     apply_all(po)
-    return {"LaundryPosts": po, "LaundryCloth": cloth(img)}
+    return {"LaundryPosts": tag(po, "laundry"), "LaundryCloth": tag(cloth(img), "laundry", thin=1)}
 
 
 def build(colour=None, path=None):
@@ -158,7 +159,7 @@ def build(colour=None, path=None):
     cl.hide_render = False
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
-    path = export_glb([po, cl], path or os.path.join(HERE, "laundry.glb"), image_format="AUTO")
+    path = export_glb([po, cl], path or os.path.join(HERE, "laundry.glb"), image_format="AUTO", extras=True)
     print(f"hang point (local, three.js): x {line_x(HANG_T):.3f}, y {line_z(HANG_T):.3f}, z 0")
     print(f"laundry -> {path}")
 

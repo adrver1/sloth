@@ -32,7 +32,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, report, reset  # noqa: E402
+from lib.export import export_glb, report, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, box, capless, cyl, join, obj_from_bm, quad, rod, rough_up, torus  # noqa: E402
 
@@ -698,11 +698,15 @@ def kitchen_things(M):
 
 
 BAKED = ("WoodPile", "SeatThings", "TentSide", "KitchenThings")    # the props that take vertex colours; the rest are textured
+# where the page stands each prop: a key of apps/canopy-prototype/camp/layout.js ANCHORS, or every seat (lib.export.tag)
+ANCHOR = {"WoodPile": "woodPile", "WoodStack": "woodPile", "LooseLogs": "woodPile", "SeatThings": "seatThings", "TentSide": "tent",
+          "MatRoll": "tent", "KitchenCrate": "kitchen", "KitchenThings": "kitchen", "SeatTop": "seats"}
 
 
 def make(samples=32):
     """Make the lived props in the current scene and return them as {name: object}, the BAKED ones first, each at its own
-    origin. No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
+    origin and tagged with where the page stands it (lib.export.tag: the wood pile, the middle seat, the tent's door,
+    the kitchen crate, or every seat). No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
     M = materials()
     stack = wood_stack(M, max(samples, 48))
     loose = loose_logs()
@@ -714,7 +718,10 @@ def make(samples=32):
         apply_all(o)
         o.location = (0, 0, 0)
         o.name = k
-    return {**objs, "WoodStack": stack, "LooseLogs": loose, "SeatTop": top, "MatRoll": roll, "KitchenCrate": crate}
+    every = {**objs, "WoodStack": stack, "LooseLogs": loose, "SeatTop": top, "MatRoll": roll, "KitchenCrate": crate}
+    for k, anchor in ANCHOR.items():
+        tag(every[k], anchor)
+    return every
 
 
 def build(samples=32, parts_out=None, colour=None, path=None):
@@ -727,7 +734,7 @@ def build(samples=32, parts_out=None, colour=None, path=None):
     for o in objs.values():                   # baked props need no UVs; only the textured ones keep theirs
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived.glb"), image_format="JPEG", quiet=True)
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived.glb"), image_format="JPEG", quiet=True, extras=True)
     report([every[k] for k in ("WoodStack", "LooseLogs", "KitchenCrate", "MatRoll", "SeatTop")], note={"SeatTop": "(x3 seats on the page)"})
     for k, o in objs.items():
         report([o])

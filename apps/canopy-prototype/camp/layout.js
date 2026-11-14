@@ -3,11 +3,12 @@
 // ferns, the deadwood, stays where it is drawn), so any module can import it at any point. Units are metres; y is up, the fire is at the origin.
 // The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
 // the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
-// props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Two values are
+// props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block (its "anchors"
+// are ANCHORS, at the end of this file). Two values are
 // typed again there: the sun's direction (the bake stops if the two differ) and the lantern drop, lanterns.js JAR_Y, with no
 // check (review props-07). SEAT_R and JEEP_OUT are exported for checks; no module
 // imports them. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
-// campProps.js's CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry for the bake (debug.js).
+// campProps.js's CAMP (tentAt, hA, hB, tb) is window.__camp for the bake (debug.js).
 import * as THREE from "three";
 import { V, polyDist, yawTo } from "./util.js";
 
@@ -93,3 +94,11 @@ export const LAUNDRY = (() => {
     hang: mid.clone().addScaledVector(dir, -L / 2 + L * t).setY(1.62 - 0.13 * 4 * t * (1 - t)), dir,
     mid, yaw, posts: [mid.clone().addScaledVector(dir, -L / 2), mid.clone().addScaledVector(dir, L / 2)] };
 })();
+
+// ---------------------------------------------------------------- where each baked prop stands, by its anchor
+// Each baked prop's builder tags it with one of these keys (custom property "anchor", three.js userData; props/lib/export.py
+// tag, review R2-249), or with "seats" for one copy on every log seat (SEATS; userData.seat is which). campProps.js stands
+// every lived and picked node from its anchor in one loop, and export_casters.cjs hands these to the light bake in the place
+// block's "anchors". A new prop needs only its tag; a new place, a key here.
+export const ANCHORS = { tent: TENT, hammock: { at: HAMMOCK.mid, yaw: HAMMOCK.yaw }, table: TABLE, woodPile: WOOD_PILE,
+  seatThings: SEATS[1], kitchen: CRATE, laundry: { at: LAUNDRY.mid, yaw: LAUNDRY.yaw }, fire: { at: V(0, 0, 0), yaw: 0 } };   // seatThings: the middle seat

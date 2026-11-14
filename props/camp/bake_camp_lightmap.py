@@ -20,7 +20,11 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
 2. build_lived_sets: runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
 3. build_scene: builds the picked set (build_camp.py, no densify; it stops if a prop is over build_camp.BUDGET), imports
-   the scratch GLBs, and stands everything where camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
+   the scratch GLBs, and stands every object where camp.html puts it, from its tags (lib.export.tag, glTF extras, review
+   R2-249): "anchor" names an entry of the place block's "anchors" (layout.js ANCHORS on the page) or "seats" (one copy
+   per log seat, Name_0-2); thin, no_shadow and unlit (the embers, not light-mapped) cast no shadow; unbaked objects (the
+   picked jar lantern) are left out. A new prop needs only its tag in its builder's make(), and a new place an entry in
+   layout.js ANCHORS. The picked set's old Fire is left out: the lived fire set replaces it on the page.
    unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or a dummy) packed into one atlas.
 4. add_occluders and add_ground: the jeep and the deadwood (occluders only) and the real ground disc, so the WHOLE scene is
    baked as one (Adriaen 2026-11-12). add_lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky;
@@ -38,11 +42,11 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
                           props/bake_all.py's ktx step encodes them again and sets the flag (review R2-005)
    <k> is 4k, 2k and 1k (each size up to --size); a map smaller than 1K (a preview) is written as both _1k and _2k, the
    names the page asks for. Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
-   Thin double-sided cards (laundry, chain) take the brighter of their two sides.
-   COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
+   Thin double-sided cards (tagged thin: the laundry, the chain) take the brighter of their two sides.
+   COLOR_0 alpha 0 marks faces that glow at night (materials with the "glow" property: lantern glass, the stove's fire).
 6. export_models writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own
-   origin, so the page places them as before; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt copies
-   (all into --out instead, when given).
+   origin, so the page places them from their tags; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt
+   copies (all into --out instead, when given). Every node carries its tags as glTF extras (three.js userData).
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 The run's memory: one props-sized and one ground-sized float image are made once and reused by every bake pass, and each
 pass keeps only what is used (the RGB mean, or AO's first channel) as float32 (review R2-224).
@@ -58,8 +62,6 @@ ROOT = os.path.join(HERE, "..", "..")
 LIVED = os.path.join(ROOT, "props", "lived")
 MODELS = os.path.join(ROOT, "apps", "canopy-prototype", "models")
 PREVIEW_OUT = os.path.join(ROOT, "apps", "canopy-prototype", "lmpreview")   # camp.html?lmdir=lmpreview; in .gitignore
-GLOW = ("ru_glass", "wt_glow")
-THIN = ("LaundryCloth", "Chain")
 # the night lights, in the order of the maps' channels (R, G, B, A) and of camp_lights.json "channels", with the colour the
 # page gives each (bakedlight.js reads it from camp_lights.json); each is baked in white. The jeep has no baked lights
 # (headlights dropped; the cabin light is live on the page, Adriaen 2026-11-12).
@@ -111,6 +113,8 @@ def read_layout():
     """layout_picked.json and its "place" block; checked before the minutes of building in build_lived_sets."""
     layout = json.load(open(os.path.join(ROOT, "props", "shadow", "layout_picked.json")))
     pl = layout.get("place") or sys.exit("layout_picked.json has no place block: run props/bake_all.py --only layout first")
+    if "anchors" not in pl:
+        sys.exit("layout_picked.json's place block has no anchors (it is older than review R2-249): run props/bake_all.py --only layout")
     if (SUN_DIR - B(*pl["sun"])).length > 1e-6:
         sys.exit(f"the page's sun {pl['sun']} is not the bake's {tuple(SUN_DIR)}: update SUN_DIR")
     print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points (the page: {PAGE_LANTERN_DROP} m)")
@@ -118,8 +122,9 @@ def read_layout():
 
 
 def flat(objs):
-    """The props' own colours for this bake: plain base colours into Col (alpha 0 where it glows), no light of their own."""
-    flat_colours(objs, GLOW)
+    """The props' own colours for this bake: plain base colours into Col (alpha 0 where a material has the "glow"
+    property), no light of their own."""
+    flat_colours(objs)
 
 
 def build_lived_sets(scratch):
@@ -168,30 +173,44 @@ def check_budget(objs):
         sys.exit("over the triangle budget in build_camp.BUDGET: " + ", ".join(over) + "; trim the prop or raise its budget")
 
 
+def stand(o, pl):
+    """Stands o where the page does, from its tags (lib.export.tag, review R2-249): its "anchor" is a key of
+    pl["anchors"] (layout.js ANCHORS on the page), or "seats" for one copy on every log seat, numbered Name_i with a
+    "seat" tag. thin, no_shadow and unlit objects cast no shadow. Returns the objects that now stand in the scene."""
+    k = o.get("anchor")
+    if k is None:
+        sys.exit(f"{o.name} has no anchor tag: tag it in its builder's make() (lib.export.tag)")
+    if k != "seats" and k not in pl["anchors"]:
+        sys.exit(f"{o.name}'s anchor {k!r} is not in layout_picked.json: add it to layout.js ANCHORS, then run props/bake_all.py --only layout")
+    if o.get("thin") or o.get("no_shadow") or o.get("unlit"):
+        o.visible_shadow = False             # cards don't shade each other; the flames light from inside the teepee
+    if k != "seats":
+        return [place(o, o.name, *pl["anchors"][k], copy=False)]
+    name, n = o.name, len(pl["seats"])
+    out = [place(o, f"{name}_{i}", x, z, yaw, copy=i < n - 1) for i, (x, z, yaw) in enumerate(pl["seats"])]
+    for i, c in enumerate(out):
+        c["seat"] = i
+    return out
+
+
 def build_scene(pl, scratch):
-    """The picked set and the lived sets, each prop where the page stands it ([x, z, yaw] in three.js metres, from pl).
-    Returns (picked, sets {set name: meshes}, receivers, counts {name: triangles})."""
-    seat_at = [tuple(v) for v in pl["seats"]]
-    where = {
-        "lived": {"WoodPile": pl["woodPile"], "WoodStack": pl["woodPile"], "LooseLogs": pl["woodPile"], "SeatThings": pl["seatThings"],
-                  "TentSide": pl["tentSide"], "MatRoll": pl["tentSide"], "KitchenCrate": pl["kitchen"], "KitchenThings": pl["kitchen"]},
-        "fire": {n: (0, 0, 0) for n in ("Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain")},
-        "laundry": {"LaundryPosts": pl["laundry"], "LaundryCloth": pl["laundry"]},
-    }
+    """The picked set and the lived sets, each prop where the page stands it ([x, z, yaw] in three.js metres, from pl and
+    each object's tags). Returns (picked, sets {set name: meshes}, receivers, counts {name: triangles})."""
     reset()
     objs = build_camp.picked()
     for o in objs.values():
         apply_all(o); o.location = (0, 0, 0)
     check_budget(objs)
     flat(list(objs.values()))
+    picked = []
+    for o in objs.values():
+        if o.get("unbaked"):
+            bpy.data.objects.remove(o)
+        else:
+            picked += stand(o, pl)
 
-    picked = [place(objs["Seat"], f"Seat_{i}", x, z, yaw) for i, (x, z, yaw) in enumerate(seat_at)]
-    for name, key in (("Tent", "tent"), ("Hammock", "hammock"), ("Table", "table")):
-        picked.append(place(objs[name], name, *pl[key], copy=False))
-    bpy.data.objects.remove(objs["Seat"]); bpy.data.objects.remove(objs["Lantern"])
-
-    sets, top = {}, None
-    for sname, table in where.items():
+    sets = {}
+    for sname in ("lived", "fire", "laundry"):
         new = import_glb(os.path.join(scratch, f"{sname}.glb"))
         for o in new:
             if o.parent:
@@ -200,21 +219,13 @@ def build_scene(pl, scratch):
         for o in new:
             if o.type != "MESH":
                 bpy.data.objects.remove(o); continue
-            key = o.name.split(".")[0]; o.name = key
-            if key == "SeatTop":                     # one per seat, below
-                top = o; continue
-            x, z, yaw = table[key]
-            place(o, key, x, z, yaw, copy=False)
-            if key in THIN or key in ("Fire", "Embers"):
-                o.visible_shadow = False             # cards don't shade each other; the flames light from inside the teepee
+            o.name = o.name.split(".")[0]
             me = o.data
             if me.color_attributes and "Col" not in [c.name for c in me.color_attributes]:
                 me.color_attributes[0].name = "Col"
-            meshes.append(o)
+            meshes += stand(o, pl)
         sets[sname] = meshes
-    for i, (x, z, yaw) in enumerate(seat_at):
-        sets["lived"].append(place(top, f"SeatTop_{i}", x, z, yaw, copy=i < 2))
-    receivers = picked + [o for s in sets.values() for o in s if o.name != "Embers"]
+    receivers = [o for o in picked + [o for s in sets.values() for o in s] if not o.get("unlit")]
     counts = {o.name: tris(o) for o in picked + [o for s in sets.values() for o in s]}
     return picked, sets, receivers, counts
 
@@ -384,7 +395,7 @@ def bake_light(a, receivers, occluders, ground, lights):
         if not o.data.materials:
             o.data.materials.append(None)
         for i in range(len(o.data.materials)):
-            o.data.materials[i] = g_thin if o.name in THIN else g_all
+            o.data.materials[i] = g_thin if o.get("thin") else g_all
     for o in occluders:
         if not o.data.materials:
             o.data.materials.append(None)
@@ -392,7 +403,7 @@ def bake_light(a, receivers, occluders, ground, lights):
             o.data.materials[i] = g_all
     props = Target("LM_BAKE", a.size, (n_all, n_thin))
     gnd = Target("GROUND_BAKE", a.ground, (n_gnd,))
-    thin = [o for o in receivers if o.name in THIN]
+    thin = [o for o in receivers if o.get("thin")]
     sky = lights.sky.inputs["Strength"]
     out = {"lit": {}, "ground_lit": {}}
 
@@ -489,7 +500,7 @@ def export_models(picked, sets, out):
     def export(objs, path, txt, image_format="AUTO"):
         if out:
             path = os.path.join(out, os.path.basename(path))
-        export_glb(objs, path, image_format=image_format)
+        export_glb(objs, path, image_format=image_format, extras=True)   # the tags (anchor, seat, thin ...) for the page
         with open(path, "rb") as f, open(os.path.join(out or MODELS, txt), "w") as g:
             g.write(base64.b64encode(f.read()).decode())
 
