@@ -9,7 +9,7 @@
 // the other side. While you sit you hold the seat in the camp's life ("jeep:driver" / "jeep:passenger"), and sloths.js
 // sends a sloth coming home to it off for a wander until you get out.
 // Its own API, seatApi (null with ?jeep=none): sit(side) / stand() / seatedIn() ("driver" | "passenger" | null, only once
-// you have settled) / seatBusy(side), for car.js and checks. The jeep's doors, boot
+// you have settled) / seatBusy(side) (the name of a sloth sitting there, or null), for car.js and checks. The jeep's doors, boot
 // and hood are tap targets (targets.js), added here: open or close, and Get in / Get out on the front doors.
 // Exports buildJeepSeats() (main.js, once), jeepSeatStep (main.js, each frame) and seatApi.
 // The claims go through camp/places.js; core.js pace is the checks' speed-up.
@@ -126,7 +126,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
     if (who) return [[`${who.name} is at the wheel: hop in the other side 🦥`, () => toast("Round the front to the other door 🦥")]];
     return [[side === "driver" ? "Sit at the wheel 🚙" : "Sit in the passenger seat 🚙", () => sit(side)]];
   }
-  // car.js reads seatedIn; sit, stand and seatBusy are for checks
+  // car.js reads seatedIn and seatBusy (to stop an engine left running); sit and stand are for checks
   seatApi = { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null };
   // the doors, the boot and the hood light up and open a menu (targets.js): open or close it, and on the front doors Get in / Get out
   const DOOR_REACH = 4, DOOR_NAME = { P: "door", D: "door", B: "boot", H: "hood" };

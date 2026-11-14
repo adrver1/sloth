@@ -4,8 +4,9 @@
 //     gentle tremble); "Drive somewhere" is the placeholder for fast travel to other levels; "Turn the engine off"
 //   the radio in the middle of the dash: the same menu as the radio on the snack table (radio.js); the music then plays from it
 //   the dash clock: the same menu as the camp's other clocks (clock.js)
-// "Get out" on the door, or walking off with the stick or the keys, puts you back outside the door you came in by, and
-// turns the engine off on the way (review R2-186: it used to idle on forever after you had walked away).
+// "Get out" on the door, or walking off with the stick or the keys, puts you back outside the door you came in by. The
+// engine stops by itself 30 s after everyone (you and the sloths) has left the front seats (review R2-186: it used to idle
+// on forever after you had walked away), quietly, since nobody is there to read a toast.
 // Built here and painted on canvas, nothing added to the baked jeep: key 4, ignition ring 6, radio face 2, clock 10 + hands 4 =
 // 26 triangles. The jeep's own nodes (build_jeep.py): SeatP is the driver's cushion top, WheelHub the steering wheel's middle;
 // the dash's face toward the driver is at local z 0.14, from y 0.93 to 1.13. Left to right as you sit: the wheel (x 0.36),
@@ -88,12 +89,12 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
 
   // ---------------------------------------------------------------- per frame: the key, the shake, getting out, the radio display
   const base = jeep.position.clone();
-  let t = 0, wasIn = false, still = true;   // still: the engine is off, the key back and the jeep at rest, so nothing to move
-  carStep = (dt) => {
+  let t = 0, away = 0, still = true;   // away: seconds the running jeep has stood empty; still: the engine is off, the key back
+  carStep = (dt) => {                   // and the jeep at rest, so nothing to move
     t += dt;
-    const isIn = inCar();
-    if (wasIn && !isIn && engine !== "off") stop();   // getting out turns the engine off
-    wasIn = isIn;
+    if (engine !== "off" && !inCar() && !seatApi?.seatBusy("driver") && !seatApi?.seatBusy("passenger")) {
+      if ((away += dt) > 30) { engine = "off"; away = 0; }   // audio/watch.js hears the state turn off and plays the stop
+    } else away = 0;
     if (engine === "crank") { crank += dt; if (crank > 1.1) { engine = "run"; toast("Brrrm! The engine is running 🚙"); } }
     if (engine !== "off" || Math.abs(keyA) > 1e-3) {
       still = false;
