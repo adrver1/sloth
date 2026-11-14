@@ -69,13 +69,15 @@ body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 <!-- if the camp fails while the loading card is up (a download that fails, an error while building), the card says so and
      a tap reloads (review R2-058). Errors from images are left out: a missing baked map is allowed and falls back. -->
 <script>
-addEventListener("error", (e) => { if (!(e.target instanceof Element) || e.target.tagName === "SCRIPT") loadFailed(); }, true);
-addEventListener("unhandledrejection", () => loadFailed());
-function loadFailed() {
-  const card = document.getElementById("load");
-  if (!card || card.classList.contains("done") || card.dataset.failed) return;
-  card.dataset.failed = "1"; card.querySelector("span").textContent = "That didn't load. Tap to try again";
-  card.style.cursor = "pointer"; card.onclick = () => location.reload();
+{   // a block, so loadFailed is not a window global (CODING-STANDARDS section 3)
+  const loadFailed = () => {
+    const card = document.getElementById("load");
+    if (!card || card.classList.contains("done") || card.dataset.failed) return;
+    card.dataset.failed = "1"; card.querySelector("span").textContent = "That didn't load. Tap to try again";
+    card.style.cursor = "pointer"; card.onclick = () => location.reload();
+  };
+  addEventListener("error", (e) => { if (!(e.target instanceof Element) || e.target.tagName === "SCRIPT") loadFailed(); }, true);
+  addEventListener("unhandledrejection", () => loadFailed());
 }
 </script>
 <script type="module" src="camp/main.js"></script>
