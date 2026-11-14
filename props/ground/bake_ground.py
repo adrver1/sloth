@@ -135,10 +135,13 @@ def soil(f, W, WET):
     soot = ((1 - ss(1.1, 2.7, rf + 0.6 * (n_mid - 0.5))) * 0.55)[..., None]
     col = col * (1 - soot) + np.array([0.24, 0.21, 0.19]) * soot
     ash = 1 - ss(0.85, 1.45, rf + 0.35 * (n_fine - 0.5))
-    ashc = np.array([0.63, 0.61, 0.58]) * (0.85 + 0.3 * n_grain[..., None])
-    char = (ss(0.72, 0.78, n_grain) * ash)[..., None]
+    ashc = np.array([0.50, 0.485, 0.46]) * (0.85 + 0.3 * n_grain[..., None])   # grey ash, not near white (review R2-193)
+    # charcoal: soft-edged smudges (a wide threshold, not hard dots), gathered toward the fire stones and the inner ring,
+    # blended at most 70% toward a brown-grey, so it reads as char on ash instead of black polka dots (review R2-193)
+    inner = 1 - ss(0.45, 1.25, rf)
+    char = (ss(0.6, 0.85, n_grain + 0.12 * (inner - 0.5)) * ash * (0.35 + 0.65 * inner) * 0.7)[..., None]
     col = col * (1 - ash[..., None]) + ashc * ash[..., None]
-    col = col * (1 - char) + np.array([0.09, 0.08, 0.075]) * char
+    col = col * (1 - char) + np.array([0.12, 0.10, 0.09]) * char
     col = col * (0.93 + 0.14 * n_grain[..., None])                                 # fine grain
     col = col * (1 + 0.07 * ss(0.85, 0.98, W))[..., None]                           # packed paler in the middle of the paths
     col = col * (1 - 0.38 * wetS * (1 - ash))[..., None]                            # damp where water stands
