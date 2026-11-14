@@ -8,12 +8,12 @@ Flags: **rebake** = needs a GPU bake to verify; **restructure** = changes how mo
 
 | Status | Findings |
 |---|---|
-| fixed | 36 |
-| partly fixed | 29 |
+| fixed | 42 |
+| partly fixed | 32 |
 | checked, still open | 2 |
-| planned | 7 |
+| planned | 6 |
 | waiting on Adriaen | 15 |
-| open | 178 |
+| open | 170 |
 | total | 267 |
 
 | Finding | Impact | Status | Commits | Note |
@@ -41,54 +41,62 @@ Flags: **rebake** = needs a GPU bake to verify; **restructure** = changes how mo
 | [hygiene-07](#hygiene-07) | medium | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
 | [hygiene-08](#hygiene-08) | medium | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
 | [hygiene-14](#hygiene-14) | medium | fixed | [9561718](https://github.com/adrver1/sloth/commit/9561718) | shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs |
+| [operator-16](#operator-16) | medium | fixed | [571f821](https://github.com/adrver1/sloth/commit/571f821) | camp/operator/: state, model, ik, handProps, places, walk, buddy, day, cook, lines, talk, handPose, fidget, headPose, step; one state object with named fields and reset(part). The scripts still clean up through dropAll and reset, not try/finally |
+| [operator-17](#operator-17) | medium | fixed | [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03) | each thing carries its own label; activities/ carry.js, fireChore.js, soupChore.js, fruitBowl.js, parts.js; 12 options instead of 19. The Put it back pill still carries its own CSS (camp.html was not in this round) |
 | [props-01](#props-01) | medium | fixed | [a8c698a](https://github.com/adrver1/sloth/commit/a8c698a) |  |
-| [props-08](#props-08) | medium | fixed | [2626429](https://github.com/adrver1/sloth/commit/2626429) | exports, with the window names kept as aliases for the files that still read them |
+| [props-08](#props-08) | medium | fixed | [2626429](https://github.com/adrver1/sloth/commit/2626429), [bfca46a](https://github.com/adrver1/sloth/commit/bfca46a) | exports, with the window names kept as aliases for the files that still read them; the jeep's seats, door options and engine are on jeepApi, and window.__car is only a debug hook |
 | [props-11](#props-11) | medium | fixed | [9561718](https://github.com/adrver1/sloth/commit/9561718) | shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs |
 | [sloths-03](#sloths-03) | medium | fixed | [a8c698a](https://github.com/adrver1/sloth/commit/a8c698a) |  |
 | [sloths-04](#sloths-04) | medium | fixed | [68529c0](https://github.com/adrver1/sloth/commit/68529c0) |  |
 | [world-12](#world-12) | medium | fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862) | camp/layout.js |
 | [world-16](#world-16) | medium | fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862) | camp/layout.js |
 | [boot-18](#boot-18) | low | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
+| [boot-20](#boot-20) | low | fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [633be43](https://github.com/adrver1/sloth/commit/633be43), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e) | the boot files' dead bits are gone, input.js's unused imports and its 'lit.at(to).center' included |
 | [genbake-28](#genbake-28) | low | fixed | [0fe98e3](https://github.com/adrver1/sloth/commit/0fe98e3) | 39 s to 10 s, byte-identical output |
+| [operator-06](#operator-06) | low | fixed | [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e) | clipOf, the scratch vector, the unused state fields, sipping()'s argument and the second turn before the bed are gone |
+| [operator-13](#operator-13) | low | fixed | [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e) | the constant PROPS === "picked" conditions are unwrapped |
+| [operator-24](#operator-24) | low | fixed | [a6d52a9](https://github.com/adrver1/sloth/commit/a6d52a9), [571f821](https://github.com/adrver1/sloth/commit/571f821), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03) | campLife.js's and operator.js's headers and comments rewritten with the splits |
 | [props-18](#props-18) | low | fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) |  |
 | [sloths-22](#sloths-22) | low | fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7) |  |
 | [world-07](#world-07) | low | fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7) |  |
 | [world-11](#world-11) | low | fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7) |  |
-| [crosscut-03](#crosscut-03) | high | partly fixed | [2626429](https://github.com/adrver1/sloth/commit/2626429), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [ae20b20](https://github.com/adrver1/sloth/commit/ae20b20), [4615035](https://github.com/adrver1/sloth/commit/4615035) | the APIs are exports and every module the clean-up has reached imports them; sloths.js, operator.js, input.js, audio.js, car.js, radio.js, jeepSeat.js and lab.js still read __camp, __jeep, __laundry, __acts, __campLife, __me, __car, __op, __lab, __labStep and __campFast (core.js lists who reads which) |
+| [crosscut-03](#crosscut-03) | high | partly fixed | [2626429](https://github.com/adrver1/sloth/commit/2626429), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [ae20b20](https://github.com/adrver1/sloth/commit/ae20b20), [4615035](https://github.com/adrver1/sloth/commit/4615035), [bfca46a](https://github.com/adrver1/sloth/commit/bfca46a), [571f821](https://github.com/adrver1/sloth/commit/571f821) | operator.js, input.js, car.js, radio.js and jeepSeat.js import what they use (acts, jeepApi, layout.js), and operator.js exports opApi; audio.js still reads __acts and __op (it is evaluated before the chores and the operator exist, so an import would reorder the build: needs main.js to hand them over); sloths.js and lab.js still read __camp, __jeep, __laundry, __me, __lab, __labStep and __campFast, and sloths.js's __campLife has no export yet |
 | [crosscut-14](#crosscut-14) | high | partly fixed | [4b4c73f](https://github.com/adrver1/sloth/commit/4b4c73f), [7bece27](https://github.com/adrver1/sloth/commit/7bece27) | main.js's inline blocks moved to their owners, except the sloths' three pieces (sloths.js, next round), and its import list is the stated build order; init(ctx) per module, a frame registry and the core.js split remain |
 | [genbake-18](#genbake-18) | high | partly fixed | [c473b25](https://github.com/adrver1/sloth/commit/c473b25) | the bake calls each builder's make() directly: no exec, no patching. The GLB round trip stays (through a temporary folder) because the glTF export triangulates and splits vertices, and the atlas is built on that result |
 | [props-07](#props-07) | high | partly fixed | [8250f6d](https://github.com/adrver1/sloth/commit/8250f6d), [1829576](https://github.com/adrver1/sloth/commit/1829576) | the bake reads the layout from the page. The lantern light still hangs 0.12 m below its hook in the bake and 0.125 m in the page: matching them needs a pick and a rebake |
 | [boot-03](#boot-03) | medium | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [ae20b20](https://github.com/adrver1/sloth/commit/ae20b20), [30a3173](https://github.com/adrver1/sloth/commit/30a3173) | the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain |
 | [boot-04](#boot-04) | medium | partly fixed | [2626429](https://github.com/adrver1/sloth/commit/2626429), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [ae20b20](https://github.com/adrver1/sloth/commit/ae20b20) | the APIs are exports and every module the clean-up has reached imports them (daylight.js imports groundHeight, jeepSeat.js the jeep's API); sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read the window aliases (next round), jeepSeat.js and lab.js still read __campLife, __car, __lab and __campFast, which have no export yet, and the debug hooks are not in one place yet |
 | [boot-06](#boot-06) | medium | partly fixed | [4b4c73f](https://github.com/adrver1/sloth/commit/4b4c73f), [7bece27](https://github.com/adrver1/sloth/commit/7bece27) | fire, pools, motes, sun shadows, the day clock and the palette are step functions in their owners; the sloths' squish and nod, the flying emojis and the glow uniforms are still written out in main.js's loop until sloths.js gets a step function (next round); the one-frame dusk lag is kept on purpose, since moving it changes behaviour |
-| [boot-17](#boot-17) | medium | partly fixed | [4ddc16e](https://github.com/adrver1/sloth/commit/4ddc16e), [ea8bc13](https://github.com/adrver1/sloth/commit/ea8bc13) | OPT and KEYS in core.js, now with time, cycle, pos, yaw and pitch; input.js (touch), sloths.js (campsloths, slothmat, lab), operator.js (op) and audio.js (sound, station, its storage key) still parse their own (next round) |
+| [boot-17](#boot-17) | medium | partly fixed | [4ddc16e](https://github.com/adrver1/sloth/commit/4ddc16e), [ea8bc13](https://github.com/adrver1/sloth/commit/ea8bc13), [34684d1](https://github.com/adrver1/sloth/commit/34684d1) | OPT and KEYS in core.js now also hold touch (input.js), op (operator.js), sound, station and the sound settings' key (audio.js); sloths.js still parses campsloths, slothmat and lab itself |
 | [crosscut-06](#crosscut-06) | medium | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [ae20b20](https://github.com/adrver1/sloth/commit/ae20b20), [30a3173](https://github.com/adrver1/sloth/commit/30a3173) | the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain |
-| [crosscut-09](#crosscut-09) | medium | partly fixed | [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [633be43](https://github.com/adrver1/sloth/commit/633be43), [bdd3760](https://github.com/adrver1/sloth/commit/bdd3760) | camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack and its eye-drop ease (both round differently from the helper) and daylight.js's sm (THREE.MathUtils.smoothstep, moved from main.js as it was); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js remain (next round) |
-| [crosscut-10](#crosscut-10) | medium | partly fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f) | camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js remain (next round) |
+| [crosscut-09](#crosscut-09) | medium | partly fixed | [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [633be43](https://github.com/adrver1/sloth/commit/633be43), [bdd3760](https://github.com/adrver1/sloth/commit/bdd3760), [e74c786](https://github.com/adrver1/sloth/commit/e74c786), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03) | camp/util.js; operator.js, activities.js, input.js, audio.js, car.js and radio.js now use it too (V, canvasTex, lam, trisIn, ease, rand). Left: the copies in sloths.js; player.js onTrack and its eye-drop ease and operator/walk.js's angle wrap (each rounds differently from the helper); daylight.js's sm (THREE.MathUtils.smoothstep) |
+| [crosscut-10](#crosscut-10) | medium | partly fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [978fcba](https://github.com/adrver1/sloth/commit/978fcba) | camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js |
 | [genbake-06](#genbake-06) | medium | partly fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) | the exporter validates the layout and writes nothing on a broken one; page errors and the Python readers remain |
 | [gencamp-13](#gencamp-13) | medium | partly fixed | [cb6f0a9](https://github.com/adrver1/sloth/commit/cb6f0a9) | cyl and rod take caps=; the jeep-local duplicates (quad vs poly, lugs and nuts) remain |
 | [genlived-04](#genlived-04) | medium | partly fixed | [c473b25](https://github.com/adrver1/sloth/commit/c473b25) | the bake calls each builder's make() directly: no exec, no patching. The GLB round trip stays (through a temporary folder) because the glTF export triangulates and splits vertices, and the atlas is built on that result |
-| [operator-12](#operator-12) | medium | partly fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f) | camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js remain (next round) |
-| [props-06](#props-06) | medium | partly fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862) | camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js remain (next round) |
+| [operator-12](#operator-12) | medium | partly fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [978fcba](https://github.com/adrver1/sloth/commit/978fcba) | camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js |
+| [operator-15](#operator-15) | medium | partly fixed | [a6d52a9](https://github.com/adrver1/sloth/commit/a6d52a9) | the five jobs are campGround.js, tentInside.js, campAir.js and chores.js; campLife.js only holds their order. It keeps its name (main.js imports it): rename it with main.js's next change |
+| [operator-19](#operator-19) | medium | partly fixed | [bfca46a](https://github.com/adrver1/sloth/commit/bfca46a), [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b) | the operator imports acts, and the fire's boost has one owner (camp/chores.js boostFire). Left: audio.js's two globals (see crosscut-03), the window events (camp-act, camp-food) have no one module, and the chores still set s.nod on a sloth |
+| [props-06](#props-06) | medium | partly fixed | [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [978fcba](https://github.com/adrver1/sloth/commit/978fcba) | camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js |
 | [props-13](#props-13) | medium | partly fixed | [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [2ce6f7a](https://github.com/adrver1/sloth/commit/2ce6f7a) | util.js patchMaterial; sloths.js and operator.js still chain their hooks by hand (next round) |
-| [world-15](#world-15) | medium | partly fixed | [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [633be43](https://github.com/adrver1/sloth/commit/633be43), [bdd3760](https://github.com/adrver1/sloth/commit/bdd3760) | camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack and its eye-drop ease (both round differently from the helper) and daylight.js's sm (THREE.MathUtils.smoothstep, moved from main.js as it was); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js remain (next round) |
-| [boot-20](#boot-20) | low | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [633be43](https://github.com/adrver1/sloth/commit/633be43), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f) | highlight lit getter, player.js leftovers and core.js's pr variable removed; input.js's unused imports and its 'lit.at(to).center' remain (next round) |
+| [world-15](#world-15) | medium | partly fixed | [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [633be43](https://github.com/adrver1/sloth/commit/633be43), [bdd3760](https://github.com/adrver1/sloth/commit/bdd3760), [e74c786](https://github.com/adrver1/sloth/commit/e74c786), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03) | camp/util.js; operator.js, activities.js, input.js, audio.js, car.js and radio.js now use it too (V, canvasTex, lam, trisIn, ease, rand). Left: the copies in sloths.js; player.js onTrack and its eye-drop ease and operator/walk.js's angle wrap (each rounds differently from the helper); daylight.js's sm (THREE.MathUtils.smoothstep) |
 | [boot-22](#boot-22) | low | partly fixed | [bdaa1c7](https://github.com/adrver1/sloth/commit/bdaa1c7) | header and module list rewritten, the two dead link selectors removed; merging the two .bar rules, folding .pill into #perf and the spacer span remain (they are live rules: they need a look on a phone) |
 | [crosscut-04](#crosscut-04) | low | partly fixed | [4ddc16e](https://github.com/adrver1/sloth/commit/4ddc16e), [4615035](https://github.com/adrver1/sloth/commit/4615035) | the globals are listed in core.js (now with the car's, the radio's and the sound's), marked as API, tool contract or debug hook, and two unused hooks are gone; one debug module is not done: the hooks still sit in main.js (__rest, __face, and __slothS, which still maps every sloth at start-up), clock.js, linger.js, weather.js, car.js, audio.js, radio.js, sloths.js and operator.js (op.scr is still computed every frame) |
-| [crosscut-07](#crosscut-07) | low | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [633be43](https://github.com/adrver1/sloth/commit/633be43), [4615035](https://github.com/adrver1/sloth/commit/4615035), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f) | forest.js, food.js, player.js and jeep.js (jeepTap, the camper's ladder) done; sloths.js's COUNT, flowerCrown and friend, and input.js's import of them, remain (next round) |
+| [crosscut-07](#crosscut-07) | low | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [633be43](https://github.com/adrver1/sloth/commit/633be43), [4615035](https://github.com/adrver1/sloth/commit/4615035), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e) | forest.js, food.js, player.js, jeep.js and input.js done; sloths.js still exports COUNT, flowerCrown and friend, which nothing imports now |
 | [crosscut-15](#crosscut-15) | low | partly fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668), [4ddc16e](https://github.com/adrver1/sloth/commit/4ddc16e), [ea8bc13](https://github.com/adrver1/sloth/commit/ea8bc13) | one table of URL options, storage keys and window globals in core.js, now with time, cycle and the start view; the README copy remains, and the options input.js, sloths.js, operator.js and audio.js parse themselves |
 | [crosscut-16](#crosscut-16) | low | partly fixed | [bdaa1c7](https://github.com/adrver1/sloth/commit/bdaa1c7), [7bece27](https://github.com/adrver1/sloth/commit/7bece27) | camp.html's header and module list and main.js's header say what is there, and the kettle comments in campLife.js are gone; the comment fixes in sloths.js, campProps.js, bakedlight.js, ground.js and atmosphere.js remain, and camp.html's CSS merges (see boot-22) |
 | [genbake-11](#genbake-11) | low | partly fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668) | dead jeep globs removed from the KTX step; DOORS and the Fire check remain |
 | [genbake-12](#genbake-12) | low | partly fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668), [0fe98e3](https://github.com/adrver1/sloth/commit/0fe98e3) | two docstrings fixed; the rest remain |
 | [hygiene-12](#hygiene-12) | low | partly fixed | [d720668](https://github.com/adrver1/sloth/commit/d720668), [0fe98e3](https://github.com/adrver1/sloth/commit/0fe98e3) | two docstrings fixed; the rest remain |
-| [operator-07](#operator-07) | low | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7) | kettle spout removed (pot: SOUP_POT); flames and blockers options remain |
+| [operator-07](#operator-07) | low | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e), [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b) | the blockers option, the fallbacks and the optional-call guards are gone; the old flame sprites are still scaled each frame (camp/chores.js boostFire), because campProps.js still moves them, hidden: they go with campProps.js's own clean-up |
+| [operator-11](#operator-11) | low | partly fixed | [978fcba](https://github.com/adrver1/sloth/commit/978fcba), [a6d52a9](https://github.com/adrver1/sloth/commit/a6d52a9) | tentInside.js and the operator use layout.js TENT.fromLocal and TENT.bed; sloths.js still writes the frame out itself |
+| [operator-23](#operator-23) | low | partly fixed | [e74c786](https://github.com/adrver1/sloth/commit/e74c786) | V, canvasTex, ease and lam come from util.js; the repeated expressions (yaw to the camera, facing the fire, the reach and ease loops) are as they were |
 | [world-05](#world-05) | low | partly fixed | [16996b7](https://github.com/adrver1/sloth/commit/16996b7) | helpers, stub, __back and unused exports removed; the redundant first map: and the _y trick remain |
 | [genbake-03](#genbake-03) | medium | checked, still open |  | the GPU bake printed "GPU OPTIX RTX 5070 Ti" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain |
 | [gencamp-06](#gencamp-06) | medium | checked, still open |  | the GPU bake printed "GPU OPTIX RTX 5070 Ti" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain |
 | [operator-09](#operator-09) | high | planned |  | next round of section C: the shared character layer and the sloths.js split |
 | [sloths-29](#sloths-29) | high | planned |  | next round of section C: the shared character layer and the sloths.js split |
 | [operator-10](#operator-10) | medium | planned |  | next round of section C: the shared character layer and the sloths.js split |
-| [operator-16](#operator-16) | medium | planned |  | next round of section C: the shared character layer and the sloths.js split |
 | [sloths-30](#sloths-30) | medium | planned |  | next round of section C: the shared character layer and the sloths.js split |
 | [sloths-31](#sloths-31) | medium | planned |  | next round of section C |
 | [sloths-32](#sloths-32) | medium | planned |  | next round of section C: the shared character layer and the sloths.js split |
@@ -1056,7 +1064,7 @@ Fix: Move the comment to the end of the line so layout.push(...) and count(...) 
 ### crosscut-03 · high · M · separation
 **12 window.__ globals are the real API between modules; all can be imports**
 
-**Status: partly fixed** in [2626429](https://github.com/adrver1/sloth/commit/2626429), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [ae20b20](https://github.com/adrver1/sloth/commit/ae20b20), [4615035](https://github.com/adrver1/sloth/commit/4615035). The APIs are exports and every module the clean-up has reached imports them; sloths.js, operator.js, input.js, audio.js, car.js, radio.js, jeepSeat.js and lab.js still read __camp, __jeep, __laundry, __acts, __campLife, __me, __car, __op, __lab, __labStep and __campFast (core.js lists who reads which)
+**Status: partly fixed** in [2626429](https://github.com/adrver1/sloth/commit/2626429), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [ae20b20](https://github.com/adrver1/sloth/commit/ae20b20), [4615035](https://github.com/adrver1/sloth/commit/4615035), [bfca46a](https://github.com/adrver1/sloth/commit/bfca46a), [571f821](https://github.com/adrver1/sloth/commit/571f821). Operator.js, input.js, car.js, radio.js and jeepSeat.js import what they use (acts, jeepApi, layout.js), and operator.js exports opApi; audio.js still reads __acts and __op (it is evaluated before the chores and the operator exist, so an import would reorder the build: needs main.js to hand them over); sloths.js and lab.js still read __camp, __jeep, __laundry, __me, __lab, __labStep and __campFast, and sloths.js's __campLife has no export yet
 
 Where: `apps/canopy-prototype/camp/campProps.js:21, 100, 123, 136`; `apps/canopy-prototype/camp/jeep.js:59, 67-68, 92`; `apps/canopy-prototype/camp/sloths.js:166, 205, 220, 251, 432, 510, 943, 954, 1050, 1068`
 
@@ -1106,7 +1114,7 @@ Fix: Delete the 7 duplicates and the 2 unneeded ones (player.js:2, sky.js:3). Re
 ### crosscut-09 · medium · M · duplicate
 **The same small helpers are defined 3 to 9 times across the modules**  _(restructure)_
 
-**Status: partly fixed** in [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [633be43](https://github.com/adrver1/sloth/commit/633be43), [bdd3760](https://github.com/adrver1/sloth/commit/bdd3760). Camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack and its eye-drop ease (both round differently from the helper) and daylight.js's sm (THREE.MathUtils.smoothstep, moved from main.js as it was); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js remain (next round)
+**Status: partly fixed** in [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [633be43](https://github.com/adrver1/sloth/commit/633be43), [bdd3760](https://github.com/adrver1/sloth/commit/bdd3760), [e74c786](https://github.com/adrver1/sloth/commit/e74c786), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03). Camp/util.js; operator.js, activities.js, input.js, audio.js, car.js and radio.js now use it too (V, canvasTex, lam, trisIn, ease, rand). Left: the copies in sloths.js; player.js onTrack and its eye-drop ease and operator/walk.js's angle wrap (each rounds differently from the helper); daylight.js's sm (THREE.MathUtils.smoothstep)
 
 Where: `apps/canopy-prototype/camp/core.js:42-44, 104-108`; `apps/canopy-prototype/camp/terrain.js:18`; `apps/canopy-prototype/camp/deadwood.js:11, 16, 25-30`
 
@@ -1118,7 +1126,7 @@ Fix: A camp/util.js with no side effects: V, sstep, lerp/clamp re-exports, wrapP
 ### crosscut-10 · medium · M · duplicate
 **Camp layout numbers and the tent's frame maths are repeated by hand in up to six places**
 
-**Status: partly fixed** in [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f). Camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js remain (next round)
+**Status: partly fixed** in [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [978fcba](https://github.com/adrver1/sloth/commit/978fcba). Camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js
 
 Where: `apps/canopy-prototype/camp/campProps.js:14-16, 27, 105, 117, 122, 124-125, 131, 155`; `apps/canopy-prototype/camp/campLife.js:33, 34, 36-37, 58`; `apps/canopy-prototype/camp/weather.js:26-28`
 
@@ -1244,7 +1252,7 @@ Fix: One file, camp/debug.js, imported last by main.js, that imports what it nee
 ### crosscut-07 · low · S · dead-code
 **Dead exports, imports, variables and fields left from removed features**
 
-**Status: partly fixed** in [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [633be43](https://github.com/adrver1/sloth/commit/633be43), [4615035](https://github.com/adrver1/sloth/commit/4615035), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f). Forest.js, food.js, player.js and jeep.js (jeepTap, the camper's ladder) done; sloths.js's COUNT, flowerCrown and friend, and input.js's import of them, remain (next round)
+**Status: partly fixed** in [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [633be43](https://github.com/adrver1/sloth/commit/633be43), [4615035](https://github.com/adrver1/sloth/commit/4615035), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e). Forest.js, food.js, player.js, jeep.js and input.js done; sloths.js still exports COUNT, flowerCrown and friend, which nothing imports now
 
 Where: `apps/canopy-prototype/camp/forest.js:27-34, 70, 371, 378`; `apps/canopy-prototype/camp/jeep.js:15, 32, 86-91, 103`; `apps/canopy-prototype/camp/input.js:7`
 
@@ -1424,7 +1432,7 @@ Measured or estimate: Estimate: 0.3 to 0.8 s of main-thread time on a desktop an
 ### boot-17 · medium · M · maintainability
 **17 URL options and 6 storage keys are read in 7 files with three parsing styles and are listed nowhere**
 
-**Status: partly fixed** in [4ddc16e](https://github.com/adrver1/sloth/commit/4ddc16e), [ea8bc13](https://github.com/adrver1/sloth/commit/ea8bc13). OPT and KEYS in core.js, now with time, cycle, pos, yaw and pitch; input.js (touch), sloths.js (campsloths, slothmat, lab), operator.js (op) and audio.js (sound, station, its storage key) still parse their own (next round)
+**Status: partly fixed** in [4ddc16e](https://github.com/adrver1/sloth/commit/4ddc16e), [ea8bc13](https://github.com/adrver1/sloth/commit/ea8bc13), [34684d1](https://github.com/adrver1/sloth/commit/34684d1). OPT and KEYS in core.js now also hold touch (input.js), op (operator.js), sound, station and the sound settings' key (audio.js); sloths.js still parses campsloths, slothmat and lab itself
 
 Where: `apps/canopy-prototype/camp/core.js:19, 28, 31, 40, 64, 72-73`; `apps/canopy-prototype/camp/main.js:40-41, 68-69`; `apps/canopy-prototype/camp/input.js:13`
 
@@ -1552,7 +1560,7 @@ Fix: In export_casters.cjs: drop props= and lm=off from the URL, pass lm=1k (the
 ### boot-20 · low · S · dead-code
 **Dead bits in the boot files: unused function, variables, imports and fields**
 
-**Status: partly fixed** in [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [633be43](https://github.com/adrver1/sloth/commit/633be43), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f). Highlight lit getter, player.js leftovers and core.js's pr variable removed; input.js's unused imports and its 'lit.at(to).center' remain (next round)
+**Status: fixed** in [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [633be43](https://github.com/adrver1/sloth/commit/633be43), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e). The boot files' dead bits are gone, input.js's unused imports and its 'lit.at(to).center' included
 
 Where: `apps/canopy-prototype/camp/player.js:72-76`; `apps/canopy-prototype/camp/player.js:51`; `apps/canopy-prototype/camp/player.js:11`
 
@@ -2226,7 +2234,7 @@ Fix: With Adriaen's go-ahead: move claims/hosts/movers into camp/places.js and t
 ### operator-12 · medium · M · earlier-audit-open
 **Scene facts copied by hand into several modules (earlier audit M3, still open)**
 
-**Status: partly fixed** in [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f). Camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js remain (next round)
+**Status: partly fixed** in [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [8778d7f](https://github.com/adrver1/sloth/commit/8778d7f), [978fcba](https://github.com/adrver1/sloth/commit/978fcba). Camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js
 
 Where: `apps/canopy-prototype/camp/campLife.js:58`; `apps/canopy-prototype/camp/operator.js:283`; `apps/canopy-prototype/camp/sloths.js:425`
 
@@ -2250,7 +2258,7 @@ Fix: With Adriaen's go-ahead: one seats table (in the places module of operator-
 ### operator-15 · medium · M · separation
 **campLife.js is leftover glue: five unrelated jobs, order-dependent, and named like the unrelated window.__campLife**  _(restructure)_
 
-**Status: open**
+**Status: partly fixed** in [a6d52a9](https://github.com/adrver1/sloth/commit/a6d52a9). The five jobs are campGround.js, tentInside.js, campAir.js and chores.js; campLife.js only holds their order. It keeps its name (main.js imports it): rename it with main.js's next change
 
 Where: `apps/canopy-prototype/camp/campLife.js:21-30`; `apps/canopy-prototype/camp/campLife.js:35-44`; `apps/canopy-prototype/camp/campLife.js:45-51`
 
@@ -2262,7 +2270,7 @@ Fix: With Adriaen's go-ahead: move the tent walls, bed and stove blockers and th
 ### operator-16 · medium · L · separation
 **operator.js is one module doing nine jobs, with a loose state bag reset by hand in two places**  _(restructure)_
 
-**Status: planned**. Next round of section C: the shared character layer and the sloths.js split
+**Status: fixed** in [571f821](https://github.com/adrver1/sloth/commit/571f821). Camp/operator/: state, model, ik, handProps, places, walk, buddy, day, cook, lines, talk, handPose, fidget, headPose, step; one state object with named fields and reset(part). The scripts still clean up through dropAll and reset, not try/finally
 
 Where: `apps/canopy-prototype/camp/operator.js:160`; `apps/canopy-prototype/camp/operator.js:271, 672`; `apps/canopy-prototype/camp/operator.js:453-576`
 
@@ -2274,7 +2282,7 @@ Fix: With Adriaen's go-ahead, after PR #14: split into camp/operator/ model.js (
 ### operator-17 · medium · M · separation
 **activities.js is one 250-line closure with a 19-key options bag and its own UI**  _(restructure)_
 
-**Status: open**
+**Status: fixed** in [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03). Each thing carries its own label; activities/ carry.js, fireChore.js, soupChore.js, fruitBowl.js, parts.js; 12 options instead of 19. The Put it back pill still carries its own CSS (camp.html was not in this round)
 
 Where: `apps/canopy-prototype/activities.js:61`; `apps/canopy-prototype/activities.js:104-112`; `apps/canopy-prototype/activities.js:193-235`
 
@@ -2286,7 +2294,7 @@ Fix: With Adriaen's go-ahead: make a thing carry its own label (`label: () => ..
 ### operator-19 · medium · M · separation
 **Modules are tied together by window globals, a window event and the order of calls in the frame loop**
 
-**Status: open**
+**Status: partly fixed** in [bfca46a](https://github.com/adrver1/sloth/commit/bfca46a), [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b). The operator imports acts, and the fire's boost has one owner (camp/chores.js boostFire). Left: audio.js's two globals (see crosscut-03), the window events (camp-act, camp-food) have no one module, and the chores still set s.nod on a sloth
 
 Where: `apps/canopy-prototype/camp/operator.js:621, 659`; `apps/canopy-prototype/activities.js:79, 133-134, 179-180, 276`; `apps/canopy-prototype/activities.js:264-266`
 
@@ -2334,7 +2342,7 @@ Fix: Track dawn explicitly: `let dawn = 0; ... if (!night() && op.wasNight) dawn
 ### operator-06 · low · S · dead-code
 **Dead bits in operator.js**
 
-**Status: open**
+**Status: fixed** in [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e). ClipOf, the scratch vector, the unused state fields, sipping()'s argument and the second turn before the bed are gone
 
 Where: `apps/canopy-prototype/camp/operator.js:31`; `apps/canopy-prototype/camp/operator.js:94`; `apps/canopy-prototype/camp/operator.js:160, 310`
 
@@ -2346,7 +2354,7 @@ Fix: Delete them. Keep `groundAt` or replace by groundHeight (alias at :27) as p
 ### operator-07 · low · S · dead-code
 **Dead options, fallbacks and branches in activities.js and campLife.js (old flame sprites, kettle spout, unused blockers)**
 
-**Status: partly fixed** in [16996b7](https://github.com/adrver1/sloth/commit/16996b7). Kettle spout removed (pot: SOUP_POT); flames and blockers options remain
+**Status: partly fixed** in [16996b7](https://github.com/adrver1/sloth/commit/16996b7), [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e), [bedef9b](https://github.com/adrver1/sloth/commit/bedef9b). The blockers option, the fallbacks and the optional-call guards are gone; the old flame sprites are still scaled each frame (camp/chores.js boostFire), because campProps.js still moves them, hidden: they go with campProps.js's own clean-up
 
 Where: `apps/canopy-prototype/activities.js:61, 265`; `apps/canopy-prototype/activities.js:61`; `apps/canopy-prototype/activities.js:147`
 
@@ -2370,7 +2378,7 @@ Fix: Export aimBone (with `w = 1`) from sloths.js and import it in operator.js, 
 ### operator-11 · low · S · duplicate
 **The tent's local frame is written out four times (three in campLife.js alone)**
 
-**Status: open**
+**Status: partly fixed** in [978fcba](https://github.com/adrver1/sloth/commit/978fcba), [a6d52a9](https://github.com/adrver1/sloth/commit/a6d52a9). TentInside.js and the operator use layout.js TENT.fromLocal and TENT.bed; sloths.js still writes the frame out itself
 
 Where: `apps/canopy-prototype/camp/campLife.js:33`; `apps/canopy-prototype/camp/campLife.js:34`; `apps/canopy-prototype/camp/campLife.js:36-37`
 
@@ -2382,7 +2390,7 @@ Fix: Export one `tent` helper next to tentAt in campProps.js: `tent.toWorld(bx, 
 ### operator-13 · low · S · earlier-audit-open
 **campLife.js still branches on options that were decided (earlier audit M6)**
 
-**Status: open**
+**Status: fixed** in [a6ef95e](https://github.com/adrver1/sloth/commit/a6ef95e). The constant PROPS === "picked" conditions are unwrapped
 
 Where: `apps/canopy-prototype/camp/campLife.js:23, 35, 53, 54`; `apps/canopy-prototype/camp/campLife.js:22, 24`
 
@@ -2446,7 +2454,7 @@ Fix: A tiny `after(sec, fn)` queue stepped in activities.update(dt) and in opSte
 ### operator-23 · low · M · maintainability
 **Repeated expressions and hand-rolled copies of small helpers in operator.js and activities.js**
 
-**Status: open**
+**Status: partly fixed** in [e74c786](https://github.com/adrver1/sloth/commit/e74c786). V, canvasTex, ease and lam come from util.js; the repeated expressions (yaw to the camera, facing the fire, the reach and ease loops) are as they were
 
 Where: `apps/canopy-prototype/camp/operator.js:211, 212, 555`; `apps/canopy-prototype/camp/operator.js:274, 298`; `apps/canopy-prototype/camp/operator.js:276, 285`
 
@@ -2458,7 +2466,7 @@ Fix: In operator.js add `const yawToCam = () => ...`, `faceFire()`, `function* r
 ### operator-24 · low · S · maintainability
 **Stale, misplaced or misleading comments**
 
-**Status: open**
+**Status: fixed** in [a6d52a9](https://github.com/adrver1/sloth/commit/a6d52a9), [571f821](https://github.com/adrver1/sloth/commit/571f821), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03). CampLife.js's and operator.js's headers and comments rewritten with the splits
 
 Where: `apps/canopy-prototype/camp/campLife.js:15`; `apps/canopy-prototype/camp/campLife.js:17, 20`; `apps/canopy-prototype/camp/campLife.js:24`
 
@@ -2570,7 +2578,7 @@ Fix: Inside forest.js: one `ribbon(curve, {n, half, y, tex, alpha, tile, order})
 ### world-15 · medium · M · duplicate
 **The same small helpers are re-implemented per file: canvasTex x4, smoothstep x4, one LCG x8, merge x2, the tent-frame test x2 (x3 with the PRs)**  _(restructure)_
 
-**Status: partly fixed** in [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [633be43](https://github.com/adrver1/sloth/commit/633be43), [bdd3760](https://github.com/adrver1/sloth/commit/bdd3760). Camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack and its eye-drop ease (both round differently from the helper) and daylight.js's sm (THREE.MathUtils.smoothstep, moved from main.js as it was); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js remain (next round)
+**Status: partly fixed** in [5dab33a](https://github.com/adrver1/sloth/commit/5dab33a), [d6fbceb](https://github.com/adrver1/sloth/commit/d6fbceb), [00f93fb](https://github.com/adrver1/sloth/commit/00f93fb), [633be43](https://github.com/adrver1/sloth/commit/633be43), [bdd3760](https://github.com/adrver1/sloth/commit/bdd3760), [e74c786](https://github.com/adrver1/sloth/commit/e74c786), [87b1b03](https://github.com/adrver1/sloth/commit/87b1b03). Camp/util.js; operator.js, activities.js, input.js, audio.js, car.js and radio.js now use it too (V, canvasTex, lam, trisIn, ease, rand). Left: the copies in sloths.js; player.js onTrack and its eye-drop ease and operator/walk.js's angle wrap (each rounds differently from the helper); daylight.js's sm (THREE.MathUtils.smoothstep)
 
 Where: `apps/canopy-prototype/camp/core.js:44, 104-107`; `apps/canopy-prototype/ground.js:14-17, 27, 33, 161`; `apps/canopy-prototype/atmosphere.js:8`
 
@@ -2932,7 +2940,7 @@ Measured or estimate: Estimate, not measured: one 1x1 texture fetch and a pow pe
 ### props-06 · medium · M · duplicate
 **Layout constants repeated inside the page: seat ring five times, kitchen crate four, soup pot three, wood pile two**
 
-**Status: partly fixed** in [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862). Camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js remain (next round)
+**Status: partly fixed** in [1eaa862](https://github.com/adrver1/sloth/commit/1eaa862), [978fcba](https://github.com/adrver1/sloth/commit/978fcba). Camp/layout.js is the one source, now also for the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area); 20 values checked bit for bit. Left: the copies in sloths.js
 
 Where: `apps/canopy-prototype/camp/campProps.js:27, 105, 122, 125`; `apps/canopy-prototype/camp/sloths.js:193, 425`; `apps/canopy-prototype/camp/campProps.js:117, 124, 155`
 
@@ -2944,7 +2952,7 @@ Fix: campProps.js exports one CAMP object built once: seats: [{ at, yaw, angle }
 ### props-08 · medium · M · separation
 **The props' and jeep's API to other modules goes through window globals instead of exports**
 
-**Status: fixed** in [2626429](https://github.com/adrver1/sloth/commit/2626429). Exports, with the window names kept as aliases for the files that still read them
+**Status: fixed** in [2626429](https://github.com/adrver1/sloth/commit/2626429), [bfca46a](https://github.com/adrver1/sloth/commit/bfca46a). Exports, with the window names kept as aliases for the files that still read them; the jeep's seats, door options and engine are on jeepApi, and window.__car is only a debug hook
 
 Where: `apps/canopy-prototype/camp/campProps.js:21, 100, 123`; `apps/canopy-prototype/camp/campProps.js:136-137`; `apps/canopy-prototype/camp/jeep.js:59, 92-100`
 
