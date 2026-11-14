@@ -58,7 +58,7 @@ renderer.setAnimationLoop(() => {
     if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; const sc = s.sc || SL; s.o.scale.set(sc * (1 + k), sc * (1 - k), sc * (1 + k)); }
     if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
   }
-  campStep(dt);
+  campStep(dt, me.seat);                                   // sloths.js: the camp sloths' day; no one sits on the seat you are on
   opStep(dt);
   jeepStep(dt); carStep(dt);
   fxStep(dt);                                             // fx.js: the words and hearts in the air
@@ -95,13 +95,12 @@ renderer.setAnimationLoop(() => {
   }
 });
 // ---------------------------------------------------------------- window.__ hooks (core.js lists every global on the page)
-window.__me = me;   // alias: sloths.js reads the player's seat from it (player.js imports sloths.js, so an import back would be a cycle; next round)
 // tool contract: tools/camp-replay.cjs's tour drives these (with __stats above), and all three tools wait for __ready
 window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__time = (h) => day.setHour(h, true);   // __time jumps straight to an hour
 window.__stick = (x, y) => stickV.set(x, y);
 window.__scene = scene; window.__glade = { at: GLADE, path: sloPath.pts };   // __glade: props/shadow/export_casters.cjs (the bake's layout)
 // debug hooks, for checks by hand in the console
-window.__rest = () => day.setHour(23, true);
+window.__rest = () => day.setHour(23, true); window.__me = me;   // __me: the player (player.js me)
 window.__face = (i) => { const s = sloths[i]; const flat = V(s.p.x, 0, s.p.z); me.pos.copy(flat.clone().multiplyScalar(Math.max(0, 1 - 2.2 / flat.length()))); collide(me.pos); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
 window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
 window.__ready = true;

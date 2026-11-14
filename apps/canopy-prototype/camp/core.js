@@ -21,9 +21,12 @@ import { SUN } from "./layout.js";
 //   pos      x,z in metres                 by the fire (player.js)           main.js (where you stand at the start)
 //   yaw      radians                       facing the fire (player.js)       main.js (where you look at the start)
 //   pitch    radians                       0.08 (player.js)                  main.js
+//   campsloths 1 | 0                       1                                 sloths.js (0: only the two wild sloths, no camp sloths)
+//   slothmat lambert | old                 lambert                           sloths.js (old: the sloth GLB's own physical material)
+//   lab      (present)                     absent                            sloths.js (opens the move lab, lab.js, at the start)
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
 // still read with qs in files this clean-up has not reached yet (move them here in its next round): touch (input.js),
-// campsloths, slothmat, lab (sloths.js), op once more (operator.js), sound, station (audio.js).
+// op once more (operator.js), sound, station (audio.js).
 const qs = new URLSearchParams(location.search);
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
 // state, one part per owner). audio.js keeps the sound settings under "canopy-audio", which it still types itself (next round).
@@ -75,6 +78,9 @@ const OPT = {
   pos: qs.has("pos") ? qs.get("pos").split(",").map(Number) : null,   // the start view: null keeps player.js's own
   yaw: qs.has("yaw") ? +qs.get("yaw") : null,
   pitch: qs.has("pitch") ? +qs.get("pitch") : null,
+  campsloths: qs.get("campsloths") !== "0",
+  slothmat: qs.get("slothmat") === "old" ? "old" : "lambert",
+  lab: qs.has("lab"),
 };
 const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
