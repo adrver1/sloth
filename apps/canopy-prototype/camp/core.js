@@ -1,5 +1,5 @@
 // Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, the named seeded random streams (rng), every download
-// started at once (PRE, camp review P2) and the look's leaf material (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
+// started at once (PRE, camp review P2) and the look's settings S (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
@@ -139,31 +139,15 @@ const PRE = {
 };
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(S.fog[0], S.fog[1]);
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 60);
-scene.add(new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
+// the field of view is input.js setFov's (58 degrees, 70 on a tall phone screen, set again on every resize); things beyond 80 m are not drawn
+const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 80);
+const hemi = new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]); scene.add(hemi);   // the sky light; daylight.js dims and tints it by the hour
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
 const uTime = { value: 0 };
 // the camp's pace: fast runs the sloths' day and the jeep seats that many times as fast (unset: 1). The move lab (lab.js) sets it,
 // and the tools through window.__campFast (debug.js)
 const pace = { fast: undefined };
-const leafMat = (opts, sway) => {
-  const m = new THREE.MeshLambertMaterial(opts);
-  // The sway is a uniform, not a number in the shader text: the hook's source is the same for every sway, so three gives
-  // every leaf material one program, and each material keeps its own amount (review props-12).
-  const uSway = { value: sway };
-  if (sway) m.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime; sh.uniforms.uSway = uSway;
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;")
-      .replace("#include <begin_vertex>", `#include <begin_vertex>
-        #ifdef USE_INSTANCING
-        vec3 ip = instanceMatrix[3].xyz;
-        float w = sin(uTime * 1.4 + ip.x * 1.7 + ip.z * 1.3) + 0.5 * sin(uTime * 2.3 + ip.y * 2.1);
-        transformed += vec3(1.0, 0.4, 0.6) * (w * uSway) * (0.5 + position.y);
-        #endif`);
-  };
-  return m;
-};
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
 // a base64 model: a download that fails (a 404, a server error) throws an error naming the file, so camp.html's loading card
@@ -175,4 +159,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, D, DETAIL, JEEP, KEYS, LIVED, OPT, PRE, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime, wireSettings };
+export { $, D, DETAIL, JEEP, KEYS, LIVED, OPT, PRE, S, camera, hemi, hex, renderer, rng, scene, pace, store, sun, uTime, wireSettings };

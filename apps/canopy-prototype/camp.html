@@ -32,6 +32,10 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 #toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none;
   font-weight: 700; font-size: 34px; color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
 #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+/* the pill menu a tap on a lit thing opens (input.js makes it and places it over the thing) */
+#tapmenu { position: fixed; left: 0; top: 0; display: none; flex-direction: column; gap: 6px; transform: translate(-50%, -100%); z-index: 3; }
+#tapmenu button { font: 600 16px var(--display); color: var(--ink); background: rgb(255 248 238 / .94); border: 0; border-radius: 999px;
+  padding: 9px 16px; box-shadow: 0 3px 0 rgb(138 90 59 / .25); cursor: pointer; white-space: nowrap; }
 .bar .menu { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .bar .menu[hidden] { display: none; }
 .bar .time { pointer-events: auto; display: flex; align-items: center; gap: 8px; font: 600 13px var(--display); background: rgb(255 248 238 / .85); border-radius: 999px; padding: 4px 12px; box-shadow: 0 2px 0 rgb(138 90 59 / .2); }

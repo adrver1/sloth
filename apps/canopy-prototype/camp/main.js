@@ -78,7 +78,6 @@ createDaylight();                      // daylight.js: the mist banks, and the m
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 addEventListener("resize", resize); resize();
-camera.far = 80;
 
 // the fps panel and the resolution safety net (review R2-057). It judges frame time against the display's own rate, so a
 // 30 Hz screen is not counted as slow: after a second of grace (the first frames upload textures)

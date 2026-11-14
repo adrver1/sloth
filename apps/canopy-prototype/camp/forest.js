@@ -5,7 +5,7 @@
 // and perClump (the leaf card, its material, its size range and how many go in a clump) for glade.js's bushes.
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
-import { D, hex, JEEP, leafMat, OPT, rng, S, scene } from "./core.js";
+import { D, hex, JEEP, OPT, rng, S, scene, uTime } from "./core.js";
 // the forest starts its stream where it always restarted the old shared one (3000 + ?seed), so its trees, and the root mounds
 // under them that shape the ground the light and ground bakes were made on, stay where they were baked
 const { R, rnd } = rng("forest", 3000 + OPT.seed);
@@ -30,6 +30,24 @@ function bake(geo, y0, y1) {
   return geo;
 }
 const barkMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+// the leaf material: Lambert, and with a sway the instanced leaves move in the wind (the forest's leaves and glade.js's bushes)
+const leafMat = (opts, sway) => {
+  const m = new THREE.MeshLambertMaterial(opts);
+  // The sway is a uniform, not a number in the shader text: the hook's source is the same for every sway, so three gives
+  // every leaf material one program, and each material keeps its own amount (review props-12).
+  const uSway = { value: sway };
+  if (sway) m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = uTime; sh.uniforms.uSway = uSway;
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;")
+      .replace("#include <begin_vertex>", `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+        vec3 ip = instanceMatrix[3].xyz;
+        float w = sin(uTime * 1.4 + ip.x * 1.7 + ip.z * 1.3) + 0.5 * sin(uTime * 2.3 + ip.y * 2.1);
+        transformed += vec3(1.0, 0.4, 0.6) * (w * uSway) * (0.5 + position.y);
+        #endif`);
+  };
+  return m;
+};
 const woodGeos = [];
 function merge(geos) {                               // position, normal, colour only; one draw for many parts
   const pos = [], nor = [], col = [];

@@ -95,7 +95,6 @@ function aimStep(dt) {
 function openMenu(t) {
   menuFor = t; menu.replaceChildren(...t.options().map(([label, fn]) => {
     const b = document.createElement("button"); b.textContent = label;
-    b.style.cssText = "font:600 16px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25);cursor:pointer;white-space:nowrap";
     b.onclick = (e) => { e.stopPropagation(); closeMenu(); fn(); }; return b; }));
   menu.style.display = "flex"; placeMenu();
 }
@@ -149,9 +148,8 @@ function initInput() {
   const SLOTH_REACH = 7;
   addTargets("sloths", () => sloths.map((s) => [s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
     ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })]));
-  // the menu: a few pill buttons over the thing, following it while it is open
-  menu = document.createElement("div");
-  menu.style.cssText = "position:fixed;left:0;top:0;display:none;flex-direction:column;gap:6px;transform:translate(-50%,-100%);z-index:3";
+  // the menu: a few pill buttons over the thing, following it while it is open (its look is camp.html's #tapmenu rules)
+  menu = document.createElement("div"); menu.id = "tapmenu";
   document.body.append(menu);
   for (const ev of ["pointerdown", "pointerup"]) menu.addEventListener(ev, (e) => e.stopPropagation());
 }
