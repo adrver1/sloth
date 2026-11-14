@@ -10,7 +10,8 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
 2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the scratch GLBs, and stands everything where
-   camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page. The mesh audit
+   camp.html puts it (picked() makes no fire and no lantern: the lived fire set and the page's lanterns.js draw those,
+   so neither is baked). The mesh audit
    (props/lib/audit.py) reports on the lived props in step 1 and the picked set here, and never stops the bake.
 3. Adds the jeep (an occluder) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
    one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
@@ -148,7 +149,7 @@ for i, (x, z, yaw) in enumerate(seat_at):
 picked.append(place(objs["Tent"], "Tent", *TENT, copy=False))
 picked.append(place(objs["Hammock"], "Hammock", *HAMMOCK, copy=False))
 picked.append(place(objs["Table"], "Table", *TABLE, copy=False))
-bpy.data.objects.remove(objs["Seat"]); bpy.data.objects.remove(objs["Lantern"])
+bpy.data.objects.remove(objs["Seat"])
 
 
 def import_glb(path):

@@ -53,7 +53,6 @@ KNOWN = {                                      # "<GLB name>/<object>": the faul
     "fire/Pot": {"back_only": 100, "overlaps": 4},           # the pot's outside faces in (review R2-021)
     "laundry/LaundryCloth": {"overlaps": 3},
     "camp_picked/Tent": {"back_only": 26},
-    "camp_picked/Lantern": {"back_only": 4},
     "jeep_expedition/Jeep": {"overlaps": 15},
     "jeep_expedition/DoorP": {"overlaps": 2},
     "jeep_expedition/DoorD": {"overlaps": 3},

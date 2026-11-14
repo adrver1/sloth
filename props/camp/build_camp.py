@@ -4,12 +4,13 @@ Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three 
     storybook  chunky and rounded: pebble fire ring, bell tent with a pennant, striped hammock, paper lanterns
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
     jungle     a rainforest hideout: bamboo tripod and kettle, a leaf-thatched lean-to, bamboo bench, gourd lanterns
-    picked     the set in use: the rustic seat, lantern and table, a canvas wall tent with planks before the door, and the
-               jungle hammock on plain posts (the fire, tripod and pot are props/lived/build_fire.py)
+    picked     the set in use: the rustic seat and table, a canvas wall tent with planks before the door, and the jungle
+               hammock on plain posts (the fire, tripod and pot are props/lived/build_fire.py; the page draws its own
+               lanterns, lanterns.js)
 
 Storybook, Rustic and Jungle (and the first pre-light-map picked GLB) are archived (camp review, Adriaen 2026-11-12): their
 GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, one function
-per prop, since the picked set is made from some of them (rustic_seat, rustic_lantern, rustic_table, jungle_hammock).
+per prop, since the picked set is made from some of them (rustic_seat, rustic_table, jungle_hammock).
 The page's picked set is built (picked()) and baked by bake_camp_lightmap.py (through props/bake_all.py, on the GPU);
 this script's own AO bake only remakes an archived style, into props/camp/out/ (git-ignored) unless told to write over
 the kept copy:
@@ -342,7 +343,7 @@ def rustic_hammock(M):
 
 
 def rustic_lantern(M):
-    """The jar lantern (picked), trimmed (camp review 2026-11-12, 34 triangles): a 6-sided glass jar, a 6-sided tin lid,
+    """The jar lantern (archived rustic style; the page draws its own), trimmed (camp review 2026-11-12, 34 triangles): a 6-sided glass jar, a 6-sided tin lid,
     the wire handle as one flat quad."""
     p = [cyl(0.065, 0.16, at=(0, 0, -0.14), m=M["glass"], verts=6, smooth=False),
          cyl(0.072, 0.03, at=(0, 0, -0.05), m=M["tin"], verts=6, r2=0.05, smooth=False)]
@@ -662,20 +663,21 @@ def jungle():
 
 # ------------------------------------------------------------------ the picked set, bake and export
 def picked():
-    """Adriaen's pick (2026-11-11): rustic table, seat and jar lanterns, a canvas wall tent like his photos with loose
+    """Adriaen's pick (2026-11-11): rustic table and seat, a canvas wall tent like his photos with loose
     planks before the door; the jungle woven hammock, on plain octagon posts with painted nodes and no leaves on top.
     The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
-    made, in the order the light bake's atlas has always seen them (seat, lantern, table, hammock, tent)."""
+    made, in the order the light bake's atlas has always seen them (seat, table, hammock, tent). The jar lanterns are
+    drawn by the page (lanterns.js), so the set has no lantern mesh (review R2-236)."""
     R, J = rustic_mats(), jungle_mats()
-    seat, lantern, table = rustic_seat(R), rustic_lantern(R), rustic_table(R)
+    seat, table = rustic_seat(R), rustic_table(R)
     hammock = jungle_hammock(J, plain_posts=True)
     hammock["coarse"] = True                    # Adriaen 2026-11-11: the densified cloth was ~7k triangles
-    return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Lantern": lantern, "Table": table}
+    return {"Seat": seat, "Tent": wall_tent(), "Hammock": hammock, "Table": table}
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): the light bake
 # (bake_camp_lightmap.py) collapse-decimates each object down to its budget, which keeps the silhouette
-BUDGET = {"picked": {"Table": 1400, "Seat": 500, "Lantern": 200}}
+BUDGET = {"picked": {"Table": 1400, "Seat": 500}}
 
 
 def build(style, samples, overwrite_archive=False):
