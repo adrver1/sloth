@@ -23,8 +23,7 @@ def with_material(o, m, smooth=True):
     """Give o its material and (by default) smooth shading."""
     o.data.materials.append(m)
     if smooth:
-        for p in o.data.polygons:
-            p.use_smooth = True
+        o.data.polygons.foreach_set("use_smooth", [True] * len(o.data.polygons))
     return o
 
 

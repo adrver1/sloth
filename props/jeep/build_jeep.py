@@ -35,12 +35,13 @@ import os
 import sys
 
 import bpy
+import numpy as np
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, "..", "..", "apps", "canopy-prototype", "models")   # the page's base64 copies
 sys.path.insert(0, os.path.dirname(HERE))
-from lib.bake import bake  # noqa: E402
+from lib.bake import bake, corner_values  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
 from lib.mesh import apply_all, arc, ball, bisect, box, cyl, drop_enclosed, drop_faces, join, mesh_obj, outward, rod, torus  # noqa: E402
@@ -203,14 +204,14 @@ def piece(o, region, gap=0.006):
     mod.operation, mod.object, mod.solver = "INTERSECT", region, "EXACT"
     apply_all(c)
     me = c.data
-    lo = Vector([min(v.co[i] for v in me.vertices) for i in range(3)])
-    hi = Vector([max(v.co[i] for v in me.vertices) for i in range(3)])
-    mid = (lo + hi) / 2
-    for v in me.vertices:
-        for i in range(3):
-            half = (hi[i] - lo[i]) / 2
-            if half > 0.1:
-                v.co[i] = mid[i] + (v.co[i] - mid[i]) * (half - gap) / half
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    lo, hi = co.min(axis=0), co.max(axis=0)
+    mid, half = (lo + hi) / 2, (hi - lo) / 2
+    k = np.where(half > 0.1, (half - gap) / np.maximum(half, 1e-9), 1.0)   # only the sides longer than 20 cm shrink
+    me.vertices.foreach_set("co", (mid + (co - mid) * k).ravel())
+    me.update()
     return c
 
 
@@ -821,26 +822,39 @@ def mud_mask(o):
     """Before the bake replaces the materials: how much mud each face takes. Wheels get only a splash, so the tread,
     the grooves and the rim still read apart."""
     me = o.data
-    a = me.attributes.new("mudf", "FLOAT", "FACE")
-    for poly in me.polygons:
-        mn = me.materials[poly.material_index].name if me.materials else ""
-        a.data[poly.index].value = 0.25 if mn.endswith(("_rim", "_hub", "_trim")) else 0.45 if "_tyre" in mn else 1.0
+    per_slot = [0.25 if m.name.endswith(("_rim", "_hub", "_trim")) else 0.45 if "_tyre" in m.name else 1.0 for m in me.materials]
+    mi = np.zeros(len(me.polygons), np.int64)
+    if per_slot:
+        me.polygons.foreach_get("material_index", mi)
+    me.attributes.new("mudf", "FLOAT", "FACE").data.foreach_set("value", np.array(per_slot or [1.0])[mi])
 
 
 def mud(o, rgb=(0.36, 0.27, 0.18)):
-    """Muddy sills: blend the baked colour toward mud below a wavy line, strongest near the wheels."""
+    """Muddy sills: blend the baked colour toward mud below a wavy line, strongest near the wheels (whole arrays in
+    numpy, review R2-253)."""
     me = o.data
+    nl = len(me.loops)
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    vi = np.empty(nl, np.int64)
+    me.loops.foreach_get("vertex_index", vi)
+    mw = np.array(o.matrix_world)
+    v = co.reshape(-1, 3)[vi] @ mw[:3, :3].T + mw[:3, 3]                      # each corner's position in the world
+    f = np.ones(len(me.polygons))
+    if "mudf" in me.attributes:
+        me.attributes["mudf"].data.foreach_get("value", f)
+    line = 0.66 + 0.06 * np.sin(v[:, 1] * 7.3) + 0.04 * np.sin(v[:, 1] * 17 + v[:, 0] * 3)
+    k = np.clip((line - v[:, 2]) / 0.18, 0.0, 1.0) * 0.8 * corner_values(me, f)
     col = me.color_attributes["Col"]
-    m = Vector(rgb)
-    for poly in me.polygons:
-        f = me.attributes["mudf"].data[poly.index].value if "mudf" in me.attributes else 1.0
-        for li in poly.loop_indices:
-            v = o.matrix_world @ me.vertices[me.loops[li].vertex_index].co
-            line = 0.66 + 0.06 * math.sin(v.y * 7.3) + 0.04 * math.sin(v.y * 17 + v.x * 3)
-            k = max(0.0, min(1.0, (line - v.z) / 0.18)) * 0.8 * f
-            if k > 0:
-                c = Vector(col.data[li].color[:3])
-                col.data[li].color = (*c.lerp(m * (0.6 + 0.4 * c.length), k), 1)
+    c = np.empty(nl * 4, np.float32)
+    col.data.foreach_get("color", c)
+    c = c.reshape(-1, 4)
+    rgb_ = c[:, :3]
+    target = np.array(rgb) * (0.6 + 0.4 * np.linalg.norm(rgb_, axis=1))[:, None]
+    hit = k > 0
+    c[hit, :3] = rgb_[hit] + (target[hit] - rgb_[hit]) * k[hit, None]
+    c[hit, 3] = 1.0
+    col.data.foreach_set("color", c.ravel())
 
 
 def preview(style, objs, samples, views=()):
