@@ -3,7 +3,8 @@
 // tent bed, playing with a sloth, sitting with you by the fire, and making the soup (cook.js). What comes next is drawn by
 // weight (other weights at night), never the same thing twice in a row. With ?lived=0 there is no kitchen crate, so no mug
 // and no cooking.
-// Exports lifeStep(dt) (step.js, each frame) and jumpTo(kind) (the checks: start that activity now, then carry on).
+// Exports lifeStep(dt) (step.js, each frame; an error in an activity is logged and his day starts again) and jumpTo(kind)
+// (the checks, opApi.jump: stop what he is doing cleanly, start that activity now, then carry on).
 import * as THREE from "three";
 import { LIVED, rng, scene } from "../core.js";
 const { R } = rng("operator");
@@ -18,8 +19,7 @@ import { book, bowl, dropAll, hold, mug, spoon } from "./handProps.js";
 import { pickLine } from "./lines.js";
 import { UP, cs, play, root } from "./model.js";
 import { BED, claimPlace, crateFront, findPlaces, fireGap, freeOf, freeSeat, releasePlace } from "./places.js";
-import { ME, RADIUS, op } from "./state.js";
-import { addMover } from "../places.js";
+import { ME, op, reset } from "./state.js";
 import { slothLife } from "../sloth/hooks.js";   // undefined with ?campsloths=0
 import { speak } from "./talk.js";
 import { face, faceFire, sitOn, standUp, wait, walkTo } from "./walk.js";
@@ -89,35 +89,37 @@ const DO = {
   *sleep() {                                           // in the tent bed: sits on its edge, lies back, sleeps; at night until the day comes
     findPlaces(); if (!BED || !claimPlace(BED.key)) return;
     host(BED.key);
-    yield* walkTo(BED.door); yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.side, { near: 0.08 });
-    const sitYaw = yawTo(BED.across);                  // his back to the bed: he faces across the tent, away from the wall
-    yield* face(sitYaw);
-    const edge = { at: BED.c.clone().addScaledVector(BED.across, 0.2).addScaledVector(BED.head, -0.25), yaw: sitYaw };
-    yield* sitOn(edge); const sr = root.position.clone(), lock = op.footLock.clone(); op.footLock = null;
-    yield* wait(1.2);
-    // lie back: on his back along the bed, head on the pillow
-    const lie = new THREE.Matrix4().makeBasis(V().crossVectors(BED.head, V(0, -1, 0)), BED.head, V(0, -1, 0)), lq = new THREE.Quaternion().setFromRotationMatrix(lie);
-    const feet = BED.c.clone().addScaledVector(BED.head, -0.82).addScaledVector(BED.across, -0.1).setY(BED.c.y + 0.11), fq = root.quaternion.clone(); let from = root.position.clone();   // a little toward the wall: room for a sloth beside him
-    play("idle", 0.9); op.lying = true;
-    for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, feet, e); root.quaternion.slerpQuaternions(fq, lq, e); }
-    op.sleeping = true; op.ik = { sleep: 1 };
-    const night = () => uNight.value > 0.5;
-    for (let t = 0, T = R(40, 80); (night() ? true : t < T);) {
-      t += yield;
-      if (op.buddy && !op.buddy.cuddled) yield* napTogether();
-      if (night() && t > 600) t = 0;
-      if (!night() && op.wasNight && t > 8) break;     // the day has come: up a little after the light
-      op.wasNight = night();
-    }
-    op.sleeping = false; op.ik = null; op.wasNight = false;
-    unhost();
-    from = root.position.clone(); const q0 = root.quaternion.clone(), up = new THREE.Quaternion().setFromAxisAngle(UP, sitYaw);
-    play("seated_idle", 0.9);
-    for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, sr, e); root.quaternion.slerpQuaternions(q0, up, e); }
-    op.lying = false; root.rotation.set(0, sitYaw, 0); op.footLock = lock;
-    if (op.buddy) giveBack();   // once he sits up, so the clear spot is on the floor before him, not under the bed (review R2-010)
-    yield* standUp(); releasePlace();
-    yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.door);
+    try {                                              // the finally: stopped in or on the bed (lifeStop), he stands up at the tent door
+      yield* walkTo(BED.door); yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.side, { near: 0.08 });
+      const sitYaw = yawTo(BED.across);                // his back to the bed: he faces across the tent, away from the wall
+      yield* face(sitYaw);
+      const edge = { at: BED.c.clone().addScaledVector(BED.across, 0.2).addScaledVector(BED.head, -0.25), yaw: sitYaw };
+      yield* sitOn(edge); const sr = root.position.clone(), lock = op.footLock.clone(); op.footLock = null;
+      yield* wait(1.2);
+      // lie back: on his back along the bed, head on the pillow
+      const lie = new THREE.Matrix4().makeBasis(V().crossVectors(BED.head, V(0, -1, 0)), BED.head, V(0, -1, 0)), lq = new THREE.Quaternion().setFromRotationMatrix(lie);
+      const feet = BED.c.clone().addScaledVector(BED.head, -0.82).addScaledVector(BED.across, -0.1).setY(BED.c.y + 0.11), fq = root.quaternion.clone(); let from = root.position.clone();   // a little toward the wall: room for a sloth beside him
+      play("idle", 0.9); op.lying = true;
+      for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, feet, e); root.quaternion.slerpQuaternions(fq, lq, e); }
+      op.sleeping = true; op.ik = { sleep: 1 };
+      const night = () => uNight.value > 0.5;
+      for (let t = 0, T = R(40, 80), wasNight = false; (night() ? true : t < T);) {   // wasNight: it was night a frame ago
+        t += yield;
+        if (op.buddy && !op.buddy.cuddled) yield* napTogether();
+        if (night() && t > 600) t = 0;
+        if (!night() && wasNight && t > 8) break;        // the day has come: up a little after the light
+        wasNight = night();
+      }
+      op.sleeping = false; op.ik = null;
+      unhost();
+      from = root.position.clone(); const q0 = root.quaternion.clone(), up = new THREE.Quaternion().setFromAxisAngle(UP, sitYaw);
+      play("seated_idle", 0.9);
+      for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, sr, e); root.quaternion.slerpQuaternions(q0, up, e); }
+      op.lying = false; root.rotation.set(0, sitYaw, 0); op.footLock = lock;
+      if (op.buddy) giveBack();   // once he sits up, so the clear spot is on the floor before him, not under the bed (review R2-010)
+      yield* standUp(); releasePlace();
+      yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.door);
+    } finally { if (op.lying || op.seated) root.position.copy(BED.door); }
   },
   *play() {                                            // borrow a sloth that's about on the ground and play with it
     const L = slothLife; if (!L) return;
@@ -144,15 +146,16 @@ const NEEDS_CRATE = new Set(["drink", "cook"]);
 const wantJoin = () => !!me.seat && !op.seated && !op.lying && op.cd.join <= 0 && !op.buddy && !op.carry && !op.cooking;
 DO.hold = function* () { yield* wait(1e9); };   // checks only (opApi.jump("hold")): stand still
 DO.join = function* () {
-  op.cd.join = 1e9;
-  yield* seatWith(function* () {
-    let away = 0, chat = R(6, 12);
-    for (let t = 0, T = R(70, 120); t < T && !op.buddy;) {
-      const dt = yield; t += dt; away = me.seat ? 0 : away + dt; if (away > 3) break;   // you got up: he stays a moment, then goes on
-      chat -= dt; if (chat < 0 && op.talk.t <= 0 && me.seat) { speak(pickLine("fire")); chat = R(30, 50); }
-    }
-  });
-  op.cd.join = R(90, 150);
+  op.cd.join = 1e9;   // not again while he sits with you; the finally sets the real wait, even if this is stopped (review R2-064)
+  try {
+    yield* seatWith(function* () {
+      let away = 0, chat = R(6, 12);
+      for (let t = 0, T = R(70, 120); t < T && !op.buddy;) {
+        const dt = yield; t += dt; away = me.seat ? 0 : away + dt; if (away > 3) break;   // you got up: he stays a moment, then goes on
+        chat -= dt; if (chat < 0 && op.talk.t <= 0 && me.seat) { speak(pickLine("fire")); chat = R(30, 50); }
+      }
+    });
+  } finally { op.cd.join = R(90, 150); }
 };
 DO.cook = cook;
 function* lifeLoop() {
@@ -168,14 +171,28 @@ function pick() {
   let r = R(0, w.reduce((s, [, v]) => s + v, 0)); for (const [k, v] of w) if ((r -= v) <= 0) return k; return w[0][0];
 }
 
-// each frame: start his day on the first, and register him then as a mover with the sloths' life (operator.js hands that
-// over before any frame; without the camp sloths there is none); then run the activity one step
+// Stopping an activity part way (review R2-064): it.return() runs the finally blocks of the scripts it is inside (cook.js
+// stands the pail under the table again, join sets his wait, sleep gets him out of the bed), then lifeStop lets go of what he
+// held, hosted and claimed and resets his body, so the next activity starts clean.
 let it = null;
+function lifeStop() {
+  try { it?.return(); } catch (e) { console.error("operator: an activity's clean-up failed", e); }
+  it = null;
+  if (op.buddy) giveBack();
+  dropAll(); unhost(); releasePlace(); reset("body");
+  root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0); op.kind = "idle";
+}
+// each frame: start his day on the first, then run the activity one step. An error in an activity is logged, and his day
+// starts again from a clean state instead of leaving him frozen
 function lifeStep(dt) {
-  if (!it) { it = lifeLoop(); it.next(); addMover(root, RADIUS); }
-  it.next(dt);
+  if (!it) { it = lifeLoop(); it.next(); }
+  try { it.next(dt); } catch (e) { console.error(`operator: his ${op.kind} stopped with an error; his day goes on`, e); lifeStop(); }
 }
 // the checks (opApi.jump): this activity now, then his day goes on
-function jumpTo(k) { it = (function* () { op.kind = k; yield* DO[k](); op.kind = "idle"; yield* lifeLoop(); })(); it.next(); }
+function jumpTo(k) {
+  if (!DO[k]) throw new Error(`operator: no activity "${k}" (one of ${Object.keys(DO).join(", ")})`);
+  lifeStop();
+  it = (function* () { op.kind = k; yield* DO[k](); op.kind = "idle"; yield* lifeLoop(); })(); it.next();
+}
 
 export { jumpTo, lifeStep };

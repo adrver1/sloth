@@ -29,11 +29,19 @@ function* toPot() {   // already there (between steps at the pot): stay put; a p
 function* cook() {
   const K = chores.cook; if (!LIVED || !K.can()) return;   // no kitchen crate with ?lived=0, so no vegetables (review R2-051)
   op.cooking = true; op.cd.cook = R(240, 420);
+  // the pail is his from takePail until the water is in; stopped before that (a jump in the checks, or an error), the
+  // finally below stands it under the table again, so your soup chore is not left without one (review R2-064)
+  const own = { pail: false };
+  try { yield* steps(K, own); } finally { if (own.pail) K.returnPail(); op.cooking = false; }
+}
+// the steps, one after another; own.pail: the pail is in his hands
+function* steps(K, own) {
   // the pail: stand at the table's edge, bend over, hook it out from under the top by its bail, straighten up with it
   const out = K.pail.clone().sub(K.table).setY(0).normalize(), stand = K.table.clone().addScaledVector(out, 1.22);
   yield* walkTo(stand, { near: 0.15 }); const yaw = yawTo(K.pail.clone().sub(root.position).setY(0)); yield* face(yaw);
   for (let t = 0; t < 0.8;) { t += yield; op.lean = 1.3 * THREE.MathUtils.smoothstep(t, 0, 0.8); }
-  if (!K.takePail()) { for (let t = 0; t < 0.6;) { t += yield; op.lean = 1.3 * (1 - t / 0.6); } op.lean = 0; op.cooking = false; return; }
+  if (!K.takePail()) { for (let t = 0; t < 0.6;) { t += yield; op.lean = 1.3 * (1 - t / 0.6); } op.lean = 0; return; }
+  own.pail = true;
   pail.visible = true; pail.quaternion.setFromAxisAngle(UP, yaw); const p0 = K.pail.clone(), p1 = cs(0.1, 0, -0.4).setY(0);
   for (let t = 0; t < 1.1;) { t += yield; const e = THREE.MathUtils.smoothstep(t, 0.15, 1.1); pail.position.lerpVectors(p0, p1, e);
     op.ik = { R: [pail.position.clone().setY(0.36), Math.min(1, t / 0.4)] }; }
@@ -43,9 +51,9 @@ function* cook() {
   op.lean = 0;
   // water in the pot
   yield* toPot();
-  for (let t = 0; t < 2.8;) { t += yield; op.pail.tilt = Math.sin(Math.min(1, t / 2.8) * Math.PI); op.lean = 0.5 * op.pail.tilt; if (t > 1.3 && !op.poured) { op.poured = true; K.pour(); } }
+  for (let t = 0; t < 2.8;) { t += yield; op.pail.tilt = Math.sin(Math.min(1, t / 2.8) * Math.PI); op.lean = 0.5 * op.pail.tilt; if (t > 1.3 && own.pail) { own.pail = false; K.pour(); } }
   op.lean = 0;
-  op.poured = false; op.pail = null; pail.visible = false;   // the pail goes back under the table (activities.js shows it there)
+  op.pail = null; pail.visible = false;   // the pail in his hand goes; K.pour stood the chore's pail under the table again
   // two vegetables from the crate, tossed in
   const crate = CRATE.at, front = crateFront();
   for (let n = 0; n < 2 && K.wantsVeg(); n++) {
@@ -83,7 +91,6 @@ function* cook() {
     op.ik = null; drop(bowl);
     if (!K.handToYou()) K.setDown();
   }
-  op.cooking = false;
 }
 
 export { cook };

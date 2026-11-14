@@ -123,7 +123,7 @@ function helpers([base, present]) {
     shells: s.shells.map((m) => m.visible ? 1 : 0).join(''), mouth: s.mouth ? [s.mouth.visible, ...s.mouth.scale.toArray()] : null,
     act: s.act ? [s.act.getClip().name, s.act.time, s.act.timeScale, s.act.paused, s.act.getEffectiveWeight()] : null }; };
   const CLAIMS = ['table:0', 'table:1', 'crate:0', 'crate:1', 'hammock:1', 'jeep:P', 'bed:0', 'bed:1', 'jeep:hood', 'jeep:driver', 'jeep:passenger', 'log:0', 'log:0:left', 'log:1', 'log:2', 'hammock:Hibi', 'seat:Sunny', 'jeep:Mango', 'line:Pip', 'tent:Hazel', 'branch:Figgy', 'branch:Bandit'];
-  const OPK = ['kind', 'place', 'seated', 'lying', 'sleeping', 'look', 'face', 'gaze', 'ik', 'footLock', 'pass', 'cooking', 'fid', 'lean', 'eat', 'pail', 'stir', 'veg', 'happy', 'next', 'last', 'wasNight', 'poured', 'scr', 'prop'];
+  const OPK = ['kind', 'place', 'seated', 'lying', 'sleeping', 'look', 'face', 'gaze', 'ik', 'footLock', 'pass', 'cooking', 'fid', 'lean', 'eat', 'pail', 'stir', 'veg', 'happy', 'next', 'last', 'scr', 'prop'];
   const keysOf = (o) => o ? Object.keys(o).sort().join() : null;
   T.state = () => { const me = T.me, J = T.jeep, d = T.day, W = T.mods['camp/weather.js']?.weather, cam = T.cam, O = T.op, A = T.acts, L = T.lab, life = T.life, M = T.mods['camp/sloths.js'] || {};
     const st = { me: me ? { pos: me.pos.toArray(), yaw: me.yaw, pitch: me.pitch, sitK: me.sitK, drop: me.drop ?? null, vel: me.vel.toArray(), walkT: me.walkT, lastDrag: me.lastDrag, seat: me.seat ? { pos: me.seat.pos.toArray(), yaw: me.seat.yaw, drop: me.seat.drop ?? null, pitch: me.seat.pitch ?? null, car: me.seat.car ?? null, leave: typeof me.seat.leave } : null } : null,

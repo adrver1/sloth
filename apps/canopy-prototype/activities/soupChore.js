@@ -91,6 +91,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
       can: () => soup.stage === "empty" && pail.visible && carry.held !== "water",
       takePail() { if (!pail.visible || soup.stage !== "empty" || carry.held === "water") return false; pail.visible = false; return true; },
       pour() { pail.visible = true; if (soup.stage !== "empty") return false; pour(); soup.by = "operator"; return true; },
+      returnPail() { pail.visible = true; },   // he stopped before pouring: the pail stands under the table again
       wantsVeg,
       addVeg() { if (!wantsVeg()) return false; addVeg(); return true; },
       get stage() { return soup.stage; },

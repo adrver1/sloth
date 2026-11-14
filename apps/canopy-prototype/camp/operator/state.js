@@ -10,8 +10,7 @@ const op = {
   // his day: what he is doing ("start" until the first pick, "idle" between), what the checks asked for next, what he did last
   kind: "start", next: null, last: null,
   place: null,                                         // the seat or bed he holds (a claim key, "log:1", "bed:0")
-  cooking: false, poured: false,                       // making the soup; the water has gone in on this pour
-  wasNight: false,                                     // asleep: it was night a frame ago (he gets up a little after the light)
+  cooking: false,                                      // making the soup (cook.js)
   // his body
   seated: false, lying: false, sleeping: false,
   footLock: null,                                      // where his feet stay planted while he sits down or rises
@@ -36,7 +35,8 @@ const op = {
   cd: { join: 0, cook: 60, react: 0, fid: 4 },
 };
 
-// hands: what dropping everything clears. body: what a jump to another activity (checks) clears on top of that.
+// hands: what dropping everything clears. body: what stopping an activity part way (day.js lifeStop: a jump in the checks, or
+// an error) clears on top of that.
 const RESET = {
   hands: { ik: null, eat: null, pail: null, stir: null, veg: false, lean: 0 },
   body: { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null, pass: null, cooking: false, fid: null },
