@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
-import { canvasTex, sstep } from "./util.js";
+import { canvasTex } from "./util.js";
 import { SUN } from "./layout.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
@@ -21,34 +21,38 @@ import { SUN } from "./layout.js";
 //   pos      x,z in metres                 by the fire (player.js)           main.js (where you stand at the start)
 //   yaw      radians                       facing the fire (player.js)       main.js (where you look at the start)
 //   pitch    radians                       0.08 (player.js)                  main.js
+//   campsloths 1 | 0                       1                                 sloths.js, sloth/step.js, sloth/naps.js (0: only the two wild sloths, no camp sloths)
+//   slothmat lambert | old                 lambert                           sloth/body.js (old: the sloth GLB's own physical material)
+//   lab      (present)                     absent                            labButton.js (opens the move lab, lab.js, at the start)
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
 // still read with qs in files this clean-up has not reached yet (move them here in its next round): touch (input.js),
-// campsloths, slothmat, lab (sloths.js), op once more (operator.js), sound, station (audio.js).
+// op once more (operator.js), sound, station (audio.js).
 const qs = new URLSearchParams(location.search);
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
 // state, one part per owner). audio.js keeps the sound settings under "canopy-audio", which it still types itself (next round).
 const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save" };
 // ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
-// API: sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read these (and jeepSeat.js and lab.js the ones with no
-// export). Those six files (and activities.js) were left alone while PRs #14, #20 and #21 changed them; the PRs are merged, so the
-// next round can switch them to imports. The first four and __me are aliases of the exported object named here (__me stays until
-// player.js stops importing sloths.js); __campLife, __car, __op and the lab's three have no export yet.
-//   __camp       campProps.js CAMP        sloths.js, operator.js, audio.js, radio.js (and export_casters.cjs, below)
-//   __jeep       jeep.js jeepApi          sloths.js, input.js, car.js, audio.js (and export_casters.cjs)
-//   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown; and export_casters.cjs)
+// API: operator.js, input.js, audio.js, car.js, radio.js and jeepSeat.js still read these. Those files (and activities.js) were
+// left alone while PRs #14, #20 and #21 changed them; the PRs are merged, so they can be switched to imports. The sloths' modules
+// (sloths.js, sloth/, lab.js) read none of them any more: they import. The first four are aliases of the exported object named
+// here; __campLife is made of exports (places.js, sloth/); __car and __op have no export yet.
+//   __camp       campProps.js CAMP        operator.js, audio.js, radio.js (and export_casters.cjs, below)
+//   __jeep       jeep.js jeepApi          input.js, car.js, audio.js, jeepSeat.js (and export_casters.cjs)
+//   __laundry    layout.js LAUNDRY        export_casters.cjs only (set by campProps.js only when the line is shown)
 //   __acts       campLife.js acts         operator.js, audio.js
-//   __campLife   sloths.js (its life)     input.js, operator.js, jeepSeat.js, lab.js
-//   __me         main.js (player.js me)   sloths.js (the player's seat)
+//   __campLife   sloth/hooks.js: places.js claim, release, holder, host, addMover, movers; path (sloth/walk.js findPath);
+//                lend, giveBack (sloth/lend.js); sloths (the named ones); eatGift (sloth/gifts.js)     input.js, operator.js, jeepSeat.js
 //   __car        car.js (inCar, engine)   jeepSeat.js adds doorOptions to it, which input.js reads; audio.js reads the engine
 //   __op         operator.js              audio.js (his sounds); a debug hook as well
-//   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); jeepSeat.js reads __campFast, camp-replay.cjs sets it
+//   __campFast   the camp's pace, 1 when unset: lab.js and camp-replay.cjs set it; sloth/step.js and jeepSeat.js read it
 // tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.
 //   __ready, __scene (main.js)                          all three tools
 //   __stats (main.js)                                   camp-probe.cjs, camp-replay.cjs
 //   __camp, __jeep, __laundry (above), __ground (campLife.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
 //   __time, __boop, __feed, __stick (main.js), __sit (linger.js), __weather (weather.js)   camp-replay.cjs's tour
-// debug hooks for checks by hand in the browser console: __rest, __face, __slothS (main.js), __clocks (clock.js), __errand,
-// __path, __spots, __sloth (sloths.js), __op (operator.js), __audio (audio.js), __radio (radio.js), __camera (car.js).
+// debug hooks for checks by hand in the browser console: __rest, __face, __slothS, __me (main.js), __clocks (clock.js), __errand,
+// __path, __spots, __sloth, __lab (sloth/hooks.js; __lab is labApi, which lab.js imports), __op (operator.js), __audio (audio.js),
+// __radio (radio.js), __camera (car.js).
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
 // they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
 // "Canopy camp: start every download at once" (the looks were archived there). Their branches below and in forest.js, sky.js and campLife.js are dead code.
@@ -75,6 +79,9 @@ const OPT = {
   pos: qs.has("pos") ? qs.get("pos").split(",").map(Number) : null,   // the start view: null keeps player.js's own
   yaw: qs.has("yaw") ? +qs.get("yaw") : null,
   pitch: qs.has("pitch") ? +qs.get("pitch") : null,
+  campsloths: qs.get("campsloths") !== "0",
+  slothmat: qs.get("slothmat") === "old" ? "old" : "lambert",
+  lab: qs.has("lab"),
 };
 const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
@@ -165,5 +172,5 @@ async function glb(url) {
 }
 
 export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, store, sun, uTime };
-export { qs };   // back-compat: audio.js, input.js, operator.js and sloths.js still read their own options with it (see the table above)
-export { canvasTex, sstep };   // back-compat: sloths.js still imports these two from here, and car.js and radio.js import canvasTex (util.js is their home)
+export { qs };   // back-compat: audio.js, input.js and operator.js still read their own options with it (see the table above)
+export { canvasTex };   // back-compat: car.js and radio.js still import it from here (util.js is its home)

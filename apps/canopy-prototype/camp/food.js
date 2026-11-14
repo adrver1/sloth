@@ -1,9 +1,9 @@
 // Food you can carry and give (Adriaen 2026-11-13: "3d model these instead of using the emoji", so a sloth can eat one
 // with its eat clip and it doesn't look out of place). Vegetables come from the kitchen crate, fruit from the plate
 // on the snack table (activities.js). Each item is one mesh at its real size in metres, centred on its middle, with
-// userData.base = its normal scale (sloths.js chewStep shrinks it a bite at a time from that). Flat-shaded, coloured per
+// userData.base = its normal scale (sloth/eating.js chewStep shrinks it a bite at a time from that). Flat-shaded, coloured per
 // vertex, one shared material for all of them. Triangles: carrot 15, potato 20, onion 36, mushroom 36, mango, fig and lime 20, apple 21, banana 35.
-// The fruit match the sloths' own table fruit in camp/sloths.js (FRUIT): same colours and sizes (the banana here is bent).
+// The fruit match the sloths' own table fruit in camp/sloth/table.js (FRUIT): same colours and sizes (the banana here is bent).
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
