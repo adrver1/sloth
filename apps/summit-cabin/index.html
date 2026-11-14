@@ -1,6 +1,6 @@
 <title>Summit Cabin</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="A test scene for long views: a cabin on a winter mountaintop, with distance haze instead of fog, terrain and trees that lose detail with distance, and a painted horizon.">
+<meta name="description" content="A walkable winter mountaintop with a cabin, a lake hut and a lookout tower: a test of long views where near and far are one world.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
 <style>
@@ -16,67 +16,84 @@ body { background: var(--night); color: var(--ink); font-family: var(--ui); over
 #stage { position: fixed; inset: 0; }
 #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .panel { background: var(--glass); border: 1px solid var(--edge); border-radius: 12px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-#hud { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: min(380px, calc(100% - 32px)); padding: 12px 14px; display: grid; gap: 10px; font-size: 15px; }
-#hud h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.02em; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-#hud h1 small { font-weight: 500; font-size: 13px; color: var(--ink-dim); letter-spacing: 0.04em; text-transform: uppercase; }
+#hud { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); width: min(360px, calc(100% - 150px)); padding: 10px 12px; display: grid; gap: 10px; font-size: 15px; max-height: calc(100% - 200px); overflow: auto; }
+#hud summary { list-style: none; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
+#hud summary::-webkit-details-marker { display: none; }
+#hud summary small { font-weight: 500; font-size: 13px; color: var(--ink-dim); letter-spacing: 0.04em; text-transform: uppercase; }
+#hud summary small::after { content: " ▾"; }
+#hud details[open] summary small::after { content: " ▴"; }
+#hud .body { display: grid; gap: 10px; margin-top: 10px; }
 .row { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; }
-.row label { color: var(--ink-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+.row label, .lbl { color: var(--ink-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
 output { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 3px; border-radius: 9px; background: rgba(255,255,255,0.06); }
 .seg button { font: 600 14px var(--ui); color: var(--ink-dim); background: transparent; border: 0; border-radius: 7px; padding: 7px 4px; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: rgba(255, 194, 122, 0.18); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255, 194, 122, 0.5); }
-.seg button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-details { font-size: 14px; color: var(--ink-dim); }
-summary { cursor: pointer; font-weight: 600; color: var(--ink); }
-.checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0; }
+.seg button:focus-visible, summary:focus-visible, input:focus-visible, #run:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tricks { font-size: 14px; color: var(--ink-dim); }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 8px; }
 .checks label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
 td { padding: 2px 0; border-top: 1px solid var(--edge); }
 td:last-child { text-align: right; color: var(--ink); }
 #stats { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); padding: 6px 10px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-dim); text-align: right; line-height: 1.35; }
-#hint { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); padding: 6px 10px; font-size: 13px; color: var(--ink-dim); }
-@media (max-width: 520px) { #hud { padding: 10px 12px; gap: 8px; } #hint { display: none; } }
+#hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 6px 12px; font-size: 13px; color: var(--ink-dim); white-space: nowrap; }
+#stick { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%; touch-action: none; display: none; }
+#knob { position: absolute; left: 38px; top: 38px; width: 44px; height: 44px; border-radius: 50%; background: rgba(238, 243, 250, 0.55); }
+#run { position: fixed; right: max(24px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; border-radius: 50%; font: 700 15px var(--ui); color: var(--ink); cursor: pointer; display: none; }
+#run[aria-pressed="true"] { background: rgba(255, 194, 122, 0.35); box-shadow: inset 0 0 0 2px var(--accent); }
+.touch #stick, .touch #run { display: block; }
+.touch #hint { display: none; }
+@media (max-width: 560px) { #hud { width: calc(100% - 32px); } #stats { top: calc(64px + env(safe-area-inset-top, 0px)); } }
+
 </style>
 
 <div id="stage"></div>
-<div id="hint" class="panel">Drag to look around · scroll or pinch to zoom</div>
+<div id="hint" class="panel">WASD or arrows to walk · Shift to run · drag to look</div>
 <div id="stats" class="panel">…</div>
 <section id="hud" class="panel" aria-label="Scene controls">
-  <h1>Summit Cabin <small>long-view test</small></h1>
-  <div class="row"><label for="hour">Time</label><div class="row" style="grid-template-columns:1fr auto"><input id="hour" type="range" min="0" max="24" step="0.05" value="14.5"><output id="hourOut">14:30</output></div></div>
-  <div class="seg" id="weather" role="group" aria-label="Weather">
-    <button data-w="clear" aria-pressed="true">Clear</button><button data-w="valley" aria-pressed="false">Valley fog</button><button data-w="storm" aria-pressed="false">Snowstorm</button>
-  </div>
-  <div class="seg" id="view" role="group" aria-label="View">
-    <button data-v="orbit" aria-pressed="true">Cabin</button><button data-v="porch" aria-pressed="false">Porch view</button>
-  </div>
-  <details id="tricks">
-    <summary>How it's done</summary>
-    <div class="checks">
-      <label><input id="hazeOn" type="checkbox" checked> Distance haze</label>
-      <label><input id="wire" type="checkbox"> Terrain wireframe</label>
+  <details id="menu">
+    <summary>Summit Cabin <small>Settings</small></summary>
+    <div class="body">
+      <div class="row"><label for="hour">Time</label><div class="row" style="grid-template-columns:1fr auto"><input id="hour" type="range" min="0" max="24" step="0.05" value="14.5"><output id="hourOut">14:30</output></div></div>
+      <div class="seg" id="weather" role="group" aria-label="Weather">
+        <button data-w="clear" aria-pressed="true">Clear</button><button data-w="valley" aria-pressed="false">Valley fog</button><button data-w="storm" aria-pressed="false">Snowstorm</button>
+      </div>
+      <span class="lbl">Jump to</span>
+      <div class="seg" id="jump" role="group" aria-label="Jump to a place">
+        <button data-p="porch" aria-pressed="false">Porch</button><button data-p="hut" aria-pressed="false">Lake hut</button><button data-p="tower" aria-pressed="false">Lookout</button>
+      </div>
+      <div class="tricks">
+        <span class="lbl">How it's done</span>
+        <div class="checks">
+          <label><input id="hazeOn" type="checkbox" checked> Distance haze</label>
+          <label><input id="wire" type="checkbox"> Terrain wireframe</label>
+        </div>
+        <table id="tris"></table>
+      </div>
     </div>
-    <table id="tris"></table>
   </details>
 </section>
+<div id="stick" class="panel" aria-label="Walk"><div id="knob"></div></div>
+<button id="run" class="panel" aria-pressed="false">Run</button>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
-// Summit Cabin: a test of long views on a clear day, inspired by how The Long Dark keeps views far and cheap.
+// Summit Cabin: a walkable test of long views, inspired by how The Long Dark keeps near and far as one world.
 //  - Distance haze (aerial perspective) instead of fog: far things shift to the sky's colour but never vanish. It is height
-//    based (thinner air up high) and glows toward the sun. Weather fog and a valley fog layer are separate and come and go.
-//  - Terrain detail follows distance: one polar grid round the cabin whose rings grow with distance, about 2 m cells at the
-//    cabin and 1 km cells at the 16 km edge, so the whole range costs about 18k triangles.
-//  - Trees in three steps: low-poly spruces near, camera-facing cards in the middle, and painted colour on the terrain far away.
-//  - A painted horizon of far mountains on a ring at 22 km, behind the real ones.
-//  - Real-time shadows only round the cabin.
+//    based and glows toward the sun. Weather fog and a valley fog layer are separate and come and go.
+//  - Terrain is ten square rings round the player, each twice as coarse as the one inside it, 2 m cells at your feet and 1 km
+//    cells at 16 km, so near ground is detailed and the whole range costs about 15k triangles.
+//  - One fixed tree layout drawn three ways by distance: spruces near, cards that face you further out, colour beyond.
+//  - Places to walk to: the cabin, a fishing hut on a frozen lake, a fire lookout on its hill, with marked trails.
+//  - A painted horizon of far mountains on a ring at 22 km. Real-time shadows only round the player.
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const $ = (id) => document.getElementById(id);
 const isPhone = matchMedia('(max-width: 700px), (pointer: coarse)').matches;
+const TRIS = [];
 
 // ---------------------------------------------------------------- random and noise
 function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -89,26 +106,47 @@ function ridged(x, y, o) { let s = 0, a = 0.5, f = 1, n = 0, w = 1; for (let i =
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // ---------------------------------------------------------------- the land
-// a long summit ridge with the cabin on its flat top, rolling forested hills and valleys round it, high ranges from 4 km out
-function hRaw(x, z) {
-  const r = Math.hypot(x, z);
-  const e = Math.hypot(x / 1.25, z);   // a steep peak, a little longer east to west
+// a steep peak with the cabin on a flat top and a cliff south of the porch; forested hills and valleys round it; a frozen
+// lake with a fishing hut 950 m north-west, a fire lookout on its own hill 1 km north-east, and high ranges from 4 km out.
+// Everything you see is the same ground, so you can walk to it.
+const LAKE_P = { x: -760, z: 560, r: 170 }, HILL_P = { x: 820, z: 620 };
+function hBase(x, z) {
+  const r = Math.hypot(x, z), e = Math.hypot(x / 1.25, z);
   let h = 700 / (1 + (e / 520) ** 1.7);   // round only near the top, then concave, so every slope below is in view
   h += (fbm(x / 1500, z / 1500, 5) - 0.45) * 420;
   h += (fbm(x / 240, z / 240, 3) - 0.5) * 36 * Math.min(1, r / 400);
+  h += 150 * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 230 ** 2);   // the lookout's hill
   h += sstep(4000, 9500, r) * (ridged(x / 3400 + 7, z / 3400 - 3, 5) * 1900 - 250);
   return h;
 }
-const TOP = hRaw(0, 0) + 2;
-let LAKE = 0;   // set below from the height spread: the lowest valley floors freeze into flat lakes
-{ const hs = []; for (let i = 0; i < 4000; i++) { const a = R(0, 6.283), r = R(1500, 7000); hs.push(hRaw(Math.cos(a) * r, Math.sin(a) * r)); } hs.sort((a, b) => a - b); LAKE = hs[Math.floor(hs.length * 0.07)]; }
-// the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks straight down
-// over the valleys instead of over its own snowfield
-function height(x, z) { const r = Math.hypot(x, z), raw = Math.max(LAKE, hRaw(x, z)); let h = r < 18 ? TOP : TOP + (raw - TOP) * sstep(18, 55, r);
-  const d = -z - 8.5 + 3 * Math.sin(x / 9); if (d > 0) h -= 140 * (1 - Math.exp(-d / 22)) * (1 - sstep(250, 700, r)); return Math.max(LAKE, h); }
+const TOP = hBase(0, 0) + 2;
+let LAKE = 0;   // the lowest valley floors freeze into flat lakes; set from the height spread
+{ const hs = []; for (let i = 0; i < 4000; i++) { const a = R(0, 6.283), r = R(1500, 7000); hs.push(hBase(Math.cos(a) * r, Math.sin(a) * r)); } hs.sort((a, b) => a - b); LAKE = hs[Math.floor(hs.length * 0.07)]; }
+const LAKE_H = hBase(LAKE_P.x, LAKE_P.z) - 30;
+// the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks down over the valleys
+function height(x, z) {
+  const r = Math.hypot(x, z); let h = Math.max(LAKE, hBase(x, z));
+  const dl = Math.hypot(x - LAKE_P.x, z - LAKE_P.z); if (dl < LAKE_P.r + 500) h = Math.min(h, LAKE_H + Math.max(0, dl - LAKE_P.r) * 0.3);
+  if (r < 60) h = r < 18 ? TOP : TOP + (h - TOP) * sstep(18, 55, r);
+  const d = -z - 8.5 + 3 * Math.sin(x / 9); if (d > 0 && r < 400) h -= 140 * (1 - Math.exp(-d / 22)) * (1 - sstep(70, 190, Math.abs(x))) * (1 - sstep(220, 400, r));   // a cliff bowl only below the cabin
+  return Math.max(Math.min(LAKE, LAKE_H), h);
+}
+const onIce = (x, z, h) => h <= LAKE + 0.05 || (h <= LAKE_H + 0.05 && Math.hypot(x - LAKE_P.x, z - LAKE_P.z) < LAKE_P.r + 1);
 const TREELINE = LAKE + 520;
-function slopeAt(x, z) { const e = 3, gx = (height(x + e, z) - height(x - e, z)) / (2 * e), gz = (height(x, z + e) - height(x, z - e)) / (2 * e); return 1 - 1 / Math.sqrt(1 + gx * gx + gz * gz); }
-function forestAt(x, z, h, s) { if (h <= LAKE + 0.5) return 0; return sstep(0.38, 0.47, fbm(x / 650 + 3, z / 650 - 7, 3)) * (1 - sstep(TREELINE - 50, TREELINE, h)) * (1 - sstep(0.28, 0.42, s)); }
+// the lookout stands on the top of its hill; the fishing hut out on the ice, 45 m from the shore nearest the cabin
+const TOWER = (() => { let best = [0, 0, -1e9]; for (let i = -15; i <= 15; i++) for (let j = -15; j <= 15; j++) { const x = HILL_P.x + i * 10, z = HILL_P.z + j * 10, h = height(x, z); if (h > best[2]) best = [x, z, h]; } return { x: best[0], z: best[1], y: best[2] }; })();
+const SHORE = (() => { const k = Math.hypot(LAKE_P.x, LAKE_P.z); return { x: LAKE_P.x - (LAKE_P.x / k) * LAKE_P.r, z: LAKE_P.z - (LAKE_P.z / k) * LAKE_P.r }; })();
+const HUT = { x: SHORE.x + (LAKE_P.x - SHORE.x) * 0.3, z: SHORE.z + (LAKE_P.z - SHORE.z) * 0.3, y: LAKE_H };
+// two marked trails from the cabin: one down to the lake, one over to the lookout
+const TRAILS = [
+  [[-7, 7], [-45, 60], [-150, 170], [-300, 290], [-450, 380], [SHORE.x, SHORE.z], [HUT.x, HUT.z]],
+  [[8, 8], [70, 80], [220, 210], [400, 350], [580, 480], [TOWER.x - 10, TOWER.z - 8]],
+];
+function trailDist(x, z) { let best = 1e9; for (const t of TRAILS) for (let i = 0; i < t.length - 1; i++) { const [ax, az] = t[i], [bx, bz] = t[i + 1], dx = bx - ax, dz = bz - az, k = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz))); best = Math.min(best, Math.hypot(x - ax - dx * k, z - az - dz * k)); } return best; }
+function forestAt(x, z, h, s) {
+  if (onIce(x, z, h)) return 0;
+  return sstep(0.38, 0.47, fbm(x / 650 + 3, z / 650 - 7, 3)) * (1 - sstep(TREELINE - 50, TREELINE, h)) * (1 - sstep(0.28, 0.42, s));
+}
 
 // ---------------------------------------------------------------- renderer, scene, camera
 const renderer = new THREE.WebGLRenderer({ antialias: !isPhone, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
@@ -156,7 +194,6 @@ function hazed(mat, extra) { mat.onBeforeCompile = (sh) => { Object.assign(sh.un
 
 function canvasTex(w, h, draw, repeat) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
 const tris = (geo, n = 1) => ((geo.index ? geo.index.count : geo.attributes.position.count) / 3) * n;
-const TRIS = [];
 
 // ---------------------------------------------------------------- sky: gradient, sun, stars; follows the camera
 const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), new THREE.ShaderMaterial({
@@ -175,36 +212,60 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), new THREE.Sha
 sky.renderOrder = -10; sky.frustumCulled = false; scene.add(sky);
 TRIS.push(['Sky dome', tris(sky.geometry)]);
 
-// ---------------------------------------------------------------- terrain: a polar grid whose rings grow with distance
-const S = 96, RMAX = 16000, B = (2 * Math.PI) / S, A = 2 / B, NR = Math.ceil(Math.log(RMAX / A + 1) / B);
-const ringR = (i) => Math.min(RMAX, A * (Math.exp(B * i) - 1));
-const snowC = new THREE.Color('#f3f7fc'), rockC = new THREE.Color('#40454c'), forestC = new THREE.Color('#16261d').lerp(snowC, 0.05), iceC = new THREE.Color('#cbdde9'), tmpC = new THREE.Color();
-const terrainGeo = (() => {
-  const n = 1 + NR * S, pos = new Float32Array(n * 3), uv = new Float32Array(n * 2), idx = [];
-  pos.set([0, height(0, 0), 0]);
-  for (let i = 1; i <= NR; i++) { const r = ringR(i); for (let j = 0; j < S; j++) { const a = j * B + (i % 2) * B * 0.5, x = Math.cos(a) * r, z = Math.sin(a) * r, k = 1 + (i - 1) * S + j; pos.set([x, height(x, z), z], k * 3); uv.set([x / 6, z / 6], k * 2); } }
-  for (let j = 0; j < S; j++) idx.push(0, 1 + (j + 1) % S, 1 + j);
-  for (let i = 1; i < NR; i++) for (let j = 0; j < S; j++) { const a = 1 + (i - 1) * S + j, b = 1 + (i - 1) * S + (j + 1) % S, c = 1 + i * S + j, d = 1 + i * S + (j + 1) % S; idx.push(a, b, c, b, d, c); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  const nor = g.attributes.normal, col = new Float32Array(n * 3);
-  for (let k = 0; k < n; k++) {
-    const x = pos[k * 3], h = pos[k * 3 + 1], z = pos[k * 3 + 2], s = 1 - nor.getY(k);
-    tmpC.copy(snowC).lerp(rockC, sstep(0.3, 0.5, s) * (0.6 + 0.4 * vnoise(x / 90, z / 90)));
-    tmpC.lerp(forestC, forestAt(x, z, h, s));
-    if (h <= LAKE + 0.5) tmpC.copy(iceC);
-    col.set([tmpC.r, tmpC.g, tmpC.b], k * 3);
-  }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  return g;
-})();
+// ---------------------------------------------------------------- terrain: square rings round the player, each twice as coarse
+// Ten rings of 32 × 32 cells: 2 m cells round your feet, 1 km cells at 16 km. Each ring snaps to its own grid as you walk, so
+// the ground under you is always fine and the far ground always cheap, and a ring's border vertices are pinned to the next
+// ring's coarser edge, so there are no cracks between them.
+const snowC = new THREE.Color('#f3f7fc'), rockC = new THREE.Color('#40454c'), forestC = new THREE.Color('#16261d').lerp(snowC, 0.05), iceC = new THREE.Color('#cbdde9'), trailC = new THREE.Color('#d5dce6'), tmpC = new THREE.Color();
 const snowTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const r = mulberry(7);
   for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(206,218,234,${0.04 + r() * 0.06})`; g.beginPath(); g.ellipse(r() * w, r() * h, 20 + r() * 50, 3 + r() * 6, 0.2, 0, 7); g.fill(); }
   for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(r() * w, r() * h, 1, 1); } }, true);
-const terrain = new THREE.Mesh(terrainGeo, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex })));
-terrain.receiveShadow = true; scene.add(terrain);
-TRIS.push(['Terrain, 16 km round', tris(terrainGeo)]);
+const terrainMat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex }));
+const LEVELS = 10, NC = 32, NV = NC + 1, NB = NV + 2, levels = [];
+for (let L = 0; L < LEVELS; L++) {
+  const g = new THREE.BufferGeometry();
+  for (const [name, n] of [['position', 3], ['normal', 3], ['color', 3], ['uv', 2]]) g.setAttribute(name, new THREE.BufferAttribute(new Float32Array(NV * NV * n), n));
+  g.setIndex(new THREE.BufferAttribute(new Uint16Array(NC * NC * 6), 1));
+  const mesh = new THREE.Mesh(g, terrainMat); mesh.frustumCulled = false; mesh.receiveShadow = true; scene.add(mesh);
+  levels.push({ L, c: 2 ** (L + 1), g, cx: NaN, cz: NaN, hb: new Float32Array(NB * NB), tris: 0 });
+}
+function updateLevel(lv) {
+  const { c, g, hb } = lv, half = (NC / 2) * c, x0 = lv.cx - half, z0 = lv.cz - half, H = (i, j) => hb[(j + 1) * NB + i + 1];
+  for (let j = 0; j < NB; j++) for (let i = 0; i < NB; i++) hb[j * NB + i] = height(x0 + (i - 1) * c, z0 + (j - 1) * c);
+  if (lv.L < LEVELS - 1) for (let k = 1; k < NC; k += 2) {   // pin odd border vertices to the coarser ring's straight edge
+    hb[1 * NB + k + 1] = (H(k - 1, 0) + H(k + 1, 0)) / 2; hb[(NC + 1) * NB + k + 1] = (H(k - 1, NC) + H(k + 1, NC)) / 2;
+    hb[(k + 1) * NB + 1] = (H(0, k - 1) + H(0, k + 1)) / 2; hb[(k + 1) * NB + NC + 1] = (H(NC, k - 1) + H(NC, k + 1)) / 2;
+  }
+  const pos = g.attributes.position.array, nor = g.attributes.normal.array, col = g.attributes.color.array, uv = g.attributes.uv.array;
+  for (let j = 0; j < NV; j++) for (let i = 0; i < NV; i++) {
+    const k = j * NV + i, x = x0 + i * c, z = z0 + j * c, h = H(i, j);
+    let nx = H(i - 1, j) - H(i + 1, j), ny = 2 * c, nz = H(i, j - 1) - H(i, j + 1); const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
+    pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; nor[k * 3] = nx; nor[k * 3 + 1] = ny; nor[k * 3 + 2] = nz; uv[k * 2] = x / 6; uv[k * 2 + 1] = z / 6;
+    const s = 1 - ny;
+    if (onIce(x, z, h)) tmpC.copy(iceC);
+    else { tmpC.copy(snowC).lerp(rockC, sstep(0.3, 0.5, s) * (0.6 + 0.4 * vnoise(x / 90, z / 90))).lerp(forestC, forestAt(x, z, h, s) * (c > 8 ? 1 : 0.35));
+      if (c <= 8) tmpC.lerp(trailC, 1 - sstep(1.2, 2.4, trailDist(x, z))); }
+    col[k * 3] = tmpC.r; col[k * 3 + 1] = tmpC.g; col[k * 3 + 2] = tmpC.b;
+  }
+  // cells inside the finer ring are left out
+  const inner = lv.L ? levels[lv.L - 1] : null, ih = inner ? (NC / 2) * inner.c : 0, idx = g.index.array; let n = 0;
+  for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
+    if (inner) { const ax = x0 + i * c, az = z0 + j * c; if (ax >= inner.cx - ih && ax + c <= inner.cx + ih && az >= inner.cz - ih && az + c <= inner.cz + ih) continue; }
+    const a = j * NV + i, b = a + 1, cc = a + NV, d = cc + 1; idx[n++] = a; idx[n++] = cc; idx[n++] = b; idx[n++] = b; idx[n++] = cc; idx[n++] = d;
+  }
+  g.setDrawRange(0, n); lv.tris = n / 3;
+  for (const a of ['position', 'normal', 'color', 'uv']) g.attributes[a].needsUpdate = true; g.index.needsUpdate = true;
+}
+function updateTerrain(px, pz) {   // fine to coarse, since each ring cuts its hole from the one inside it
+  let changed = false;
+  for (const lv of levels) { const s = 2 * lv.c, cx = Math.round(px / s) * s, cz = Math.round(pz / s) * s; if (changed || cx !== lv.cx || cz !== lv.cz) { lv.cx = cx; lv.cz = cz; updateLevel(lv); changed = true; } }
+  return changed;
+}
 
-// ---------------------------------------------------------------- trees: spruces near, cards in the middle, colour far away
+// ---------------------------------------------------------------- trees and rocks: one fixed layout, drawn as spruces near, cards further, colour far away
+// Trees stand on a jittered 16 m grid, worked out once per 256 m tile and kept. Each frame they are sorted by distance from
+// you: under 260 m a tree is an 18-triangle spruce, out to 1.6 km the same tree is a 2-triangle card that turns to face you,
+// and past that the forest is the dark colour painted into the ground. Same tree, same place, so the swap is hard to spot.
 function spruceGeo() {   // three stacked six-sided cones, snow toward each tip (vertex colours), no bases: 18 triangles
   const P = [], C = [], green = new THREE.Color('#1f3a2c'), snow = new THREE.Color('#e9f0f6');
   for (const [r, y0, y1] of [[0.42, 0.0, 0.55], [0.32, 0.3, 0.8], [0.21, 0.58, 1.0]]) for (let j = 0; j < 6; j++) {
@@ -214,34 +275,63 @@ function spruceGeo() {   // three stacked six-sided cones, snow toward each tip 
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.computeVertexNormals(); return g;
 }
-const spruce = spruceGeo(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v3 = new THREE.Vector3(), sc = new THREE.Vector3();
-const nearSpots = [];
-for (let i = 0; i < 14; i++) { const a = R(0, 6.283); if (Math.abs(((a - (-Math.PI / 2) + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.8) continue;   // keep the porch's view (toward -z) open
-  const r = R(20, 70), x = Math.cos(a) * r, z = Math.sin(a) * r; nearSpots.push([x, z, R(3, 6)]); }
-for (let t = 0; t < 60000 && nearSpots.length < (isPhone ? 800 : 1100); t++) { const a = R(0, 6.283), r = 120 + 1100 * Math.sqrt(rnd()), x = Math.cos(a) * r, z = Math.sin(a) * r, h = height(x, z);
-  if (rnd() < forestAt(x, z, h, slopeAt(x, z))) nearSpots.push([x, z, R(8, 16)]); }
-const spruces = new THREE.InstancedMesh(spruce, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), nearSpots.length);
-nearSpots.forEach(([x, z, s], i) => { q.setFromAxisAngle(up, R(0, 6.283)); m4.compose(v3.set(x, height(x, z) - 0.3, z), q, sc.set(s * R(0.8, 1), s, s * R(0.8, 1))); spruces.setMatrixAt(i, m4); spruces.setColorAt(i, tmpC.setHSL(0, 0, R(0.85, 1.05))); });
-spruces.castShadow = true; spruces.receiveShadow = true; scene.add(spruces);
-TRIS.push([`Spruces near (${nearSpots.length} × 18)`, tris(spruce, nearSpots.length)]);
-
+const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v3 = new THREE.Vector3(), sc = new THREE.Vector3();
 const cardTex = canvasTex(128, 256, (g, w, h) => { const r = mulberry(11);
   for (let k = 0; k < 7; k++) { const y0 = h * (0.06 + k * 0.13), y1 = y0 + h * 0.22, hw = w * (0.14 + k * 0.05);
     g.fillStyle = '#1d3428'; g.beginPath(); g.moveTo(w / 2, y0); g.lineTo(w / 2 + hw, y1); g.lineTo(w / 2 - hw, y1); g.fill();
     g.fillStyle = 'rgba(236,242,248,.9)'; g.beginPath(); g.moveTo(w / 2, y0); g.lineTo(w / 2 + hw * 0.7, y0 + (y1 - y0) * 0.55); g.lineTo(w / 2 + hw * 0.2, y0 + (y1 - y0) * (0.4 + r() * 0.2)); g.lineTo(w / 2 - hw * 0.5, y0 + (y1 - y0) * 0.6); g.fill(); }
   g.fillStyle = '#2b2018'; g.fillRect(w / 2 - 4, h * 0.94, 8, h * 0.06); });
-const cardGeo = new THREE.PlaneGeometry(0.5, 1).translate(0, 0.5, 0);
-const cardSpots = [];
-for (let t = 0; t < 120000 && cardSpots.length < (isPhone ? 3500 : 5000); t++) { const a = R(0, 6.283), r = Math.sqrt(R(1200 ** 2, 5500 ** 2)), x = Math.cos(a) * r, z = Math.sin(a) * r, h = height(x, z);
-  if (rnd() < forestAt(x, z, h, slopeAt(x, z))) cardSpots.push([x, h, z, R(10, 18)]); }
 const billboard = (sh) => {   // turn each card round its own upright axis to face the camera
   sh.vertexShader = sh.vertexShader.replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);')
     .replace('#include <begin_vertex>', `vec3 bc = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vec2 bd = normalize(cameraPosition.xz - bc.xz); vec3 transformed = vec3(position.x * bd.y, position.y, -position.x * bd.x);`);
 };
-const cards = new THREE.InstancedMesh(cardGeo, hazed(new THREE.MeshLambertMaterial({ map: cardTex, alphaTest: 0.5, side: THREE.DoubleSide }), billboard), cardSpots.length);
-cardSpots.forEach(([x, h, z, s], i) => { m4.compose(v3.set(x, h - 0.5, z), q.identity(), sc.set(s, s, s)); cards.setMatrixAt(i, m4); });
-cards.frustumCulled = false; scene.add(cards);
-TRIS.push([`Tree cards, 1.2–5.5 km (${cardSpots.length} × 2)`, tris(cardGeo, cardSpots.length)]);
+const spruce = spruceGeo(), cardGeo = new THREE.PlaneGeometry(0.95, 1).translate(0, 0.5, 0);
+const rockGeo = (() => { const g = new THREE.IcosahedronGeometry(1, 0), p = g.attributes.position, C = []; g.computeVertexNormals();   // 20 triangles, snow on the tops
+  for (let i = 0; i < p.count; i++) { const top = p.getY(i) > 0.35; tmpC.set(top ? '#eef3f8' : '#5a5f66'); C.push(tmpC.r, tmpC.g, tmpC.b); }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return g; })();
+const NEAR = 260, CARD_R = 1600, ROCK_R = 700, TILE = 256, TCELL = 16;
+const SPRUCE_MAX = isPhone ? 1600 : 2400, CARD_MAX = isPhone ? 9000 : 14000, ROCK_MAX = 700;
+const spruces = new THREE.InstancedMesh(spruce, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), SPRUCE_MAX);
+const cards = new THREE.InstancedMesh(cardGeo, hazed(new THREE.MeshLambertMaterial({ map: cardTex, alphaTest: 0.5, side: THREE.DoubleSide }), billboard), CARD_MAX);
+const rocks = new THREE.InstancedMesh(rockGeo, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), ROCK_MAX);
+for (const m of [spruces, cards, rocks]) { m.frustumCulled = false; m.count = 0; scene.add(m); }
+spruces.castShadow = rocks.castShadow = true; spruces.receiveShadow = rocks.receiveShadow = true;
+const tiles = new Map();
+function tile(ti, tj) {   // trees [x, y, z, size, turn, thin] and rocks [x, y, z, size, turn] of one 256 m tile, made once
+  const key = ti + ',' + tj; let t = tiles.get(key); if (t) return t;
+  t = { trees: [], rocks: [] }; const n = TILE / TCELL;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const gi = ti * n + i, gj = tj * n + j, p = hash(gi * 3 + 1, gj * 7 - 5);
+    const x = (gi + 0.15 + 0.7 * hash(gi, gj + 11)) * TCELL, z = (gj + 0.15 + 0.7 * hash(gi + 13, gj)) * TCELL;
+    const rockRoll = hash(gi - 9, gj * 3 + 2);
+    if (p > 0.8 && rockRoll > 0.06) continue;
+    const r = Math.hypot(x, z); if (r < 30 || trailDist(x, z) < 4) continue;
+    const h = height(x, z), gx = (height(x + 2, z) - h) / 2, gz = (height(x, z + 2) - h) / 2, s = 1 - 1 / Math.sqrt(1 + gx * gx + gz * gz);
+    if (onIce(x, z, h) || Math.hypot(x - TOWER.x, z - TOWER.z) < 14) continue;
+    if (p < 0.8 * forestAt(x, z, h, s)) t.trees.push(x, h - 0.3, z, 7 + 8 * hash(gi + 5, gj + 5), hash(gi + 2, gj - 2) * 6.283, hash(gi - 7, gj + 1));
+    else if (rockRoll < 0.012 + 0.08 * sstep(0.12, 0.4, s)) t.rocks.push(x, h - 0.4, z, 0.8 + 2.8 * hash(gi - 3, gj + 8) ** 2, hash(gi + 8, gj) * 6.283);
+  }
+  tiles.set(key, t); return t;
+}
+// a few small wind-bent spruces on the summit itself, kept off the porch's view
+const SUMMIT_TREES = []; for (let i = 0; i < 14; i++) { const a = R(0, 6.283); if (Math.abs(((a + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.8) continue; const r = R(20, 34), x = Math.cos(a) * r, z = Math.sin(a) * r; SUMMIT_TREES.push(x, height(x, z) - 0.3, z, R(3, 6), R(0, 6.283)); }
+let placedAt = null;
+function placeThings(px, pz) {
+  placedAt = { x: px, z: pz }; let ns = 0, nc = 0, nr = 0;
+  const put = (mesh, n, x, y, z, s, turn, flat) => { q.setFromAxisAngle(up, turn); m4.compose(v3.set(x, y, z), q, flat ? sc.set(s * 1.3, s * 0.7, s) : sc.set(s, s, s)); mesh.setMatrixAt(n, m4); };
+  const tree = (x, y, z, s, turn, thin) => { const d2 = (x - px) ** 2 + (z - pz) ** 2;
+    if (d2 < NEAR * NEAR) { if (ns < SPRUCE_MAX) put(spruces, ns++, x, y, z, s, turn); } else if (d2 < CARD_R * CARD_R && nc < CARD_MAX && thin < 1.15 - Math.sqrt(d2) / CARD_R) { m4.compose(v3.set(x, y - 0.2, z), q.identity(), sc.set(s, s, s)); cards.setMatrixAt(nc++, m4); } };
+  for (let i = 0; i < SUMMIT_TREES.length; i += 5) tree(...SUMMIT_TREES.slice(i, i + 5), 0);
+  const t0 = Math.floor((px - CARD_R) / TILE), t1 = Math.floor((px + CARD_R) / TILE), u0 = Math.floor((pz - CARD_R) / TILE), u1 = Math.floor((pz + CARD_R) / TILE);
+  for (let tj = u0; tj <= u1; tj++) for (let ti = t0; ti <= t1; ti++) {
+    const cx = Math.max(ti * TILE, Math.min(px, (ti + 1) * TILE)), cz = Math.max(tj * TILE, Math.min(pz, (tj + 1) * TILE)); if ((cx - px) ** 2 + (cz - pz) ** 2 > CARD_R * CARD_R) continue;
+    const t = tile(ti, tj);
+    for (let i = 0; i < t.trees.length; i += 6) tree(t.trees[i], t.trees[i + 1], t.trees[i + 2], t.trees[i + 3], t.trees[i + 4], t.trees[i + 5]);
+    for (let i = 0; i < t.rocks.length; i += 5) { const x = t.rocks[i], z = t.rocks[i + 2]; if (nr < ROCK_MAX && (x - px) ** 2 + (z - pz) ** 2 < ROCK_R * ROCK_R) put(rocks, nr++, x, t.rocks[i + 1], z, t.rocks[i + 3], t.rocks[i + 4], true); }
+  }
+  spruces.count = ns; cards.count = nc; rocks.count = nr;
+  for (const m of [spruces, cards, rocks]) m.instanceMatrix.needsUpdate = true;
+}
 
 // ---------------------------------------------------------------- the painted horizon: far ranges on a ring at 22 km
 const HOR_R = 22000, HOR_LO = -1500, HOR_HI = 3800;
@@ -318,6 +408,45 @@ const porchLight = new THREE.PointLight('#ffb760', 0, 22, 1.6); porchLight.posit
 const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6); inside.position.set(0, YB + 1.8, D / 2 + 1.4); cabin.add(inside);   // the glow from the back windows on the snow
 { let n = 0; cabin.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); TRIS.push(['Cabin, porch, woodpile', n]); }
 
+// ---------------------------------------------------------------- places to walk to: the fire lookout, the fishing hut, the trail poles
+const placeTris = (g) => { let n = 0; g.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); return n; };
+const tower = new THREE.Group(); tower.position.set(TOWER.x, TOWER.y - 0.5, TOWER.z); tower.rotation.y = 0.5; scene.add(tower);
+{ // a fire lookout: four legs, painted X braces, a glazed cab and a pyramid roof under snow
+  const TH = 12, LS = 2.2;
+  const legs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.28, TH, 0.28), M.wood, 4); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b], i) => legs.setMatrixAt(i, m4.makeTranslation(a * LS, TH / 2, b * LS))); legs.castShadow = true; tower.add(legs);
+  const braceTex = canvasTex(128, 256, (g, w, h) => { g.strokeStyle = '#5a3c26'; g.lineWidth = 9; for (let k = 0; k < 3; k++) { const y0 = (k * h) / 3, y1 = ((k + 1) * h) / 3; g.beginPath(); g.moveTo(4, y0); g.lineTo(w - 4, y1); g.moveTo(w - 4, y0); g.lineTo(4, y1); g.moveTo(0, y0 + 4); g.lineTo(w, y0 + 4); g.stroke(); } });
+  const braceMat = lam({ map: braceTex, alphaTest: 0.5, side: THREE.DoubleSide });
+  for (const [x, z, ry] of [[0, -LS, 0], [0, LS, 0], [-LS, 0, Math.PI / 2], [LS, 0, Math.PI / 2]]) { const b = part(new THREE.PlaneGeometry(LS * 2, TH - 0.5), braceMat, x, (TH - 0.5) / 2, z, tower); b.rotation.y = ry; }
+  part(new THREE.BoxGeometry(6.2, 0.3, 6.2), M.wood, 0, TH, 0, tower);   // the deck
+  const cab = part(new THREE.BoxGeometry(4.6, 2.4, 4.6), M.log, 0, TH + 1.35, 0, tower);
+  const glass = new THREE.InstancedMesh(new THREE.PlaneGeometry(3.8, 1.1), winMat, 4);
+  for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2; glass.setMatrixAt(i, m4.compose(v3.set(Math.sin(a) * 2.32, TH + 1.6, Math.cos(a) * 2.32), q.setFromAxisAngle(up, a), sc.set(1, 1, 1))); }
+  tower.add(glass);
+  const roof = part(new THREE.ConeGeometry(4.1, 1.8, 4, 1, true), M.snow, 0, TH + 3.45, 0, tower); roof.rotation.y = Math.PI / 4;
+}
+const hut = new THREE.Group(); hut.position.set(HUT.x, HUT.y, HUT.z); hut.rotation.y = Math.atan2(SHORE.x - HUT.x, SHORE.z - HUT.z); scene.add(hut);
+{ // a fishing hut on the ice: log box, snowy gable roof, a lit window and door facing the shore, a stovepipe
+  part(new THREE.BoxGeometry(2.6, 2.1, 2.2), M.log, 0, 1.05, 0, hut);
+  for (const sd of [-1, 1]) { const r = part(new THREE.BoxGeometry(3.0, 0.22, 1.6), M.snow, 0, 2.45, sd * 0.62, hut); r.rotation.x = sd * 0.6; }
+  const gableGeo = new THREE.BufferGeometry(); gableGeo.setAttribute('position', new THREE.Float32BufferAttribute([1.3, 2.1, -1.1, 1.3, 2.1, 1.1, 1.3, 2.9, 0, -1.3, 2.1, 1.1, -1.3, 2.1, -1.1, -1.3, 2.9, 0], 3)); gableGeo.computeVertexNormals();
+  part(gableGeo, M.roof, 0, 0, 0, hut);
+  const w = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.6), winMat); w.position.set(-0.6, 1.3, 1.11); hut.add(w);
+  const dr = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 1.7), doorMat); dr.position.set(0.55, 0.85, 1.11); hut.add(dr);
+  part(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 5, 1, true), M.roof, 0.8, 3.0, -0.4, hut);
+}
+{ // trail poles every 25 m, red tops, painted by vertex colour: 12 triangles each
+  const g = new THREE.BoxGeometry(0.08, 1.8, 0.08).translate(0, 0.9, 0), p = g.attributes.position, C = [];
+  for (let i = 0; i < p.count; i++) { tmpC.set(p.getY(i) > 1.5 ? '#c4372a' : '#4a3424'); C.push(tmpC.r, tmpC.g, tmpC.b); }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  const spots = [];
+  for (const t of TRAILS) { let carry = 0; for (let i = 0; i < t.length - 1; i++) { const [ax, az] = t[i], [bx, bz] = t[i + 1], L = Math.hypot(bx - ax, bz - az);
+    for (let d = 25 - carry; d < L; d += 25) { const x = ax + ((bx - ax) * d) / L + 1.6, z = az + ((bz - az) * d) / L; if (Math.hypot(x, z) > 22) spots.push([x, z]); } carry = (carry + L) % 25; } }
+  const poles = new THREE.InstancedMesh(g, hazed(new THREE.MeshLambertMaterial({ vertexColors: true })), spots.length);
+  spots.forEach(([x, z], i) => poles.setMatrixAt(i, m4.makeTranslation(x, height(x, z) - 0.1, z))); poles.castShadow = true; scene.add(poles);
+  TRIS.push([`Trail poles (${spots.length} × 12)`, tris(g, spots.length)]);
+}
+TRIS.push(['Fire lookout', placeTris(tower)], ['Fishing hut', placeTris(hut)]);
+
 // chimney smoke: a few soft sprites rising and drifting with the wind
 const puff = canvasTex(64, 64, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(235,238,242,.75)'); gr.addColorStop(1, 'rgba(235,238,242,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
 const smoke = Array.from({ length: 14 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, transparent: true, depthWrite: false, fog: false })); s.userData.t = i / 14; scene.add(s); return s; });
@@ -332,7 +461,7 @@ flakes.frustumCulled = false; scene.add(flakes);
 
 // ---------------------------------------------------------------- light
 const hemi = new THREE.HemisphereLight('#b8d4f4', '#a0a8b8', 1); scene.add(hemi);
-const sun = new THREE.DirectionalLight('#ffffff', 2.5); sun.castShadow = true; sun.target = cabin; scene.add(sun);
+const sun = new THREE.DirectionalLight('#ffffff', 2.5); sun.castShadow = true; scene.add(sun);
 sun.shadow.mapSize.set(isPhone ? 1024 : 2048, isPhone ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 10, far: 500 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 const moonDir = new THREE.Vector3(0.45, 0.42, 0.78).normalize();
@@ -361,31 +490,70 @@ const WEATHER = {
 };
 const W_NOW = { ...WEATHER.clear }; let wTarget = WEATHER.clear, hazeOn = true;
 
-// ---------------------------------------------------------------- controls and views
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.dampingFactor = 0.08;
-const VIEWS = {
-  orbit() { const far = camera.aspect < 0.8 ? 1.7 : 1; camera.position.set(-21 * far, TOP + 6.5 * far, -15 * far - 3 * (far - 1)); controls.target.set(0, TOP + 3.0, -3); Object.assign(controls, { minDistance: 7, maxDistance: 140, enableZoom: true, enablePan: false, rotateSpeed: 0.6, minPolarAngle: 0.2, maxPolarAngle: 1.52 }); },
-  porch() { camera.position.set(0, TOP + YB + 1.65, -D / 2 - 1.2); controls.target.set(0, TOP + YB + 1.643, -D / 2 - 1.25); Object.assign(controls, { minDistance: 0.05, maxDistance: 0.05, enableZoom: false, enablePan: false, rotateSpeed: -0.35, minPolarAngle: 0.7, maxPolarAngle: 2.2 }); },
-};
-VIEWS.orbit(); controls.update();
+// ---------------------------------------------------------------- walking
+// First person. Keyboard: WASD or arrows, Shift to run. Phone: the stick to walk, the Run button, drag anywhere else to look.
+const me = { x: 0, z: -D / 2 - 1.6, y: TOP + YB + 1.65, yaw: 0, pitch: -0.12, run: false };
+const faceTo = (x, z, t) => Math.atan2(-(t.x - x), -(t.z - z));   // the yaw that looks from (x, z) at t
+const PLACES = { porch: [0, -D / 2 - 1.6, 0], hut: [HUT.x + (SHORE.x - HUT.x) * 0.45, HUT.z + (SHORE.z - HUT.z) * 0.45, HUT], tower: [TOWER.x - 26, TOWER.z - 20, TOWER] };
+const keys = new Set(), stick = { x: 0, y: 0 }, touch = matchMedia('(pointer: coarse)').matches;
+if (touch) document.body.classList.add('touch');
+addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; keys.add(e.code); }); addEventListener('keyup', (e) => keys.delete(e.code)); addEventListener('blur', () => keys.clear());
+const cv = renderer.domElement; let look = null;
+cv.addEventListener('pointerdown', (e) => { look = { id: e.pointerId, x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', (e) => { if (!look || e.pointerId !== look.id) return; me.yaw -= (e.clientX - look.x) * 0.0045; me.pitch = Math.max(-1.35, Math.min(1.2, me.pitch - (e.clientY - look.y) * 0.0045)); look.x = e.clientX; look.y = e.clientY; });
+cv.addEventListener('pointerup', () => { look = null; }); cv.addEventListener('pointercancel', () => { look = null; });
+{ const el = $('stick'), knob = $('knob'); let id = null;
+  const set = (e) => { const r = el.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), l = Math.hypot(dx, dy), k = Math.min(1, l / 50) / (l || 1); stick.x = dx * k; stick.y = dy * k; knob.style.transform = `translate(${stick.x * 38}px, ${stick.y * 38}px)`; };
+  el.addEventListener('pointerdown', (e) => { id = e.pointerId; el.setPointerCapture(id); set(e); });
+  el.addEventListener('pointermove', (e) => { if (e.pointerId === id) set(e); });
+  const end = () => { id = null; stick.x = stick.y = 0; knob.style.transform = ''; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); }
+$('run').onclick = () => { me.run = !me.run; $('run').setAttribute('aria-pressed', String(me.run)); };
+// standing on the cabin's floor and porch; walls, the hut and the lookout's legs push you out
+function groundAt(x, z) { if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; return height(x, z); }
+function pushOut(x, z, cx, cz, hx, hz, turn) {   // out of a box (half sizes hx, hz, turned by `turn`)
+  const c = Math.cos(turn), s = Math.sin(turn), lx = (x - cx) * c - (z - cz) * s, lz = (x - cx) * s + (z - cz) * c;
+  if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) return [x, z];
+  const ox = hx - Math.abs(lx), oz = hz - Math.abs(lz), nx = ox < oz ? Math.sign(lx) * hx : lx, nz = ox < oz ? lz : Math.sign(lz) * hz;
+  return [cx + nx * c + nz * s, cz - nx * s + nz * c];
+}
+function walk(dt) {
+  let f = 0, s = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1; if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
+  f -= stick.y; s += stick.x; const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
+  const speed = (me.run || keys.has('ShiftLeft') || keys.has('ShiftRight') ? 12 : 3.2) * dt, sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
+  let x = me.x + (-sy * f + cy * s) * speed, z = me.z + (-cy * f - sy * s) * speed;
+  [x, z] = pushOut(x, z, 0, 0, W / 2 + 0.35, D / 2 + 0.35, 0);
+  [x, z] = pushOut(x, z, HUT.x, HUT.z, 1.6, 1.4, -hut.rotation.y);
+  me.x = x; me.z = z;
+  const gy = groundAt(x, z) + 1.65; me.y += (gy - me.y) * Math.min(1, dt * 12);
+  camera.position.set(me.x, me.y, me.z); camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
+}
 const press = (group, attr, val) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === val)));
-$('view').onclick = (e) => { const v = e.target.dataset?.v; if (!v) return; VIEWS[v](); controls.update(); press($('view'), 'v', v); };
+const jump = (p) => { const [x, z, t] = PLACES[p]; me.x = x; me.z = z; me.yaw = t ? faceTo(x, z, t) : 0; me.pitch = t === TOWER ? 0.25 : -0.08; me.y = groundAt(x, z) + 1.65; };
+$('jump').onclick = (e) => { const p = e.target.dataset?.p; if (p) jump(p); };
 $('weather').onclick = (e) => { const w = e.target.dataset?.w; if (!w) return; wTarget = WEATHER[w]; press($('weather'), 'w', w); };
 $('hazeOn').onchange = (e) => { hazeOn = e.target.checked; };
-$('wire').onchange = (e) => { terrain.material.wireframe = e.target.checked; };
+$('wire').onchange = (e) => { terrainMat.wireframe = e.target.checked; };
 const fmt = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
 $('hour').oninput = () => { $('hourOut').textContent = fmt(+$('hour').value); };
-$('tris').innerHTML = TRIS.map(([n, t]) => `<tr><td>${n}</td><td>${Math.round(t).toLocaleString('en')}</td></tr>`).join('') + `<tr><td><b>Total</b></td><td><b>${Math.round(TRIS.reduce((s, [, t]) => s + t, 0)).toLocaleString('en')}</b></td></tr>`;
-console.table(TRIS);
-
+function showTris() {
+  const rows = [['Terrain rings (10, round you)', levels.reduce((n, l) => n + l.tris, 0)], [`Spruces near (${spruces.count} × 18)`, spruces.count * 18], [`Tree cards to 1.6 km (${cards.count} × 2)`, cards.count * 2], [`Rocks (${rocks.count} × 20)`, rocks.count * 20], ...TRIS];
+  $('tris').innerHTML = rows.map(([n, t]) => `<tr><td>${n}</td><td>${Math.round(t).toLocaleString('en')}</td></tr>`).join('') + `<tr><td><b>Total</b></td><td><b>${Math.round(rows.reduce((s, [, t]) => s + t, 0)).toLocaleString('en')}</b></td></tr>`;
+  return rows;
+}
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 // ---------------------------------------------------------------- each frame
 const sunDir = new THREE.Vector3(), clock = new THREE.Timer(), wind = new THREE.Vector3(); let frames = 0, acc = 0;
 const fogGrey = new THREE.Color('#b9c4d2'), white = new THREE.Color('#ffffff');
+const shadowAt = new THREE.Object3D(); scene.add(shadowAt); sun.target = shadowAt;
+const dist = (p) => Math.hypot(p.x - me.x, p.z - me.z), metres = (d) => (d < 1000 ? `${Math.round(d / 10) * 10} m` : `${(d / 1000).toFixed(1)} km`);
 function frame() {
   clock.update(); const dt = Math.min(clock.getDelta(), 0.05), now = clock.getElapsed();
+  walk(dt);
+  updateTerrain(me.x, me.z);
+  if (!placedAt || Math.hypot(me.x - placedAt.x, me.z - placedAt.z) > 12) placeThings(me.x, me.z);
   // weather eases toward its preset
   const k = 1 - Math.exp(-dt * 1.2); for (const key in W_NOW) W_NOW[key] += (wTarget[key] - W_NOW[key]) * k;
   const storm = W_NOW.storm;
@@ -400,8 +568,9 @@ function frame() {
   U.uFogDen.value = W_NOW.fog; U.uFogCol.value.copy(P.hor).lerp(fogGrey, 0.55).multiplyScalar(0.3 + 0.6 * bright);
   sky.material.uniforms.uZen.value.copy(P.zen); sky.material.uniforms.uNight.value = 1 - sstep(-10, -3, el); sky.material.uniforms.uMoonDir.value.copy(moonDir); sky.material.uniforms.uFog.value = 0.92 * storm;
   hemi.color.copy(P.hs); hemi.groundColor.copy(P.hg); hemi.intensity = P.hemi * (1 - 0.3 * storm);
-  if (el > -3) { sun.color.copy(P.sun); sun.intensity = P.light * (1 - 0.85 * storm); sun.position.copy(cabin.position).addScaledVector(sunDir, 250); }
-  else { sun.color.set('#9fb4e6'); sun.intensity = 0.75 * (1 - 0.8 * storm); sun.position.copy(cabin.position).addScaledVector(moonDir, 250); }
+  shadowAt.position.set(me.x, me.y - 1.65, me.z);
+  if (el > -3) { sun.color.copy(P.sun); sun.intensity = P.light * (1 - 0.85 * storm); sun.position.copy(shadowAt.position).addScaledVector(sunDir, 250); }
+  else { sun.color.set('#9fb4e6'); sun.intensity = 0.75 * (1 - 0.8 * storm); sun.position.copy(shadowAt.position).addScaledVector(moonDir, 250); }
   horMat.color.copy(P.hs).multiplyScalar(0.35 * P.hemi).add(tmpC.copy(P.sun).multiplyScalar(0.25 * P.light));
   // warm windows: always a little lit, glowing after dark
   const night = 1 - sstep(-6, 5, el), glow = 0.25 + 2.4 * night;
@@ -417,12 +586,14 @@ function frame() {
       if (y < -20) y += 50; if (x > 40) x -= 80; if (x < -40) x += 80; if (z > 40) z -= 80; if (z < -40) z += 80; p.set([x, y, z], i * 3); }
     snowGeo.attributes.position.needsUpdate = true; flakes.position.set(c.x, c.y, c.z); }
   sky.position.copy(camera.position); horizon.position.x = camera.position.x; horizon.position.z = camera.position.z; horizon.position.y = (HOR_HI + HOR_LO) / 2 + (camera.position.y - TOP);
-  controls.update();
   renderer.render(scene, camera);
   frames++; acc += dt;
-  if (acc > 0.5) { const i = renderer.info.render; $('stats').innerHTML = `${Math.round(frames / acc)} fps<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris`; frames = 0; acc = 0; window.__stats = { calls: i.calls, tris: i.triangles }; }
+  if (acc > 0.5) { const i = renderer.info.render;
+    $('stats').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lake hut ${metres(dist(HUT))} · Lookout ${metres(dist(TOWER))}`;
+    frames = 0; acc = 0; window.__stats = { calls: i.calls, tris: i.triangles }; if ($('menu').open) showTris(); }
 }
+updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, view: (v) => { VIEWS[v](); controls.update(); press($('view'), 'v', v); }, TRIS, LAKE, TOP };
+window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, LAKE, TOP, TOWER, HUT };
 window.__ready = true;
 </script>

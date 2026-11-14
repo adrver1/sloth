@@ -14,7 +14,7 @@ This work started in the desk-at-night repo (thread "Make fun extras with the sl
 | `apps/catch-the-baby/` | **Catch the Baby**, a small game. | https://claude.ai/artifact/Vo8KXUVinCcxegRHpVaWSD |
 | `apps/playtime/` | **Sloth Playtime.** The ponytail engineer's play clips with two sloths. | https://claude.ai/artifact/UUimcJPizJcUjnNKU6TyWd |
 | `apps/fur-options/` | **Sloth Fur Options.** The fur looks; 4 merged shell layers was the pick. | https://claude.ai/artifact/GNGvhQsK1cAjVCh1jdyLzA |
-| `apps/summit-cabin/` | **Summit Cabin.** A test scene for long views (2026-11-14): a winter cabin on a cliff-top summit with distance haze, valley fog, a snowstorm, distance-based terrain detail and a painted horizon. | https://claude.ai/artifact/5JnCc9YYQDRS6JrPkHEWj3 |
+| `apps/summit-cabin/` | **Summit Cabin.** A walkable test of long views (2026-11-14): a winter cabin on a summit, a lake hut and a fire lookout to walk to, terrain rings and trees that follow you, distance haze, valley fog and a snowstorm. | https://claude.ai/artifact/5JnCc9YYQDRS6JrPkHEWj3 |
 | `stickers/renderer/` | The sticker renderer page and its scripts (still and animated, 512×512 WebP). | |
 | `stickers/packs/` | The finished sticker zips (furry, flat, animated, hearts) and the family sticker. | |
 | `characters/aussie_critters/` | The karaoke's Aussie crowd (platypus, wallaby, echidna, wombat): `build_critters.py` and `critter_rig.py` (idle, bop, cheer, and hop for the wallaby), plus the exported GLBs. Packed for the page with `pack_chars.mjs --own`, then base64 into `apps/karaoke/models/`. | |
