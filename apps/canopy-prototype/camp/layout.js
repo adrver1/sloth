@@ -5,8 +5,8 @@
 // the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Two values are
 // typed again there: the sun's direction (the bake stops if the two differ) and the lantern drop, lanterns.js JAR_Y, with no
-// check (review props-07). SEAT_R and JEEP_OUT are exported for checks; no module
-// imports them. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
+// check (review props-07). SEAT_R is read by operator/cook.js (the fire side of a seat, where he hands a bowl); JEEP_OUT
+// is exported for checks, and no module imports it. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
 // campProps.js's CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry for the bake (debug.js).
 import * as THREE from "three";
 import { V, polyDist, yawTo } from "./util.js";

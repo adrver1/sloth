@@ -2,7 +2,7 @@
 // in pools by what he is doing, with remarks on what you just did and a few for sitting with you and for cooking. Lines
 // come from a shuffled bag per pool, so none repeats until all have been said; the bags are kept in the camp save
 // (camp/save.js, part "operator"; Adriaen: a reload carries on where he left off), read once when this module loads.
-// Exports LINES, bag, pickLine(pool) and line() (the line for what he is doing now).
+// Exports LINES, pickLine(pool) and line() (the line for what he is doing now).
 import { load, save } from "../save.js";
 import { mug } from "./handProps.js";
 import { op } from "./state.js";
@@ -53,4 +53,4 @@ function pickLine(k) {   // the next line from a pool's shuffled bag (kept in th
   const l = bag[k].pop(); save("operator", { lines: bag }); return l;
 }
 
-export { LINES, bag, line, pickLine };
+export { LINES, line, pickLine };
