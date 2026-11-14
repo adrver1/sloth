@@ -1,13 +1,18 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
-drop_faces, capless), and object plumbing (apply_all, join, obj_from_bm). Z up, metres; every helper links what it
-makes into the current scene's collection and returns it.
+drop_faces, capless, outward, bisect), and object plumbing (apply_all, join, obj_from_bm). Z up, metres; every helper
+links what it makes into the current scene's collection and returns it.
+
+cyl, ball and box build their mesh with bmesh (one bmesh op each, review R2-227) and match the bpy.ops primitives they
+replace: the same vertices, a "UVMap" with the same UVs, the object named Cylinder, Cone, Sphere or Cube at its
+location and rotation, made the active object (it is not selected). torus still calls bpy.ops (its mesh is made in
+Python by Blender's operator). outward and bisect work in bmesh too, so nothing here switches to edit mode.
 """
 import math
 
 import bpy
 import bmesh
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 
 def with_material(o, m, smooth=True):
@@ -29,14 +34,23 @@ def obj_from_bm(bm, name):
     return o
 
 
+def primitive(name, make, at=(0, 0, 0), rot=(0, 0, 0)):
+    """A new object called name at at, turned by rot (Euler XYZ), holding the mesh make(bm) builds about the origin in a
+    bmesh with a "UVMap" layer (pass calc_uvs=True to the bmesh op). It becomes the active object."""
+    bm = bmesh.new()
+    bm.loops.layers.uv.new("UVMap")
+    make(bm)
+    o = obj_from_bm(bm, name)
+    o.location, o.rotation_euler = at, rot
+    bpy.context.view_layer.objects.active = o
+    return o
+
+
 def cyl(r, h, at=(0, 0, 0), rot=(0, 0, 0), m=None, verts=16, r2=None, smooth=True, caps=True):
     """A cylinder (or cone when r2 is given) of height h centred on at; caps=False leaves both ends open."""
-    fill = "NGON" if caps else "NOTHING"
-    if r2 is None:
-        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=h, vertices=verts, end_fill_type=fill, location=at, rotation=rot)
-    else:
-        bpy.ops.mesh.primitive_cone_add(radius1=r, radius2=r2, depth=h, vertices=verts, end_fill_type=fill, location=at, rotation=rot)
-    return with_material(bpy.context.object, m, smooth)
+    make = lambda bm: bmesh.ops.create_cone(bm, cap_ends=caps, cap_tris=False, segments=verts, radius1=r, radius2=r if r2 is None else r2,
+                                            depth=h, matrix=Matrix(), calc_uvs=True)
+    return with_material(primitive("Cylinder" if r2 is None else "Cone", make, at, rot), m, smooth)
 
 
 def rod(a, b, r, m, verts=8, caps=True):
@@ -50,15 +64,14 @@ def rod(a, b, r, m, verts=8, caps=True):
 
 
 def ball(r, at=(0, 0, 0), scale=(1, 1, 1), m=None, seg=16, rot=(0, 0, 0)):
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=r, segments=seg, ring_count=max(6, seg // 2), location=at, rotation=rot)
-    o = bpy.context.object
+    make = lambda bm: bmesh.ops.create_uvsphere(bm, u_segments=seg, v_segments=max(6, seg // 2), radius=r, matrix=Matrix(), calc_uvs=True)
+    o = primitive("Sphere", make, at, rot)
     o.scale = scale
     return with_material(o, m)
 
 
 def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=at, rotation=rot)
-    o = bpy.context.object
+    o = primitive("Cube", lambda bm: bmesh.ops.create_cube(bm, size=1, matrix=Matrix(), calc_uvs=True), at, rot)
     o.scale = size
     with_material(o, m, smooth=False)
     if bevel:
@@ -124,6 +137,36 @@ def capless(o, a, b, keep_end=True):
     return o
 
 
+def outward(o):
+    """Point o's normals outward, whichever way its faces were wound (a closed mesh; the AO bake needs them outward)."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bm.to_mesh(o.data)
+    bm.free()
+    return o
+
+
+def bisect(o, co, no, clear_inner=False, clear_outer=False, fill=False):
+    """Cut o along the plane through co with normal no (both in world space, as the edit-mode bisect takes them):
+    clear_inner drops what lies behind the plane, clear_outer what lies in front, and fill closes the cut with one face
+    that takes its material and shading from the faces next to it."""
+    inv = o.matrix_world.inverted()
+    co_l, no_l = inv @ Vector(co), (o.matrix_world.to_3x3().transposed() @ Vector(no)).normalized()
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    cut = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], dist=0.0001, plane_co=co_l, plane_no=no_l,
+                                 clear_inner=clear_inner, clear_outer=clear_outer)["geom_cut"]
+    if fill:
+        nf = -no_l if clear_outer and not clear_inner else no_l
+        faces = [f for f in bmesh.ops.triangle_fill(bm, use_dissolve=True, edges=[e for e in cut if isinstance(e, bmesh.types.BMEdge)], normal=nf)["geom"]
+                 if isinstance(f, bmesh.types.BMFace)]
+        bmesh.ops.face_attribute_fill(bm, faces=faces, use_normals=True, use_data=True)
+    bm.to_mesh(o.data)
+    bm.free()
+    return o
+
+
 def apply_all(o):
     """Apply o's modifiers, rotation and scale (o becomes the only selected, active object)."""
     bpy.ops.object.select_all(action="DESELECT")
@@ -135,13 +178,15 @@ def apply_all(o):
 
 
 def join(objs, name):
-    """Join objs into one object called name, with every transform applied (it keeps objs[0]'s mesh)."""
-    for o in objs:
-        apply_all(o)
+    """Join objs into one object called name, with their modifiers and every transform applied (it keeps objs[0]'s
+    mesh). One convert applies all the parts' modifiers, the join brings each part's transform into objs[0]'s, and one
+    transform_apply finishes it (review R2-227: it used to apply every part on its own first)."""
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
     bpy.context.view_layer.objects.active = objs[0]
+    if any(o.modifiers for o in objs):
+        bpy.ops.object.convert(target="MESH")
     bpy.ops.object.join()
     o = bpy.context.object
     o.name = name

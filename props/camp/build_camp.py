@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, ball, bevel, bisect, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
 STYLES = ("storybook", "rustic", "jungle", "picked")
@@ -258,10 +258,7 @@ def rustic_seat(M):
     """The seat (picked): a split half log on two short stumps, its flat top at z = 0.361."""
     lg = cyl(0.25, 1.5, at=(0, 0, 0.0), rot=(0, math.pi / 2, 0), m=M["bark"], verts=24)
     apply_all(lg)
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.bisect(plane_co=(0, 0, 0), plane_no=(0, 0, 1), clear_outer=True, use_fill=True)
-    bpy.ops.object.mode_set(mode="OBJECT")
+    bisect(lg, (0, 0, 0), (0, 0, 1), clear_outer=True, fill=True)
     rough_up(lg, 0.008, 12)
     lg.location.z = 0.36
     top = box((1.48, 0.46, 0.01), at=(0, 0, 0.361), m=M["wood"])

@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, cyl, join, rod, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, ball, bisect, cyl, join, outward, rod, torus, with_material  # noqa: E402
 from lib.mesh import box as _box  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
@@ -174,17 +174,6 @@ def prism(poly_yz, width, m, taper=1.0, x0=0.0):
     return o
 
 
-def outward(o):
-    """Point the normals out whichever way the faces were wound (the AO bake needs them outward)."""
-    bpy.ops.object.select_all(action="DESELECT")
-    o.select_set(True)
-    bpy.context.view_layer.objects.active = o
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.normals_make_consistent(inside=False)
-    bpy.ops.object.mode_set(mode="OBJECT")
-
-
 def soften(o, w, seg=2):
     apply_all(o)
     mod = o.modifiers.new("b", "BEVEL")
@@ -232,11 +221,7 @@ def piece(o, region, gap=0.006):
 def upper_half(o, z):
     """Keep the part of o above z (used for wheel-arch flares)."""
     apply_all(o)
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.bisect(plane_co=(0, 0, z), plane_no=(0, 0, 1), clear_inner=True, use_fill=False)
-    bpy.ops.object.mode_set(mode="OBJECT")
-    return o
+    return bisect(o, (0, 0, z), (0, 0, 1), clear_inner=True)
 
 
 def panel(a, b, c, d, m, t=0.012):
