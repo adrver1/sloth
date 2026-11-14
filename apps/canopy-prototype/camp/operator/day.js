@@ -15,7 +15,7 @@ import { cook } from "./cook.js";
 import { book, bowl, dropAll, hold, mug, spoon } from "./handProps.js";
 import { pickLine } from "./lines.js";
 import { UP, cs, play, root } from "./model.js";
-import { BED, claim, crateFront, findPlaces, fireGap, freeOf, freeSeat, release } from "./places.js";
+import { BED, claimPlace, crateFront, findPlaces, fireGap, freeOf, freeSeat, releasePlace } from "./places.js";
 import { ME, RADIUS, life, op } from "./state.js";
 import { speak } from "./talk.js";
 import { face, faceFire, sitOn, standUp, wait, walkTo } from "./walk.js";
@@ -33,12 +33,12 @@ function* sipping(n) {                                 // n sips from what's in 
   }
 }
 function* seatWith(activity) {                         // claim a seat, sit, do it, and cuddle any sloth that joins
-  const s = freeSeat(); if (!s || !claim(s.key)) return;
+  const s = freeSeat(); if (!s || !claimPlace(s.key)) return;
   host(s.key);
   yield* sitOn(s);
   yield* activity();
   if (op.buddy) yield* cuddleSeated();
-  unhost(); dropAll(); yield* standUp(); release();
+  unhost(); dropAll(); yield* standUp(); releasePlace();
 }
 const DO = {
   *eat() {                                             // a bowl of soup from the pot, eaten on a log seat
@@ -82,7 +82,7 @@ const DO = {
     op.look = 0;
   },
   *sleep() {                                           // in the tent bed: sits on its edge, lies back, sleeps; at night until the day comes
-    findPlaces(); if (!BED || !claim(BED.key)) return;
+    findPlaces(); if (!BED || !claimPlace(BED.key)) return;
     host(BED.key);
     yield* walkTo(BED.door); yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.side, { near: 0.08 });
     const sitYaw = yawTo(BED.across);                  // his back to the bed: he faces across the tent, away from the wall
@@ -111,7 +111,7 @@ const DO = {
     play("seated_idle", 0.9);
     for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, sr, e); root.quaternion.slerpQuaternions(q0, up, e); }
     op.lying = false; root.rotation.set(0, sitYaw, 0); op.footLock = lock;
-    yield* standUp(); release();
+    yield* standUp(); releasePlace();
     yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.door);
   },
   *play() {                                            // borrow a sloth that's about on the ground and play with it

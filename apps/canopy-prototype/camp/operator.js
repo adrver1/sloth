@@ -24,7 +24,7 @@ import { FID_T } from "./operator/fidget.js";
 import { bowl, buildHandProps, dropAll } from "./operator/handProps.js";
 import { buildSleepZ } from "./operator/headPose.js";
 import { buildModel, clips, cur, mixer, play, root } from "./operator/model.js";
-import { SEATS, release } from "./operator/places.js";
+import { SEATS, releasePlace } from "./operator/places.js";
 import { op, reset, useLife } from "./operator/state.js";
 import { buildRest, opStep } from "./operator/step.js";
 import { buildTalk, gift, saying, talk, tapCol } from "./operator/talk.js";
@@ -54,7 +54,7 @@ if (ON) {
     sim: (sec) => { for (let t = 0; t < sec; t += 0.05) opStep(0.05); return opApi.state(); },   // run his life ahead (checks)
     tris: () => trisIn(root),
     // this activity now: whatever he held, hosted and claimed is let go and his body's state reset first
-    jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); reset("body"); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0); jumpTo(k); } };
+    jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); releasePlace(); reset("body"); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0); jumpTo(k); } };
 }
 
 export { opApi, opStep };

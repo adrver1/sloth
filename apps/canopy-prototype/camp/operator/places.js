@@ -2,7 +2,7 @@
 // gaps between the logs at the fire, and the claims that keep him and the sloths out of each other's places (the sloths'
 // life, sloth/hooks.js campLife).
 // Exports SEATS, BED (null until findPlaces has found the tent), findPlaces(), fireGap(from), crateFront() (where he stands
-// at the kitchen crate), freeOf(p, r), freeSeat(), claim(key) and release().
+// at the kitchen crate), freeOf(p, r), freeSeat(), claimPlace(key) and releasePlace() (named apart from camp/places.js claim and release, which take a place and who).
 import * as THREE from "three";
 import { scene } from "../core.js";
 import { CRATE, SEAT_GAPS, TENT } from "../layout.js";
@@ -45,8 +45,8 @@ const fireGap = (from) => {                            // a spot just off the fi
 };
 function freeOf(p, r = RADIUS) { return !blockers.some(([c, br]) => Math.hypot(p.x - c.x, p.z - c.z) < br + r); }
 const freeSeat = () => { findPlaces(); return SEATS.filter((s) => !life().holder?.(s.key) && !(me.seat && s.at.distanceTo(me.seat.pos) < 0.9)).sort((a, b) => a.at.distanceTo(root.position) - b.at.distanceTo(root.position))[0]; };
-function claim(key) { const L = life(); if (L.claim && !L.claim(key, ME)) return false; op.place = key; return true; }
-function release() { if (op.place) life().release?.(op.place, ME); op.place = null; }
+function claimPlace(key) { const L = life(); if (L.claim && !L.claim(key, ME)) return false; op.place = key; return true; }
+function releasePlace() { if (op.place) life().release?.(op.place, ME); op.place = null; }
 
 const crateFront = () => CRATE.at.clone().addScaledVector(CRATE.at.clone().negate().normalize(), 0.75);   // 0.75 m toward the fire
-export { BED, SEATS, claim, crateFront, findPlaces, fireGap, freeOf, freeSeat, release };
+export { BED, SEATS, claimPlace, crateFront, findPlaces, fireGap, freeOf, freeSeat, releasePlace };
