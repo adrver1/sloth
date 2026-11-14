@@ -4,7 +4,6 @@
 // them in order. Each system draws from its own named random stream (core.js rng), so moving a step does not move the
 // trees or the sloths; a step only has to come after the steps whose parts it uses, as the comments say.
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
-import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime, wireSettings } from "./core.js";
 import { buildSky } from "./sky.js";
@@ -80,7 +79,6 @@ createDaylight();                      // daylight.js: the mist banks, and the m
 // ================================================================ loop, with an fps panel and a resolution safety net
 addEventListener("resize", resize); resize();
 camera.far = 80;
-const clock = new THREE.Clock();
 
 // the fps panel and the resolution safety net (review R2-057). It judges frame time against the display's own rate, so a
 // 30 Hz screen is not counted as slow: after a second of grace (the first frames upload textures)
@@ -129,8 +127,9 @@ warmHighlight();                                           // input.js: the high
   await compiled.catch(() => {});
 }
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
-renderer.setAnimationLoop(() => {
-  const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
+let last = 0;   // the time stamp of the last frame, in ms, from the one the loop is handed (THREE.Clock is deprecated: R2-126)
+renderer.setAnimationLoop((now) => {
+  const raw = last ? (now - last) / 1000 : 0, dt = Math.min(raw, 0.05); last = now; uTime.value += dt;
   jeepSeatStep(dt); lingerStep(dt); step(dt);
   slothsStep(dt);                                          // sloths.js: every sloth's clip, its life on top of it, the squish of a boop and its nod
   campStep(dt, me.seat);                                   // sloths.js: the camp sloths' day; no one sits on the seat you are on
