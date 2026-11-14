@@ -12,13 +12,13 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
     blender -b --python props/camp/bake_camp_lightmap.py -- --size 2048 --objects Pot,Ring
 
 Options: --size (props map, a power of two, default 2048, the largest map the page ships (review R2-170); 512 with
---preview), --samples (512; 8 with --preview), --ground (ground maps,
+--preview), --samples (512, the scale of each pass's own samples in PASS_SAMPLES; 8 with --preview), --ground (ground maps,
 1024; 256 with --preview), --angle and --margin (the light-map unwrap), --jeep, --unwrap-only (stop after the atlas, no
 bake), --repack (new atlas rectangles for every prop), --objects Name,... (bake only these props into their rectangles,
 keep every other pixel of the props maps, and bake the ground maps whole; it stops if the atlas must be packed again,
 if any other prop's UVs changed since the last bake, or if a map is missing), --preview (the sizes above, on the CPU, into --out), --out DIR (write every output into DIR instead of models/ and
 props/; with --preview it defaults to apps/canopy-prototype/lmpreview). The preview's time is an estimate, not measured:
-about a minute on a laptop CPU (1/64 of the texels and of the samples of the full bake).
+under a minute on a laptop CPU (1/16 of the texels of the full bake and 1/64 of its samples).
 
 1. read_layout: where the page stands each prop and light, from the "place" block the layout step
    (props/shadow/export_casters.cjs) writes into props/shadow/layout_picked.json; it stops at once if that block is missing.
@@ -35,9 +35,13 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
    prop leaves every other prop's UVs and its part of the maps as they were (review R2-149). A run into models/ writes
    atlas.json with each prop's UV hash, which --objects checks.
 4. add_occluders and add_ground: the jeep and the deadwood (occluders only) and the real ground disc, so the WHOLE scene is
-   baked as one (Adriaen 2026-11-12). add_lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky;
-   night = the four CHANNELS, each baked on its own in white: the fire, 8 jar lanterns, the tent stove and a dim blue moon.
-5. bake_light, then write_maps writes:
+   baked as one (Adriaen 2026-11-12). Lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky;
+   night = the four CHANNELS: the fire, 8 jar lanterns, the tent stove and a dim blue moon.
+5. bake_light: seven Cycles calls (review R2-157, R2-158). Every stand-in is neutral grey, so light keeps its three
+   colour channels apart, bounces included: the fire, the stove and the lanterns are baked in one pass as pure red,
+   green and blue lamps, and the sun's two passes in one as a red sun with shadows and a green one without. The props
+   that cast shadows are baked through one joined copy, the ground in the same call. Each pass has its own samples
+   (PASS_SAMPLES, review R2-171). Then write_maps writes:
      camp_lm_<k>.png      RGBA one light per channel (fire, stove, lanterns, moon), light / 4, gamma 2.2; the page
                                colours and mixes them (bakedlight.js) and tones the sum as
                                1 - exp(-6.4 x surface colour x light), unlit, at night
@@ -60,7 +64,7 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
 A three.js point (x, y, z) is Blender (x, -z, y); a yaw set as rotation.y on the page is the same angle about Blender's z
 (the fallen log, which deadwood.js turns with rotateY(-yaw), takes -yaw).
 The run's memory: one props-sized and one ground-sized float image are made once and reused by every bake pass, and each
-pass keeps only what is used (the RGB mean, or AO's first channel) as float32 (review R2-224).
+pass keeps only what is used (its channels, the RGB mean, or AO's first channel) as float32 (review R2-224).
 """
 import argparse, atexit, base64, hashlib, json, math, os, shutil, sys, tempfile, time
 import bpy
@@ -74,9 +78,18 @@ LIVED = os.path.join(ROOT, "props", "lived")
 MODELS = os.path.join(ROOT, "apps", "canopy-prototype", "models")
 PREVIEW_OUT = os.path.join(ROOT, "apps", "canopy-prototype", "lmpreview")   # camp.html?lmdir=lmpreview; in .gitignore
 # the night lights, in the order of the maps' channels (R, G, B, A) and of camp_lights.json "channels", with the colour the
-# page gives each (bakedlight.js reads it from camp_lights.json); each is baked in white. The jeep has no baked lights
-# (headlights dropped; the cabin light is live on the page, Adriaen 2026-11-12).
+# page gives each (bakedlight.js reads it from camp_lights.json). The jeep has no baked lights (headlights dropped; the
+# cabin light is live on the page, Adriaen 2026-11-12).
 CHANNELS = ("fire", "stove", "lanterns", "moon")
+# baked together in one pass, one colour channel each (red, green, blue); the moon is baked alone in white, since its
+# pass also has the dim night sky (review R2-157)
+NIGHT_RGB = ("fire", "stove", "lanterns")
+TINT = {"fire": (1, 0, 0), "stove": (0, 1, 0), "lanterns": (0, 0, 1), "moon": (1, 1, 1)}
+# Cycles samples per bake call at --samples 512 (scaled with --samples, at least 2), from the noise measured in the
+# committed maps (review R2-171): the sun's visibility is mostly 0 or 1 and its open pass has nothing to shade it, the
+# moon is below 8-bit noise, AO is smooth. The night pass shares its samples among its three lights (about 1.5 x one
+# light's 256 at 2048), and the ground in that call keeps what it had. The ground's day light is a 1K map alone.
+PASS_SAMPLES = {"AO": 128, "SUN": 96, "GROUND_DAY": 512, "NIGHT": 512, "MOON": 64}
 COLOUR = {"fire": (1.0, 0.50, 0.20), "stove": (1.0, 0.55, 0.15), "lanterns": (1.0, 0.72, 0.38), "moon": (0.55, 0.65, 1.0)}
 # toward the sun, the page's (-4, 10, 3) in Blender axes: kept here because the page's normalised copy differs from this
 # one in the last float bit (6e-8), and the bake must stay as it was; read_layout stops if the two ever disagree
@@ -101,7 +114,7 @@ def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
     ap = argparse.ArgumentParser()
     ap.add_argument("--size", type=int, help="props light map size, a power of two (2048; 512 with --preview)")
-    ap.add_argument("--samples", type=int, help="Cycles samples (512; 8 with --preview)")
+    ap.add_argument("--samples", type=int, help="Cycles samples at which PASS_SAMPLES is given (512; 8 with --preview)")
     ap.add_argument("--angle", type=float, default=60)
     ap.add_argument("--margin", type=float, default=6)    # texels between islands at --size
     ap.add_argument("--unwrap-only", action="store_true")
@@ -452,9 +465,9 @@ def add_ground():
 
 
 class Lights:
-    """Day = the page's sun (4 degrees wide) and a white sky; night = the CHANNELS, each a group of lights in white (its
-    share of light, bounces included), so the page can colour, flicker, dim and mix them live. only(group) lights the
-    scene with one group: "day", or one of CHANNELS (the moon's group also has the dim night sky)."""
+    """Day = the page's sun (4 degrees wide) and a white sky; night = the CHANNELS, each a group of lights (its share of
+    light, bounces included), so the page can colour, flicker, dim and mix them live. A second sun, sun_open, points the
+    same way and casts no shadow, for the sun pass's open channel. only(mode) lights the scene for one pass."""
 
     def __init__(self, pl, tent):
         self.groups = {g: [] for g in CHANNELS}
@@ -463,38 +476,51 @@ class Lights:
             self.point("lanterns", f"LanternLight_{i}", B(x, y + PAGE_LANTERN_DROP - LANTERN_DROP, z), 50, 0.05)
         bpy.context.view_layer.update()
         self.point("stove", "StoveLight", tent.matrix_world @ (Vector(build_camp.STOVE) + Vector((-0.35, 0, -0.1))), 22, 0.12)
-        moon = bpy.data.lights.new("Moon", "SUN"); moon.color = (1, 1, 1); moon.energy = 0.12; moon.angle = math.radians(2)
+        moon = bpy.data.lights.new("Moon", "SUN"); moon.color = TINT["moon"]; moon.energy = 0.12; moon.angle = math.radians(2)
         mo = bpy.data.objects.new("Moon", moon); mo.rotation_euler = (math.radians(40), 0, math.radians(-120))
         bpy.context.collection.objects.link(mo); self.groups["moon"].append(mo)
         bpy.context.view_layer.update()
-        sun = bpy.data.lights.new("Sun", "SUN"); sun.energy = 3.0; sun.angle = math.radians(4)
-        so = bpy.data.objects.new("Sun", sun); so.rotation_euler = (-SUN_DIR).to_track_quat("-Z", "Y").to_euler()
-        bpy.context.collection.objects.link(so); self.day = [so]
+        self.sun, self.sun_open = (self.add_sun(n) for n in ("Sun", "SunOpen"))
+        self.sun_open.data.color = (0, 1, 0)
+        self.sun_open.data.use_shadow = False                       # Blender 4 and 5 (Cycles reads it)
+        if hasattr(getattr(self.sun_open.data, "cycles", None), "cast_shadow"):
+            self.sun_open.data.cycles.cast_shadow = False           # older Cycles
         w = bpy.data.worlds.new("sky"); w.use_nodes = True; bpy.context.scene.world = w
         w.light_settings.distance = 0.6
         self.sky = w.node_tree.nodes["Background"]
+        self.sky.inputs["Color"].default_value = (1, 1, 1, 1)
+
+    def add_sun(self, name):
+        sun = bpy.data.lights.new(name, "SUN"); sun.energy = 3.0; sun.angle = math.radians(4)
+        so = bpy.data.objects.new(name, sun); so.rotation_euler = (-SUN_DIR).to_track_quat("-Z", "Y").to_euler()
+        bpy.context.collection.objects.link(so)
+        return so
 
     def point(self, group, name, at, watts, r):
-        L = bpy.data.lights.new(name, "POINT"); L.color = (1, 1, 1); L.energy = watts; L.shadow_soft_size = r
+        L = bpy.data.lights.new(name, "POINT"); L.color = TINT[group]; L.energy = watts; L.shadow_soft_size = r
         o = bpy.data.objects.new(name, L); o.location = at; bpy.context.collection.objects.link(o); self.groups[group].append(o)
 
-    def only(self, group):
-        for o in self.day: o.hide_render = group != "day"
-        for g, objs in self.groups.items():
-            for o in objs: o.hide_render = g != group
-        self.sky.inputs["Color"].default_value = (1, 1, 1, 1)
-        self.sky.inputs["Strength"].default_value = 1.0 if group == "day" else 0.02 if group == "moon" else 0.0
+    def only(self, mode):
+        """mode "day": the white sun and the sky (AO, the ground's day light); "sun": the red sun with shadows and the
+        green one without, no sky; "night": the fire, the stove and the lanterns in red, green and blue, no sky; "moon":
+        the moon and the dim night sky."""
+        lit = {"day": [self.sun], "sun": [self.sun, self.sun_open], "moon": self.groups["moon"],
+               "night": [o for g in NIGHT_RGB for o in self.groups[g]]}[mode]
+        for o in [self.sun, self.sun_open] + [o for objs in self.groups.values() for o in objs]:
+            o.hide_render = o not in lit
+        self.sun.data.color = (1, 0, 0) if mode == "sun" else (1, 1, 1)
+        self.sky.inputs["Strength"].default_value = {"day": 1.0, "moon": 0.02}.get(mode, 0.0)
 
 
 def setup_render(a):
     sc = bpy.context.scene
-    sc.render.engine = "CYCLES"; sc.cycles.samples = a.samples; sc.cycles.use_adaptive_sampling = False
+    sc.render.engine = "CYCLES"; sc.cycles.use_adaptive_sampling = False
     sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 3
     if a.preview:
         sc.cycles.device = "CPU"
-    bk = sc.render.bake
     # the bake's edge fill: half the island gap (--margin texels), so each island fills its half of the gap and never
     # reaches a neighbour's texels; at 2048 that is 3 texels, which fills the whole gap in the 1K map (review R2-170)
+    bk = sc.render.bake
     bk.target = "IMAGE_TEXTURES"; bk.margin = max(1, math.ceil(a.margin / 2)); bk.use_clear = True
     bk.use_pass_direct = True; bk.use_pass_indirect = True; bk.use_pass_color = False
     return bk
@@ -518,14 +544,9 @@ class Target:
             n.image = self.img
         self.buf = np.empty(size * size * 4, np.float32)
 
-    def bake(self, kind, objs, label, keep="mean"):
-        """Bake kind for objs into this image and return what is used: "mean" (the RGB mean), "r" (the first channel) or
-        "rgb", as float32 rows (row 0 = the image's bottom, as Blender stores it)."""
-        bpy.ops.object.select_all(action="DESELECT")
-        for o in objs:
-            o.select_set(True)
-        bpy.context.view_layer.objects.active = objs[0]
-        t = time.time(); bpy.ops.object.bake(type=kind); print(f"  {kind} -> {label}: {time.time() - t:.0f} s")
+    def read(self, keep="mean"):
+        """What the last bake wrote into this image: "mean" (the RGB mean), "r" (the first channel) or "rgb", as float32
+        rows (row 0 = the image's bottom, as Blender stores it)."""
         self.img.pixels.foreach_get(self.buf)
         px = self.buf.reshape(self.img.size[1], self.img.size[0], 4)
         return {"mean": lambda: px[..., :3].mean(-1), "r": lambda: px[..., 0].copy(), "rgb": lambda: px[..., :3].copy()}[keep]()
@@ -534,11 +555,41 @@ class Target:
         bpy.data.images.remove(self.img)
 
 
+def bake(kind, objs, label, a, pass_name):
+    """One Cycles bake call of kind for objs, each into its material's image, at the pass's samples (PASS_SAMPLES)."""
+    sc = bpy.context.scene
+    sc.cycles.samples = max(2, round(PASS_SAMPLES[pass_name] * a.samples / 512))
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in objs:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    t = time.time(); bpy.ops.object.bake(type=kind)
+    print(f"  {kind} -> {label}: {len(objs)} objects, {sc.cycles.samples} samples, {time.time() - t:.0f} s")
+
+
+def join_copy(objs, name):
+    """One object joined from copies of objs (their meshes as they stand, in their bake materials), with the light-map
+    UVs active, so a pass bakes them as one object instead of one Cycles session each (review R2-158)."""
+    copies = []
+    for o in objs:
+        c = o.copy(); c.data = o.data.copy(); bpy.context.collection.objects.link(c); copies.append(c)
+    bpy.ops.object.select_all(action="DESELECT")
+    for c in copies:
+        c.select_set(True)
+    bpy.context.view_layer.objects.active = copies[0]
+    bpy.ops.object.join()
+    j = bpy.context.view_layer.objects.active; j.name = name
+    j.data.uv_layers.active = j.data.uv_layers["LM"]
+    return j
+
+
 def bake_light(a, receivers, occluders, ground, lights, only=None):
     """Every bake pass, through plain stand-ins (grey for props and occluders, one for the thin cards, white for the
     ground); the props get their own materials back afterwards. only: the names of the props to bake (--objects); the
-    rest still cast their shadows and light. Returns a dict of float32 maps: ao, sun_direct, sun_open, ground_day, and
-    lit / ground_lit {channel: map}."""
+    rest still cast their shadows and light. The props being baked that cast shadows are baked through one joined copy
+    (the originals are hidden meanwhile); the thin cards and the props that cast no shadow stay apart, since a joined
+    object has one visible_shadow and the cards' backs are baked alone. Returns a dict of float32 maps: ao, sun_direct,
+    sun_open, ground_day, and lit / ground_lit {channel: map}."""
     bk = setup_render(a)
     g_all, n_all = grey("bake_grey"); g_thin, n_thin = grey("bake_grey_thin"); g_gnd, n_gnd = grey("bake_ground", 1.0)
     ground.data.materials.append(g_gnd)
@@ -558,32 +609,49 @@ def bake_light(a, receivers, occluders, ground, lights, only=None):
     gnd = Target("GROUND_BAKE", a.ground, (n_gnd,))
     bakes = [o for o in receivers if only is None or o.name in only]
     thin = [o for o in bakes if o.get("thin")]
-    sky = lights.sky.inputs["Strength"]
+    solo = [o for o in bakes if o.get("thin") or not o.visible_shadow]
+    merged = [o for o in bakes if o not in solo]
+    hidden = {o.name: o.hide_render for o in merged}
+    joined = join_copy(merged, "BakeReceivers") if merged else None
+    for o in merged:
+        o.hide_render = True
+    objs = ([joined] if joined else []) + solo
+    print(f"  bake: {len(merged)} props joined into one object, {len(solo)} apart ({', '.join(o.name for o in solo) or 'none'})")
     out = {"lit": {}, "ground_lit": {}}
 
     lights.only("day")
-    out["ao"] = props.bake("AO", bakes, "AO", keep="r")                     # sky occlusion on the props
-    sky.default_value = 0.0; bk.use_pass_indirect = False                      # where the sun reaches each prop: its direct
-    out["sun_direct"] = props.bake("DIFFUSE", bakes, "SUN")                # light, over the same with nothing casting shadows
-    casts = {o.name: o.visible_shadow for o in receivers + occluders}
-    for o in receivers + occluders: o.visible_shadow = False
-    out["sun_open"] = props.bake("DIFFUSE", bakes, "SUN_OPEN")
-    for o in receivers + occluders: o.visible_shadow = casts[o.name]
-    bk.use_pass_indirect = True; sky.default_value = 1.0
-    out["ground_day"] = gnd.bake("DIFFUSE", [ground], "GROUND_DAY")           # sun + sky on the ground
-    for g in CHANNELS:                                                         # each light's share, props and ground (grey: white light)
-        lights.only(g)
+    bake("AO", objs, "AO", a, "AO")
+    out["ao"] = props.read("r")                                                # sky occlusion on the props
+    lights.only("sun"); bk.use_pass_indirect = False                           # where the sun reaches each prop: its direct
+    bake("DIFFUSE", objs, "SUN (R) and SUN_OPEN (G)", a, "SUN")                # light, over the same with no shadows
+    px = props.read("rgb")
+    out["sun_direct"], out["sun_open"] = px[..., 0].copy(), px[..., 1].copy()
+    del px
+    lit = out["sun_open"] > 0.02                                               # a whole bake has shade on a quarter of it
+    if only is None and lit.any() and (out["sun_direct"][lit] < 0.5 * out["sun_open"][lit]).mean() < 0.01:
+        sys.exit("the sun pass found almost no shadow on the props: this Blender's Cycles ignores Light.use_shadow on "
+                 "SunOpen, so bake the open sun in its own pass with every object's visible_shadow off")
+    lights.only("day"); bk.use_pass_indirect = True
+    bake("DIFFUSE", [ground], "GROUND_DAY", a, "GROUND_DAY")                   # sun + sky on the ground
+    out["ground_day"] = gnd.read()
+    for mode, chans in (("night", NIGHT_RGB), ("moon", ("moon",))):          # each light's share, props and ground (grey)
+        lights.only(mode)
+        bake("DIFFUSE", objs + [ground], mode.upper(), a, mode.upper())
+        px, gp = props.read("rgb"), gnd.read("rgb")
         if thin:                                                               # the back of each card; keep the brighter side
-            px = props.bake("DIFFUSE", bakes, g.upper(), keep="rgb")
             for o in thin: o.data.flip_normals()
-            px = np.maximum(px, props.bake("DIFFUSE", thin, g.upper() + "_BACK", keep="rgb"))
+            bake("DIFFUSE", thin, mode.upper() + "_BACK", a, mode.upper())
+            px = np.maximum(px, props.read("rgb"))
             for o in thin: o.data.flip_normals()
-            out["lit"][g] = px.mean(-1)
-            del px
-        else:
-            out["lit"][g] = props.bake("DIFFUSE", bakes, g.upper())
-        out["ground_lit"][g] = gnd.bake("DIFFUSE", [ground], "GROUND_" + g.upper())
+        for i, g in enumerate(chans):                                          # night: R, G, B; the moon is white: the mean
+            out["lit"][g] = px[..., i].copy() if len(chans) > 1 else px.mean(-1)
+            out["ground_lit"][g] = gp[..., i].copy() if len(chans) > 1 else gp.mean(-1)
+        del px, gp
     props.remove(); gnd.remove()
+    if joined:
+        me = joined.data; bpy.data.objects.remove(joined); bpy.data.meshes.remove(me)
+    for o in merged:
+        o.hide_render = hidden[o.name]
     for o in receivers:
         for i, m in enumerate(keep[o.name]):
             o.data.materials[i] = m
