@@ -4,7 +4,7 @@
 // Exports fidgetStep(dt) (step.js, each frame, after his hands' pose) and FID_T (how long each lasts, s).
 import * as THREE from "three";
 import { rng } from "../core.js";
-const { R } = rng("operator");
+const { R } = rng("operator.face");   // its own stream: blinks and fidgets follow frame timing, so they must not move his day's picks (review R2-122)
 import { V } from "../util.js";
 import { uNight } from "../campProps.js";
 import { B, UP, clips, csDir, cur, reach } from "./model.js";

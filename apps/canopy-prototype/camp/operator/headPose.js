@@ -4,7 +4,7 @@
 // Exports buildSleepZ() (operator.js, after the hand props) and poseHead(dt) (step.js, each frame, after his hands).
 import * as THREE from "three";
 import { camera, rng } from "../core.js";
-const { R } = rng("operator");
+const { R } = rng("operator.face");   // its own stream: blinks and fidgets follow frame timing, so they must not move his day's picks (review R2-122)
 import { V, yawTo } from "../util.js";
 import { aimBone, makeZ, zAt } from "../actor.js";
 import { B, UP, clips, csDir, cur, play, root } from "./model.js";
