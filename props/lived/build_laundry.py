@@ -11,7 +11,8 @@ sloth-life thread builds that sloth).
 
     .venv/bin/python props/lived/build_laundry.py
 
-One GLB (props/lived/laundry.glb), z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin.
+One GLB, z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin. The light bake writes
+props/lived/laundry.glb; a run on its own writes props/lived/laundry_preview.glb (git-ignored).
 make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's laundry.glb
 and its models/laundry.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
 """
@@ -149,7 +150,7 @@ def make():
 
 def build(colour=None, path=None):
     """Make the laundry line in a fresh scene, light the posts (colour(objs); by default their own AO bake, no face
-    splitting: plain faces shade fine at this size) and write it to path (default props/lived/laundry.glb)."""
+    splitting: plain faces shade fine at this size) and write it to path (default props/lived/laundry_preview.glb)."""
     reset()
     every = make()
     po, cl = every["LaundryPosts"], every["LaundryCloth"]
@@ -158,10 +159,11 @@ def build(colour=None, path=None):
     cl.hide_render = False
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
-    path = export_glb([po, cl], path or os.path.join(HERE, "laundry.glb"), image_format="AUTO")
+    path = export_glb([po, cl], path or os.path.join(HERE, "laundry_preview.glb"), image_format="AUTO")
     print(f"hang point (local, three.js): x {line_x(HANG_T):.3f}, y {line_z(HANG_T):.3f}, z 0")
     print(f"laundry -> {path}")
 
 
 if __name__ == "__main__":
     build()
+    print("(a preview with its own AO; the page's laundry.glb and models/laundry.txt come from props/bake_all.py)")

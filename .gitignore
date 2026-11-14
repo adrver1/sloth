@@ -10,3 +10,4 @@ stickers/renderer/anim_out/
 props/jeep/preview_*.png
 shots/
 package-lock.json
+props/lived/*_preview.glb

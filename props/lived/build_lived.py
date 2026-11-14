@@ -15,9 +15,10 @@ look used. PROPS (above make()) lists them all, one row each with its builder an
     .venv/bin/python props/lived/build_lived.py
     .venv/bin/python props/lived/build_lived.py --samples 64
 
-One GLB (props/lived/lived.glb), one object per prop, each at its own origin, standing on z = 0 with its front toward
--Y (three.js +Z). SeatThings shares the Seat's origin (props/camp/build_camp.py rustic(): log along X, flat top at
-z = 0.361), so the page places it with the same transform as the seat it sits on. Same baked light as the camp and the
+One GLB, one object per prop, each at its own origin, standing on z = 0 with its front toward -Y (three.js +Z). The
+light bake writes props/lived/lived.glb; a run on its own writes props/lived/lived_preview.glb (git-ignored).
+SeatThings shares the Seat's origin (props/camp/build_camp.py rustic(): log along X, flat top at z = 0.361), so the
+page places it with the same transform as the seat it sits on. Same baked light as the camp and the
 jeep: Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
 Materials match the camp's rustic set, so the props sit with the picked camp.
 make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's lived.glb
@@ -747,7 +748,7 @@ def make(samples=32):
 
 def build(samples=32, parts_out=None, colour=None, path=None):
     """Make the lived props in a fresh scene, light the BAKED ones (colour(objs); by default their own AO bake at samples)
-    and write them all to path (default props/lived/lived.glb)."""
+    and write them all to path (default props/lived/lived_preview.glb)."""
     reset()
     every = make(samples)
     objs = {k: every[k] for k in BAKED}
@@ -755,7 +756,7 @@ def build(samples=32, parts_out=None, colour=None, path=None):
     for o in objs.values():                   # baked props need no UVs; only the textured ones keep theirs
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived.glb"), image_format="JPEG", quiet=True)
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived_preview.glb"), image_format="JPEG", quiet=True)
     report([every[k] for k in TEXTURED], note={n: t for n, _, _, t in PROPS if t})
     for k, o in objs.items():
         report([o])
@@ -789,3 +790,4 @@ if __name__ == "__main__":
     ap.add_argument("--parts", help="also write each piece as its own object to this GLB, for a triangle breakdown")
     a = ap.parse_args()
     build(a.samples, a.parts)
+    print("(a preview with its own AO; the page's lived.glb and models/lived.txt come from props/bake_all.py)")

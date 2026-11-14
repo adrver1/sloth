@@ -9,10 +9,10 @@ Adriaen picked from three fires and three kettles (the others are in git history
 
     .venv/bin/python props/lived/build_fire.py
 
-One GLB (props/lived/fire.glb) with objects Ring, Tripod, Fire, Embers, Pot and Chain, each at the fire's origin, z up
-(three.js y up). Embers are drawn unlit on the page so they glow; the flames are animated cards made on the page. Same
-baked light as the other props (AO times base colour in a colour attribute), except the chain, which only carries its
-texture. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
+One GLB with objects Ring, Tripod, Fire, Embers, Pot and Chain, each at the fire's origin, z up (three.js y up). The
+light bake writes props/lived/fire.glb; a run on its own writes props/lived/fire_preview.glb (git-ignored). Embers are
+drawn unlit on the page so they glow; the flames are animated cards made on the page. Same baked light as the other
+props (AO times base colour in a colour attribute), except the chain, which only carries its texture. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
 make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's fire.glb
 and its models/fire.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
 """
@@ -380,7 +380,7 @@ def make():
 def build(samples=32, colour=None, path=None):
     """Make the fire set in a fresh scene, light the BAKED parts (colour(objs); by default their own AO bake at samples,
     no face splitting: the fire and pot are small enough that the plain faces shade fine) and write it all to path
-    (default props/lived/fire.glb)."""
+    (default props/lived/fire_preview.glb)."""
     reset()
     every = make()
     objs = [every[k] for k in BAKED]
@@ -393,10 +393,11 @@ def build(samples=32, colour=None, path=None):
     for o in objs:
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire.glb"), image_format="AUTO")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire_preview.glb"), image_format="AUTO")
     print(f"soup surface (three.js): (0, {SOUP.z:.3f}, 0)")
     print(f"fire -> {path}")
 
 
 if __name__ == "__main__":
     build()
+    print("(a preview with its own AO; the page's fire.glb and models/fire.txt come from props/bake_all.py)")
