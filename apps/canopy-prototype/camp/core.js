@@ -28,6 +28,7 @@ import { SUN } from "./layout.js";
 //   station  drift | campfire | kalimba | lullaby   saved, else drift        audio.js (checks it against its stations)
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
 const qs = new URLSearchParams(location.search);
+const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };   // a number, or null when it is missing or not a number
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
 // state, one part per owner), audio (audio.js: volume, muted, music, its volume and the station, as one JSON object).
 const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save", audio: "canopy-audio" };
@@ -54,9 +55,9 @@ const OPT = {
   weather: qs.get("weather"),
   time: (() => { const h = Number(qs.get("time") ?? store.get(KEYS.time) ?? 12); return h >= 0 && h < 24 ? h : 12; })(),
   cycle: qs.has("cycle") ? qs.get("cycle") !== "0" : store.get(KEYS.cycle) === "on",
-  pos: qs.has("pos") ? qs.get("pos").split(",").map(Number) : null,   // the start view: null keeps player.js's own
-  yaw: qs.has("yaw") ? +qs.get("yaw") : null,
-  pitch: qs.has("pitch") ? +qs.get("pitch") : null,
+  pos: (() => { const p = (qs.get("pos") || "").split(",").map(parseFloat); return p.length === 2 && p.every(Number.isFinite) ? p : null; })(),   // the start view: null (or a value that isn't a number) keeps player.js's own
+  yaw: num(qs.get("yaw")),
+  pitch: num(qs.get("pitch")),
   campsloths: qs.get("campsloths") !== "0",
   slothmat: qs.get("slothmat") === "old" ? "old" : "lambert",
   lab: qs.has("lab"),
