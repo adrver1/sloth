@@ -48,7 +48,7 @@ export function groundHeight(x, z) {
     const side = ox || oz ? sstep(-0.35, 0.45, (dx * ox + dz * oz) / Math.max(d, 1e-3)) : 1;
     mound = Math.max(mound, mh * (1 - sstep(0, mr, d)) * side);
   }
-  const k = vnoise(Math.atan2(z, x) * 1.6 + 11, 0.5);
+  const k = vnoise(x / r * 1.6 + 11, z / r * 1.6);                 // round a circle in noise space: no seam where the angle wraps (review R2-184)
   const bowl = (0.22 + 0.3 * k) * sstep(RC - 0.8, RC + 2.2, r);                                     // the rim: 0.2 to 0.5 m, a shallow bowl
   const humm = r < RC + 0.5 ? 0 : (1.1 * fbm(x * 0.22, z * 0.22) - 0.25) * sstep(RC + 0.5, RC + 5, r);   // hummocks and hollows in the forest
   const lift = bowl + humm + mound; if (lift === 0) return dip;
