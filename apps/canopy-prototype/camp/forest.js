@@ -5,7 +5,6 @@
 // and perClump (the leaf card, its material, its size range and how many go in a clump) for glade.js's bushes.
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
-import "./sky.js";   // run after the module before it, as one script did
 import { D, hex, JEEP, leafMat, LOOK, OPT, rng, S, scene } from "./core.js";
 const { R, rnd } = rng("forest");
 import { V, canvasTex, lcg, rand, sstep } from "./util.js";
