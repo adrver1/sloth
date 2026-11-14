@@ -1,5 +1,5 @@
 {
- "as_of": "section C round 6, 2026-11-14",
+ "as_of": "section C round 6 and the leaf sway, 2026-11-14",
  "statuses": [
   "fixed",
   "partly fixed",
@@ -573,6 +573,13 @@
     "9561718"
    ],
    "note": "shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs"
+  },
+  "props-12": {
+   "status": "fixed",
+   "commits": [
+    "9800b8e"
+   ],
+   "note": "leafMat passes the sway as a per-material uniform, so the ferns and the leaves share one program and each sways by its own amount. sky.js and ground.js set onBeforeCompile directly too, but their shader text has no values in it, so their default cache key is right."
   },
   "props-13": {
    "status": "partly fixed",
