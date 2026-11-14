@@ -13,8 +13,10 @@
 // handPose.js, fidget.js and headPose.js (the poses laid over the clip), step.js (each frame) and checks.js (the checks'
 // hooks, loaded only by the tools).
 // Repack after a change in desk-at-night (engine/): in engine/web, node scripts/pack_chars.mjs <dir> ../characters/bearded_operator/bearded_operator.glb
-// (mesh, no clips) and node scripts/pack_chars.mjs --clips idle,walk,seated_idle,stand_up,sip,hug,play,play_titanic,play_airplane,play_knees,wave,blink,happy,talk,phone,phone_down,step_down
+// (mesh, no clips) and node scripts/pack_chars.mjs --clips idle,walk,seated_idle,stand_up,sip,play_titanic,play_airplane,wave,blink,happy,talk
 // <dir2> ../characters/bearded_operator/bearded_operator_survival.glb (its anims.glb: the same rig, with the play clips), then base64 each into models/.
+// Only the clips the camp plays are packed (review R2-213: hug, play, play_knees, phone, phone_down and step_down were 40% of
+// the keyframes and never played); add a clip's name to the list when the camp starts to use it.
 // ?op=0 leaves him out: nothing of him is made. Exports buildOperator(), opStep (main.js, each frame) and opApi (null with
 // ?op=0, or until he is built): his root, his state object op, state() (a short summary) and line() (what his bubble says),
 // read by audio.js for his sounds and by lab.js. The hooks the checks drive him with are operator/checks.js opChecks.
