@@ -8,7 +8,7 @@ Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three 
                jungle hammock on plain posts (the fire, tripod and pot are props/lived/build_fire.py)
 
 Storybook, Rustic and Jungle (and the first pre-light-map picked GLB) are archived (camp review, Adriaen 2026-11-12): their
-GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, one function
+GLBs are in props/camp/archive/ (with a README) and the page no longer offers them. Their builders stay here, one function
 per prop, since the picked set is made from some of them (rustic_seat, rustic_lantern, rustic_table, jungle_hammock). The page's picked set is built and baked by bake_camp_lightmap.py (through
 props/bake_all.py, on the GPU); this script's own AO bake only remakes an archived style:
 

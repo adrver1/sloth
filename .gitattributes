@@ -3,8 +3,6 @@
 # Base64 page copies of models and KTX2 light maps (written by the builders, the bake and the packing steps, never by hand)
 apps/**/models/*.txt          binary linguist-generated
 stickers/renderer/models/*.txt binary linguist-generated
-# Retired asset variants, kept as they were
-props/**/archive/*.txt        binary linguist-generated
 # The clearing's layout from the live page (props/shadow/export_casters.cjs): text, but one 100 KB line
 props/shadow/layout_picked.json -diff linguist-generated
 # Models and textures

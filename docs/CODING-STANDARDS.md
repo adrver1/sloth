@@ -111,7 +111,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 ## 14. Archives
 
-- Rule: retired asset variants are kept, not deleted: `props/camp/archive/` (the Storybook, Rustic and Jungle camp sets and the first picked GLB), `props/jeep/archive/` (the Toy and Camper jeeps). Their builders may stay in the generator (`build_camp.py` keeps one function per prop). Keep the sloth styles `plush`, `baby` and `plush_real`, and the flat sticker set.
+- Rule: retired asset variants are kept, not deleted: `props/camp/archive/` (the Storybook, Rustic and Jungle camp sets and the first picked GLB), `props/jeep/archive/` (the Toy and Camper jeeps), each with a README. An archive keeps the GLB only: its base64 `.txt` copy is made again with `base64 -w0` when it is needed (R2-221). Their builders may stay in the generator (`build_camp.py` keeps one function per prop). Keep the sloth styles `plush`, `baby` and `plush_real`, and the flat sticker set.
 - Rule: the page has no branches for retired options. When an option is archived, remove its code paths from the page; the asset stays in `archive/` and the code stays in git history.
 - Why: about 45 branches served the retired looks and prop sets (crosscut-17, world-04, gencamp-08).
 
