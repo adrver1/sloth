@@ -25,7 +25,7 @@ const TRUNK = 1.25;   // the big tree's foot with its flare (forest.js HERO trun
 // where things stand (also what the plants keep clear of)
 const BENCH = { at: at(3.05, 1.15), yaw: 0 };   // to the right as you arrive, looking at the tree
 BENCH.yaw = Math.atan2(G.x - BENCH.at.x, G.z - BENCH.at.z);
-const LOG = { at: at(3.5, -2.3), len: 2.3, r: 0.24 };   // across the glade, lying along its edge
+const LOG = { at: at(3.5, -2.95), len: 2.3, r: 0.24 };   // on the glade's far side, lying along its edge, clear of the karaoke road (it leaves round turn -2)
 LOG.yaw = Math.atan2(LOG.at.z - G.z, LOG.at.x - G.x) + Math.PI / 2 + 0.25;
 const STONES = [[at(3.3, -0.85), 0.32], [at(3.7, -0.65), 0.2], [at(2.9, 2.05), 0.26], [at(3.9, 2.9), 0.36]];
 const SHROOMS = [[LOG.at.clone().addScaledVector(V(Math.cos(LOG.yaw), 0, Math.sin(LOG.yaw)), 1.25), 5], [at(TRUNK + 0.35, 2.6), 4]];
