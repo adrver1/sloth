@@ -91,7 +91,7 @@ function clearingFloor() {
       for (let y = 0; y < h; y++) { const t = (y / h) * 6.2832, l = 0.2 + 0.05 * Math.sin(t * 3 + 1) + 0.03 * Math.sin(t * 7), r = 0.8 + 0.05 * Math.sin(t * 2 + 4) + 0.03 * Math.sin(t * 9 + 2);
         for (let x = 0; x < w; x++) { const u = x / w; d[(y * w + x) * 4 + 3] *= sstep(l - 0.12, l + 0.04, u) * (1 - sstep(r - 0.04, r + 0.12, u)); } }
       g.putImageData(img, 0, 0);
-    });
+    }, { read: true });
     earth.wrapT = THREE.RepeatWrapping;
     // the ribbon starts in the camp, just past the log seats round the fire, and runs out between the tent and the laundry line
     // onto the glade path (Adriaen 2026-11-14: "continue past the tent to the camp"); sloPath itself, which the player and the

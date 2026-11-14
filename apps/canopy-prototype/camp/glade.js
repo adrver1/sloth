@@ -78,7 +78,7 @@ function buildGlade() {
     for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) { const dx = x / PX * 2 - 1, dz = y / PX * 2 - 1, r = Math.hypot(dx, dz) * FR, a = Math.atan2(dz, dx);
       const rim = GLADE_R + 0.25 + 0.35 * Math.sin(a * 5 + 1) + 0.2 * Math.sin(a * 11 + 2.3); ed[(y * PX + x) * 4 + 3] = 255 * (1 - sstep(rim - 0.9, rim + 0.6, r)); }
     g.putImageData(e, 0, 0);
-  });
+  }, { read: true });
   const floorMat = new THREE.MeshLambertMaterial({ map: floorTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
   const floor = new THREE.Mesh(new THREE.CircleGeometry(FR, 24), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.position.set(G.x, 0.022, G.z); floor.name = "GladeFloor"; scene.add(floor);   // above the ground mesh (0.012), or the two flicker

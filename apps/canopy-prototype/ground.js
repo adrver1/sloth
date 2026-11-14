@@ -63,7 +63,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
     blob(0, 0, 1.25, "rgba(0,0,255,.75)");
     for (const [c, r] of used) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
-  }, { srgb: false });
+  }, { srgb: false, read: true });   // read back below for the plants' lookups
   if (baked) { const g = wear.image.getContext("2d"); g.globalCompositeOperation = "copy"; g.drawImage(baked.mask, 0, 0, M, M); wear.needsUpdate = true; }   // the baked wear map (props/ground/bake_ground.py) for the plants' lookups
   wear.anisotropy = 1; wear.flipY = false;   // canvas rows run with +z, like the shader's lookup
 
@@ -152,8 +152,8 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   // browns and olives, each with its own height in alpha (0 between leaves), so the shader shows more or fewer whole leaves where litter
   // gathers. A DataTexture, so the alpha isn't premultiplied away
   const litterTex = (() => {
-    const W = 256, cv = document.createElement("canvas"); cv.width = cv.height = W; const g = cv.getContext("2d");
-    const hc = document.createElement("canvas"); hc.width = hc.height = W; const gh = hc.getContext("2d");
+    const W = 256, cv = document.createElement("canvas"); cv.width = cv.height = W; const g = cv.getContext("2d", { willReadFrequently: true });
+    const hc = document.createElement("canvas"); hc.width = hc.height = W; const gh = hc.getContext("2d", { willReadFrequently: true });   // both read back once
     g.fillStyle = "#8a6438"; g.fillRect(0, 0, W, W); gh.fillStyle = "#000"; gh.fillRect(0, 0, W, W);
     const LEAF = ["#96602a", "#b27e36", "#7a4a24", "#a06e3c", "#6c5a2e", "#8c8046", "#5e6a2c", "#c49446"];
     const { R: Q } = lcg(4242);

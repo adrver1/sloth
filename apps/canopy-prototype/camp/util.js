@@ -6,7 +6,9 @@
 //   rand(a, b)                    a number between a and b from Math.random: for noise that must not touch any seeded stream
 //   lcg(seed)                     a private random stream { rnd, R } (Park-Miller, 16807): its own numbers, so drawing from it
 //                                 leaves the named streams (core.js rng) alone. Same seed, same numbers as the copies it replaced
-//   canvasTex(w, h, draw, opts)   a CanvasTexture painted by draw(ctx, w, h); opts { srgb = true, aniso = 4 }
+//   canvasTex(w, h, draw, opts)   a CanvasTexture painted by draw(ctx, w, h); opts { srgb = true, aniso = 4, read = false }:
+//                                 read makes a CPU-backed canvas (willReadFrequently) for a texture that is read back with
+//                                 getImageData, which on a GPU-backed canvas stalls start-up for up to seconds (review R2-015)
 //   polyDist(pts, x, z)           distance in x, z to a polyline, and the nearest point on it: [d, x, z]
 //   lineDist(pts, x, z)           the same distance alone, without the array
 //   tris(geometry)                its triangle count
@@ -34,8 +36,8 @@ export function lcg(seed) {
   return { rnd, R: (a, b) => a + rnd() * (b - a) };
 }
 
-export function canvasTex(w, h, draw, { srgb = true, aniso = 4 } = {}) {
-  const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
+export function canvasTex(w, h, draw, { srgb = true, aniso = 4, read = false } = {}) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d", read ? { willReadFrequently: true } : undefined), w, h);
   const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; return t;
 }
 
