@@ -10,7 +10,7 @@ import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bak
 import { canvasTex, lcg, patchMaterial, rand, sstep, swap, tris } from "./camp/util.js";
 import { SUN } from "./camp/layout.js";
 // the contact shadow on whatever sits on the floor: a dark brown laid over it by the shadow map, faded at night (the night
-// bake holds the night's shadows); xz is the point's world x, z
+// bake holds the night's shadows); xz is the point's world x, z; the floor inlines the same line on its own shadow lookup
 const SHADE = (xz) => `outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), texture2D(uShadeT, ${xz} / (2.0 * uR) + 0.5).r * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight) * step(length(${xz}), uR));`;   // the camp's baked lights, one channel each
 
 // value noise on an integer lattice, the same as camp/terrain.js vnoise (an integer hash, so the page and the shader agree), and the
@@ -239,7 +239,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
         float hg = dot(diffuseColor.rgb, vec3(1.0)) / max(1e-3, dot(textureLod(map, vec2(0.5), 10.0).rgb * diffuse, vec3(1.0))) - 1.0;   // grass height: the blades are lighter
         vec4 mk = texture2D(uMask, uvC);
         vec3 dt = sRGBTransferEOTF(texture2D(uDirt, vG * 0.45)).rgb, dtM = sRGBTransferEOTF(textureLod(uDirt, vec2(0.5), 10.0)).rgb;
-        float hd = dot(dt, vec3(1.0)) / dot(dtM, vec3(1.0)) - 1.0;           // dirt height: the pebbles stand up
+        float dR = dot(dt, vec3(1.0)) / dot(dtM, vec3(1.0)), hd = dR - 1.0;   // the dirt tile against its mean; dirt height: the pebbles stand up
         vec3 gr = diffuseColor.rgb * mix(vec3(1.18, 1.1, 0.82), vec3(0.72, 0.9, 0.62), mk.g) * macroTint(mN);   // dry and pale ... lush and deep, and drier or bluer in big patches
         float dB = mk.r, dC = mk.r;
         #ifdef BAKED
@@ -256,7 +256,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
           // blades and round the pebbles (height blend); the middle of a path is packed smooth and paler; the tiled dirt adds grain
           d = smoothstep(0.3, 0.7, (dB - 0.5) * 2.2 + 0.5 + (hd - 1.2 * hg) * 1.4) * inD;
           centre = smoothstep(0.8, 0.97, dC) * inD;
-          vec3 soil = sRGBTransferEOTF(texture2D(uSoil, uvC)).rgb * mix(1.0, dot(dt, vec3(1.0)) / dot(dtM, vec3(1.0)), 0.3 * (1.0 - 0.75 * centre)) * (1.0 + 0.1 * centre);
+          vec3 soil = sRGBTransferEOTF(texture2D(uSoil, uvC)).rgb * mix(1.0, dR, 0.3 * (1.0 - 0.75 * centre)) * (1.0 + 0.1 * centre);
           vec3 c = mix(gr, soil, d);
           hB = -0.035 * smoothstep(0.15, 0.85, dB) + 0.012 * exp(-pow((dB - 0.28) / 0.14, 2.0)) + 0.004 * hd * d * (1.0 - centre);   // paths sunk a few cm, with a lip
         #else
@@ -288,7 +288,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
       ["#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, uvC)) * uGNon * vec4(vec3(inD), 1.0 - 0.4 * smoothstep(uR, uR + 8.0, rr));
         vec2 gj = lmDecode2(texture2D(uGJ, uvC).rg) * uGNon * inD;
         vec2 du = lmDoorUv(vG); vec3 gd = all(greaterThan(du, vec2(0.0))) && all(lessThan(du, vec2(1.0))) ? vec3(doorKey(lmDecode(texture2D(uGDP, du)), uLD.x), doorKey(lmDecode(texture2D(uGDD, du)), uLD.y), doorKey(lmDecode(texture2D(uGDB, du)), uLD.z)) * uGNon : vec3(0.0);${LIGHT_MIX("albedoG", "gq", "gj", "(uNight * uGNon)", "gd", true)}
-        ${SHADE("vG")}
+        outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), shd * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight));   // SHADE(), reusing shd (R2-094)
 #include <opaque_fragment>`]);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
@@ -376,20 +376,21 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   // ---------------------------------------------------------------- where plants grow
   const k = fx > 1 ? 1.5 : fx ? 1 : 0.5;
   const inside = (x, z, pad) => blockers.some((b) => Math.hypot(x - b.at.x, z - b.at.z) < b.r * 0.85 + pad);
-  const nearThing = (x, z) => Math.max(0, ...spots.map(({ at: c, r }) => 1 - Math.abs(Math.hypot(x - c.x, z - c.z) - r - 0.25) / 0.45));   // hugging a prop's foot
+  // plain loops, no arrays per call (R2-095): these run for every try of the scatter below
+  const nearThing = (x, z) => { let m = 0; for (const { at: c, r } of spots) m = Math.max(m, 1 - Math.abs(Math.hypot(x - c.x, z - c.z) - r - 0.25) / 0.45); return m; };   // hugging a prop's foot
   const patches = Array.from({ length: 7 }, () => { const a = R(0, 6.28), r = R(3.2, RC - 1); return [Math.cos(a) * r, Math.sin(a) * r, R(0.8, 1.5)]; });
-  const flowerField = (x, z) => Math.max(0, ...patches.map(([px_, pz, pr]) => 1 - Math.hypot(x - px_, z - pz) / pr));
+  const flowerField = (x, z) => { let m = 0; for (const [px_, pz, pr] of patches) m = Math.max(m, 1 - Math.hypot(x - px_, z - pz) / pr); return m; };
   // ground plants grow in clumps, not evenly sprinkled (review B6): small clump centres, and the odds rise near one
   const clumps = Array.from({ length: 46 }, () => { const a = R(0, 6.28), r = Math.sqrt(rnd()) * (RC + 0.4); return [Math.cos(a) * r, Math.sin(a) * r, R(0.35, 0.8)]; });
-  const clump = (x, z) => 0.3 + 1.1 * Math.max(0, ...clumps.map(([cx, cz, cr]) => 1 - Math.hypot(x - cx, z - cz) / cr));
+  const clump = (x, z) => { let m = 0; for (const [cx, cz, cr] of clumps) m = Math.max(m, 1 - Math.hypot(x - cx, z - cz) / cr); return 0.3 + 1.1 * m; };
   const want = { 0: Math.round(650 * k), 1: Math.round(130 * k), 2: Math.round(170 * k), 3: Math.round(140 * k) };
   const pick = [];
   for (const type of [1, 2, 0, 3]) {
     let n = 0;
     for (let tries = 0; tries < want[type] * 40 && n < want[type]; tries++) {
       const a = R(0, 6.28), r = Math.sqrt(rnd()) * (RC + 0.6), x = Math.cos(a) * r, z = Math.sin(a) * r;
+      if (inside(x, z, type === 1 ? 0.1 : 0) || bare(x, z) || trackDist(x, z) < 1.1) continue;   // bare: kept clear, e.g. under the tent's planks; the cheap rejects first
       const dirt = sample(x, z, 0), lush = sample(x, z, 1), edge = sstep(RC - 2.5, RC, r), hug = nearThing(x, z);
-      if (inside(x, z, type === 1 ? 0.1 : 0) || bare(x, z) || trackDist(x, z) < 1.1) continue;   // bare: kept clear, e.g. under the tent's planks
       let p;
       if (type === 0) p = ((0.18 + 0.7 * edge + 0.5 * hug + 0.3 * lush) * (1 - sstep(0.25, 0.5, dirt)) + 0.35 * sstep(0.15, 0.3, dirt) * (1 - sstep(0.3, 0.45, dirt))) * clump(x, z);   // and along path edges
       else if (type === 1) p = (0.9 * sstep(RC - 2, RC, r) + 0.7 * hug) * (1 - sstep(0.2, 0.35, dirt)) + 0.55 * sstep(0.04, 0.14, dirt) * (1 - sstep(0.24, 0.4, dirt));   // and the verges: nobody steps there
