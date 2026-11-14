@@ -28,8 +28,8 @@ function buildWeather() {
 // dry under the tent: its roof and planks (layout.js TENT.dry, in the tent's own frame), below 3.4 m
 const dry = (x, z, y) => y <= 3.4 && TENT.dry(x, z);
 
-const weather = { wet: 0, mode: () => mode };
 let showerT = rand(90, 180), raining = mode === "rain";   // Changing: dry spells of 1.5..3 min, showers of 1..1.5 min
+const weather = { wet: raining ? 1 : 0, mode: () => mode };   // a saved or ?weather=rain loads already wet, not easing in from dry
 weather.step = (dt) => {
   if (mode === "changing") { showerT -= dt; if (showerT < 0) { raining = !raining; showerT = raining ? rand(60, 90) : rand(90, 180); } }
   else raining = mode === "rain";
