@@ -6,6 +6,7 @@
 // Plants: crossed-quad cards (4 tris each) from one painted atlas, swaying in the vertex shader: one instanced draw for the clearing
 // and one for the plants the caller passes as extra (the glade), each culled on its own bounds.
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
+// Exports createGround({ scene, RC, blockers, ... }) (campGround.js, once); what it returns, and who reads each part, is listed at its return.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";
 import { canvasTex, lcg, patchMaterial, rand, sstep, swap, tris } from "./camp/util.js";
@@ -483,5 +484,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: used.map(({ at: c, r }) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
-  return { floor, plants: im, shade, castShadows: cast, casters, shadowLoad, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
+  // what campGround.js uses (floor, castShadows, shadowLoad, isBaked, isNightBaked, shadeOn), the layout for props/shadow/export_casters.cjs,
+  // and the triangle and plant counts that tools/camp-probe.cjs prints (both through window.__ground, debug.js) (R2-128)
+  return { floor, castShadows: cast, shadowLoad, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }

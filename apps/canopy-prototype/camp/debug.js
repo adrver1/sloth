@@ -17,8 +17,8 @@
 //   __jeep           jeepApi (jeep.js), when there is a jeep               export_casters.cjs (its place); camp-scenarios.cjs on old checkouts
 //   __laundry        LAUNDRY (layout.js), when the line is shown           export_casters.cjs
 //   __glade          the glade and the sloths' path (layout.js)            export_casters.cjs
-//   __ground         groundLife (campGround.js)             export_casters.cjs (its layout)
-//   __deadwood       deadwood (deadwood.js): its layout and triangles      export_casters.cjs (the ground-shadow bake)
+//   __ground         groundLife (campGround.js)             export_casters.cjs (its layout), camp-probe.cjs (its tris and counts)
+//   __deadwood       deadwood (deadwood.js): its layout and triangles      export_casters.cjs (the ground-shadow bake), camp-probe.cjs (its tris)
 //   __terrainGrid(n) the ground's height grid (terrain.js heightGrid)      export_casters.cjs
 // Exports stats and ready().
 import { LIVED, pace, scene } from "./core.js";

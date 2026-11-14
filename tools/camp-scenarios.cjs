@@ -132,7 +132,7 @@ function helpers([base, present]) {
       car: T.car ? { inCar: T.car.inCar?.() ?? null, engine: T.car.engine?.() ?? null } : null,
       clocks: (T.clocks || []).map((c) => [c.name, c.shake, c.obj.rotation.z, c.base, c.lume ? c.lume.emissiveIntensity : null, c.hands ? c.hands.map((h) => h.rotation.z) : null, c.disc ? c.disc.rotation.z : null]),
       day: d ? { set: d.set, shown: d.shown, cycle: d.cycle, listeners: d.listeners.length } : null,
-      weather: W ? { wet: W.wet, mode: W.mode ?? null } : null,
+      weather: W ? { wet: W.wet } : null,
       ui: Object.fromEntries(['time', 'clock', 'cycle', 'weather', 'detail', 'lm', 'sound', 'q', 'toast', 'perf'].map((id) => { const e = document.getElementById(id); return [id, e ? [e.value ?? null, id === 'perf' ? '' : e.textContent, e.className, e.hidden, e.style.opacity] : null]; })),
       opts: document.getElementById('opts')?.hidden, stick: [document.getElementById('stick')?.hidden ?? null, getComputedStyle(document.getElementById('stick') || document.body).display], touch: document.body.className,
       menu: T.menu(), menuPos: T.menuPos(),

@@ -2,6 +2,7 @@
 // kept off the tent and its planks so you can shelter there, and the light it brings: grey-green fog, a dimmer sun, no
 // shafts. Weather is set in the ⚙️ menu: Clear, Rain, or Changing (a shower every few minutes). ?weather=rain sets it.
 // buildWeather() (main.js, once) wires the ⚙️ button and makes the streaks; main.js steps it each frame and hands weather.wet (0 dry .. 1 pouring) to daylight.js for the light; audio.js makes the rain's sound.
+// Exports buildWeather(), weather ({ wet, step(dt) }) and setWeather(mode), which sets clear, rain or changing at once (debug.js __weather).
 import * as THREE from "three";
 import { $, D, KEYS, OPT, camera, scene, store } from "./core.js";
 import { rand } from "./util.js";
@@ -28,7 +29,7 @@ function buildWeather() {
 // dry under the tent: its roof and planks (layout.js TENT.dry, in the tent's own frame), below 3.4 m
 const dry = (x, z, y) => y <= 3.4 && TENT.dry(x, z);
 
-const weather = { wet: 0, mode: () => mode };
+const weather = { wet: 0 };
 let showerT = rand(90, 180), raining = mode === "rain";   // Changing: dry spells of 1.5..3 min, showers of 1..1.5 min
 weather.step = (dt) => {
   if (mode === "changing") { showerT -= dt; if (showerT < 0) { raining = !raining; showerT = raining ? rand(60, 90) : rand(90, 180); } }
