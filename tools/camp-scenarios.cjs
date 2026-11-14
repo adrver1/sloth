@@ -93,7 +93,7 @@ function helpers([base, present]) {
   // a real tap: pointerdown and pointerup on the canvas at the thing's place on screen (input.js tap())
   T.tapAt = (x, y) => { const c = document.getElementById('c'); for (const t of ['pointerdown', 'pointerup']) c.dispatchEvent(new PointerEvent(t, { clientX: x, clientY: y, pointerId: 7, pointerType: 'touch', isPrimary: true, bubbles: true, cancelable: true })); };
   T.tap = (o) => { const [x, y, z] = T.screen(o); T.tapAt(x, y); const m = T.menu(); T.log.push(['tap', typeof o === 'string' ? o : o.name, Math.round(x), Math.round(y), +z.toFixed(4), m]); return m; };
-  const menuEl = () => [...document.body.children].find((e) => e.tagName === 'DIV' && e.style.transform.includes('-100%') && e.style.zIndex === '3');
+  const menuEl = () => [...document.body.children].find((e) => e.tagName === 'DIV' && e.style.transform.includes('-100%') && e.style.zIndex === '3' && e.querySelector('button'));   // a label with the same style can come first
   T.menu = () => { const m = menuEl(); return m && m.style.display !== 'none' ? [...m.querySelectorAll('button')].map((b) => b.textContent) : null; };
   T.menuPos = () => { const m = menuEl(); return m ? [m.style.display, m.style.left, m.style.top] : null; };
   T.choose = (start) => { const m = menuEl(); const b = m && m.style.display !== 'none' ? [...m.querySelectorAll('button')].find((b) => b.textContent.startsWith(start)) : null; T.log.push(['choose', start, b ? b.textContent : null]); if (b) b.click(); return !!b; };
