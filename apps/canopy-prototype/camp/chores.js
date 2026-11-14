@@ -10,7 +10,8 @@ import { LIVED, camera, scene } from "./core.js";
 import { toast } from "./hud.js";
 import { FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex } from "./campProps.js";
 import { CRATE, FIRE, SOUP_POT, TABLE, WOOD_PILE } from "./layout.js";
-import { burst, sloths } from "./sloths.js";
+import { sloths } from "./sloths.js";
+import { burst } from "./fx.js";
 import { me } from "./player.js";
 
 // the logs you put on make the camp's fire bigger: each frame the fire chore says how much wider, taller and brighter, on top

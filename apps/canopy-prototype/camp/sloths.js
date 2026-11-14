@@ -12,14 +12,12 @@
 // goes in a build function called from here.
 // Exports: sloths (every sloth), hit (their tap spheres), and the frame steps main.js calls in this order: slothsStep(dt)
 // (sloth/life.js), campStep(dt, seat) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
-import * as THREE from "three";
 import { OPT, R } from "./core.js";
 import { V, tris as triCount } from "./util.js";
 import { HERO } from "./layout.js";
 import { branchCurves } from "./forest.js";
 import { CAST } from "./cast.js";
 import "./save.js";   // order only: save.js is evaluated right after cast.js, as it was before the split
-import { burst, fx, sprite } from "./fx.js";
 import { addLabButton } from "./labButton.js";
 import { addCrowd } from "./places.js";
 import { GROUND, camp, hit, sloths, spots, wild } from "./sloth/state.js";
@@ -77,14 +75,4 @@ if (OPT.campsloths) {
   findSeats(); watchFood(); addHooks();
 }
 addLabButton();   // the move lab's button in the ⚙️ menu, and ?lab (labButton.js): here, where it has always been added
-// COUNT and flowerCrown: input.js imports both but uses neither (its own chain removes the import, then these two can go)
-const COUNT = sloths.length;
-
-function flowerCrown(s) {
-  const c = new THREE.Group(), cols = [0xff7fa8, 0xffd66e, 0xffffff];
-  for (let k = 0; k < 7; k++) { const a = (k / 7) * Math.PI * 2, f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.016, 0), new THREE.MeshLambertMaterial({ color: cols[k % 3], emissive: 0x331100 })); f.position.set(Math.cos(a) * 0.058, 0, Math.sin(a) * 0.052); c.add(f); }
-  c.position.set(0, 0.105, 0); c.rotation.x = -0.25; s.head.add(c);
-}
-
-export { COUNT, campStep, flowerCrown, hammockStep, hit, sloths, slothsStep, warmStep };
-export { burst, fx, sprite };   // back-compat: campLife.js, input.js and operator.js still import these three from here (their home is fx.js)
+export { campStep, hammockStep, hit, sloths, slothsStep, warmStep };

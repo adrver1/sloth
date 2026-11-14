@@ -7,8 +7,7 @@
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Only the sun's
 // direction is typed again there (the bake stops if the two differ). PATH_A, SEAT_R and JEEP_OUT are exported for checks;
 // no module imports them.
-// Older names still read through other modules (by files the clean-up has not reached yet, core.js names them): forest.js re-exports A0, RC and HERO;
-// campProps.js re-exports SOUP_POT; its CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry (debug.js).
+// campProps.js's CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry for the bake (debug.js).
 import * as THREE from "three";
 import { V, polyDist } from "./util.js";
 

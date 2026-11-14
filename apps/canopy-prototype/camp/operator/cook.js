@@ -7,7 +7,7 @@ import { V } from "../util.js";
 import { acts as chores } from "../campLife.js";
 import { VEG, makeFood } from "../food.js";
 import { me } from "../player.js";
-import { fx } from "../sloths.js";
+import { fx } from "../fx.js";
 import { bowl, drop, hold, pail, stick, veg } from "./handProps.js";
 import { pickLine } from "./lines.js";
 import { UP, cs, root } from "./model.js";

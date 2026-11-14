@@ -1,5 +1,6 @@
 // Canopy Camp forest: bark with baked AO and moss, the clearing floor with the path and track ribbons (the layout itself is layout.js),
 // the two big mossy trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants.
+// Exports FLOOR_OVERLAYS, branchCurves (the big trees' low branches), clearing, track and trackDist.
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
@@ -331,6 +332,3 @@ if (track) {
 
 
 export { FLOOR_OVERLAYS, branchCurves, clearing, track, trackDist };
-// back-compat, for files the clean-up has not reached yet: operator.js and sloths.js still import A0 and RC from here, sloths.js HERO,
-// and car.js, input.js, operator.js, radio.js and sloths.js V (their home is layout.js, and util.js for V)
-export { A0, HERO, RC, V };

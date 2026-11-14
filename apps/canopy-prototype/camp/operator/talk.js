@@ -10,7 +10,7 @@ import { R, camera, scene } from "../core.js";
 import { V } from "../util.js";
 import { acts as chores } from "../campLife.js";   // your chores (activities.js): the food in your hand
 import { addTarget } from "../input.js";
-import { fx } from "../sloths.js";
+import { fx } from "../fx.js";
 import { LINES, bag, line, pickLine } from "./lines.js";
 import { B, clips, csDir, root } from "./model.js";
 import { ME, op } from "./state.js";

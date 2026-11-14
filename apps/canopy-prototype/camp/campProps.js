@@ -1,12 +1,13 @@
 // Canopy Camp props: the camp's blockers (the layout itself is layout.js), the picked props with their baked light map (lnight), the lived-in props,
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
 // main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
-// at night) and motesStep (the drifting motes).
+// at night) and motesStep (the drifting motes). Exports those, CAMP, SLOTH (the sloth model), blockers and the props' parts
+// other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX, fireLight, flames, glowTex, lanternGlow, LANTERNS, rayMat, uNight).
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, PROPS, R, S, scene, sun, uTime } from "./core.js";
 import { V, canvasTex, patchMaterial } from "./util.js";
-import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE } from "./layout.js";
+import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, TABLE, TENT, WOOD_PILE } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
@@ -192,5 +193,4 @@ function poolsStep(dusk, fl, nightBaked) { pools.visible = dusk > 0 && !nightBak
 // the motes drift slowly round the clearing
 function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
 
-export { SOUP_POT };   // back-compat: operator.js and audio.js still import the soup pot from here (its home is layout.js)
 export { CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, flames, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight };
