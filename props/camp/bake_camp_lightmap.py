@@ -3,15 +3,16 @@ All the camp props' light in one place (Adriaen 2026-11-12: "We don't want to ge
 different places"): the picked camp set and the lived-in props (wood pile, seat things, tent side, mat roll, kitchen
 crate, the fire set and the laundry line) are baked together, in one scene, into one shared light map.
 
-    blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --samples 512
-    # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 4096
+    blender -b --python props/camp/bake_camp_lightmap.py -- --size 2048 --samples 512
+    # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 2048
     # no GPU: a small, low-sample check of the light on the CPU, written to apps/canopy-prototype/lmpreview/ (git ignores
     # it) and seen on the page as camp.html?lmdir=lmpreview; it never touches models/ or the props' GLBs
     blender -b --python props/camp/bake_camp_lightmap.py -- --preview
     # one prop changed (review R2-149): bake only it (and any neighbour whose light it changes) into its own rectangle
-    blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --objects Pot,Ring
+    blender -b --python props/camp/bake_camp_lightmap.py -- --size 2048 --objects Pot,Ring
 
-Options: --size (props map, default 4096; 512 with --preview), --samples (512; 8 with --preview), --ground (ground maps,
+Options: --size (props map, a power of two, default 2048, the largest map the page ships (review R2-170); 512 with
+--preview), --samples (512; 8 with --preview), --ground (ground maps,
 1024; 256 with --preview), --angle and --margin (the light-map unwrap), --jeep, --unwrap-only (stop after the atlas, no
 bake), --repack (new atlas rectangles for every prop), --objects Name,... (bake only these props into their rectangles,
 keep every other pixel of the props maps, and bake the ground maps whole; it stops if the atlas must be packed again,
@@ -37,17 +38,19 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
    baked as one (Adriaen 2026-11-12). add_lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky;
    night = the four CHANNELS, each baked on its own in white: the fire, 8 jar lanterns, the tent stove and a dim blue moon.
 5. bake_light, then write_maps writes:
-     camp_lm_<k>.png      RGB  night light / 4, sRGB-encoded; the page tones it as 1 - exp(-6.4 x surface colour x light),
-                               unlit, at night
-                          A    sky occlusion (distance 0.6); the page scales the sky light by 0.32 + 0.68 x AO by day
-     camp_lm_sun_<k>.png  where the sun reaches each prop (direct sun over the same with no shadows); the page scales its
-                          live sun by it, so the props shade each other and the jeep shades them
+     camp_lm_<k>.png      RGBA one light per channel (fire, stove, lanterns, moon), light / 4, gamma 2.2; the page
+                               colours and mixes them (bakedlight.js) and tones the sum as
+                               1 - exp(-6.4 x surface colour x light), unlit, at night
+     camp_lm_sun_<k>.png  R    where the sun reaches each prop (direct sun over the same with no shadows); the page scales
+                               its live sun by it, so the props shade each other and the jeep shades them
+                          G    sky occlusion (distance 0.6); the page scales the sky light by 0.32 + 0.68 x AO by day
      camp_shadow_picked_<jeep>.png        the ground's day shadow, 1 - light / open ground (as ground.js always read it)
      camp_ground_night_picked_<jeep>.png  the ground's night light / 4 (sRGB), with every prop's shadow in it
      camp_lights.json     the channel order, their colours, the encoding and the open ground's day light; no "ktx2" key:
                           every map this step writes has its old .ktx2.txt removed, so the page loads the new PNG until
                           props/bake_all.py's ktx step encodes them again and sets the flag (review R2-005)
-   <k> is 4k, 2k and 1k (each size up to --size); a map smaller than 1K (a preview) is written as both _1k and _2k, the
+   <k> is 2k and 1k (with --size 4096 also 4k, which the page loads only with ?lm=4k); each smaller size is a box filter
+   of the baked one in linear light, encoded after. A map smaller than 1K (a preview) is written as both _1k and _2k, the
    names the page asks for. Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
    Thin double-sided cards (tagged thin: the laundry, the chain) take the brighter of their two sides.
    COLOR_0 alpha 0 marks faces that glow at night (materials with the "glow" property: lantern glass, the stove's fire).
@@ -97,7 +100,7 @@ from lib.mesh import apply_all  # noqa: E402
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
     ap = argparse.ArgumentParser()
-    ap.add_argument("--size", type=int, help="props light map size (4096; 512 with --preview)")
+    ap.add_argument("--size", type=int, help="props light map size, a power of two (2048; 512 with --preview)")
     ap.add_argument("--samples", type=int, help="Cycles samples (512; 8 with --preview)")
     ap.add_argument("--angle", type=float, default=60)
     ap.add_argument("--margin", type=float, default=6)    # texels between islands at --size
@@ -111,7 +114,9 @@ def parse_args():
     ap.add_argument("--out", help="write every output here instead of models/ and props/")
     a = ap.parse_args(argv)
     small = a.preview
-    a.size = a.size or (512 if small else 4096)
+    a.size = a.size or (512 if small else 2048)
+    if a.size & (a.size - 1):
+        sys.exit(f"--size {a.size} is not a power of two: the smaller maps are box filters of it")
     a.samples = a.samples or (8 if small else 512)
     a.ground = a.ground or (256 if small else 1024)
     a.out = a.out or (PREVIEW_OUT if small else None)
@@ -488,7 +493,9 @@ def setup_render(a):
     if a.preview:
         sc.cycles.device = "CPU"
     bk = sc.render.bake
-    bk.target = "IMAGE_TEXTURES"; bk.margin = 8; bk.use_clear = True
+    # the bake's edge fill: half the island gap (--margin texels), so each island fills its half of the gap and never
+    # reaches a neighbour's texels; at 2048 that is 3 texels, which fills the whole gap in the 1K map (review R2-170)
+    bk.target = "IMAGE_TEXTURES"; bk.margin = max(1, math.ceil(a.margin / 2)); bk.use_clear = True
     bk.use_pass_direct = True; bk.use_pass_indirect = True; bk.use_pass_color = False
     return bk
 
@@ -590,8 +597,8 @@ def enc(x):                                                                 # li
 
 
 def map_sizes(n):
-    """(file label, pixel size) for a props map baked at n: 4k, 2k and 1k up to n; a map under 1K (a preview) goes out
-    at its own size under both names the page asks for."""
+    """(file label, pixel size) for a props map baked at n: n and each of 2k and 1k below it; a map under 1K (a preview)
+    goes out at its own size under both names the page asks for."""
     if n < 1024:
         return [("1k", n), ("2k", n)]
     return [(f"{s // 1024}k", s) for s in sorted({n, 2048, 1024}, reverse=True) if s <= n]
@@ -604,27 +611,24 @@ def drop_ktx(png):
         os.remove(k); print(f"  removed the old {os.path.basename(k)}")
 
 
-def save(px, name, out, only=None):
-    """The props map px (n x n x 4 float32) at each of map_sizes(n), as 8-bit PNG. Each size is filled from px at full
-    size and scaled down from there (Image.copy() does not keep a generated image's pixels), then removed. only: the atlas
-    rectangles baked this run (--objects); every other pixel is kept from the map already there."""
+def save(px, name, out, encode, only=None):
+    """The props map px (n x n x 4 float32 light, row 0 = the image's bottom, as Blender bakes it) at each of
+    map_sizes(n), as 8-bit PNG: each smaller size is a box filter of px in linear light, then encode() turns light into
+    0..1 (review R2-170). only: the atlas rectangles baked this run (--objects); every other pixel is kept from the map
+    already there."""
     n = px.shape[0]
     for label, size in map_sizes(n):
         f = os.path.join(out, f"{name}_{label}.png")
-        old = None if only is None else np.array(Image.open(f).convert("RGBA"))       # read before it is overwritten
-        img = bpy.data.images.new(f"{name}_{label}", n, n, alpha=True)
-        img.colorspace_settings.name = "Non-Color"; img.alpha_mode = "STRAIGHT"
-        img.pixels.foreach_set(px.ravel())
-        if size != n:
-            img.scale(size, size)
-        img.filepath_raw = f; img.file_format = "PNG"
-        img.save(); bpy.data.images.remove(img); drop_ktx(f)
-        if old is not None:
-            new = np.asarray(Image.open(f).convert("RGBA"))
-            for u0, v0, u1, v1 in only:                                           # rows from the top: v = 1 is row 0
+        k = n // size
+        d = px if k == 1 else px.reshape(size, k, size, k, -1).mean((1, 3))
+        new = (np.clip(encode(d), 0, 1)[::-1] * 255 + 0.5).astype(np.uint8)          # rows from the top for the PNG
+        if only is not None:
+            old = np.array(Image.open(f).convert("RGBA"))
+            for u0, v0, u1, v1 in only:                                           # v = 1 is row 0
                 r0, r1, c0, c1 = (round((1 - v1) * size), round((1 - v0) * size), round(u0 * size), round(u1 * size))
                 old[r0:r1, c0:c1] = new[r0:r1, c0:c1]
-            Image.fromarray(old, "RGBA").save(f, optimize=True)
+            new = old
+        Image.fromarray(np.ascontiguousarray(new), "RGBA").save(f, optimize=True); drop_ktx(f)
         print(f"  {os.path.basename(f)}: {os.path.getsize(f) // 1024} KB")
 
 
@@ -632,11 +636,11 @@ def write_maps(m, out, jeep, only=None):
     """The props' two maps, the ground's two maps and camp_lights.json, into out. only: the atlas rectangles baked this
     run (--objects); the props maps keep every other pixel."""
     # props map 1: one channel per light; map 2: R = where the sun reaches, G = sky occlusion
-    save(np.stack([enc(m["lit"][g]) for g in CHANNELS], -1).astype(np.float32), "camp_lm", out, only)
+    save(np.stack([m["lit"][g] for g in CHANNELS], -1).astype(np.float32), "camp_lm", out, enc, only)
     sun_open, sun_direct = m["sun_open"], m["sun_direct"]
     sv = np.where(sun_open > 0.02, np.clip(sun_direct / np.maximum(sun_open, 1e-6), 0, 1), 1.0)   # surfaces facing away: the page's N . L hides them anyway
     print(f"  sun: mean visibility {sv[sun_open > 0.02].mean():.2f}" if (sun_open > 0.02).any() else "  sun: no prop faces the sun")
-    save(np.stack([sv, np.clip(m["ao"], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun", out, only)   # B, A: free (were the jeep's lights)
+    save(np.stack([sv, np.clip(m["ao"], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun", out, lambda x: x, only)   # B, A: free (were the jeep's lights)
     # ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
     open_ = np.percentile(m["ground_day"], 99.5)
     shadow = np.clip(1 - m["ground_day"] / open_, 0, 1)[::-1]

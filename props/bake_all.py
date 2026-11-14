@@ -8,8 +8,8 @@ in several different places", and bake the whole scene as one). Run it whenever 
 
   light   props/camp/bake_camp_lightmap.py: ONE Blender scene (the ground disc, the picked set, the lived-in props and the
           jeep) under one set of lights, day (the page's sun + sky) and night (fire, lanterns, stove, moon) ->
-            models/camp_lm_<4k|2k|1k>.png       props: night light (RGB) and sky occlusion (A), on TEXCOORD_1
-            models/camp_lm_sun_<4k|2k|1k>.png   props: where the sun reaches them
+            models/camp_lm_<2k|1k>.png          props: night light, one light per channel (RGBA), on TEXCOORD_1
+            models/camp_lm_sun_<2k|1k>.png      props: where the sun reaches them (R) and sky occlusion (G)
             models/camp_shadow_picked_<jeep>.png         ground: day shadow (sun + sky)
             models/camp_ground_night_picked_<jeep>.png   ground: night light
           and the props' GLBs/txt
@@ -46,7 +46,7 @@ import argparse, base64, glob, hashlib, json, os, shutil, socket, subprocess, sy
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ap = argparse.ArgumentParser()
 ap.add_argument("--only", choices=["light", "ktx", "layout", "ground"], action="append")
-ap.add_argument("--size", type=int, default=4096, help="props light map size")
+ap.add_argument("--size", type=int, default=2048, help="props light map size: 2048, the largest the page ships (review R2-170)")
 ap.add_argument("--ground-size", type=int, default=1024, help="ground light maps size")
 ap.add_argument("--samples", type=int, default=512)
 ap.add_argument("--jeep", default="expedition", help="the toy and camper are archived")

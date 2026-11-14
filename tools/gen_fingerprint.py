@@ -3,7 +3,7 @@ Generator fingerprint: runs one props/ builder or bake script headless in bpy an
 made, so a refactor of the generators can be checked to change nothing (same fingerprint before and after).
 
     .venv/bin/python tools/gen_fingerprint.py --out fp.json -- props/lived/build_fire.py
-    .venv/bin/python tools/gen_fingerprint.py --out fp.json --stable --stop-at-bake --no-render -- props/camp/bake_camp_lightmap.py --size 4096
+    .venv/bin/python tools/gen_fingerprint.py --out fp.json --stable --stop-at-bake --no-render -- props/camp/bake_camp_lightmap.py --size 2048
     .venv/bin/python tools/gen_fingerprint.py --compare a.json b.json
 
 Run it on a scratch copy of the repo (it runs the script where it lies, and the script writes its outputs next to
