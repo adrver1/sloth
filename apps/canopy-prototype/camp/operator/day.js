@@ -1,10 +1,11 @@
 // Canopy Camp operator, his day: the things he does, one after another. Each is a generator that runs a step a frame: soup
 // from the pot on a log seat, a mug from the kitchen crate, a book, warming his hands at the fire, a stroll, sleep in the
 // tent bed, playing with a sloth, sitting with you by the fire, and making the soup (cook.js). What comes next is drawn by
-// weight (other weights at night), never the same thing twice in a row.
+// weight (other weights at night), never the same thing twice in a row. With ?lived=0 there is no kitchen crate, so no mug
+// and no cooking.
 // Exports lifeStep(dt) (step.js, each frame) and jumpTo(kind) (the checks: start that activity now, then carry on).
 import * as THREE from "three";
-import { rng, scene } from "../core.js";
+import { LIVED, rng, scene } from "../core.js";
 const { R } = rng("operator");
 import { CRATE, RC, SOUP_POT } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
@@ -54,6 +55,7 @@ const DO = {
     });
   },
   *drink() {                                           // a mug from the kitchen crate, drunk slowly on a log seat
+    if (!LIVED) return;                                // no crate with ?lived=0 (review R2-051)
     const crate = CRATE.at, front = crateFront();
     yield* walkTo(front); yield* face(yawTo(crate.clone().sub(root.position)));
     for (let t = 0; t < 1.4;) { t += yield; op.ik = { R: [crate.clone().setY(0.45), Math.sin(Math.min(1, t / 1.4) * Math.PI) ** 2] }; }
@@ -136,6 +138,8 @@ const DO = {
 };
 const WEIGHTS = (night) => night ? { sleep: 6, warm: 2, drink: 1, read: 0.3, stroll: 0.3, eat: 0.5, play: 0.3, cook: 0.3 }
   : { eat: 1.2, drink: 1.2, read: 1.6, warm: 0.5, stroll: 1.2, sleep: 0.5, play: 1.2, cook: 1.0 };
+// the kitchen crate is a lived-in prop: with ?lived=0 there is none, so no mug and no vegetables for the soup (review R2-051)
+const NEEDS_CRATE = new Set(["drink", "cook"]);
 // when you sit by the fire he comes and sits with you on another log (Adriaen 2026-11-13), not again for a while after (op.cd.join)
 const wantJoin = () => !!me.seat && !op.seated && !op.lying && op.cd.join <= 0 && !op.buddy && !op.carry && !op.cooking;
 DO.hold = function* () { yield* wait(1e9); };   // checks only (opApi.jump("hold")): stand still
@@ -160,7 +164,7 @@ function* lifeLoop() {
   }
 }
 function pick() {
-  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (k !== "play" || slothLife) && (k !== "cook" || (op.cd.cook <= 0 && chores.cook.can())));
+  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (LIVED || !NEEDS_CRATE.has(k)) && (k !== "play" || slothLife) && (k !== "cook" || (op.cd.cook <= 0 && chores.cook.can())));
   let r = R(0, w.reduce((s, [, v]) => s + v, 0)); for (const [k, v] of w) if ((r -= v) <= 0) return k; return w[0][0];
 }
 

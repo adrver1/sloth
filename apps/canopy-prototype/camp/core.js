@@ -12,7 +12,7 @@ import { SUN } from "./layout.js";
 //   lm       2k | 1k | 4k (4k: local only) saved, else 1k on phones, 2k     core.js (the light maps)
 //   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campGround.js (JEEP)
 //   seed     a number                      7                                 core.js rng (every named stream), forest.js (its own start)
-//   lived    1 | 0                         1                                 core.js, campProps.js, chores.js, sloth/spots.js, debug.js (LIVED)
+//   lived    1 | 0                         1                                 core.js, campProps.js, chores.js, sloth/spots.js, operator/day.js and cook.js, debug.js (LIVED)
 //   op       1 | 0                         1                                 core.js (the operator's downloads), operator.js and operator/step.js (0 leaves him out)
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
 //   time     an hour, 0 up to 24 (21.5)    saved, else 12                    daytime.js (the hour set; anything else counts as 12)

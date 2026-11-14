@@ -1,7 +1,7 @@
 // Canopy Camp operator, making the soup (the chores' cook steps, activities/soupChore.js, the same pot and pail as yours).
 // Exports cook(), one of his activities (day.js DO.cook).
 import * as THREE from "three";
-import { camera, rng, scene } from "../core.js";
+import { LIVED, camera, rng, scene } from "../core.js";
 const { R } = rng("operator");
 import { CRATE, SOUP_POT } from "../layout.js";
 import { V, yawTo } from "../util.js";
@@ -27,7 +27,7 @@ function* toPot() {   // already there (between steps at the pot): stay put; a p
   yield* faceFire();
 }
 function* cook() {
-  const K = chores.cook; if (!K.can()) return;
+  const K = chores.cook; if (!LIVED || !K.can()) return;   // no kitchen crate with ?lived=0, so no vegetables (review R2-051)
   op.cooking = true; op.cd.cook = R(240, 420);
   // the pail: stand at the table's edge, bend over, hook it out from under the top by its bail, straighten up with it
   const out = K.pail.clone().sub(K.table).setY(0).normalize(), stand = K.table.clone().addScaledVector(out, 1.22);
