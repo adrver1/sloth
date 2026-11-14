@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { LIVED, camera, rng, scene } from "../core.js";
 const { R } = rng("operator");
-import { CRATE, SOUP_POT } from "../layout.js";
+import { CRATE, RC, SEAT_R, SOUP_POT } from "../layout.js";
 import { V, yawTo } from "../util.js";
 import { acts as chores } from "../chores.js";
 import { VEG, makeFood } from "../food.js";
@@ -19,8 +19,10 @@ import { face, faceFire, wait, walkTo } from "./walk.js";
 
 // cooking (Adriaen 2026-11-13): the soup from start to finish, the same steps as yours: the pail from under the snack table,
 // water in the pot, two vegetables from the crate tossed in, a stir while it bubbles, then a bowl ladled out and brought to
-// you (into your hands if they're free, else on the seat nearest you). A step you did first is skipped; if the pot is taken
-// over or you've emptied it he gives up quietly.
+// you (into your hands if they're free, else on the seat nearest you). He brings it only while you are in camp and within
+// BRING metres of him; otherwise he sets it on the free seat nearest him, and with no free seat it goes back in the pot
+// (review R2-165). A step you did first is skipped; if the pot is taken over or you've emptied it he gives up quietly.
+const BRING = 8;
 const potSpot = () => fireGap(root.position).setLength(0.86);   // at the stones, inside the fire's walk-round circle
 function* toPot() {   // already there (between steps at the pot): stay put; a path from inside the fire's ring went out and back in (Adriaen: he walked in circles)
   const at = potSpot(); if (Math.hypot(at.x - root.position.x, at.z - root.position.z) > 0.3) yield* walkTo(at, { near: 0.1 });
@@ -78,8 +80,10 @@ function* steps(K, own) {
   if (K.ladle()) {
     for (let t = 0; t < 0.9;) { t += yield; op.ik = { R: [SOUP_POT.at.clone().add(V(0, 0.15, 0)), Math.sin(Math.min(1, t / 0.9) * Math.PI) ** 2] }; }
     op.ik = null; hold(bowl);
+    // he brings it only while you are in camp and not far off; he follows you a few times if you walk on (review R2-165)
+    const near = () => Math.hypot(me.pos.x, me.pos.z) < RC - 1 && Math.hypot(me.pos.x - root.position.x, me.pos.z - root.position.z) < BRING;
     let given = false;
-    for (let tries = 0; tries < 4 && !given; tries++) {
+    for (let tries = 0; tries < 4 && !given && near(); tries++) {
       const you = me.pos.clone().setY(0), to = you.clone().add(root.position.clone().setY(0).sub(you).setLength(0.95));
       yield* walkTo(to, { near: 0.25 });
       if (me.pos.distanceTo(root.position) > 1.6) continue;   // you moved on: after you
@@ -88,8 +92,18 @@ function* steps(K, own) {
       for (let t = 0; t < 1.2;) { t += yield; op.ik = { R: [cs(0.08, 1.15, -0.5), Math.min(1, t / 0.6)] }; }
       given = true;
     }
-    op.ik = null; drop(bowl);
-    if (!K.handToYou()) K.setDown();
+    op.ik = null;
+    if (!given) {   // you are away: he carries it to the free seat nearest him, on its fire side, and reaches down to set it there
+      const c = K.seatNear(root.position);
+      if (c) {
+        yield* walkTo(c.clone().setY(0).setLength(SEAT_R - 0.55), { near: 0.25 }); yield* face(yawTo(V(c.x - root.position.x, 0, c.z - root.position.z)));
+        for (let t = 0; t < 0.8;) { t += yield; op.ik = { R: [c.clone().setY(0.6), Math.sin(Math.min(1, t / 0.8) * Math.PI / 2)] }; }
+        op.ik = null;
+      }
+    }
+    drop(bowl);
+    // into your hands if he reached you and they are free, else on a free seat; with every seat taken it goes back in the pot
+    if (!(given && K.handToYou()) && !K.setDown(given ? me.pos : root.position)) K.putBack();
   }
 }
 

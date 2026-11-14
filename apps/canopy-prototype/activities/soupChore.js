@@ -50,10 +50,11 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
   }
   // a bowl put back: its soup goes back in the pot. The last bowl fills the emptied pot again, as long as no water has gone
   // in since (the soup was lost before: review R2-049); the surface stays faded, so the modelled soup shows
-  carry.onPutBack("bowl", () => {
+  function bowlBack() {
     if (soup.stage === "ready" && soup.bowls > 0) soup.bowls--;
     else if (soup.stage === "empty" && soup.refill) { soup.stage = "ready"; soup.veg = 2; soup.bowls = BOWLS - 1; soup.refill = false; soup.fade = 0; surfCol.set(STAGE[2]); surfTo.set(STAGE[2]); }
-  });
+  }
+  carry.onPutBack("bowl", bowlBack);
   // the bowls on the log seats: each seat holds one; a bowl is eaten up after a while and goes
   const seats = [];
   scene.traverse((o) => { if (/^Seat(_\d)?$/.test(o.name) && o.parent === scene) { const b = new THREE.Box3().setFromObject(o), c = b.getCenter(V()); seats.push({ o, top: b.max.y, c, bowl: null }); } });
@@ -80,6 +81,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
     carry.onPutBack("water", () => { pail.visible = true; });   // it stands under the table again
     return { at: pailAt, pail };
   }
+  const freeSeatNear = (near) => seats.filter((q) => !q.bowl).sort((a, b) => flat(a.c, near) - flat(b.c, near))[0];
   const wantsVeg = () => soup.stage === "water" || (soup.stage === "cooking" && soup.veg < 2);
   return {
     soup, seats, pour, addVeg, ladle, serve, placePail,
@@ -98,7 +100,9 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
       get stage() { return soup.stage; },
       ladle() { if (soup.stage !== "ready" || soup.bowls >= BOWLS) return false; ladle(); return true; },
       handToYou() { if (carry.held) return false; carry.hold("bowl"); toast("A bowl of soup for you 🍲", "clink"); return true; },   // into your hands, if they're free
-      setDown() { const s = seats.filter((q) => !q.bowl).sort((a, b) => flat(a.c, me.pos) - flat(b.c, me.pos))[0]; if (!s) return false; serve(s); return true; },   // else on the seat nearest you
+      seatNear: (near) => freeSeatNear(near)?.c ?? null,   // the middle of the free seat nearest `near`, or null when every seat has a bowl
+      setDown(near = me.pos) { const s = freeSeatNear(near); if (!s) return false; serve(s); return true; },   // else on the free seat nearest you (or `near`)
+      putBack: bowlBack,   // no free seat: the bowl's soup goes back in the pot (review R2-165)
     },
     // the pot: the surface eases to its stage's colour; cooking bubbles harder as it goes (faster with a big fire: flare),
     // then the disc fades and the modelled soup shows
