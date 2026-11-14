@@ -1,8 +1,8 @@
 // Canopy Camp forest: bark with baked AO and moss, the clearing floor with the path and track ribbons (the layout itself is layout.js),
 // the two big mossy trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants.
 // Exports buildForest() (main.js, once), FLOOR_OVERLAYS, branchCurves (the big trees' low branches), grassTex (the clearing's
-// grass tile, for ground.js), track and trackDist, and leafGeo, leafM, leafScale
-// and perClump (the leaf card, its material, its size range and how many go in a clump) for glade.js's bushes.
+// grass tile, for ground.js), track and trackDist, and leafGeo, leafM, leafScale, perClump and cards(n) (the leaf card,
+// its material, its size range, how many leaves a clump draws from its stream and how many of n become cards) for glade.js's bushes.
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import { D, hex, JEEP, leafMat, OPT, rng, S, scene } from "./core.js";
@@ -252,18 +252,32 @@ function addSectors(set, geo, mat, { wedges = 8, split = false } = {}) {
   }
 }
 
+// The leaf card: three sprigs of nine leaves painted close together on one 512 px card, so a clump needs CARD_KEEP of
+// the cards it had with one nine-leaf sprig per card, each card 1.35 times as wide. That keeps the leaves about as many
+// and as big, with about 40 % fewer alpha-tested card layers and 60 % fewer cards to sway (review R2-162).
+// perClump is still how many leaves a clump draws from its stream (so the layout stays as it was baked); cards(n) is how
+// many of those n become cards.
+const CARD_KEEP = 0.4;
+const cards = (n) => Math.max(1, Math.round(n * CARD_KEEP));
 function leafCard() {
   {
-    const tex = canvasTex(256, 256, (g, w, h) => {
+    for (let k = 0; k < 45; k++) rnd();   // the old one-sprig card drew 45 numbers from the forest stream: still skip them
+    const { R: Q } = lcg(2626);
+    const tex = canvasTex(512, 512, (g, w, h) => {
       g.translate(w / 2, h / 2);
-      for (let k = 0; k < 9; k++) {
-        g.save(); g.rotate(k * 0.7 + R(-0.2, 0.2)); g.translate(0, -R(30, 70));
-        g.fillStyle = new THREE.Color(S.leaf[k % 4]).multiplyScalar(R(0.85, 1.15)).getStyle(); g.beginPath(); g.ellipse(0, 0, R(18, 26), R(40, 56), 0, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = "rgba(255,255,220,.35)"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -45); g.lineTo(0, 45); g.stroke();
+      for (let sprig = 0; sprig < 3; sprig++) {
+        const a = sprig * 2.094 + Q(-0.3, 0.3), d = Q(80, 98);
+        g.save(); g.translate(Math.cos(a) * d, Math.sin(a) * d); g.scale(1.7, 1.7); const turn = Q(0, 6.28);
+        for (let k = 0; k < 9; k++) {
+          g.save(); g.rotate(turn + k * 0.7 + Q(-0.2, 0.2)); g.translate(0, -Q(26, 52));
+          g.fillStyle = new THREE.Color(S.leaf[(k + sprig) % 4]).multiplyScalar(Q(0.85, 1.15)).getStyle(); g.beginPath(); g.ellipse(0, 0, Q(16, 22), Q(34, 46), 0, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = "rgba(255,255,220,.35)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, -38); g.lineTo(0, 38); g.stroke();
+          g.restore();
+        }
         g.restore();
       }
     });
-    leafGeo = new THREE.PlaneGeometry(1, 1); leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04); perClump = Math.round(24 * D.leaves); leafScale = [0.8, 1.25];
+    leafGeo = new THREE.PlaneGeometry(1, 1); leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04); perClump = Math.round(24 * D.leaves); leafScale = [0.8 * 1.35, 1.25 * 1.35];
   }
 }
 
@@ -276,7 +290,7 @@ function wallLeaves(wall) {
   const leaves = cardSet();
   {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
-    const clump = cardSet();
+    const clump = cardSet(), keep = cards(perClump);
     for (const [x, y, z, r] of clumps) { clump.mats.length = clump.cols.length = 0; let cut = false; for (let k = 0; k < perClump; k++) {
       const tight = y > 4 ? 0.6 : 1;                  // up in the crowns: leaves packed close and bigger, so they overlap into a mass
       const u = V(R(-1, 1), R(-0.5, 0.8) * (tight < 1 ? 0.7 : 1), R(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(rnd()) * tight);
@@ -284,7 +298,8 @@ function wallLeaves(wall) {
       const s = R(leafScale[0], leafScale[1]) * (1 / tight) * Math.pow(D.leaves, -0.33);
       const k0 = y + u.y < 4.5 && Math.min(jeepDist(x + u.x, z + u.z), pathLane(x + u.x, z + u.z)) < 1.9 ? 0 : s;   // keep the track and the path open at eye height
       if (!k0) cut = true;
-      m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); clump.add(m, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
+      c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
+      if (k < keep) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(k0, k0, k0)); clump.add(m, c); }
     }
     // a clump the path or track clipped goes as a whole: its last few leaves left alone looked like they floated (Adriaen 2026-11-14)
     if (!cut) { leaves.mats.push(...clump.mats); leaves.cols.push(...clump.cols); } }
@@ -351,7 +366,7 @@ function crowns(wall, clumps) {
       e.set(Q(0, 6.28), Q(0, 6.28), Q(0, 6.28)); q.setFromEuler(e);
       const sc = Q(leafScale[0], leafScale[1]) * 1.5 * Math.pow(D.leaves, -0.33);
       m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
-      if (!far || cover || Math.hypot(x, z) <= NEAR) lm.add(m, c);
+      if (k < cards(per(f)) && (!far || cover || Math.hypot(x, z) <= NEAR)) lm.add(m, c);
     }
     addSectors(lm, leafGeo, leafM);
   }
@@ -375,7 +390,7 @@ function verge() {
       e.set(Q2(0, 6.28), Q2(0, 6.28), Q2(0, 6.28)); q.setFromEuler(e);
       const sc = Q2(leafScale[0], leafScale[1]) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.6 ? 0 : 1);
       c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y)); i++;
-      if (sc) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.add(m, c); }
+      if (sc && k < cards(perClump)) { m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.add(m, c); }
     }
     addSectors(vm, leafGeo, leafM);
   }
@@ -405,4 +420,4 @@ function ferns() {
   }
 }
 
-export { buildForest, FLOOR_OVERLAYS, branchCurves, grassTex, leafGeo, leafM, leafScale, perClump, track, trackDist };
+export { buildForest, FLOOR_OVERLAYS, branchCurves, cards, grassTex, leafGeo, leafM, leafScale, perClump, track, trackDist };
