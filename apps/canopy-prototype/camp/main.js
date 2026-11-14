@@ -19,7 +19,8 @@ import "./sky.js";
 import "./forest.js";
 import { fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
 import { jeepStep } from "./jeep.js";
-import { SL, SLOTH_WARM, campStep, slothLife, sloths } from "./sloths.js";
+import { SL, SLOTH_WARM, campStep, hammockStep, slothLife, sloths } from "./sloths.js";
+import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
 import { collide, me, step } from "./player.js";
 import { acts, atmo, groundLife, shadowStep } from "./campLife.js";
@@ -59,6 +60,8 @@ renderer.setAnimationLoop(() => {
     if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
   }
   campStep(dt, me.seat);                                   // sloths.js: the camp sloths' day; no one sits on the seat you are on
+  labStep(dt);                                             // labButton.js: the move lab, while it is open
+  hammockStep(dt);                                         // sloths.js: the hammock's swing and its napper's z's
   opStep(dt);
   jeepStep(dt); carStep(dt);
   fxStep(dt);                                             // fx.js: the words and hearts in the air

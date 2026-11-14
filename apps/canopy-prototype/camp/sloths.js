@@ -14,6 +14,7 @@ import { CAST } from "./cast.js";
 import { load, save } from "./save.js";
 import { burst, fx, sprite } from "./fx.js";
 import { createNav } from "./nav.js";
+import { addLabButton } from "./labButton.js";
 import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "./swing.js";
 import { addCrowd, addMover, claim, holder, host, hosted, join, movers, release, taken, walkers } from "./places.js";
 
@@ -186,7 +187,7 @@ for (const tree of HERO) {
 // then the laundry line (climbs the end post, goes hand over hand along the line, brushing the towel aside, to the gap and hangs there). Clips nap, reach, walk, hang_walk: characters/sloth_baby/sloth_rig.py.
 // Befriending belongs to the camp activities: it fires window event "sloth-befriended" with detail.id = index into sloths.
 // ?campsloths=0 turns the spots off; window.__campFast speeds the trips up for checks.
-let hammockSway = null, campStep = () => {};
+let hammockSway = null, campStep = () => {}, hammockStep = () => {}, labApi;   // labApi: what the move lab drives (lab.js); undefined with ?campsloths=0
 const camp = [];   // the named camp sloths
 if (OPT.campsloths) {
   const { a: hA, b: hB, mid: hm, yaw: hYaw } = HAMMOCK, hd = hB.clone().sub(hA);   // the hammock's posts, its middle and its yaw (layout.js)
@@ -1034,8 +1035,10 @@ if (OPT.campsloths) {
       fruit(F.mesh); restOn(F); F.mesh.scale.multiplyScalar(0.01); F.grow = 0;
     }
     for (const P of POIS ?? []) for (const q of P.slots) { const F = q.food; if (F.grow != null) { F.grow = Math.min(1, F.grow + sd); F.mesh.scale.copy(F.mesh.userData.base).multiplyScalar(Math.max(0.01, sstep(0, 1, F.grow))); if (F.grow >= 1) F.grow = null; } }
+  };
+  // the hammock's swing and its napper's z's (main.js calls it after the move lab's step, which used to run just before it)
+  hammockStep = (dt) => {
     const H = hammockSway, T = uTime.value, napper = spots[0].home ? spots[0].who : null;   // a slow swing, nudged harder for a while after a boop
-    window.__labStep?.(dt);
     H.step(dt);
     if (napper?.squish > 0.9) H.push = 1;
     H.zz ??= [0, 1, 2].map(() => { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; });
@@ -1052,7 +1055,7 @@ if (OPT.campsloths) {
   window.__errand = (name) => { const s = camp.find((q) => q.name === name); if (s && s.trip.phase === "home") { s.wantFood = true; leave(s); } return s; };
   window.__path = findPath;
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
-  window.__lab = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, walkTo, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
+  labApi = window.__lab = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, walkTo, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
     fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
     nap: (s) => { if (!s.dozing) doze(s); },
     guests: () => guests.map((g) => g.key),
@@ -1060,10 +1063,7 @@ if (OPT.campsloths) {
     napTrip: (s, key) => { if (s.trip.phase !== "home" || s.spot.guest) return; const g = guests.find((q) => q.key === key); if (g && !holder(key)) { s.napTo = g; leave(s); } }, wake: (s) => { if (s.dozing) s.dozeIn > 0 ? (s.dozeIn = 0.01, s.dozeT = 0) : (s.dozeT = 0); },
     yawn: (s) => { s.yawn = 1e-3; }, stretch: (s) => { const [c, ts] = homeClip(s); playOnce(s, "stretch", 1.2, () => play(s, c, 1.5, ts)); } };
 }
-// the move lab opens from the settings menu (Adriaen: "add the move lab in the artifact too"), or straight away with ?lab
-{ const b = document.createElement("button"); b.textContent = "Move lab 🧪"; document.getElementById("opts")?.appendChild(b);
-  b.onclick = () => { import("./lab.js").then((m) => m.toggle()); const o = document.getElementById("opts"); o.hidden = true; document.getElementById("menu")?.setAttribute("aria-expanded", "false"); }; }
-if (OPT.lab) import("./lab.js").then((m) => m.toggle());
+addLabButton();   // the move lab's button in the ⚙️ menu, and ?lab (labButton.js): here, where it has always been added
 const COUNT = sloths.length;
 
 function flowerCrown(s) {
@@ -1073,5 +1073,5 @@ function flowerCrown(s) {
 }
 
 
-export { COUNT, SL, SLOTH_WARM, campStep, flowerCrown, hit, slothLife, sloths };
+export { COUNT, SL, SLOTH_WARM, campStep, flowerCrown, hammockStep, hit, labApi, slothLife, sloths };
 export { burst, fx, sprite };   // back-compat: campLife.js, input.js and operator.js still import these three from here (their home is fx.js)

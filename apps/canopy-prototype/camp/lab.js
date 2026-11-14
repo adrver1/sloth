@@ -2,13 +2,18 @@
 // visually"). A panel over the camp: pick one of the seven camp sloths, start any of its moves (leave for food, wander, go
 // home, s'more, wave, everyone out), slow it down, pause and step, follow it with an orbit camera (drag to turn round it,
 // pinch or wheel to zoom), see the path it plans, and scrub any clip frame by frame on it. Opened from the ⚙️ menu (Move lab)
-// or with ?lab; the ✕ closes it and gives back your own view, the normal speed and the live clips.
+// or with ?lab (labButton.js does both); the ✕ closes it and gives back your own view, the normal speed and the live clips.
+// It drives the sloths through sloths.js's labApi and sets the camp's pace for everyone with window.__campFast (sloths.js and
+// jeepSeat.js read it; tools/camp-replay.cjs sets it too). Exports toggle().
 import * as THREE from "three";
 import { camera, scene } from "./core.js";
 import { V } from "./util.js";
 import { me } from "./player.js";
+import { holder } from "./places.js";
+import { labApi } from "./sloths.js";
+import { setLabStep } from "./labButton.js";
 
-const L = window.__lab, cs = L.camp;
+const L = labApi, cs = L.camp;   // (with ?campsloths=0 there are no camp sloths and no lab: this line throws, as it always has)
 const css = document.createElement("style");
 css.textContent = `
 #lab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(96px + env(safe-area-inset-top, 0px)); width: min(300px, calc(100vw - 32px));
@@ -64,7 +69,7 @@ box.querySelectorAll("[data-do]").forEach((b) => (b.onclick = () => {
   if (d === "wave") L.wave(s);
   if (d === "fix") L.fix(s);
   if (d === "cards") L.cards(s);
-  if (d === "trip") { const k = L.guests().filter((k) => !window.__campLife.holder(k)); L.napTrip(s, k[Math.floor(Math.random() * k.length)]); }
+  if (d === "trip") { const k = L.guests().filter((k) => !holder(k)); L.napTrip(s, k[Math.floor(Math.random() * k.length)]); }
   if (d === "nap") L.nap(s);
   if (d === "wake") L.wake(s);
   if (d === "yawn") L.yawn(s);
@@ -114,6 +119,6 @@ const labStep = (dt) => {
 export function toggle() {
   const open = box.hidden; box.hidden = !open;
   document.body.classList.toggle("lab", open); document.body.classList.toggle("follow", open && follow);
-  if (open) { window.__labStep = labStep; setSpeed(1); return; }
-  endScrub(); setSpeed(1); window.__campFast = 1; window.__labStep = null; pathLine.visible = false;
+  if (open) { setLabStep(labStep); setSpeed(1); return; }
+  endScrub(); setSpeed(1); window.__campFast = 1; setLabStep(null); pathLine.visible = false;
 }
