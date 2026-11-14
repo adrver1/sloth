@@ -103,11 +103,12 @@ const DO = {
       for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, feet, e); root.quaternion.slerpQuaternions(fq, lq, e); }
       op.sleeping = true; op.ik = { sleep: 1 };
       const night = () => uNight.value > 0.5;
-      for (let t = 0, T = R(40, 80), wasNight = false; (night() ? true : t < T);) {   // wasNight: it was night a frame ago
-        t += yield;
+      // a nap of T s by day; at night until the light comes, then dawn counts the s since, and he gets up 8 s after it
+      for (let t = 0, T = R(40, 80), dawn = 0, wasNight = night(); night() || dawn || t < T;) {
+        const dt = yield; t += dt;
         if (op.buddy && !op.buddy.cuddled) yield* napTogether();
-        if (night() && t > 600) t = 0;
-        if (!night() && wasNight && t > 8) break;        // the day has come: up a little after the light
+        if (wasNight && !night()) dawn ||= 1e-3;
+        if (dawn && (dawn += dt) > 8) break;
         wasNight = night();
       }
       op.sleeping = false; op.ik = null;
