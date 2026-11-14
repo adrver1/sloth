@@ -26,8 +26,13 @@ let tinted = false;
 // then, and turn their heads to look at you when you come close (LOOK_NEAR).
 const FUR_NEAR = 8, LOOK_NEAR = 4.5;
 // at night the camp's light is baked into the props, so the sloths take a warm glow from the lanterns and the fire nearby
-// (fur.js warm; set each frame in the loop: lantern positions, the fire, and uWarm = dusk with the fire's flicker)
+// (fur.js warm; warmStep sets it each frame: lantern positions, the fire, and uWarm = dusk with the fire's flicker)
 const SLOTH_WARM = { uWarm: { value: 0 }, uWarmPos: { value: Array.from({ length: WARM_N }, () => V(0, -99, 0)) }, uWarmK: { value: new Array(WARM_N).fill(0) } };
+function warmStep(lanternGlow, fl, dusk) {             // each frame (main.js): where the lanterns are, the fire's flicker fl, how far the night is in
+  const W = SLOTH_WARM, n = Math.min(lanternGlow.length, WARM_N - 1);
+  for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
+  W.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0); W.uWarmK.value[WARM_N - 1] = 0.9 * fl; W.uWarm.value = dusk;
+}
 const FACE = (() => {                                  // which way the face points in the head bone's frame (the sloth faces -Z at rest)
   SLOTH.scene.updateMatrixWorld(true); const h = SLOTH.scene.getObjectByName("head");
   return V(0, 0, -1).applyQuaternion(h.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(SLOTH.scene.getWorldQuaternion(new THREE.Quaternion())));
@@ -122,6 +127,15 @@ function slothLife(s, dt) {                            // after the clip: fur by
   if (s.munch > 0) {                                   // munching what you fed it: the mouth opens and shuts a few times
     s.munch = Math.max(0, s.munch - dt); const m = mouthOf(s), o = s.munch > 0.1 ? Math.max(0, Math.sin(s.munch * 9)) : 0;
     m.visible = o > 0.08; m.scale.set(0.75, Math.max(0.01, o * 0.6), 1); s.head.rotation.x += 0.08 * o;
+  }
+}
+// each frame, for every sloth (main.js): its clip, its life on top of the clip, the squish of a boop and a nod
+function slothsStep(dt) {
+  for (const s of sloths) {
+    s.mixer.update(dt);
+    slothLife(s, dt);
+    if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; const sc = s.sc || SL; s.o.scale.set(sc * (1 + k), sc * (1 - k), sc * (1 + k)); }
+    if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
   }
 }
 // a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
@@ -1073,5 +1087,5 @@ function flowerCrown(s) {
 }
 
 
-export { COUNT, SL, SLOTH_WARM, campStep, flowerCrown, hammockStep, hit, labApi, slothLife, sloths };
+export { COUNT, campStep, flowerCrown, hammockStep, hit, labApi, sloths, slothsStep, warmStep };
 export { burst, fx, sprite };   // back-compat: campLife.js, input.js and operator.js still import these three from here (their home is fx.js)
