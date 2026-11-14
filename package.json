@@ -4,14 +4,14 @@
   "type": "module",
   "description": "Baby sloth character, karaoke, synth, stickers and games",
   "scripts": {
-    "serve": "npx http-server -p 8765 -c-1 .",
+    "serve": "node tools/serve.cjs 8765",
     "replay": "node tools/camp-replay.cjs",
     "scenarios": "node tools/camp-scenarios.cjs",
     "sync-shared": "node tools/sync-shared.cjs",
     "check-shared": "node tools/sync-shared.cjs --check"
   },
   "devDependencies": {
-    "playwright": "^1.49.0",
+    "playwright": "1.63.0",
     "three": "0.186.1"
   }
 }

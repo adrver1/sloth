@@ -3,7 +3,7 @@
 // settings, draw calls, triangles, shader programs) plus screenshots at checkpoints. Two runs of the same code give the
 // same fingerprint. It is an optional diagnostic, not a gate (Adriaen, 2026-11-14): a clean-up may change the camp's
 // behaviour and so the fingerprint; what it must not do is add errors, break the tour's interactions or cost more draws.
-// Usage (from the repo root, after npm install):
+// Usage (from the repo root, after npm ci):
 //   node tools/camp-replay.cjs [--root <repo>] [--frames 480] [--shots out/dir] [--query "?jeep=none"] [--port 8811]
 //   node tools/camp-replay.cjs --compare dirA dirB     # the shots of two runs: pixels that differ by more than 2/255
 // (the software renderer is off by 1/255 on a few pixels from run to run, so the shots are compared with that tolerance;

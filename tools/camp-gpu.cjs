@@ -2,7 +2,7 @@
 // then prints JSON with the GPU it ran on, the start-up times, real frame times over a few seconds of free running, draw calls,
 // triangles and shader programs, and takes a screenshot. Use it on a machine with a GPU (Adriaen's desktop, through Remote Control);
 // under SwiftShader in the cloud the times mean nothing (use camp-probe.cjs there, whose counts are exact).
-// Usage (from the repo root, after npm install):
+// Usage (from the repo root, after npm ci):
 //   node tools/camp-gpu.cjs [--query "?time=21.5"] [--vw 1280 --vh 800 --dpr 1] [--seconds 10] [--shot out.png] [--headed]
 //   node tools/camp-gpu.cjs --phone ...     the same as --vw 390 --vh 844 --dpr 3 --query "?touch=1" plus a phone user agent
 // Frame times are wall-clock times between animation frames, so they include vsync: a 60 Hz screen caps at 16.7 ms. The p95 and the
