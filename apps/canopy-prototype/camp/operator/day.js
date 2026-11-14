@@ -15,10 +15,10 @@ import { cook } from "./cook.js";
 import { book, bowl, dropAll, hold, mug, spoon } from "./handProps.js";
 import { pickLine } from "./lines.js";
 import { UP, cs, play, root } from "./model.js";
-import { BED, claim, findPlaces, fireGap, freeOf, freeSeat, release } from "./places.js";
+import { BED, claim, crateFront, findPlaces, fireGap, freeOf, freeSeat, release } from "./places.js";
 import { ME, RADIUS, life, op } from "./state.js";
 import { speak } from "./talk.js";
-import { face, sitOn, standUp, wait, walkTo, yawTo } from "./walk.js";
+import { face, faceFire, sitOn, standUp, wait, walkTo, yawTo } from "./walk.js";
 
 const tmp = V();
 const SIP = { hold: 1.25, top: 2.3 };                  // the sip clip: the mug at the chest at 1.25 s, at the lips 1.6 to 2.2 s
@@ -42,7 +42,7 @@ function* seatWith(activity) {                         // claim a seat, sit, do 
 }
 const DO = {
   *eat() {                                             // a bowl of soup from the pot, eaten on a log seat
-    yield* walkTo(fireGap(root.position)); yield* face(yawTo(V(-root.position.x, 0, -root.position.z)));
+    yield* walkTo(fireGap(root.position)); yield* faceFire();
     const pot = SOUP_POT.at;
     for (let t = 0; t < 1.6;) { t += yield; op.ik = { R: [pot.clone().add(V(0, 0.12, 0)), Math.sin(Math.min(1, t / 1.6) * Math.PI) ** 2] }; }
     op.ik = null; bowl.visible = spoon.visible = true; op.eat = { t: 0, spoon: 0 };   // the bowl in both hands, the spoon in his right
@@ -51,7 +51,7 @@ const DO = {
     });
   },
   *drink() {                                           // a mug from the kitchen crate, drunk slowly on a log seat
-    const crate = CRATE.at, front = crate.clone().addScaledVector(crate.clone().negate().normalize(), 0.75);
+    const crate = CRATE.at, front = crateFront();
     yield* walkTo(front); yield* face(yawTo(crate.clone().sub(root.position)));
     for (let t = 0; t < 1.4;) { t += yield; op.ik = { R: [crate.clone().setY(0.45), Math.sin(Math.min(1, t / 1.4) * Math.PI) ** 2] }; }
     op.ik = null; hold(mug);
@@ -66,7 +66,7 @@ const DO = {
     });
   },
   *warm() {                                            // hands out to the fire (most at dusk and at night)
-    yield* walkTo(fireGap(root.position)); yield* face(yawTo(V(-root.position.x, 0, -root.position.z)));
+    yield* walkTo(fireGap(root.position)); yield* faceFire();
     for (let t = 0, T = R(10, 18); t < T && !wantJoin();) {
       t += yield; const k = Math.min(1, t / 1.2, (T - t) / 1.2), rub = Math.sin(t * 3) * 0.03;
       op.ik = { R: [cs(0.12 + rub, 1.24, -0.5), k], L: [cs(-0.12 - rub, 1.24, -0.5), k] };

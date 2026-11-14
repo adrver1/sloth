@@ -3,8 +3,9 @@
 // baked shadows and its night light. It replaces the forest floor disc (sky.js), shades the track's and path's overlays, and
 // with the jeep's cabin light on, the floor and every baked prop take that light's shadow.
 // Exports buildGround(mask): campLife.js calls it once, after the props, the deadwood and the sloths stand and before the
-// tent's walls join the blockers, since the worn dirt is painted round the blockers as they are then; groundLife (what it
-// built; null until then) and shadowStep(), which main.js calls each frame to re-cast the sun shadows while the props load.
+// tent's walls join the blockers, since the worn dirt is painted round the blockers as they are then, and returns what it
+// built (campLife.js hands it on as groundLife); and shadowStep(), which main.js calls each frame to re-cast the sun shadows
+// while the props load.
 import { createGround } from "../ground.js";
 import { D, JEEP, LOOK, PROPS, S, renderer, scene, uTime } from "./core.js";
 import { FLOOR_OVERLAYS, clearing, track, trackDist } from "./forest.js";
@@ -37,4 +38,4 @@ function shadowStep() {
   if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }
 }
 
-export { buildGround, groundLife, shadowStep };
+export { buildGround, shadowStep };

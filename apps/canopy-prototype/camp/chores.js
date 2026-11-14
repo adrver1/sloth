@@ -3,7 +3,8 @@
 // stand (layout.js), the props that light up when you can use each (highlight.js), and the fire the logs make bigger
 // (boostFire: the one place the chores touch the camp's fire).
 // Exports buildChores(): campLife.js calls it once, last; it returns the activities (acts), which input.js passes taps to,
-// the operator cooks with (operator/cook.js), and main.js updates each frame. window.__acts is the same object, for audio.js.
+// the operator reads (operator/cook.js and day.js cook with it, talk.js lets you give him the food in your hand), and main.js updates
+// each frame. window.__acts is the same object, for audio.js.
 import { createActivities } from "../activities.js";
 import { LIVED, camera, scene } from "./core.js";
 import { toast } from "./hud.js";

@@ -1,7 +1,8 @@
 // Canopy Camp operator, getting about: a path round the blockers (the sloths' planner when it is there), steering round the
 // others walking about, stopping to listen when you speak to him, turning on the spot, and sitting down on a seat and
 // rising from it with his feet planted. All generators: an activity script runs them with yield*, one step a frame.
-// Exports yawTo(dir), turnToward(yaw, dt, rate), wait(s, until), walkTo(to, { near }), face(yaw), sitOn(seat), standUp().
+// Exports yawTo(dir), turnToward(yaw, dt, rate), wait(s, until), walkTo(to, { near }), face(yaw), faceFire(), sitOn(seat),
+// standUp().
 import { camera } from "../core.js";
 import { V } from "../util.js";
 import { blockers } from "../campProps.js";
@@ -98,4 +99,5 @@ function* standUp() {
   op.footLock = null; root.position.y = groundAt(root.position.x, root.position.z);
 }
 
-export { face, sitOn, standUp, turnToward, wait, walkTo, yawTo };
+function* faceFire() { yield* face(yawTo(V(-root.position.x, 0, -root.position.z))); }   // the fire is at the camp's origin
+export { face, faceFire, sitOn, standUp, turnToward, wait, walkTo, yawTo };

@@ -11,10 +11,10 @@ import { fx } from "../sloths.js";
 import { bowl, drop, hold, pail, stick, veg } from "./handProps.js";
 import { pickLine } from "./lines.js";
 import { UP, cs, root } from "./model.js";
-import { fireGap } from "./places.js";
+import { crateFront, fireGap } from "./places.js";
 import { op } from "./state.js";
 import { speak } from "./talk.js";
-import { face, wait, walkTo, yawTo } from "./walk.js";
+import { face, faceFire, wait, walkTo, yawTo } from "./walk.js";
 
 // cooking (Adriaen 2026-11-13): the soup from start to finish, the same steps as yours: the pail from under the snack table,
 // water in the pot, two vegetables from the crate tossed in, a stir while it bubbles, then a bowl ladled out and brought to
@@ -23,7 +23,7 @@ import { face, wait, walkTo, yawTo } from "./walk.js";
 const potSpot = () => fireGap(root.position).setLength(0.86);   // at the stones, inside the fire's walk-round circle
 function* toPot() {   // already there (between steps at the pot): stay put; a path from inside the fire's ring went out and back in (Adriaen: he walked in circles)
   const at = potSpot(); if (Math.hypot(at.x - root.position.x, at.z - root.position.z) > 0.3) yield* walkTo(at, { near: 0.1 });
-  yield* face(yawTo(V(-root.position.x, 0, -root.position.z)));
+  yield* faceFire();
 }
 function* cook() {
   const K = chores.cook; if (!K.can()) return;
@@ -46,7 +46,7 @@ function* cook() {
   op.lean = 0;
   op.poured = false; op.pail = null; pail.visible = false;   // the pail goes back under the table (activities.js shows it there)
   // two vegetables from the crate, tossed in
-  const crate = CRATE.at, front = crate.clone().addScaledVector(crate.clone().negate().normalize(), 0.75);
+  const crate = CRATE.at, front = crateFront();
   for (let n = 0; n < 2 && K.wantsVeg(); n++) {
     yield* walkTo(front); yield* face(yawTo(crate.clone().sub(root.position)));
     for (let t = 0; t < 1.2;) { t += yield; op.ik = { R: [crate.clone().setY(0.45), Math.sin(Math.min(1, t / 1.2) * Math.PI) ** 2] }; }

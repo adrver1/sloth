@@ -1,11 +1,11 @@
 // Canopy Camp operator, the camp's places for him: the free end of each log seat that is not Sunny's, the tent bed, the
 // gaps between the logs at the fire, and the claims that keep him and the sloths out of each other's places (the sloths'
 // life, window.__campLife).
-// Exports SEATS, BED (null until findPlaces has found the tent), findPlaces(), fireGap(from), freeOf(p, r), freeSeat(),
-// claim(key) and release().
+// Exports SEATS, BED (null until findPlaces has found the tent), findPlaces(), fireGap(from), crateFront() (where he stands
+// at the kitchen crate), freeOf(p, r), freeSeat(), claim(key) and release().
 import * as THREE from "three";
 import { scene } from "../core.js";
-import { SEAT_GAPS, TENT } from "../layout.js";
+import { CRATE, SEAT_GAPS, TENT } from "../layout.js";
 import { V } from "../util.js";
 import { blockers } from "../campProps.js";
 import { me } from "../player.js";
@@ -47,4 +47,5 @@ const freeSeat = () => { findPlaces(); return SEATS.filter((s) => !life().holder
 function claim(key) { const L = life(); if (L.claim && !L.claim(key, ME)) return false; op.place = key; return true; }
 function release() { if (op.place) life().release?.(op.place, ME); op.place = null; }
 
-export { BED, SEATS, claim, findPlaces, fireGap, freeOf, freeSeat, release };
+const crateFront = () => CRATE.at.clone().addScaledVector(CRATE.at.clone().negate().normalize(), 0.75);   // 0.75 m toward the fire
+export { BED, SEATS, claim, crateFront, findPlaces, fireGap, freeOf, freeSeat, release };

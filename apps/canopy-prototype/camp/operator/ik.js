@@ -2,7 +2,7 @@
 // fingers and palm should point. Pure functions over a bone map B (the rig's names: upper_armL, forearmL, handL and the
 // same with R); they know nothing of the operator's state, so another character on this rig could use them.
 // Exports aimBone(bone, dir, w), reach(B, side, target, pole, w), handQuat(side, fingers, palm), turnHand(B, side, q, w)
-// and the hands' local axes PALM and THUMB.
+// and THUMB, the hands' local thumb axes (handPose.js); PALM, the palm axes, is used only here.
 import * as THREE from "three";
 import { V } from "../util.js";
 
@@ -26,7 +26,8 @@ export function reach(B, side, target, pole, w = 1) {   // two-bone reach: put t
 }
 // turn a hand so its fingers point along world dir `fingers` with the palm facing world dir `palm` (by w). The rig's hands: fingers
 // along +Y, the palm on local (1,0,-1) for the left hand and (-1,0,-1) for the right, the thumb and index side on (±1,0,1)
-export const PALM = { L: V(1, 0, -1).normalize(), R: V(-1, 0, -1).normalize() }, THUMB = { L: V(1, 0, 1).normalize(), R: V(-1, 0, 1).normalize() };
+const PALM = { L: V(1, 0, -1).normalize(), R: V(-1, 0, -1).normalize() };
+export const THUMB = { L: V(1, 0, 1).normalize(), R: V(-1, 0, 1).normalize() };
 const mA = new THREE.Matrix4(), mB = new THREE.Matrix4(), qh = new THREE.Quaternion();
 export function handQuat(side, fingers, palm) {               // the world rotation of that hand pose
   const y = fingers.clone().normalize(), p = palm.clone().addScaledVector(y, -palm.dot(y)).normalize(), c = V().crossVectors(y, p);
