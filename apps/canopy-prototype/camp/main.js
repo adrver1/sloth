@@ -39,6 +39,11 @@ import { ready, stats } from "./debug.js";
 if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }
 if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
 
+// the two Fredoka weights the canvas faces paint with (clock.js, car.js, radio.js, fx.js): canvas text neither waits for nor
+// starts a web font, so start them now and wait for them, at most 1.5 s, before the clocks are painted (review R2-072)
+const fonts = Promise.race([Promise.all(["700 46px Fredoka", "600 22px Fredoka"].map((f) => document.fonts?.load(f))).catch(() => {}),
+  new Promise((ok) => setTimeout(ok, 1500))]);
+
 // ================================================================ the build, in order (every download started at once in core.js PRE)
 // the world: the sky, then the forest (its root mounds shape the ground's height, which everything after stands on), then the
 // props on the clearing and the jeep at its edge (they wait for their downloads)
@@ -65,6 +70,7 @@ initAudio();                           // audio.js: the first-tap listeners, the
 buildWeather();                        // weather.js: the ⚙️ Weather button and the rain streaks
 buildLinger();                         // linger.js: the log seats light up
 wireTimeMenu();                        // daytime.js: the ⚙️ menu's time slider and Day cycle button
+await fonts;                           // the clock and radio faces below are painted once, so in the camp's own font
 buildClocks();                         // clock.js: the tent's alarm clock and the dial on the hammock post
 buildRadio();                          // radio.js: the radio on the snack table
 buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
