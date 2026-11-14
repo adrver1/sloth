@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, bisect, box, cyl, drop_enclosed, join, mesh_obj, outward, rod, torus  # noqa: E402
+from lib.mesh import apply_all, ball, bisect, box, cyl, drop_enclosed, drop_faces, join, mesh_obj, outward, rod, torus  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
 # for the bake (bake(..., apply=False) below), one-segment bevels on boxes only where they are big enough for a bevel to read
@@ -311,7 +311,8 @@ def wheel(x, y, R, Wt, M, axis_x=True, kind="closed", tyre="mt"):
 
 
 def lugs(x, y, R, Wt, core, m, axis_x, tread):
-    """The tread blocks (TREAD[tread]) round a tyre whose tread band has radius core, sunk into it so only the tops show."""
+    """The tread blocks (TREAD[tread]) round a tyre whose tread band has radius core, sunk into it so only the tops show,
+    each a box with no bottom face (review R2-168)."""
     nb, kw, ko, kl, kh = TREAD[tread]
     p = []
     for i in range(nb):
@@ -320,21 +321,25 @@ def lugs(x, y, R, Wt, core, m, axis_x, tread):
         w_, off, ln, ht = Wt * kw, lane * Wt * ko, 2 * math.pi * R / nb * kl, R * kh
         rc = core + ht * 0.1
         if axis_x:
-            p.append(slim_box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=m))
+            o = slim_box((w_, ln, ht), at=(x + off, y + math.cos(a) * rc, math.sin(a) * rc), rot=(a - math.pi / 2, 0, 0), m=m)
         else:
-            p.append(slim_box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=m))
+            o = slim_box((ln, w_, ht), at=(x + math.cos(a) * rc, y + off, math.sin(a) * rc), rot=(0, -a + math.pi / 2, 0), m=m)
+        p.append(drop_faces(o, lambda f, k=o.matrix_world.to_3x3() @ Vector((0, 0, -1)): f.normal.dot(k) > 0.99))   # its bottom, sunk in the tread
     return p
 
 
-def nuts(x, y, along, ring, r, depth, m, axis_x, smooth=True):
-    """Five hex wheel nuts of radius r and depth depth on a circle of radius ring round the axle through (x, y, 0), at
-    along on the axle (an x when it runs along X, a y otherwise)."""
-    rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
+def nuts(x, y, along, ring, r, m, axis_x, side):
+    """Five wheel nuts round the axle through (x, y, 0) on a circle of radius ring, each one flat hexagon of radius r in
+    the plane at along on the axle (an x when it runs along X, a y otherwise), facing out along the axle toward side. A
+    nut is 3.4 cm across, so a painted hexagon just proud of the hub reads as well as a modelled one (4 triangles where a
+    six-sided prism cost 20, review R2-168)."""
     p = []
     for k in range(5):
         a = k / 5 * 2 * math.pi
         c, sn = math.cos(a) * ring, math.sin(a) * ring
-        p.append(cyl(r, depth, at=(along, y + c, sn) if axis_x else (x + c, along, sn), rot=rot, m=m, verts=6, smooth=smooth))
+        hexa = [(c + r * math.cos(t * math.pi / 3), sn + r * math.sin(t * math.pi / 3)) for t in range(6)]
+        pts = [(along, y + u, v) for u, v in hexa] if axis_x else [(x + u, along, v) for u, v in hexa]
+        p.append(poly(pts, m, (along + side, y + c, sn) if axis_x else (x + c, along + side, sn)))
     return p
 
 
@@ -351,8 +356,8 @@ def wheel_closed(x, y, R, Wt, M, axis_x=True):
     outward(o)                                        # a closed surface, so this is reliable
     for pl in o.data.polygons:                        # smooth over the rubber only; the rim, hub and back stay crisp
         pl.use_smooth = o.data.materials[pl.material_index] in (M["tyre"], M["groove"])
-    along = (x if axis_x else y) + side * (h * 0.78 + 0.01)
-    return [o, *lugs(x, y, R, Wt, core, M["tyre"], axis_x, "mt"), *nuts(x, y, along, rr * 0.28, rr * 0.075, 0.02, M["trim"], axis_x, smooth=False)]
+    along = (x if axis_x else y) + side * (h * 0.78 + 0.003)
+    return [o, *lugs(x, y, R, Wt, core, M["tyre"], axis_x, "mt"), *nuts(x, y, along, rr * 0.28, rr * 0.075, M["trim"], axis_x, side)]
 
 
 def wheel_open(x, y, R, Wt, M, axis_x=True, tyre="mt"):
@@ -380,7 +385,7 @@ def wheel_open(x, y, R, Wt, M, axis_x=True, tyre="mt"):
     rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
     p.append(cyl(rr * 0.42, 0.04, at=hub_at, rot=rot, m=M["hub"], verts=6))
     p.append(cyl(rr * 0.9, 0.01, at=(x - side * h * 0.98, y, 0) if axis_x else (x, y - side * h * 0.98, 0), rot=rot, m=M["under"], verts=6))
-    return p + nuts(x, y, hub_at[0 if axis_x else 1] + side * 0.02, rr * 0.3, rr * 0.075, 0.025, M["trim"], axis_x)
+    return p + nuts(x, y, hub_at[0 if axis_x else 1] + side * 0.023, rr * 0.3, rr * 0.075, M["trim"], axis_x, side)
 
 
 def lift(objs, z):
@@ -609,10 +614,9 @@ def body(M, style, wheels=WHEELS):
     cover = M.get("cover")
     if cover:
         bd.append(cyl(sr + 0.012, 0.25, at=(0.06, REAR + 0.22, 0.98), rot=(math.pi / 2, 0, 0), m=cover, verts=16))
-    # chassis, axles and the four wheels with black flares over them
+    # the chassis (it hides the axles, so they are not modelled: review R2-168) and the four wheels with black flares over them
     p.append(slim_box((W - 0.3, REAR - FRONT - 0.3, 0.2), at=(0, 0, SILL - 0.02), m=M["under"]))
     for y in AXLE_Y:
-        p.append(rod((-0.7, y, zc), (0.7, y, zc), 0.04, M["under"]))
         for s in (-1, 1):
             p += lift(wheel(s * (W / 2 - 0.1), y, R, 0.27 if toy else 0.25, M, **wheels), zc)
             p.append(flare(s, y, zc, R, 0.06 if toy else 0.045, M["flare"], 20))
@@ -739,9 +743,8 @@ EXPEDITION_COLOURS = dict(paint=(0.36, 0.39, 0.25), paint2=(0.36, 0.39, 0.25), b
 def expedition(wheels=WHEELS):
     M = mats("ex", **EXPEDITION_COLOURS)
     b = body(M, "expedition", wheels); p, G = b.parts, b.groups
-    # steel bumper with a winch and a pair of tow hooks
+    # steel bumper with a winch (its drum would sit inside the box, so it is not modelled: review R2-168) and a pair of tow hooks
     p.append(winch(M, bevel=0.02))
-    p.append(cyl(0.065, 0.36, at=(0, FRONT - 0.22, SILL + 0.11), rot=(0, math.pi / 2, 0), m=M["rope"], verts=10))
     for s in (-1, 1):
         p.append(torus(0.04, 0.012, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"], major=8, minor=3))
     # snorkel, angular like the aftermarket ones: a flat box duct along the top of the wing, a square riser up the A pillar
