@@ -64,7 +64,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   const gTex = canvasTex(256, 96, (g) => { g.fillStyle = "#000"; g.fillRect(0, 0, 256, 96); g.fillStyle = "#ffb347"; g.fillRect(52, 22, 152, 52); }, { srgb: false, aniso: 1 });   // the display's glow, as plain numbers
   let shown = "";
   function drawRadio() {
-    const st = audio.station(), on = radioPlaying() && radioSource() === carRadio, k = (on ? st.id : "off");
+    const st = audio.stations[audio.stationIndex()], on = radioPlaying() && radioSource() === carRadio, k = (on ? st.id : "off");   // each frame: no objects made
     if (k === shown) return; shown = k;
     const c = rc.getContext("2d"); c.fillStyle = "#9a9a9a"; c.fillRect(0, 0, 256, 96); c.fillStyle = "#2b2b2b"; c.fillRect(4, 4, 248, 88);
     c.fillStyle = on ? "#3a2a12" : "#1a1a1a"; c.fillRect(52, 22, 152, 52);

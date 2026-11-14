@@ -12,7 +12,9 @@
 // calls initAudio() once (the tap listeners, the Tap for sound pill, the ⚙️ Sound button) and audioStep(dt, dusk) every
 // frame. The chores name their own sounds: chores.js plays cue(name) with a chore's message ("knock", "slosh", "clink", "roar").
 // The radio prop drives it through `audio`: start, volume, muted, music, musicVolume, station, next,
-// tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange.
+// tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange,
+// and three cheap reads for its every-frame step that make no objects (review R2-085): running() (the sound is on),
+// playing() (music on and not muted) and stationIndex() (the station's place in stations).
 // The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted and ?station= picks one, for that visit only (core.js OPT). Settings are kept per viewer (KEYS.audio).
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): audio/context.js LEVEL and the bus gains are the knobs.
 import * as THREE from "three";
@@ -44,9 +46,12 @@ const audio = {
   music(on) { if (on !== undefined) { set.music = !!on; if (on) mus.st = null; applyGain(); keep(); } return set.music; },
   musicVolume(v) { if (v !== undefined) { set.musicVolume = THREE.MathUtils.clamp(+v, 0, 1); applyGain(); keep(); } return set.musicVolume; },
   station(s) { if (s !== undefined) { const st = typeof s === "number" ? STATIONS[((s % STATIONS.length) + STATIONS.length) % STATIONS.length] : STATIONS.find((x) => x.id === s); if (st) { own("station"); set.station = st.id; mus.st = null; if (ac) mus.next = ac.currentTime + 0.6; keep(); } } return STATIONS.find((x) => x.id === set.station); },
-  next() { const i = STATIONS.findIndex((x) => x.id === set.station); audio.tune(); return audio.station(i + 1); },
+  next() { const i = audio.stationIndex(); audio.tune(); return audio.station(i + 1); },
   tune() { if (ac?.state === "running") SFX.tune(); },
   musicFrom,
+  running: () => ac?.state === "running",
+  playing: () => set.music && !set.muted,
+  stationIndex() { for (let i = 0; i < STATIONS.length; i++) if (STATIONS[i].id === set.station) return i; return 0; },
   state: () => ({ ctx: ac?.state ?? "none", started: !!ac && ac.state === "running", volume: set.volume, muted: set.muted, music: set.music, musicVolume: set.musicVolume, station: set.station }),
   onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   play(name, pos) { if (ac?.state === "running" && SFX[name]) SFX[name](pos || null); },   // any sound by name, for other modules and checks
