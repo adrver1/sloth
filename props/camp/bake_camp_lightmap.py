@@ -29,7 +29,8 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
    COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
    the page places them as before; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt copies, and
-   apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png.
+   apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png. The GLBs carry quantized normals, colours and UVs
+   (KHR_mesh_quantization, lib/quantize.py), and the unlit Embers no normals (review R2-109).
 Where each prop and light stands comes from the page itself: the "place" block the layout step (export_casters.cjs)
 writes into props/shadow/layout_picked.json.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
@@ -412,7 +413,8 @@ print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
 def export(objs, path, txt, image_format="AUTO"):
-    export_glb(objs, path, image_format=image_format, check=False)     # audited in steps 1 and 2
+    export_glb(objs, path, image_format=image_format, check=False, small=True, unlit=("Embers",))   # audited in steps 1 and 2;
+    # small: quantized normals, colours and UVs, and no normals on the unlit embers (review R2-109)
     with open(path, "rb") as f, open(os.path.join(MODELS, txt), "w") as g:
         g.write(base64.b64encode(f.read()).decode())
 

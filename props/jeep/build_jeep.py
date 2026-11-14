@@ -16,7 +16,8 @@ Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driv
 and BackDoor (with the spare), each with its origin on its hinge so the page swings it about the vertical; plus empties
 SeatP (driver cushion top, at the wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back) and Boot (middle of the cargo deck). It is the same convention and the same baked light as props/camp/build_camp.py, with the shared helpers of props/lib:
 Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
-Previews go to props/jeep/preview_<style>.png and preview_all.png.
+Previews go to props/jeep/preview_<style>.png and preview_all.png. The GLBs carry quantized normals and colours
+(export_glb small=True, lib/quantize.py, review R2-109); the light bake imports the jeep as it is.
 """
 import argparse
 import math
@@ -932,7 +933,7 @@ def build(style, samples, do_preview, preview_samples):
         for o in objs.values():
             mud(o)
     path = export_glb([*objs.values(), *EMPTIES], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False,
-                      check=True if style == "expedition" else "warn")    # the toy and camper are archived: report only
+                      check=True if style == "expedition" else "warn", small=True)    # the toy and camper are archived: report only
     print(f"{style} -> {path}")
     for e in EMPTIES:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
@@ -942,7 +943,7 @@ def build(style, samples, do_preview, preview_samples):
         M = mats("ex", **EXPEDITION_COLOURS)
         lod = jeep_lod(M); apply_all(lod)
         mud_mask(lod); bake([lod], samples, apply=False, device=DEVICE); mud(lod)
-        lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False)
+        lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False, small=True)
         print(f"  JeepLOD -> {lpath}")
         return shots
     return preview(style, objs, preview_samples) if do_preview else []
