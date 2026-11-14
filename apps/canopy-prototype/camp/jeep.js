@@ -40,7 +40,7 @@ async function buildJeep() {
   const local = (x, y, z) => jeep.localToWorld(V(x, y, z));
   const boot = jeep.getObjectByName("Boot")?.position ?? V(0, 0.78, -1.06);
   // the cabin light (Adriaen 2026-11-12): on while any door stands open. CabinLight is its lens (unlit when on); the light it
-  // throws is live: one shadowed spot light (cabSpot), redrawn while a door moves; it replaced the baked keyframes.
+  // throws is live: one shadowed spot light (cabSpot), redrawn while a cabin door moves; it replaced the baked keyframes.
   // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the Lamps lenses stay as plain parts.
   const cabinL = jeep.getObjectByName("CabinLight");
   const cabOn = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
@@ -51,8 +51,8 @@ async function buildJeep() {
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.position.set(0, 1.45, -0.25); glow.scale.setScalar(1.1); glow.visible = false; jeep.add(glow);
   // Cabin: live: one spot light under the roof aimed down (83 degree half-angle), shadowed by the jeep only; its shadow map is
-  // redrawn only while a door moves or the light fades, and every prop and the floor take its shadow
-  let cabSpot = null;
+  // redrawn only while a cabin door moves or the light fades, and every prop and the floor take its shadow
+  let cabSpot;
   {   // the cabin light is live (one shadowed spot light): it looked much better than the bake (Adriaen 2026-11-12)
     // PCFShadowMap, not PCFSoftShadowMap: three 0.186 swaps the removed soft type for PCF on the first shadow render, which changed
     // every program's cache key after main.js compileAsync and made the first frames compile every shader again (review R2-003).
@@ -63,26 +63,36 @@ async function buildJeep() {
     jeep.traverse((m) => { if (m.isMesh && !m.name.startsWith("Glass")) { m.castShadow = true; m.receiveShadow = true; } });
     cabinLive = { receive: (o) => o.traverse((m) => { if (m.isMesh) m.receiveShadow = true; }) };
   }
-  let cab = 0, lastCab = -1;
-  const lightStep = (dt) => {
-    const cWant = ["P", "D", "B"].some((k) => doors[k] && doors[k].cur !== 0) ? 1 : 0;   // the cabin doors, not the hood
-    cab += (cWant - cab) * Math.min(1, dt * 4);
+  // Each frame: move the doors that are not where they are wanted, then the cabin light; with every door at rest and the
+  // cabin light faded to its end, neither does any work (R2-093). Only the three cabin doors drive the light and its shadow
+  // map: the hood is outside the cabin, so its swing does not redraw the spot's shadows (R2-092).
+  const doorList = Object.values(doors), cabinDoors = ["P", "D", "B"].filter((k) => doors[k]).map((k) => [k, doors[k]]);
+  let cab = 0, lastCab = -1, lit = false;   // lit: the light has been set at least once
+  const lightStep = (dt, moved) => {        // moved: a cabin door turned this frame
+    let cWant = 0; for (const [, d] of cabinDoors) if (d.cur !== 0) { cWant = 1; break; }
+    if (lit && !moved && cab === cWant) return;
+    cab += (cWant - cab) * Math.min(1, dt * 4); if (Math.abs(cWant - cab) < 0.002) cab = cWant;
     if (cabinL) { cabinL.material = cab > 0.02 ? cabOn : jm; cabOn.color.copy(OFF).lerp(CL, cab); }
     glow.material.opacity = 0.55 * cab; glow.visible = cab > 0.02;
-    GAIN.cabin = cabSpot ? 0 : cab;   // live: the spot light instead of the bake
-    for (const k of ["P", "D", "B"]) GAIN.doors[k] = doors[k] ? doors[k].o.rotation[doors[k].axis] / doors[k].open : 0;   // each door's spill (bakedlight.js), by its actual swing
-    if (cabSpot) { cabSpot.intensity = 6 * cab;
-      if (Object.values(doors).some((d) => d.cur !== d.want) || Math.abs(cab - lastCab) > 0.01) { renderer.shadowMap.needsUpdate = true; lastCab = cab; } }
+    GAIN.cabin = 0;   // live: the spot light instead of the bake
+    for (const [k, d] of cabinDoors) GAIN.doors[k] = d.o.rotation[d.axis] / d.open;   // each door's spill (bakedlight.js), by its actual swing
+    cabSpot.intensity = 6 * cab;
+    if (moved || Math.abs(cab - lastCab) > 0.01 || (cab === cWant && cab !== lastCab)) { renderer.shadowMap.needsUpdate = true; lastCab = cab; }
+    lit = true;
   };
   jeepStep = (dt) => {
-    for (const d of Object.values(doors)) {
-      if (d.cur === d.want) continue;
-      const step = dt * 1.8; d.cur += Math.max(-step, Math.min(step, d.want - d.cur));
-      d.o.rotation[d.axis] = d.open * ease(d.cur / d.open);                // ease in and out
+    let moved = false, shut = true;
+    for (const d of doorList) {
+      if (d.cur !== d.want) {
+        const step = dt * 1.8; d.cur += Math.max(-step, Math.min(step, d.want - d.cur));
+        d.o.rotation[d.axis] = d.open * ease(d.cur / d.open);                // ease in and out
+        if (d.axis === "y") moved = true;                                    // a cabin door (the hood turns about x)
+      }
+      if (d.cur !== 0) shut = false;
     }
-    lightStep(dt);
+    lightStep(dt, moved);
     if (far) {
-      const d = camera.position.distanceTo(jeep.position), shut = Object.values(doors).every((q) => q.cur === 0);
+      const d = camera.position.distanceTo(jeep.position);
       const want = shut && d > (isFar ? 11.5 : 12.5);   // a little hysteresis so it doesn't flicker at the edge
       if (want !== isFar) { isFar = want; far.visible = want; for (const m of jeepMeshes) m.visible = !want; }
     }
