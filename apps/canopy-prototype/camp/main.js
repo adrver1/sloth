@@ -1,20 +1,16 @@
-// Canopy Camp main: the frame loop, with the fps panel and the resolution safety net; once the camp is built it calls debug.js
-// ready() (the tools' window.__ names are all in debug.js).
-// camp.html loads this file; it imports the other camp modules in order, so they run top to bottom as one script did before.
+// Canopy Camp main: builds the camp in one explicit order, then runs the frame loop, with the fps panel and the resolution
+// safety net; once the camp is built it calls debug.js ready() (the tools' window.__ names are all in debug.js).
+// camp.html loads this file. Importing a camp module builds nothing: each exports a build function, and the list below calls
+// them in order. Each system draws from its own named random stream (core.js rng), so moving a step does not move the
+// trees or the sloths; a step only has to come after the steps whose parts it uses, as the comments say.
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
-
-// The order of these imports is the order the camp is built in: most modules build their part of the scene as they load, and
-// four draw from the one seeded random stream (core.js) while they do: sky.js, forest.js, campProps.js and sloths.js, in that
-// order, and createDaylight() below draws last. So moving a line here moves trees and sloths. A bare import ("./forest.js")
-// holds a module's place in that order when main.js needs no name from it.
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
-import "../fur.js";   // order only: fur.js is evaluated second, as it always was (sloth/body.js uses it)
 import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime } from "./core.js";
-import "./sky.js";
-import "./forest.js";
-import { fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
-import { jeepStep } from "./jeep.js";
+import { buildSky } from "./sky.js";
+import { buildForest } from "./forest.js";
+import { buildProps, fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
+import { buildJeep, jeepStep } from "./jeep.js";
 import { buildSloths, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
@@ -25,7 +21,7 @@ import { buildGround, groundLife, shadowStep } from "./campGround.js";
 import { buildTentInside } from "./tentInside.js";
 import { atmo, buildAtmosphere } from "./campAir.js";
 import { acts, buildChores } from "./chores.js";
-import { buildOperator, opApi, opStep } from "./operator.js";
+import { buildOperator, opStep } from "./operator.js";
 import { aimStep, initInput, resize } from "./input.js";
 import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
@@ -36,32 +32,40 @@ import { buildRadio, radioStep } from "./radio.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
-import { ready, stats } from "./debug.js";   // the tools' window.__ names; it builds nothing, so daylight.js is still the last to build
+import { ready, stats } from "./debug.js";
 
-let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
-// the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
-// tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
+// ================================================================ the build, in order (every download started at once in core.js PRE)
+// the world: the sky, then the forest (its root mounds shape the ground's height, which everything after stands on), then the
+// props on the clearing and the jeep at its edge (they wait for their downloads)
+buildSky();                            // sky.js: the backdrop, the domes, the moon
+buildForest();                         // forest.js: the big trees, the forest wall, the ribbons on the floor, leaves, ferns
+await buildProps();                    // campProps.js: lanterns, fire, the baked props, the lived-in props, the laundry
+await buildJeep();                     // jeep.js (?jeep=none: nothing)
+// the characters: the sloths use the big trees' branches, the props and the jeep
+buildSloths();                         // sloths.js: the wild sloths, then the camp's seven in their spots
 // the lived-in clearing, set down on the finished props and sloths in this order: the deadwood and the glade first, then the
 // ground, painted round the blockers as they stand then; the tent's walls join the blockers only after that
-buildSloths();                         // sloths.js: the wild sloths, then the camp's seven in their spots
 buildDeadwood();                       // deadwood.js
 buildGlade();                          // glade.js: its plants go into the ground's draw
 buildGround(await PRE.groundMask);     // campGround.js: waits for the ground mask's download
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
 buildChores();                         // chores.js: your activities
-await buildOperator();   // operator.js: waits for his downloads (?op=0: nothing)
-initInput();        // input.js
-buildWeather();     // weather.js: the ⚙️ Weather button and the rain streaks
-buildLinger();      // linger.js: the log seats light up
-wireTimeMenu();     // the ⚙️ menu's time slider and Day cycle button (daytime.js)
-buildClocks();      // clock.js: the tent's alarm clock and the dial on the hammock post
-buildRadio();       // radio.js: the radio on the snack table
-buildJeepSeats();   // jeepSeat.js: the jeep's doors and seats
-buildCar();         // car.js: the key, the dash radio and the dash clock
-createDaylight();   // the mist banks and the moon's place: last, after every module above has built its part (daylight.js)
+await buildOperator();                 // operator.js: waits for his downloads (?op=0: nothing)
+// the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
+// tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
+initInput();                           // input.js
+buildWeather();                        // weather.js: the ⚙️ Weather button and the rain streaks
+buildLinger();                         // linger.js: the log seats light up
+wireTimeMenu();                        // daytime.js: the ⚙️ menu's time slider and Day cycle button
+buildClocks();                         // clock.js: the tent's alarm clock and the dial on the hammock post
+buildRadio();                          // radio.js: the radio on the snack table
+buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
+buildCar();                            // car.js: the key, the dash radio and the dash clock
+createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
 
 // ================================================================ loop, with an fps panel and a resolution safety net
+let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 addEventListener("resize", resize); resize();
 camera.far = 80;
 if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }   // ?pos=, ?yaw=, ?pitch=: the start view (core.js OPT)

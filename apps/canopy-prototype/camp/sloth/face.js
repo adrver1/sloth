@@ -8,10 +8,7 @@ import * as THREE from "three";
 import { V, canvasTex, sstep } from "../util.js";
 import { SLOTH } from "../campProps.js";
 
-const FACE = (() => {                                  // which way the face points in the head bone's frame (the sloth faces -Z at rest)
-  SLOTH.scene.updateMatrixWorld(true); const h = SLOTH.scene.getObjectByName("head");
-  return V(0, 0, -1).applyQuaternion(h.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(SLOTH.scene.getWorldQuaternion(new THREE.Quaternion())));
-})();
+const FACE = V();                                      // which way the face points in the head bone's frame (the sloth faces -Z at rest); set by buildFace
 let palette = null;
 function eyeKit(o) {                                   // per sloth: its own copy of the meshes' UVs with the eyes open and shut
   const kit = [];
@@ -34,9 +31,12 @@ function eyeKit(o) {                                   // per sloth: its own cop
 }
 // a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
 // muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.
-// buildFace() makes the card's texture, material and geometry; sloths.js calls it first thing, before any sloth is made
+// buildFace() works out FACE from the model and makes the card's texture, material and geometry; sloths.js calls it first
+// thing, before any sloth is made
 let mouthMat, mouthGeo;
 function buildFace() {
+  SLOTH.scene.updateMatrixWorld(true); const h = SLOTH.scene.getObjectByName("head");
+  FACE.set(0, 0, -1).applyQuaternion(h.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(SLOTH.scene.getWorldQuaternion(new THREE.Quaternion())));
   const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();
     g.fillStyle = "#e07a8a"; g.beginPath(); g.ellipse(32, 48, 16, 11, 0, 0, 7); g.fill(); });
   mouthMat = new THREE.MeshBasicMaterial({ map: mouthTex, alphaTest: 0.5 }); mouthGeo = new THREE.PlaneGeometry(0.036, 0.034);

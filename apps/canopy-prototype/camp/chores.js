@@ -11,7 +11,7 @@ import * as THREE from "three";
 import { createActivities } from "../activities.js";
 import { LIVED, camera, scene } from "./core.js";
 import { toast } from "./hud.js";
-import { FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, flames, glowTex } from "./campProps.js";
+import { FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, glowTex } from "./campProps.js";
 import { CRATE, FIRE, SOUP_POT, TABLE, WOOD_PILE } from "./layout.js";
 import { sloths } from "./sloths.js";
 import { burst } from "./fx.js";
@@ -19,10 +19,9 @@ import { me } from "./player.js";
 import { addTargets } from "./targets.js";
 
 // the logs you put on make the camp's fire bigger: each frame the fire chore says how much wider, taller and brighter, on top
-// of what campProps.js (the cards and the old sprites) and the day's light (fireLight) set for this frame. Only here.
+// of what the day's light (campProps.js fireStep: fireLight) set for this frame. Only here.
 const boostFire = (wide, tall, light) => {
   for (const c of FIRE_CARDS) c.scale.set(wide, tall, wide);
-  for (const s of flames) s.scale.multiplyScalar(wide);
   fireLight.intensity *= light;
 };
 

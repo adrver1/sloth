@@ -23,7 +23,7 @@ const NOISE_GLSL = `
 `;
 const macroTint = (m, c) => c.multiply(new THREE.Color(1.1 + (0.8 - 1.1) * m, 1.02 + (0.97 - 1.02) * m, 0.74 + (0.95 - 0.74) * m));
 
-export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null, extra = [] }) {
+export function createGround({ scene, RC, blockers, grassMap, S, look, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null, extra = [] }) {
   // extra: more plants as [x, z, atlas cell, size], placed by the caller (camp/glade.js: the sloth tree's glade, outside the clearing)
   // height (camp/terrain.js groundHeight): the floor, the plants and the roots follow it; far > 0 makes the floor one mesh out to far metres,
   // the forest floor included (forestMap is its tile, 6 m across), instead of the flat clearing disc
@@ -200,7 +200,6 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
     if (g.attributes.normal.getY(0) < 0) { for (let t = 0; t < idx.length; t += 3) [idx[t + 1], idx[t + 2]] = [idx[t + 2], idx[t + 1]]; g.setIndex(idx); g.computeVertexNormals(); }   // face up
     return g;
   }
-  const grassMap = clearing.material.map;
   let bakedMask = null, bakedSoil = null;
   if (baked) {
     bakedMask = new THREE.CanvasTexture(baked.mask); bakedMask.flipY = false; bakedMask.colorSpace = THREE.NoColorSpace;
@@ -296,7 +295,6 @@ export function createGround({ scene, RC, blockers, clearing, S, look, fx, uTime
   // the contact shadows: the floor darkens itself by the shadow map (review P8: it was a see-through disc blended over the whole
   // floor every frame); the track and path ribbons on top take the same darkening through shadeOn()
   const uShade = { value: shade }, uShadeK = { value: 1 };
-  clearing.visible = false;
 
   // ---------------------------------------------------------------- plant atlas (4 x 2 cells of 128): tuft, tall grass, wildflowers, clover;
   // then the clearing-edge accents (review B6): heliconia with red bracts, a bromeliad, a dark fern for framing, ground orchids

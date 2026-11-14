@@ -15,7 +15,9 @@ import { blockers } from "./campProps.js";
 // jeepSeat.js adds sitting in the front seats to the same object: sit(side), stand(), seatedIn(), seatBusy(side).
 // cabinLive.receive(object): that object takes the cabin light's shadow (campGround.js gives it the floor and the baked props).
 let jeepStep = () => {}, jeepApi = null, cabinLive = null;
-if (JEEP !== "none") {
+// buildJeep (main.js, once the props stand): waits for the jeep's downloads and parks it; nothing with ?jeep=none
+async function buildJeep() {
+  if (JEEP === "none") return;
   const J = await PRE.jeep, at = JEEP_AT, tan = JEEP_TAN;
   const jeep = J.scene;
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -94,4 +96,4 @@ if (JEEP !== "none") {
   };
 }
 
-export { cabinLive, jeepApi, jeepStep };
+export { buildJeep, cabinLive, jeepApi, jeepStep };
