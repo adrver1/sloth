@@ -19,7 +19,7 @@ in several different places", and bake the whole scene as one). Run it whenever 
   layout  props/shadow/export_casters.cjs: the clearing's layout from the live page (prop spots, the jeep's track, the path,
           the deadwood, the ground's height, and the "place" block: where the page stands each baked prop and light, which
           the light bake reads instead of keeping its own copy), served on :8765 by this script ->
-          props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>); it stops the bake if the page gave
+          props/shadow/layout_picked.json (needs `npm ci`, and CHROMIUM=<a Chrome> when the repo's playwright has no browser); it stops the bake if the page gave
           an incomplete layout
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
 """

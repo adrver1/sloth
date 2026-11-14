@@ -7,15 +7,21 @@
 //   node props/shadow/export_casters.cjs [props=picked] [jeep=expedition]
 // (It used to write casters_<props>_<jeep>.glb too, for a ground-shadow bake script that is gone: the light bake makes the
 // ground's shadows now. The file name stays so the bake steps and notes that name it still match.)
-const { chromium } = require("playwright"), fs = require("fs"), path = require("path");
+// It exits 1, writing nothing, when the page logs any error (a page error, a console error or a failed download; the same
+// watch() as tools/camp-page.cjs) or the layout has parts missing, so the bake never runs on a half-built page (review R2-062).
+// The browser is tools/camp-page.cjs launch(): the repo's playwright, else CHROMIUM=<a Chromium or Chrome> (CHROME= still works).
+const fs = require("fs"), path = require("path");
+process.env.CHROMIUM ||= process.env.CHROME || "";
+const { launch, routeThree, watch } = require("../../tools/camp-page.cjs");
 const [props = "picked", jeep = "expedition"] = process.argv.slice(2), root = path.resolve(__dirname, "../..");
 if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.error(`only picked props and the expedition jeep (or none) exist now, not ${props} / ${jeep}`); process.exit(2); }
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROME || (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined), args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-  const p = await b.newPage({ viewport: { width: 400, height: 300 } });
-  p.on("pageerror", (e) => console.log("PAGEERR", e.message));
-  await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (r) => r.fulfill({ body: fs.readFileSync(root + "/node_modules/three/" + r.request().url().split("three@0.186.1/")[1]), contentType: "text/javascript" }));
-  await p.route(/fonts\.(googleapis|gstatic)\.com|_lm_4k|camp_shadow_/, (r) => r.abort());
+  const { browser: b, page: p } = await launch({ width: 400, height: 300 });
+  const { errs } = await watch(p);
+  await routeThree(p);   // three.js from node_modules, no web fonts
+  // the ground's baked shadows are a bake output the layout does not need (a new jeep has none yet): an empty 1x1 PNG
+  const blank = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
+  await p.route(/camp_shadow_/, (r) => r.fulfill({ body: blank, contentType: "image/png" }));
   await p.goto(`http://localhost:${process.env.LAYOUT_PORT || 8765}/apps/canopy-prototype/camp.html?jeep=${jeep}&lm=1k`);   // the smallest light maps: the layout needs none
   await p.waitForFunction("window.__ready", null, { timeout: 120000 }); await p.waitForTimeout(5000);
   const out = await p.evaluate(async () => {
@@ -41,6 +47,7 @@ if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.erro
   if (!out.error && !out.layout.deadwood.length) miss.push("deadwood");
   if (!out.error) for (const [k, v] of Object.entries(out.layout.place)) if (v === null || (Array.isArray(v) && (!v.length || v.includes(null)))) miss.push(`place.${k}`);
   if (miss.length) { console.error("layout incomplete, nothing written: " + miss.join(", ")); await b.close(); process.exit(1); }
+  if (errs.length) { console.error(`the page logged ${errs.length} error(s), nothing written:\n  ` + errs.join("\n  ")); await b.close(); process.exit(1); }
   if (jeep === "expedition") fs.writeFileSync(path.join(__dirname, `layout_${props}.json`), JSON.stringify(out.layout));   // for props/ground/bake_ground.py
   console.log(`layout_${props}.json: ${out.layout.spots.length} spots, ${out.layout.deadwood.length} deadwood, track of ${out.layout.track.length}`); await b.close();
-})();
+})().catch((e) => { console.error(e); process.exit(1); });
