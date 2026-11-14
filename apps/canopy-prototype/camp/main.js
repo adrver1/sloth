@@ -78,10 +78,43 @@ buildCar();                            // car.js: the key, the dash radio and th
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
 
 // ================================================================ loop, with an fps panel and a resolution safety net
-let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 addEventListener("resize", resize); resize();
 camera.far = 80;
-const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
+const clock = new THREE.Clock();
+
+// the fps panel and the resolution safety net (review R2-057). It judges frame time against the display's own rate, so a
+// 30 Hz screen is not counted as slow: after a second of grace (the first frames upload textures and build the highlight)
+// it takes the median frame interval of the next second as the target (at most 1/30 s, so a phone that is slow from the
+// start still counts as slow). Then, once a second: two seconds in a row slower than 1.4 times the target lower the
+// resolution by 0.25 (down to 1); a run of good seconds raises it by 0.25 again, up to the Detail level's own (D.pr). The run
+// is 10 s, doubled each time it has to lower again, so it does not see-saw. A second with a frame over 1.5 s (a hidden tab) is not judged.
+// The fps pill shows the resolution it uses now (for example 1.75×).
+const PR_MAX = renderer.getPixelRatio();
+const net = { pr: PR_MAX, t: 0, ivs: [], target: 0, slow: 0, good: 0, wait: 10, downs: 0, pause: false };
+let frames = 0, acc = 0;
+const setPr = (pr) => { net.pr = pr; renderer.setPixelRatio(pr); resize(); };
+function perfStep(raw) {
+  frames++; acc += raw; net.t += raw;
+  if (raw > 1.5) net.pause = true;   // a pause (a hidden tab): this second is not judged
+  if (!net.target && net.t > 1) {
+    net.ivs.push(raw);
+    if (net.t > 2) { net.ivs.sort((a, b) => a - b); net.target = Math.min(net.ivs[net.ivs.length >> 1], 1 / 30); net.ivs = null; }
+  }
+  if (acc < 1) return;
+  const fps = frames / acc, avg = acc / frames, i = renderer.info.render;
+  if (net.target && !net.pause) {
+    if (avg > 1.4 * net.target) {
+      net.good = 0;
+      if (++net.slow >= 2 && net.pr > 1) { setPr(Math.max(1, net.pr - 0.25)); net.slow = 0; net.wait = Math.min(160, 10 * 2 ** net.downs++); }
+    } else {
+      net.slow = 0;
+      if (avg < 1.2 * net.target && net.pr < PR_MAX && ++net.good >= net.wait) { setPr(Math.min(PR_MAX, net.pr + 0.25)); net.good = 0; }
+    }
+  }
+  Object.assign(stats, { fps: Math.round(fps), calls: i.calls, tris: i.triangles, pr: net.pr, detail: DETAIL });
+  $("perf").innerHTML = `${Math.round(fps)} fps · ${+net.pr.toFixed(2)}×<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
+  frames = 0; acc = 0; net.pause = false;
+}
 // compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card
 await renderer.compileAsync(scene, camera).catch(() => {});
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
@@ -114,14 +147,6 @@ renderer.setAnimationLoop(() => {
   audioStep(dt, dusk); radioStep(dt);
   shadowStep();                                            // campGround.js: the sun shadows, re-cast while the props load
   renderer.render(scene, camera);
-  frames++; acc += raw;
-  if (acc >= 1) {
-    const fps = frames / acc, i = renderer.info.render;
-    slow = fps < 45 ? slow + 1 : 0;
-    if (slow >= 2 && pr > 1) { pr = Math.max(1, pr - 0.25); renderer.setPixelRatio(pr); resize(); slow = 0; }
-    Object.assign(stats, { fps: Math.round(fps), calls: i.calls, tris: i.triangles, pr, detail: DETAIL });
-    $("perf").innerHTML = `${Math.round(fps)} fps<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
-    frames = 0; acc = 0;
-  }
+  perfStep(raw);                                           // the fps panel and the resolution safety net, above
 });
 ready();   // debug.js: window.__ready, which the tools wait for
