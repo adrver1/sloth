@@ -9,11 +9,12 @@
 // 26 triangles. The jeep's own nodes (build_jeep.py): SeatP is the driver's cushion top, WheelHub the steering wheel's middle;
 // the dash's face toward the driver is at local z 0.14, from y 0.93 to 1.13. Left to right as you sit: the wheel (x 0.36),
 // the key, the clock up top in the middle, the radio in front of the passenger seat.
-// Exports buildCar() (main.js, once), carStep (main.js, each frame) and carApi (inCar, engine; null with ?jeep=none). Also adds engine() to the
-// jeep's API (jeep.js jeepApi) for audio.js, which car.js imports and so cannot import back.
+// Exports buildCar() (main.js, once), carStep (main.js, each frame) and carApi (inCar, engine; null with ?jeep=none), which
+// audio.js reads each frame for the engine's sound.
 import * as THREE from "three";
 import { V, canvasTex, trisIn } from "./util.js";
 import { jeepApi } from "./jeep.js";
+import { seatApi } from "./jeepSeat.js";
 import { addTarget } from "./targets.js";
 import { toast } from "./hud.js";
 import { audio } from "./audio.js";
@@ -22,7 +23,7 @@ import { addClock, faceTex, hand } from "./clock.js";
 
 let carStep = () => {}, carApi = null;
 function buildCar() {   // main.js, once the jeep, its seats, the radio and the clocks are in
-  const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
+  const jeep = jeepApi?.node;   // null with ?jeep=none
   if (!jeep) return;
   const mat = (o) => new THREE.MeshLambertMaterial(o);   // textured and glowing faces (util.js lam is for plain colours)
   const DASH_Z = 0.137;
@@ -31,8 +32,8 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   // into the dash, so none of it hides behind the dash face (Adriaen 2026-11-13: the clock's bottom half was cut off)
   const onDash = (o, x, y, tilt = 0, half = 0) => { o.position.set(x, y, DASH_Z - half * Math.abs(Math.sin(tilt))); o.rotation.set(tilt, Math.PI, 0); jeep.add(o); return o; };
 
-  // ---------------------------------------------------------------- in the jeep: getting in and out is jeepSeat.js (jeepApi.sit / stand / seatedIn)
-  const inCar = () => !!J.seatedIn?.();
+  // ---------------------------------------------------------------- in the jeep: getting in and out is jeepSeat.js (seatApi.sit / stand / seatedIn)
+  const inCar = () => !!seatApi?.seatedIn();
 
   // ---------------------------------------------------------------- the key: turn it to start the engine
   // the key head (a brass bow and blade, a leather fob) on one quad that turns about the slot, and a chrome ring round the slot
@@ -99,8 +100,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
     jeep.rotation.z = amp * 0.4 * Math.sin(t * 19);
     drawRadio(); rMat.emissiveIntensity = shown === "off" ? 0 : 0.8;
   };
-  // the engine joins the jeep's API (jeep.js jeepApi), where audio.js hears it: "off" | "crank" | "run"
-  J.engine = () => engine;
-  carApi = { inCar, engine: J.engine };
+  // engine(): "off" | "crank" | "run", which audio.js hears
+  carApi = { inCar, engine: () => engine };
 }
 export { buildCar, carApi, carStep };

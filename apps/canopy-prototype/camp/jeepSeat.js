@@ -8,10 +8,10 @@
 // busy while a sloth is in it, climbing in or out, or waiting at the door; then that door says so and you ride beside it from
 // the other side. While you sit you hold the seat in the camp's life ("jeep:driver" / "jeep:passenger"), and sloths.js
 // sends a sloth coming home to it off for a wander until you get out.
-// The seats join the jeep's API (jeep.js jeepApi): sit(side) / stand() / seatedIn()
-// ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks. The jeep's doors, boot
+// Its own API, seatApi (null with ?jeep=none): sit(side) / stand() / seatedIn() ("driver" | "passenger" | null, only once
+// you have settled) / seatBusy(side), for car.js and checks. The jeep's doors, boot
 // and hood are tap targets (targets.js), added here: open or close, and Get in / Get out on the front doors.
-// Exports buildJeepSeats() (main.js, once) and jeepSeatStep (main.js, each frame).
+// Exports buildJeepSeats() (main.js, once), jeepSeatStep (main.js, each frame) and seatApi.
 // The claims go through camp/places.js; core.js pace is the checks' speed-up.
 import * as THREE from "three";
 import { camera, pace, uTime } from "./core.js";
@@ -24,7 +24,7 @@ import { claim as claimPlace, release } from "./places.js";
 import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
 
-let jeepSeatStep = () => {};
+let jeepSeatStep = () => {}, seatApi = null;
 function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
   if (!jeep) return;
@@ -126,8 +126,8 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
     if (who) return [[`${who.name} is at the wheel: hop in the other side 🦥`, () => toast("Round the front to the other door 🦥")]];
     return [[side === "driver" ? "Sit at the wheel 🚙" : "Sit in the passenger seat 🚙", () => sit(side)]];
   }
-  // onto jeepApi itself: car.js reads seatedIn; sit, stand and seatBusy are for checks
-  Object.assign(J, { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null });
+  // car.js reads seatedIn; sit, stand and seatBusy are for checks
+  seatApi = { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null };
   // the doors, the boot and the hood light up and open a menu (targets.js): open or close it, and on the front doors Get in / Get out
   const DOOR_REACH = 4, DOOR_NAME = { P: "door", D: "door", B: "boot", H: "hood" };
   const box3 = new THREE.Box3(), sph = new THREE.Sphere(), to = new THREE.Vector3();
@@ -138,4 +138,4 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
       options: () => [...doorOptions(d), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };
   }]));
 }
-export { buildJeepSeats, jeepSeatStep };
+export { buildJeepSeats, jeepSeatStep, seatApi };

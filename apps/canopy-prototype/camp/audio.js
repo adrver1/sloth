@@ -21,6 +21,7 @@ import { me } from "./player.js";
 import { weather } from "./weather.js";
 import { SOUP_POT, TENT } from "./layout.js";
 import { jeepApi } from "./jeep.js";
+import { carApi } from "./car.js";   // the engine (null with ?jeep=none, or until main.js has built the car)
 import { acts } from "./chores.js";      // the pot's stage (null until main.js has built the chores)
 import { opApi } from "./operator.js";   // his sounds (null with ?op=0, or until main.js has built him)
 import { rand as R } from "./util.js";   // a number between a and b from Math.random, as the copy that stood here
@@ -347,7 +348,7 @@ function watchJeep() {
   J.doors.forEach((d, i) => { const o = d.open; if (opWas.door[i] !== undefined && o !== opWas.door[i]) SFX.door(d.o.getWorldPosition(new THREE.Vector3()), o); opWas.door[i] = o; });
   // the engine (car.js: off → crank → run): a click of the key and the starter cranking, the engine catching with a rev,
   // a steady idle while it runs, and a few last chugs as it dies when you turn it off
-  const st = J.engine?.() ?? "off", was = opWas.engine ?? "off", at = J.node.getWorldPosition(new THREE.Vector3()).setY(0.7);
+  const st = carApi?.engine() ?? "off", was = opWas.engine ?? "off", at = J.node.getWorldPosition(new THREE.Vector3()).setY(0.7);
   if (st !== was) {
     if (st === "crank") ENGINE.crank(at);
     if (st === "run") { ENGINE.idle(at, true); }
