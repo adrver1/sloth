@@ -36,6 +36,7 @@ function boot() {
   if (ac) return true;
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
   try { ac = new AC({ latencyHint: "playback" }); } catch { return false; }
+  ac.addEventListener?.("statechange", () => { showHint(); if (ac.state !== "running" && !document.hidden && started && !set.muted) kick = true; });
   comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.25;
   master = ac.createGain(); master.connect(comp); comp.connect(ac.destination);
   for (const k of ["nature", "sfx", "music"]) { bus[k] = ac.createGain(); bus[k].gain.value = LEVEL[k]; bus[k].connect(master); }
@@ -430,7 +431,7 @@ function unlock() {
 }
 function start() {
   if (!boot()) return false;
-  if (ac.state !== "running" && !set.muted) { unlock(); ac.resume().catch(() => {}); }
+  if ((ac.state !== "running" || kick) && !set.muted) { kick = false; unlock(); ac.resume().catch(() => {}); }
   if (!started) { started = true; routeMusic(); setInterval(musicTick, 100); keep(); }   // music keeps time even when frames drop
   return true;
 }
@@ -443,7 +444,14 @@ hint.addEventListener("pointerdown", (e) => e.stopPropagation()); hint.onclick =
 document.body.append(hint);
 function showHint() { hint.style.display = ac && !set.muted && ac.state !== "running" ? "block" : "none"; }
 document.addEventListener("click", (e) => { if (e.target.closest?.("button")) { start(); if (ac?.state === "running") SFX.tock(); } }, true);
-document.addEventListener("visibilitychange", () => { if (!ac) return; if (document.hidden) ac.suspend(); else if (started && !set.muted) ac.resume().catch(() => {}); });
+// switching tabs or apps (Adriaen 2026-11-14: the sound didn't come back): pause while hidden, and on the way back try to
+// resume at once. Phones often refuse that without a tap (iOS can also leave the context "running" but silent), so the next
+// tap anywhere wakes it again inside the tap, and the Tap for sound pill shows if it is still off.
+let kick = false;
+function wake() { if (!ac || !started || set.muted || document.hidden) return; kick = true; ac.resume().catch(() => {}); setTimeout(showHint, 700); }
+document.addEventListener("visibilitychange", () => { if (!ac) return; if (document.hidden) ac.suspend().catch(() => {}); else wake(); });
+addEventListener("pageshow", wake); addEventListener("focus", wake);
+
 
 // your chores (activities.js), heard through the message they show: a log picked up, the water pail, a vegetable, a bowl
 const toastEl = $("toast"); let toastWas = "";
