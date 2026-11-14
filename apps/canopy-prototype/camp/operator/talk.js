@@ -37,7 +37,7 @@ function buildTalk() {
   tapCol = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.75, 6), new THREE.MeshBasicMaterial({ visible: false }));
   scene.add(tapCol); const sph = new THREE.Sphere();
   addTarget(tapCol, () => ({ look: null, quiet: true, picks: [tapCol], at: (v) => { v.copy(tapCol.position); sph.center.copy(v); sph.radius = 0.6; return sph; },
-    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => { const f = !op.sleeping && chores.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, gift]] : []), [op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]]; } }));
+    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => { const f = !op.sleeping && !munching() && chores.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, gift]] : []), [op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]]; } }));
 }
 const saying = () => say.textContent;
 function talk() { speak(line()); }
@@ -46,7 +46,11 @@ const mouthAt = (out) => B.head.getWorldPosition(out).addScaledVector(csDir(0, 0
 const palmAt = (S, out) => B["hand" + S].getWorldPosition(out).addScaledVector(V(0, 1, 0).applyQuaternion(B["hand" + S].getWorldQuaternion(tq)), 0.07);
 // the hand that's free: the right unless it holds something; none while eating soup, reading, cuddling or lying down
 const freeHand = () => op.eat || op.ik?.book || op.ik?.hug || op.carry || op.lying || op.sleeping || op.ik?.L ? null : op.inHand || op.pail || op.stir || op.veg || op.ik?.R ? "L" : "R";
+// one gift at a time: while the last one is flying to him or at his lips the menu offers none (a second one overwrote the
+// first's flight and left its food floating at his mouth: review R2-009)
+const munching = () => !!(op.talk.fly || op.talk.food);
 function gift() {
+  if (munching()) return;
   const f = chores.give(); if (!f) return;
   // the modelled food (camp/food.js) flies from your hand to his mouth, stays at his lips and gets a bite smaller each
   // munch (talkStep), then he thanks you
