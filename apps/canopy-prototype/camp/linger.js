@@ -4,18 +4,19 @@
 // wander. Walking (stick or keys) stands you up; so does "Stand up" on the seat.
 // Exports lingerStep(dt) (main.js, each frame) and sit(i), which sits you on seat i at once (the tools: debug.js __sit).
 import * as THREE from "three";
-import { scene, uTime } from "./core.js";
+import { uTime } from "./core.js";
 import { V, wrapPi } from "./util.js";
 import { SEATS } from "./layout.js";
 import { me } from "./player.js";
 import { addTarget } from "./targets.js";
+import { seatLog } from "./places.js";
 
-const seats = SEATS.map((_, i) => scene.getObjectByName(`Seat_${i}`)).filter(Boolean);   // campProps.js puts one log on each of layout.js's seats
+const seats = SEATS.map((_, i) => seatLog(i)).filter(Boolean);   // campProps.js puts one log on each of layout.js's seats
 // where you sit on a log: its middle, a little to its back edge. Seat_0 is Sunny's bench (sloths.js "seat", just right of its
 // middle as you face the fire), so there you always shift 0.55 m to the left and leave Sunny room (Adriaen 2026-11-12)
 function seatSpot(o) {
   const c = o.position.clone().setY(0), a = Math.atan2(c.z, c.x), pos = c.clone().multiplyScalar(1 + 0.12 / c.length());
-  if (o.name === "Seat_0") pos.addScaledVector(V(-Math.sin(a), 0, Math.cos(a)), 0.55);
+  if (o === seatLog(0)) pos.addScaledVector(V(-Math.sin(a), 0, Math.cos(a)), 0.55);
   return { pos, yaw: Math.atan2(pos.x, pos.z) };   // facing the fire in the middle
 }
 const box = new THREE.Box3(), sph = new THREE.Sphere();

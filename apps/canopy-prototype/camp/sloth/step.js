@@ -11,7 +11,7 @@
 //   findSeats()          looks up the three log seats (sloths.js, once the props are in)
 // core.js pace (window.__campFast for the tools) speeds the sloths' day up for checks (the move lab slows and pauses it the same way).
 import { OPT, pace, scene } from "../core.js";
-import { claim, release } from "../places.js";
+import { claim, release, seatKey, seatLog } from "../places.js";
 import { SL, camp, wild } from "./state.js";
 import { glideStep, slideStep } from "./moves.js";
 import { brush } from "./spots.js";
@@ -33,12 +33,12 @@ const PHASE = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, re
 
 // you on a log seat by the fire (linger.js) hold it as "log:<i>" (Seat_<i>), so no one sits on you
 let mySeat = -1, LOGS = [];
-function findSeats() { LOGS = [0, 1, 2].map((i) => scene.getObjectByName(`Seat_${i}`)); }
+function findSeats() { LOGS = [0, 1, 2].map(seatLog); }
 function seatWatch(st) {                            // st: the seat you are on (player.js me.seat), or null
   let i = -1;
   if (st) { let best = 1.2; LOGS.forEach((o, k) => { if (o) { const d = Math.hypot(o.position.x - st.pos.x, o.position.z - st.pos.z); if (d < best) { best = d; i = k; } } }); }
   if (i === mySeat) return;
-  const key = (k) => k === 0 ? "log:0:left" : `log:${k}`;   // Sunny's bench: you sit to its left (linger.js), Sunny keeps "log:0"
+  const key = (k) => seatKey(k, k === 0);   // Sunny's bench: you sit to its left (linger.js), Sunny keeps "log:0"
   if (mySeat >= 0) release(key(mySeat), "player");
   if (i >= 0) claim(key(i), "player");
   mySeat = i;

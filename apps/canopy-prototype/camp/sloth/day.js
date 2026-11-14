@@ -17,7 +17,7 @@ import { R, scene } from "../core.js";
 import { V } from "../util.js";
 import { yawFrom } from "../actor.js";
 import { RC } from "../layout.js";
-import { claim, holder, hosted, join, release, taken } from "../places.js";
+import { bedKey, claim, holder, hosted, join, release, seatKey, seatLog, taken } from "../places.js";
 import { CRAWL, MAX_OUT, camp, guests } from "./state.js";
 import { releaseHome } from "./spots.js";
 import { play } from "./clips.js";
@@ -64,8 +64,8 @@ function errand(s) {                                // a place at the table or t
   walkTo(s, slot.p, () => startEat(s, slot, fed(s))); s.trip.slot = slot;   // trip.slot: lend() frees the place if he borrows it on the way
 }
 function wander(s) {
-  const lg = ["log:1", "log:2"].find((k) => holder(k) === "operator" && hosted(k));   // he's on a log: now and then go and sit with him
-  if (lg && R(0, 1) < 0.25) { const o = scene.getObjectByName(`Seat_${lg[4]}`); if (o) { const c = o.position.clone().setY(0); return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!join(lg, s)) goHome(s); }); } }
+  const i = [1, 2].find((k) => holder(seatKey(k)) === "operator" && hosted(seatKey(k))), lg = i && seatKey(i);   // he's on a log: now and then go and sit with him
+  if (lg && R(0, 1) < 0.25) { const o = seatLog(i); if (o) { const c = o.position.clone().setY(0); return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!join(lg, s)) goHome(s); }); } }
   walkTo(s, wanderPoint(), () => { Object.assign(s.trip, { phase: "rest", t: 0, dur: R(5, 9), nap: R(0, 1) < 0.55 }); play(s, "idle", 1.2); });
 }
 const youDrive = () => holder("jeep:driver") === "player";   // you in the jeep's driver seat (jeepSeat.js): its sloth waits
@@ -89,7 +89,7 @@ function arrive(s) {                                // at its spot's door (a car
 function napTrip(s) {                               // a cozy place free (or shared with the operator); false if none
   const own = s.spot, ok = guests.filter((g) => !(g.car && youDrive()) && !(g.name === own.name && own.name !== "tent") && (s.sc < 2.0 || g.name !== "hammock"));
   let pick = ok[Math.floor(R(0, ok.length))]; if (!pick) return false;
-  const b0 = holder("bed:0"); if (pick.key === "bed:1" && b0 && !camp.includes(b0)) pick = guests.find((g) => g.key === "bed:0");   // he lies along the whole bed
+  const b0 = holder(bedKey(0)); if (pick.key === bedKey(1) && b0 && !camp.includes(b0)) pick = guests.find((g) => g.key === bedKey(0));   // he lies along the whole bed
   const h = holder(pick.key);
   if (h && camp.includes(h)) return false;
   if (h) { walkTo(s, pick.via ?? pick.door, () => { if (!join(pick.key, s)) goHome(s); }); return true; }   // he's in it: ask to join him

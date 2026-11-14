@@ -24,7 +24,7 @@ import { yawTo } from "../actor.js";
 import { HAMMOCK, LAUNDRY, RC, SEATS, TENT } from "../layout.js";
 import { branchCurves } from "../forest.js";
 import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "../swing.js";
-import { claim, release } from "../places.js";
+import { bedKey, claim, release, seatKey } from "../places.js";
 import { SL, guests, sloths, spots } from "./state.js";
 import { HAMMOCK_IN, branchBase, treeOf, trunkR0 } from "./poses.js";
 
@@ -104,11 +104,11 @@ function buildGuests() {
   if (Jp && jeepApi?.seat) guests.push({ ...Jp, key: "jeep:P", at: Jp.parent.worldToLocal(jeepApi.seat.clone()), yaw: Math.PI, clip: "curl", scale: 2.2, guest: true, home: false, who: null });
   if (Tp) {                                         // the bed along the tent's left wall (campLife.js), tent frame: x -0.92, z -1.2 .. 0.4
     const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = Tp.parent.localToWorld(V(x, 0, z)); ray.set(V(w.x, 1.2, w.z), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? h.point.y : 0.3; };
-    for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = -0.92 + dx, z = -0.45; guests.push({ ...Tp, bed: true, key: `bed:${i}`, at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, guest: true, home: false, who: null }); }
+    for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = -0.92 + dx, z = -0.45; guests.push({ ...Tp, bed: true, key: bedKey(i), at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, guest: true, home: false, who: null }); }
   }
 }
 
-const claimHome = (s) => { claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") claim("log:0", s); };
-const releaseHome = (s) => { release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") release("log:0", s); };
+const claimHome = (s) => { claim(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") claim(seatKey(0), s); };
+const releaseHome = (s) => { release(`${s.spot.name}:${s.name}`, s); if (s.spot.name === "seat") release(seatKey(0), s); };
 
 export { brush, buildGuests, buildSpots, claimHome, hammock, releaseHome };

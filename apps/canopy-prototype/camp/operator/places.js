@@ -11,6 +11,7 @@ import { blockers } from "../campProps.js";
 import { me } from "../player.js";
 import { root } from "./model.js";
 import { ME, RADIUS, life, op } from "./state.js";
+import { bedKey, seatKey, seatLog } from "../places.js";
 
 const ray = new THREE.Raycaster(), DOWN = V(0, -1, 0);
 const SEATS = [];                                      // the free end of each log seat that isn't Sunny's (Sunny's is Seat_0)
@@ -18,7 +19,7 @@ let BED = null;
 function findPlaces() {
   if (SEATS.length) return true;
   for (const i of [1, 2]) {
-    const log = scene.getObjectByName(`Seat_${i}`); if (!log) return false;
+    const log = seatLog(i); if (!log) return false;
     log.updateMatrixWorld(true);
     const ax = V(1, 0, 0).transformDirection(log.matrixWorld).setY(0).normalize(), c = log.getWorldPosition(V());
     const things = scene.getObjectByName("SeatThings"); let side = i === 1 ? -1 : 1;
@@ -26,7 +27,7 @@ function findPlaces() {
     const at = c.clone().addScaledVector(ax, side * 0.36);
     ray.set(V(at.x, 3, at.z), DOWN); ray.far = 4;
     const tops = [log, scene.getObjectByName(`SeatTop_${i}`)].filter(Boolean), top = ray.intersectObjects(tops, true)[0]?.point.y ?? 0.42;
-    SEATS.push({ key: `log:${i}`, at: at.setY(top), yaw: Math.atan2(c.x, c.z) });   // facing the fire
+    SEATS.push({ key: seatKey(i), at: at.setY(top), yaw: Math.atan2(c.x, c.z) });   // facing the fire
   }
   const tent = scene.getObjectByName("Tent");
   if (tent) {   // the bed along the tent's left wall (build_camp.py wall_tent: bed at (-W + 0.48, yb - 1.01), head toward +y; layout.js TENT.bed)
@@ -34,7 +35,7 @@ function findPlaces() {
     const c = at(bx, by); ray.set(V(c.x, 3, c.z), DOWN); ray.far = 4;
     const hits = ray.intersectObject(tent, true).filter((h) => h.point.y < 0.8 && h.point.y > 0.2), top = hits[0]?.point.y ?? 0.45;
     const head = at(bx, 1.2).sub(at(bx, 0)).normalize();
-    BED = { key: "bed:0", c: c.setY(top), head, side: at(-0.28, 0.35), door: at(0, -1.7), inside: at(0, -0.45), across: at(1, 0).sub(at(0, 0)).normalize() };
+    BED = { key: bedKey(0), c: c.setY(top), head, side: at(-0.28, 0.35), door: at(0, -1.7), inside: at(0, -0.45), across: at(1, 0).sub(at(0, 0)).normalize() };
   }
   return true;
 }
