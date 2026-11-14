@@ -51,8 +51,21 @@ function trackDist(x, z) { return Math.min(jeepDist(x, z), pathDist(x, z)); }   
 const FLOOR_OVERLAYS = [];   // the path and track ribbons drawn on the floor: they take the ground's contact shadow (groundLife.shadeOn)
 const branchCurves = [], TOP = 15;   // the big trees' low branches (the sloths hang from them), and their height
 let grassTex, leafGeo, leafM, perClump, leafScale;   // set by buildForest
-// buildForest (main.js, once, right after the sky): the floor's ribbons, the big trees, the forest wall, leaves, crowns and ferns
+// buildForest (main.js, once, right after the sky) runs the steps below in this order. Every step but the crowns and the
+// verge draws from the forest stream, so the order is what keeps the forest as it was baked: do not move a step.
 function buildForest() {
+  clearingFloor();               // the grass tile and the footpath to the glade
+  trackRoad();                   // the jeep's dirt road and the tyre ruts (not with ?jeep=none)
+  heroTrees();                   // the two big mossy trees, their low branches and lianas: one draw of bark
+  const wall = forestWall();     // the forest wall's trunks, each on a root mound
+  leafCard();                    // the leaf card everything leafy shares (leafGeo, leafM, perClump, leafScale)
+  const clumps = wallLeaves(wall);   // the leaf clumps on the wall, the branches, the big crowns and the eye-height edge
+  crowns(wall, clumps);          // limbs into the clumps and a crown on each near forest tree (its own stream)
+  verge();                       // bushes along the jeep's track (its own stream)
+  ferns();                       // ferns and undergrowth round the clearing
+}
+
+function clearingFloor() {
   // ---------------------------------------------------------------- clearing floor
   // the grass tile: ground.js paints the clearing with it (the flat clearing disc it was drawn on is gone)
   grassTex = canvasTex(256, 256, (g, w, h) => {
@@ -96,7 +109,9 @@ function buildForest() {
     const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: earth, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
     m.renderOrder = 1; scene.add(m); FLOOR_OVERLAYS.push(m);
   }
+}
 
+function trackRoad() {
   // ---------------------------------------------------------------- the jeep's track: a dirt road out through the forest, and muddy tyre ruts up to its wheels
   if (track) {
     const Q = rand;   // texture noise only: leaves the seeded layout alone
@@ -137,7 +152,9 @@ function buildForest() {
     ribbon(2 * TRACK_HALF, 0.022, dirt, (p) => sstep(RC - 3, RC + 0.5, Math.hypot(p.x, p.z)), 3.2, 1);
     ribbon(1.62, 0.028, ruts, (p, l) => sstep(0, 0.6, l) * (0.7 + 0.25 * sstep(RC - 4, RC, Math.hypot(p.x, p.z))), 1.6, 2);
   }
+}
 
+function heroTrees() {
   // ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
   for (const [k, c] of HERO.entries()) {
     const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, 14, 16, true); g.translate(0, TOP / 2, 0);
@@ -180,8 +197,9 @@ function buildForest() {
     return g;
   }
   scene.add(new THREE.Mesh(merge(woodGeos), barkMat));
+}
 
-
+function forestWall() {
   // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
   const wall = [];
   {
@@ -197,20 +215,25 @@ function buildForest() {
       w[4] = y0; m.compose(V(x, y0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), ry), V(s * keep, sy * keep, s * keep)); im.setMatrixAt(i, m); });
     scene.add(im);
   }
-  // leaves and ferns go in as 8 wedges round the clearing, one InstancedMesh each, so three.js culls the wedges behind you:
-  // an InstancedMesh is culled as a whole, so before this every leaf was drawn every frame (camp review P4, 2026-11-12).
-  // Instances scaled to nothing (kept off the track and the path) are dropped.
-  function addSectors(im, n = 8) {
-    const m = new THREE.Matrix4(), p = V(), c = new THREE.Color(), groups = Array.from({ length: n }, () => []);
-    for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, m); if (Math.abs(m.determinant()) < 1e-9) continue;
-      p.setFromMatrixPosition(m); groups[Math.floor((Math.atan2(p.z, p.x) / (2 * Math.PI) + 0.5) * n) % n].push(i); }
-    for (const g of groups) {
-      if (!g.length) continue;
-      const s = new THREE.InstancedMesh(im.geometry, im.material, g.length);
-      g.forEach((i, j) => { im.getMatrixAt(i, m); s.setMatrixAt(j, m); if (im.instanceColor) { im.getColorAt(i, c); s.setColorAt(j, c); } });
-      s.computeBoundingSphere(); scene.add(s);
-    }
+  return wall;
+}
+
+// leaves and ferns go in as 8 wedges round the clearing, one InstancedMesh each, so three.js culls the wedges behind you:
+// an InstancedMesh is culled as a whole, so before this every leaf was drawn every frame (camp review P4, 2026-11-12).
+// Instances scaled to nothing (kept off the track and the path) are dropped.
+function addSectors(im, n = 8) {
+  const m = new THREE.Matrix4(), p = V(), c = new THREE.Color(), groups = Array.from({ length: n }, () => []);
+  for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, m); if (Math.abs(m.determinant()) < 1e-9) continue;
+    p.setFromMatrixPosition(m); groups[Math.floor((Math.atan2(p.z, p.x) / (2 * Math.PI) + 0.5) * n) % n].push(i); }
+  for (const g of groups) {
+    if (!g.length) continue;
+    const s = new THREE.InstancedMesh(im.geometry, im.material, g.length);
+    g.forEach((i, j) => { im.getMatrixAt(i, m); s.setMatrixAt(j, m); if (im.instanceColor) { im.getColorAt(i, c); s.setColorAt(j, c); } });
+    s.computeBoundingSphere(); scene.add(s);
   }
+}
+
+function leafCard() {
   {
     const tex = canvasTex(256, 256, (g, w, h) => {
       g.translate(w / 2, h / 2);
@@ -223,6 +246,9 @@ function buildForest() {
     });
     leafGeo = new THREE.PlaneGeometry(1, 1); leafM = leafMat({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }, 0.04); perClump = Math.round(24 * D.leaves); leafScale = [0.8, 1.25];
   }
+}
+
+function wallLeaves(wall) {
   const clumps = [];
   for (const [x, z, s, , y0] of wall) for (let k = 0; k < 2; k++) { const y = y0 + 10 * s + R(-1, 4), cx = x + R(-2, 2), cz = z + R(-2, 2); if (Math.hypot(cx, cz) > RC + 1.5) clumps.push([cx, y, cz, 2.2 * s, x, z, s]); }
   for (const c of branchCurves) for (let t = 0.35; t <= 1; t += 0.3) { const p = c.getPointAt(Math.min(1, t)); clumps.push([p.x, p.y + (c.low ? 1.2 : 0.9), p.z, R(0.6, 0.9)]); }
@@ -246,6 +272,10 @@ function buildForest() {
     if (cut) for (let j = from; j < i; j++) leaves.setMatrixAt(j, none); }
   }
   addSectors(leaves);
+  return clumps;
+}
+
+function crowns(wall, clumps) {
   // crowns on branches: a forked limb from the trunk into every leaf clump, and a spreading crown of limbs, twigs and leaves on
   // top of each forest tree, so the treetops are wood and leaves, not floating leaves (one draw for the wood, one for the new
   // leaves; their own random stream, so the seeded layout stays the same). Twigs scale with the detail level.
@@ -304,6 +334,9 @@ function buildForest() {
     }
     addSectors(lm);
   }
+}
+
+function verge() {
   // bushes along both verges of the jeep's track, so the walk out feels like a lane through the jungle
   // (their own random stream, so the seeded layout of everything else stays the same)
   if (track) {
@@ -325,6 +358,9 @@ function buildForest() {
     }
     addSectors(vm);
   }
+}
+
+function ferns() {
   // ferns and undergrowth in a thick band round the clearing
   {
     let g, mat;
@@ -345,7 +381,6 @@ function buildForest() {
     spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 ? 0 : 1); m.compose(V(x, groundHeight(x, z) - 0.03, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), R(0, 6.28)), V(s, s, s)); im.setMatrixAt(i, m); im.setColorAt(i, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
     addSectors(im);
   }
-
-
 }
+
 export { buildForest, FLOOR_OVERLAYS, branchCurves, grassTex, leafGeo, leafM, leafScale, perClump, track, trackDist };
