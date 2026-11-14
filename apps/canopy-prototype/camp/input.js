@@ -1,7 +1,8 @@
 // Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize; and the things
 // you can use: which one lights up (highlight.js) and the pill menu a tap on it opens.
 // The things themselves are tap targets (targets.js), added by the modules that own them; input.js adds the sloths.
-// Exports initInput() (main.js, once), aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) (debug.js) and resize() (main.js).
+// Exports initInput() (main.js, once), aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) (debug.js), resize() (main.js)
+// and warmHighlight() (main.js, once, before the shaders are compiled).
 import * as THREE from "three";
 import { $, camera, OPT, renderer, rng, scene, uTime } from "./core.js";
 const { R } = rng("fx");
@@ -155,4 +156,7 @@ function initInput() {
   for (const ev of ["pointerdown", "pointerup"]) menu.addEventListener(ev, (e) => e.stopPropagation());
 }
 
-export { aimStep, boop, feed, initInput, resize };
+// before the shaders are compiled (main.js): the highlight's hulls for every thing that can light up, so the first look at
+// one neither welds a hull nor compiles the outline (review R2-102)
+const warmHighlight = () => glow.warm(allTargets().filter((t) => !t.quiet && t.look).flatMap((t) => t.look));
+export { aimStep, boop, feed, initInput, resize, warmHighlight };

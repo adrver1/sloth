@@ -22,7 +22,7 @@ import { buildTentInside } from "./tentInside.js";
 import { atmo, buildAtmosphere } from "./campAir.js";
 import { acts, buildChores } from "./chores.js";
 import { buildOperator, opStep } from "./operator.js";
-import { aimStep, initInput, resize } from "./input.js";
+import { aimStep, initInput, resize, warmHighlight } from "./input.js";
 import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
 import { dayStep, wireTimeMenu } from "./daytime.js";
@@ -83,7 +83,7 @@ camera.far = 80;
 const clock = new THREE.Clock();
 
 // the fps panel and the resolution safety net (review R2-057). It judges frame time against the display's own rate, so a
-// 30 Hz screen is not counted as slow: after a second of grace (the first frames upload textures and build the highlight)
+// 30 Hz screen is not counted as slow: after a second of grace (the first frames upload textures)
 // it takes the median frame interval of the next second as the target (at most 1/30 s, so a phone that is slow from the
 // start still counts as slow). Then, once a second: two seconds in a row slower than 1.4 times the target lower the
 // resolution by 0.25 (down to 1); a run of good seconds raises it by 0.25 again, up to the Detail level's own (D.pr). The run
@@ -115,8 +115,19 @@ function perfStep(raw) {
   $("perf").innerHTML = `${Math.round(fps)} fps · ${+net.pr.toFixed(2)}×<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
   frames = 0; acc = 0; net.pause = false;
 }
-// compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card
-await renderer.compileAsync(scene, camera).catch(() => {});
+// compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card.
+// three compiles only what is visible, so everything hidden now (the night dome and the moon, the mist, the rain, the pools,
+// the jeep's far model, the highlight's hulls, things the sloths hold) is shown for the call and hidden again after. Lights
+// are left as they are: the shaders are built for the lights that are on (review R2-102)
+warmHighlight();                                           // input.js: the highlight's hulls, hidden, so they compile too
+{
+  // compileAsync builds the programs before it returns (its promise only waits for the driver), so they are hidden again
+  // before any other code can run
+  const hidden = []; scene.traverse((o) => { if (!o.visible && !o.isLight) { hidden.push(o); o.visible = true; } });
+  const compiled = renderer.compileAsync(scene, camera);
+  for (const o of hidden) o.visible = false;
+  await compiled.catch(() => {});
+}
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;

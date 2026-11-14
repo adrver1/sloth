@@ -4,6 +4,9 @@
 // so it is the same width near and far) and the glow an additive rim pass. No new geometry and no postprocessing: while
 // something is lit it is drawn twice more (outline, glow), and nothing extra otherwise. Skinned meshes (the sloths) work
 // too: the overlays share the mesh's skeleton; their fur shells are left out (the outline shows round the fur anyway).
+// Exports createHighlight(scene, renderer, { width }) -> { set(objs) (what is lit now: an object, a list, or null),
+// update(dt) (each frame), warm(objs) (builds the welded hulls for these ahead of time, hidden, so the first time one lights
+// up builds nothing and main.js's compile sees the two overlay shaders: review R2-102) }.
 import * as THREE from "three";
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 
@@ -65,6 +68,7 @@ export function createHighlight(scene, renderer, { width = 2.5 } = {}) {
   const meshesOf = (objs) => { const out = []; for (const o of [objs ?? []].flat()) o.traverse((m) => { if (m.isMesh && !m.userData.fur && m.material?.visible !== false && !m.material?.transparent) out.push(m); }); return out; };   // not the fur shells or glass
   let key = null;
   return {
+    warm(objs) { for (const m of meshesOf(objs)) partsFor(m); },
     set(objs) {
       if (objs === key) return; key = objs;
       for (const m of current) { const p = parts.get(m); if (p) p.outline.visible = p.glow.visible = false; }

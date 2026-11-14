@@ -54,7 +54,9 @@ async function buildJeep() {
   // redrawn only while a door moves or the light fades, and every prop and the floor take its shadow
   let cabSpot = null;
   {   // the cabin light is live (one shadowed spot light): it looked much better than the bake (Adriaen 2026-11-12)
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
+    // PCF, not PCFSoft: three 0.186 removed PCFSoft and swaps it for PCF at the first shadow render, so main.js's compile built
+    // every shader for the wrong shadow type and the first frames built them all again (review R2-102)
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
     cabSpot = new THREE.SpotLight(0xffe3a8, 0, 9, 1.45, 0.4, 2); cabSpot.position.set(0, 1.62, -0.25); cabSpot.target.position.set(0, 0, -0.25);
     cabSpot.castShadow = true; cabSpot.shadow.mapSize.set(512, 512); cabSpot.shadow.camera.near = 0.05; cabSpot.shadow.camera.far = 9; cabSpot.shadow.bias = -0.002;
     jeep.add(cabSpot, cabSpot.target);
