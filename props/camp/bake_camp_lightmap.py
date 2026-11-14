@@ -222,8 +222,6 @@ for o in jall:
         o.parent = jroot
     if o.type == "MESH":
         jeep.append(o)
-DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}         # camp.html: node, open angle (rad, about up)
-doors = {k: next(o for o in jall if o.name.split(".")[0] == n) for k, (n, _) in DOORS.items()}
 # the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
 # saved it; plain cylinders are enough for their shadows
 for d in LAYOUT.get("deadwood", []):
@@ -404,11 +402,11 @@ json.dump({"channels": G, "colour": {g: LIGHTS[g][0] for g in LIGHTS}, "encoding
 print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}; " + ", ".join(f"{g} max {glit[g].max():.2f}" for g in G))
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
-def export(objs, path, txt, image_format="AUTO"):
-    export_glb(objs, path, image_format=image_format, txt=os.path.join(MODELS, txt))
+def export(objs, path, txt, image_format="AUTO", extras=False):
+    export_glb(objs, path, image_format=image_format, txt=os.path.join(MODELS, txt), extras=extras)
 
 
-export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
+export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt", extras=True)   # the Tent's and Hammock's sizes (build_camp.py)
 for sname, meshes in sets.items():
     for o in meshes:
         o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)

@@ -360,7 +360,8 @@ def wall_tent():
     doorway with the flap rolled up above it, loose planks before the door. Inside: a lining (so the inside gets its
     own bake), a plank floor, a bed along the left wall and a wood stove on the right under the stovepipe.
     Built at its final size with the door toward -Y; every canvas sheet is a small grid so the AO bake has vertices to
-    vary at (the object is "coarse": no densify). camp/layout.js TENT repeats its sizes for the page (the walls, the doorway, the stove, the chimney and the bed)."""
+    vary at (the object is "coarse": no densify). It writes its sizes for the page (the walls, the doorway, the stove, the chimney and the bed) as custom properties on
+    the Tent, which the light bake exports as glTF extras for camp/layout.js fromModel."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),
@@ -483,6 +484,11 @@ def wall_tent():
         p.append(rod((sx + lx, sy + 0.12 + ly, top - 0.03), (sx + lx * 1.4, sy + 0.12 + ly * 1.4, top + 0.065), 0.006, M["iron"], verts=3))
     t = join(p, "Tent")
     t["coarse"] = True
+    # the sizes the page needs, in the tent's own frame (x across, y toward the back, z up), as glTF extras on the Tent
+    # node (the light bake exports them; camp/layout.js fromModel reads them, review R2-250): the walls' half width, front
+    # and back, the doorway's half width, the stove (x, y), the stovepipe's mouth (x, y, z) and the middle of the bed (x, y)
+    for k, v in dict(W=W, yf=yf, yb=yb, DW=DW, stove=(sx, sy), chimney=(sx, sy + 0.12, top), bed=(bx, by)).items():
+        t[k] = [round(c, 4) for c in v] if isinstance(v, tuple) else round(v, 4)
     return t
 
 def stove_kettle(M, at):
@@ -580,6 +586,9 @@ def jungle_tent(M):
     return t
 
 
+ROPE = (1.75, 1.35)   # the hammock's ropes: the knot's height on the post and the sling end's height, 0.4 m in from it
+
+
 def jungle_hammock(M, plain_posts=False):
     """The woven hammock on bamboo posts. plain_posts: the picked one, on six-sided posts with painted nodes, a coarse sling
     and no leaves on top."""
@@ -590,14 +599,18 @@ def jungle_hammock(M, plain_posts=False):
             p += painted_bamboo((s * h, 0, 0), 2.4, 0.055, M["bamboo"], M["node"], step=0.6, sides=6)   # trimmed (camp review 2026-11-12)
         else:
             p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
-        p.append(rod((s * h, 0, 1.75), (s * (h - 0.4), 0, 1.35), 0.012, M["rope"], verts=4 if plain_posts else 5))
+        p.append(rod((s * h, 0, ROPE[0]), (s * (h - 0.4), 0, ROPE[1]), 0.012, M["rope"], verts=4 if plain_posts else 5))
     if plain_posts:                                      # a coarse sling for the picked set: 8 x 4 quads, both sides (camp review 2026-11-12)
         p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4, nx=8, ny=4))
     else:
         p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
     for s in (-1, 1) if not plain_posts else ():         # two leaves tucked over the posts (not in the picked set)
         p.append(leaf(0.9, 0.38, (s * h, 0, 2.4), 0 if s < 0 else math.pi, 0.5, M["leaf2"], droop=0.3))
-    return join(p, "Hammock")
+    o = join(p, "Hammock")
+    # the -x post's rope, from its knot to the sling's end, as glTF extras on the Hammock node (camp/layout.js fromModel
+    # reads them for the sloths' climb, sloth/poses.js; review R2-250)
+    o["knot"], o["rope_end"] = [round(-h, 4), 0.0, ROPE[0]], [round(-(h - 0.4), 4), 0.0, ROPE[1]]
+    return o
 
 
 def jungle_lantern(M):

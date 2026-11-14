@@ -4,7 +4,7 @@ count per object for every model exported: export_glb() prints one line per obje
 
     reset()                                       an empty scene
     tris(o), report(objs, note=None)              triangle counts
-    export_glb(objs, path, texcoords=True, image_format=None, quiet=False, txt=None)
+    export_glb(objs, path, texcoords=True, image_format=None, quiet=False, txt=None, extras=False)
     to_txt(path, txt)                             the page's base64 copy of a file (artifacts serve no .glb or .ktx2)
     stale(path, sources), builder_sources(script) whether a builder's output is missing or older than its code
 
@@ -50,10 +50,11 @@ def stale(path, sources):
     return not os.path.exists(path) or os.path.getmtime(path) < max(os.path.getmtime(f) for f in sources)
 
 
-def export_glb(objs, path, texcoords=True, image_format=None, quiet=False, txt=None):
+def export_glb(objs, path, texcoords=True, image_format=None, quiet=False, txt=None, extras=False):
     """Write objs (selected alone) to the GLB at path, with the export flags the page relies on: the colour attribute
     "Col" as COLOR_0, materials, y up; texcoords=False leaves the UVs out; image_format (e.g. "JPEG") for embedded
-    images; txt: also write the page's base64 copy there (to_txt). Prints each object's triangle count (unless quiet)
+    images; txt: also write the page's base64 copy there (to_txt); extras=True writes each object's custom properties as
+    its node's glTF extras (three.js puts them in the object's userData), the numbers the page reads off a model. Prints each object's triangle count (unless quiet)
     and the file size."""
     import bpy
     bpy.ops.object.select_all(action="DESELECT")
@@ -61,7 +62,7 @@ def export_glb(objs, path, texcoords=True, image_format=None, quiet=False, txt=N
         o.select_set(True)
     kw = {} if image_format is None else {"export_image_format": image_format}
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_vertex_color="NAME", export_vertex_color_name="Col",
-                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=texcoords, **kw)
+                              export_all_vertex_colors=False, export_materials="EXPORT", export_yup=True, export_texcoords=texcoords, export_extras=extras, **kw)
     if not quiet:
         report(objs)
     print(f"  {os.path.basename(path)}: {os.path.getsize(path) // 1024} KB, {sum(tris(o) for o in objs if o.type == 'MESH')} triangles")

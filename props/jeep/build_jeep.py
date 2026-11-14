@@ -15,7 +15,9 @@ share body() with it:
 Each style is one GLB, props/jeep/jeep_<style>.glb, standing on z = 0 with its front toward -Y (three.js +Z): the body
 Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive,
 the name is kept from when it was the passenger door), DoorD (the other front door) and BackDoor (with the spare), each
-with its origin on its hinge so the page swings it about the vertical; plus empties SeatP (driver cushion top, at the
+with its origin on its hinge so the page swings it about the vertical, and the Hood, hinged at the foot of the windscreen.
+Each of these four carries glTF extras that camp/jeep.js reads: "open", how far it swings open (radians), and "axis", the
+three.js axis it swings about (HINGES and HOOD_OPEN below; review R2-250). Plus empties SeatP (driver cushion top, at the
 wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back)
 and Boot (middle of the cargo deck). The expedition, the page's jeep, also writes its far LOD jeep_expedition_lod.glb,
 and the base64 copies the page loads, apps/canopy-prototype/models/jeep_expedition.txt and jeep_expedition_lod.txt.
@@ -620,9 +622,10 @@ def body(M, style, wheels=WHEELS):
     return b
 
 
-# hinge of each door (x, y) and how far it opens (radians about Z); the page reads the same from the node positions
+# hinge of each door (x, y) and how far it opens (radians about Z, which is three.js y); the page reads the hinge from the
+# node's position and the angle from its extras (finish())
 HINGES = {"DoorP": ((W / 2 + 0.01, -0.33), -1.2), "DoorD": ((-W / 2 - 0.01, -0.33), 1.2), "BackDoor": ((-0.67, REAR + 0.02), 1.75)}
-HOOD_HINGE, HOOD_OPEN = (0, -0.43, BELT + 0.03), -1.15                      # the hood swings up about X (the page does the same)
+HOOD_HINGE, HOOD_OPEN = (0, -0.43, BELT + 0.03), -1.15                      # the hood swings up about X (three.js x too)
 
 
 def finish(b):
@@ -637,10 +640,12 @@ def finish(b):
         o = join(drop_enclosed(parts), name)
         if name == "Hood":                                             # hinged at the foot of the windscreen
             bpy.context.scene.cursor.location = HOOD_HINGE
+            o["open"], o["axis"] = HOOD_OPEN, "x"
         elif name in b.origins:
             bpy.context.scene.cursor.location = b.origins[name]
         else:
-            (hx, hy), _ = HINGES[name]
+            (hx, hy), o["open"] = HINGES[name]
+            o["axis"] = "y"
             bpy.context.scene.cursor.location = (hx, hy, 0)
         bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.context.view_layer.objects.active = o
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
@@ -952,7 +957,7 @@ def build(style, samples, views=None, preview_samples=48, wheels=WHEELS):
         for o in objs.values():
             mud(o)
     txt = os.path.join(MODELS, f"jeep_{style}.txt") if style == "expedition" else None   # the archived styles: props/jeep/archive
-    path = export_glb([*objs.values(), *empties], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False, txt=txt)
+    path = export_glb([*objs.values(), *empties], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False, txt=txt, extras=True)
     print(f"{style} -> {path}")
     for e in empties:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
