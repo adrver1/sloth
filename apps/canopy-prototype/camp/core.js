@@ -144,14 +144,17 @@ const uTime = { value: 0 };
 const pace = { fast: undefined };
 const leafMat = (opts, sway) => {
   const m = new THREE.MeshLambertMaterial(opts);
+  // The sway is a uniform, not a number in the shader text: the hook's source is the same for every sway, so three gives
+  // every leaf material one program, and each material keeps its own amount (review props-12).
+  const uSway = { value: sway };
   if (sway) m.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime;
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;")
+    sh.uniforms.uTime = uTime; sh.uniforms.uSway = uSway;
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;")
       .replace("#include <begin_vertex>", `#include <begin_vertex>
         #ifdef USE_INSTANCING
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.4 + ip.x * 1.7 + ip.z * 1.3) + 0.5 * sin(uTime * 2.3 + ip.y * 2.1);
-        transformed += vec3(w * ${sway.toFixed(3)}, w * ${(sway * 0.4).toFixed(3)}, w * ${(sway * 0.6).toFixed(3)}) * (0.5 + position.y);
+        transformed += vec3(1.0, 0.4, 0.6) * (w * uSway) * (0.5 + position.y);
         #endif`);
   };
   return m;
