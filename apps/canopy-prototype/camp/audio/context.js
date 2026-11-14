@@ -2,6 +2,8 @@
 // context with its three buses into a gentle compressor, the small node helpers every sound is built from (spot, env, osc,
 // noise, filt, gain), and starting it all: on the first tap (start, unlock: iOS needs a real tap and a silent sample), the
 // Tap for sound pill (makeHint, showHint) and waking it after a tab switch (wake). Nothing is made on import.
+// The settings: set (this visit's values), loadSettings(), saved() (the JSON to store: the URL's one-visit overrides left out)
+// and own(key) (the viewer changed key, so it is stored from now on).
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): LEVEL and the bus gains are the knobs.
 import * as THREE from "three";
 import { KEYS, OPT, store } from "../core.js";
@@ -13,12 +15,17 @@ const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix
 const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
 // the settings: these defaults until initAudio() reads the viewer's saved ones and the URL (?sound=0, ?station=)
 const set = { volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" };
+// the saved values that ?sound=0 and ?station= replace for this visit only: saved() writes these back instead, so a check
+// link does not leave later visits muted (review R2-056). A setting the viewer changes on the page is theirs again (own).
+const urlOnly = {};
 function loadSettings() {
   Object.assign(set, (() => { try { return JSON.parse(store.get(KEYS.audio) || "{}"); } catch { return {}; } })());
   if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
-  if (!OPT.sound) set.muted = true;
-  if (STATIONS.some((s) => s.id === OPT.station)) set.station = OPT.station;
+  if (!OPT.sound) { urlOnly.muted = set.muted; set.muted = true; }
+  if (STATIONS.some((s) => s.id === OPT.station)) { urlOnly.station = set.station; set.station = OPT.station; }
 }
+const own = (key) => { delete urlOnly[key]; };
+const saved = () => JSON.stringify({ ...set, ...urlOnly });
 
 let ac = null, master, comp, bus = {}, NOISE, BROWN, CRICKET;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -111,4 +118,4 @@ function makeHint() {
   document.body.append(hint);
 }
 
-export { ac, applyGain, BROWN, bus, comp, CRICKET, env, filt, gain, loadSettings, makeHint, noise, osc, pick, set, showHint, spot, start, STATIONS, wake };
+export { ac, applyGain, BROWN, bus, comp, CRICKET, env, filt, gain, loadSettings, makeHint, noise, osc, own, pick, saved, set, showHint, spot, start, STATIONS, wake };
