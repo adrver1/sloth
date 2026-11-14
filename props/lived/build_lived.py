@@ -496,7 +496,7 @@ def seat_things(M):
 
 
 def seat_top_texture(path):
-    """The sawn top of the half-log seat (SEAT_BOARD): pale wood with grain running along the log (no knots,
+    """The sawn top of the half-log seat (the SEAT_BOARD quad): pale wood with grain running along the log (no knots,
     Adriaen), a drying crack, and the sawn edges a little darker and worn."""
     from PIL import Image, ImageDraw, ImageFilter
     r = random.Random(5)
@@ -529,7 +529,7 @@ def seat_top():
     """One textured quad laid on the seat's flat top (2 triangles); the page puts a copy on each of the three seats."""
     img = os.path.join(HERE, "seat_top.png")
     seat_top_texture(img)
-    hx, hy, z = SEAT_BOARD[0] / 2, SEAT_BOARD[1] / 2, SEAT_TOP + SEAT_BOARD[2] / 2 + 0.0005   # just over the top board's top face
+    hx, hy, z = SEAT_BOARD[0] / 2, SEAT_BOARD[1] / 2, SEAT_TOP + 0.002   # 2 mm over the log's flat top (the page adds a polygon offset)
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     f = bm.faces.new([bm.verts.new(c) for c in ((-hx, -hy, z), (hx, -hy, z), (hx, hy, z), (-hx, hy, z))])

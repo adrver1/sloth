@@ -9,7 +9,8 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 
 1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
-2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the scratch GLBs, and stands everything where
+2. Builds the picked set (build_camp.py, BUDGET decimate, no densify; flat colours except build_camp.TEXTURED, the
+   hammock posts, which keep their bamboo image), imports the scratch GLBs, and stands everything where
    camp.html puts it (picked() makes no fire and no lantern: the lived fire set and the page's lanterns.js draw those,
    so neither is baked). The mesh audit
    (props/lib/audit.py) reports on the lived props in step 1 and the picked set here, and never stops the bake.
@@ -134,7 +135,7 @@ for name, o in objs.items():
         bpy.context.view_layer.objects.active = o
         d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=d.name)
-flat(list(objs.values()))
+flat([o for n, o in objs.items() if n not in build_camp.TEXTURED])   # the textured posts keep their image (review R2-169)
 audit(list(objs.values()), label="camp_picked")      # the picked set's mesh audit, before the minutes of baking
 
 
@@ -151,6 +152,7 @@ for i, (x, z, yaw) in enumerate(seat_at):
     picked.append(place(objs["Seat"], f"Seat_{i}", x, z, yaw))
 picked.append(place(objs["Tent"], "Tent", *TENT, copy=False))
 picked.append(place(objs["Hammock"], "Hammock", *HAMMOCK, copy=False))
+picked.append(place(objs["HammockPosts"], "HammockPosts", *HAMMOCK, copy=False))   # in the hammock's own frame
 picked.append(place(objs["Table"], "Table", *TABLE, copy=False))
 bpy.data.objects.remove(objs["Seat"])
 

@@ -5,8 +5,8 @@ Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three 
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
     jungle     a rainforest hideout: bamboo tripod and kettle, a leaf-thatched lean-to, bamboo bench, gourd lanterns
     picked     the set in use: the rustic seat and table, a canvas wall tent with planks before the door, and the jungle
-               hammock on plain posts (the fire, tripod and pot are props/lived/build_fire.py; the page draws its own
-               lanterns, lanterns.js)
+               hammock on plain textured bamboo posts (HammockPosts; the fire, tripod and pot are props/lived/build_fire.py;
+               the page draws its own lanterns, lanterns.js)
 
 Storybook, Rustic and Jungle (and the first pre-light-map picked GLB) are archived (camp review, Adriaen 2026-11-12): their
 GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, one function
@@ -38,13 +38,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
-from lib.materials import mat  # noqa: E402
+from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, rod, rough_up, sweep, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
-SEAT_TOP = 0.361                  # rustic_seat(): the middle of its flat top board (the log along X); build_lived.py sets things on it
-SEAT_BOARD = (1.48, 0.46, 0.01)   # that board's length, depth and thickness
+SEAT_TOP = 0.36                   # rustic_seat(): the height of its flat sawn top (the log along X); build_lived.py sets things on it
+SEAT_BOARD = (1.48, 0.46)         # the sawn-top quad build_lived.py lays on it: length along the log and depth
 DOOR_PLANK = 0.03                 # wall_tent(): the top of the loose planks before the door (build_lived.py stands the wellies on it)
+BAMBOO_PNG = os.path.join(os.path.dirname(HERE), "lived", "bamboo.png")   # the fire tripod's bamboo (build_fire.py writes it)
+TEXTURED = ("HammockPosts",)      # picked() objects that keep their image (the light bake gives the others flat colours)
 STYLES = ("storybook", "rustic", "jungle")      # the archived styles build() remakes; the picked set comes from the light bake
 rng = random.Random(7)
 
@@ -76,24 +78,22 @@ def bamboo(a, b, r, m, node_m, nodes=None):
     return parts
 
 
-def painted_bamboo(a, h, r, m, node_m, step=0.38, band=0.035, sides=8):
-    """A plain octagonal pole (Adriaen 2026-11-11: no modelled rings): one flat-shaded eight-sided tube
-    with a ring of vertices at each node, the thin node bands taking the node colour, so the nodes are
-    only painted on; a top cap, no hidden faces. Standing at a, height h. About 16 triangles a metre."""
-    zs, kinds, z = [0.0], [], 0.0
-    while z < h - 1e-4:
-        z = min(h, z + step - band); zs.append(z); kinds.append(0)
-        if z < h - band:
-            z += band; zs.append(z); kinds.append(1)
+def textured_posts(name, feet, h, r, sides=6, tile=0.6):
+    """Plain bamboo posts as one textured object (review R2-169): at each foot an open-footed tube of `sides` flat sides,
+    height h, with a cap on top, the nodes painted in by props/lived/bamboo.png (build_fire.py bamboo_texture), one
+    0.5 m tile of it every `tile` metres up the post. 2 x sides + (sides - 2) triangles a post however tall it is."""
     bm = bmesh.new()
-    t = sweep(bm, [(a[0], a[1], a[2] + zz) for zz in zs], [r] * len(zs), sides, twist=0.5, frame=((1, 0, 0), (0, 1, 0)))
-    for seg, kind in zip(t["sides"], kinds):
-        for f in seg:
-            f.material_index = kind
-    o = obj_from_bm(bm, "post")
-    o.data.materials.append(m)
-    o.data.materials.append(node_m)
-    return [o]
+    uv = bm.loops.layers.uv.new("UVMap")
+    for x, y, z in feet:
+        t = sweep(bm, [(x, y, z), (x, y, z + h)], [r, r], sides, twist=0.5, frame=((1, 0, 0), (0, 1, 0)))
+        for k, f in enumerate(t["sides"][0]):
+            for lp, u in zip(f.loops, ((k / sides, 0), ((k + 1) / sides, 0), ((k + 1) / sides, h / tile), (k / sides, h / tile))):
+                lp[uv].uv = u
+        for lp in t["cap_b"].loops:
+            lp[uv].uv = (0.5, 0.01)                                  # the node colour
+    o = obj_from_bm(bm, name)
+    o.data.materials.append(image_material(name, BAMBOO_PNG))
+    return o
 
 
 def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
@@ -256,19 +256,24 @@ def rustic_fire(M):
 
 
 def rustic_seat(M):
-    """The seat (picked): a split half log on two short stumps, its flat top board (SEAT_BOARD) centred at z = SEAT_TOP."""
+    """The seat (picked): a split half log on two short stumps, about 104 triangles (review R2-169). The log's flat sawn
+    top (SEAT_TOP) is the bisect's own fill face, kept flat when the bark is roughed up; build_lived.py lays the textured
+    SeatTop quad just over it, and with ?lived=0 the fill shows. The stumps are open tubes that end inside the log (no caps:
+    their feet stand on the ground and their tops were inside the log)."""
     lg = cyl(0.25, 1.5, at=(0, 0, 0.0), rot=(0, math.pi / 2, 0), m=M["bark"], verts=24)
     apply_all(lg)
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.bisect(plane_co=(0, 0, 0), plane_no=(0, 0, 1), clear_outer=True, use_fill=True)
     bpy.ops.object.mode_set(mode="OBJECT")
+    cut = [v.index for v in lg.data.vertices if abs(v.co.z) < 1e-5]
     rough_up(lg, 0.008, 12)
-    lg.location.z = 0.36
-    top = box(SEAT_BOARD, at=(0, 0, SEAT_TOP), m=M["wood"])
-    p = [lg, top]
-    for s in (-1, 1):
-        p.append(rough_up(cyl(0.16, 0.36, at=(s * 0.5, 0, 0.18), m=M["bark"], verts=14), 0.01, 10))
+    for i in cut:                                     # the sawn top stays flat: the bark only bulges below it
+        lg.data.vertices[i].co.z = 0.0
+    lg.location.z = SEAT_TOP
+    p = [lg]
+    for s in (-1, 1):                                 # up to 0.24 m, well inside the log (its underside is 0.11 m up)
+        p.append(rough_up(cyl(0.16, 0.24, at=(s * 0.5, 0, 0.12), m=M["bark"], verts=14, caps=False), 0.01, 10))
     return join(p, "Seat")
 
 
@@ -384,8 +389,9 @@ def wall_tent():
     doorway with the flap rolled up above it, loose planks before the door. Inside: a lining (so the inside gets its
     own bake) joined to the outer wall round the doorway, a plank floor on a dark board, a bed along the left wall and
     a wood stove on the right under the stovepipe.
-    Built at its final size with the door toward -Y; every canvas sheet is a small grid so the AO bake has vertices to
-    vary at (the object is "coarse": no densify). camp.html mirrors W, D, Y0, the door and the furniture for walking."""
+    Built at its final size with the door toward -Y. The light comes from the camp light map, so a sheet needs vertices
+    only where it bends: the roof is a 6 x 3 grid for its sag, the side walls one column of hem and wall (review R2-169).
+    camp.html mirrors W, D, Y0, the door and the furniture for walking."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),
@@ -416,10 +422,10 @@ def wall_tent():
             sag = 0.05 * math.sin(math.pi * v) * (0.4 + 0.6 * abs(math.sin(math.pi * u * 3)))
             return (s * ex * (1 - v), y, ez + (Z0 + H - ez) * v - sag)
         quad_grid(roof, 6, 3, lambda i, j: "canvas" if i % 2 else "canvas2", flip=s < 0)
-    # side walls, flaring a touch to the ground, with a dirty hem
+    # side walls, flaring a touch to the ground, with a dirty hem: one column, since x and z vary only up the wall (R2-169)
     for s in (1, -1):
         zs = (Z0, Z0 + 0.13, Z0 + E + 0.06)          # tops tucked up under the roof, no slit to the sky
-        quad_grid(lambda u, v, s=s: (s * (W + 0.05 * (1 - v)), Y0 - D + 2 * D * u, zs[round(v * 2)]), 6, 2,
+        quad_grid(lambda u, v, s=s: (s * (W + 0.05 * (1 - v)), Y0 - D + 2 * D * u, zs[round(v * 2)]), 1, 2,
                   lambda i, j: "hem" if j == 0 else "canvas", flip=s < 0)
     # back gable (faces +Y) and the front (faces -Y) round the open doorway; both flare at the foot like the side walls
     yb, yf = Y0 + D, Y0 - D
@@ -633,14 +639,12 @@ def jungle_tent(M):
 
 
 def jungle_hammock(M, plain_posts=False):
-    """The woven hammock on bamboo posts. plain_posts: the picked one, on octagon posts with painted nodes, a coarse sling
-    and no leaves on top."""
+    """The woven hammock on bamboo posts. plain_posts: the picked one, a coarse sling and no leaves on top, and no posts of
+    its own: picked() makes them as the textured HammockPosts (review R2-169)."""
     h = HAMMOCK_SPAN / 2
     p = []
     for s in (-1, 1):
-        if plain_posts:                                  # the picked set (Adriaen 2026-11-11): octagon posts, nodes painted on
-            p += painted_bamboo((s * h, 0, 0), 2.4, 0.055, M["bamboo"], M["node"], step=0.6, sides=6)   # trimmed (camp review 2026-11-12)
-        else:
+        if not plain_posts:
             p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
         p.append(rod((s * h, 0, 1.75), (s * (h - 0.4), 0, 1.35), 0.012, M["rope"], verts=4 if plain_posts else 5))
     if plain_posts:                                      # a coarse sling for the picked set: 8 x 4 quads, both sides (camp review 2026-11-12)
@@ -683,9 +687,10 @@ def jungle():
 # ------------------------------------------------------------------ the picked set, bake and export
 def picked():
     """Adriaen's pick (2026-11-11): rustic table and seat, a canvas wall tent like his photos with loose
-    planks before the door; the jungle woven hammock, on plain octagon posts with painted nodes and no leaves on top.
+    planks before the door; the jungle woven hammock with no leaves on top, on plain bamboo posts whose nodes are in a
+    texture (HammockPosts, an object of its own so it keeps its image: TEXTURED, review R2-169).
     The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
-    made, in the order the light bake's atlas has always seen them (seat, table, hammock, tent). The jar lanterns are
+    made, in the order the light bake's atlas has always seen them (seat, table, hammock, tent, then the posts). The jar lanterns are
     drawn by the page (lanterns.js), so the set has no lantern mesh (review R2-236). The tent, hammock and table lose the
     faces that point down onto the ground (lib/mesh.py drop_ground_faces, review R2-154)."""
     R, J = rustic_mats(), jungle_mats()
@@ -693,8 +698,10 @@ def picked():
     hammock = jungle_hammock(J, plain_posts=True)
     hammock["coarse"] = True                    # Adriaen 2026-11-11: the densified cloth was ~7k triangles
     tent = wall_tent()
-    drop_ground_faces([tent, hammock, table])   # the bottoms standing on the ground (review R2-154; the seat is rebuilt in R2-169)
-    return {"Seat": seat, "Tent": tent, "Hammock": hammock, "Table": table}
+    drop_ground_faces([tent, hammock, table])   # the bottoms standing on the ground (review R2-154; the seat has none, R2-169)
+    h = HAMMOCK_SPAN / 2                        # the posts in the hammock's frame; the page and the bake place both alike
+    posts = textured_posts("HammockPosts", [(-h, 0, 0), (h, 0, 0)], 2.4, 0.055)
+    return {"Seat": seat, "Tent": tent, "Hammock": hammock, "Table": table, "HammockPosts": posts}
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): the light bake

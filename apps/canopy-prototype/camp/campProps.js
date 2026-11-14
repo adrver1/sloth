@@ -52,7 +52,7 @@ let glowTex, LANTERNS, fireLight, rayMat, motes, pools, SLOTH, LMTEX, LMSUN, WOO
 // By day the props are lit live (sun and sky, shaded by the bake) plus a share of the warm lights; at night they show all four
 // lights, baked, unlit, faded in with uNight. COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 // The lightMap slot (intensity 0) only gives the shader its sampler and UV; it adds no light. Light button: 2K or 1K (4K: ?lm=4k, local only).
-// the seat tops and the tripod's bamboo are the only light-mapped parts painted as textures, and their paintings came out far
+// the seat tops and the bamboo (the tripod's legs and the hammock posts) are the only light-mapped parts painted as textures, and their paintings came out far
 // lighter and more saturated than the vertex-coloured props round them (sawn wood about 202,165,118; bamboo 196,184,114),
 // so they glowed by day and at night (camp review B2). Toned down here, not in the textures, so the bake needs nothing.
 const SAWN = new THREE.Color().setRGB(0.74, 0.71, 0.68, THREE.SRGBColorSpace), BAMBOO = new THREE.Color().setRGB(0.72, 0.67, 0.6, THREE.SRGBColorSpace);   // about 150,117,80 and 141,123,68
@@ -113,12 +113,12 @@ async function buildProps() {
   {
     const P = await PRE.props;
     const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
-    P.scene.traverse((m) => { if (m.isMesh) m.material = lamL; });
+    P.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : lamL; });   // the hammock posts are textured (bamboo.png, review R2-169)
     // the picked set holds each copy on its own (Seat_0, Seat_1 ...), since each is lit where it stands
     const put = (n, x, z, yaw, y = 0, i = 0) => { const s = P.scene.getObjectByName(`${n}_${i}`) ?? P.scene.getObjectByName(n); if (!s) return null; const o = s.clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
     SEATS.forEach(({ at, yaw }, i) => put("Seat", at.x, at.z, yaw, 0, i));
     put("Tent", TENT.at.x, TENT.at.z, TENT.yaw);
-    put("Hammock", HAMMOCK.mid.x, HAMMOCK.mid.z, HAMMOCK.yaw);
+    put("Hammock", HAMMOCK.mid.x, HAMMOCK.mid.z, HAMMOCK.yaw); put("HammockPosts", HAMMOCK.mid.x, HAMMOCK.mid.z, HAMMOCK.yaw);   // the posts: a GLB baked before R2-169 has them in the Hammock
     put("Table", TABLE.at.x, TABLE.at.z, TABLE.yaw);
   }
   // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
