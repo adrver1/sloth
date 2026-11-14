@@ -8,7 +8,7 @@
 // Music: four generated stations (Slow drift, the default: ambient tape loops; campfire guitar, kalimba, music-box lullaby), quiet under the nature sounds.
 // Nothing plays until the first tap or key (browsers block it before that). main.js calls audioStep(dt, dusk) every frame,
 // and hands it the chores and the operator first (hearCamp(acts, opApi)).
-// The radio prop drives it through `audio` (also window.__audio): start, volume, muted, music, musicVolume, station, next,
+// The radio prop drives it through `audio`: start, volume, muted, music, musicVolume, station, next,
 // tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange.
 // The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted, ?station= picks one (core.js OPT). Settings are kept per viewer (KEYS.audio).
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): the bus gains below are the knobs.
@@ -483,7 +483,6 @@ const audio = {
   },
   _bus: () => bus,
 };
-window.__audio = audio;
 
 // ⚙️ fallback: one button that cycles All (music and camp) → Nature only (no music) → Off
 const btn = $("sound");

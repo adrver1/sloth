@@ -126,5 +126,4 @@ function step(dt, dusk) {
     if (c.shake > 0) { c.shake = Math.max(0, c.shake - dt); c.obj.rotation.z = c.base + Math.sin(c.shake * 60) * 0.06 * c.shake; }   // a little rattle when you set it
   }
 }
-window.__clocks = clocks;   // debug hook (core.js lists them): every clock, for checks by hand
-export { addClock, step as clockStep };
+export { addClock, clocks, step as clockStep };   // clocks: every clock (the scenarios read them)

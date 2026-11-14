@@ -136,7 +136,7 @@ const WEIGHTS = (night) => night ? { sleep: 6, warm: 2, drink: 1, read: 0.3, str
   : { eat: 1.2, drink: 1.2, read: 1.6, warm: 0.5, stroll: 1.2, sleep: 0.5, play: 1.2, cook: 1.0 };
 // when you sit by the fire he comes and sits with you on another log (Adriaen 2026-11-13), not again for a while after (op.cd.join)
 const wantJoin = () => !!me.seat && !op.seated && !op.lying && op.cd.join <= 0 && !op.buddy && !op.carry && !op.cooking;
-DO.hold = function* () { yield* wait(1e9); };   // checks only (window.__op.jump("hold")): stand still
+DO.hold = function* () { yield* wait(1e9); };   // checks only (opApi.jump("hold")): stand still
 DO.join = function* () {
   op.cd.join = 1e9;
   yield* seatWith(function* () {

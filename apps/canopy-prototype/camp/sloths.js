@@ -3,8 +3,8 @@
 // Adriaen 2026-11-12 ("simplify the gameplay loop"): no befriending. One wild sloth hangs in each big tree, and the seven
 // named sloths (cast.js) live in the camp from the start, one in each spot (sloth/spots.js). Each now and then leaves its
 // spot, crawls to the snack table or the kitchen crate to eat, and goes back the way it came (sloth/day.js). Clips:
-// characters/sloth_baby/sloth_rig.py. ?campsloths=0 leaves the named ones out; window.__campFast speeds them up for
-// checks, window.__errand(name) sends one off now (sloth/hooks.js).
+// characters/sloth_baby/sloth_rig.py. ?campsloths=0 leaves the named ones out; core.js pace (window.__campFast
+// for the tools) speeds them up for checks.
 // The order below is the order things are made in, which the scene's objects, the materials and the seeded random numbers
 // (core.js R) all depend on: the mouth card's material, the wild sloths, then the spots, the wayfinding grid, the things the
 // sloths use, the named sloths, the guest spots, the saved state, and last the hooks. Keep it when adding to it. The modules

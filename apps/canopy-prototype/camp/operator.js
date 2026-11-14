@@ -14,7 +14,7 @@
 // (mesh, no clips) and node scripts/pack_chars.mjs --clips idle,walk,seated_idle,stand_up,sip,hug,play,play_titanic,play_airplane,play_knees,wave,blink,happy,talk,phone,phone_down,step_down
 // <dir2> ../characters/bearded_operator/bearded_operator_survival.glb (its anims.glb: the same rig, with the play clips), then base64 each into models/.
 // ?op=0 leaves him out. Exports opStep (main.js, each frame) and opApi (null with ?op=0): his root, state and the hooks the
-// checks drive him with (opApi.go("read"), .state()); window.__op is the same object.
+// checks drive him with (opApi.go("read"), .state()); main.js hands it to audio.js (hearCamp).
 import { OPT, PRE, camera } from "./core.js";
 import { A0 } from "./layout.js";
 import { V, trisIn } from "./util.js";
@@ -56,9 +56,6 @@ if (ON) {
     tris: () => trisIn(root),
     // this activity now: whatever he held, hosted and claimed is let go and his body's state reset first
     jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); reset("body"); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0); jumpTo(k); } };
-  // alias: audio.js reads window.__op for his sounds (it is evaluated before this module, while campLife.js waits for the ground
-  // mask, so an import of opApi would move it and everything after it); the checks drive him through it too
-  window.__op = opApi;
 }
 
 export { opApi, opStep };

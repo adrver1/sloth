@@ -69,7 +69,7 @@ function speak(txt) {
   if (!op.sleeping) { const a = clips.talk; a.reset(); a.setLoop(THREE.LoopRepeat); a.setEffectiveWeight(1); a.play(); }
 }
 function talkStep(dt) {
-  { const v = B.chest.getWorldPosition(V()).project(camera); op.scr = [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }   // checks (__op.tapAt)
+  { const v = B.chest.getWorldPosition(V()).project(camera); op.scr = [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }   // checks (opApi.tapAt)
   op.talk.t = Math.max(0, op.talk.t - dt); op.talk.smile = Math.max(0, op.talk.smile - dt);
   op.talk.munch = Math.max(0, (op.talk.munch || 0) - dt);
   const hd = op.talk.hand?.side;

@@ -32,29 +32,9 @@ const qs = new URLSearchParams(location.search);
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
 // state, one part per owner), audio (audio.js: volume, muted, music, its volume and the station, as one JSON object).
 const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save", audio: "canopy-audio" };
-// ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
-// API: operator.js (operator/state.js), input.js and jeepSeat.js still read __campLife, and audio.js reads __acts and __op: it
-// is evaluated while campLife.js waits for the ground mask, before the chores and the operator exist, so importing them would
-// move it (and its Sound button) later in the build order. The sloths' modules (sloths.js, sloth/, lab.js) read none of them:
-// they import. __camp, __jeep, __laundry, __acts and __op are aliases of the exported object named here; __campLife is made of
-// exports (places.js, sloth/).
-//   __camp       campProps.js CAMP        export_casters.cjs only (below)
-//   __jeep       jeep.js jeepApi          export_casters.cjs only (below)
-//   __laundry    layout.js LAUNDRY        export_casters.cjs only (set by campProps.js only when the line is shown)
-//   __acts       campLife.js acts         audio.js (the pot's sounds); chores.js sets it
-//   __campLife   sloth/hooks.js: places.js claim, release, holder, host, addMover, movers; path (sloth/walk.js findPath);
-//                lend, giveBack (sloth/lend.js); sloths (the named ones); eatGift (sloth/gifts.js)     input.js, operator/state.js, jeepSeat.js
-//   __car        car.js carApi            the scenario tours (inCar); nothing in the page
-//   __op         operator.js opApi        audio.js (his sounds); a debug hook as well
-//   __campFast   the camp's pace, 1 when unset: lab.js and camp-replay.cjs set it; sloth/step.js and jeepSeat.js read it
-// tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.
-//   __ready, __scene (main.js)                          all three tools
-//   __stats (main.js)                                   camp-probe.cjs, camp-replay.cjs
-//   __camp, __jeep, __laundry (above), __ground (campGround.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
-//   __time, __boop, __feed, __stick (main.js), __sit (linger.js), __weather (weather.js)   camp-replay.cjs's tour
-// debug hooks for checks by hand in the browser console: __rest, __face, __slothS, __me (main.js), __clocks (clock.js), __errand,
-// __path, __spots, __sloth, __lab (sloth/hooks.js; __lab is labApi, which lab.js imports), __op (operator.js), __audio (audio.js),
-// __radio (radio.js), __camera (car.js).
+// ---------------------------------------------------------------- window.__ names on camp.html (review C2, crosscut-03/04, boot-04)
+// The modules talk through imports only. The window.__ names are for the headless tools (camp-probe.cjs, camp-replay.cjs,
+// camp-scenarios.cjs and props/shadow/export_casters.cjs) and are all set in debug.js, which lists them with their readers.
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
 // they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
 // "Canopy camp: start every download at once" (the looks were archived there). Their branches below and in forest.js and sky.js are dead code (campGround.js still passes LOOK to ground.js).
@@ -155,6 +135,9 @@ scene.add(new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
 const uTime = { value: 0 };
+// the camp's pace: fast runs the sloths' day and the jeep seats that many times as fast (unset: 1). The move lab (lab.js) sets it,
+// and the tools through window.__campFast (debug.js)
+const pace = { fast: undefined };
 const leafMat = (opts, sway) => {
   const m = S.flat ? new THREE.MeshLambertMaterial({ flatShading: true, ...opts }) : new THREE.MeshLambertMaterial(opts);
   if (sway) m.onBeforeCompile = (sh) => {
@@ -176,4 +159,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, store, sun, uTime };
+export { $, CABIN, D, DETAIL, JEEP, KEYS, LIVED, LOOK, OPT, PRE, PROPS, R, S, camera, hex, leafMat, renderer, rnd, scene, setSeed, pace, store, sun, uTime };

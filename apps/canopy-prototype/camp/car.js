@@ -12,7 +12,6 @@
 // Exports carStep (main.js, each frame) and carApi (doorOptions, inCar, engine; null with ?jeep=none). Also adds engine() to the
 // jeep's API (jeep.js jeepApi) for audio.js, which car.js imports and so cannot import back.
 import * as THREE from "three";
-import { camera } from "./core.js";
 import { V, canvasTex, trisIn } from "./util.js";
 import { jeepApi } from "./jeep.js";
 import { addTarget } from "./input.js";
@@ -31,7 +30,7 @@ if (jeep) {
   // into the dash, so none of it hides behind the dash face (Adriaen 2026-11-13: the clock's bottom half was cut off)
   const onDash = (o, x, y, tilt = 0, half = 0) => { o.position.set(x, y, DASH_Z - half * Math.abs(Math.sin(tilt))); o.rotation.set(tilt, Math.PI, 0); jeep.add(o); return o; };
 
-  // ---------------------------------------------------------------- in the jeep: getting in and out is jeepSeat.js (window.__jeep.sit / stand / seatedIn)
+  // ---------------------------------------------------------------- in the jeep: getting in and out is jeepSeat.js (jeepApi.sit / stand / seatedIn)
   const inCar = () => !!J.seatedIn?.();
 
   // ---------------------------------------------------------------- the key: turn it to start the engine
@@ -102,7 +101,5 @@ if (jeep) {
   // the engine joins the jeep's API (jeep.js jeepApi), where audio.js hears it: "off" | "crank" | "run"
   J.engine = () => engine;
   carApi = { doorOptions: J.doorOptions, inCar, engine: J.engine };
-  // aliases for checks by hand (core.js lists them): the scenario tours jeepD and jeepP read __car.inCar(); nothing in the page does
-  window.__car = carApi; window.__camera ??= camera;
 }
 export { carApi, carStep };

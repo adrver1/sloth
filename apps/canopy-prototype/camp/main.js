@@ -10,29 +10,27 @@ import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import "../fur.js";   // order only: fur.js is evaluated second, as it always was (sloth/body.js uses it)
 import { $, DETAIL, OPT, camera, renderer, scene, uTime } from "./core.js";
-import { V } from "./util.js";
-import { GLADE, sloPath } from "./layout.js";
-import { stickV } from "./hud.js";
 import "./sky.js";
 import "./forest.js";
 import { fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
 import { jeepStep } from "./jeep.js";
-import { campStep, hammockStep, sloths, slothsStep, warmStep } from "./sloths.js";
+import { campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
-import { collide, me, step } from "./player.js";
+import { me, step } from "./player.js";
 import { acts, atmo, groundLife, shadowStep } from "./campLife.js";
 import { opApi, opStep } from "./operator.js";
-import { aimStep, boop, feed, resize } from "./input.js";
+import { aimStep, resize } from "./input.js";
 import { weather } from "./weather.js";
 import { lingerStep } from "./linger.js";
-import { day, dayStep, wireTimeMenu } from "./daytime.js";
+import { dayStep, wireTimeMenu } from "./daytime.js";
 import { clockStep } from "./clock.js";
 import { audioStep, hearCamp } from "./audio.js";
 import { radioStep } from "./radio.js";
 import { jeepSeatStep } from "./jeepSeat.js";
 import { carStep } from "./car.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
+import { ready, stats } from "./debug.js";   // the tools' window.__ names; it builds nothing, so daylight.js is still the last to build
 
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 wireTimeMenu();     // the ⚙️ menu's time slider and Day cycle button (daytime.js)
@@ -45,7 +43,6 @@ camera.far = 80;
 if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }   // ?pos=, ?yaw=, ?pitch=: the start view (core.js OPT)
 if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
 const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
-window.__stats = {};   // tool contract: fps, draw calls, triangles and resolution, filled once a second below
 // compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card
 await renderer.compileAsync(scene, camera).catch(() => {});
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
@@ -84,18 +81,9 @@ renderer.setAnimationLoop(() => {
     const fps = frames / acc, i = renderer.info.render;
     slow = fps < 45 ? slow + 1 : 0;
     if (slow >= 2 && pr > 1) { pr = Math.max(1, pr - 0.25); renderer.setPixelRatio(pr); resize(); slow = 0; }
-    Object.assign(window.__stats, { fps: Math.round(fps), calls: i.calls, tris: i.triangles, pr, detail: DETAIL });
+    Object.assign(stats, { fps: Math.round(fps), calls: i.calls, tris: i.triangles, pr, detail: DETAIL });
     $("perf").innerHTML = `${Math.round(fps)} fps<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
     frames = 0; acc = 0;
   }
 });
-// ---------------------------------------------------------------- window.__ hooks (core.js lists every global on the page)
-// tool contract: tools/camp-replay.cjs's tour drives these (with __stats above), and all three tools wait for __ready
-window.__boop = (i) => boop(sloths[i]); window.__feed = (i) => feed(sloths[i]); window.__time = (h) => day.setHour(h, true);   // __time jumps straight to an hour
-window.__stick = (x, y) => stickV.set(x, y);
-window.__scene = scene; window.__glade = { at: GLADE, path: sloPath.pts };   // __glade: props/shadow/export_casters.cjs (the bake's layout)
-// debug hooks, for checks by hand in the console
-window.__rest = () => day.setHour(23, true); window.__me = me;   // __me: the player (player.js me)
-window.__face = (i) => { const s = sloths[i]; const flat = V(s.p.x, 0, s.p.z); me.pos.copy(flat.clone().multiplyScalar(Math.max(0, 1 - 2.2 / flat.length()))); collide(me.pos); step(0); const d = s.p.clone().add(V(0, -0.2, 0)).sub(camera.position); me.yaw = Math.atan2(-d.x, -d.z); me.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); me.lastDrag = 1e9; };
-window.__slothS = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(1)));
-window.__ready = true;
+ready();   // debug.js: window.__ready, which the tools wait for

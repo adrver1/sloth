@@ -2,7 +2,7 @@
 // use; "Sit by the fire" sets you down on it, facing the flames, with the eye lowered to a seated 0.83 m (player.js eases it).
 // While you sit and don't look round yourself, the view drifts slowly over the fire and the soup, like letting your gaze
 // wander. Walking (stick or keys) stands you up; so does "Stand up" on the seat.
-// Exports lingerStep(dt) (main.js, each frame). window.__sit(i) sits you on seat i for the checks (core.js lists it).
+// Exports lingerStep(dt) (main.js, each frame) and sit(i), which sits you on seat i at once (the tools: debug.js __sit).
 import * as THREE from "three";
 import { scene, uTime } from "./core.js";
 import { V, wrapPi } from "./util.js";
@@ -37,5 +37,5 @@ function step(dt) {
   const t = uTime.value, yaw = me.seat.yaw + 0.16 * Math.sin(t * 0.11) + 0.05 * Math.sin(t * 0.27), pitch = (me.seat.pitch ?? -0.13) + 0.05 * Math.sin(t * 0.08 + 1);   // a seat may say where the gaze rests (jeepSeat.js: down at the dash)
   const k = 1 - Math.exp(-0.8 * dt * drift); me.yaw += wrapPi(yaw - me.yaw) * k; me.pitch += (pitch - me.pitch) * k;
 }
-window.__sit = (i = 0) => { const t = seats[i]; if (t) { me.seat = seatSpot(t); me.yaw = me.seat.yaw; me.pitch = -0.12; me.pos.copy(me.seat.pos); me.sitK = 1; } };   // tool contract: camp-replay.cjs's tour sits down with it
-export { step as lingerStep };
+const sit = (i = 0) => { const t = seats[i]; if (t) { me.seat = seatSpot(t); me.yaw = me.seat.yaw; me.pitch = -0.12; me.pos.copy(me.seat.pos); me.sitK = 1; } };   // the tools sit down with it (debug.js __sit)
+export { sit, step as lingerStep };

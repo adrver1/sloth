@@ -8,12 +8,12 @@
 // busy while a sloth is in it, climbing in or out, or waiting at the door; then that door says so and you ride beside it from
 // the other side. While you sit you hold the seat in the camp's life ("jeep:driver" / "jeep:passenger"), and sloths.js
 // sends a sloth coming home to it off for a wander until you get out.
-// The seats join the jeep's API (jeep.js jeepApi, the object window.__jeep names too): sit(side) / stand() / seatedIn()
+// The seats join the jeep's API (jeep.js jeepApi): sit(side) / stand() / seatedIn()
 // ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks, and doorOptions(d),
 // which gives input.js each front door's Get in / Get out. Exports jeepSeatStep (main.js, each frame).
-// The claims go through the sloths' camp life (sloth/hooks.js campLife); window.__campFast is the checks' speed-up (core.js lists it).
+// The claims go through the sloths' camp life (sloth/hooks.js campLife); core.js pace is the checks' speed-up.
 import * as THREE from "three";
-import { uTime } from "./core.js";
+import { pace, uTime } from "./core.js";
 import { V, ease, wrapPi } from "./util.js";
 import { yawFrom, yawTo } from "./actor.js";
 import { jeepApi } from "./jeep.js";
@@ -83,7 +83,7 @@ if (jeep) {
   const sideYaw = (s) => yawFrom(W(s.door), W(s.seat));   // facing in through the door
   jeepSeatStep = (dt) => {
     if (!cur) return;
-    const T = cur, s = T.s; T.t += dt * (window.__campFast || 1);   // __campFast: quicker for checks
+    const T = cur, s = T.s; T.t += dt * (pace.fast || 1);   // core.js pace: quicker for checks
     if (T.phase !== "sat") me.lastDrag = uTime.value;   // no gaze drift while moving (linger.js)
     if (me.seat !== seat) { if (T.phase === "sat") { if (!stand()) return; } else me.seat = seat; }
     if (T.phase === "walk") {                          // round to the door, opening it when you get close
@@ -125,7 +125,7 @@ if (jeep) {
     if (who) return [[`${who.name} is at the wheel: hop in the other side 🦥`, () => toast("Round the front to the other door 🦥")]];
     return [[side === "driver" ? "Sit at the wheel 🚙" : "Sit in the passenger seat 🚙", () => sit(side)]];
   }
-  // onto jeepApi itself, so window.__jeep has them too: car.js reads seatedIn, input.js doorOptions; sit, stand and seatBusy are for checks
+  // onto jeepApi itself: car.js reads seatedIn, input.js doorOptions; sit, stand and seatBusy are for checks
   Object.assign(J, { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null, doorOptions });
 }
 export { jeepSeatStep };

@@ -1,7 +1,7 @@
 // Canopy Camp deadwood (camp review B6): a fallen mossy log, a cut stump and a dead standing trunk at the clearing's edge,
 // with orange shelf fungus on all three. Low poly (about 300 tris in all, one draw) with the detail painted into vertex
 // colours the way the forest trunks are (forest.js bake()): moss on the up-facing bark, pale wood with rings on the cut ends.
-// Lit live like the forest round them, so no light-map bake; their ground shadows join the GPU bake through window.__deadwood.
+// Lit live like the forest round them, so no light-map bake; their ground shadows join the GPU bake through deadwood (exported; window.__deadwood, debug.js).
 import * as THREE from "three";
 import { S, scene } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
@@ -127,4 +127,5 @@ if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
 }
 const geo = merge(parts), mesh = new THREE.Mesh(geo, deadMat); mesh.name = "Deadwood"; scene.add(mesh);
 triCount.total = tris(geo);
-window.__deadwood = { layout, tris: triCount };   // for the GPU thread's ground-shadow bake (props/bake_all.py) and the tris report
+const deadwood = { layout, tris: triCount };   // for the GPU thread's ground-shadow bake (props/bake_all.py, through debug.js) and the tris report
+export { deadwood };

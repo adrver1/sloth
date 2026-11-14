@@ -10,7 +10,7 @@ import { blockers } from "./campProps.js";
 // between the hammock and the first big tree (JEEP_AT, with its track, in layout.js), along the edge, its
 // passenger side (local +X) toward the fire. Its three doors and the hood open and close from their menus (input.js, through jeepApi.doors):
 // DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
-// uses jeepApi (window.__jeep): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
+// uses jeepApi (the tools see it as window.__jeep, debug.js): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
 // cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
 // jeepSeat.js adds sitting in the front seats to the same object: sit(side), stand(), seatedIn(), seatBusy(side).
 // cabinLive.receive(object): that object takes the cabin light's shadow (campLife.js gives it the floor and the baked props).
@@ -92,7 +92,6 @@ if (JEEP !== "none") {
     lights: { get cabin() { return cab; } },
     cargoSlots: [[-0.3, -0.75], [0.3, -0.75], [-0.3, -1.3], [0.3, -1.3]].map(([x, z]) => local(x, boot.y, z)),
   };
-  window.__jeep = jeepApi;   // alias: sloths.js, input.js, car.js and audio.js read it; props/shadow/export_casters.cjs takes the jeep's place from it
 }
 
 export { cabinLive, jeepApi, jeepStep };

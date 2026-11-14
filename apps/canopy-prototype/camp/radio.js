@@ -94,6 +94,5 @@ function step(dt) {
   notes.forEach((s, k) => { const f = (t * 0.45 + k * 0.5) % 1; s.position.set(-0.05 + k * 0.08 + Math.sin((f + k) * 6) * 0.02, H / 2 + 0.03 + f * 0.25, 0.02); s.material.opacity = lamp * Math.sin(f * Math.PI) * (0.6 + 0.4 * (audio.musicVolume() > 0.3)); });
   radio.scale.y = 1 + lamp * 0.012 * Math.max(0, Math.sin(t * 9));   // a tiny bob to the music
 }
-window.__radio = radio;   // a debug hook for checks by hand (core.js lists it); nothing in the page reads it
 const radioSource = () => source;
-export { radioSource, playing as radioPlaying, radioOptions, step as radioStep };
+export { radio, radioSource, playing as radioPlaying, radioOptions, step as radioStep };   // radio: the prop (the scenarios read it)

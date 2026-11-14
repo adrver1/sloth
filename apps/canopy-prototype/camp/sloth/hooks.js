@@ -2,13 +2,11 @@
 //   campLife            for the camp's other characters and the player's modules: the places (places.js claim, release,
 //                       holder, host, addMover, movers), path(from, to), lend and giveBack (lend.js), sloths (the named
 //                       ones), eatGift (gifts.js). operator.js hands it to operator/state.js (all but eatGift), jeepSeat.js
-//                       uses claim and release, input.js eatGift. window.__campLife is the same object, for the checks
-//   labApi              what the move lab drives (lab.js imports it; window.__lab is the same object, for checks): each move on its own
-//   window.__spots, __sloth(i), __errand(name), __path(from, to)   for checks
-//   addHooks()          makes them all (sloths.js, once the camp sloths are built); both exports stay undefined and nothing
-//                       is set on window with ?campsloths=0
+//                       uses claim and release, input.js eatGift
+//   labApi              what the move lab drives (lab.js imports it): each move on its own
+//   addHooks()          makes both (sloths.js, once the camp sloths are built); they stay undefined with ?campsloths=0
 import { addMover, claim, holder, host, movers, release } from "../places.js";
-import { GROUND, camp, guests, sloths, spots } from "./state.js";
+import { GROUND, camp, guests } from "./state.js";
 import { clipOf, homeClip, play, playOnce } from "./clips.js";
 import { findPath, isFree, walkTo } from "./walk.js";
 import { doze } from "./naps.js";
@@ -20,12 +18,9 @@ import { giveBack, lend } from "./lend.js";
 
 let labApi, campLife;   // undefined with ?campsloths=0
 function addHooks() {
-  campLife = window.__campLife = { claim, release, holder, addMover, host, movers, path: (from, to) => findPath(from, to), lend, giveBack, sloths: camp, eatGift };
-  window.__spots = spots; window.__sloth = (i) => sloths[i];
-  window.__errand = (name) => { const s = camp.find((q) => q.name === name); if (s && s.trip.phase === "home") { s.wantFood = true; leave(s); } return s; };
-  window.__path = findPath;
+  campLife = { claim, release, holder, addMover, host, movers, path: (from, to) => findPath(from, to), lend, giveBack, sloths: camp, eatGift };
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
-  labApi = window.__lab = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, walkTo, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
+  labApi = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, walkTo, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
     fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
     nap: (s) => { if (!s.dozing) doze(s); },
     guests: () => guests.map((g) => g.key),

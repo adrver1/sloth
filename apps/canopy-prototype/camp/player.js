@@ -1,6 +1,5 @@
 // Canopy Camp player: first person on the clearing floor, the walkable track, collisions with the blockers.
-// me is the player: where you stand, where you look, and the seat you are on (linger.js, jeepSeat.js). main.js also puts it
-// on window.__me, for checks in the console.
+// me is the player: where you stand, where you look, and the seat you are on (linger.js, jeepSeat.js).
 import "./sloths.js";   // run after the module before it, as one script did
 import { camera } from "./core.js";
 import { keys, stickV } from "./hud.js";

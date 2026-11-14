@@ -9,8 +9,8 @@
 //   campStep(dt, seat)   each frame (main.js): seat is the log seat you are on (player.js me.seat) or null. Does nothing
 //                        with ?campsloths=0.
 //   findSeats()          looks up the three log seats (sloths.js, once the props are in)
-// window.__campFast speeds the sloths' day up for checks (the move lab slows and pauses it the same way).
-import { OPT, scene } from "../core.js";
+// core.js pace (window.__campFast for the tools) speeds the sloths' day up for checks (the move lab slows and pauses it the same way).
+import { OPT, pace, scene } from "../core.js";
 import { claim, release } from "../places.js";
 import { SL, camp, wild } from "./state.js";
 import { glideStep, slideStep } from "./moves.js";
@@ -47,7 +47,7 @@ function campStep(dt, seat) {
   if (!OPT.campsloths) return;
   pois();   // the food places, made once the props are in (table.js)
   seatWatch(seat); keep();
-  const fast = window.__campFast || 1, sd = dt * fast;
+  const fast = pace.fast || 1, sd = dt * fast;
   let out = camp.filter((s) => s.trip.phase !== "home").length;
   for (const s of camp) {
     const spot = s.spot, T = s.trip;   // as they are now: a clip's end (s.once) may start a new trip, which waits for the next frame

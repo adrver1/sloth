@@ -27,7 +27,6 @@ function buildGround(baked) {
   if (cabinLive) {   // the jeep's cabin light is live: the floor and every baked prop take its shadow
     cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;
   }
-  window.__ground = groundLife;   // tool contract: props/shadow/export_casters.cjs reads its layout for the bake
   return groundLife;
 }
 

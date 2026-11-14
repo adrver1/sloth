@@ -50,4 +50,3 @@ export function heightGrid(n = 128) {
   return { n, far: FAR, rows: "+z", data: out };
 }
 export { vnoise };
-window.__terrainGrid = heightGrid;   // tool contract: props/shadow/export_casters.cjs reads the height grid for the bake

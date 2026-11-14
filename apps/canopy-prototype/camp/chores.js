@@ -4,7 +4,7 @@
 // (boostFire: the one place the chores touch the camp's fire).
 // Exports buildChores(): campLife.js calls it once, last; it returns the activities (acts), which input.js passes taps to,
 // the operator reads (operator/cook.js and day.js cook with it, talk.js lets you give him the food in your hand), and main.js updates
-// each frame. window.__acts is the same object, for audio.js.
+// each frame; main.js also hands it to audio.js (hearCamp), for the pot's sounds.
 import { createActivities } from "../activities.js";
 import { LIVED, camera, scene } from "./core.js";
 import { toast } from "./hud.js";
@@ -27,7 +27,6 @@ function buildChores() {
     looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
       .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)),
     woodTex: WOOD_TEX ?? null, glowTex, burst, toast, addBlocker: (c, r) => blockers.push([c, r]), boostFire });
-  window.__acts = acts;   // alias: audio.js reads the pot's stage from it (it is evaluated before the chores are built, so it cannot import them)
   return acts;
 }
 

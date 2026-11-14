@@ -44,5 +44,5 @@ weather.step = (dt) => {
   }
   geo.attributes.position.needsUpdate = true;
 };
-window.__weather = (m) => { mode = m; raining = m === "rain"; weather.wet = raining ? 1 : 0; show(); };   // tool contract: camp-replay.cjs's tour sets it at once
-export { weather };
+const setWeather = (m) => { mode = m; raining = m === "rain"; weather.wet = raining ? 1 : 0; show(); };   // at once (the tools: debug.js __weather)
+export { setWeather, weather };

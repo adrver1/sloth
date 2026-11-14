@@ -3,10 +3,10 @@
 // home, s'more, wave, everyone out), slow it down, pause and step, follow it with an orbit camera (drag to turn round it,
 // pinch or wheel to zoom), see the path it plans, and scrub any clip frame by frame on it. Opened from the ⚙️ menu (Move lab)
 // or with ?lab (labButton.js does both); the ✕ closes it and gives back your own view, the normal speed and the live clips.
-// It drives the sloths through labApi (sloth/hooks.js) and sets the camp's pace for everyone with window.__campFast
+// It drives the sloths through labApi (sloth/hooks.js) and sets the camp's pace for everyone (core.js pace)
 // (sloth/step.js and jeepSeat.js read it; tools/camp-replay.cjs sets it too). Exports toggle().
 import * as THREE from "three";
-import { camera, scene } from "./core.js";
+import { camera, pace, scene } from "./core.js";
 import { V } from "./util.js";
 import { me } from "./player.js";
 import { holder } from "./places.js";
@@ -56,7 +56,7 @@ who.onchange = () => { endScrub(); pick(); dist = 1.6 + sel.sc * 0.4; };
 $("labClose").onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggle(); };
 $("labFollow").onclick = (e) => { follow = !follow; e.target.classList.toggle("on", follow); document.body.classList.toggle("follow", follow); };
 $("labPath").onclick = (e) => { showPath = !showPath; e.target.classList.toggle("on", showPath); };
-const setSpeed = (v) => { speed = v; window.__campFast = v; box.querySelectorAll("[data-sp]").forEach((b) => b.classList.toggle("on", +b.dataset.sp === v)); };
+const setSpeed = (v) => { speed = v; pace.fast = v; box.querySelectorAll("[data-sp]").forEach((b) => b.classList.toggle("on", +b.dataset.sp === v)); };
 box.querySelectorAll("[data-sp]").forEach((b) => (b.onclick = () => setSpeed(+b.dataset.sp)));
 setSpeed(1);
 $("labStep").onclick = () => { if (speed) setSpeed(0); stepLeft = 3; };   // three frames at 1x, then paused again
@@ -96,7 +96,7 @@ const pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicM
 pathLine.renderOrder = 9; pathLine.frustumCulled = false; scene.add(pathLine);
 const tgt = V(), wp = V();
 const labStep = (dt) => {
-  if (stepLeft > 0 && --stepLeft === 0) window.__campFast = 0; else if (stepLeft > 0) window.__campFast = 1;
+  if (stepLeft > 0 && --stepLeft === 0) pace.fast = 0; else if (stepLeft > 0) pace.fast = 1;
   const s = sel, T = s.trip;
   pathLine.visible = showPath && T.phase === "walk" && T.path?.length > 0;
   if (pathLine.visible) pathLine.geometry.setFromPoints([s.o.getWorldPosition(wp).clone(), ...T.path].map((p) => V(p.x, 0.04, p.z)));
@@ -120,5 +120,5 @@ export function toggle() {
   const open = box.hidden; box.hidden = !open;
   document.body.classList.toggle("lab", open); document.body.classList.toggle("follow", open && follow);
   if (open) { setLabStep(labStep); setSpeed(1); return; }
-  endScrub(); setSpeed(1); window.__campFast = 1; setLabStep(null); pathLine.visible = false;
+  endScrub(); setSpeed(1); pace.fast = 1; setLabStep(null); pathLine.visible = false;
 }
