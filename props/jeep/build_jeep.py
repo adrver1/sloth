@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, bisect, box, cyl, join, mesh_obj, outward, rod, torus  # noqa: E402
+from lib.mesh import apply_all, ball, bisect, box, cyl, drop_enclosed, join, mesh_obj, outward, rod, torus  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
 # for the bake (bake(..., apply=False) below), one-segment bevels on boxes only where they are big enough for a bevel to read
@@ -626,14 +626,15 @@ HOOD_HINGE, HOOD_OPEN = (0, -0.43, BELT + 0.03), -1.15                      # th
 
 
 def finish(b):
-    """Join the body and each group of b (a Body); put each door's origin on its hinge, the hood's on its own and the
-    others' at b.origins. Returns the objects by name and b.empties."""
+    """Join the body and each group of b (a Body), each without the faces its parts hide inside each other
+    (drop_enclosed); put each door's origin on its hinge, the hood's on its own and the others' at b.origins. Returns the
+    objects by name and b.empties."""
     p, G = b.parts, b.groups
-    out = {"Jeep": join(p, "Jeep")}
+    out = {"Jeep": join(drop_enclosed(p), "Jeep")}
     for name, parts in G.items():
         if name.startswith("Glass"):
             continue
-        o = join(parts, name)
+        o = join(drop_enclosed(parts), name)
         if name == "Hood":                                             # hinged at the foot of the windscreen
             bpy.context.scene.cursor.location = HOOD_HINGE
         elif name in b.origins:
@@ -929,7 +930,7 @@ def jeep_lod(M):
     for x, cm in CANS:
         p.append(slim_box((T, L, H + 0.04), at=(x, CAN_Y, z + 0.02 + (H + 0.04) / 2), m=M[cm]))
     p.append(slim_box(m=M["crate"], **CRATE))
-    return join(p, "JeepLOD")
+    return join(drop_enclosed(p), "JeepLOD")
 
 
 def build(style, samples, views=None, preview_samples=48, wheels=WHEELS):

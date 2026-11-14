@@ -1,9 +1,10 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
-drop_faces, capless, outward, bisect), and object plumbing (apply_all, join, obj_from_bm, mesh_obj). Z up, metres; every
+drop_faces, drop_enclosed, capless, outward, bisect), and object plumbing (apply_all, join, obj_from_bm, mesh_obj). Z up, metres; every
 helper links what it makes into the current scene's collection and returns it.
 
     mesh_obj(name, verts, faces, mats=(), face_mats=None, validate=False)   an object from hand-written vertices and faces
+    drop_enclosed(parts, margin=0.002)    before join(): delete the faces that lie inside another part's closed volume
 
 cyl, ball and box build their mesh with bmesh (one bmesh op each, review R2-227) and match the bpy.ops primitives they
 replace: the same vertices, a "UVMap" with the same UVs, the object named Cylinder, Cone, Sphere or Cube at its
@@ -140,6 +141,79 @@ def drop_faces(o, test):
     bm.to_mesh(o.data)
     bm.free()
     return o
+
+
+def _inside(bvh, p, margin):
+    """Whether point p lies inside the closed surface in bvh, at least margin from it: an odd number of crossings along
+    each of three skewed rays (skewed so a ray does not run along an edge)."""
+    hit = bvh.find_nearest(p)
+    if hit[0] is None or hit[3] < margin:
+        return False
+    for d in _RAYS:
+        n, q = 0, p
+        for _ in range(64):
+            loc = bvh.ray_cast(q, d)[0]
+            if loc is None:
+                break
+            n += 1
+            q = loc + d * 1e-5
+        if n % 2 == 0:
+            return False
+    return True
+
+
+_RAYS = [Vector(d).normalized() for d in ((0.31, 0.17, 0.93), (-0.83, 0.41, 0.23), (0.27, -0.91, -0.33))]
+
+
+def drop_enclosed(parts, margin=0.002):
+    """Delete every face of parts (objects about to be join()ed into one) that lies wholly inside another part's closed
+    volume, so nobody can see it from any side, with any door open (review R2-148: overlapping shells left about a fifth
+    of the jeep's triangles hidden). A face goes only when its corners, its centre, its edge middles and the points half
+    way from the centre to each corner are all inside the same closed part, at least margin from its surface; a face
+    flush with another part's surface stays. Only closed parts (every edge on exactly two faces) can hide faces. Applies
+    each part's modifiers, rotation and scale (apply_all); returns the parts that still have faces, and removes the rest."""
+    from mathutils.bvhtree import BVHTree
+    world = []
+    for o in parts:
+        apply_all(o)
+        world.append([o.matrix_world @ v.co for v in o.data.vertices])
+    closed = []
+    for o, vs in zip(parts, world):
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        ok = len(bm.faces) > 0 and all(len(e.link_faces) == 2 for e in bm.edges)
+        bm.free()
+        if ok:
+            lo = Vector([min(v[i] for v in vs) for i in range(3)])
+            hi = Vector([max(v[i] for v in vs) for i in range(3)])
+            closed.append((o, BVHTree.FromPolygons(vs, [tuple(p.vertices) for p in o.data.polygons]), lo, hi))
+    kept = []
+    for o, vs in zip(parts, world):
+        gone = []
+        for p in o.data.polygons:
+            corners = [vs[i] for i in p.vertices]
+            c = sum(corners, Vector()) / len(corners)
+            pts = [c, *corners, *((a + b) / 2 for a, b in zip(corners, corners[1:] + corners[:1])), *((c + a) / 2 for a in corners)]
+            lo = Vector([min(q[i] for q in corners) for i in range(3)])
+            hi = Vector([max(q[i] for q in corners) for i in range(3)])
+            for other, bvh, blo, bhi in closed:
+                if other is o or any(lo[i] < blo[i] or hi[i] > bhi[i] for i in range(3)):
+                    continue
+                if all(_inside(bvh, q, margin) for q in pts):
+                    gone.append(p.index)
+                    break
+        if gone:
+            bm = bmesh.new()
+            bm.from_mesh(o.data)
+            bm.faces.ensure_lookup_table()
+            bmesh.ops.delete(bm, geom=[bm.faces[i] for i in gone], context="FACES")
+            bm.to_mesh(o.data)
+            bm.free()
+        if len(o.data.polygons):
+            kept.append(o)
+        else:
+            bpy.data.objects.remove(o)
+    return kept
 
 
 def capless(o, a, b, keep_end=True):
