@@ -37,7 +37,7 @@ export function createFireChore({ scene, fire, glowTex, burst, nearSloth, boostF
     for (let i = 0; i < 14; i++) spark();
     // the camp sloth nearest the fire turns to it with a slow, happy blink
     const near = nearSloth(fire, 6)[0];
-    if (near) setTimeout(() => { near.nod = 1.6; burst(near.p.clone().add(V(0, 0.3, 0)), "*happy blink*", 1, 2.2, 60); }, 900);
+    if (near) setTimeout(() => { near.nod = 1.6; burst(near.p.clone().add(V(0, 0.3, 0)), "*happy blink*", 2.2, 60); }, 900);
   }
   const level = () => burning.reduce((s, b) => s + (b.t < HOLD ? 1 : Math.max(0, 1 - (b.t - HOLD) / SETTLE)), 0);
   const sparks = [], sparkMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xffb35a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
