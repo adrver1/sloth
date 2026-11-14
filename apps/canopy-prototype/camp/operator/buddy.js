@@ -1,13 +1,13 @@
 // Canopy Camp operator, with a sloth: lifting one into his hands to play, setting it down on a clear bit of ground, a cuddle
 // on his lap when one joins him on a log, a nap together when one joins him in bed, and the hosting that lets a sloth join
 // him at a place he holds (camp/sloths.js: a sloth that comes there calls life.join, which asks his host).
-// Exports pickUp(clip, slothClip), putDown(), giveBack(at), clearSpot(), cuddleSeated(), napTogether(), host(key), unhost().
+// Exports pickUp(clip, slothClip), putDown(), giveBack(at = clearSpot(), yaw = facing him), clearSpot(), cuddleSeated(), napTogether(), host(key), unhost().
 import * as THREE from "three";
 import { rng, scene } from "../core.js";
 const { R } = rng("operator");
 import { RC } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
-import { SLOTH, blockers } from "../campProps.js";
+import { blockers } from "../campProps.js";
 import { groundHeight as groundAt } from "../terrain.js";
 import { dropAll } from "./handProps.js";
 import { B, UP, body, cs, play, root } from "./model.js";
@@ -16,10 +16,9 @@ import { ME, op } from "./state.js";
 import { host as hostPlace } from "../places.js";
 import { slothLife } from "../sloth/hooks.js";   // undefined with ?campsloths=0
 
-function slothPose(s, clip) {
-  const c = SLOTH.animations.find((q) => q.name === clip); if (!c) return;
-  const a = s.mixer.clipAction(c); s.mixer.stopAllAction(); a.reset().play();
-}
+// the sloth's pose in his hands, on his lap or in bed: played through the sloths' own clips (slothLife.pose), so it becomes the
+// sloth's s.act and lend.js giveBack cross-fades it out again (review R2-001: a stopAllAction here left it blended in for good)
+const slothPose = (s, clip, fade = 0.3) => slothLife?.pose(s, clip, fade);
 function* lift(s, bone, local, quat, dur = 0.5) {      // move the sloth from where it is into his hold, then it rides on the bone
   scene.attach(s.o); const p0 = s.o.position.clone(), q0 = s.o.quaternion.clone();
   for (let t = 0; t < dur;) {
@@ -34,13 +33,15 @@ function* pickUp(clip, slothClip) {                    // lift the sloth into hi
   if (!op.carry) { scene.attach(s.o); op.carry = { s, k: 0, from: s.o.position.clone(), q0: s.o.quaternion.clone() }; }
   for (let t = 0; t < 0.7;) { t += yield; op.carry.k = Math.max(op.carry.k, THREE.MathUtils.smoothstep(t, 0, 0.7)); }
 }
-function giveBack(at) {
+// set the sloth down at `at` (a clear spot beside him by default, never inside a blocker: review R2-010), turned to `yaw`
+// (facing him by default; putDown passes the yaw it already turned the sloth to, so it does not snap round: review R2-012)
+function giveBack(at = clearSpot(), yaw = facing(at)) {
   const s = op.buddy; if (!s) return; op.buddy = null; op.happy = false; op.carry = null;
-  scene.attach(s.o);
-  const p = at || root.localToWorld(V(0.25, 0, -0.55)); p.y = groundAt(p.x, p.z);
-  s.o.position.copy(p); s.o.rotation.set(0, R(0, 6.28), 0); s.cuddled = false;
-  slothLife?.giveBack(s, p, s.o.rotation.y);
+  scene.attach(s.o); at.y = groundAt(at.x, at.z);
+  s.o.position.copy(at); s.o.rotation.set(0, yaw, 0); s.cuddled = false;
+  slothLife?.giveBack(s, at, yaw);
 }
+const facing = (p) => yawTo(root.position.clone().sub(p)) + Math.PI;   // the yaw that turns a sloth at p to face him
 // a bit of open ground beside him to set the sloth on: in front if it's free, else a little round to either side, clear of the
 // log seats, the table, the fire and the rest (campProps blockers), never inside one (Adriaen: it was dropped through a bench)
 function clearSpot() {
@@ -53,9 +54,9 @@ function clearSpot() {
 }
 function* putDown() {                                   // set it down in front of him, facing him, and let it go
   if (!op.buddy || !op.carry) return; const c = op.carry, to = clearSpot(); to.y = groundAt(to.x, to.z);
-  play("idle", 0.6); c.from.copy(to); c.q0.setFromAxisAngle(UP, yawTo(root.position.clone().sub(to)) + Math.PI);   // facing him
+  const yaw = facing(to); play("idle", 0.6); c.from.copy(to); c.q0.setFromAxisAngle(UP, yaw);
   for (let t = 0; t < 0.8;) { t += yield; c.k = 1 - THREE.MathUtils.smoothstep(t, 0, 0.8); }
-  op.carry = null; giveBack(to);
+  op.carry = null; giveBack(to, yaw);
 }
 function* cuddleSeated() {                             // a sloth joined him on the log: on his lap, his arms round it, his head on its
   const s = op.buddy; dropAll(); op.happy = true; play("seated_idle", 0.4);
@@ -64,10 +65,10 @@ function* cuddleSeated() {                             // a sloth joined him on 
   yield* lift(s, B.hips, B.hips.worldToLocal(lap.clone()), B.hips.getWorldQuaternion(q).invert().multiply(root.getWorldQuaternion(new THREE.Quaternion())), 0.8);
   op.ik = { hug: 0 };
   for (let t = 0, T = R(20, 35); t < T;) { t += yield; op.ik.hug = Math.min(1, t / 1, (T - t) / 1); op.look = -0.35 - 0.1 * Math.sin(t * 0.8); }
-  op.ik = null; op.look = 0; giveBack(root.localToWorld(V(0.5, 0, -0.45)));
+  op.ik = null; op.look = 0; giveBack();
 }
 function* napTogether() {                              // a sloth joined him in bed: it curls up beside him, under his arm, and they both sleep
-  const s = op.buddy; s.cuddled = true; scene.attach(s.o); slothPose(s, "curl");
+  const s = op.buddy; s.cuddled = true; scene.attach(s.o); slothPose(s, "curl", 0.5);
   const at = BED.c.clone().addScaledVector(BED.across, 0.2).addScaledVector(BED.head, 0.05).setY(BED.c.y - 0.01);
   const q1 = new THREE.Quaternion().setFromAxisAngle(UP, yawTo(BED.across) + Math.PI * 0.1);   // facing him, a little toward his head
   const p0 = s.o.position.clone(), q0 = s.o.quaternion.clone();

@@ -108,12 +108,12 @@ const DO = {
       op.wasNight = night();
     }
     op.sleeping = false; op.ik = null; op.wasNight = false;
-    if (op.buddy) giveBack();
     unhost();
     from = root.position.clone(); const q0 = root.quaternion.clone(), up = new THREE.Quaternion().setFromAxisAngle(UP, sitYaw);
     play("seated_idle", 0.9);
     for (let t = 0; t < 1.3;) { t += yield; const e = ease(Math.min(1, t / 1.3)); root.position.lerpVectors(from, sr, e); root.quaternion.slerpQuaternions(q0, up, e); }
     op.lying = false; root.rotation.set(0, sitYaw, 0); op.footLock = lock;
+    if (op.buddy) giveBack();   // once he sits up, so the clear spot is on the floor before him, not under the bed (review R2-010)
     yield* standUp(); releasePlace();
     yield* walkTo(BED.inside, { near: 0.15 }); yield* walkTo(BED.door);
   },
