@@ -95,7 +95,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 ## 12. Generators (`props/`, `characters/sloth_baby/`)
 
-- Rule: shared Blender helpers live in `props/lib/` (`mesh.py`, `materials.py`, `bake.py`, `export.py`). Scripts import them by path (`sys.path.insert(0, <props>)`, then `from lib.mesh import ...`). Never monkey-patch another script's function or `exec` another script.
+- Rule: shared Blender helpers live in `props/lib/` (`mesh.py`, `materials.py`, `bake.py`, `export.py`, `audit.py`). Scripts import them by path (`sys.path.insert(0, <props>)`, then `from lib.mesh import ...`). Never monkey-patch another script's function or `exec` another script.
 - Why: `build_camp.bake` and `densify` were patched from six places, so results depended on which script was imported last (C3: gencamp-02, genlived-06, genbake-18, genlived-09).
 - Rule: a builder has `make()`, which only creates its objects in the current scene and returns them (no reset, no light, no export), and `build(...)`, which resets, makes, lights and exports. Examples: `make()` and `build()` in `props/lived/build_fire.py`, `build_laundry.py`, `build_lived.py`. `props/camp/build_camp.py` `picked()` is the camp set's equivalent.
 - Rule: the light bake reads the layout from the live page. `props/shadow/export_casters.cjs` writes `props/shadow/layout_picked.json` (its `place` block), and `props/camp/bake_camp_lightmap.py` places everything from it. The bake keeps no copy of the layout, with two values typed again: the sun's direction (the bake stops if the two differ) and the lantern drop, `PAGE_LANTERN_DROP = 0.125` in `bake_camp_lightmap.py`, which is `lanterns.js` `JAR_Y` with no check (the bake hangs the light 0.12 m down on purpose, review props-07, still partly fixed). Exporting `JAR_Y` through `layout_picked.json` would remove the second copy; keeping the bake's 0.12 m offset, it needs no rebake.
@@ -107,7 +107,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 - Rule: use as few triangles as still looks good (Adriaen 2026-11-11, CLAUDE.md). Spend them on silhouettes and things seen up close; paint detail into colours or textures (bamboo rings, planks, log stacks) instead of modelling it. No hidden detail: no subdividing for AO bakes, no caps nobody sees, no high segment counts on small parts.
 - Why: geometry that nobody sees costs phone frame time and bake time.
-- Every export prints a triangle count per object (`props/lib/export.py` `report`, called by `export_glb`); at run time `util.js` `trisIn` gives each prop's count. Say the counts when you show a change. Examples of painted detail: `painted_bamboo` in `props/camp/build_camp.py`, `props/lived/wood_stack.jpg`.
+- Every export prints a triangle count per object (`props/lib/export.py` `report`, called by `export_glb`); at run time `util.js` `trisIn` gives each prop's count. Every export also runs the mesh audit (`props/lib/audit.py`, review R2-021): per object it prints how many triangles are enclosed, hidden from the player, seen only from behind, flipped, degenerate or overlapping, and it stops the build on a back-only triangle or a same-facing overlap that its `KNOWN` list does not hold. Fix the fault; raise a `KNOWN` entry only when it is meant, and lower it when a fix removes faults. Quote its numbers with the triangle counts. Say the counts when you show a change. Examples of painted detail: `painted_bamboo` in `props/camp/build_camp.py`, `props/lived/wood_stack.jpg`.
 
 ## 14. Archives
 

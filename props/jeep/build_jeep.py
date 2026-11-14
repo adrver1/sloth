@@ -929,7 +929,8 @@ def build(style, samples, do_preview, preview_samples):
     if style == "expedition":
         for o in objs.values():
             mud(o)
-    path = export_glb([*objs.values(), *EMPTIES], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False)
+    path = export_glb([*objs.values(), *EMPTIES], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False,
+                      check=True if style == "expedition" else "warn")    # the toy and camper are archived: report only
     print(f"{style} -> {path}")
     for e in EMPTIES:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")

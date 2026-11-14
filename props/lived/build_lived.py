@@ -780,7 +780,7 @@ def build(samples=32, parts_out=None, colour=None, path=None):
                 bm.to_mesh(c.data); bm.free()
                 c.name = n
                 split.append(c)
-        export_glb(split, parts_out, texcoords=False)
+        export_glb(split, parts_out, texcoords=False, check=False)    # the same faces, audited above
     print(f"lived -> {path}")
 
 

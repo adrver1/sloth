@@ -688,7 +688,7 @@ def build(style, samples, overwrite_archive=False):
     bake(list(objs.values()), samples, split=True)     # the archived styles split long edges for the AO
     out = os.path.join(HERE, "archive" if overwrite_archive else "out")
     os.makedirs(out, exist_ok=True)
-    path = export_glb(list(objs.values()), os.path.join(out, f"camp_{style}.glb"), texcoords=False)
+    path = export_glb(list(objs.values()), os.path.join(out, f"camp_{style}.glb"), texcoords=False, check="warn")   # archived: report only
     if overwrite_archive:
         with open(path, "rb") as fi, open(path[:-4] + ".txt", "w") as fo:
             fo.write(base64.b64encode(fi.read()).decode())

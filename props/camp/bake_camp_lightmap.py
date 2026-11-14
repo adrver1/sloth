@@ -10,7 +10,8 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
 2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the scratch GLBs, and stands everything where
-   camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
+   camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page. The mesh audit
+   (props/lib/audit.py) reports on the lived props in step 1 and the picked set here, and never stops the bake.
 3. Adds the jeep (an occluder) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
    one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
    lanterns, the tent stove and a dim blue moon. Every prop gets a second UV map (TEXCOORD_1; TEXCOORD_0 stays the
@@ -56,12 +57,14 @@ T0 = time.time()
 GLOW = ("ru_glass", "wt_glow")
 THIN = ("LaundryCloth", "Chain")
 
+os.environ.setdefault("PROPS_AUDIT", "warn")       # the mesh audit (lib/audit.py) reports here but never stops the bake
 sys.path.insert(0, HERE); sys.path.insert(0, LIVED); sys.path.insert(0, os.path.join(ROOT, "props"))
 import build_camp  # noqa: E402
 import build_fire  # noqa: E402
 import build_laundry  # noqa: E402
 import build_lived  # noqa: E402
 from lib.bake import flat_colours, pick_device  # noqa: E402
+from lib.audit import audit  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.mesh import apply_all  # noqa: E402
 
@@ -129,6 +132,7 @@ for name, o in objs.items():
         d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=d.name)
 flat(list(objs.values()))
+audit(list(objs.values()), label="camp_picked")      # the picked set's mesh audit, before the minutes of baking
 
 
 def place(src, name, x, z, yaw, y=0.0, copy=True):
@@ -408,7 +412,7 @@ print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
 def export(objs, path, txt, image_format="AUTO"):
-    export_glb(objs, path, image_format=image_format)
+    export_glb(objs, path, image_format=image_format, check=False)     # audited in steps 1 and 2
     with open(path, "rb") as f, open(os.path.join(MODELS, txt), "w") as g:
         g.write(base64.b64encode(f.read()).decode())
 

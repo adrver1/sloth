@@ -1,10 +1,13 @@
 """
 Scene reset, glTF export and the triangle report for the props/ generators. The project rule (CLAUDE.md) is a triangle
-count per object for every model exported: export_glb() prints one line per object it writes.
+count per object for every model exported: export_glb() prints one line per object it writes, and runs the mesh audit
+(lib/audit.py: hidden, back-only, flipped, degenerate and overlapping triangles), which stops the build on a new fault.
 """
 import os
 
 import bpy
+
+from lib.audit import audit
 
 
 def reset():
@@ -24,10 +27,14 @@ def report(objs, note=None):
             print(f"  {o.name}: {tris(o)} triangles" + (f" {note[o.name]}" if note and o.name in note else ""))
 
 
-def export_glb(objs, path, texcoords=True, image_format=None, quiet=False):
+def export_glb(objs, path, texcoords=True, image_format=None, quiet=False, check=True):
     """Write objs (selected alone) to the GLB at path, with the export flags the page relies on: the colour attribute
     "Col" as COLOR_0, materials, y up; texcoords=False leaves the UVs out; image_format (e.g. "JPEG") for embedded
-    images. Prints each object's triangle count (unless quiet) and the file size."""
+    images. Prints each object's triangle count (unless quiet) and the file size. check runs lib/audit.py's audit on
+    the objects first, labelled with the file's name (without "_preview"), and stops the build on a new fault before
+    anything is written; check="warn" only prints (archived styles), check=False skips it (objects already audited)."""
+    if check:
+        audit(objs, "warn" if check == "warn" else None, os.path.splitext(os.path.basename(path))[0].removesuffix("_preview"))
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
