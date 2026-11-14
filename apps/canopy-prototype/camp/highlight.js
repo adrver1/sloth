@@ -1,5 +1,8 @@
 // Canopy Camp highlight: lights up the thing you can use right now (the wood pile, the fire) with a thin warm outline and a
-// soft glow on its faces, instead of a hint icon floating over it. Taken from desk-at-night's free mode (web/src/highlight.js):
+// soft glow on its faces, instead of a hint icon floating over it. Taken from desk-at-night's free mode: web/src/highlight.js
+// as of desk-at-night commit 47ee230 (the file is the same at the engine/ pin 7197bbe), changed here for skinned meshes, the
+// fur shells, no depth write on the outline and the camp's colour; offering those changes upstream would let the two be one file
+// (review R2-125). The idea:
 // the outline is the inverted-hull trick (the object's back faces pushed out a fixed number of pixels along smoothed normals,
 // so it is the same width near and far) and the glow an additive rim pass. No new geometry and no postprocessing: while
 // something is lit it is drawn twice more (outline, glow), and nothing extra otherwise. Skinned meshes (the sloths) work
