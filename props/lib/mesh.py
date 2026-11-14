@@ -1,9 +1,10 @@
 """
-Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
+Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, arc, quad), shaping (bevel, rough_up,
 drop_faces, drop_enclosed, capless, outward, bisect), and object plumbing (apply_all, join, obj_from_bm, mesh_obj). Z up, metres; every
 helper links what it makes into the current scene's collection and returns it.
 
     mesh_obj(name, verts, faces, mats=(), face_mats=None, validate=False)   an object from hand-written vertices and faces
+    arc(R, r, a0, a1, segs, at, rot, m, minor=3, smooth=True)   an open piece of a torus (a handle, a tow loop)
     drop_enclosed(parts, margin=0.002)    before join(): delete the faces that lie inside another part's closed volume
 
 cyl, ball and box build their mesh with bmesh (one bmesh op each, review R2-227) and match the bpy.ops primitives they
@@ -107,6 +108,27 @@ def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
 def torus(R, r, at=(0, 0, 0), rot=(0, 0, 0), m=None, major=24, minor=8):
     bpy.ops.mesh.primitive_torus_add(major_radius=R, minor_radius=r, major_segments=major, minor_segments=minor, location=at, rotation=rot)
     return with_material(bpy.context.object, m)
+
+
+def arc(R, r, a0, a1, segs, at=(0, 0, 0), rot=(0, 0, 0), m=None, minor=3, smooth=True):
+    """Part of a torus, in torus()'s frame (the ring in its local XY plane round at, turned by rot): the tube of radius r
+    from angle a0 to a1 (radians, counter-clockwise from local X) in segs segments, minor sides round, with open ends.
+    For a handle or a loop whose ends go into another part, so no triangle is spent on the hidden part of the ring
+    (review R2-191)."""
+    def make(bm):
+        rings = []
+        for k in range(segs + 1):
+            a = a0 + (a1 - a0) * k / segs
+            u = Vector((math.cos(a), math.sin(a), 0))
+            rings.append([bm.verts.new(u * (R + r * math.cos(t * 2 * math.pi / minor)) + Vector((0, 0, r * math.sin(t * 2 * math.pi / minor))))
+                          for t in range(minor)])
+        for A, B in zip(rings, rings[1:]):
+            for t in range(minor):
+                f = bm.faces.new((A[t], B[t], B[(t + 1) % minor], A[(t + 1) % minor]))
+                c = f.calc_center_median()
+                if f.normal.dot(c - Vector((c.x, c.y, 0)).normalized() * R) < 0:   # face away from the tube's centre line
+                    f.normal_flip()
+    return with_material(primitive("Torus", make, at, rot), m, smooth)
 
 
 def quad(corners, m):

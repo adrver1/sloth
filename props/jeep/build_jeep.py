@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, bisect, box, cyl, drop_enclosed, drop_faces, join, mesh_obj, outward, rod, torus  # noqa: E402
+from lib.mesh import apply_all, arc, ball, bisect, box, cyl, drop_enclosed, drop_faces, join, mesh_obj, outward, rod, torus  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
 # for the bake (bake(..., apply=False) below), one-segment bevels on boxes only where they are big enough for a bevel to read
@@ -440,14 +440,15 @@ def hood_map(M):
     kup = (o.x, o.y, o.z + 2)
     q.append(poly([C(-0.06, -0.1, 0), C(0.06, -0.1, 0), C(0.06, 0.1, 0), C(-0.06, 0.1, 0)], mat("compass_plate", (0.72, 0.86, 0.9)), kup))
     q.append(poly([C(-0.02, 0.06, 0.001), C(0.02, 0.06, 0.001), C(0, 0.095, 0.001)], mat("compass_needle", (0.85, 0.15, 0.12)), kup))
-    R, H, N = 0.045, 0.016, 12
+    R, H, N = 0.045, 0.016, 8               # an 8-sided dial: it is 9 cm across (review R2-191)
     ring = [(R * math.cos(t * 2 * math.pi / N), R * math.sin(t * 2 * math.pi / N) - 0.02) for t in range(N)]
     bez = mat("compass_bezel", (0.08, 0.08, 0.09))
     for i in range(N):                      # bezel wall, no bottom (it lies on the plate)
         (x0, y0), (x1, y1) = ring[i], ring[(i + 1) % N]
         q.append(poly([C(x0, y0, 0), C(x1, y1, 0), C(x1, y1, H), C(x0, y0, H)], bez, C(2 * (x0 + x1), 2 * (y0 + y1) + 0.06, H / 2)))
     q.append(poly([C(x, y, H) for x, y in ring], mat("compass_face", (0.95, 0.94, 0.9)), (o.x, o.y, o.z + 2)))
-    q.append(poly([C(-0.008, R - 0.02 - 0.003, H + 0.001), C(0.008, R - 0.02 - 0.003, H + 0.001), C(0, R - 0.02 - 0.016, H + 0.001)], bez, kup))   # the N mark
+    rn = R * math.cos(math.pi / N)          # the dial's inner radius, at the middle of each side
+    q.append(poly([C(-0.008, rn - 0.02 - 0.004, H + 0.001), C(0.008, rn - 0.02 - 0.004, H + 0.001), C(0, rn - 0.02 - 0.017, H + 0.001)], bez, kup))   # the N mark
     nd = (math.sin(0.4), math.cos(0.4))     # needle: red half to north, dark half to south (white would vanish on the dial), turned a little off the plate
     tip = lambda s, L: C(s * nd[0] * L, s * nd[1] * L - 0.02, H + 0.002)
     side = lambda s: C(s * nd[1] * 0.007, -s * nd[0] * 0.007 - 0.02, H + 0.002)
@@ -558,8 +559,9 @@ def body(M, style, wheels=WHEELS):
         door.append(slim_box((0.03, 0.14, 0.03), at=(s * (W / 2 + 0.012), 0.45, BELT - 0.12), m=M["trim"]))   # handle
         # mirror: a big squarish housing close to the door on a short foot at the front corner of the window (Adriaen's
         # photo); it rides on the door, so it swings open with it, and the housing sticks out sideways with its glass facing back
-        door.append(slim_box((0.06, 0.06, 0.08), at=(s * (W / 2 + 0.03), -0.28, BELT + 0.07), m=M["trim"], bevel=0.012))
-        door.append(slim_box((0.18, 0.065, 0.16), at=(s * (W / 2 + 0.105), -0.28, BELT + 0.17), m=M["trim"], bevel=0.02))
+        # (plain boxes: a bevel cost 32 more triangles a box and does not read at this size, review R2-191)
+        door.append(slim_box((0.06, 0.06, 0.08), at=(s * (W / 2 + 0.03), -0.28, BELT + 0.07), m=M["trim"]))
+        door.append(slim_box((0.18, 0.065, 0.16), at=(s * (W / 2 + 0.105), -0.28, BELT + 0.17), m=M["trim"]))
         door.append(slim_box((0.14, 0.006, 0.12), at=(s * (W / 2 + 0.105), -0.246, BELT + 0.17), m=M["glass"]))
     G["GlassB"].append(panel((-0.5, REAR + 0.004, zb + 0.04), (0.5, REAR + 0.004, zb + 0.04), (0.48, REAR + 0.002, zt - 0.02), (-0.48, REAR + 0.002, zt - 0.02), g))
     # roof gutters
@@ -745,8 +747,8 @@ def expedition(wheels=WHEELS):
     b = body(M, "expedition", wheels); p, G = b.parts, b.groups
     # steel bumper with a winch (its drum would sit inside the box, so it is not modelled: review R2-168) and a pair of tow hooks
     p.append(winch(M, bevel=0.02))
-    for s in (-1, 1):
-        p.append(torus(0.04, 0.012, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"], major=8, minor=3))
+    for s in (-1, 1):                    # each tow hook the part of a ring outside the bumper (the rest is inside it)
+        p.append(arc(0.04, 0.012, math.radians(150), math.radians(390), 4, at=(s * 0.55, FRONT - 0.17, SILL), rot=(0, math.pi / 2, 0), m=M["strap"]))
     # snorkel, angular like the aftermarket ones: a flat box duct along the top of the wing, a square riser up the A pillar
     # (raked like the windscreen, clear of the mirror) and a wedge-shaped intake head on top facing forward
     p += snorkel(M)

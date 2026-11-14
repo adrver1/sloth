@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, report, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, capless, cyl, join, obj_from_bm, quad, rod, rough_up, torus  # noqa: E402
+from lib.mesh import apply_all, arc, box, capless, cyl, join, obj_from_bm, quad, rod, rough_up  # noqa: E402
 
 rng = random.Random(11)
 SEAT_TOP = 0.361
@@ -418,7 +418,8 @@ def page(w, d, side, M, lift):
 
 def mug(M, at):
     """The enamel mug, trimmed (Adriaen 2026-11-12): an 8-sided body with no bottom, the blue rim painted as a band at
-    the top, coffee as one flat octagon, and a 6 x 3 handle loop (96 triangles instead of 244)."""
+    the top, coffee as one flat octagon, and a handle of 4 x 3 that is only the part of the loop outside the body, its
+    ends inside the mug wall under the coffee (78 triangles instead of 244; review R2-191)."""
     x0, y0, z0 = at
     r, h, n = 0.042, 0.085, 8
     bm = bmesh.new()
@@ -441,9 +442,7 @@ def mug(M, at):
     me = o.data
     for k in ("enamel", "rim", "coffee"):
         me.materials.append(M[k])
-    hd = torus(0.026, 0.006, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=6, minor=3)
-    for pl in hd.data.polygons:
-        pl.use_smooth = False
+    hd = arc(0.026, 0.006, math.radians(-125), math.radians(125), 4, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], smooth=False)
     return join([o, hd], "mug")
 
 

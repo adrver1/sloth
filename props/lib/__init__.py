@@ -2,7 +2,7 @@
 The shared builder library for the props/ generators (build_camp.py, build_jeep.py, the lived builders and the light
 bake), so they stop importing helpers from, and patching, each other:
 
-    mesh.py       primitives and mesh helpers (box, cyl and rod with caps=, ball, torus, quad, primitive, rough_up,
+    mesh.py       primitives and mesh helpers (box, cyl and rod with caps=, ball, torus, arc, quad, primitive, rough_up,
                   capless, outward, bisect, join, obj_from_bm, mesh_obj ...)
     materials.py  mat (a flat base colour), image_material, baked_material (the one vertex-colour "Baked" material)
     bake.py       bake (Cycles AO into vertex colours, with explicit split and apply), flat_colours (no light), densify
