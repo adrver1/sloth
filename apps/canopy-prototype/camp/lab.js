@@ -3,14 +3,14 @@
 // home, s'more, wave, everyone out), slow it down, pause and step, follow it with an orbit camera (drag to turn round it,
 // pinch or wheel to zoom), see the path it plans, and scrub any clip frame by frame on it. Opened from the ⚙️ menu (Move lab)
 // or with ?lab (labButton.js does both); the ✕ closes it and gives back your own view, the normal speed and the live clips.
-// It drives the sloths through sloths.js's labApi and sets the camp's pace for everyone with window.__campFast (sloths.js and
-// jeepSeat.js read it; tools/camp-replay.cjs sets it too). Exports toggle().
+// It drives the sloths through labApi (sloth/hooks.js) and sets the camp's pace for everyone with window.__campFast
+// (sloth/step.js and jeepSeat.js read it; tools/camp-replay.cjs sets it too). Exports toggle().
 import * as THREE from "three";
 import { camera, scene } from "./core.js";
 import { V } from "./util.js";
 import { me } from "./player.js";
 import { holder } from "./places.js";
-import { labApi } from "./sloths.js";
+import { labApi } from "./sloth/hooks.js";
 import { setLabStep } from "./labButton.js";
 
 const L = labApi, cs = L.camp;   // (with ?campsloths=0 there are no camp sloths and no lab: this line throws, as it always has)
