@@ -485,9 +485,14 @@ if (qs.get("campsloths") !== "0") {
     eatGift(s, mesh, from) {
       if (s.gift) { scene.remove(s.gift.mesh); s.gift = null; }
       mesh.position.copy(from); mesh.scale.copy(mesh.userData.base ?? V(1, 1, 1)); scene.add(mesh);
-      const sitUp = canStretch(s) && !s.asleep && !s.dozing && !s.once && !s.smore && !s.wave && !s.yawn && (s.trip.phase === "rest" ? !s.trip.slept : s.trip.phase === "home");
+      // on its way across the clearing (Adriaen 2026-11-14: "it should stop and sit down for a bit while eating"): it stops,
+      // sits and eats it the same way, sits a moment more, then walks on
+      const onFoot = (s.trip.phase === "walk" || s.trip.phase === "greet") && !s.asleep && !s.once && !s.wave;
+      const sitUp = onFoot || canStretch(s) && !s.asleep && !s.dozing && !s.once && !s.smore && !s.wave && !s.yawn && (s.trip.phase === "rest" ? !s.trip.slept : s.trip.phase === "home");
       s.gift = { mesh, from: from.clone(), land: from.clone(), t: 0, clip: sitUp }; s.nod = 1.2;
-      if (sitUp) playOnce(s, "eat", 0.5, () => { scene.remove(mesh); if (s.mouth) s.mouth.visible = false; s.gift = null; const [c, ts] = homeClip(s); play(s, c, 0.9, ts); }, EAT_GRAB - 0.9);
+      if (sitUp) playOnce(s, "eat", onFoot ? 0.8 : 0.5, () => { scene.remove(mesh); if (s.mouth) s.mouth.visible = false;
+        if (onFoot) { s.gift = { clip: true, wait: R(1.5, 3) }; play(s, "idle", 0.9); return; }   // a moment more sitting, then on (giftStep)
+        s.gift = null; const [c, ts] = homeClip(s); play(s, c, 0.9, ts); }, EAT_GRAB - (onFoot ? 1.3 : 0.9));
       return sitUp ? "eat" : "munch";
     },
     movers: () => [...camp.filter((o) => GROUND.has(o.trip.phase)).map((o) => [o.o.position, 0.18 * o.sc]), ...movers.map(([o, r]) => [o.position, r]), [camera.position, 0.3]],
@@ -762,6 +767,9 @@ if (qs.get("campsloths") !== "0") {
     playOnce(s, T.slot.clip, 0.8, () => {            // eaten: down off the table, then on its way
       const slot = T.slot, F = slot.food; mouthOf(s).visible = false;
       F.from = null;
+      // up on the table it must be hungry (Adriaen 2026-11-14): two or three fruits in a row, each the next from the plate
+      if (slot.name === "table" && !F.bowl && (T.more ??= Math.floor(R(1, 3))) > 0) { T.more--; fruit(F.mesh); restOn(F); F.mesh.visible = true; F.mesh.scale.multiplyScalar(0.01); F.grow = 0; return chew(s, T); }
+      T.more = undefined;
       if (F.bowl) { F.mesh && scene.remove(F.mesh); F.mesh = null; } else { F.mesh.visible = false; F.back = R(25, 45); }
       const go = () => { slot.who = null; if (slot.key) life.release(slot.key, s); R(0, 1) < 0.35 ? wander(s) : goHome(s); };
       if (slot.name === "table") { play(s, "hang_walk", 1, -2); T.yaw = slot.yaw; move(s, T, slot.p.clone(), 3.5, 0.12, -0.5, go); }
@@ -782,8 +790,9 @@ if (qs.get("campsloths") !== "0") {
     m.visible = open > 0.08; m.scale.set(0.9, Math.max(0.01, open), 1);
   }
   // a gift (life.eatGift) while it sits up: the food floats to its paw as the paw comes up, then the eat clip's chewing
-  function giftStep(s) {
+  function giftStep(s, sd) {
     const G = s.gift, t = s.act.time;
+    if (G.wait != null) { G.wait -= sd; if (G.wait < 0) { s.gift = null; if (s.trip.phase === "walk") play(s, "walk", 1, WALK_TS); else if (s.trip.phase === "greet") play(s, "idle", 0.8); } return; }
     if (t < EAT_GRAB) { pawOf(s, paw); const k = sstep(EAT_GRAB - 0.9, EAT_GRAB, t); G.mesh.position.lerpVectors(G.from, paw, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.25; G.land.copy(paw); }
     else chewStep(s, G.mesh, G.land, EAT_GRAB);
   }
@@ -1044,7 +1053,7 @@ if (qs.get("campsloths") !== "0") {
       if (fast !== 1) s.mixer.update(sd - dt);   // the clip at the same pace (slow motion and pause in the move lab too)
       T.t += sd; s.greetCD -= sd;
       if (s.once && s.act.time >= s.act.getClip().duration - 0.02) { const f = s.once; s.once = null; f(); }   // a stretch or a bite done
-      if (s.gift?.clip) giftStep(s);   // eating what you gave it: its day waits until it's done
+      if (s.gift?.clip) giftStep(s, sd);   // eating what you gave it: its day waits until it's done
       else if (T.phase === "home") {
         if (spot.name === "seat") smoreStep(s, sd);
         napStep(s, sd, s.spot.guest ? () => leave(s) : undefined);
