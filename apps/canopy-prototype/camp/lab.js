@@ -5,6 +5,8 @@
 // or with ?lab (labButton.js does both); the ✕ closes it and gives back your own view, the normal speed and the live clips.
 // It drives the sloths through labApi (sloth/hooks.js) and sets the camp's pace for everyone (core.js pace)
 // (sloth/step.js and jeepSeat.js read it; tools/camp-replay.cjs sets it too). Exports toggle().
+// Each move is one row of ACTIONS (its button, when it can start, what it does); the clip menu lists every clip the sloth
+// model has (labApi.clipNames). The read-out and the greyed-out buttons are updated about 5 times a second (review R2-144).
 import * as THREE from "three";
 import { $, camera, pace, scene } from "./core.js";
 import { V } from "./util.js";
@@ -15,6 +17,26 @@ import { opApi } from "./operator.js";
 import { setLabStep } from "./labButton.js";
 
 const L = labApi, cs = L.camp;   // (with ?campsloths=0 there are no camp sloths, and labButton.js opens no lab)
+// the moves, each once: its button (row, label), when it can start for sloth s (the button is greyed out otherwise) and what
+// it does. A click runs it only when it can start.
+const atHome = (s) => s.trip.phase === "home", sitting = (s) => atHome(s) || s.trip.phase === "rest";
+const onGround = (s) => L.GROUND.has(s.trip.phase) && s.trip.phase !== "greet";
+const ACTIONS = [
+  { id: "leave", row: 0, label: "Get food", can: atHome, run: (s) => L.leave(s) },
+  { id: "wander", row: 0, label: "Wander", can: onGround, run: (s) => L.wander(s) },
+  { id: "home", row: 0, label: "Go home", can: onGround, run: (s) => L.goHome(s) },
+  { id: "smore", row: 0, label: "S'more", can: (s) => s.spot.name === "seat" && atHome(s), run: (s) => L.smore(s) },
+  { id: "wave", row: 0, label: "Wave", can: () => true, run: (s) => L.wave(s) },
+  { id: "all", row: 0, label: "Everyone out", can: () => true, run: () => { for (const q of cs) if (atHome(q)) L.leave(q); } },
+  { id: "nap", row: 1, label: "Nap", can: (s) => !s.dozing && sitting(s) && !s.spot.asleep, run: (s) => L.nap(s) },
+  { id: "wake", row: 1, label: "Wake", can: (s) => !!s.dozing, run: (s) => L.wake(s) },
+  { id: "yawn", row: 1, label: "Yawn", can: () => true, run: (s) => L.yawn(s) },
+  { id: "stretch", row: 1, label: "Stretch", can: sitting, run: (s) => L.stretch(s) },
+  { id: "fix", row: 1, label: "Fix engine", can: (s) => !!s.spot.car && atHome(s), run: (s) => L.fix(s) },
+  { id: "trip", row: 1, label: "Cozy nap", can: (s) => atHome(s) && !s.spot.guest,
+    run: (s) => { const k = L.guests().filter((k) => !holder(k)); L.napTrip(s, k[Math.floor(Math.random() * k.length)]); } },
+  { id: "cards", row: 1, label: "Cards", can: (s) => atHome(s) && !s.spot.guest, run: (s) => L.cards(s) },
+];
 const css = document.createElement("style");
 css.textContent = `
 #lab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(96px + env(safe-area-inset-top, 0px)); width: min(300px, calc(100vw - 32px));
@@ -37,9 +59,7 @@ document.head.appendChild(css);
 const box = document.createElement("details"); box.id = "lab"; box.open = true;
 box.innerHTML = `<summary>🧪 Move lab <button id="labClose" style="float:right;padding:2px 9px" aria-label="Close the move lab">✕</button></summary><div class="in">
   <div class="row"><select id="labWho"></select><button id="labFollow" class="on">Follow</button><button id="labPath" class="on">Path</button></div>
-  <div class="row"><button data-do="leave">Get food</button><button data-do="wander">Wander</button><button data-do="home">Go home</button>
-    <button data-do="smore">S'more</button><button data-do="wave">Wave</button><button data-do="all">Everyone out</button></div>
-  <div class="row"><button data-do="nap">Nap</button><button data-do="wake">Wake</button><button data-do="yawn">Yawn</button><button data-do="stretch">Stretch</button><button data-do="fix">Fix engine</button><button data-do="trip">Cozy nap</button><button data-do="cards">Cards</button></div>
+  ${[0, 1].map((r) => `<div class="row">${ACTIONS.filter((a) => a.row === r).map((a) => `<button data-do="${a.id}">${a.label}</button>`).join("")}</div>`).join("")}
   <div class="row"><span class="lbl">Speed</span>${[0, 0.25, 0.5, 1, 2, 4].map((v) => `<button data-sp="${v}">${v ? v + "×" : "Pause"}</button>`).join("")}<button id="labStep">Step ▸</button></div>
   <div class="row"><span class="lbl">Clip</span><select id="labClip"><option value="">(live)</option></select><button id="labBack">Back to life</button></div>
   <div class="row"><input type="range" id="labT" min="0" max="1" step="0.001" value="0" disabled></div>
@@ -48,11 +68,13 @@ document.body.appendChild(box); box.hidden = true;
 for (const e of ["pointerdown", "pointerup", "pointermove", "wheel"]) box.addEventListener(e, (ev) => ev.stopPropagation());
 const who = $("labWho"), clipSel = $("labClip"), slider = $("labT"), read = $("labRead");
 cs.forEach((s, i) => who.add(new Option(`${s.name} (${s.spot.name})`, i)));
-for (const n of ["idle", "walk", "cling", "hang_walk", "nap", "reach", "curl", "drive", "peek", "titanic", "stretch", "eat", "eat_high"]) if (L.clipOf(n)) clipSel.add(new Option(n, n));
+for (const n of L.clipNames()) clipSel.add(new Option(n, n));   // every clip the sloth model has
+const buttons = ACTIONS.map((a) => [a, box.querySelector(`[data-do="${a.id}"]`)]);
 
+let readT = 0;   // seconds to the next read-out (readOut, below); 0 updates it on the next frame
 let sel = cs[0], follow = true, showPath = true, speed = 1, stepLeft = 0, scrub = null, dist = 1.6 + cs[0].sc * 0.4;
 const pick = () => (sel = cs[+who.value]);
-who.onchange = () => { endScrub(); pick(); dist = 1.6 + sel.sc * 0.4; };
+who.onchange = () => { endScrub(); pick(); dist = 1.6 + sel.sc * 0.4; readT = 0; };
 $("labClose").onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggle(); };
 $("labFollow").onclick = (e) => { follow = !follow; e.target.classList.toggle("on", follow); document.body.classList.toggle("follow", follow); };
 $("labPath").onclick = (e) => { showPath = !showPath; e.target.classList.toggle("on", showPath); };
@@ -60,22 +82,7 @@ const setSpeed = (v) => { speed = v; pace.fast = v; box.querySelectorAll("[data-
 box.querySelectorAll("[data-sp]").forEach((b) => (b.onclick = () => setSpeed(+b.dataset.sp)));
 setSpeed(1);
 $("labStep").onclick = () => { if (speed) setSpeed(0); stepLeft = 3; };   // three frames at 1x, then paused again
-box.querySelectorAll("[data-do]").forEach((b) => (b.onclick = () => {
-  endScrub(); const s = sel, ph = s.trip.phase, d = b.dataset.do;
-  if (d === "leave" && ph === "home") L.leave(s);
-  if (d === "wander" && L.GROUND.has(ph) && ph !== "greet") L.wander(s);
-  if (d === "home" && L.GROUND.has(ph) && ph !== "greet") L.goHome(s);
-  if (d === "smore") L.smore(s);
-  if (d === "wave") L.wave(s);
-  if (d === "fix") L.fix(s);
-  if (d === "cards") L.cards(s);
-  if (d === "trip") { const k = L.guests().filter((k) => !holder(k)); L.napTrip(s, k[Math.floor(Math.random() * k.length)]); }
-  if (d === "nap") L.nap(s);
-  if (d === "wake") L.wake(s);
-  if (d === "yawn") L.yawn(s);
-  if (d === "stretch" && (ph === "home" || ph === "rest")) L.stretch(s);
-  if (d === "all") for (const q of cs) if (q.trip.phase === "home") L.leave(q);
-}));
+for (const [a, b] of buttons) b.onclick = () => { endScrub(); if (a.can(sel)) a.run(sel); readT = 0; };
 // the clip scrubber: everything paused, the chosen clip held on the sloth at the slider's time
 function endScrub() {
   if (!scrub) return;
@@ -91,7 +98,6 @@ slider.oninput = () => { if (scrub) { scrub.a.time = +slider.value * scrub.a.get
 $("labBack").onclick = () => { endScrub(); setSpeed(1); };
 addEventListener("wheel", (e) => { if (follow) dist = THREE.MathUtils.clamp(dist + e.deltaY * 0.003, 0.6, 8); }, { passive: true });
 
-// the planned path, as a line on the ground
 // the planned path: one fixed buffer of points (it grows if a path is longer), written in place each frame and drawn up to
 // the path's length, so a shorter path keeps no old tail and nothing is allocated per frame (review R2-059)
 const pathBuf = (n) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * 3), 3).setUsage(THREE.DynamicDrawUsage)); return g; };
@@ -125,6 +131,13 @@ function findSolids() {
   return list;
 }
 const shown = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+// the read-out and the buttons' greying, about 5 times a second (and at once after a pick or a click)
+function readOut(s) {
+  const T = s.trip, a = scrub ? scrub.a : s.act, p = s.o.getWorldPosition(wp);
+  read.textContent = `${s.name}: ${T.phase}${T.st ? "/" + T.st : ""}${s.dozing ? " · asleep" : ""}${T.phase === "walk" ? ` · ${T.path.length} pts left` : ""}\nclip ${a?.getClip().name ?? "-"} ${a ? a.time.toFixed(2) + " / " + a.getClip().duration.toFixed(2) + " s" : ""} × ${a?.timeScale.toFixed(2) ?? ""}\n` +
+    `at ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)} · size ${s.sc.toFixed(2)}`;
+  for (const [act, b] of buttons) { const off = !act.can(s); if (b.disabled !== off) b.disabled = off; }
+}
 const labStep = (dt) => {
   if (stepLeft > 0 && --stepLeft === 0) pace.fast = 0; else if (stepLeft > 0) pace.fast = 1;
   const s = sel, T = s.trip;
@@ -140,13 +153,7 @@ const labStep = (dt) => {
     camera.position.copy(tgt).addScaledVector(dir, hit ? Math.max(0.25, hit.distance - 0.12) : dist);
     camera.lookAt(tgt);
   }
-  const a = scrub ? scrub.a : s.act;
-  read.textContent = `${s.name}: ${T.phase}${T.st ? "/" + T.st : ""}${s.dozing ? " · asleep" : ""}${T.phase === "walk" ? ` · ${T.path.length} pts left` : ""}\nclip ${a?.getClip().name ?? "-"} ${a ? a.time.toFixed(2) + " / " + a.getClip().duration.toFixed(2) + " s" : ""} × ${a?.timeScale.toFixed(2) ?? ""}\n` +
-    `at ${s.o.getWorldPosition(wp).toArray().map((v) => v.toFixed(2)).join(", ")} · size ${s.sc.toFixed(2)}`;
-  box.querySelectorAll("[data-do]").forEach((b) => {
-    const ph = T.phase, d = b.dataset.do;
-    b.disabled = d === "leave" ? ph !== "home" : d === "wander" || d === "home" ? !L.GROUND.has(ph) || ph === "greet" : d === "smore" ? s.spot.name !== "seat" || ph !== "home" : d === "nap" ? !!s.dozing || (ph !== "home" && ph !== "rest") || !!s.spot.asleep : d === "wake" ? !s.dozing : d === "stretch" ? !(ph === "home" || ph === "rest") : d === "fix" ? !s.spot.car || ph !== "home" : d === "trip" || d === "cards" ? ph !== "home" || !!s.spot.guest : false;
-  });
+  if ((readT -= dt) <= 0) { readT = 0.2; readOut(s); }
 };
 
 // open and close: closed, the panel is hidden, nothing is driven and you have your own view back
