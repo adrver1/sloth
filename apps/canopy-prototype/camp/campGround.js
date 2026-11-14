@@ -5,8 +5,7 @@
 // with the jeep's cabin light on, the floor and every baked prop take that light's shadow.
 // Exports buildGround(mask): main.js calls it once, after the props, the sloths, the deadwood and the glade stand and before
 // the tent's walls join the blockers, since the worn dirt is painted round the blockers as they are then; it makes groundLife
-// (exported and returned); and shadowStep(), which main.js calls each frame to re-cast the sun shadows
-// while the props load.
+// (exported and returned); and castSunShadows(), which main.js calls once, when everything that stands in the clearing is built.
 import { createGround } from "../ground.js";
 import { D, JEEP, S, renderer, scene, uTime } from "./core.js";
 import { FLOOR_OVERLAYS, grassTex, track, trackDist } from "./forest.js";
@@ -32,11 +31,9 @@ function buildGround(baked) {
   return groundLife;
 }
 
-// sun shadows (ground.js castShadows): re-cast whenever the props in the clearing change, checked each second for the first
-// half minute while they load. main.js calls it each frame, just before it draws.
-let shadowTick = -1, shadowN = -1;
-function shadowStep() {
-  if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }
-}
+// sun shadows (ground.js castShadows): rendered live once, after every prop is built, only while the baked shadow map
+// (shadowMap above) has not loaded; once it loads it replaces them. Nothing runs per frame (R2-088: it used to scan the scene
+// every second for half a minute).
+function castSunShadows() { if (!groundLife.isBaked()) groundLife.castShadows(renderer); }
 
-export { buildGround, groundLife, shadowStep };
+export { buildGround, castSunShadows, groundLife };

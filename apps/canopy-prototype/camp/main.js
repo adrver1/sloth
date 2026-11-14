@@ -17,7 +17,7 @@ import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
 import { buildDeadwood } from "./deadwood.js";
 import { buildGlade } from "./glade.js";
-import { buildGround, groundLife, shadowStep } from "./campGround.js";
+import { buildGround, castSunShadows, groundLife } from "./campGround.js";
 import { buildTentInside } from "./tentInside.js";
 import { atmo, buildAtmosphere } from "./campAir.js";
 import { acts, buildChores } from "./chores.js";
@@ -65,6 +65,7 @@ buildRadio();                          // radio.js: the radio on the snack table
 buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
 buildCar();                            // car.js: the key, the dash radio and the dash clock
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
+castSunShadows();                      // campGround.js: the live sun shadows, once every prop stands (none once the baked map is in)
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
@@ -103,7 +104,6 @@ renderer.setAnimationLoop(() => {
   motesStep(dt);
   atmo.update(dt, uTime.value, dusk);
   audioStep(dt, dusk); radioStep(dt);
-  shadowStep();                                            // campGround.js: the sun shadows, re-cast while the props load
   renderer.render(scene, camera);
   frames++; acc += raw;
   if (acc >= 1) {
