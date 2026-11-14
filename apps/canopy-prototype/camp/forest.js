@@ -4,8 +4,8 @@ import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import "./sky.js";   // run after the module before it, as one script did
 import { D, JEEP, LOOK, OPT, R, S, hex, leafMat, rnd, scene, setSeed } from "./core.js";
-import { V, canvasTex, lcg, rand, sstep } from "./util.js";
-import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_A, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
+import { V, canvasTex, lcg, polyDist, rand, sstep } from "./util.js";
+import { A0, GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_A, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, route, sloPath, tripPath } from "./layout.js";
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
@@ -76,13 +76,14 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
   earth.wrapT = THREE.RepeatWrapping;
   // the ribbon starts in the camp, just past the log seats round the fire, and runs out between the tent and the laundry line
   // onto the glade path (Adriaen 2026-11-14: "continue past the tent to the camp"); sloPath itself, which the player and the
-  // terrain follow, still starts at RC - 2
-  const way = new THREE.CatmullRomCurve3([V(Math.cos(PATH_A) * 3.0, 0, Math.sin(PATH_A) * 3.0), V(Math.cos(PATH_A) * 5.0, 0, Math.sin(PATH_A) * 5.0), ...sloPath.curve.points]);
-  const n = 48, pos = [], uv = [], col = [], idx = [], L = way.getLength();
+  // terrain follow, still starts at RC - 2. With the karaoke trip (its branch) it follows `route` (layout.js): on round the glade
+  // tree and down the trip's road as one strip, widening past the tree to 2.5 m (two walking hand in hand)
+  const curve = route.curve, n = 160, pos = [], uv = [], col = [], idx = [], L = curve.getLength();
   for (let i = 0; i <= n; i++) {
-    const t = i / n, p = way.getPointAt(t), d = way.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
-    const a = sstep(0, 1.0, t * L) * (1 - sstep(L - 1.2, L, t * L));   // fades in at the seats, out into the glade
-    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * PATH_HALF * 1.35); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2.5); col.push(1, 1, 1, a); }   // 2 m wide, about 1.2 m of it bare earth (was 0.75 m)
+    const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
+    const a = sstep(0, 1.0, t * L) * (1 - sstep(L - 2.5, L, t * L));   // fades in at the seats, out where the road is lost in the trees
+    const half = PATH_HALF * 1.35 + (1.25 - PATH_HALF * 1.35) * sstep(route.wide[0], route.wide[1], t);
+    for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * half); pos.push(q.x, 0.024, q.z); uv.push((k + 1) / 2, t * L / 2.5); col.push(1, 1, 1, a); }   // 2 m wide, about 1.2 m of it bare earth (was 0.75 m)
     if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }   // facing up (it was wound face down, so culled: the path vanished at the clearing edge)
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
@@ -170,6 +171,12 @@ function tube(curve, r0, r1, segs, rad) {
 scene.add(new THREE.Mesh(merge(woodGeos), barkMat));
 
 
+// the karaoke cut scene's camera (trip.js) films the wagon from the camp's side of the road: no trunk in its line of sight
+const sight = [], cutC = tripPath.curve, CL = cutC.getLength();
+for (let s = 0.3 * CL; s <= CL; s += 0.5) { const t = s / CL, p = cutC.getPointAt(t), d = cutC.getTangentAt(t), sd = V(-d.z, 0, d.x), inn = sd.dot(p) > 0 ? -1 : 1;
+  sight.push([p, p.clone().addScaledVector(sd, 6 * inn).addScaledVector(d, 2.6)], [p, p.clone().addScaledVector(sd, 3 * inn).addScaledVector(d, 5)]); }
+const inSight = (x, z, r) => sight.some(([a, b]) => { const dx = b.x - a.x, dz = b.z - a.z, k = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - a.x - dx * k, z - a.z - dz * k) < r + 0.5; });
+
 // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
 const wall = [];
 {
@@ -179,9 +186,20 @@ const wall = [];
     if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
     wall.push([x, z, R(0.6, 1.4)]);
   }
-  for (const [x, z, s] of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);   // each tree on its own root mound
+  // the karaoke trip's path runs out past where the wall thins, so a few trunks line it (fixed spots, no rnd(): the seeded
+  // layout above stays as it was); the same instanced trunk, so no new draw (48 tris each)
+  { const nT = wall.length, c = tripPath.curve;
+    for (let i = 0; i < 12; i++) { const t = 0.12 + (i >> 1) * 0.16, p = c.getPointAt(t), d = c.getTangentAt(t), sd = (i & 1) ? 1 : -1;
+      if (sd * (p.x * -d.z + p.z * d.x) < 0 && t > 0.4) continue;   // past the sign only on the far side, so the camp side stays open for the cut scene's camera
+      const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.5 + ((i * 7) % 3) * 0.45)), r = Math.hypot(q.x, q.z);
+      if (r < 28.4 && !wall.some((w) => Math.hypot(w[0] - q.x, w[1] - q.z) < 1.8) && !HERO.some((h) => Math.hypot(h.x - q.x, h.z - q.z) < 4)) wall.push([q.x, q.z, 0.7 + ((i * 5) % 4) * 0.15]); }
+    for (let i = 0; i < 6; i++) { const t = 0.8 + (i >> 1) * 0.08, p = tripPath.trail.getPointAt(t), d = tripPath.trail.getTangentAt(t), sd = (i & 1) ? 1 : -1;   // and on along its trail
+      const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.6 + ((i * 7) % 3) * 0.5)), r = Math.hypot(q.x, q.z);
+      if (r < 29.5 && !wall.some((w) => Math.hypot(w[0] - q.x, w[1] - q.z) < 1.8)) wall.push([q.x, q.z, 0.7 + ((i * 3) % 4) * 0.15]); }
+    window.__tripTrunks = wall.length - nT; }
+  for (const [x, z, s] of wall) if (trackDist(x, z) > 2.2 && !inSight(x, z, 0.65 * s)) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);   // each tree on its own root mound
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
-  wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1), y0 = groundHeight(x, z) - 0.15; w[3] = keep ? y0 + 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
+  wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 && !inSight(x, z, 0.65 * s) ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1), y0 = groundHeight(x, z) - 0.15; w[3] = keep ? y0 + 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
     w[4] = y0; m.compose(V(x, y0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), ry), V(s * keep, sy * keep, s * keep)); im.setMatrixAt(i, m); });
   scene.add(im);
 }
@@ -314,6 +332,32 @@ if (track) {
     vm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
   }
   addSectors(vm);
+}
+// green verges along the karaoke trail past the glade (Adriaen 2026-11-14: like the jeep's track), from their own stream
+{
+  let s3 = 4242; const Q3 = (a, b) => { s3 = (s3 * 16807) % 2147483647; return a + (s3 / 2147483647) * (b - a); };
+  const vc = [], L = route.curve.getLength();
+  for (let l = 1; l < L; l += 1.3) {
+    const t = l / L, p = route.curve.getPointAt(t), d = route.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
+    if (t < route.wide[1] || Math.hypot(p.x - GLADE.x, p.z - GLADE.z) < GLADE_R + 0.5) continue;   // from where it leaves the glade
+    const cutSide = polyDist(tripPath.pts, p.x, p.z)[0] < 0.4 ? -Math.sign(side.dot(p)) : 0;   // along the cut scene's stretch the camp side stays open for its camera
+    for (const k of [-1, 1]) { const ox = Q3(2.1, 3.0), y = Q3(0.4, 2.2), r = Q3(0.7, 1.15); if (k !== cutSide) vc.push([p.x + side.x * k * ox, y, p.z + side.z * k * ox, r]); }
+    const out = side.dot(p) > 0 ? 1 : -1;   // a second row on the outer side, toward where the ground stops, so the trail feels closed in
+    if (t > 0.55) vc.push([p.x + side.x * out * Q3(3.6, 4.6), Q3(0.5, 2.4), p.z + side.z * out * Q3(3.6, 4.6), Q3(0.9, 1.3)]);
+  }
+  { const e = route.curve.getPointAt(1), d = route.curve.getTangentAt(1);   // and a thicket where it ends, so it is lost in the green
+    for (let j = 0; j < 7; j++) { const a = (j - 3) * 0.45, f = 1.6 + (j % 3) * 0.9; vc.push([e.x + (d.x * Math.cos(a) - d.z * Math.sin(a)) * f, Q3(0.4, 1.8), e.z + (d.z * Math.cos(a) + d.x * Math.sin(a)) * f, Q3(0.9, 1.3)]); } }
+  for (const v of vc) v[1] += groundHeight(v[0], v[2]);
+  const vm = new THREE.InstancedMesh(leafGeo, leafM, vc.length * perClump), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+  for (const [x, y, z, r] of vc) for (let k = 0; k < perClump; k++) {
+    const u = V(Q3(-1, 1), Q3(-0.5, 0.8), Q3(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q3(0, 1)));
+    e.set(Q3(0, 6.28), Q3(0, 6.28), Q3(0, 6.28)); q.setFromEuler(e);
+    const sc = Q3(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.7 || inSight(x + u.x, z + u.z, 0.3) ? 0 : 1);
+    m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.setMatrixAt(i, m);
+    vm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
+  }
+  addSectors(vm);
+  window.__trailVerge = { clumps: vc.length, tris: vc.length * perClump * (leafGeo.index ? leafGeo.index.count : leafGeo.attributes.position.count) / 3 };
 }
 // ferns and undergrowth in a thick band round the clearing
 {
