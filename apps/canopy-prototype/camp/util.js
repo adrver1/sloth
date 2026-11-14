@@ -20,6 +20,9 @@
 //                                 the id, this hook's source, the key of the hook before it (its source, or its own key when
 //                                 patchMaterial put it there, so stacked hooks all stay in the key) and the source of any
 //                                 hook chained after it later by hand (one program per distinct code)
+//   swap(src, ...pairs)           a shader's source with each [anchor, text] pair's anchor (its first match) replaced by text.
+//                                 A missing anchor warns once on the console instead of silently dropping that part of the
+//                                 shader, which a three upgrade can do (review R2-037). Every camp shader hook edits through it
 import * as THREE from "three";
 
 export const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -76,4 +79,13 @@ export function patchMaterial(mat, id, hook) {
   mat.onBeforeCompile = own;
   mat.customProgramCacheKey = () => (mat.onBeforeCompile === own ? own.programKey() : own.programKey() + "|" + hookKey(mat.onBeforeCompile));
   return mat;
+}
+
+const swapMissed = new Set();
+export function swap(src, ...pairs) {
+  for (const [anchor, text] of pairs) {
+    if (!src.includes(anchor)) { if (!swapMissed.has(anchor)) { swapMissed.add(anchor); console.warn(`shader hook: "${anchor.slice(0, 60)}" is not in the shader, so its patch is left out`); } continue; }
+    src = src.replace(anchor, () => text);
+  }
+  return src;
 }

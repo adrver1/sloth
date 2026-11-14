@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
 import { SUN } from "./layout.js";
+import { swap } from "./util.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
 // camp.html?name=value. "saved" is the ⚙️ menu's choice, kept per viewer in localStorage under KEYS.
@@ -149,13 +150,13 @@ const leafMat = (opts, sway) => {
   const uSway = { value: sway };
   if (sway) m.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = uTime; sh.uniforms.uSway = uSway;
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;")
-      .replace("#include <begin_vertex>", `#include <begin_vertex>
+    sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;"],
+      ["#include <begin_vertex>", `#include <begin_vertex>
         #ifdef USE_INSTANCING
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.4 + ip.x * 1.7 + ip.z * 1.3) + 0.5 * sin(uTime * 2.3 + ip.y * 2.1);
         transformed += vec3(1.0, 0.4, 0.6) * (w * uSway) * (0.5 + position.y);
-        #endif`);
+        #endif`]);
   };
   return m;
 };

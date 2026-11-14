@@ -7,7 +7,7 @@
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";
-import { canvasTex, lcg, patchMaterial, rand, sstep, tris } from "./camp/util.js";
+import { canvasTex, lcg, patchMaterial, rand, sstep, swap, tris } from "./camp/util.js";
 import { SUN } from "./camp/layout.js";
 // the contact shadow on whatever sits on the floor: a dark brown laid over it by the shadow map, faded at night (the night
 // bake holds the night's shadows); xz is the point's world x, z
@@ -78,16 +78,16 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   const silMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthTest: false, depthWrite: false, fog: false,
     blending: THREE.CustomBlending, blendEquation: THREE.MaxEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor });
   silMat.onBeforeCompile = (sh) => { sh.uniforms.uDir = uDir; sh.uniforms.uK = uK; sh.uniforms.uR = { value: RR };
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform vec3 uDir; uniform float uK, uR; varying float vK;")
-      .replace("#include <project_vertex>", `vec4 wp = vec4(transformed, 1.0);
+    sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nuniform vec3 uDir; uniform float uK, uR; varying float vK;"],
+      ["#include <project_vertex>", `vec4 wp = vec4(transformed, 1.0);
         #ifdef USE_INSTANCING
           wp = instanceMatrix * wp;
         #endif
         wp = modelMatrix * wp; float hy = max(wp.y, 0.0);
         vec2 g = wp.xz - uDir.xz * (hy / uDir.y);                       // where the ray through this point toward the sun meets the ground
         vK = uK * (1.0 - 0.45 * smoothstep(0.2, 2.8, hy));            // higher parts cast fainter shadows (more sky gets under them)
-        gl_Position = vec4(g.x / uR, g.y / uR, 0.0, 1.0);`);
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying float vK;").replace("vec4 diffuseColor = vec4( diffuse, opacity );", "vec4 diffuseColor = vec4(vec3(vK), 1.0);"); };
+        gl_Position = vec4(g.x / uR, g.y / uR, 0.0, 1.0);`]);
+    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nvarying float vK;"], ["vec4 diffuseColor = vec4( diffuse, opacity );", "vec4 diffuseColor = vec4(vec3(vK), 1.0);"]); };
   const blurMat = new THREE.ShaderMaterial({ uniforms: { uT: { value: null }, uD: { value: new THREE.Vector2() } }, depthTest: false, depthWrite: false,
     vertexShader: "varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }",
     fragmentShader: `uniform sampler2D uT; uniform vec2 uD; varying vec2 vUv;
@@ -215,18 +215,18 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
     if (far) sh.defines = { ...sh.defines, FAR: 1 };
     if (!fx) sh.defines = { ...sh.defines, LOWFX: 1 };
     Object.assign(sh.uniforms, { uLitter: { value: litterTex }, uForest: { value: forestMap || grassMap }, uRC: { value: RC } });
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz; vNw = normal;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB, uShadeT, uLitter, uForest; uniform float uR, uRC, uNight, uGNon, uShadeK; vec3 albedoG; float hB = 0.0;\n" + NOISE_GLSL + LIGHT_GLSL)
-      .replace("#include <lights_fragment_begin>", liveChunk())   // keeps the live cabin light's share apart (Cabin: live)
-      .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
+    sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw;"], ["#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz; vNw = normal;"]);
+    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB, uShadeT, uLitter, uForest; uniform float uR, uRC, uNight, uGNon, uShadeK; vec3 albedoG; float hB = 0.0;\n" + NOISE_GLSL + LIGHT_GLSL],
+      ["#include <lights_fragment_begin>", liveChunk()],   // keeps the live cabin light's share apart (Cabin: live)
+      ["#include <normal_fragment_maps>", `#include <normal_fragment_maps>
         #ifndef LOWFX
         {                                                                   // the painted relief (sunk paths, their lip, pebbles, litter) as a bump
           vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx);
           float det = dot(sx, r1) * faceDirection;
           normal = normalize(abs(det) * normal - sign(det) * (dFdx(hB) * r1 + dFdy(hB) * r2));
         }
-        #endif`)
-      .replace("#include <map_fragment>", `#include <map_fragment>
+        #endif`],
+      ["#include <map_fragment>", `#include <map_fragment>
         // forest ground (2026-11-12 note): grass at two scales and big colour patches, grass and dirt blended by height so the
         // edge is ragged, packed path centres, moss in the shade, leaf litter at the rim and against things, the forest floor beyond
         float rr = length(vG), inD = step(rr, uR);
@@ -284,12 +284,12 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
         hB = hB * inD + 0.006 * show;
         diffuseColor.rgb = c;
         albedoG = diffuseColor.rgb;
-        diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`)
-      .replace("#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, uvC)) * uGNon * vec4(vec3(inD), 1.0 - 0.4 * smoothstep(uR, uR + 8.0, rr));
+        diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`],
+      ["#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, uvC)) * uGNon * vec4(vec3(inD), 1.0 - 0.4 * smoothstep(uR, uR + 8.0, rr));
         vec2 gj = lmDecode2(texture2D(uGJ, uvC).rg) * uGNon * inD;
         vec2 du = lmDoorUv(vG); vec3 gd = all(greaterThan(du, vec2(0.0))) && all(lessThan(du, vec2(1.0))) ? vec3(doorKey(lmDecode(texture2D(uGDP, du)), uLD.x), doorKey(lmDecode(texture2D(uGDD, du)), uLD.y), doorKey(lmDecode(texture2D(uGDB, du)), uLD.z)) * uGNon : vec3(0.0);${LIGHT_MIX("albedoG", "gq", "gj", "(uNight * uGNon)", "gd", true)}
         ${SHADE("vG")}
-#include <opaque_fragment>`);
+#include <opaque_fragment>`]);
   };
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
   // the contact shadows: the floor darkens itself by the shadow map (review P8: it was a see-through disc blended over the whole
@@ -432,18 +432,18 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   const pmat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide });
   pmat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR }; sh.uniforms.uGN = uGN; sh.uniforms.uGJ = uGJ; sh.uniforms.uGNon = uGNon; bindLight(sh);
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade, uGN, uGJ; attribute float aCell; varying float vShade; varying vec4 vGN; varying vec2 vGJ;")
-      .replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * vec2(0.25, 0.5) + vec2(mod(aCell, 4.0) * 0.25, (1.0 - floor(aCell / 4.0)) * 0.5);")
-      .replace("#include <begin_vertex>", `#include <begin_vertex>
+    sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade, uGN, uGJ; attribute float aCell; varying float vShade; varying vec4 vGN; varying vec2 vGJ;"],
+      ["#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * vec2(0.25, 0.5) + vec2(mod(aCell, 4.0) * 0.25, (1.0 - floor(aCell / 4.0)) * 0.5);"],
+      ["#include <begin_vertex>", `#include <begin_vertex>
         vec3 ip = instanceMatrix[3].xyz;
         float w = sin(uTime * 1.6 + ip.x * 1.3 + ip.z * 1.7) + 0.4 * sin(uTime * 3.1 + ip.x * 3.0);
         transformed.xz += vec2(w * 0.06, w * 0.035) * position.y * position.y;
         vShade = texture2D(uShade, ip.xz / (2.0 * uR) + 0.5).r;
         vGN = pow(texture2D(uGN, ip.xz / (2.0 * uR) + 0.5), vec4(2.2));
-        vGJ = pow(texture2D(uGJ, ip.xz / (2.0 * uR) + 0.5).rg, vec2(2.2));`);   // the plants take the ground's night light where they stand
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight, uGNon; varying float vShade; varying vec4 vGN; varying vec2 vGJ; vec3 albedoP;\n" + LIGHT_GLSL)
-      .replace("#include <opaque_fragment>", LIGHT_MIX("albedoP", "(vGN * uGNon)", "(vGJ * uGNon)", "(uNight * uGNon)") + "\n#include <opaque_fragment>")
-      .replace("#include <map_fragment>", "#include <map_fragment>\nalbedoP = diffuseColor.rgb;\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));").replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);");   // both sides lit like the ground, never black from behind
+        vGJ = pow(texture2D(uGJ, ip.xz / (2.0 * uR) + 0.5).rg, vec2(2.2));`]);   // the plants take the ground's night light where they stand
+    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nuniform float uNight, uGNon; varying float vShade; varying vec4 vGN; varying vec2 vGJ; vec3 albedoP;\n" + LIGHT_GLSL],
+      ["#include <opaque_fragment>", LIGHT_MIX("albedoP", "(vGN * uGNon)", "(vGJ * uGNon)", "(uNight * uGNon)") + "\n#include <opaque_fragment>"],
+      ["#include <map_fragment>", "#include <map_fragment>\nalbedoP = diffuseColor.rgb;\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));"], ["#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);"]);   // both sides lit like the ground, never black from behind
   };
   im.material = pmat; im.frustumCulled = false; scene.add(im);
   own.add(floor).add(im);
@@ -457,9 +457,9 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   function shadeOn(m) {
     patchMaterial(m, "shade", (sh) => {
       Object.assign(sh.uniforms, { uShadeT: uShade, uShadeK, uR: { value: RR }, uNight: night, uGNon });
-      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec2 vSW;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvSW = (modelMatrix * vec4(transformed, 1.0)).xz;");
-      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vSW; uniform sampler2D uShadeT; uniform float uShadeK, uR, uNight, uGNon;")
-        .replace("#include <opaque_fragment>", SHADE("vSW") + "\n#include <opaque_fragment>");
+      sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nvarying vec2 vSW;"], ["#include <begin_vertex>", "#include <begin_vertex>\nvSW = (modelMatrix * vec4(transformed, 1.0)).xz;"]);
+      sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nvarying vec2 vSW; uniform sampler2D uShadeT; uniform float uShadeK, uR, uNight, uGNon;"],
+        ["#include <opaque_fragment>", SHADE("vSW") + "\n#include <opaque_fragment>"]);
     });
     m.needsUpdate = true;
     return m;

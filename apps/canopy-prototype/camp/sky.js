@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { hex, rng, S, scene } from "./core.js";
 const { R } = rng("sky");
-import { canvasTex, lcg } from "./util.js";
+import { canvasTex, lcg, swap } from "./util.js";
 import { FAR } from "./layout.js";
 
 const uSkyDusk = { value: 0 }, uSkyRim = { value: new THREE.Color(0x0b1622) }, uSkyHaze = { value: 0 }, uSkyFog = { value: scene.fog?.color ?? new THREE.Color() };   // see the backdrop's shader below
@@ -73,8 +73,8 @@ function buildSky() {
   // and away from plain day (dusk, dawn mist, golden hour, rain, night) it sinks into the scene's own fog colour by uSkyHaze, so
   // it sits behind the same haze as the near forest instead of staying day-green (Adriaen 2026-11-13). daylight.js sets the amount.
   sky.material.onBeforeCompile = (sh) => { sh.uniforms.uDusk = uSkyDusk; sh.uniforms.uRim = uSkyRim; sh.uniforms.uHaze = uSkyHaze; sh.uniforms.uFogC = uSkyFog;
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uDusk; uniform float uHaze; uniform vec3 uRim; uniform vec3 uFogC;")
-      .replace("#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, uFogC, uHaze);\noutgoingLight = mix(outgoingLight, uRim, uDusk * smoothstep(0.45, 0.96, vMapUv.y));\n#include <opaque_fragment>"); };
+    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nuniform float uDusk; uniform float uHaze; uniform vec3 uRim; uniform vec3 uFogC;"],
+      ["#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, uFogC, uHaze);\noutgoingLight = mix(outgoingLight, uRim, uDusk * smoothstep(0.45, 0.96, vMapUv.y));\n#include <opaque_fragment>"]); };
   // the open sky over the clearing: a low dome capping the backdrop, painted with soft clouds and a fringe of leaves round its rim
   // (planar UVs, so the clouds don't pinch at the top); one draw, no fog, dimmed at dusk with the backdrop
   const ZENITH = ["#e8f1df", "#a6cdd6"];

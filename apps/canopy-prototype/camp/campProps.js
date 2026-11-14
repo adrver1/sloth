@@ -8,7 +8,7 @@ import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, rng, S, scene, sun, uTime } from "./core.js";
 const { R } = rng("props");
-import { V, canvasTex, patchMaterial } from "./util.js";
+import { V, canvasTex, patchMaterial, swap } from "./util.js";
 import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, TABLE, TENT, WOOD_PILE } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
@@ -48,20 +48,19 @@ const lnight = (mat) => {
   mat.lightMap = LMTEX; mat.lightMapIntensity = 0;
   return patchMaterial(mat, "lmap", (sh) => {
     bindLight(sh); sh.uniforms.uNight = uNight; sh.uniforms.uSun = { value: LMSUN };
-    sh.fragmentShader = "uniform float uNight; uniform sampler2D uSun;\n" + LIGHT_GLSL + sh.fragmentShader
-      .replace("#include <lights_fragment_begin>", liveChunk().replace("getDirectionalLightInfo( directionalLight, directLight );",
-        "getDirectionalLightInfo( directionalLight, directLight );\ndirectLight.color *= sunT.r;"))   // the sun's baked shadow
-      .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse *= 0.32 + 0.68 * sunT.g;")   // sky occlusion on the sky light only
-      .replace("#include <color_fragment>", `#include <color_fragment>
+    sh.fragmentShader = "uniform float uNight; uniform sampler2D uSun;\n" + LIGHT_GLSL + swap(sh.fragmentShader,
+      ["#include <lights_fragment_begin>", swap(liveChunk(), ["getDirectionalLightInfo( directionalLight, directLight );", "getDirectionalLightInfo( directionalLight, directLight );\ndirectLight.color *= sunT.r;"])],   // the sun's baked shadow
+      ["#include <lights_fragment_end>", "#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse *= 0.32 + 0.68 * sunT.g;"],   // sky occlusion on the sky light only
+      ["#include <color_fragment>", `#include <color_fragment>
   vec3 baseC = diffuseColor.rgb; vec4 lmQ = lmDecode(texture2D(lightMap, vLightMapUv)); vec4 sunT = texture2D(uSun, vLightMapUv);
   #ifdef USE_COLOR_ALPHA
   float glowK = 1.0 - vColor.a;
   #else
   float glowK = 0.0;
-  #endif`)
-      .replace("#include <opaque_fragment>", LIGHT_MIX("baseC", "lmQ", "lmDecode2(sunT.ba)", "uNight", "vec3(0.0)", true) + `
+  #endif`],
+      ["#include <opaque_fragment>", LIGHT_MIX("baseC", "lmQ", "lmDecode2(sunT.ba)", "uNight", "vec3(0.0)", true) + `
   outgoingLight = mix(outgoingLight, min(baseC * 1.15, vec3(1.0)), glowK * uNight);
-#include <opaque_fragment>`);
+#include <opaque_fragment>`]);
   });
 };
 // buildProps (main.js, once, after the forest): the lanterns, the fire's light, the sunbeams and motes, then (once their downloads are

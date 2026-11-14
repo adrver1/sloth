@@ -8,6 +8,7 @@
 // show in the shade; the sun drowns them in the open).
 import * as THREE from "three";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
+import { swap } from "./camp/util.js";
 
 // the light maps ship as KTX2 (UASTC + zstd, props/bake_all.py --only ktx): about half the download of the PNGs and a quarter
 // of the GPU memory; a map with no .ktx2 next to it (or a browser that can't take it) falls back to its .png
@@ -67,9 +68,9 @@ export const LIGHT_MIX = (base, q, j, night, doors = "vec3(0.0)", spot = false) 
   outgoingLight = mix(outgoingLight, nightTone(6.4 * ${base} * (lmNight(${q}) + lmJeep(${j}) + lmDoors(${doors}))), ${night});${spot ? `
   outgoingLight += spotDiffuse * ${night};` : ""}`;
 // three.js's light loop, keeping the spot lights' share apart (spotDiffuse) for LIGHT_MIX
-export const liveChunk = (chunk = THREE.ShaderChunk.lights_fragment_begin) => chunk
-  .replace("#if ( NUM_SPOT_LIGHTS > 0 ) && defined( RE_Direct )", "vec3 dBeforeS = reflectedLight.directDiffuse;\n#if ( NUM_SPOT_LIGHTS > 0 ) && defined( RE_Direct )")
-  .replace("#if ( NUM_SUN_LIGHTS > 0 ) && defined( RE_Direct )", "vec3 spotDiffuse = reflectedLight.directDiffuse - dBeforeS;\n#if ( NUM_SUN_LIGHTS > 0 ) && defined( RE_Direct )");
+export const liveChunk = (chunk = THREE.ShaderChunk.lights_fragment_begin) => swap(chunk,
+  ["#if ( NUM_SPOT_LIGHTS > 0 ) && defined( RE_Direct )", "vec3 dBeforeS = reflectedLight.directDiffuse;\n#if ( NUM_SPOT_LIGHTS > 0 ) && defined( RE_Direct )"],
+  ["#if ( NUM_SUN_LIGHTS > 0 ) && defined( RE_Direct )", "vec3 spotDiffuse = reflectedLight.directDiffuse - dBeforeS;\n#if ( NUM_SUN_LIGHTS > 0 ) && defined( RE_Direct )"]);
 
 export function bindLight(sh) { Object.assign(sh.uniforms, LIGHT); }
 
