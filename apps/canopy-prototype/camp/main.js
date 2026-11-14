@@ -9,7 +9,7 @@ import { stepLight } from "../bakedlight.js";
 import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime, wireSettings } from "./core.js";
 import { buildSky } from "./sky.js";
 import { buildForest } from "./forest.js";
-import { buildProps, fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
+import { buildProps, fireStep, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
 import { buildJeep, jeepStep } from "./jeep.js";
 import { buildSloths, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
@@ -96,7 +96,7 @@ renderer.setAnimationLoop(() => {
   const fl = fireStep(dusk);                               // campProps.js: the fire's flicker
   acts.update(dt, uTime.value); aimStep(dt);               // the chores (after fireStep: a log on the fire boosts its light) and what lights up
   uNight.value = dusk; stepLight(fl, uTime.value);         // the baked night light: how far it is faded in, and its flicker (bakedlight.js)
-  warmStep(lanternGlow, fl, dusk);                         // sloths.js: the sloths' night glow, from the lanterns and the fire
+  warmStep(fl, dusk);                                      // sloths.js: the sloths' night glow, from the lanterns and the fire
   poolsStep(dusk, fl, groundLife.isNightBaked());
   LANTERNS.update(uTime.value, dusk);
   clockStep(dt, dusk);

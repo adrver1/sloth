@@ -88,7 +88,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
 
   // ---------------------------------------------------------------- per frame: the key, the shake, walking off, the radio display
   const base = jeep.position.clone();
-  let t = 0;
+  let t = 0, shook = false;
   carStep = (dt) => {
     t += dt;
     if (engine === "crank") { crank += dt; if (crank > 1.1) { engine = "run"; toast("Brrrm! The engine is running 🚙"); } }
@@ -97,8 +97,10 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
     // the shake (Adriaen 2026-11-13: it shook too much): a soft shudder while cranking, a barely-there tremble at idle.
     // Slower waves than before, so at 30-60 fps it reads as a tremble rather than a jitter.
     const amp = engine === "crank" ? 0.005 * Math.min(1, crank * 3) : engine === "run" ? 0.0009 : 0;
-    jeep.position.set(base.x, base.y + amp * Math.sin(t * 23) * (0.7 + 0.3 * Math.sin(t * 3.1)), base.z + amp * 0.4 * Math.sin(t * 17));
-    jeep.rotation.z = amp * 0.4 * Math.sin(t * 19);
+    if (amp || shook) {   // with the engine off the jeep is put back once, then left alone (R2-093)
+      jeep.position.set(base.x, base.y + amp * Math.sin(t * 23) * (0.7 + 0.3 * Math.sin(t * 3.1)), base.z + amp * 0.4 * Math.sin(t * 17));
+      jeep.rotation.z = amp * 0.4 * Math.sin(t * 19); shook = amp > 0;
+    }
     drawRadio(); rMat.emissiveIntensity = shown === "off" ? 0 : 0.8;
   };
   // engine(): "off" | "crank" | "run", which audio.js hears
