@@ -1,7 +1,7 @@
-// Cozy camp atmosphere for camp.html: cheap particle effects round the fire, kept out of camp.html so the sibling threads' edits there don't collide.
-// Batch 1: smoke curling up from the fire, sparks that pop more often as you walk close, and steam off the soup pot.
-// Later: thin smoke from the tent stove's chimney, curling out from under its rain cap.
-// Batch 2: butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
+// The camp's atmosphere: cheap particle effects round the fire (camp/campAir.js builds it). Smoke curling up from the fire,
+// sparks that pop more often as you walk close, steam off the soup pot, and thin smoke from the tent stove's chimney, curling
+// out from under its rain cap.
+// Butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
 // Each effect is one instanced draw of camera-facing quads (no point sprites, so phone GPUs' point-size caps don't matter) with a fixed pool, scaled by the detail level.
 // Exports createAtmosphere({ scene, camera, fx, fire, pot, chimneys, sloths, roam }) -> { update(dt, time, dusk), debug } (campAir.js; main.js calls update).
 import * as THREE from "three";

@@ -97,7 +97,8 @@ const lnight = (mat) => {
 // buildProps (main.js, once, after the forest): the lanterns, the fire's light, the sunbeams and motes, then (once their downloads are
 // in) the picked props, the lived-in props, the laundry line, the campfire and the night's light pools
 async function buildProps() {
-  // the lanterns (lanterns.js) and the fire: glow sprites, no real-time shadows; one warm point light for the fire glow
+  // the lanterns (lanterns.js: a glow sprite round each jar) and the fire (its flame cards and glowing embers, below): no real-time
+  // shadows; one warm point light for the fire's glow
   glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
   LANTERNS = createLanterns({ scene, layout: LANTERN_LAYOUT, glowTex });   // LANTERNS.lights: where each lantern's light is (the pools, the sloths' night glow, the bake's layout)
   // At Detail Low (D.fx 0) the light is made but not added to the scene: a point light at intensity 0 still costs every lit
@@ -140,8 +141,8 @@ async function buildProps() {
     put(P.scene, "Table", TABLE.at.x, TABLE.at.z, TABLE.yaw);
   }
   // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
-  // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
-  // rustic seats (Our camp, Rustic); ?lived=0 hides them to compare.
+  // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first.
+  // ?lived=0 hides them to compare.
   if (LIVED) {
     const L = await PRE.lived, lm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
     L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, ...(m.name.startsWith("SeatTop") && { polygonOffset: true, polygonOffsetFactor: -2, color: SAWN }) })) : lm; });   // the stack, loose logs and seat tops are textured
@@ -213,7 +214,8 @@ async function buildProps() {
       for (const m of parts) { const k = new THREE.Object3D(); k.name = m.name; k.position.copy(m.position); k.quaternion.copy(m.quaternion); k.scale.copy(m.scale); m.parent.add(k); m.removeFromParent(); }
     }
   }
-  // light pools on the ground at night: one painted quad (2 triangles) under the fire and the lantern string, faded in as you rest
+  // light pools on the ground at night: one painted quad (2 triangles) under the fire and the lantern strings, faded in with the dusk;
+  // drawn only while the ground has no baked night light (poolsStep)
   pools = (() => {
     const pts = [[0, 0, 3.4, 0.9, "255,140,60"], ...LANTERNS.lights.map((p) => [p.x, p.z, 1.4, 0.4, "255,200,120"])];
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;

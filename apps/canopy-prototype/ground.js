@@ -1,11 +1,14 @@
-// Wild, lived-in camp ground for camp.html: worn dirt where the camp is used, and grass tufts, tall grass, wildflowers and clover on cards.
-// Kept out of camp.html (which only calls createGround once) so the sibling threads' edits there don't collide.
-// Floor: one disc (96 tris) that replaces the old flat clearing. A painted "wear map" over the clearing says where it is dirt (fire ring,
-// seats, tent door, table, wood pile, jeep, the paths between them, worked out from camp.html's collision circles), where the grass
-// is lush or dry, and where it is ash or mud; tiling grass and dirt textures give the close-up detail. The edge is ragged, not a circle.
+// The camp's wild, lived-in ground (camp/campGround.js builds it): worn dirt where the camp is used, grass tufts, tall grass,
+// wildflowers and clover on cards, the forest floor beyond the clearing, and the baked shadows and night light on all of it.
+// Floor: one mesh in world coordinates, following the terrain's height (camp/terrain.js groundHeight): with far > 0, rings out
+// to far metres, the forest floor included; without, a disc over the clearing. A wear map says where it is dirt (round the fire,
+// the seats, the tent door, the table, the wood pile, the jeep and the paths between them, worked out from the blockers), where
+// the grass is lush or dry and where it is ash or mud: the baked one (props/ground/bake_ground.py: the mask and its soil) or, without
+// it, one painted here. Tiling grass, dirt and leaf-litter textures give the close-up detail; the edge is ragged, not a circle.
 // Plants: crossed-quad cards (4 tris each) from one painted atlas, swaying in the vertex shader: one instanced draw for the clearing
 // and one for the plants the caller passes as extra (the glade), each culled on its own bounds.
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
+// The floor's and the plants' triangle counts are in what createGround returns (tris), printed by tools/camp-probe.cjs.
 // Exports createGround({ scene, RC, blockers, ... }) (campGround.js, once); what it returns, and who reads each part, is listed at its return.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk, loadLightMap } from "./bakedlight.js";
@@ -13,7 +16,7 @@ import { canvasTex, lcg, patchMaterial, rand, sstep, swap, tris } from "./camp/u
 import { SUN } from "./camp/layout.js";
 // the contact shadow on whatever sits on the floor: a dark brown laid over it by the shadow map, faded at night (the night
 // bake holds the night's shadows); xz is the point's world x, z; the floor inlines the same line on its own shadow lookup
-const SHADE = (xz) => `outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), texture2D(uShadeT, ${xz} / (2.0 * uR) + 0.5).r * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight) * step(length(${xz}), uR));`;   // the camp's baked lights, one channel each
+const SHADE = (xz) => `outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), texture2D(uShadeT, ${xz} / (2.0 * uR) + 0.5).r * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight) * step(length(${xz}), uR));`;
 
 // value noise on an integer lattice, the same as camp/terrain.js vnoise (an integer hash, so the page and the shader agree), and the
 // big colour patches it drives: drier and yellower, or bluer and greener, 5 to 10 m across; the plants take the same tint as the ground
@@ -29,7 +32,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   // extra: more plants as [x, z, atlas cell, size], placed by the caller (camp/glade.js: the sloth tree's glade, outside the clearing)
   // height (camp/terrain.js groundHeight): the floor, the plants and the roots follow it; far > 0 makes the floor one mesh out to far metres,
   // the forest floor included (forestMap is its tile, 6 m across), instead of the flat clearing disc
-  // night: camp.html's uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
+  // night: core.js uNight (0 day .. 1 rested); the ground and plants sink to a dim blue so the fire and lantern pools read
   const { rnd, R } = lcg(seed);
   const RR = RC + 0.8, M = 256, px = (x) => (x / (2 * RR) + 0.5) * M;      // world x/z to wear-map pixels
 
