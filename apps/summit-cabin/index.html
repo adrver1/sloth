@@ -110,7 +110,9 @@ const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)
 // a steep peak with the cabin on a flat top and a cliff south of the porch; forested hills and valleys round it; a frozen
 // lake with a fishing hut 950 m north-west, a fire lookout on its own hill 1 km north-east, and a ring of high mountains 2 to 4 km out.
 // Everything you see is the same ground, so you can walk to it.
-const LAKE_P = { x: -760, z: 560, r: 170 }, HILL_P = { x: 150, z: 55 };
+const LAKE_P = { x: -760, z: 560, r: 170 }, HILL_P = { x: 215, z: 100 };
+const CL = { x: 76, z: 12 };   // a clearing in the valley between the summit and the watch hill, ringed by knolls
+const KNOLLS = [[112, 8, 14], [92, -9, 10], [56, -8, 8]];   // low hills round the clearing: one east, two on the cliff's rim
 const BIG = { x: 60, z: -700, rx: 560, rz: 330 };   // the big lake filling the valley below the cliff
 // the level's walls: a tall mountain right behind the camp, and a steep one to the west that the road tunnels into
 const NORTH_M = { x: -120, z: 300, sx: 200, sz: 170, h: 900 }, WEST_M = { x: -470, z: 10, sx: 180, sz: 280, h: 620 };
@@ -119,7 +121,8 @@ function hBase(x, z) {
   let h = 700 / (1 + (e / 520) ** 1.7);   // round only near the top, then concave, so every slope below is in view
   h += (fbm(x / 1500, z / 1500, 5) - 0.45) * 420;
   h += (fbm(x / 240, z / 240, 3) - 0.5) * 36 * Math.min(1, r / 400);
-  h += 140 * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 62 ** 2);   // the watch hill, close by, a little higher than the summit
+  h += 160 * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 115 ** 2);   // broad enough for stairs to zigzag up it
+  for (const [kx, kz, ka] of KNOLLS) h += ka * Math.exp(-((x - kx) ** 2 + (z - kz) ** 2) / 24 ** 2);   // the watch hill, close by, a little higher than the summit
   // the two walls are real mountains: a smooth mass broken up by ridges and gullies (ridged noise), steep but never sheer
   h += NORTH_M.h * Math.exp(-(((x - NORTH_M.x) / NORTH_M.sx) ** 2 + ((z - NORTH_M.z) / NORTH_M.sz) ** 2)) * (0.6 + 0.7 * ridged(x / 260 + 3, z / 260 + 1, 4));
   { const d = Math.hypot((x - WEST_M.x) / WEST_M.sx, (z - WEST_M.z) / WEST_M.sz); h += WEST_M.h * sstep(1.55, 0.35, d) * (0.55 + 0.75 * ridged(x / 220 - 5, z / 220 + 2, 4)); }
@@ -142,6 +145,7 @@ const ROAD = (() => {   // sampled every 2 m: [x, z, s, y]; b0 where the bridge 
       pts.push([x, z, s, y]); } }
   return { pts, b0, portal, y };
 })();
+const CL_Y = TOP - 11;   // well below the summit, so the boardwalk drops into it and climbs out
 const BIG_H = (() => { const hs = []; for (let i = 0; i < 400; i++) { const a = (i * 2.39996) % 6.283, k = Math.sqrt((i + 0.5) / 400); hs.push(hBase(BIG.x + Math.cos(a) * BIG.rx * k, BIG.z + Math.sin(a) * BIG.rz * k)); } hs.sort((a, b) => a - b); return hs[60]; })();
 const bigE = (x, z) => Math.hypot((x - BIG.x) / BIG.rx, (z - BIG.z) / BIG.rz);
 // the watch hill's top, flattened for the tower
@@ -149,7 +153,7 @@ const HT = (() => { let best = [0, 0, -1e9]; for (let i = -6; i <= 6; i++) for (
 const ROAD_Y = (s) => (s < ROAD.b0 ? TOP - 0.07 * s : ROAD.y);
 const roadNear = (x, z) => (x > -8 || x < ROAD.portal.x - 20 || z > 22 || z < -30 ? null : polyNear(ROAD.pts, x, z));
 // the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks down over the valleys
-let BW_CUT = null;   // set once the boardwalk is laid: the ground is dug down along it, so the stairs sit in a cutting where the hill is steeper than they are
+let BW_CUT = null, BW_CORNERS = [];   // set once the boardwalk is laid: the ground is dug down along it, so the stairs sit in a cutting where the hill is steeper than they are
 function height(x, z) {
   const r = Math.hypot(x, z); let h = Math.max(LAKE, hBase(x, z));
   const dl = Math.hypot(x - LAKE_P.x, z - LAKE_P.z); if (dl < LAKE_P.r + 500) h = Math.min(h, LAKE_H + Math.max(0, dl - LAKE_P.r) * 0.3 + Math.max(0, dl - LAKE_P.r - 250) ** 2 * 0.012);   // the bowl steepens outward, so it meets the hills without a step
@@ -160,6 +164,7 @@ function height(x, z) {
   if (rd && rd.d < 14 && rd.s < ROAD.b0) h += (ROAD_Y(rd.s) - 0.05 - h) * (1 - sstep(3.5, 13, rd.d)) * (r < 18 ? 0 : 1);   // the road bed
   if (rd && x < ROAD.portal.x + 14 && x > ROAD.portal.x - 3) h = Math.min(h, h + (ROAD.y - 2 - h) * (1 - sstep(7, 10.5, Math.abs(z - ROAD.portal.z))));   // the tunnel's cutting
   { const e = bigE(x, z); if (e < 2.2) { const dm = Math.max(0, e - 1) * BIG.rz; h = Math.min(h, BIG_H + dm * 0.35 + Math.max(0, dm - 120) ** 2 * 0.012); } }   // the big lake's bowl
+  { const dc = Math.hypot(x - CL.x, z - CL.z); if (dc < 44) h += (CL_Y - h) * (1 - sstep(11, 44, dc)) * 0.92; }   // the clearing's floor
   { const dh = Math.hypot(x - HT.x, z - HT.z); if (dh < 21) h += (HT.y - h) * (1 - sstep(13, 21, dh)); }   // the hilltop, flat for the tower
   if (BW_CUT && x > BW_CUT[0] && x < BW_CUT[1] && z > BW_CUT[2] && z < BW_CUT[3]) { const b = polyNear(BW, x, z); if (b.d < 5) { const y = bwY(b) - 0.3; if (h > y) h += (y - h) * (1 - sstep(1.5, 5, b.d)); } }
   return Math.max(Math.min(LAKE, LAKE_H), h);
@@ -173,15 +178,31 @@ const HUT = { x: SHORE.x + (LAKE_P.x - SHORE.x) * 0.3, z: SHORE.z + (LAKE_P.z - 
 // two marked trails from the cabin: one down to the lake, one over to the lookout
 // the way up to the watch hill: a timber boardwalk from the summit's trail head, landings where the ground is level and stair
 // flights where it climbs (or dips), always just above the snow, railed both sides, ending on the hilltop by the tower
-const BW = (() => { const d = Math.hypot(HT.x - 80, HT.z - 78), c2 = [78, 34], kk = Math.hypot(HT.x - c2[0], HT.z - c2[1]), ctrl = [[15.5, 15.5], [38, 30], c2, [HT.x - ((HT.x - c2[0]) / kk) * 9.5, HT.z - ((HT.z - c2[1]) / kk) * 9.5]];
-  const pts = []; let y = TOP + 0.02, s = 0, climb = 0;
+const BW = (() => {
+  // the route: down off the summit by short flights into the valley, along the clearing's north edge, then switchbacks up the
+  // watch hill. Each leg turns off the fall line just far enough to climb at stair pitch (about 0.4), so every leg climbs and
+  // the legs zigzag; each turn gets a flat landing.
+  const ctrl = [[15.5, 15.5], [30, 16], [46, 17], [60, 20], [74, 23], [88, 24]], corners = new Set();
+  const gH = (x, z) => [(hBase(x + 6, z) - hBase(x - 6, z)) / 12, (hBase(x, z + 6) - hBase(x, z - 6)) / 12];
+  { let [px, pz] = ctrl[ctrl.length - 1], side = -1;
+    for (let k = 0; k < 14 && Math.hypot(HT.x - px, HT.z - pz) > 30; k++) {
+      const [gx, gz] = gH(px, pz), gl = Math.hypot(gx, gz) || 1, d = Math.hypot(HT.x - px, HT.z - pz), ux = 0.55 * gx / gl + 0.45 * (HT.x - px) / d, uz = 0.55 * gz / gl + 0.45 * (HT.z - pz) / d, ul = Math.hypot(ux, uz);
+      const L = 19 + ((k * 5) % 3) * 2.5, y0 = height(px, pz); let best = null;
+      for (let a = 0.8; a <= 1.4; a += 0.05) { const c = Math.cos(side * a), sn = Math.sin(side * a), qx = px + ((ux * c - uz * sn) / ul) * L, qz = pz + ((ux * sn + uz * c) / ul) * L; best = [qx, qz]; if ((height(qx, qz) - y0) / L < 0.42) break; }
+      corners.add(ctrl.length - 1); ctrl.push(best); [px, pz] = best; side = -side; }
+    corners.add(ctrl.length - 1); const d = Math.hypot(HT.x - px, HT.z - pz); ctrl.push([HT.x - ((HT.x - px) / d) * 9.5, HT.z - ((HT.z - pz) / d) * 9.5]); }
+  BW_CORNERS = [...corners].map((i) => ctrl[i]);
+  const pts = []; let s = 0;
   for (let i = 0; i < ctrl.length - 1; i++) { const [ax, az] = ctrl[i], [bx, bz] = ctrl[i + 1], L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 0.5);
-    for (let k = i ? 1 : 0; k <= n; k++) { const x = ax + ((bx - ax) * k) / n, z = az + ((bz - az) * k) / n, yt = height(x, z) + 0.35; if (pts.length) s += L / n;
-      if (climb === 0 && yt > y + 0.2) climb = 1; else if (climb === 0 && yt < y - 3) climb = -1;
-      const y0 = y; if (climb > 0) { y += 0.65 * (L / n); if (y >= yt + 1.1) climb = 0; } else if (climb < 0) { y -= 0.65 * (L / n); if (y <= yt + 0.4) climb = 0; }
-      pts.push([x, z, s, y, y !== y0 ? 1 : 0]); } }
-  // and it must arrive at the top: where the hill is steeper than the stairs, start climbing sooner (they stand on legs there)
-  const S = pts[pts.length - 1][2]; pts.forEach((p, i) => { p[3] = Math.max(p[3], HT.y + 0.05 - 0.65 * (S - p[2])); if (i) p[4] = Math.abs(p[3] - pts[i - 1][3]) > 1e-4 ? 1 : 0; });
+    for (let k = i ? 1 : 0; k <= n; k++) { if (pts.length) s += L / n; const x = ax + ((bx - ax) * k) / n, z = az + ((bz - az) * k) / n; pts.push([x, z, s, height(x, z) + 0.3, 0]); } }
+  // follow the ground, smoothed over ±3 m, never steeper than stairs (0.7), starting on the summit and arriving on the hilltop
+  const sm = pts.map((p, i) => { let a = 0, n = 0; for (let j = Math.max(0, i - 6); j <= Math.min(pts.length - 1, i + 6); j++) { a += pts[j][3]; n++; } return a / n; });
+  sm[0] = TOP + 0.02; sm[sm.length - 1] = HT.y + 0.05;
+  pts.forEach((p) => { if (BW_CORNERS.some(([cx, cz]) => Math.hypot(p[0] - cx, p[1] - cz) < 1.3)) p[4] = 1; });   // landings at the turns
+  for (let i = 0; i < pts.length; i++) if (pts[i][4]) { let j = i; while (j + 1 < pts.length && pts[j + 1][4]) j++; const y = (sm[i] + sm[j]) / 2; for (let k = i; k <= j; k++) sm[k] = y; i = j; }
+  for (let i = 1; i < sm.length; i++) { const ds = pts[i][2] - pts[i - 1][2]; sm[i] = Math.min(Math.max(sm[i], sm[i - 1] - 0.7 * ds), sm[i - 1] + 0.7 * ds); }
+  for (let i = sm.length - 2; i >= 0; i--) { const ds = pts[i + 1][2] - pts[i][2]; sm[i] = Math.max(Math.min(sm[i], sm[i + 1] + 0.7 * ds), sm[i + 1] - 0.7 * ds); }
+  pts.forEach((p, i) => { p[3] = sm[i]; });
   return pts; })();
 const bwY = (b) => { const P = BW[b.i], Q = BW[Math.min(b.i + 1, BW.length - 1)], k = Q[2] > P[2] ? (b.s - P[2]) / (Q[2] - P[2]) : 0; return P[3] + (Q[3] - P[3]) * k; };
 BW_CUT = [Math.min(...BW.map((p) => p[0])) - 6, Math.max(...BW.map((p) => p[0])) + 6, Math.min(...BW.map((p) => p[1])) - 6, Math.max(...BW.map((p) => p[1])) + 6];
@@ -198,6 +219,7 @@ function walkable(x, z) {
   if (Math.hypot(x, z) < edgeR(Math.atan2(z, x)) - 0.4) return true;
   const rd = roadNear(x, z); if (rd && rd.d < 2.4 && x > ROAD.portal.x + 1.2) return true;
   if (polyNear(BW, x, z).d < 0.85) return true;   // on the boardwalk, between its rails
+  if (Math.hypot(x - CL.x, z - CL.z) < 15) return true;   // step off into the clearing
   return Math.hypot(x - HT.x, z - HT.z) < 10.5;   // the hilltop, inside its rail
 }
 function forestAt(x, z, h, s) {
@@ -627,7 +649,7 @@ function tile(ti, tj) {   // trees [x, y, z, size, turn, thin, style], saplings 
   const key = ti + ',' + tj; let t = tiles.get(key); if (t) return t;
   t = { trees: [], saplings: [], rocks: [], logs: [], cell: new Int32Array((TILE / TCELL) ** 2).fill(-1) }; const n = TILE / TCELL;
   const slope = (x, z, h) => { const gx = (height(x + 2, z) - h) / 2, gz = (height(x, z + 2) - h) / 2; return 1 - 1 / Math.sqrt(1 + gx * gx + gz * gz); };
-  const clear = (x, z, h) => Math.hypot(x, z) < 30 || trailDist(x, z) < 6 || (roadNear(x, z)?.d ?? 99) < 9 || onIce(x, z, h) || Math.hypot(x - TOWER.x, z - TOWER.z) < 40 || Math.hypot(x - HUT.x, z - HUT.z) < 22;
+  const clear = (x, z, h) => Math.hypot(x, z) < 30 || Math.hypot(x - CL.x, z - CL.z) < 22 || trailDist(x, z) < 6 || (roadNear(x, z)?.d ?? 99) < 9 || onIce(x, z, h) || Math.hypot(x - TOWER.x, z - TOWER.z) < 40 || Math.hypot(x - HUT.x, z - HUT.z) < 22;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const gi = ti * n + i, gj = tj * n + j, p = hash(gi * 3 + 1, gj * 7 - 5);
     const x = (gi + 0.15 + 0.7 * hash(gi, gj + 11)) * TCELL, z = (gj + 0.15 + 0.7 * hash(gi + 13, gj)) * TCELL;
@@ -873,13 +895,14 @@ function railLine(ps, label) {
   const M4 = [], put = (x, y, z, sx, sy, sz, yaw = 0, pitch = 0) => M4.push(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, pitch, 'YZX')), new THREE.Vector3(sx, sy, sz)));
   // pieces: a new one wherever landing turns to stair, the path bends, or 3 m is reached, so boards, rails and posts all follow the path
   const dir = (i) => { const P = BW[Math.max(i - 1, 0)], Q = BW[Math.min(i, BW.length - 1)]; return Math.atan2(Q[1] - P[1], Q[0] - P[0]); };
-  const runs = []; let st = 0; for (let i = 1; i <= BW.length; i++) if (i === BW.length || BW[i][4] !== BW[st][4] || Math.abs(dir(i) - dir(st + 1)) > 0.02 || BW[i][2] - BW[st][2] > 3) { runs.push([st, Math.min(i, BW.length - 1), BW[st][4]]); st = i; }
-  for (const [i0, i1, stair] of runs) { const A = BW[i0], B = BW[i1], dx = B[0] - A[0], dz = B[1] - A[1], L = Math.hypot(dx, dz); if (L < 0.05) continue; const yaw = -Math.atan2(dz, dx), nx = -dz / L, nz = dx / L, rise = B[3] - A[3];
-    if (!stair) put((A[0] + B[0]) / 2, A[3] - 0.06, (A[1] + B[1]) / 2, L + 0.02, 0.12, 1.9, yaw);   // a landing
+  const runs = []; let st = 0; for (let i = 1; i <= BW.length; i++) if (i === BW.length || Math.abs(dir(i) - dir(st + 1)) > 0.02 || BW[i][2] - BW[st][2] > 3) { runs.push([st, Math.min(i, BW.length - 1), BW[st][4]]); st = i; }
+  for (const [i0, i1] of runs) { const A = BW[i0], B = BW[i1], dx = B[0] - A[0], dz = B[1] - A[1], L = Math.hypot(dx, dz); if (L < 0.05) continue; const yaw = -Math.atan2(dz, dx), nx = -dz / L, nz = dx / L, rise = B[3] - A[3], stair = Math.abs(rise) / L > 0.1;
+    if (!stair) put((A[0] + B[0]) / 2, (A[3] + B[3]) / 2 - 0.06, (A[1] + B[1]) / 2, Math.hypot(L, rise) + 0.04, 0.12, 1.9, yaw, Math.atan2(rise, L));   // deck, gently sloping
     else { const n = Math.max(1, Math.round(Math.abs(rise) / 0.22)); for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; put(A[0] + dx * t, A[3] + rise * ((k + (rise > 0 ? 1 : 0)) / n) - 0.06, A[1] + dz * t, L / n + 0.05, 0.1, 1.9, yaw); }   // treads
       for (const sd of [-1, 1]) put((A[0] + B[0]) / 2 + nx * 0.98 * sd, (A[3] + B[3]) / 2 - 0.15, (A[1] + B[1]) / 2 + nz * 0.98 * sd, Math.hypot(L, rise), 0.28, 0.08, yaw, Math.atan2(rise, L)); }   // stringers
     for (const sd of [-1, 1]) put((A[0] + B[0]) / 2 + nx * 1.0 * sd, (A[3] + B[3]) / 2 + 1.0, (A[1] + B[1]) / 2 + nz * 1.0 * sd, Math.hypot(L, rise) + 0.05, 0.09, 0.09, yaw, Math.atan2(rise, L)); }   // hand rails
-  for (let i = 0; i < BW.length; i += 4) { const [x, z, , y] = BW[i], P2 = BW[Math.min(i + 1, BW.length - 1)], P1 = BW[Math.max(i - 1, 0)], dx = P2[0] - P1[0], dz = P2[1] - P1[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
+  for (const [cx, cz] of BW_CORNERS) { const b = polyNear(BW, cx, cz), P = BW[Math.max(b.i - 4, 0)], Q = BW[Math.min(b.i + 4, BW.length - 1)]; put(cx, bwY(b) - 0.06, cz, 2.3, 0.12, 2.3, -Math.atan2((P[1] + Q[1]) / 2 - cz, (P[0] + Q[0]) / 2 - cx)); }   // a square landing at each turn
+  for (let i = 0; i < BW.length; i += 6) { const [x, z, , y] = BW[i], P2 = BW[Math.min(i + 1, BW.length - 1)], P1 = BW[Math.max(i - 1, 0)], dx = P2[0] - P1[0], dz = P2[1] - P1[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
     for (const sd of [-1, 1]) { const px = x + nx * 1.0 * sd, pz = z + nz * 1.0 * sd, g = height(px, pz); put(px, (y + 1.05 + g) / 2, pz, 0.12, y + 1.05 - g + 0.3, 0.12); } }   // posts from the ground up through the rail
   const geo = snowTopBox(1, 1, 1), walk = new THREE.InstancedMesh(geo, hazed(new THREE.MeshLambertMaterial({ vertexColors: true }), (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <logdepthbuf_fragment>', '#include <logdepthbuf_fragment>\n gl_FragDepth -= 0.0012;'); }, 'boardwalk'), M4.length);
   M4.forEach((m, i) => walk.setMatrixAt(i, m)); walk.castShadow = walk.receiveShadow = true; scene.add(walk);   // its depth is pulled ~1.3 % forward: far terrain is coarser than the cutting
@@ -1026,7 +1049,7 @@ cv.addEventListener('pointerup', () => { look = null; }); cv.addEventListener('p
 $('run').onclick = () => { me.run = !me.run; $('run').setAttribute('aria-pressed', String(me.run)); };
 // standing on the cabin's floor and porch; walls, the hut and the lookout's legs push you out
 function groundAt(x, z) { if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
-  if (x > 0 && x < HT.x + 5 && z > -10 && z < HT.z + 40) { const b = polyNear(BW, x, z); if (b.d < 1.3) return Math.max(g, bwY(b) + 0.06); } return g; }   // on the bridge or the boardwalk you walk on its boards   // on the bridge you walk on its deck
+  if (BW_CUT && x > BW_CUT[0] && x < BW_CUT[1] && z > BW_CUT[2] && z < BW_CUT[3]) { const b = polyNear(BW, x, z); if (b.d < 1.3) return Math.max(g, bwY(b) + 0.06); } return g; }   // on the bridge or the boardwalk you walk on its boards   // on the bridge you walk on its deck
 function pushOut(x, z, cx, cz, hx, hz, turn) {   // out of a box (half sizes hx, hz, turned by `turn`)
   const c = Math.cos(turn), s = Math.sin(turn), lx = (x - cx) * c - (z - cz) * s, lz = (x - cx) * s + (z - cz) * c;
   if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) return [x, z];
@@ -1054,7 +1077,7 @@ function walk(dt) {
   [x, z] = pushOut(x, z, JEEP.x, JEEP.z, 2.0, 1.0, 0);   // the jeep lies along x
   if (!walkable(x, z)) { if (walkable(x, me.z)) z = me.z; else if (walkable(me.x, z)) x = me.x; else { x = me.x; z = me.z; } }
   me.x = x; me.z = z;
-  const gy = groundAt(x, z) + 1.65; me.y += (gy - me.y) * Math.min(1, dt * 12);
+  const gy = groundAt(x, z) + 1.65 + (me.hover || 0); me.y += (gy - me.y) * Math.min(1, dt * 12);   // hover: a debug lift for overview shots
   camera.position.set(me.x, me.y, me.z); camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
 }
 const press = (group, attr, val) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === val)));
@@ -1129,6 +1152,6 @@ function frame() {
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [near.map((m) => m.count).join('/'), saplings.count, logs.count, cards.count, rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H };
+window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [near.map((m) => m.count).join('/'), saplings.count, logs.count, cards.count, rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW };
 window.__ready = true;
 </script>
