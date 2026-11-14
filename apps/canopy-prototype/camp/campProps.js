@@ -85,7 +85,9 @@ async function buildProps() {
   // the lanterns (lanterns.js) and the fire: glow sprites, no real-time shadows; one warm point light for the fire glow
   glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
   LANTERNS = createLanterns({ scene, layout: LANTERN_LAYOUT, glowTex }); lanternGlow.push(...LANTERNS.lights);
-  fireLight = new THREE.PointLight(0xff9a4a, D.fx ? 6 : 0, 7, 1.6); fireLight.position.set(0, 0.9, 0); scene.add(fireLight);
+  // At Detail Low (D.fx 0) the light is made but not added to the scene: a point light at intensity 0 still costs every lit
+  // shader per fragment (R2-087). Detail is fixed for the page's life (changing it reloads), so the light count never changes.
+  fireLight = new THREE.PointLight(0xff9a4a, D.fx ? 6 : 0, 7, 1.6); fireLight.position.set(0, 0.9, 0); if (D.fx) scene.add(fireLight);
 
   // sunbeams into the clearing and floating motes
   if (S.rays && D.fx) {
