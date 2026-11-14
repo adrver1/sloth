@@ -897,7 +897,7 @@ def doors(objs, opened):
 def jeep_lod(M):
     """The Expedition seen from beyond about 12 m: the same outline in as few triangles as read at that distance, from
     the same shapes as body() and expedition(). Body and cabin as two plain prisms (coarse 10-sided arch cuts: the flares
-    and wheels cover their edge), windows as dark quads on the outside, 8-sided wheels with no lugs, the bumpers, grille
+    and wheels cover their edge), windows as dark quads on the outside, 8-sided wheels with no lugs or hub, the bumpers, grille
     and lamps as boxes and flat polygons, the snorkel, and the roof rack as a frame with the cans and the crate as boxes on
     it. One object, its own AO bake; the page swaps it in for the full jeep."""
     R = zc = WHEEL_R
@@ -911,11 +911,14 @@ def jeep_lod(M):
         wx = lambda z: cabin_side_x(z, sd, 0.012)
         p.append(poly([(wx(zb), -0.24, zb), (wx(zb), 1.48, zb), (wx(zt), 1.48, zt), (wx(zt), -0.07, zt)], g, (sd * 5, 0.6, 1.3)))   # one strip of side glass
     p.append(poly([(-0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zb), (0.5, REAR + 0.012, zt), (-0.5, REAR + 0.012, zt)], g, (0, 5, 1.3)))
-    for y in AXLE_Y:                                     # wheels: tyre, rim face, hub; open on the inside (never seen)
+    # wheels: 8-sided, the tread, the tyre's outer side and the rim as one fan, open on the inside (never seen); 40
+    # triangles each (review R2-190). An 8-gon's flat bottom is at its radius x cos(pi / 8), so the radius is divided by
+    # that and the wheels stand on the ground like the full jeep's.
+    Rl = R / math.cos(math.pi / 8)
+    lod_wheel = lambda r, h, sd: [(r, -h * sd, "tyre"), (r, h * sd, "tyre"), (r * 0.62, h * sd, "rim"), (0, h * sd, "rim")]   # noqa: E731
+    for y in AXLE_Y:
         for sd in (-1, 1):
-            x, h = sd * (W / 2 - 0.1), 0.125
-            p.append(lathe([(R * 0.9, -h * sd, "tyre"), (R, -h * 0.6 * sd, "tyre"), (R, h * 0.6 * sd, "tyre"), (R * 0.9, h * sd, "tyre"), (R * 0.62, h * sd, "rim"), (R * 0.25, h * sd, "hub"), (0, h * sd, "hub")],
-                           8, (x, y, zc), True, M, "wheel_lod"))
+            p.append(lathe(lod_wheel(Rl, 0.125, sd), 8, (sd * (W / 2 - 0.1), y, zc), True, M, "wheel_lod"))
             p.append(flare(sd, y, zc, R, 0.045, M["flare"], 10))
     p += bumpers(M)
     p.append(winch(M))
@@ -926,8 +929,8 @@ def jeep_lod(M):
         p.append(poly([(hx + r * math.cos(t * math.pi / 4), hy, hz + r * math.sin(t * math.pi / 4)) for t in range(8)], M["lamp"], (hx, -5, hz)))
         p.append(poly([(sd * 0.71, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.67), (sd * 0.62, REAR + 0.012, 0.89), (sd * 0.71, REAR + 0.012, 0.89)], M["red"], (0, 5, 0.8)))
         p.append(slim_box((0.06, 0.18, 0.16), at=(sd * (W / 2 + 0.06), -0.28, BELT + 0.17), m=M["trim"]))   # mirror
-    sr = R * 0.98                                        # the spare wheel on the back door
-    p.append(lathe([(sr * 0.9, 0, "tyre"), (sr, 0.05, "tyre"), (sr, 0.19, "tyre"), (sr * 0.9, 0.24, "tyre"), (sr * 0.62, 0.24, "rim"), (sr * 0.25, 0.24, "hub"), (0, 0.24, "hub")], 8, (0.06, REAR + 0.02, 0.98), False, M, "spare_lod"))
+    sr = R * 0.98                                        # the spare wheel on the back door, the same shape facing back
+    p.append(lathe(lod_wheel(sr, 0.12, 1), 8, (0.06, REAR + 0.14, 0.98), False, M, "spare_lod"))
     p += snorkel(M)
     z = RACK_Z                                           # roof rack: the outer frame and three cross bars, square, with its load
     for sd in (-1, 1):
