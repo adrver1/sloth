@@ -5,7 +5,7 @@ import { camera, rng, scene } from "../core.js";
 const { R } = rng("operator");
 import { CRATE, SOUP_POT } from "../layout.js";
 import { V, yawTo } from "../util.js";
-import { acts as chores } from "../campLife.js";
+import { acts as chores } from "../chores.js";
 import { VEG, makeFood } from "../food.js";
 import { me } from "../player.js";
 import { fx } from "../fx.js";

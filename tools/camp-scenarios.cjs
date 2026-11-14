@@ -66,14 +66,14 @@ function helpers([base, present]) {
   const T = window.__T = { log: [], mods: {} };
   const mod = async (n) => (T.mods[n] ??= await import(base + n).catch((e) => ({ __err: String(e) })));
   // modules every checkout has, then the newer ones this checkout has (looked up on disk, so a missing one is never asked for)
-  const MODS = ['camp/daytime.js', 'camp/player.js', 'camp/weather.js', 'camp/core.js', 'camp/hud.js', 'camp/layout.js', 'camp/forest.js', 'camp/jeep.js', 'camp/campProps.js', 'camp/sloths.js', 'camp/food.js', 'camp/campLife.js', 'camp/operator.js', 'camp/car.js', 'camp/audio.js', 'camp/clock.js', 'camp/radio.js'];
+  const MODS = ['camp/daytime.js', 'camp/player.js', 'camp/weather.js', 'camp/core.js', 'camp/hud.js', 'camp/layout.js', 'camp/forest.js', 'camp/jeep.js', 'camp/campProps.js', 'camp/sloths.js', 'camp/food.js', 'camp/operator.js', 'camp/car.js', 'camp/audio.js', 'camp/clock.js', 'camp/radio.js'];
   T.load = async () => { for (const n of MODS) await mod(n); for (const n of present) await mod(n);
     T.me = T.mods['camp/player.js'].me; T.cam = T.mods['camp/core.js'].camera; T.day = T.mods['camp/daytime.js'].day;
     return Object.entries(T.mods).filter(([, m]) => m.__err).map(([n, m]) => n + ': ' + m.__err); };
   // the camp's APIs: the module's export where it has one, else the window.__ name an older checkout set
   const api = (n, k, g) => T.mods[n]?.[k] ?? window[g];
   Object.defineProperties(T, {
-    op: { get: () => api('camp/operator.js', 'opApi', '__op') }, acts: { get: () => api('camp/campLife.js', 'acts', '__acts') },
+    op: { get: () => api('camp/operator.js', 'opApi', '__op') }, acts: { get: () => T.mods['camp/chores.js']?.acts ?? api('camp/campLife.js', 'acts', '__acts') },   // chores.js since campLife.js went
     lab: { get: () => api('camp/sloth/hooks.js', 'labApi', '__lab') }, life: { get: () => api('camp/sloth/hooks.js', 'campLife', '__campLife') },
     jeep: { get: () => api('camp/jeep.js', 'jeepApi', '__jeep') }, car: { get: () => api('camp/car.js', 'carApi', '__car') },
     audio: { get: () => api('camp/audio.js', 'audio', '__audio') }, clocks: { get: () => api('camp/clock.js', 'clocks', '__clocks') },
@@ -183,7 +183,7 @@ async function drive(name, sc, root, port, outDir, shots, p, EVO) {
   await page.loadCamp(p, port, sc.query || '', errs);
   const rndReady = await p.evaluate(() => [window.__rndN ?? null, window.__mrN ?? null]);
   await p.addStyleTag({ content: 'body > :not(canvas) { visibility: hidden !important; }' });
-  const present = ['camp/sloth/hooks.js', 'camp/sloth/state.js', 'camp/fx.js', 'camp/places.js'].filter((n) => fs.existsSync(path.join(root, 'apps/canopy-prototype', n)));
+  const present = ['camp/sloth/hooks.js', 'camp/sloth/state.js', 'camp/fx.js', 'camp/places.js', 'camp/campLife.js', 'camp/chores.js'].filter((n) => fs.existsSync(path.join(root, 'apps/canopy-prototype', n)));
   await p.evaluate(helpers, [`http://localhost:${port}/apps/canopy-prototype/`, present]);
   const loadErr = await p.evaluate(() => window.__T.load());
   const TOUR = sc.tour ? JSON.parse(fs.readFileSync(path.join(TOURS, sc.tour), 'utf8')) : [];

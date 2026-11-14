@@ -17,7 +17,7 @@
 //   __jeep           jeepApi (jeep.js), when there is a jeep               export_casters.cjs (its place); camp-scenarios.cjs on old checkouts
 //   __laundry        LAUNDRY (layout.js), when the line is shown           export_casters.cjs
 //   __glade          the glade and the sloths' path (layout.js)            export_casters.cjs
-//   __ground         groundLife (campGround.js, through campLife.js)       export_casters.cjs (its layout)
+//   __ground         groundLife (campGround.js)             export_casters.cjs (its layout)
 //   __deadwood       deadwood (deadwood.js): its layout and triangles      export_casters.cjs (the ground-shadow bake)
 //   __terrainGrid(n) the ground's height grid (terrain.js heightGrid)      export_casters.cjs
 // Exports stats and ready().
@@ -29,7 +29,7 @@ import { deadwood } from "./deadwood.js";
 import { CAMP } from "./campProps.js";
 import { jeepApi } from "./jeep.js";
 import { sloths } from "./sloths.js";
-import { groundLife } from "./campLife.js";
+import { groundLife } from "./campGround.js";
 import { boop, feed } from "./input.js";
 import { setWeather } from "./weather.js";
 import { sit } from "./linger.js";

@@ -11,7 +11,7 @@ import { hit, sloths } from "./sloths.js";
 import { burst, fx, sprite } from "./fx.js";
 import { campLife } from "./sloth/hooks.js";
 import { me } from "./player.js";
-import { acts } from "./campLife.js";
+import { acts } from "./chores.js";
 import { createHighlight } from "./highlight.js";
 import { addTargets, allTargets, targetOf } from "./targets.js";
 

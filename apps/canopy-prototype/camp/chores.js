@@ -2,7 +2,8 @@
 // fruit and vegetables to give away) wired to this camp: where the wood pile, the fire, the pot, the table and the crate
 // stand (layout.js), the props that light up when you can use each (highlight.js), and the fire the logs make bigger
 // (boostFire: the one place the chores touch the camp's fire).
-// Exports buildChores(): campLife.js calls it once, last; it returns the activities (acts), which input.js passes taps to,
+// Exports buildChores(): main.js calls it once, after the ground, the tent and the air; it makes the activities (acts,
+// exported and returned), which input.js passes taps to,
 // the operator reads (operator/cook.js and day.js cook with it, talk.js lets you give him the food in your hand), and main.js updates
 // each frame; main.js also hands it to audio.js (hearCamp), for the pot's sounds. It also adds the things you can use to the
 // tap targets (targets.js).
@@ -25,8 +26,9 @@ const boostFire = (wide, tall, light) => {
   fireLight.intensity *= light;
 };
 
+let acts = null;   // the activities, once buildChores has made them
 function buildChores() {
-  const acts = createActivities({ scene, camera, me, sloths,
+  acts = createActivities({ scene, camera, me, sloths,
     places: { woodPile: { at: WOOD_PILE.at, built: !!WOODPILE }, fire: FIRE, pot: SOUP_POT, table: TABLE, crate: LIVED ? CRATE.at : null },   // built: the props' pile stands there (not with ?lived=0, when the fire chore stacks plain logs)
     looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
       .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)),
@@ -39,4 +41,4 @@ function buildChores() {
   return acts;
 }
 
-export { buildChores };
+export { acts, buildChores };

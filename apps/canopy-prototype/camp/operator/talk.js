@@ -8,7 +8,7 @@ import * as THREE from "three";
 import { camera, rng, scene } from "../core.js";
 const { R } = rng("operator");
 import { V } from "../util.js";
-import { acts as chores } from "../campLife.js";   // your chores (activities.js): the food in your hand
+import { acts as chores } from "../chores.js";   // your chores (activities.js): the food in your hand
 import { addTarget } from "../targets.js";
 import { fx } from "../fx.js";
 import { LINES, bag, line, pickLine } from "./lines.js";

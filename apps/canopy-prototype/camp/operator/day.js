@@ -9,7 +9,7 @@ const { R } = rng("operator");
 import { CRATE, RC, SOUP_POT } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
 import { uNight } from "../campProps.js";
-import { acts as chores } from "../campLife.js";   // your chores (activities.js): he cooks only when the pot and the pail are free
+import { acts as chores } from "../chores.js";   // your chores (activities.js): he cooks only when the pot and the pail are free
 import { me } from "../player.js";
 import { giveBack, cuddleSeated, host, napTogether, pickUp, putDown, unhost } from "./buddy.js";
 import { cook } from "./cook.js";

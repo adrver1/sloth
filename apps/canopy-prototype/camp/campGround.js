@@ -2,9 +2,9 @@
 // paths between them, grass tufts, tall grass, wildflowers and clover, with the baked ground (props/ground/bake_ground.py), its
 // baked shadows and its night light. It replaces the forest floor disc (sky.js), shades the track's and path's overlays, and
 // with the jeep's cabin light on, the floor and every baked prop take that light's shadow.
-// Exports buildGround(mask): campLife.js calls it once, after the props, the deadwood and the sloths stand and before the
-// tent's walls join the blockers, since the worn dirt is painted round the blockers as they are then, and returns what it
-// built (campLife.js hands it on as groundLife); and shadowStep(), which main.js calls each frame to re-cast the sun shadows
+// Exports buildGround(mask): main.js calls it once, after the props, the sloths, the deadwood and the glade stand and before
+// the tent's walls join the blockers, since the worn dirt is painted round the blockers as they are then; it makes groundLife
+// (exported and returned); and shadowStep(), which main.js calls each frame to re-cast the sun shadows
 // while the props load.
 import { createGround } from "../ground.js";
 import { D, JEEP, LOOK, PROPS, S, renderer, scene, uTime } from "./core.js";
@@ -12,8 +12,7 @@ import { FLOOR_OVERLAYS, clearing, track, trackDist } from "./forest.js";
 import { blockers, uNight } from "./campProps.js";
 import { FAR, RC, TENT } from "./layout.js";
 import { cabinLive } from "./jeep.js";
-import "./deadwood.js";   // before the ground is built, so its plants grow round the log, the stump and the dead trunk
-import { gladePlants } from "./glade.js";   // before the ground is built: its plants go in the ground's one draw
+import { gladePlants } from "./glade.js";   // filled by buildGlade before the ground is built: its plants go in the ground's one draw
 import { groundHeight, vnoise } from "./terrain.js";
 import { ground as forestFloor } from "./sky.js";
 
@@ -38,4 +37,4 @@ function shadowStep() {
   if (uTime.value < 30 && Math.floor(uTime.value) !== shadowTick) { shadowTick = Math.floor(uTime.value); const n = groundLife.casters().length; if (n !== shadowN) { shadowN = n; groundLife.castShadows(renderer); } }
 }
 
-export { buildGround, shadowStep };
+export { buildGround, groundLife, shadowStep };

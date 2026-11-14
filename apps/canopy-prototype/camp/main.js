@@ -10,7 +10,7 @@
 import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import "../fur.js";   // order only: fur.js is evaluated second, as it always was (sloth/body.js uses it)
-import { $, DETAIL, OPT, camera, renderer, scene, uTime } from "./core.js";
+import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime } from "./core.js";
 import "./sky.js";
 import "./forest.js";
 import { fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
@@ -19,14 +19,19 @@ import { campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
-import { acts, atmo, groundLife, shadowStep } from "./campLife.js";
+import { buildDeadwood } from "./deadwood.js";
+import { buildGlade } from "./glade.js";
+import { buildGround, groundLife, shadowStep } from "./campGround.js";
+import { buildTentInside } from "./tentInside.js";
+import { atmo, buildAtmosphere } from "./campAir.js";
+import { acts, buildChores } from "./chores.js";
 import { buildOperator, opApi, opStep } from "./operator.js";
 import { aimStep, initInput, resize } from "./input.js";
 import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
 import { dayStep, wireTimeMenu } from "./daytime.js";
 import { buildClocks, clockStep } from "./clock.js";
-import { audioStep, hearCamp } from "./audio.js";
+import { audioStep } from "./audio.js";
 import { buildRadio, radioStep } from "./radio.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
@@ -36,6 +41,14 @@ import { ready, stats } from "./debug.js";   // the tools' window.__ names; it b
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
+// the lived-in clearing, set down on the finished props and sloths in this order: the deadwood and the glade first, then the
+// ground, painted round the blockers as they stand then; the tent's walls join the blockers only after that
+buildDeadwood();                       // deadwood.js
+buildGlade();                          // glade.js: its plants go into the ground's draw
+buildGround(await PRE.groundMask);     // campGround.js: waits for the ground mask's download
+buildTentInside();                     // tentInside.js
+buildAtmosphere();                     // campAir.js
+buildChores();                         // chores.js: your activities
 await buildOperator();   // operator.js: waits for his downloads (?op=0: nothing)
 initInput();        // input.js
 buildWeather();     // weather.js: the ⚙️ Weather button and the rain streaks
@@ -46,7 +59,6 @@ buildRadio();       // radio.js: the radio on the snack table
 buildJeepSeats();   // jeepSeat.js: the jeep's doors and seats
 buildCar();         // car.js: the key, the dash radio and the dash clock
 createDaylight();   // the mist banks and the moon's place: last, after every module above has built its part (daylight.js)
-hearCamp(acts, opApi);   // audio.js hears the pot and the operator (it is evaluated before either exists)
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 addEventListener("resize", resize); resize();
@@ -85,7 +97,7 @@ renderer.setAnimationLoop(() => {
   motesStep(dt);
   atmo.update(dt, uTime.value, dusk);
   audioStep(dt, dusk); radioStep(dt);
-  shadowStep();                                            // campGround.js's (handed on by campLife.js): the sun shadows, re-cast while the props load
+  shadowStep();                                            // campGround.js: the sun shadows, re-cast while the props load
   renderer.render(scene, camera);
   frames++; acc += raw;
   if (acc >= 1) {

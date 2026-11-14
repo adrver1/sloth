@@ -7,7 +7,7 @@
 // yawn, wave, his clip), so the other modules need no sound calls.
 // Music: four generated stations (Slow drift, the default: ambient tape loops; campfire guitar, kalimba, music-box lullaby), quiet under the nature sounds.
 // Nothing plays until the first tap or key (browsers block it before that). main.js calls audioStep(dt, dusk) every frame,
-// and hands it the chores and the operator first (hearCamp(acts, opApi)).
+// It reads the chores (chores.js acts) and the operator (operator.js opApi) once main.js has built them.
 // The radio prop drives it through `audio`: start, volume, muted, music, musicVolume, station, next,
 // tune (a burst of static between stations), musicFrom(object3D | null: the music then comes from it), state, onChange.
 // The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted, ?station= picks one (core.js OPT). Settings are kept per viewer (KEYS.audio).
@@ -19,6 +19,8 @@ import { me } from "./player.js";
 import { weather } from "./weather.js";
 import { SOUP_POT, TENT } from "./layout.js";
 import { jeepApi } from "./jeep.js";
+import { acts } from "./chores.js";      // the pot's stage (null until main.js has built the chores)
+import { opApi } from "./operator.js";   // his sounds (null with ?op=0, or until main.js has built him)
 import { rand as R } from "./util.js";   // a number between a and b from Math.random, as the copy that stood here
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix: music sits well under the camp
@@ -313,11 +315,6 @@ function watchSloths(dt) {
   // the nearest sleeping sloth breathes slowly, if you are close enough to hear it
   if ((sleepT -= dt) < 0) { sleepT = R(3.2, 4.2); let best = null, bd = 4; for (const s of sloths) if (s.asleep) { const d = s.o.getWorldPosition(tmp).distanceTo(camera.position); if (d < bd) { bd = d; best = s; } } if (best) SFX.breath(slothAt(best)); }
 }
-// the chores' acts (the pot's stage) and the operator's opApi (his sounds) are handed over by main.js (hearCamp) before the
-// first frame: this module is evaluated while campLife.js waits for the ground mask, before either exists, so importing
-// them would move it, and its Sound button, later in the build
-let acts = null, opApi = null;
-function hearCamp(a, o) { acts = a; opApi = o; }
 function watchOperator(dt) {
   const O = opApi; if (!O) return;
   const p = O.root.position, head = tmp.copy(p).setY(p.y + 1.6).clone();
@@ -498,4 +495,4 @@ function showBtn() { if (!btn) return; btn.textContent = "Sound: " + (set.muted 
 if (btn) btn.onclick = () => { start(); if (set.muted) { set.muted = false; set.music = true; mus.st = null; } else if (set.music) set.music = false; else set.muted = true; applyGain(); keep(); };
 showBtn();
 
-export { audio, audioStep, hearCamp };
+export { audio, audioStep };

@@ -2,7 +2,7 @@
 // the tent's frame and sizes are layout.js TENT). The walls stop you and the doorway lets you in, the bed along the left wall
 // and the stove are in the way: all circles added to campProps.js's blockers, in place of the one big circle that stood for
 // the tent until the ground was painted round it. The stove's amber light is two additive quads, no scene light.
-// Exports buildTentInside(): campLife.js calls it once, after the ground is built (the ground reads the blockers first).
+// Exports buildTentInside(): main.js calls it once, after the ground is built (the ground reads the blockers first).
 import * as THREE from "three";
 import { camera, scene, uTime } from "./core.js";
 import { blockers, glowTex, uNight } from "./campProps.js";

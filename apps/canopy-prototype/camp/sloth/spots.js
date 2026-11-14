@@ -101,7 +101,7 @@ function buildGuests() {
   const H = spots.find((q) => q.name === "hammock"), Jp = spots.find((q) => q.name === "jeep"), Tp = spots.find((q) => q.name === "tent");
   if (H) guests.push({ ...H, key: "hammock:1", at: V(-0.42, 0.72 - PIV + 0.04, 0.02), asleep: false, guest: true, home: false, who: null });
   if (Jp && jeepApi?.seat) guests.push({ ...Jp, key: "jeep:P", at: Jp.parent.worldToLocal(jeepApi.seat.clone()), yaw: Math.PI, clip: "curl", scale: 2.2, guest: true, home: false, who: null });
-  if (Tp) {                                         // the bed along the tent's left wall (campLife.js), tent frame: x -0.92, z -1.2 .. 0.4
+  if (Tp) {                                         // the bed along the tent's left wall (tentInside.js), tent frame: x -0.92, z -1.2 .. 0.4
     const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = Tp.parent.localToWorld(V(x, 0, z)); ray.set(V(w.x, 1.2, w.z), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? h.point.y : 0.3; };
     for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = -0.92 + dx, z = -0.45; guests.push({ ...Tp, bed: true, key: bedKey(i), at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, guest: true, home: false, who: null }); }
   }
