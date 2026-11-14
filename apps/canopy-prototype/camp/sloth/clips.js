@@ -24,7 +24,7 @@ function play(s, name, fade, timeScale = 1, at = 0) {
 function playOnce(s, name, fade, then, at = 0) { play(s, name, fade, 1, at); s.once = then; }
 
 const homeClip = (s) => s.trip?.phase === "rest" ? ["idle", 1] : !s.spot ? ["cling", 0.6] : [s.spot.clip, s.spot.clip === "cling" ? 0.6 : 1];
-const dozeClip = (s) => s.spot?.guest || s.spot?.asleep ? [s.spot.clip, s.spot.clip === "nap" ? 1 : 1] : s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
+const dozeClip = (s) => s.spot?.guest || s.spot?.asleep ? [s.spot.clip, 1] : s.trip?.phase === "rest" || ["seat", "jeep"].includes(s.spot?.name) ? ["curl", 1] : s.spot?.name === "tent" ? ["peek", 0.15] : ["cling", 0.22];
 const canStretch = (s) => s.trip?.phase === "rest" || (["seat", "jeep", "hammock"].includes(s.spot?.name) && s.spot.clip !== "curl") || (s.spot?.guest && s.spot.name === "tent");    // sitting, or lying where it can sit up (hammock, bed)
 
 export { EAT_GRAB, canStretch, clipOf, dozeClip, homeClip, play, playOnce };
