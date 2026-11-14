@@ -65,7 +65,7 @@ buildRadio();                          // radio.js: the radio on the snack table
 buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
 buildCar();                            // car.js: the key, the dash radio and the dash clock
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
-castSunShadows();                      // campGround.js: the live sun shadows, once every prop stands (none once the baked map is in)
+castSunShadows();                      // campGround.js: the live sun shadows, once every prop stands, only if the baked map fails to load
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop

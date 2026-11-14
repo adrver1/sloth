@@ -451,9 +451,11 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   const counts = [0, 1, 2, 3, 4, 5, 6, 7].map((t) => pick.filter((p) => p[2] === t).length);
   // the baked map (props/shadow/bake_ground_shadow.py, Cycles: soft sun + sky occlusion) wins; the live render above is the fallback
   // for prop sets and jeeps that have no bake yet
+  // shadowLoad settles once the baked map has loaded or failed (none asked: at once), so the camp casts live only without one
   let shadowBaked = false;
-  if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
-    shadowBaked = true; uShade.value = t; uShadeK.value = 0.85; }, undefined, () => {});
+  const shadowLoad = new Promise((done) => { if (!shadowMap) return done();
+    new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
+      shadowBaked = true; uShade.value = t; uShadeK.value = 0.85; done(); }, undefined, () => done()); });
   // the same darkening for a material drawn on the floor (the track and path ribbons): its world x, z looks up the shadow map
   function shadeOn(m) {
     patchMaterial(m, "shade", (sh) => {
@@ -473,5 +475,5 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: used.map(({ at: c, r }) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
-  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
+  return { floor, plants: im, shade, castShadows: cast, casters, shadowLoad, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }

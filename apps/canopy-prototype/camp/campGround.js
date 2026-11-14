@@ -31,9 +31,9 @@ function buildGround(baked) {
   return groundLife;
 }
 
-// sun shadows (ground.js castShadows): rendered live once, after every prop is built, only while the baked shadow map
-// (shadowMap above) has not loaded; once it loads it replaces them. Nothing runs per frame (R2-088: it used to scan the scene
-// every second for half a minute).
-function castSunShadows() { if (!groundLife.isBaked()) groundLife.castShadows(renderer); }
+// sun shadows (ground.js castShadows): rendered live once, and only when the baked shadow map (shadowMap above) failed to
+// load; main.js calls this once every prop is built, and it waits for that download. Nothing runs per frame (R2-088: it used
+// to scan the scene every second for half a minute).
+function castSunShadows() { groundLife.shadowLoad.then(() => { if (!groundLife.isBaked()) groundLife.castShadows(renderer); }); }
 
 export { buildGround, castSunShadows, groundLife };
