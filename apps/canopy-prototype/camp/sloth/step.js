@@ -7,7 +7,8 @@
 //   held      borrowed (lend.js): nothing here moves it
 //   campStep(dt)         each frame (main.js). Does nothing with ?campsloths=0. (The log seat you sit on is claimed by
 //                        linger.js, so no sloth sits on you.)
-// core.js pace (window.__campFast for the tools) speeds the sloths' day up for checks (the move lab slows and pauses it the same way).
+// core.js pace (window.__campFast for the tools) speeds the sloths' day up for checks; the move lab slows it, and pauses it
+// with 0 (the camp sloths' clips, trips and z's stop; blinks, the look at you and the wild sloths' clips go on).
 import { OPT, pace } from "../core.js";
 import { SL, camp, wild } from "./state.js";
 import { glideStep, slideStep } from "./moves.js";
@@ -32,7 +33,7 @@ function campStep(dt) {
   if (!OPT.campsloths) return;
   pois();   // the food places, made once the props are in (table.js)
   keep();
-  const fast = pace.fast || 1, sd = dt * fast;
+  const fast = pace.fast ?? 1, sd = dt * fast;   // ?? not ||: the lab's Pause and Step set 0 (review R2-044)
   let out = camp.filter((s) => s.trip.phase !== "home").length;
   for (const s of camp) {
     const spot = s.spot, T = s.trip;   // as they are now: a clip's end (s.once) may start a new trip, which waits for the next frame
@@ -44,12 +45,12 @@ function campStep(dt) {
     else PHASE[T.phase]?.(s, T, sd, spot);
     if (T.phase !== "home" && s.smore) stopSmore(s);
     if (s.gift && !s.gift.clip) giftFly(s, sd);
-    zStep(s, dt);
+    zStep(s, sd);
     if (spot.line && T.phase === "home") brush?.(s.o.position, false, dt);   // the towel swings back
     // the hit sphere and the point hearts and words fly to follow the sloth
     s.o.getWorldPosition(s.box.position).y += 0.25 * s.sc / SL; s.p.copy(s.box.position);
   }
-  for (const s of wild) { napStep(s, sd); if (s.gift) giftFly(s, sd); zStep(s, dt); }   // a wild one munches what you give it
+  for (const s of wild) { napStep(s, sd); if (s.gift) giftFly(s, sd); zStep(s, sd); }   // a wild one munches what you give it
   fruitStep(sd);
 }
 

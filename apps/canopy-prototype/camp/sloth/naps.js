@@ -11,10 +11,11 @@
 //                            sleep (back) or on with its day
 //   napStep(s, sd, after)    each frame for a sloth that may sleep: nods off, sleeps, wakes; with after, a nap that ends
 //                            in after() instead of the next nap
-//   zStep(s, dt)             the three z's rising off a sleeper (not the hammock's own napper)
-//   hammockStep(dt)          the hammock's swing and its napper's z's, each frame (main.js)
+//   zStep(s, sd)             the three z's rising off a sleeper (not the hammock's own napper), sd: the camp's paced time
+//   hammockStep(dt)          the hammock's swing and its napper's z's, each frame (main.js); the z's rise at core.js
+//                            pace like the sloths (the move lab's Pause stops them), the swing goes on
 // Every length of a nap draws from the sloths' stream (core.js rng("sloths")) as it happens.
-import { OPT, rng, uTime } from "../core.js";
+import { OPT, pace, rng } from "../core.js";
 const { R } = rng("sloths");
 import { makeZ, zAt } from "../actor.js";
 import { spots } from "./state.js";
@@ -59,24 +60,24 @@ function zsStep(zz, s, k0, on, f = 1) {
 }
 // z's rising off each sleeper, three at a time like the hammock napper's (Adriaen 2026-11-13: "sleeping sloths should have
 // zzzzs like the hammock sloth"); a little smaller on the small ones
-function zStep(s, dt) {
+function zStep(s, sd) {
   const on = s.dozing && s.asleep && !s.spot?.asleep;
   if (!on && !s.zz) return;
   s.zz ??= makeZs();
-  s.zk = ((s.zk ?? R(0, 1)) + dt / 2.4) % 1;
+  s.zk = ((s.zk ?? R(0, 1)) + sd / 2.4) % 1;
   zsStep(s.zz, s, s.zk, on, Math.min(1, Math.max(0.6, s.sc / 2.2)));
 }
 // the hammock's swing and its napper's z's (main.js calls it after the move lab's step, which used to run just before it).
 // Without the camp sloths (?campsloths=0) the hammock was never given its swing, and it hangs still.
 function hammockStep(dt) {
   if (!OPT.campsloths) return;
-  const H = hammock, napper = spots[0].home ? spots[0].who : null;   // a slow swing, nudged harder for a while after a boop
+  const H = hammock, napper = spots[0].home ? spots[0].who : null, sd = dt * (pace.fast ?? 1);   // a slow swing, nudged harder for a while after a boop
   H.step(dt);
   if (napper?.squish > 0.9) H.push = 1;
   const on = !!napper?.asleep;
   if (!on && !H.zz) return;
-  H.zz ??= makeZs();
-  zsStep(H.zz, napper, uTime.value / 2.4, on);
+  H.zz ??= makeZs(); H.zk = (H.zk + sd / 2.4) % 1;
+  zsStep(H.zz, napper, H.zk, on);
 }
 
 export { doze, hammockStep, napStep, wakeUp, zStep };

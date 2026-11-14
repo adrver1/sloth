@@ -84,7 +84,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   const sideYaw = (s) => yawFrom(W(s.door), W(s.seat));   // facing in through the door
   jeepSeatStep = (dt) => {
     if (!cur) return;
-    const T = cur, s = T.s; T.t += dt * (pace.fast || 1);   // core.js pace: quicker for checks
+    const T = cur, s = T.s; T.t += dt * (pace.fast ?? 1);   // core.js pace: quicker for checks, 0 while the move lab is paused
     if (T.phase !== "sat") me.lastDrag = uTime.value;   // no gaze drift while moving (linger.js)
     if (me.seat !== seat) { if (T.phase === "sat") { if (!stand()) return; } else me.seat = seat; }
     if (T.phase === "walk") {                          // round to the door, opening it when you get close
