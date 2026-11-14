@@ -28,7 +28,11 @@ const looks = new Map(); let pinch0 = 0, fov0 = 0, fovAdd = 0;
 function lookStart(e) {
   const L = { x: e.clientX, y: e.clientY, moved: 0, t0: performance.now(), held: false };
   looks.set(e.pointerId, L);
-  if (looks.size === 2) { const [a, b] = [...looks.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); fov0 = fovAdd; return; }
+  if (looks.size >= 2) {   // a pinch: no finger in it feeds on a hold or taps when it lifts
+    for (const P of looks.values()) { clearTimeout(P.holdT); P.pinch = true; }
+    if (looks.size === 2) { const [a, b] = [...looks.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); fov0 = fovAdd; }
+    return;
+  }
   const h = pickAt(e.clientX, e.clientY, hit);
   if (h) L.holdT = setTimeout(() => { if (L.moved > 12) return; L.held = true; h.distance < 7 ? feed(h.object.userData.s) : toast("Get a bit closer"); }, 450);
 }
@@ -40,7 +44,7 @@ function lookMove(e) {
 }
 const lookEnd = (e) => {
   const L = looks.get(e.pointerId); looks.delete(e.pointerId); if (!L) return; clearTimeout(L.holdT);
-  if (L.moved < 12 && !L.held && performance.now() - L.t0 < 450) tap(e.clientX, e.clientY);
+  if (L.moved < 12 && !L.held && !L.pinch && performance.now() - L.t0 < 450) tap(e.clientX, e.clientY);
 };
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
 const told = (kind, s) => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by: "you", name: s.name } }));   // the operator may remark on it
@@ -124,7 +128,8 @@ function initInput() {
   document.body.classList.toggle("touch", coarse);   // the hint moves up above the stick
   if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
   // the keys the player walks by (player.js reads them); the split into modules had dropped these listeners
-  addEventListener("keydown", (e) => { keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
+  // (not while a slider, a select or a text field has the focus: its arrows are its own, review R2-055)
+  addEventListener("keydown", (e) => { const t = e.target; if (t.closest?.("input, select, textarea") || t.isContentEditable) return; keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
   stick.addEventListener("pointerdown", (e) => { e.stopPropagation(); stickId = e.pointerId; try { stick.setPointerCapture(e.pointerId); } catch {} /* a pointer that is no longer down (or a made-up one) cannot be captured */ stickMove(e); hideHelp(); });
   stick.addEventListener("pointermove", (e) => { if (e.pointerId === stickId) stickMove(e); });
   stick.addEventListener("pointerup", stickEnd); stick.addEventListener("pointercancel", stickEnd);
