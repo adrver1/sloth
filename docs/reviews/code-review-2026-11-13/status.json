@@ -1,5 +1,5 @@
 {
- "as_of": "section C round 3, 2026-11-14",
+ "as_of": "section C round 4, 2026-11-14",
  "statuses": [
   "fixed",
   "partly fixed",
@@ -167,9 +167,10 @@
     "b9a833a",
     "a6ef95e",
     "c54ad4a",
-    "7b104e5"
+    "7b104e5",
+    "f5f9508"
    ],
-   "note": "the last of them gone too: sloths.js COUNT and flowerCrown, player.js's collide export, core.js's canvasTex import, and the imports main.js and car.js no longer used"
+   "note": "the last of them gone too: sloths.js COUNT and flowerCrown, player.js's collide export, core.js's canvasTex import, and the imports main.js and car.js no longer used, and forest.js's A0 and sloth/step.js's scene"
   },
   "crosscut-08": {
    "status": "waiting on Adriaen",
@@ -187,9 +188,10 @@
     "8e8770b",
     "89f77ba",
     "e74c786",
-    "87b1b03"
+    "87b1b03",
+    "abb4bea"
    ],
-   "note": "camp/util.js (V, canvasTex, lam, trisIn, wrapPi, ease, rand ...); the sloths (camp/sloth/), operator.js, activities.js, input.js, audio.js, car.js, radio.js and the modules from PRs #15 and #16 use it. Left, each because it rounds differently from the helper: player.js onTrack and its eye-drop ease, operator/walk.js's angle wrap; daylight.js's sm is THREE.MathUtils.smoothstep"
+   "note": "camp/util.js (V, canvasTex, lam, trisIn, wrapPi, ease, rand, yawTo, yawFrom ...); the sloths (camp/sloth/), operator.js, activities.js, input.js, audio.js, car.js, radio.js and the modules from PRs #15 and #16 use it. Left, each because it rounds differently from the helper: player.js onTrack and its eye-drop ease, operator/walk.js's angle wrap; daylight.js's sm is THREE.MathUtils.smoothstep"
   },
   "crosscut-10": {
    "status": "fixed",
@@ -457,16 +459,17 @@
     "27dda54",
     "c3f1346",
     "5795b11",
-    "d7ae27c"
+    "d7ae27c",
+    "abb4bea"
    ],
-   "note": "camp/actor.js holds what the sloths and the operator share and is stateless: aimBone (a bone turned toward a point), crossFade (the clip cross-fade, with the three ways the two players differ as options), makeZ/zAt (the sleep Zs, each character with its own sizes) and yawTo/yawFrom; the sloths' and the operator's modules use them. Left apart, because they give different numbers or work differently: turning (the sloths turn by a share of the gap after wrapPi, the operator at a capped rate after atan2(sin, cos)), walking and steering (a per-frame grid path that gives way, against a generator with blockers, movers and overtaking), the gaze then wave (a view-direction test that fades, against a screen test that resets), finishing a one-shot clip (polling against the mixer's finished event), and bites (only the sloths shrink the food)"
+   "note": "camp/actor.js holds what the sloths and the operator share and is stateless: aimBone (a bone turned toward a point), crossFade (the clip cross-fade, with the three ways the two players differ as options), and makeZ/zAt (the sleep Zs, each character with its own sizes), with yawTo/yawFrom in camp/util.js as pure maths; the sloths' and the operator's modules use them. Left apart, because they give different numbers or work differently: turning (the sloths turn by a share of the gap after wrapPi, the operator at a capped rate after atan2(sin, cos)), walking and steering (a per-frame grid path that gives way, against a generator with blockers, movers and overtaking), the gaze then wave (a view-direction test that fades, against a screen test that resets), finishing a one-shot clip (polling against the mixer's finished event), and bites (only the sloths shrink the food)"
   },
   "operator-10": {
    "status": "partly fixed",
    "commits": [
     "d109364"
    ],
-   "note": "camp/places.js (claims, hosts, movers) and camp/nav.js (the grid and A*, over a list of blockers, with the body radius and fire berth as arguments) exist and the sloths import them; operator.js still reaches them through window.__campLife, and movers() still builds a new array each call"
+   "note": "camp/places.js (claims, hosts, movers) and camp/nav.js (the grid and A*, over a list of blockers, with the body radius and fire berth as arguments) exist and the sloths import them; operator.js hands the sloths' campLife (sloth/hooks.js) to operator/state.js by import, once, before any frame. Left: the operator and jeepSeat.js still reach the registry through that life() object with optional calls, and movers() still builds a new array on every call"
   },
   "operator-12": {
    "status": "fixed",
@@ -526,7 +529,7 @@
     "2626429",
     "bfca46a"
    ],
-   "note": "exports, with the window names kept as aliases for the files that still read them; the jeep's seats, door options and engine are on jeepApi, and window.__car is only a debug hook"
+   "note": "exports, and the window names are gone except the ones debug.js sets for the tools (window.__car went); the jeep's seats, door options and engine are on jeepApi"
   },
   "props-11": {
    "status": "fixed",
@@ -610,14 +613,14 @@
     "d109364",
     "93e09a3"
    ],
-   "note": "camp/places.js and camp/nav.js export the registry and the path finding, and the sloths and lab.js import them; operator.js, input.js and jeepSeat.js still go through window.__campLife (now made of those exports in sloth/hooks.js), and the claim of the seat you sit on is still in the sloths' step (sloth/step.js seatWatch), not in linger.js"
+   "note": "camp/places.js and camp/nav.js export the registry and the path finding, and the sloths and lab.js import them; operator.js, input.js and jeepSeat.js import campLife from sloth/hooks.js (made of those exports), and no window.__campLife is left. Left: the operator's and jeepSeat.js's life() indirection with its optional calls, movers() building a new array on every call, and the claim of the seat you sit on, which is still in the sloths' step (sloth/step.js seatWatch), not in linger.js"
   },
   "sloths-31": {
    "status": "fixed",
    "commits": [
     "8e8770b"
    ],
-   "note": "the sloths import jeepApi, layout.js (HAMMOCK, SEATS, TENT, TABLE, CRATE, LAUNDRY) and util.js; main.js hands the player's seat to campStep(dt, me.seat), so nothing is read from window except __campFast (a check-only speed-up with no export, sloth/step.js)"
+   "note": "the sloths import jeepApi, layout.js (HAMMOCK, SEATS, TENT, TABLE, CRATE, LAUNDRY) and util.js; main.js hands the player's seat to campStep(dt, me.seat), and the check-only speed-up is core.js pace (debug.js maps window.__campFast onto it), so the sloths read nothing from window"
   },
   "sloths-32": {
    "status": "fixed",
@@ -737,9 +740,10 @@
   "operator-06": {
    "status": "fixed",
    "commits": [
-    "a6ef95e"
+    "a6ef95e",
+    "287fc96"
    ],
-   "note": "clipOf, the scratch vector, the unused state fields, sipping()'s argument and the second turn before the bed are gone"
+   "note": "clipOf, the scratch vector, the unused state fields, sipping()'s argument and the second turn before the bed are gone; the moverTry retry went too, as the sloths' life now arrives by import before any frame"
   },
   "operator-17": {
    "status": "partly fixed",
@@ -827,7 +831,7 @@
     "bfca46a",
     "bedef9b"
    ],
-   "note": "the operator imports acts, and the fire's boost has one owner (camp/chores.js boostFire). Left: audio.js's two globals (see crosscut-03), the window events (camp-act, camp-food) have no one module, and the chores still set s.nod on a sloth"
+   "note": "the operator imports acts, the fire's boost has one owner (camp/chores.js boostFire), and audio.js's two globals are gone (hearCamp, see crosscut-03). Left: the window events (camp-act, camp-food) have no one module, and the chores still set s.nod on a sloth"
   },
   "sloths-25": {
    "status": "checked, still open",
