@@ -1,4 +1,5 @@
-// Canopy Camp main: the frame loop, with the fps panel and the resolution safety net, and the hooks the tools and checks use.
+// Canopy Camp main: the frame loop, with the fps panel and the resolution safety net; once the camp is built it calls debug.js
+// ready() (the tools' window.__ names are all in debug.js).
 // camp.html loads this file; it imports the other camp modules in order, so they run top to bottom as one script did before.
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
 
