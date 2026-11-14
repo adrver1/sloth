@@ -1,12 +1,13 @@
 // Canopy Camp budget probe: loads a camp page headless (SwiftShader) and prints JSON with draw calls, triangles per object,
 // every download with its size, textures and page errors. fps is meaningless under SwiftShader; the counts are exact.
 // Usage (from the repo root, after npm install):
-//   node tools/camp-probe.cjs "/apps/canopy-prototype/camp.html" out.png [width height] [js to run before the shot]
+//   [PORT=8799] [ROOT=<checkout>] node tools/camp-probe.cjs "/apps/canopy-prototype/camp.html" out.png [width height] [js to run before the shot]
+// PORT picks the local port (the machine is shared); ROOT serves another checkout (a worktree of main) with this same tool.
 // three.js is served from node_modules, since the cloud proxy blocks jsDelivr.
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs'), http = require('http');
-const ROOT = path.resolve(__dirname, '..'), NM = ROOT + '/node_modules/three';
-const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } const ext = path.extname(f); r.writeHead(200, { 'content-type': { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ktx2': 'image/ktx2' }[ext] || 'text/plain' }); r.end(d); }); }).listen(8799);
+const ROOT = path.resolve(process.env.ROOT || path.resolve(__dirname, '..')), NM = path.resolve(__dirname, '..') + '/node_modules/three', PORT = +(process.env.PORT || 8799);
+const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } const ext = path.extname(f); r.writeHead(200, { 'content-type': { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ktx2': 'image/ktx2' }[ext] || 'text/plain' }); r.end(d); }); }).listen(PORT);
 (async () => {
   const url = process.argv[2], out = process.argv[3], vw = +(process.argv[4] || 1280), vh = +(process.argv[5] || 800);
   const args = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
@@ -22,9 +23,9 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
   if (process.env.THROTTLE) { const [mb, lat] = process.env.THROTTLE.split(',').map(Number); const cdp = await p.context().newCDPSession(p);
     await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: lat, downloadThroughput: mb * 125000, uploadThroughput: mb * 125000 }); }
   p.on('response', (r) => { if (r.status() >= 400) errs.push(r.status() + ' ' + r.url().slice(-60)); }); p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
-  const net=[]; p.on('requestfinished', async (rq) => { try { const r = await rq.response(); const b = await r.body(); net.push([rq.url().replace('http://localhost:8799/apps/canopy-prototype/','').slice(-70), b.length]); } catch {} });
+  const net=[]; p.on('requestfinished', async (rq) => { try { const r = await rq.response(); const b = await r.body(); net.push([rq.url().replace(`http://localhost:${PORT}/apps/canopy-prototype/`, '').slice(-70), b.length]); } catch {} });
   const t0 = Date.now();
-  await p.goto('http://localhost:8799' + url);
+  await p.goto(`http://localhost:${PORT}` + url);
   await p.waitForFunction(() => window.__ready, null, { timeout: 240000 });
   const tReady = Date.now() - t0;
   await p.waitForTimeout(6000);

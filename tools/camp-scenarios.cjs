@@ -1,4 +1,4 @@
-// Canopy Camp scenarios: the behaviour check before a clean-up PR. camp-replay.cjs walks one short tour; this runs many
+// Canopy Camp scenarios: an optional behaviour diagnostic (not a gate: Adriaen, 2026-11-14). camp-replay.cjs walks one short tour; this runs many
 // (tools/tours/scenarios.json): real taps on the page's menus, keys, the ⚙️ menu, whole camp days with the camp sped up
 // (errands, naps, the hammock and laundry climbs, cards, s'mores, gifts, the operator's day), saved state restored on load,
 // and the URL options. Same virtual clock and seeded random numbers as the replay (camp-page.cjs); the audio clock reads the
@@ -9,8 +9,9 @@
 //   npm run scenarios -- run --root <checkout> --out <dir> [--port 9050] [--shots] [name ...]   (no names: all of them)
 //   npm run scenarios -- compare <dirA> <dirB> [name ...]
 // Base against head: put the base in a second checkout (git worktree add ../base main, or git archive main | tar -x -C ../base),
-// run the scenarios into two folders with this same tool, and compare them. Every scenario must print ALL SAME. Run the
-// base twice first when a scenario is new, to see that it repeats itself exactly. The API's shape (which window.__ names
+// run the scenarios into two folders with this same tool, and compare them. A clean-up may change what the camp does, so a
+// DIFF is something to look at (is the player's experience any worse?), not a failure in itself. Run the base twice first
+// when a scenario is new, to see that it repeats itself exactly. The API's shape (which window.__ names
 // and which members an API object has) is listed beside, not counted: a clean-up may change it on purpose.
 // A tour is [[frame, "js"], ...]: the js runs in the page after that frame, with the helpers on window.__T (T.tap, T.choose,
 // T.near, T.key, T.click, T.slider, ...) and the camp's APIs: T.op, T.acts, T.lab, T.life, T.jeep, T.car, T.audio, T.clocks,

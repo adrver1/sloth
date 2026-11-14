@@ -1,7 +1,8 @@
 // Canopy Camp replay check: runs the camp headless on a virtual clock with seeded Math.random, steps a fixed number of
 // frames, and prints a fingerprint of the scene (every object's world transform and visibility, its vertices and instances, every material's key
 // settings, draw calls, triangles, shader programs) plus screenshots at checkpoints. Two runs of the same code give the
-// same fingerprint, so a refactor that is meant to change nothing can be checked: same fingerprint before and after.
+// same fingerprint. It is an optional diagnostic, not a gate (Adriaen, 2026-11-14): a clean-up may change the camp's
+// behaviour and so the fingerprint; what it must not do is add errors, break the tour's interactions or cost more draws.
 // Usage (from the repo root, after npm install):
 //   node tools/camp-replay.cjs [--root <repo>] [--frames 480] [--shots out/dir] [--query "?jeep=none"] [--port 8811]
 //   node tools/camp-replay.cjs --compare dirA dirB     # the shots of two runs: pixels that differ by more than 2/255
