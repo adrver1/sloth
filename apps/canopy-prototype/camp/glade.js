@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { D, S, scene, sun } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
 import { GLADE, GLADE_R, HERO, RC, pathLane, sloPath } from "./layout.js";
-import { blockers, rayMat } from "./campProps.js";
+import { addBlocker, rayMat } from "./campProps.js";
 import { leafGeo, leafM, leafScale, perClump } from "./forest.js";
 import { groundHeight } from "./terrain.js";
 
@@ -122,7 +122,7 @@ function buildGlade() {
     }
     list.forEach((g) => place(g, BENCH.at, BENCH.yaw));   // its length across the way it faces
     add("bench", list);
-    blockers.push(Object.assign([BENCH.at.clone(), 0.55], { wild: true, walk: { a: BENCH.at.clone().addScaledVector(V(Math.cos(BENCH.yaw), 0, -Math.sin(BENCH.yaw)), -0.55), b: BENCH.at.clone().addScaledVector(V(Math.cos(BENCH.yaw), 0, -Math.sin(BENCH.yaw)), 0.55), r: 0.2 } }));
+    addBlocker({ at: BENCH.at.clone(), r: 0.55, wild: true, walk: { a: BENCH.at.clone().addScaledVector(V(Math.cos(BENCH.yaw), 0, -Math.sin(BENCH.yaw)), -0.55), b: BENCH.at.clone().addScaledVector(V(Math.cos(BENCH.yaw), 0, -Math.sin(BENCH.yaw)), 0.55), r: 0.2 } });
   }
   // the fallen log: half sunk, moss along its back, one sawn end with rings, shelf fungus on the side you see
   {
@@ -139,7 +139,7 @@ function buildGlade() {
     list.forEach((q) => place(q, LOG.at, -LOG.yaw, r * 0.7));
     add("log", list);
     const ax = V(Math.cos(LOG.yaw), 0, Math.sin(LOG.yaw));
-    for (const t of [-0.8, 0, 0.8]) blockers.push(Object.assign([LOG.at.clone().addScaledVector(ax, t), 0.33], { wild: true }));
+    for (const t of [-0.8, 0, 0.8]) addBlocker({ at: LOG.at.clone().addScaledVector(ax, t), r: 0.33, wild: true });
   }
   // mossy stones: a low icosahedron each (20 tris), squashed and turned, moss on top
   {
@@ -148,7 +148,7 @@ function buildGlade() {
       const g = new THREE.IcosahedronGeometry(1, 0), p = g.attributes.position;
       for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * s * R(0.95, 1.15), Math.max(-0.2, p.getY(i)) * s * 0.55, p.getZ(i) * s * R(0.8, 1.0));
       list.push(place(paint(g, (x, y, z, nx, ny) => stone.clone().multiplyScalar(0.8 + 0.25 * sstep(-0.5, 1, ny)).lerp(mossC, sstep(0.45, 0.85, ny + 0.25 * Math.sin(x * 9 + z * 7)) * 0.85)), c, R(0, 6.28), s * 0.06));
-      blockers.push(Object.assign([c.clone(), s * 0.9], { wild: true }));
+      addBlocker({ at: c.clone(), r: s * 0.9, wild: true });
     }
     add("stones", list);
   }

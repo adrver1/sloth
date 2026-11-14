@@ -42,7 +42,7 @@ const fireGap = (from) => {                            // a spot just off the fi
   const a = [...SEAT_GAPS].sort((p, q) => Math.hypot(Math.cos(p) * 1.4 - from.x, Math.sin(p) * 1.4 - from.z) - Math.hypot(Math.cos(q) * 1.4 - from.x, Math.sin(q) * 1.4 - from.z))[0];
   return V(Math.cos(a) * 1.35, 0, Math.sin(a) * 1.35);
 };
-function freeOf(p, r = RADIUS) { return !blockers.some(([c, br]) => Math.hypot(p.x - c.x, p.z - c.z) < br + r); }
+function freeOf(p, r = RADIUS) { return !blockers.some((b) => Math.hypot(p.x - b.at.x, p.z - b.at.z) < b.r + r); }
 const freeSeat = () => { findPlaces(); return SEATS.filter((s) => !holder(s.key) && !(me.seat && s.at.distanceTo(me.seat.pos) < 0.9)).sort((a, b) => a.at.distanceTo(root.position) - b.at.distanceTo(root.position))[0]; };
 function claimPlace(key) { if (!claim(key, ME)) return false; op.place = key; return true; }
 function releasePlace() { if (op.place) release(op.place, ME); op.place = null; }

@@ -7,7 +7,7 @@
 //   findPath(from, to)   an A* path on the grid, pulled straight where the way is clear, ending at `to` on the ground. A
 //                        start or an end inside a blocker (a seat, the jeep's door) goes straight out to the nearest
 //                        free cell. With no way through it is [to].
-// options: blockers (the live list: the grid is made again when its length changes, as when the tent's walls or an
+// options: blockers (campProps.js's live list of { at, r } circles: the grid is made again when its length changes, as when the tent's walls or an
 // activity's prop are added), half (the grid covers -half..half in x and z), rim (blocked beyond this far from the
 // middle), fireKeep (blocked within this of the middle: a wide berth round the fire), body (how far the walker keeps
 // from a blocker's edge), cell (the cell size, 0.2 m). Nothing is built on import, and no random numbers are drawn.
@@ -22,7 +22,7 @@ export function createNav({ blockers, half, rim, fireKeep, body, cell = 0.2 }) {
     if (grid && gridFor === blockers.length) return grid;
     grid = new Uint8Array(GN * GN); gridFor = blockers.length;
     for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) { const q = cellAt(i, j), r = Math.hypot(q.x, q.z); if (r > rim || r < fireKeep) grid[j * GN + i] = 1; }
-    for (const [c, r] of blockers) {
+    for (const { at: c, r } of blockers) {
       const RR = r + body, [i0, j0] = cellOf(V(c.x - RR, 0, c.z - RR)), [i1, j1] = cellOf(V(c.x + RR, 0, c.z + RR));
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const q = cellAt(i, j); if (Math.hypot(q.x - c.x, q.z - c.z) < RR) grid[j * GN + i] = 1; }
     }

@@ -46,8 +46,8 @@ function collide(p) {
   for (let pass = 0; pass < 3; pass++) {
     let moved = false;
     for (const B of blockers) {
-      const w = B.walk, rad = (w ? w.r : B[1]) + BODY;
-      let cx = B[0].x, cz = B[0].z;
+      const w = B.walk, rad = (w ? w.r : B.r) + BODY;
+      let cx = B.at.x, cz = B.at.z;
       if (w?.a) { const ax = w.a.x, az = w.a.z, dx = w.b.x - ax, dz = w.b.z - az, t = Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.z - az) * dz) / (dx * dx + dz * dz))); cx = ax + dx * t; cz = az + dz * t; }
       const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
       if (d < rad) { const k = rad / Math.max(d, 1e-4); p.x = cx + dx * k; p.z = cz + dz * k; moved = true; }
