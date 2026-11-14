@@ -13,7 +13,7 @@ import { addTarget } from "../targets.js";
 import { fx } from "../fx.js";
 import { LINES, bag, line, pickLine } from "./lines.js";
 import { B, clips, csDir, root } from "./model.js";
-import { ME, op } from "./state.js";
+import { ME, freeHand, op } from "./state.js";
 
 const tq = new THREE.Quaternion();
 let bubble = null, say = null, tapCol = null;
@@ -44,8 +44,6 @@ function talk() { speak(line()); }
 // food you hand him (camp activities: a vegetable or a bowl of soup): it flies to his mouth, he munches, then thanks you
 const mouthAt = (out) => B.head.getWorldPosition(out).addScaledVector(csDir(0, 0, -1), 0.12).add(V(0, 0.025, 0));
 const palmAt = (S, out) => B["hand" + S].getWorldPosition(out).addScaledVector(V(0, 1, 0).applyQuaternion(B["hand" + S].getWorldQuaternion(tq)), 0.07);
-// the hand that's free: the right unless it holds something; none while eating soup, reading, cuddling or lying down
-const freeHand = () => op.eat || op.ik?.book || op.ik?.hug || op.carry || op.lying || op.sleeping || op.ik?.L ? null : op.inHand || op.pail || op.stir || op.veg || op.ik?.R ? "L" : "R";
 // one gift at a time: while the last one is flying to him or at his lips the menu offers none (a second one overwrote the
 // first's flight and left its food floating at his mouth: review R2-009)
 const munching = () => !!(op.talk.fly || op.talk.food);

@@ -8,7 +8,7 @@ const { R } = rng("operator");
 import { V } from "../util.js";
 import { uNight } from "../campProps.js";
 import { B, UP, clips, csDir, cur, reach } from "./model.js";
-import { op } from "./state.js";
+import { handsBusy, op, settled } from "./state.js";
 
 const FID_T = { scratch: 3, stretch: 3.4, look: 5.5, point: 3.2, shift: 4.5, rub: 3.5, yawn: 3 };
 function pickFid() {
@@ -34,7 +34,7 @@ function fidget(F, e) {
   }
 }
 function fidgetStep(dt) {
-  const handsFree = !op.talk.hand && !op.ik && !op.eat && !op.inHand && !op.carry && !op.pail && !op.stir && !op.veg && !op.lying && !op.sleeping && !op.lean && !op.footLock === !op.seated;
+  const handsFree = !handsBusy() && !op.talk.hand && !op.lying && !op.sleeping && settled();   // state.js
   const still = cur === clips.idle || cur === clips.seated_idle;
   op.cd.fid -= dt;
   if (!op.fid && handsFree && still && op.talk.t <= 0 && op.cd.fid < 0) { const kind = pickFid(); op.fid = { kind, t: 0, k: 0, T: FID_T[kind] }; op.cd.fid = R(5, 12); }

@@ -8,7 +8,7 @@ const { R } = rng("operator");
 import { V, yawTo } from "../util.js";
 import { aimBone, makeZ, zAt } from "../actor.js";
 import { B, UP, clips, csDir, cur, mixer, play, root } from "./model.js";
-import { op } from "./state.js";
+import { handsBusy, op } from "./state.js";
 import { turnToward } from "./walk.js";
 
 let zz = null;
@@ -35,7 +35,7 @@ function poseHead(dt) {
   const down = talking ? op.look * Math.max(0, 1 - op.anim.look) : op.look;   // he looks up from his bowl or book to you
   if (down) B.head.rotateX(down * 0.6), B.neck.rotateX(down * 0.3);
   // standing about with his hands free when you talk to him: he turns to you (walking, listen() stops him first)
-  if (talking && !op.seated && !op.lying && cur === clips.idle && !op.ik && !op.eat && !op.inHand && !op.carry)
+  if (talking && !op.seated && !op.lying && cur === clips.idle && !handsBusy())
     turnToward(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2);
   // a wave back when you keep looking at him for 3 s (standing about, not busy)
   if (op.kind === "stroll" && cur === clips.idle && camD < 9) {

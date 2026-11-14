@@ -2,7 +2,8 @@
 // hands, which sloth is with him, what he is saying and how long until he may do some things again. Every field is named
 // here with its starting value; the activity scripts and the per-frame steps read and write it, and audio.js and the
 // checks read it through opApi.op. The two resets (hands, body) are here too, so no script clears fields by hand.
-// Exports op, reset(part), and his name and size (ME, RADIUS) for the claims and as a mover in camp/places.js.
+// Exports op, reset(part), handsBusy(), freeHand() and settled() (what his hands and body are free for), and his name and
+// size (ME, RADIUS) for the claims and as a mover in camp/places.js.
 const ME = "operator", RADIUS = 0.3;                   // his name for claims and loans, and his radius as a mover
 
 const op = {
@@ -41,4 +42,15 @@ const RESET = {
 };
 const reset = (part) => Object.assign(op, RESET[part]);
 
-export { ME, RADIUS, op, reset };
+// What his hands are doing, said once here for the poses that read it (review R2-023). A new prop or hand state goes into these.
+// handsBusy(): a reach, the soup, a prop in his hand, a sloth, the pail, the stirring, a vegetable or the cooking lean
+const handsBusy = () => !!(op.ik || op.eat || op.inHand || op.carry || op.pail || op.stir || op.veg || op.lean);
+// freeHand(): the hand free to take food, "R" unless the right one is busy, then "L"; null when neither is (soup, a book, a
+// sloth, lying down, or a left-hand reach)
+const freeHand = () => op.eat || op.ik?.book || op.ik?.hug || op.carry || op.lying || op.sleeping || op.ik?.L ? null
+  : op.inHand || op.pail || op.stir || op.veg || op.ik?.R ? "L" : "R";
+// settled(): standing, or sat right down on a log; not midway sitting down or getting up (his feet are locked then while he
+// is not yet, or no longer, seated) and not on the bed's edge (seated with no foot lock)
+const settled = () => !op.footLock === !op.seated;
+
+export { ME, RADIUS, freeHand, handsBusy, op, reset, settled };
