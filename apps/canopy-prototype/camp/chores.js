@@ -34,9 +34,9 @@ function buildChores() {
     woodTex: WOOD_TEX ?? null, glowTex, burst, toast: (text, sound) => { toast(text); if (sound) cue(sound); }, addBlocker: (c, r) => blockers.push([c, r]), boostFire });
   // the things you can use light up and open a menu (targets.js): only ever the one thing a tap does now (the thing's own
   // label, activities.js)
-  const sph = new THREE.Sphere();
-  addTargets("things", () => acts.things.filter((t) => t.look).map((t) => [t, () => ({ get look() { return t.look; }, picks: [t.box],
-    at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius), ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] })]));
+  const sph = new THREE.Sphere(), lit = acts.things.filter((t) => t.look);   // the things never change once made
+  addTargets("things", () => lit, (t) => ({ get look() { return t.look; }, picks: [t.box],
+    at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius), ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] }));
   return acts;
 }
 

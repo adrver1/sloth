@@ -50,10 +50,10 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   ign.name = "Ignition"; console.log(`LOG car key: ${trisIn(ign)} tris`);
   // the engine: off → cranking (the key held over, the jeep shudders) → running (an idle tremble)
   let engine = "off", crank = 0, keyA = 0;
-  const KEY_RUN = -0.9, KEY_CRANK = -1.25;
+  const KEY_RUN = -0.9, KEY_CRANK = -1.25, sphIgn = new THREE.Sphere(), sphRadio = new THREE.Sphere();   // the key's and the dash radio's tap spheres
   function start() { if (engine !== "off") return; engine = "crank"; crank = 0; toast("Turning the key… 🔑"); }
   function stop() { engine = "off"; toast("Engine off"); }
-  addTarget(ign, () => ({ look: ign, picks: [keyQuad, ring], at: (v) => { ign.getWorldPosition(v); return new THREE.Sphere(v.clone(), 0.08); }, ready: inCar,
+  addTarget(ign, () => ({ look: ign, picks: [keyQuad, ring], at: (v) => { ign.getWorldPosition(v); return sphIgn.set(v, 0.08); }, ready: inCar,
     options: () => engine === "off" ? [["Turn the key 🔑", start]]
       : [["Drive somewhere 🗺️", () => toast("Trips by jeep are coming soon 🚧")], ["Turn the engine off", stop]] }));
 
@@ -76,7 +76,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   const rMat = mat({ map: rTex, emissive: 0xffffff, emissiveMap: gTex, emissiveIntensity: 0 });
   const carRadio = onDash(new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), rMat), -0.22, 1.0, -0.1, 0.0375);
   carRadio.name = "CarRadio"; drawRadio();
-  addTarget(carRadio, () => ({ look: carRadio, picks: [carRadio], at: (v) => { carRadio.getWorldPosition(v); return new THREE.Sphere(v.clone(), 0.1); }, ready: inCar, options: () => radioOptions(carRadio) }));
+  addTarget(carRadio, () => ({ look: carRadio, picks: [carRadio], at: (v) => { carRadio.getWorldPosition(v); return sphRadio.set(v, 0.1); }, ready: inCar, options: () => radioOptions(carRadio) }));
 
   // ---------------------------------------------------------------- the dash clock, high in the middle of the dash
   const clock = new THREE.Group(), lume = mat({ map: faceTex({ bg: "#f6efe0", rim: "#3a3a3a", numbers: ["12", "3", "6", "9"], rimW: 0.12 }), emissive: 0xfff0c8, emissiveIntensity: 0 });

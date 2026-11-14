@@ -17,7 +17,7 @@ import * as THREE from "three";
 import { camera, pace, uTime } from "./core.js";
 import { V, ease, wrapPi, yawFrom, yawTo } from "./util.js";
 import { jeepApi } from "./jeep.js";
-import { addTargets } from "./targets.js";
+import { addTargets, frameAt } from "./targets.js";
 import { me } from "./player.js";
 import { sloths } from "./sloths.js";
 import { claim, release } from "./places.js";
@@ -130,12 +130,12 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   seatApi = { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null };
   // the doors, the boot and the hood light up and open a menu (targets.js): open or close it, and on the front doors Get in / Get out
   const DOOR_REACH = 4, DOOR_NAME = { P: "door", D: "door", B: "boot", H: "hood" };
-  const box3 = new THREE.Box3(), sph = new THREE.Sphere(), to = new THREE.Vector3();
-  addTargets("doors", () => (J.doors ?? []).map((d) => [d, () => {
-    const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
-    const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
+  const box3 = new THREE.Box3(), to = new THREE.Vector3(), none = [];
+  addTargets("doors", () => J.doors ?? none, (d) => {
+    const picks = [], sph = new THREE.Sphere(); d.o.traverse((m) => m.isMesh && picks.push(m));
+    const at = frameAt((v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; });   // once a frame: it swings and the jeep may drive
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
       options: () => [...doorOptions(d), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };
-  }]));
+  });
 }
 export { buildJeepSeats, jeepSeatStep, seatApi };

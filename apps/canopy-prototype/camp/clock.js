@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { camera, scene } from "./core.js";
 import { V, canvasTex, lam, trisIn } from "./util.js";
 import { HAMMOCK, TENT } from "./layout.js";
-import { addTarget } from "./targets.js";
+import { addTarget, frameAt } from "./targets.js";
 import { toast } from "./hud.js";
 import { day } from "./daytime.js";
 
@@ -63,7 +63,7 @@ function addClock({ obj, hands = null, disc = null, lume = null, glow = 0.55, re
   const c = { obj, hands, disc, lume, glow, shake: 0, base: obj.rotation.z, name };
   const picks = []; obj.traverse((m) => m.isMesh && picks.push(m));
   const box = new THREE.Box3(), sph = new THREE.Sphere(), tmp = V();
-  const at = (v) => { box.setFromObject(obj).getBoundingSphere(sph); v.copy(sph.center); sph.radius = Math.max(sph.radius, 0.2); return sph; };
+  const at = frameAt((v) => { box.setFromObject(obj).getBoundingSphere(sph); v.copy(sph.center); sph.radius = Math.max(sph.radius, 0.2); return sph; });   // once a frame: the car's clock moves with the jeep
   const set = (h, n) => () => { day.setHour(h); c.shake = 0.7; toast(n); };
   addTarget(obj, () => ({ look: obj, picks, at,
     ready: ready ?? (() => at(tmp).center.distanceTo(camera.position) < reach),
