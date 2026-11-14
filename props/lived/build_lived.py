@@ -30,7 +30,9 @@ import json
 import math
 import os
 import random
+import shutil
 import sys
+import tempfile
 
 import bpy
 import bmesh  # noqa: E402  (needs bpy loaded first)
@@ -201,7 +203,6 @@ def wood_stack(M, samples):
     sc.camera = cam
     (X0, X1), (Y0, Y1), (Z0, Z1) = STACK_BOX["x"], STACK_BOX["y"], STACK_BOX["z"]
     W, D, H = X1 - X0, Y1 - Y0, Z1 - Z0
-    tmp = os.path.join(HERE, "_stack_%s.png")
     px = 900
     atlas_path = os.path.join(HERE, "wood_stack.jpg")
     # the three Cycles renders are most of this script's time (about 30 s of 36 s on a laptop CPU, every light bake), and
@@ -224,26 +225,27 @@ def wood_stack(M, samples):
         else:
             old = j.get("parts", {})
             why = ", ".join(k for k in parts if old.get(k) != parts[k]) + " changed" if old else "wood_stack.json is from an older key"
+    outline = cached
     if cached is None:
         print(f"  wood stack: cache miss because {why}, rendering")
-        _render_view(tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
-        _render_view(tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
-        _render_view(tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
+        tmpdir = tempfile.mkdtemp(prefix="wood_stack_")        # the three renders, removed however the run ends
+        tmp = os.path.join(tmpdir, "%s.png")
+        try:
+            _render_view(tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
+            _render_view(tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
+            _render_view(tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
+            outline = _stack_atlas(tmp, atlas_path, X0, W, Z0, H)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        with open(stamp, "w") as f:
+            json.dump({"key": key, "parts": parts, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
     else:
         print("  wood stack: renders unchanged (wood_stack.json), reusing wood_stack.jpg")
     for o in logs:
         bpy.data.objects.remove(o)
     bpy.data.objects.remove(cam)
     bpy.data.objects.remove(sun)
-    outline = cached if cached is not None else _stack_atlas(tmp, atlas_path, X0, W, Z0, H)
-    if cached is None:
-        with open(stamp, "w") as f:
-            json.dump({"key": key, "parts": parts, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
-    o = _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
-    if cached is None:
-        for name in ("end", "side", "top"):
-            os.remove(tmp % name)
-    return o
+    return _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
 
 
 def _stack_key(logs, samples, px):
@@ -284,12 +286,11 @@ def _stack_atlas(tmp, atlas_path, X0, W, Z0, H):
     atlas.paste(top.resize((640, 512), Image.LANCZOS), (384, 512))
     atlas.save(atlas_path, quality=82)
     # the outline: the top of the stack's silhouette across 22 columns (it has no overhangs, so a height field will do)
+    import numpy as np
     a = end_a.getchannel("A")
     iw, ih = a.size
-    cols = []
-    for x in range(iw):
-        ys = [y for y in range(0, ih, 2) if a.getpixel((x, y)) > 128]
-        cols.append(ih - min(ys) if ys else 0)
+    solid = np.asarray(a)[::2] > 128                     # every other row, as the scan always read it
+    cols = np.where(solid.any(axis=0), ih - 2 * solid.argmax(axis=0), 0).tolist()   # each column's top, from the bottom
     xs = [x for x in range(iw) if cols[x] > ih * 0.05]
     xl, xr = xs[0], xs[-1]
     outline = [(X0 + xl / iw * W, 0.0)]
