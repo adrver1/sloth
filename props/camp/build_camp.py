@@ -379,7 +379,8 @@ def wall_tent():
     """Adriaen's pick (2026-11-11, from two photos): a white canvas wall tent you can walk into. Straight side walls,
     a ridge pole on wide A-frames of crossed shear poles at each end with the eave poles lashed onto them, an open
     doorway with the flap rolled up above it, loose planks before the door. Inside: a lining (so the inside gets its
-    own bake), a plank floor, a bed along the left wall and a wood stove on the right under the stovepipe.
+    own bake) joined to the outer wall round the doorway, a plank floor on a dark board, a bed along the left wall and
+    a wood stove on the right under the stovepipe.
     Built at its final size with the door toward -Y; every canvas sheet is a small grid so the AO bake has vertices to
     vary at (the object is "coarse": no densify). camp.html mirrors W, D, Y0, the door and the furniture for walking."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
@@ -424,15 +425,38 @@ def wall_tent():
     face([(-W - 0.05, yf, Z0), (-DW, yf, Z0), (-DW, yf, zg(DW)), (-W, yf, zg(W))], "canvas2")
     face([(DW, yf, Z0), (W + 0.05, yf, Z0), (W, yf, zg(W)), (DW, yf, zg(DW))], "canvas2")
     face([(-DW, yf, Z0 + DH), (DW, yf, Z0 + DH), (DW, yf, zg(DW)), (0, yf, Z0 + H), (-DW, yf, zg(DW))], "canvas2")
-    # the lining: every canvas face again, a few cm in and facing inward, so the inside bakes its own light
+    # the lining: every canvas face again, LIN inside and facing inward, so the inside bakes its own light. Each corner
+    # moves in along the mean normal of the canvas faces meeting there, stretched so every face's plane moves by LIN
+    # (scaling about the tent's middle, as before, left the lining 8 mm into the doorway and 3 cm under the lintel, R2-153)
+    LIN = 0.017
     n_out = len(F)
+    def normal(f):
+        n = Vector()
+        for a, b in zip(f, f[1:] + f[:1]):
+            pa, pb = V[a], V[b]
+            n += Vector(((pa[1] - pb[1]) * (pa[2] + pb[2]), (pa[2] - pb[2]) * (pa[0] + pb[0]), (pa[0] - pb[0]) * (pa[1] + pb[1])))
+        return n.normalized()                                   # Newell's normal, outward
+    key = lambda v: tuple(round(c, 5) for c in v)
+    near = {}
+    for k in range(n_out):
+        n = normal(F[k])
+        for i in F[k]:
+            near.setdefault(key(V[i]), []).append(n)
+    def inset(v):
+        ns = near[key(v)]
+        m = sum(ns, Vector()).normalized()
+        d = m * (LIN / max(0.5, min(m.dot(n) for n in ns)))
+        return (v[0] - d.x, v[1] - d.y, Z0 if v[2] <= Z0 + 1e-6 else v[2] - d.z)   # the feet stay on the ground
     for k in range(n_out):
         base = len(V)
-        for i in F[k]:
-            x, y, z = V[i]
-            V.append((x * 0.982, Y0 + (y - Y0) * 0.986, z - 0.03 * min(1.0, z / 0.3)))
+        V.extend(inset(V[i]) for i in F[k])
         F.append(tuple(range(base, base + len(F[k])))[::-1]); FM.append(mi["lining"])
-    # plank floor inside, and loose planks before the door (Adriaen: not a raised platform); top and long edges only
+    # the doorway's reveal: the two jambs and the lintel join the front wall to its lining, facing into the opening
+    for a, b in (((-DW, Z0), (-DW, Z0 + DH)), ((-DW, Z0 + DH), (DW, Z0 + DH)), ((DW, Z0 + DH), (DW, Z0))):
+        face([(a[0], yf + LIN, a[1]), (b[0], yf + LIN, b[1]), (b[0], yf, b[1]), (a[0], yf, a[1])], "canvas2")
+    # plank floor inside, and loose planks before the door (Adriaen: not a raised platform); top and long edges only.
+    # One dark board under the whole floor fills the 2 cm gaps between the planks, where the grass showed (R2-163)
+    face([(-W, yf, Z0 + 0.005), (W, yf, Z0 + 0.005), (W, yb, Z0 + 0.005), (-W, yb, Z0 + 0.005)], "fascia")
     for k in range(7):
         x0 = -W + 2 * W * k / 7
         face([(x0 + 0.01, yf + 0.03, 0.02), (x0 + 2 * W / 7 - 0.01, yf + 0.03, 0.02), (x0 + 2 * W / 7 - 0.01, yb - 0.03, 0.02), (x0 + 0.01, yb - 0.03, 0.02)],
