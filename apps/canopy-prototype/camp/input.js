@@ -85,7 +85,7 @@ function allTargets() {
   const out = [];
   for (const [k, make] of extra) out.push(target(k, make));
   for (const t of acts.things) if (t.look) out.push(target(t, () => ({ get look() { return t.look; }, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
-    ready: () => acts.ready(t), options: () => [[acts.label(t), () => acts.tap({ thing: t })]] })));   // only ever the one thing a tap does now (activities.js label)
+    ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] })));   // only ever the one thing a tap does now (the thing's own label, activities.js)
   for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
     ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })));
   for (const d of jeepApi?.doors ?? []) out.push(target(d, () => {
