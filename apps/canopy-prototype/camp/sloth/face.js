@@ -1,33 +1,46 @@
 // Canopy Camp sloths, the face: which way it points, the eyes that open and shut, the mouth card and the yawn.
 //   FACE            which way the face points in the head bone's frame
 //   buildFace()     makes the mouth card's texture, material and geometry (sloths.js, once, first in its body)
-//   eyeKit(o)       per sloth: a function (closed) that shuts or opens its eyes, by swapping the UVs of its eye vertices
+//   eyeKit(o)       per sloth: a function (closed) that shuts or opens its eyes, by switching its body to the eyes-shut UVs
 //   mouthOf(s)      the sloth's mouth card (made the first time): it opens for a yawn and as it chews
 //   yawnStep(s, dt) a yawn while s.yawn > 0, about 2.8 s (life.js calls it each frame)
 import * as THREE from "three";
-import { V, canvasTex, sstep } from "../util.js";
+import { V, canvasTex, patchMaterial, sstep } from "../util.js";
 import { SLOTH } from "../campProps.js";
 
 const FACE = V();                                      // which way the face points in the head bone's frame (the sloth faces -Z at rest); set by buildFace
-let palette = null;
-function eyeKit(o) {                                   // per sloth: its own copy of the meshes' UVs with the eyes open and shut
-  const kit = [];
+// the eyes (review R2-105): every sloth shares the body's one geometry, which gets a second UV set once, uvShut, with
+// the eye vertices moved onto the eye patch's colour (the palette read from the texture). Each sloth's body has its own
+// clone of the shared body material (one program for all), whose uShut picks the open or the shut UVs. The fur shells
+// have no eyes (their fragments off the fur are discarded), so they are left alone.
+function shutUVs(g, map) {                             // the eyes-shut UVs, made once per geometry; false when it has no eye patch
+  if (g.userData.eyeShut != null) return g.userData.eyeShut;
+  const img = map.image, cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+  const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0);
+  const w = cv.width, h = cv.height, px = cx.getImageData(0, 0, w, h).data, uv = g.attributes.uv, kind = [];
+  for (let i = 0; i < uv.count; i++) {
+    const k = (Math.min(h - 1, Math.floor(uv.getY(i) * h)) * w + Math.min(w - 1, Math.floor(uv.getX(i) * w))) * 4, r = px[k], gg = px[k + 1], b = px[k + 2];
+    kind.push(r < 40 && gg < 40 && b < 45 ? "eye" : r > 235 && gg > 235 && b > 230 ? "eye" : r < 75 && r > gg && gg > b ? "patch" : "");
+  }
+  const pi = kind.indexOf("patch"); if (pi < 0) return (g.userData.eyeShut = false);
+  const shut = new THREE.BufferAttribute(new Float32Array(uv.count * 2), 2);
+  for (let i = 0; i < uv.count; i++) shut.setXY(i, kind[i] === "eye" ? uv.getX(pi) : uv.getX(i), kind[i] === "eye" ? uv.getY(pi) : uv.getY(i));
+  g.setAttribute("uvShut", shut); return (g.userData.eyeShut = true);
+}
+function eyeKit(o) {                                   // per sloth: its body's own material, with uShut to shut the eyes
+  const flags = [];
   o.traverse((m) => {
-    if (!m.isSkinnedMesh || !m.material.map) return;
-    if (!palette) { const img = m.material.map.image, cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
-      const g = cv.getContext("2d"); g.drawImage(img, 0, 0); palette = { w: cv.width, h: cv.height, px: g.getImageData(0, 0, cv.width, cv.height).data }; }
-    const { w, h, px } = palette;
-    m.geometry = m.geometry.clone(); const uv = m.geometry.attributes.uv, kind = [];
-    for (let i = 0; i < uv.count; i++) {
-      const k = (Math.min(h - 1, Math.floor(uv.getY(i) * h)) * w + Math.min(w - 1, Math.floor(uv.getX(i) * w))) * 4, r = px[k], gg = px[k + 1], b = px[k + 2];
-      kind.push(r < 40 && gg < 40 && b < 45 ? "eye" : r > 235 && gg > 235 && b > 230 ? "eye" : r < 75 && r > gg && gg > b ? "patch" : "");
-    }
-    const pi = kind.indexOf("patch"); if (pi < 0) return;
-    const shut = new THREE.BufferAttribute(new Float32Array(uv.count * 2), 2);
-    for (let i = 0; i < uv.count; i++) shut.setXY(i, kind[i] === "eye" ? uv.getX(pi) : uv.getX(i), kind[i] === "eye" ? uv.getY(pi) : uv.getY(i));
-    kit.push([m.geometry, uv, shut]);
+    if (!m.isSkinnedMesh || m.userData.fur || !m.material.map || !shutUVs(m.geometry, m.material.map)) return;
+    const base = m.material, mat = base.clone(), uShut = { value: 0 };
+    mat.onBeforeCompile = base.onBeforeCompile;   // fur.js's hook, which clone() leaves out; patchMaterial chains this one after it
+    patchMaterial(mat, "eyes", (sh) => {
+      sh.uniforms.uShut = uShut;
+      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute vec2 uvShut;\nuniform float uShut;")
+        .replace("#include <uv_vertex>", "#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = mix(vMapUv, (mapTransform * vec3(uvShut, 1.0)).xy, uShut);\n#endif");
+    });
+    m.material = mat; flags.push(uShut);
   });
-  return (closed) => kit.forEach(([g, open, shut]) => { g.attributes.uv = closed ? shut : open; });
+  return (closed) => { for (const u of flags) u.value = closed ? 1 : 0; };
 }
 // a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
 // muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.

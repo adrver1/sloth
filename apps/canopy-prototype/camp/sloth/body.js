@@ -39,7 +39,7 @@ function makeSloth(sc = SL) {
   act.play(); act.time = R(0, 4); act.timeScale = 0.6;   // (kept as s.act)
   scene.add(o);
   const box = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); scene.add(box);
-  const eyes = eyeKit(o), blink = R(1, 6), napT = R(4, 40);   // (in this order: eyeKit makes the eye meshes' own shapes, then two seeded draws)
+  const eyes = eyeKit(o), blink = R(1, 6), napT = R(4, 40);   // (eyeKit draws no numbers; then two seeded draws)
   // Every field a sloth has, with what it means. The ones that start undefined are set later by the module named; the
   // camp's other modules read and set these too (input.js: squish, nod, munch; operator.js: trip, spot, asleep, and its
   // own s.cuddled).
