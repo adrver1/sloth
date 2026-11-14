@@ -12,7 +12,7 @@ show, such as the soup pot whose outside faced in (seen only from the back, so t
 
 The line it prints for each object:
 
-    audit Pot: 248 tris, enclosed 2%, player-hidden 11%, back-only 0, flips 0, degenerate 0, overlaps 4
+    audit Pot: 242 tris, enclosed 0%, player-hidden 9%, back-only 0, flips 0, degenerate 0, overlaps 0
 
     enclosed       triangles no viewpoint above the ground sees (any direction, three shells round the object)
     player-hidden  triangles no player eye sees (eyes 1.13 and 1.55 m up, on rings 0.6 to 8 m out from the object)
