@@ -1,19 +1,24 @@
 // Canopy Camp budget probe: loads a camp page headless (SwiftShader) and prints JSON with draw calls, triangles per object,
 // every download with its size, textures and page errors. fps is meaningless under SwiftShader; the counts are exact.
-// Usage (from the repo root, after npm install):
-//   [PORT=8799] [ROOT=<checkout>] node tools/camp-probe.cjs "/apps/canopy-prototype/camp.html" out.png [width height] [js to run before the shot]
+// Usage (from the repo root, after npm ci):
+//   [PORT=8799] [ROOT=<checkout>] node tools/camp-probe.cjs [--phone] [--strict] "/apps/canopy-prototype/camp.html" out.png [width height] [js to run before the shot]
 // PORT picks the local port (the machine is shared); ROOT serves another checkout (a worktree of main) with this same tool.
+// --phone: a 390x844 touch phone view (isMobile, ?touch=1 added to the URL); width and height then default to 390 844.
+// --strict: exit 1 when the page logged an error or never became ready (otherwise it prints the errors and exits 0).
+// npm run probe and npm run probe:phone run it on camp.html with --strict.
 // three.js is served from node_modules, since the cloud proxy blocks jsDelivr.
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs'), http = require('http');
 const ROOT = path.resolve(process.env.ROOT || path.resolve(__dirname, '..')), NM = path.resolve(__dirname, '..') + '/node_modules/three', PORT = +(process.env.PORT || 8799);
 const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } const ext = path.extname(f); r.writeHead(200, { 'content-type': { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ktx2': 'image/ktx2' }[ext] || 'text/plain' }); r.end(d); }); }).listen(PORT);
+const flags = process.argv.slice(2).filter((a) => a.startsWith('--')), argv = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const PHONE = flags.includes('--phone'), STRICT = flags.includes('--strict');
 (async () => {
-  const url = process.argv[2], out = process.argv[3], vw = +(process.argv[4] || 1280), vh = +(process.argv[5] || 800);
+  const url = PHONE ? argv[0] + (argv[0].includes('?') ? '&' : '?') + 'touch=1' : argv[0], out = argv[1], vw = +(argv[2] || (PHONE ? 390 : 1280)), vh = +(argv[3] || (PHONE ? 844 : 800));
   const args = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
   // the repo's own playwright may want a browser build that isn't installed; fall back to the preinstalled Chromium
   const b = await chromium.launch({ args }).catch(() => chromium.launch({ args, executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' }));
-  const p = await b.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 1 });
+  const p = await b.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 1, ...(PHONE ? { hasTouch: true, isMobile: true } : {}) });
   await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (rt) => { const m = rt.request().url().match(/three@0\.186\.1\/(.*)/); rt.fulfill({ path: path.join(NM, m[1]), contentType: m[1].endsWith('.wasm') ? 'application/wasm' : 'text/javascript' }); });
   await p.route(/fonts\.(googleapis|gstatic)\.com/, (rt) => rt.fulfill({ body: '', contentType: 'text/css' }));
   // count shader programs linked (each is a compile the phone pays for)
@@ -26,10 +31,11 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
   const net=[]; p.on('requestfinished', async (rq) => { try { const r = await rq.response(); const b = await r.body(); net.push([rq.url().replace(`http://localhost:${PORT}/apps/canopy-prototype/`, '').slice(-70), b.length]); } catch {} });
   const t0 = Date.now();
   await p.goto(`http://localhost:${PORT}` + url);
-  await p.waitForFunction(() => window.__ready, null, { timeout: 240000 });
+  const ready = await p.waitForFunction(() => window.__ready, null, { timeout: 240000 }).then(() => true, () => false);
+  if (!ready) { console.log(JSON.stringify({ ready: false, errs: errs.slice(0, 10) })); await b.close(); srv.close(); process.exit(STRICT ? 1 : 0); }
   const tReady = Date.now() - t0;
   await p.waitForTimeout(6000);
-  if (process.argv[6]) { await p.evaluate(process.argv[6]); await p.waitForTimeout(5000); }
+  if (argv[4]) { await p.evaluate(argv[4]); await p.waitForTimeout(5000); }
   if (out) await p.screenshot({ path: out });
   const info = await p.evaluate(() => {
     const S = window.__scene, rows = [], tex = new Map();
@@ -47,4 +53,5 @@ const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURICom
   });
   console.log(JSON.stringify({ net, tReady, errs: errs.slice(0, 10), ...info }));
   await b.close(); srv.close();
+  if (STRICT && errs.length) { console.error(`camp-probe --strict: ${errs.length} error(s) on the page`); process.exit(1); }
 })();

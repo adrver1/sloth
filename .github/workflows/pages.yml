@@ -3,7 +3,8 @@
 # control room. Camp threads merge into claude/project-thread-otpcew first; a PR
 # from there to main publishes. The camp is plain static files (models and light maps are
 # committed, three.js loads from jsDelivr), so nothing is built: the folder is
-# copied as it is and a root index.html forwards to camp.html.
+# copied as it is and a root index.html forwards to camp.html. The static checks in check.yml run first, and nothing is published
+# when they fail.
 # Site: https://adrver1.github.io/sloth/ (camp at canopy-prototype/camp.html)
 name: Deploy camp
 
@@ -13,6 +14,7 @@ on:
     paths:
       - apps/canopy-prototype/**
       - .github/workflows/pages.yml
+      - .github/workflows/check.yml
   workflow_dispatch:
 
 permissions:
@@ -25,7 +27,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check:   # the static checks (check.yml): a camp that does not load is not published
+    uses: ./.github/workflows/check.yml
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4   # no submodules: the camp doesn't use engine/
