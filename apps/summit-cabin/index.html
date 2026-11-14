@@ -1,0 +1,428 @@
+<title>Summit Cabin</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A test scene for long views: a cabin on a winter mountaintop, with distance haze instead of fog, terrain and trees that lose detail with distance, and a painted horizon.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* One fixed look over a 3D scene: frosted dark glass panels on the view. */
+:root {
+  --ink: #eef3fa; --ink-dim: #a9b8cc; --glass: rgba(14, 22, 36, 0.62); --edge: rgba(190, 210, 235, 0.22);
+  --accent: #ffc27a; --night: #0b1220;
+  --ui: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--night); color: var(--ink); font-family: var(--ui); overflow: hidden; }
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.panel { background: var(--glass); border: 1px solid var(--edge); border-radius: 12px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+#hud { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: min(380px, calc(100% - 32px)); padding: 12px 14px; display: grid; gap: 10px; font-size: 15px; }
+#hud h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.02em; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+#hud h1 small { font-weight: 500; font-size: 13px; color: var(--ink-dim); letter-spacing: 0.04em; text-transform: uppercase; }
+.row { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; }
+.row label { color: var(--ink-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+output { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 3px; border-radius: 9px; background: rgba(255,255,255,0.06); }
+.seg button { font: 600 14px var(--ui); color: var(--ink-dim); background: transparent; border: 0; border-radius: 7px; padding: 7px 4px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: rgba(255, 194, 122, 0.18); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255, 194, 122, 0.5); }
+.seg button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details { font-size: 14px; color: var(--ink-dim); }
+summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0; }
+.checks label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+td { padding: 2px 0; border-top: 1px solid var(--edge); }
+td:last-child { text-align: right; color: var(--ink); }
+#stats { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); padding: 6px 10px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-dim); text-align: right; line-height: 1.35; }
+#hint { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); padding: 6px 10px; font-size: 13px; color: var(--ink-dim); }
+@media (max-width: 520px) { #hud { padding: 10px 12px; gap: 8px; } #hint { display: none; } }
+</style>
+
+<div id="stage"></div>
+<div id="hint" class="panel">Drag to look around · scroll or pinch to zoom</div>
+<div id="stats" class="panel">…</div>
+<section id="hud" class="panel" aria-label="Scene controls">
+  <h1>Summit Cabin <small>long-view test</small></h1>
+  <div class="row"><label for="hour">Time</label><div class="row" style="grid-template-columns:1fr auto"><input id="hour" type="range" min="0" max="24" step="0.05" value="14.5"><output id="hourOut">14:30</output></div></div>
+  <div class="seg" id="weather" role="group" aria-label="Weather">
+    <button data-w="clear" aria-pressed="true">Clear</button><button data-w="valley" aria-pressed="false">Valley fog</button><button data-w="storm" aria-pressed="false">Snowstorm</button>
+  </div>
+  <div class="seg" id="view" role="group" aria-label="View">
+    <button data-v="orbit" aria-pressed="true">Cabin</button><button data-v="porch" aria-pressed="false">Porch view</button>
+  </div>
+  <details id="tricks">
+    <summary>How it's done</summary>
+    <div class="checks">
+      <label><input id="hazeOn" type="checkbox" checked> Distance haze</label>
+      <label><input id="wire" type="checkbox"> Terrain wireframe</label>
+    </div>
+    <table id="tris"></table>
+  </details>
+</section>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+// Summit Cabin: a test of long views on a clear day, inspired by how The Long Dark keeps views far and cheap.
+//  - Distance haze (aerial perspective) instead of fog: far things shift to the sky's colour but never vanish. It is height
+//    based (thinner air up high) and glows toward the sun. Weather fog and a valley fog layer are separate and come and go.
+//  - Terrain detail follows distance: one polar grid round the cabin whose rings grow with distance, about 2 m cells at the
+//    cabin and 1 km cells at the 16 km edge, so the whole range costs about 18k triangles.
+//  - Trees in three steps: low-poly spruces near, camera-facing cards in the middle, and painted colour on the terrain far away.
+//  - A painted horizon of far mountains on a ring at 22 km, behind the real ones.
+//  - Real-time shadows only round the cabin.
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const $ = (id) => document.getElementById(id);
+const isPhone = matchMedia('(max-width: 700px), (pointer: coarse)').matches;
+
+// ---------------------------------------------------------------- random and noise
+function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const rnd = mulberry(20261114), R = (a, b) => a + rnd() * (b - a);
+const hash = (x, y) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+function vnoise(x, y) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+function fbm(x, y, o) { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { s += a * vnoise(x * f + i * 17.3, y * f - i * 9.1); n += a; a *= 0.5; f *= 2.03; } return s / n; }
+function ridged(x, y, o) { let s = 0, a = 0.5, f = 1, n = 0, w = 1; for (let i = 0; i < o; i++) { let r = 1 - Math.abs(vnoise(x * f + i * 31.7, y * f + i * 5.3) * 2 - 1); r *= r * w; w = Math.min(1, r * 1.6); s += a * r; n += a; a *= 0.5; f *= 2.1; } return s / n; }
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+// ---------------------------------------------------------------- the land
+// a long summit ridge with the cabin on its flat top, rolling forested hills and valleys round it, high ranges from 4 km out
+function hRaw(x, z) {
+  const r = Math.hypot(x, z);
+  const e = Math.hypot(x / 1.25, z);   // a steep peak, a little longer east to west
+  let h = 700 / (1 + (e / 520) ** 1.7);   // round only near the top, then concave, so every slope below is in view
+  h += (fbm(x / 1500, z / 1500, 5) - 0.45) * 420;
+  h += (fbm(x / 240, z / 240, 3) - 0.5) * 36 * Math.min(1, r / 400);
+  h += sstep(4000, 9500, r) * (ridged(x / 3400 + 7, z / 3400 - 3, 5) * 1900 - 250);
+  return h;
+}
+const TOP = hRaw(0, 0) + 2;
+let LAKE = 0;   // set below from the height spread: the lowest valley floors freeze into flat lakes
+{ const hs = []; for (let i = 0; i < 4000; i++) { const a = R(0, 6.283), r = R(1500, 7000); hs.push(hRaw(Math.cos(a) * r, Math.sin(a) * r)); } hs.sort((a, b) => a - b); LAKE = hs[Math.floor(hs.length * 0.07)]; }
+// the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks straight down
+// over the valleys instead of over its own snowfield
+function height(x, z) { const r = Math.hypot(x, z), raw = Math.max(LAKE, hRaw(x, z)); let h = r < 18 ? TOP : TOP + (raw - TOP) * sstep(18, 55, r);
+  const d = -z - 8.5 + 3 * Math.sin(x / 9); if (d > 0) h -= 140 * (1 - Math.exp(-d / 22)) * (1 - sstep(250, 700, r)); return Math.max(LAKE, h); }
+const TREELINE = LAKE + 520;
+function slopeAt(x, z) { const e = 3, gx = (height(x + e, z) - height(x - e, z)) / (2 * e), gz = (height(x, z + e) - height(x, z - e)) / (2 * e); return 1 - 1 / Math.sqrt(1 + gx * gx + gz * gz); }
+function forestAt(x, z, h, s) { if (h <= LAKE + 0.5) return 0; return sstep(0.38, 0.47, fbm(x / 650 + 3, z / 650 - 7, 3)) * (1 - sstep(TREELINE - 50, TREELINE, h)) * (1 - sstep(0.28, 0.42, s)); }
+
+// ---------------------------------------------------------------- renderer, scene, camera
+const renderer = new THREE.WebGLRenderer({ antialias: !isPhone, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, isPhone ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+$('stage').appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xffffff, 1, 2);   // switches the fog chunk on; the chunk itself is ours (below)
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.3, 40000);
+
+// ---------------------------------------------------------------- haze and fog: one shader chunk for every material
+// optical depth of a fog whose density falls off with height (density c at height h0, scale 1/b), along a ray of length t
+const U = {
+  uHor: { value: new THREE.Color() }, uSunCol: { value: new THREE.Color() }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+  uHaze: { value: 0.7e-4 }, uMist: { value: 0 }, uMistTop: { value: 130 }, uMistCol: { value: new THREE.Color() },
+  uFogDen: { value: 0 }, uFogCol: { value: new THREE.Color() },
+};
+THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\nvarying vec3 vFogW;\n#endif';
+THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
+  vec4 fogW = vec4(transformed, 1.0);
+  #ifdef USE_INSTANCING
+    fogW = instanceMatrix * fogW;
+  #endif
+  vFogW = (modelMatrix * fogW).xyz;
+#endif`;
+THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+varying vec3 vFogW;
+uniform vec3 uHor, uSunCol, uSunDir, uMistCol, uFogCol; uniform float uHaze, uMist, uMistTop, uFogDen;
+#ifndef HAZE_MUL
+#define HAZE_MUL 1.0
+#endif
+float hfog(float c, float b, float h0, vec3 ro, vec3 rd, float t) { float k = rd.y * b; float e = abs(k) < 1e-6 ? t : (1.0 - exp(-t * k)) / k; return c * exp(-(ro.y - h0) * b) * e; }
+#endif`;
+THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+  vec3 fv = vFogW - cameraPosition; float ft = length(fv); vec3 frd = fv / ft; float fs = max(dot(frd, uSunDir), 0.0);
+  vec3 hazeC = uHor + uSunCol * (pow(fs, 6.0) * 0.35);
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(hazeC, 1.0)).rgb, 1.0 - exp(-hfog(uHaze, 1.0 / 1600.0, 0.0, cameraPosition, frd, ft) * HAZE_MUL));
+  vec3 mistC = uMistCol + uSunCol * (pow(fs, 4.0) * 0.25);
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(mistC, 1.0)).rgb, 1.0 - exp(-hfog(uMist, 1.0 / 45.0, uMistTop, cameraPosition, frd, ft)));
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(uFogCol, 1.0)).rgb, 1.0 - exp(-uFogDen * ft));
+#endif`;
+function hazed(mat, extra) { mat.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U); extra?.(sh); }; if (extra) mat.customProgramCacheKey = () => extra.toString(); return mat; }
+
+function canvasTex(w, h, draw, repeat) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
+const tris = (geo, n = 1) => ((geo.index ? geo.index.count : geo.attributes.position.count) / 3) * n;
+const TRIS = [];
+
+// ---------------------------------------------------------------- sky: gradient, sun, stars; follows the camera
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), new THREE.ShaderMaterial({
+  uniforms: { uZen: { value: new THREE.Color() }, uHor: U.uHor, uSunCol: U.uSunCol, uSunDir: U.uSunDir, uMoonDir: { value: new THREE.Vector3() }, uNight: { value: 0 }, uFog: { value: 0 }, uFogCol: U.uFogCol },
+  vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform vec3 uZen, uHor, uSunCol, uSunDir, uMoonDir, uFogCol; uniform float uNight, uFog; varying vec3 vDir;
+  void main(){ vec3 d = normalize(vDir); float y = max(d.y, 0.0); vec3 c = mix(uHor, uZen, pow(y, 0.5));
+    float s = max(dot(d, uSunDir), 0.0); c += uSunCol * (pow(s, 6.0) * 0.35 + pow(s, 90.0) * 0.8 + smoothstep(0.9994, 0.9997, s) * 6.0);
+    if (uNight > 0.0) { vec3 p = floor(d * 380.0); float h = fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); c += vec3(0.85, 0.9, 1.0) * smoothstep(0.9972, 1.0, h) * uNight * smoothstep(0.0, 0.25, y) * 2.0;
+      float m = max(dot(d, uMoonDir), 0.0); c += vec3(0.85, 0.9, 1.0) * (smoothstep(0.99955, 0.9997, m) * 1.6 + pow(m, 400.0) * 0.2) * uNight; }
+    c = mix(c, uFogCol, uFog); gl_FragColor = vec4(c, 1.0);
+    #include <colorspace_fragment>
+  }`,
+  side: THREE.BackSide, depthWrite: false, depthTest: false,
+}));
+sky.renderOrder = -10; sky.frustumCulled = false; scene.add(sky);
+TRIS.push(['Sky dome', tris(sky.geometry)]);
+
+// ---------------------------------------------------------------- terrain: a polar grid whose rings grow with distance
+const S = 96, RMAX = 16000, B = (2 * Math.PI) / S, A = 2 / B, NR = Math.ceil(Math.log(RMAX / A + 1) / B);
+const ringR = (i) => Math.min(RMAX, A * (Math.exp(B * i) - 1));
+const snowC = new THREE.Color('#f3f7fc'), rockC = new THREE.Color('#40454c'), forestC = new THREE.Color('#16261d').lerp(snowC, 0.05), iceC = new THREE.Color('#cbdde9'), tmpC = new THREE.Color();
+const terrainGeo = (() => {
+  const n = 1 + NR * S, pos = new Float32Array(n * 3), uv = new Float32Array(n * 2), idx = [];
+  pos.set([0, height(0, 0), 0]);
+  for (let i = 1; i <= NR; i++) { const r = ringR(i); for (let j = 0; j < S; j++) { const a = j * B + (i % 2) * B * 0.5, x = Math.cos(a) * r, z = Math.sin(a) * r, k = 1 + (i - 1) * S + j; pos.set([x, height(x, z), z], k * 3); uv.set([x / 6, z / 6], k * 2); } }
+  for (let j = 0; j < S; j++) idx.push(0, 1 + (j + 1) % S, 1 + j);
+  for (let i = 1; i < NR; i++) for (let j = 0; j < S; j++) { const a = 1 + (i - 1) * S + j, b = 1 + (i - 1) * S + (j + 1) % S, c = 1 + i * S + j, d = 1 + i * S + (j + 1) % S; idx.push(a, b, c, b, d, c); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const nor = g.attributes.normal, col = new Float32Array(n * 3);
+  for (let k = 0; k < n; k++) {
+    const x = pos[k * 3], h = pos[k * 3 + 1], z = pos[k * 3 + 2], s = 1 - nor.getY(k);
+    tmpC.copy(snowC).lerp(rockC, sstep(0.3, 0.5, s) * (0.6 + 0.4 * vnoise(x / 90, z / 90)));
+    tmpC.lerp(forestC, forestAt(x, z, h, s));
+    if (h <= LAKE + 0.5) tmpC.copy(iceC);
+    col.set([tmpC.r, tmpC.g, tmpC.b], k * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+})();
+const snowTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const r = mulberry(7);
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(206,218,234,${0.04 + r() * 0.06})`; g.beginPath(); g.ellipse(r() * w, r() * h, 20 + r() * 50, 3 + r() * 6, 0.2, 0, 7); g.fill(); }
+  for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(r() * w, r() * h, 1, 1); } }, true);
+const terrain = new THREE.Mesh(terrainGeo, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex })));
+terrain.receiveShadow = true; scene.add(terrain);
+TRIS.push(['Terrain, 16 km round', tris(terrainGeo)]);
+
+// ---------------------------------------------------------------- trees: spruces near, cards in the middle, colour far away
+function spruceGeo() {   // three stacked six-sided cones, snow toward each tip (vertex colours), no bases: 18 triangles
+  const P = [], C = [], green = new THREE.Color('#1f3a2c'), snow = new THREE.Color('#e9f0f6');
+  for (const [r, y0, y1] of [[0.42, 0.0, 0.55], [0.32, 0.3, 0.8], [0.21, 0.58, 1.0]]) for (let j = 0; j < 6; j++) {
+    const a0 = (j / 6) * Math.PI * 2, a1 = ((j + 1) / 6) * Math.PI * 2;
+    P.push(0, y1, 0, Math.cos(a1) * r, y0, Math.sin(a1) * r, Math.cos(a0) * r, y0, Math.sin(a0) * r);
+    for (const c of [snow, green.clone().lerp(snow, 0.25), green]) C.push(c.r, c.g, c.b);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.computeVertexNormals(); return g;
+}
+const spruce = spruceGeo(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v3 = new THREE.Vector3(), sc = new THREE.Vector3();
+const nearSpots = [];
+for (let i = 0; i < 14; i++) { const a = R(0, 6.283); if (Math.abs(((a - (-Math.PI / 2) + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.8) continue;   // keep the porch's view (toward -z) open
+  const r = R(20, 70), x = Math.cos(a) * r, z = Math.sin(a) * r; nearSpots.push([x, z, R(3, 6)]); }
+for (let t = 0; t < 60000 && nearSpots.length < (isPhone ? 800 : 1100); t++) { const a = R(0, 6.283), r = 120 + 1100 * Math.sqrt(rnd()), x = Math.cos(a) * r, z = Math.sin(a) * r, h = height(x, z);
+  if (rnd() < forestAt(x, z, h, slopeAt(x, z))) nearSpots.push([x, z, R(8, 16)]); }
+const spruces = new THREE.InstancedMesh(spruce, hazed(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), nearSpots.length);
+nearSpots.forEach(([x, z, s], i) => { q.setFromAxisAngle(up, R(0, 6.283)); m4.compose(v3.set(x, height(x, z) - 0.3, z), q, sc.set(s * R(0.8, 1), s, s * R(0.8, 1))); spruces.setMatrixAt(i, m4); spruces.setColorAt(i, tmpC.setHSL(0, 0, R(0.85, 1.05))); });
+spruces.castShadow = true; spruces.receiveShadow = true; scene.add(spruces);
+TRIS.push([`Spruces near (${nearSpots.length} × 18)`, tris(spruce, nearSpots.length)]);
+
+const cardTex = canvasTex(128, 256, (g, w, h) => { const r = mulberry(11);
+  for (let k = 0; k < 7; k++) { const y0 = h * (0.06 + k * 0.13), y1 = y0 + h * 0.22, hw = w * (0.14 + k * 0.05);
+    g.fillStyle = '#1d3428'; g.beginPath(); g.moveTo(w / 2, y0); g.lineTo(w / 2 + hw, y1); g.lineTo(w / 2 - hw, y1); g.fill();
+    g.fillStyle = 'rgba(236,242,248,.9)'; g.beginPath(); g.moveTo(w / 2, y0); g.lineTo(w / 2 + hw * 0.7, y0 + (y1 - y0) * 0.55); g.lineTo(w / 2 + hw * 0.2, y0 + (y1 - y0) * (0.4 + r() * 0.2)); g.lineTo(w / 2 - hw * 0.5, y0 + (y1 - y0) * 0.6); g.fill(); }
+  g.fillStyle = '#2b2018'; g.fillRect(w / 2 - 4, h * 0.94, 8, h * 0.06); });
+const cardGeo = new THREE.PlaneGeometry(0.5, 1).translate(0, 0.5, 0);
+const cardSpots = [];
+for (let t = 0; t < 120000 && cardSpots.length < (isPhone ? 3500 : 5000); t++) { const a = R(0, 6.283), r = Math.sqrt(R(1200 ** 2, 5500 ** 2)), x = Math.cos(a) * r, z = Math.sin(a) * r, h = height(x, z);
+  if (rnd() < forestAt(x, z, h, slopeAt(x, z))) cardSpots.push([x, h, z, R(10, 18)]); }
+const billboard = (sh) => {   // turn each card round its own upright axis to face the camera
+  sh.vertexShader = sh.vertexShader.replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);')
+    .replace('#include <begin_vertex>', `vec3 bc = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vec2 bd = normalize(cameraPosition.xz - bc.xz); vec3 transformed = vec3(position.x * bd.y, position.y, -position.x * bd.x);`);
+};
+const cards = new THREE.InstancedMesh(cardGeo, hazed(new THREE.MeshLambertMaterial({ map: cardTex, alphaTest: 0.5, side: THREE.DoubleSide }), billboard), cardSpots.length);
+cardSpots.forEach(([x, h, z, s], i) => { m4.compose(v3.set(x, h - 0.5, z), q.identity(), sc.set(s, s, s)); cards.setMatrixAt(i, m4); });
+cards.frustumCulled = false; scene.add(cards);
+TRIS.push([`Tree cards, 1.2–5.5 km (${cardSpots.length} × 2)`, tris(cardGeo, cardSpots.length)]);
+
+// ---------------------------------------------------------------- the painted horizon: far ranges on a ring at 22 km
+const HOR_R = 22000, HOR_LO = -1500, HOR_HI = 3800;
+const horizonTex = canvasTex(4096, 512, (g, w, h) => {
+  const row = (m) => ((HOR_HI - m) / (HOR_HI - HOR_LO)) * h;
+  const layers = [{ base: 700, amp: 2400, k: 3, snow: '#eef3f9', shade: '#b8c6d8', foot: '#a3b2c6' }, { base: 300, amp: 1700, k: 5, snow: '#e6edf5', shade: '#9fb0c4', foot: '#8c9db3' }, { base: -100, amp: 1100, k: 8, snow: '#dfe7f0', shade: '#8798ae', foot: '#73859c' }];
+  for (const L of layers) {
+    const sil = new Float32Array(w);
+    for (let x = 0; x < w; x++) { const a = (x / w) * Math.PI * 2; sil[x] = L.base + L.amp * ridged(Math.cos(a) * L.k + L.k * 3, Math.sin(a) * L.k - L.k, 5); }
+    for (let x = 0; x < w; x++) { const y = row(sil[x]), dy = sil[(x + 1) % w] - sil[(x + w - 1) % w];
+      g.fillStyle = dy > 0 ? L.snow : L.shade; g.fillRect(x, y, 1, 26 + (sil[x] - L.base) / 40);
+      g.fillStyle = L.foot; g.fillRect(x, y + 26 + (sil[x] - L.base) / 40, 1, h); }
+  }
+});
+horizonTex.wrapS = THREE.RepeatWrapping; horizonTex.repeat.x = 2;
+const horMat = hazed(new THREE.MeshBasicMaterial({ map: horizonTex, transparent: true, depthWrite: false, side: THREE.BackSide }));
+horMat.defines = { HAZE_MUL: '0.55' };
+const horizon = new THREE.Mesh(new THREE.CylinderGeometry(HOR_R, HOR_R, HOR_HI - HOR_LO, 64, 1, true), horMat);
+horizon.position.y = (HOR_HI + HOR_LO) / 2; horizon.frustumCulled = false; horizon.renderOrder = -5; scene.add(horizon);
+// the horizon texture is painted with its own transparent sky; a transparent object drawn after the opaque terrain only shows where nothing nearer is
+TRIS.push(['Painted horizon ring', tris(horizon.geometry)]);
+
+// ---------------------------------------------------------------- the cabin: a big log cabin with a porch toward the south (-z)
+const cabin = new THREE.Group(); cabin.position.set(0, TOP, 0); scene.add(cabin);
+const W = 12, D = 8, WH = 3.4, RH = 3.0, YB = 0.6, YT = YB + WH, RIDGE = YT + RH;
+const logTex = canvasTex(256, 512, (g, w, h) => { const n = 11, lh = h / n, r = mulberry(3);
+  for (let k = 0; k < n; k++) { const y = k * lh, gr = g.createLinearGradient(0, y, 0, y + lh);
+    gr.addColorStop(0, '#3e2617'); gr.addColorStop(0.2, '#7d5232'); gr.addColorStop(0.5, '#a06c44'); gr.addColorStop(0.85, '#6b4329'); gr.addColorStop(1, '#3a2316');
+    g.fillStyle = gr; g.fillRect(0, y, w, lh); g.strokeStyle = 'rgba(50,30,18,.35)'; for (let i = 0; i < 6; i++) { const yy = y + r() * lh; g.beginPath(); g.moveTo(0, yy); g.lineTo(w, yy + R(-3, 3)); g.stroke(); }
+    g.fillStyle = '#cfc5b6'; g.fillRect(0, y + lh - 2, w, 3); } }, true);
+const stoneTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#4c4f55'; g.fillRect(0, 0, w, h); const r = mulberry(5);
+  for (let i = 0; i < 40; i++) { const c = 90 + r() * 50 | 0; g.fillStyle = `rgb(${c},${c + 3},${c + 8})`; g.beginPath(); g.ellipse(r() * w, r() * h, 9 + r() * 10, 6 + r() * 6, r() * 3, 0, 7); g.fill(); } }, true);
+const winTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#3a2416'; g.fillRect(0, 0, w, h); const gr = g.createRadialGradient(w / 2, h * 0.62, 4, w / 2, h / 2, w * 0.62);
+  gr.addColorStop(0, '#ffe7ad'); gr.addColorStop(1, '#d0782c'); g.fillStyle = gr; g.fillRect(12, 12, w - 24, h - 24);
+  g.fillStyle = '#3a2416'; g.fillRect(w / 2 - 4, 12, 8, h - 24); g.fillRect(12, h / 2 - 4, w - 24, 8); g.fillStyle = '#f4f7fb'; g.fillRect(2, h - 13, w - 4, 11); });
+const doorTex = canvasTex(64, 128, (g, w, h) => { g.fillStyle = '#5b3a24'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(30,18,10,.6)'; for (let x = 0; x < w; x += 13) g.fillRect(x, 0, 2, h);
+  const gr = g.createRadialGradient(w / 2, 30, 2, w / 2, 30, 20); gr.addColorStop(0, '#ffe7ad'); gr.addColorStop(1, '#d0782c'); g.fillStyle = gr; g.fillRect(16, 14, w - 32, 32); g.fillStyle = '#d9b36a'; g.fillRect(w - 14, 70, 5, 5); });
+const lam = (o) => hazed(new THREE.MeshLambertMaterial(o));
+const M = { log: lam({ map: logTex }), stone: lam({ map: stoneTex }), roof: lam({ color: '#33373e' }), snow: lam({ color: '#f3f7fc' }), wood: lam({ color: '#6e4a2f' }) };
+const part = (geo, mat, x, y, z, parent = cabin) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
+{ // walls: four log planes and the two gable triangles, one draw, 10 triangles
+  const plane = (w, ry, x, z) => new THREE.PlaneGeometry(w, WH).rotateY(ry).translate(x, YB + WH / 2, z).toNonIndexed();
+  const gable = (sx) => { const x = sx * W / 2, p = [[x, YT, -D / 2], [x, YT, D / 2], [x, RIDGE, 0]], o = sx > 0 ? [0, 2, 1] : [0, 1, 2], P = [], UV = [];
+    for (const i of o) { P.push(...p[i]); UV.push(p[i][2] / D + 0.5, (p[i][1] - YB) / WH); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.computeVertexNormals(); return g; };
+  part(mergeGeometries([plane(W, Math.PI, 0, -D / 2), plane(W, 0, 0, D / 2), plane(D, -Math.PI / 2, -W / 2, 0), plane(D, Math.PI / 2, W / 2, 0), gable(1), gable(-1)]), M.log, 0, 0, 0);
+}
+part(new THREE.BoxGeometry(W + 0.3, 0.9, D + 0.3), M.stone, 0, 0.15, 0);
+const roofSide = (ry, len, pitch, at, width, slab = 0.22) => {   // a roof slab hinged at `at`, sloping away along +z of its turn, with snow on it
+  const turn = new THREE.Group(); turn.position.copy(at); turn.rotation.y = ry; cabin.add(turn);
+  const tilt = new THREE.Group(); tilt.rotation.x = pitch; turn.add(tilt);
+  part(new THREE.BoxGeometry(width, slab, len), M.roof, 0, 0, len / 2, tilt); part(new THREE.BoxGeometry(width + 0.1, 0.28, len + 0.05), M.snow, 0, slab / 2 + 0.12, len / 2 + 0.02, tilt);
+};
+const pitch = Math.atan2(RH, D / 2), rlen = Math.hypot(RH, D / 2) + 0.75;
+roofSide(0, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4); roofSide(Math.PI, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4);
+roofSide(Math.PI, 3.5, 0.14, new THREE.Vector3(0, YT - 0.15, -D / 2), W + 0.6, 0.18);   // the porch roof
+part(new THREE.BoxGeometry(1.0, 4.4, 1.0), M.stone, 3.4, YT + 1.9, 1.7); part(new THREE.BoxGeometry(1.15, 0.22, 1.15), M.snow, 3.4, YT + 4.2, 1.7);
+part(new THREE.BoxGeometry(W, 0.3, 3.0), M.wood, 0, YB - 0.15, -(D / 2 + 1.5));   // porch deck
+{ const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, 2.85, 0.24), M.wood, 4); [-5.6, -1.9, 1.9, 5.6].forEach((x, i) => posts.setMatrixAt(i, m4.makeTranslation(x, YB + 1.42, -(D / 2 + 2.8)))); posts.castShadow = true; cabin.add(posts); }
+part(new THREE.BoxGeometry(1.8, 0.45, 0.5), M.wood, -2.7, YB + 0.22, -(D / 2 + 0.45));   // bench by the door
+{ const ends = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#3b2a1c'; g.fillRect(0, 0, w, h); const r = mulberry(9);
+    for (let y = 8; y < h; y += 15) for (let x = 8 + (y % 2) * 7; x < w; x += 15) { const rr = 6 + r() * 2.5; g.fillStyle = '#c99c66'; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill(); g.strokeStyle = 'rgba(120,80,45,.7)'; g.beginPath(); g.arc(x, y, rr * 0.5, 0, 7); g.stroke(); } }, true);
+  const em = lam({ map: ends }); part(new THREE.BoxGeometry(0.9, 1.6, 3.4), [em, em, M.snow, em, em, em], -(W / 2 + 0.55), 0.8, 0.4); }   // woodpile: log ends painted, not modelled
+const winMat = lam({ map: winTex, emissive: '#ffffff', emissiveMap: winTex });
+const windows = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), winMat, 6);
+[[-3.6, YB + 1.9, -D / 2 - 0.02, Math.PI, 1.5], [3.6, YB + 1.9, -D / 2 - 0.02, Math.PI, 1.5], [-3.2, YB + 1.9, D / 2 + 0.02, 0, 1.4], [2.0, YB + 1.9, D / 2 + 0.02, 0, 1.4], [W / 2 + 0.02, YT + 0.9, 0, Math.PI / 2, 1.1], [-W / 2 - 0.02, YT + 0.9, 0, -Math.PI / 2, 1.1]]
+  .forEach(([x, y, z, ry, s], i) => windows.setMatrixAt(i, m4.compose(v3.set(x, y, z), q.setFromAxisAngle(up, ry), sc.set(s, s, 1))));
+cabin.add(windows);
+const doorMat = lam({ map: doorTex, emissive: '#ffffff', emissiveMap: doorTex });
+const door = part(new THREE.PlaneGeometry(1.2, 2.3), doorMat, 0, YB + 1.15, -D / 2 - 0.02); door.rotation.y = Math.PI;
+const lampMat = new THREE.MeshBasicMaterial({ color: '#ffd28a' });
+part(new THREE.BoxGeometry(0.18, 0.28, 0.18), lampMat, 1.05, YB + 2.45, -D / 2 - 0.14);
+const porchLight = new THREE.PointLight('#ffb760', 0, 22, 1.6); porchLight.position.set(1.05, YB + 2.3, -D / 2 - 0.6); cabin.add(porchLight);
+const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6); inside.position.set(0, YB + 1.8, D / 2 + 1.4); cabin.add(inside);   // the glow from the back windows on the snow
+{ let n = 0; cabin.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); TRIS.push(['Cabin, porch, woodpile', n]); }
+
+// chimney smoke: a few soft sprites rising and drifting with the wind
+const puff = canvasTex(64, 64, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(235,238,242,.75)'); gr.addColorStop(1, 'rgba(235,238,242,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
+const smoke = Array.from({ length: 14 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, transparent: true, depthWrite: false, fog: false })); s.userData.t = i / 14; scene.add(s); return s; });
+const chimneyTop = new THREE.Vector3(3.4, TOP + YT + 4.3, 1.7);
+
+// falling snow round the camera, for the storm
+const SNOW_N = isPhone ? 2200 : 4000, snowPos = new Float32Array(SNOW_N * 3);
+for (let i = 0; i < SNOW_N; i++) snowPos.set([R(-40, 40), R(-20, 30), R(-40, 40)], i * 3);
+const snowGeo = new THREE.BufferGeometry(); snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+const flakes = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.09, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+flakes.frustumCulled = false; scene.add(flakes);
+
+// ---------------------------------------------------------------- light
+const hemi = new THREE.HemisphereLight('#b8d4f4', '#a0a8b8', 1); scene.add(hemi);
+const sun = new THREE.DirectionalLight('#ffffff', 2.5); sun.castShadow = true; sun.target = cabin; scene.add(sun);
+sun.shadow.mapSize.set(isPhone ? 1024 : 2048, isPhone ? 1024 : 2048);
+Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 10, far: 500 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
+const moonDir = new THREE.Vector3(0.45, 0.42, 0.78).normalize();
+
+// colours by the sun's height in degrees (night, blue hour, sunset, golden, winter day)
+const KEYS = [
+  { e: -14, zen: '#050a17', hor: '#101b30', sun: '#000000', hs: '#2b3d63', hg: '#18203a', hemi: 0.5, light: 0 },
+  { e: -5, zen: '#101f45', hor: '#3d4e7c', sun: '#ff7a5a', hs: '#5466a0', hg: '#2a3050', hemi: 0.55, light: 0 },
+  { e: 0, zen: '#26498a', hor: '#efa48a', sun: '#ff9256', hs: '#8a9cd0', hg: '#7a6c80', hemi: 0.8, light: 0.7 },
+  { e: 6, zen: '#3a6cb6', hor: '#f3d2ae', sun: '#ffc085', hs: '#a8c0e8', hg: '#9a96a6', hemi: 0.8, light: 1.6 },
+  { e: 16, zen: '#2c6ccc', hor: '#c6dcf0', sun: '#fff1de', hs: '#b8d4f4', hg: '#a8b2c4', hemi: 0.85, light: 2.0 },
+].map((k) => ({ ...k, zen: new THREE.Color(k.zen), hor: new THREE.Color(k.hor), sun: new THREE.Color(k.sun), hs: new THREE.Color(k.hs), hg: new THREE.Color(k.hg) }));
+const P = { zen: new THREE.Color(), hor: new THREE.Color(), sun: new THREE.Color(), hs: new THREE.Color(), hg: new THREE.Color(), hemi: 1, light: 1 };
+function palette(e) {
+  let i = 0; while (i < KEYS.length - 2 && e > KEYS[i + 1].e) i++;
+  const a = KEYS[i], b = KEYS[i + 1], t = sstep(a.e, b.e, e);
+  for (const k of ['zen', 'hor', 'sun', 'hs', 'hg']) P[k].lerpColors(a[k], b[k], t);
+  P.hemi = a.hemi + (b.hemi - a.hemi) * t; P.light = a.light + (b.light - a.light) * t;
+}
+
+// weather: three presets the scene eases between
+const WEATHER = {
+  clear: { haze: 0.7e-4, mist: 0, fog: 0, storm: 0 },
+  valley: { haze: 0.9e-4, mist: 0.0022, fog: 0, storm: 0 },
+  storm: { haze: 1.5e-4, mist: 0, fog: 0.016, storm: 1 },
+};
+const W_NOW = { ...WEATHER.clear }; let wTarget = WEATHER.clear, hazeOn = true;
+
+// ---------------------------------------------------------------- controls and views
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+const VIEWS = {
+  orbit() { const far = camera.aspect < 0.8 ? 1.7 : 1; camera.position.set(-21 * far, TOP + 6.5 * far, -15 * far - 3 * (far - 1)); controls.target.set(0, TOP + 3.0, -3); Object.assign(controls, { minDistance: 7, maxDistance: 140, enableZoom: true, enablePan: false, rotateSpeed: 0.6, minPolarAngle: 0.2, maxPolarAngle: 1.52 }); },
+  porch() { camera.position.set(0, TOP + YB + 1.65, -D / 2 - 1.2); controls.target.set(0, TOP + YB + 1.643, -D / 2 - 1.25); Object.assign(controls, { minDistance: 0.05, maxDistance: 0.05, enableZoom: false, enablePan: false, rotateSpeed: -0.35, minPolarAngle: 0.7, maxPolarAngle: 2.2 }); },
+};
+VIEWS.orbit(); controls.update();
+const press = (group, attr, val) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === val)));
+$('view').onclick = (e) => { const v = e.target.dataset?.v; if (!v) return; VIEWS[v](); controls.update(); press($('view'), 'v', v); };
+$('weather').onclick = (e) => { const w = e.target.dataset?.w; if (!w) return; wTarget = WEATHER[w]; press($('weather'), 'w', w); };
+$('hazeOn').onchange = (e) => { hazeOn = e.target.checked; };
+$('wire').onchange = (e) => { terrain.material.wireframe = e.target.checked; };
+const fmt = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
+$('hour').oninput = () => { $('hourOut').textContent = fmt(+$('hour').value); };
+$('tris').innerHTML = TRIS.map(([n, t]) => `<tr><td>${n}</td><td>${Math.round(t).toLocaleString('en')}</td></tr>`).join('') + `<tr><td><b>Total</b></td><td><b>${Math.round(TRIS.reduce((s, [, t]) => s + t, 0)).toLocaleString('en')}</b></td></tr>`;
+console.table(TRIS);
+
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+// ---------------------------------------------------------------- each frame
+const sunDir = new THREE.Vector3(), clock = new THREE.Timer(), wind = new THREE.Vector3(); let frames = 0, acc = 0;
+const fogGrey = new THREE.Color('#b9c4d2'), white = new THREE.Color('#ffffff');
+function frame() {
+  clock.update(); const dt = Math.min(clock.getDelta(), 0.05), now = clock.getElapsed();
+  // weather eases toward its preset
+  const k = 1 - Math.exp(-dt * 1.2); for (const key in W_NOW) W_NOW[key] += (wTarget[key] - W_NOW[key]) * k;
+  const storm = W_NOW.storm;
+  // the sun: a low winter arc, up from 07:00 to 17:00, at most 26 degrees high
+  const h = +$('hour').value, el = 26 * Math.sin((Math.PI * (h - 7)) / 10), az = ((h - 12) * Math.PI) / 10, er = (el * Math.PI) / 180;
+  sunDir.set(Math.sin(az) * Math.cos(er), Math.sin(er), -Math.cos(az) * Math.cos(er));
+  palette(el);
+  const day = sstep(-6, 4, el), bright = Math.max(0.1, P.hemi / 0.85) * (1 - 0.25 * storm);
+  U.uSunDir.value.copy(sunDir); U.uHor.value.copy(P.hor); U.uSunCol.value.copy(P.sun).multiplyScalar(sstep(-4, 2, el) * (1 - storm));
+  U.uHaze.value = hazeOn ? W_NOW.haze : 0; U.uMist.value = W_NOW.mist;
+  U.uMistCol.value.copy(P.hor).lerp(white, 0.45).multiplyScalar(0.25 + 0.75 * day);
+  U.uFogDen.value = W_NOW.fog; U.uFogCol.value.copy(P.hor).lerp(fogGrey, 0.55).multiplyScalar(0.3 + 0.6 * bright);
+  sky.material.uniforms.uZen.value.copy(P.zen); sky.material.uniforms.uNight.value = 1 - sstep(-10, -3, el); sky.material.uniforms.uMoonDir.value.copy(moonDir); sky.material.uniforms.uFog.value = 0.92 * storm;
+  hemi.color.copy(P.hs); hemi.groundColor.copy(P.hg); hemi.intensity = P.hemi * (1 - 0.3 * storm);
+  if (el > -3) { sun.color.copy(P.sun); sun.intensity = P.light * (1 - 0.85 * storm); sun.position.copy(cabin.position).addScaledVector(sunDir, 250); }
+  else { sun.color.set('#9fb4e6'); sun.intensity = 0.75 * (1 - 0.8 * storm); sun.position.copy(cabin.position).addScaledVector(moonDir, 250); }
+  horMat.color.copy(P.hs).multiplyScalar(0.35 * P.hemi).add(tmpC.copy(P.sun).multiplyScalar(0.25 * P.light));
+  // warm windows: always a little lit, glowing after dark
+  const night = 1 - sstep(-6, 5, el), glow = 0.25 + 2.4 * night;
+  winMat.emissiveIntensity = glow; doorMat.emissiveIntensity = glow; porchLight.intensity = 9 * night; inside.intensity = 6 * night;
+  // wind, smoke and snow
+  wind.set(Math.sin(now * 0.13) * 0.6 + 1.2 + 6 * storm, 0, 0.6 + Math.cos(now * 0.11) * 0.4 + 3 * storm);
+  for (const s of smoke) { const u = s.userData; u.t = (u.t + dt * 0.09) % 1; const t = u.t;
+    s.position.copy(chimneyTop).addScaledVector(wind, t * 9).add(v3.set(Math.sin(t * 9 + u.t) * 0.3, t * 9, 0)); s.scale.setScalar(0.6 + t * 2.6);
+    s.material.opacity = 0.55 * Math.sin(Math.PI * t) * (1 - 0.7 * storm); s.material.color.setScalar(0.35 + 0.65 * bright); }
+  flakes.material.opacity = 0.9 * storm; flakes.visible = storm > 0.01;
+  if (flakes.visible) { const p = snowGeo.attributes.position.array, c = camera.position;
+    for (let i = 0; i < SNOW_N; i++) { let x = p[i * 3] + (wind.x + Math.sin(now + i) * 0.5) * dt, y = p[i * 3 + 1] - 1.8 * dt, z = p[i * 3 + 2] + wind.z * dt;
+      if (y < -20) y += 50; if (x > 40) x -= 80; if (x < -40) x += 80; if (z > 40) z -= 80; if (z < -40) z += 80; p.set([x, y, z], i * 3); }
+    snowGeo.attributes.position.needsUpdate = true; flakes.position.set(c.x, c.y, c.z); }
+  sky.position.copy(camera.position); horizon.position.x = camera.position.x; horizon.position.z = camera.position.z; horizon.position.y = (HOR_HI + HOR_LO) / 2 + (camera.position.y - TOP);
+  controls.update();
+  renderer.render(scene, camera);
+  frames++; acc += dt;
+  if (acc > 0.5) { const i = renderer.info.render; $('stats').innerHTML = `${Math.round(frames / acc)} fps<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris`; frames = 0; acc = 0; window.__stats = { calls: i.calls, tris: i.triangles }; }
+}
+renderer.setAnimationLoop(frame);
+window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, view: (v) => { VIEWS[v](); controls.update(); press($('view'), 'v', v); }, TRIS, LAKE, TOP };
+window.__ready = true;
+</script>
