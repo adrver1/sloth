@@ -9,10 +9,10 @@
 // the other side. While you sit you hold the seat in the camp's life ("jeep:driver" / "jeep:passenger"), and sloths.js
 // sends a sloth coming home to it off for a wander until you get out.
 // The seats join the jeep's API (jeep.js jeepApi, the object window.__jeep names too): sit(side) / stand() / seatedIn()
-// ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks.
-// Three globals stay, each owned by a file the clean-up has not reached yet: window.__campLife (sloths.js does not export its life yet),
-// window.__car (car.js's; doorOptions(d) on it gives input.js each front door's Get in / Get out) and window.__campFast (the
-// checks' speed-up, core.js lists it).
+// ("driver" | "passenger" | null, only once you have settled) / seatBusy(side), for car.js and checks, and doorOptions(d),
+// which gives input.js each front door's Get in / Get out. Exports jeepSeatStep (main.js, each frame).
+// Two globals stay, both owned by sloths.js, which the clean-up has not reached yet: window.__campLife (it does not export its
+// life yet) and window.__campFast (the checks' speed-up, core.js lists it).
 import * as THREE from "three";
 import { uTime } from "./core.js";
 import { V, ease, wrapPi } from "./util.js";
@@ -117,16 +117,15 @@ if (jeep) {
       if (k >= 1) { const k2 = s.k; setStand(W(s.door).setY(0)); me.seat = null; me.sitK = 0; me.drop = 0; claim(T.side, false); cur = null; setTimeout(() => J.close(k2), 700); }
     }
   };
-  Object.assign(J, { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null });   // onto jeepApi itself, so window.__jeep has them too: car.js reads seatedIn; sit, stand and seatBusy are for checks
   // the front doors' menus (input.js): Get in on the closed or open door, Get out while you sit there
-  window.__car = Object.assign(window.__car ?? {}, {
-    doorOptions: (d) => {
-      const side = d.k === "P" ? "driver" : d.k === "D" ? "passenger" : null; if (!side) return [];
-      if (cur) return cur.side === side && cur.phase === "sat" ? [["Get out 🚪", stand]] : [];
-      const who = slothIn(side);
-      if (who) return [[`${who.name} is at the wheel: hop in the other side 🦥`, () => toast("Round the front to the other door 🦥")]];
-      return [[side === "driver" ? "Sit at the wheel 🚙" : "Sit in the passenger seat 🚙", () => sit(side)]];
-    },
-  });
+  function doorOptions(d) {
+    const side = d.k === "P" ? "driver" : d.k === "D" ? "passenger" : null; if (!side) return [];
+    if (cur) return cur.side === side && cur.phase === "sat" ? [["Get out 🚪", stand]] : [];
+    const who = slothIn(side);
+    if (who) return [[`${who.name} is at the wheel: hop in the other side 🦥`, () => toast("Round the front to the other door 🦥")]];
+    return [[side === "driver" ? "Sit at the wheel 🚙" : "Sit in the passenger seat 🚙", () => sit(side)]];
+  }
+  // onto jeepApi itself, so window.__jeep has them too: car.js reads seatedIn, input.js doorOptions; sit, stand and seatBusy are for checks
+  Object.assign(J, { sit, stand, seatedIn, seatBusy: (side) => slothIn(side)?.name ?? null, doorOptions });
 }
 export { jeepSeatStep };

@@ -58,7 +58,7 @@ const acts = createActivities({ scene, camera, me, woodPile: { at: WOOD_PILE.at,
   addBlocker: (c, r) => blockers.push([c, r]),
   looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
     .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)) });
-window.__acts = acts;   // alias: operator.js and audio.js read it
+window.__acts = acts;   // alias: audio.js reads the pot's stage from it (it is evaluated before this line runs, so it cannot import acts)
 
 // sun shadows (ground.js castShadows): re-cast whenever the props in the clearing change, checked each second for the first
 // half minute while they load. main.js calls it each frame, just before it draws.

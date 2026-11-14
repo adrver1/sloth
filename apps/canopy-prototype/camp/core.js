@@ -31,18 +31,18 @@ const qs = new URLSearchParams(location.search);
 // state, one part per owner), audio (audio.js: volume, muted, music, its volume and the station, as one JSON object).
 const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weather", time: "canopy-time", cycle: "canopy-cycle", save: "canopy-camp-save", audio: "canopy-audio" };
 // ---------------------------------------------------------------- window.__ globals on camp.html, in one list (review C2, crosscut-03/04, boot-04)
-// API: sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read these (and jeepSeat.js and lab.js the ones with no
-// export). Those six files (and activities.js) were left alone while PRs #14, #20 and #21 changed them; the PRs are merged, so the
-// next round can switch them to imports. The first four and __me are aliases of the exported object named here (__me stays until
-// player.js stops importing sloths.js); __campLife, __car, __op and the lab's three have no export yet.
-//   __camp       campProps.js CAMP        sloths.js, operator.js, audio.js, radio.js (and export_casters.cjs, below)
-//   __jeep       jeep.js jeepApi          sloths.js, input.js, car.js, audio.js (and export_casters.cjs)
+// API: sloths.js still reads the first three and __me, and input.js, operator.js, jeepSeat.js and lab.js read sloths.js's
+// __campLife, which has no export yet (sloths.js is the next file of the clean-up). operator.js, input.js, car.js, radio.js and
+// jeepSeat.js import everything else they use. audio.js imports jeepApi but still reads __acts and __op: it is evaluated while
+// campLife.js waits for the ground mask, before the chores and the operator exist, so importing them would move it (and its
+// Sound button) later in the build order. The first four, __me and __op are aliases of the exported object named here.
+//   __camp       campProps.js CAMP        sloths.js (and export_casters.cjs, below)
+//   __jeep       jeep.js jeepApi          sloths.js (and export_casters.cjs)
 //   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown; and export_casters.cjs)
-//   __acts       campLife.js acts         operator.js, audio.js
+//   __acts       campLife.js acts         audio.js (the pot's sounds)
 //   __campLife   sloths.js (its life)     input.js, operator.js, jeepSeat.js, lab.js
 //   __me         main.js (player.js me)   sloths.js (the player's seat)
-//   __car        car.js (inCar, engine)   jeepSeat.js adds doorOptions to it, which input.js reads; audio.js reads the engine
-//   __op         operator.js              audio.js (his sounds); a debug hook as well
+//   __op         operator.js opApi        audio.js (his sounds); a debug hook as well
 //   __lab, __labStep, __campFast         sloths.js and the move lab (lab.js); jeepSeat.js reads __campFast, camp-replay.cjs sets it
 // tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.
 //   __ready, __scene (main.js)                          all three tools
@@ -50,7 +50,7 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 //   __camp, __jeep, __laundry (above), __ground (campLife.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
 //   __time, __boop, __feed, __stick (main.js), __sit (linger.js), __weather (weather.js)   camp-replay.cjs's tour
 // debug hooks for checks by hand in the browser console: __rest, __face, __slothS (main.js), __clocks (clock.js), __errand,
-// __path, __spots, __sloth (sloths.js), __op (operator.js), __audio (audio.js), __radio (radio.js), __camera (car.js).
+// __path, __spots, __sloth (sloths.js), __op (operator.js), __audio (audio.js), __radio (radio.js), __car, __camera (car.js).
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
 // they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
 // "Canopy camp: start every download at once" (the looks were archived there). Their branches below and in forest.js, sky.js and campLife.js are dead code.

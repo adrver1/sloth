@@ -7,7 +7,8 @@
 // Repack after a change in desk-at-night (engine/): in engine/web, node scripts/pack_chars.mjs <dir> ../characters/bearded_operator/bearded_operator.glb
 // (mesh, no clips) and node scripts/pack_chars.mjs --clips idle,walk,seated_idle,stand_up,sip,hug,play,play_titanic,play_airplane,play_knees,wave,blink,happy,talk,phone,phone_down,step_down
 // <dir2> ../characters/bearded_operator/bearded_operator_survival.glb (its anims.glb: the same rig, with the play clips), then base64 each into models/.
-// ?op=0 leaves him out; window.__op drives him for checks (window.__op.go("read"), .state()).
+// ?op=0 leaves him out. Exports opStep (main.js, each frame) and opApi (null with ?op=0): his root, state and the hooks the
+// checks drive him with (opApi.go("read"), .state()); window.__op is the same object.
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { OPT, PRE, R, camera, scene, uTime } from "./core.js";
@@ -16,6 +17,7 @@ import { A0, CRATE, RC, SEAT_GAPS, SOUP_POT, TENT } from "./layout.js";
 import { V, canvasTex, ease, lam as plain, trisIn } from "./util.js";
 import { SLOTH, blockers, uNight } from "./campProps.js";
 import { addTarget } from "./input.js";
+import { acts as chores } from "./campLife.js";   // your chores (activities.js): he cooks with the same pot and pail, and takes food from your hand
 import { me } from "./player.js";
 import { fx, sprite } from "./sloths.js";
 import { makePail } from "./canister.js";
@@ -31,7 +33,7 @@ const RADIUS = 0.3, WALK = 1.05, STRIDE = 1.28, ME = "operator";
 
 // ---------------------------------------------------------------- the model: one skinned mesh, 1,034 triangles, Lambert
 const root = new THREE.Group(), clipOf = (n) => ANIM.animations.find((a) => a.name === n);
-let body, mixer, B = {}, acts = {}, cur = null;
+let body, mixer, B = {}, acts = {}, cur = null, opApi = null;
 if (ON) {
   body = clone(OP.scene); root.add(body); scene.add(root);
   body.traverse((m) => {
@@ -395,7 +397,7 @@ function* toPot() {   // already there (between steps at the pot): stay put; a p
   yield* face(yawTo(V(-root.position.x, 0, -root.position.z)));
 }
 DO.cook = function* () {
-  const K = window.__acts?.cook; if (!K?.can()) return;
+  const K = chores.cook; if (!K.can()) return;
   op.cooking = true; cookCD = R(240, 420);
   // the pail: stand at the table's edge, bend over, hook it out from under the top by its bail, straighten up with it
   const out = K.pail.clone().sub(K.table).setY(0).normalize(), stand = K.table.clone().addScaledVector(out, 1.22);
@@ -462,7 +464,7 @@ function* lifeLoop() {
   }
 }
 function pick() {
-  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (k !== "play" || life().lend) && (k !== "cook" || (cookCD <= 0 && window.__acts?.cook?.can())));
+  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (k !== "play" || life().lend) && (k !== "cook" || (cookCD <= 0 && chores.cook.can())));
   let r = R(0, w.reduce((s, [, v]) => s + v, 0)); for (const [k, v] of w) if ((r -= v) <= 0) return k; return w[0][0];
 }
 
@@ -812,7 +814,7 @@ const palmAt = (S, out) => B["hand" + S].getWorldPosition(out).addScaledVector(V
 // the hand that's free: the right unless it holds something; none while eating soup, reading, cuddling or lying down
 const freeHand = () => op.eat || op.ik?.book || op.ik?.hug || op.carry || op.lying || op.sleeping || op.ik?.L ? null : op.inHand || op.pail || op.stir || op.veg || op.ik?.R ? "L" : "R";
 function gift() {
-  const f = window.__acts?.give?.(); if (!f) return;
+  const f = chores.give(); if (!f) return;
   // the modelled food (camp/food.js) flies from your hand to his mouth, stays at his lips and gets a bite smaller each
   // munch (talkStep), then he thanks you
   const s = f.make(); s.position.copy(f.from); scene.add(s);
@@ -852,21 +854,24 @@ const tapCol = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.75, 6), n
 if (ON) {
   scene.add(tapCol); const sph = new THREE.Sphere();
   addTarget(tapCol, () => ({ look: null, quiet: true, picks: [tapCol], at: (v) => { v.copy(tapCol.position); sph.center.copy(v); sph.radius = 0.6; return sph; },
-    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => { const f = !op.sleeping && window.__acts?.food?.(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, gift]] : []), [op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]]; } }));
+    ready: () => camera.position.distanceTo(tapCol.position) < 7, options: () => { const f = !op.sleeping && chores.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, gift]] : []), [op.sleeping ? "Whisper goodnight 🌙" : "Talk 💬", talk]]; } }));
 }
 
 // start: standing by the woodpile side of the fire, looking at it
 if (ON) {
   const p = V(Math.cos(A0 + 0.9) * 2.6, 0, Math.sin(A0 + 0.9) * 2.6); root.position.copy(p); root.rotation.y = yawTo(p.clone().negate());
   play("idle", 0);
-  window.__op = { root, op, acts, mixer, go: (k) => { op.next = k; },
+  opApi = { root, op, acts, mixer, go: (k) => { op.next = k; },
     dbg: () => ({ inHand: op.inHand && [op.inHand === bowl ? 'bowl' : 'mug', op.inHand.visible, op.inHand.position.toArray().map((v) => +v.toFixed(2)), !!op.inHand.parent], w: Object.entries(acts).filter(([, a]) => a.isRunning()).map(([n, a]) => n + ':' + a.getEffectiveWeight().toFixed(2) + '@' + a.time.toFixed(2)) }),
     state: () => ({ kind: op.kind, at: root.position.toArray().map((v) => +v.toFixed(2)), place: op.place, seated: op.seated, lying: op.lying, sleeping: op.sleeping, buddy: op.buddy?.name ?? null, clip: cur?.getClip().name }),
     talk, gift, tapCol, fid: (k) => { op.fid = { kind: k, t: 0, k: 0, T: FID_T[k] * 3 }; fidCD = 99; }, cd: (o) => { if ("cook" in o) cookCD = o.cook; if ("join" in o) joinCD = o.join; if ("react" in o) reactCD = o.react; }, clearSpot, line: () => say.textContent, tapAt: () => op.scr, seats: () => SEATS.map((s) => [s.key, s.at.toArray().map((v) => +v.toFixed(2))]), why: () => ({ sl: op.sleeping, ly: op.lying, talk: talkSt.t, munch: talkSt.munch, cd: reactCD, carry: !!op.carry, cam: camera.position.distanceTo(root.position) }),
-    sim: (sec) => { for (let t = 0; t < sec; t += 0.05) opStep(0.05); return window.__op.state(); },   // run his life ahead (checks)
+    sim: (sec) => { for (let t = 0; t < sec; t += 0.05) opStep(0.05); return opApi.state(); },   // run his life ahead (checks)
     tris: () => trisIn(root),
     jump: (k) => { if (op.buddy) giveBack(); dropAll(); unhost(); release(); Object.assign(op, { seated: false, lying: false, sleeping: false, look: 0, footLock: null, carry: null, pass: null, cooking: false, fid: null }); root.rotation.set(0, root.rotation.y, 0); root.position.y = 0; play("idle", 0);
       it = (function* () { op.kind = k; yield* DO[k](); op.kind = "idle"; yield* lifeLoop(); })(); it.next(); } };
+  // alias: audio.js reads window.__op for his sounds (it is evaluated before this module, while campLife.js waits for the ground
+  // mask, so an import of opApi would move it and everything after it); the checks drive him through it too
+  window.__op = opApi;
 }
 
-export { opStep };
+export { opApi, opStep };

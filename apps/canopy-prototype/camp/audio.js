@@ -17,6 +17,7 @@ import { sloths } from "./sloths.js";
 import { me } from "./player.js";
 import { weather } from "./weather.js";
 import { SOUP_POT, TENT } from "./layout.js";
+import { jeepApi } from "./jeep.js";
 import { rand as R } from "./util.js";   // a number between a and b from Math.random, as the copy that stood here
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix: music sits well under the camp
@@ -311,7 +312,7 @@ function watchSloths(dt) {
   if ((sleepT -= dt) < 0) { sleepT = R(3.2, 4.2); let best = null, bd = 4; for (const s of sloths) if (s.asleep) { const d = s.o.getWorldPosition(tmp).distanceTo(camera.position); if (d < bd) { bd = d; best = s; } } if (best) SFX.breath(slothAt(best)); }
 }
 function watchOperator(dt) {
-  const O = window.__op; if (!O) return;
+  const O = window.__op; if (!O) return;   // operator.js opApi: a global, since this module is evaluated before the operator's (core.js says why)
   const p = O.root.position, head = tmp.copy(p).setY(p.y + 1.6).clone();
   if (opLast) { const d = Math.hypot(p.x - opLast.x, p.z - opLast.z); if (d < 0.5) { opStepD += d; if (opStepD > 0.64) { opStepD = 0; SFX.step(p.clone().setY(0.05)); } } }
   opLast = p.clone();
@@ -332,11 +333,11 @@ function watchOperator(dt) {
   Object.assign(opWas, { line, clip: st.clip || "", kind: st.kind });
 }
 function watchJeep() {
-  const J = window.__jeep; if (!J?.doors) return;
+  const J = jeepApi; if (!J?.doors) return;
   J.doors.forEach((d, i) => { const o = d.open; if (opWas.door[i] !== undefined && o !== opWas.door[i]) SFX.door(d.o.getWorldPosition(new THREE.Vector3()), o); opWas.door[i] = o; });
   // the engine (car.js: off → crank → run): a click of the key and the starter cranking, the engine catching with a rev,
   // a steady idle while it runs, and a few last chugs as it dies when you turn it off
-  const st = window.__car?.engine?.() ?? "off", was = opWas.engine ?? "off", at = J.node.getWorldPosition(new THREE.Vector3()).setY(0.7);
+  const st = J.engine?.() ?? "off", was = opWas.engine ?? "off", at = J.node.getWorldPosition(new THREE.Vector3()).setY(0.7);
   if (st !== was) {
     if (st === "crank") ENGINE.crank(at);
     if (st === "run") { ENGINE.idle(at, true); }
@@ -392,6 +393,7 @@ function audioStep(dt, dusk = 0) {
   if ((crackleT -= dt) < 0) { crackleT = R(0.03, 0.35); SFX.crackle(Math.random() < 0.04); }
   // the pot (activities.js soup, read through __acts.cook): quiet when empty, a faint simmer of water, a lively bubble while
   // it cooks, a gentle one when it's soup; water pouring in (yours or his) when it fills. Without that, a gentle simmer.
+  // (window.__acts is campLife.js's acts: a global for the same reason as window.__op in watchOperator)
   const stage = window.__acts?.cook?.stage ?? "ready", rate = { empty: 0, water: 0.6, cooking: 6, ready: 2 }[stage] ?? 2;
   if (potStage === "empty" && stage === "water") SFX.pour(potAt());
   if (potStage === "water" && stage === "cooking") SFX.plop(potAt());

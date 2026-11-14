@@ -5,6 +5,7 @@ import { keys, pickAt, ray, stickV, toast } from "./hud.js";
 import { V } from "./util.js";
 import { COUNT, burst, flowerCrown, fx, hit, sloths, sprite } from "./sloths.js";
 import { me } from "./player.js";
+import { jeepApi } from "./jeep.js";
 import { acts } from "./campLife.js";
 import { createHighlight } from "./highlight.js";
 
@@ -87,11 +88,11 @@ function allTargets() {
     ready: () => acts.ready(t), options: () => [[acts.label?.(t) ?? "Use it", () => acts.tap({ thing: t })]] })));   // only ever the one thing a tap does now (activities.js label)
   for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
     ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food?.(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })));
-  for (const d of window.__jeep?.doors ?? []) out.push(target(d, () => {
+  for (const d of jeepApi?.doors ?? []) out.push(target(d, () => {
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
     const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
-      options: () => [...(window.__car?.doorOptions?.(d) ?? []), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };   // car.js: Get in / Get out on the driver's door
+      options: () => [...(jeepApi.doorOptions?.(d) ?? []), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };   // jeepSeat.js: Get in / Get out on the front doors
   }));
   return out;
 }
