@@ -34,8 +34,7 @@ function eyeKit(o) {                                   // per sloth: its own cop
 }
 // a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
 // muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.
-// buildFace() makes the card's texture, material and geometry; sloths.js calls it first thing, where they were always made
-// (after deadwood.js's), so the materials keep their ids and draw order
+// buildFace() makes the card's texture, material and geometry; sloths.js calls it first thing, before any sloth is made
 let mouthMat, mouthGeo;
 function buildFace() {
   const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();

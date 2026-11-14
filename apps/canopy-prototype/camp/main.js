@@ -15,7 +15,7 @@ import "./sky.js";
 import "./forest.js";
 import { fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
 import { jeepStep } from "./jeep.js";
-import { campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
+import { buildSloths, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
@@ -43,6 +43,7 @@ let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety ne
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
 // the lived-in clearing, set down on the finished props and sloths in this order: the deadwood and the glade first, then the
 // ground, painted round the blockers as they stand then; the tent's walls join the blockers only after that
+buildSloths();                         // sloths.js: the wild sloths, then the camp's seven in their spots
 buildDeadwood();                       // deadwood.js
 buildGlade();                          // glade.js: its plants go into the ground's draw
 buildGround(await PRE.groundMask);     // campGround.js: waits for the ground mask's download
