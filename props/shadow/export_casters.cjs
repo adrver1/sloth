@@ -1,4 +1,4 @@
-// Writes props/shadow/layout_<props>.json, the clearing's layout as the live page has it (prop spots, the jeep's track,
+// Writes props/shadow/layout_<props>.json, the clearing's layout as the live page has it (the worn spots, camp/layout.js WEAR; the jeep's track,
 // the path to the glade, the tent, the hammock, the deadwood and the ground's height grid), for props/ground/bake_ground.py
 // and props/camp/bake_camp_lightmap.py, plus "place": where the page stands each baked prop and light, read from the live
 // page: the log seats (Seat_0-2 as the page stood them), "anchors" (layout.js ANCHORS, the places the props' anchor tags
@@ -39,12 +39,12 @@ if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.erro
       height: window.__terrainGrid?.(128) || null, place } };   // camp/terrain.js: the ground's height, 128 x 128 over 60 m (rows +z), for the bake's ground mesh
   });
   // a layout with parts missing would bake quietly wrong, so stop the bake here instead
-  const miss = out.error ? [out.error] : ["spots", "track", "glade", "tent", "hammock", "height"].filter((k) => !out.layout[k] || out.layout[k].length === 0);
+  const miss = out.error ? [out.error] : ["wear", "track", "glade", "tent", "hammock", "height"].filter((k) => !out.layout[k] || out.layout[k].length === 0);
   if (!out.error && !out.layout.deadwood.length) miss.push("deadwood");
   const bad = (v) => v === null || (Array.isArray(v) && (!v.length || v.includes(null)));
   if (!out.error) for (const [k, v] of Object.entries(out.layout.place)) if (k === "anchors" ? !Object.keys(v).length || Object.values(v).some(bad) : bad(v)) miss.push(`place.${k}`);
   if (pageErrors.length) miss.push(`${pageErrors.length} page error(s), first: ${pageErrors[0]}`);
   if (miss.length) { console.error("layout incomplete, nothing written: " + miss.join(", ")); await b.close(); process.exit(1); }
   if (jeep === "expedition") fs.writeFileSync(path.join(__dirname, `layout_${props}.json`), JSON.stringify(out.layout));   // for props/ground/bake_ground.py
-  console.log(`layout_${props}.json: ${out.layout.spots.length} spots, ${out.layout.deadwood.length} deadwood, track of ${out.layout.track.length}`); await b.close();
+  console.log(`layout_${props}.json: ${out.layout.wear.length} worn spots, ${out.layout.deadwood.length} deadwood, track of ${out.layout.track.length}`); await b.close();
 })();
