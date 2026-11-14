@@ -13,7 +13,7 @@ import { camera, rng } from "../core.js";
 const { R } = rng("sloths");
 import { V, yawFrom, yawTo } from "../util.js";
 import { RC } from "../layout.js";
-import { blockers } from "../campProps.js";
+import { blockers, blockersVersion } from "../campProps.js";
 import { createNav } from "../nav.js";
 import { walkers } from "../places.js";
 import { burst } from "../fx.js";
@@ -23,7 +23,7 @@ import { UP, turnTo, yawOf } from "./poses.js";
 
 let clearLine, findPath, isFree;
 const wDir = V(), wPath0 = V(), wWas = V(), wFwd = V();   // walkStep's scratch vectors, reused every frame
-function buildNav() { ({ clearLine, findPath, isFree } = createNav({ blockers, half: RC + 0.5, rim: RC - 0.8, fireKeep: 2.3, body: 0.28 })); }
+function buildNav() { ({ clearLine, findPath, isFree } = createNav({ blockers, version: blockersVersion, half: RC + 0.5, rim: RC - 0.8, fireKeep: 2.3, body: 0.28 })); }
 
 function walkTo(s, goal, arrive) {
   setTrip(s, "walk", { path: findPath(s.o.position, goal), arrive, yaw: yawOf(s.o) });

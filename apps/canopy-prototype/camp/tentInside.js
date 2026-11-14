@@ -5,7 +5,7 @@
 // Exports buildTentInside(): main.js calls it once, after the ground is built (the ground reads the blockers first).
 import * as THREE from "three";
 import { camera, scene, uTime } from "./core.js";
-import { blockers, glowTex, uNight } from "./campProps.js";
+import { addBlocker, dropBlocker, glowTex, uNight } from "./campProps.js";
 import { TENT } from "./layout.js";
 
 function buildTentInside() {
@@ -13,10 +13,10 @@ function buildTentInside() {
   const { W, yf, yb, DW } = TENT, wall = [];
   for (let y = yf; y <= yb + 0.01; y += 0.3) wall.push([-W, y], [W, y]);
   for (let x = -W + 0.3; x < W; x += 0.3) { wall.push([x, yb]); if (Math.abs(x) > DW + 0.12) wall.push([x, yf]); }
-  const i = blockers.findIndex((b) => b.tent); if (i >= 0) blockers.splice(i, 1);
-  for (const [x, y] of wall) blockers.push([at(x, y), 0.1]);
-  for (let y = yb - 0.3; y > yb - 1.9; y -= 0.35) blockers.push([at(-W + 0.48, y), 0.18]);   // the bed, along the left wall
-  blockers.push([at(...TENT.stove), 0.3]);                                               // the stove
+  dropBlocker((b) => b.tent);
+  addBlocker(...wall.map(([x, y]) => [at(x, y), 0.1]));
+  for (let y = yb - 0.3; y > yb - 1.9; y -= 0.35) addBlocker([at(-W + 0.48, y), 0.18]);   // the bed, along the left wall
+  addBlocker([at(...TENT.stove), 0.3]);                                                 // the stove
   // the stove's amber light: a glow at its fire door and a warm pool on the floor before it, flickering with the
   // fire; faint by day, full at night (two additive quads, no extra scene light, so phones pay nothing per pixel)
   const amber = (size, y, onFloor) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffa040, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));

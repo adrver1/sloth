@@ -1,7 +1,8 @@
 // Canopy Camp props: the camp's blockers (the layout itself is layout.js), the picked props with their baked light map (lnight), the lived-in props,
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
 // main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
-// at night) and motesStep (the drifting motes). Exports those, CAMP, SLOTH (the sloth model), blockers and the props' parts
+// at night) and motesStep (the drifting motes). Exports those, CAMP, SLOTH (the sloth model), blockers with addBlocker,
+// dropBlocker and blockersVersion (every later change to the list goes through the first two), and the props' parts
 // other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX, fireLight, glowTex, lanternGlow, LANTERNS, rayMat, uNight), and buildProps()
 // (main.js, once), which builds them all.
 import * as THREE from "three";
@@ -27,6 +28,12 @@ const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
 const blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Object.assign([TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), 1.9], { tent: true }), [TABLE.at, 0.75], [HAMMOCK.a, 0.3], [HAMMOCK.b, 0.3], ...HERO.map((h) => [h, 1.4])];
 for (const { angle: a, at: c } of SEATS) { const t = V(-Math.sin(a), 0, Math.cos(a));
   blockers.push(Object.assign([c, 0.75], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
+// every change to blockers after this goes through addBlocker or dropBlocker, which count it, so the sloths' grid (nav.js)
+// knows to build itself again (review R2-113: it used to compare the list's length, which a swap leaves the same)
+let blockersRev = 0;
+const addBlocker = (...b) => { blockers.push(...b); blockersRev++; };
+const dropBlocker = (test) => { const i = blockers.findIndex(test); if (i >= 0) { blockers.splice(i, 1); blockersRev++; } };
+const blockersVersion = () => blockersRev;
 const FIRE_CARDS = [];   // the fire's flame cards (the activities flare them)
 const uNight = { value: 0 };   // how far the baked night light is faded in (main.js sets it from the dusk)
 let glowTex, LANTERNS, fireLight, rayMat, motes, pools, SLOTH, LMTEX, LMSUN, WOODPILE, WOOD_TEX;   // set by buildProps
@@ -117,10 +124,10 @@ async function buildProps() {
     const { at: wp, yaw: wy, side } = WOOD_PILE;
     put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); put("LooseLogs", wp.x, wp.z, wy); WOODPILE = wp;   // the activities take logs from here
     L.scene.getObjectByName("WoodStack").traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; });   // and paint them like the stack
-    blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
+    addBlocker([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
     put("SeatThings", SEATS[1].at.x, SEATS[1].at.z, SEATS[1].yaw);   // the middle seat
     { const t = TENT.at; put("TentSide", t.x, t.z, TENT.yaw); put("MatRoll", t.x, t.z, TENT.yaw); }   // wellies and the rolled mat on the planks by the door (tent frame)
-    { const { at: k, yaw: ky } = CRATE; put("KitchenCrate", k.x, k.z, ky); put("KitchenThings", k.x, k.z, ky); blockers.push([k, 0.35]); }   // the kitchen crate beside the snack table, its front to the fire
+    { const { at: k, yaw: ky } = CRATE; put("KitchenCrate", k.x, k.z, ky); put("KitchenThings", k.x, k.z, ky); addBlocker([k, 0.35]); }   // the kitchen crate beside the snack table, its front to the fire
     SEATS.forEach(({ at, yaw }, i) => put(L.scene.getObjectByName(`SeatTop_${i}`) ? `SeatTop_${i}` : "SeatTop", at.x, at.z, yaw));   // the sawn top on each seat
   }
   // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,
@@ -130,7 +137,7 @@ async function buildProps() {
     const LD = await PRE.laundry;
     LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
     const o = LD.scene; o.position.copy(LAUNDRY.mid); o.rotation.y = LAUNDRY.yaw; scene.add(o);
-    blockers.push([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
+    addBlocker([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
   }
   // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
   // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
@@ -196,4 +203,4 @@ function poolsStep(dusk, fl, nightBaked) { pools.visible = dusk > 0 && !nightBak
 // the motes drift slowly round the clearing
 function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
 
-export { buildProps, CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight };
+export { buildProps, CAMP, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, addBlocker, blockers, blockersVersion, dropBlocker, fireLight, fireStep, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight };

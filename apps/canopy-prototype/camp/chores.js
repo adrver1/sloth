@@ -12,7 +12,7 @@ import { createActivities } from "../activities.js";
 import { LIVED, camera, scene } from "./core.js";
 import { toast } from "./hud.js";
 import { cue } from "./audio.js";
-import { FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, glowTex } from "./campProps.js";
+import { FIRE_CARDS, WOODPILE, WOOD_TEX, addBlocker, fireLight, glowTex } from "./campProps.js";
 import { CRATE, FIRE, SOUP_POT, TABLE, WOOD_PILE } from "./layout.js";
 import { sloths } from "./sloths.js";
 import { burst } from "./fx.js";
@@ -32,7 +32,7 @@ function buildChores() {
     places: { woodPile: { at: WOOD_PILE.at, built: !!WOODPILE }, fire: FIRE, pot: SOUP_POT, table: TABLE, crate: LIVED ? CRATE.at : null },   // built: the props' pile stands there (not with ?lived=0, when the fire chore stacks plain logs)
     looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
       .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)),
-    woodTex: WOOD_TEX ?? null, glowTex, burst, toast: (text, sound) => { toast(text); if (sound) cue(sound); }, addBlocker: (c, r) => blockers.push([c, r]), boostFire });
+    woodTex: WOOD_TEX ?? null, glowTex, burst, toast: (text, sound) => { toast(text); if (sound) cue(sound); }, addBlocker: (c, r) => addBlocker([c, r]), boostFire });
   // the things you can use light up and open a menu (targets.js): only ever the one thing a tap does now (the thing's own
   // label, activities.js)
   const sph = new THREE.Sphere();

@@ -7,28 +7,31 @@
 //   findPath(from, to)   an A* path on the grid, pulled straight where the way is clear, ending at `to` on the ground. A
 //                        start or an end inside a blocker (a seat, the jeep's door) goes straight out to the nearest
 //                        free cell. With no way through it is [to].
-// options: blockers (the live list: the grid is made again when its length changes, as when the tent's walls or an
-// activity's prop are added), half (the grid covers -half..half in x and z), rim (blocked beyond this far from the
+// options: blockers (the live list), version (a function that returns a number which changes whenever the list does:
+// campProps.js blockersVersion; the grid is made again when it changes, as when the tent's walls or an activity's prop are
+// added), half (the grid covers -half..half in x and z), rim (blocked beyond this far from the
 // middle), fireKeep (blocked within this of the middle: a wide berth round the fire), body (how far the walker keeps
 // from a blocker's edge), cell (the cell size, 0.2 m). Nothing is built on import, and no random numbers are drawn.
 import { V } from "./util.js";
 
-export function createNav({ blockers, half, rim, fireKeep, body, cell = 0.2 }) {
+export function createNav({ blockers, version, half, rim, fireKeep, body, cell = 0.2 }) {
   const GC = cell, GH = half, GN = Math.ceil(2 * GH / GC), tmp = V();
   let grid = null, gridFor = -1;
-  const cellOf = (p) => [Math.max(0, Math.min(GN - 1, Math.floor((p.x + GH) / GC))), Math.max(0, Math.min(GN - 1, Math.floor((p.z + GH) / GC)))];
-  const cellAt = (i, j) => V(-GH + (i + 0.5) * GC, 0, -GH + (j + 0.5) * GC);
-  function freeGrid() {                               // rebuilt when a blocker is added (the tent's walls, the activities' props)
-    if (grid && gridFor === blockers.length) return grid;
-    grid = new Uint8Array(GN * GN); gridFor = blockers.length;
-    for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) { const q = cellAt(i, j), r = Math.hypot(q.x, q.z); if (r > rim || r < fireKeep) grid[j * GN + i] = 1; }
+  const ix = (x) => Math.max(0, Math.min(GN - 1, Math.floor((x + GH) / GC)));   // the cell column (or row) of an x (or z)
+  const cellOf = (p) => [ix(p.x), ix(p.z)];
+  const mid = (i) => -GH + (i + 0.5) * GC;                                       // a cell's middle, in x (or z)
+  const cellAt = (i, j) => V(mid(i), 0, mid(j));
+  function freeGrid() {                               // rebuilt when the blockers change (the tent's walls, the activities' props)
+    const v = version(); if (grid && gridFor === v) return grid;
+    grid = new Uint8Array(GN * GN); gridFor = v;
+    for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) { const r = Math.hypot(mid(i), mid(j)); if (r > rim || r < fireKeep) grid[j * GN + i] = 1; }
     for (const [c, r] of blockers) {
-      const RR = r + body, [i0, j0] = cellOf(V(c.x - RR, 0, c.z - RR)), [i1, j1] = cellOf(V(c.x + RR, 0, c.z + RR));
-      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const q = cellAt(i, j); if (Math.hypot(q.x - c.x, q.z - c.z) < RR) grid[j * GN + i] = 1; }
+      const RR = r + body, i0 = ix(c.x - RR), j0 = ix(c.z - RR), i1 = ix(c.x + RR), j1 = ix(c.z + RR);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (Math.hypot(mid(i) - c.x, mid(j) - c.z) < RR) grid[j * GN + i] = 1;
     }
     return grid;
   }
-  const isFree = (p) => { const [i, j] = cellOf(p); return !freeGrid()[j * GN + i]; };
+  const isFree = (p) => !freeGrid()[ix(p.z) * GN + ix(p.x)];
   function nearestFree(i, j) {
     const g = freeGrid();
     for (let r = 1; r < 30; r++) {
