@@ -11,9 +11,9 @@ import { SUN } from "./layout.js";
 //   option   values                        default                           read by
 //   detail   low | medium | high           saved, else medium                core.js (D: counts, effects, resolution), main.js (DETAIL)
 //   lm       2k | 1k | 4k (4k: local only) saved, else 1k on phones, 2k     core.js (the light maps)
-//   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campLife.js (JEEP)
+//   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campGround.js (JEEP)
 //   seed     a number                      7                                 core.js (the shared stream), forest.js (its restart)
-//   lived    1 | 0                         1                                 core.js, campProps.js, campLife.js (LIVED)
+//   lived    1 | 0                         1                                 core.js, campProps.js, chores.js (LIVED)
 //   op       1 | 0                         1                                 core.js (the operator's downloads), operator.js (0 leaves him out)
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
 //   time     an hour, 0 up to 24 (21.5)    saved, else 12                    daytime.js (the hour set; anything else counts as 12)
@@ -39,7 +39,7 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 //   __camp       campProps.js CAMP        sloths.js (and export_casters.cjs, below)
 //   __jeep       jeep.js jeepApi          sloths.js (and export_casters.cjs)
 //   __laundry    layout.js LAUNDRY        sloths.js (set by campProps.js only when the line is shown; and export_casters.cjs)
-//   __acts       campLife.js acts         audio.js (the pot's sounds)
+//   __acts       campLife.js acts         audio.js (the pot's sounds); chores.js sets it
 //   __campLife   sloths.js (its life)     input.js, operator.js, jeepSeat.js, lab.js
 //   __me         main.js (player.js me)   sloths.js (the player's seat)
 //   __op         operator.js opApi        audio.js (his sounds); a debug hook as well
@@ -47,13 +47,13 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 // tool contract: tools/camp-probe.cjs, tools/camp-replay.cjs and props/shadow/export_casters.cjs read these; keep the names.
 //   __ready, __scene (main.js)                          all three tools
 //   __stats (main.js)                                   camp-probe.cjs, camp-replay.cjs
-//   __camp, __jeep, __laundry (above), __ground (campLife.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
+//   __camp, __jeep, __laundry (above), __ground (campGround.js), __glade (main.js), __deadwood (deadwood.js), __terrainGrid (terrain.js)   export_casters.cjs (the bake's layout)
 //   __time, __boop, __feed, __stick (main.js), __sit (linger.js), __weather (weather.js)   camp-replay.cjs's tour
 // debug hooks for checks by hand in the browser console: __rest, __face, __slothS (main.js), __clocks (clock.js), __errand,
 // __path, __spots, __sloth (sloths.js), __op (operator.js), __audio (audio.js), __radio (radio.js), __car, __camera (car.js).
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
 // they live on in index.html (the forest look prototype), and camp.html with all three is in git history before commit
-// "Canopy camp: start every download at once" (the looks were archived there). Their branches below and in forest.js, sky.js and campLife.js are dead code.
+// "Canopy camp: start every download at once" (the looks were archived there). Their branches below and in forest.js and sky.js are dead code (campGround.js still passes LOOK to ground.js).
 const LOOK = "moss";
 const $ = (id) => document.getElementById(id);
 // settings: one ⚙️ button opens the detail and light-map choices (the old row took a quarter of a phone screen)

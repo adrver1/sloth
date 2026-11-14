@@ -1,6 +1,6 @@
 // Camp activities for camp.html (thread "Plan camp activities", plan in project files canopy-hide-and-seek/activities-plan.md).
-// Kept out of the camp's own modules so the sibling threads' edits there don't collide; camp/campLife.js creates it, camp/input.js
-// passes taps in and camp/main.js calls update() each frame.
+// Kept out of the camp's own modules so the sibling threads' edits there don't collide; camp/chores.js creates it with the camp's
+// places and props, camp/input.js passes taps in and camp/main.js calls update() each frame.
 // Calm by design: no timer, no score, no fail. Walk up to a thing, it lights up when you can use it (camp/highlight.js), tap it. You carry one thing at a time.
 // Chunk 1: wood on the fire. Take a log from the wood pile, carry it to the fire and tap: the fire flares for about a minute,
 // then settles over a few minutes and never goes out. Up to three logs burn at once. The camp sloth nearest the fire blinks happily.
