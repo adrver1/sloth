@@ -1,7 +1,15 @@
 """
-Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
-drop_faces, capless), and object plumbing (apply_all, join, obj_from_bm, select_only). Z up, metres; every helper links what it
-makes into the current scene's collection and returns it.
+Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), tubes (sweep, tube),
+shaping (bevel, rough_up, drop_faces), and object plumbing (apply_all, join, obj_from_bm, select_only). Z up, metres;
+every helper that makes an object links it into the current scene's collection and returns it.
+
+    sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None)
+        a tube of `sides` flat sides into bmesh bm along the points, one ring per point, faces wound outward, caps only
+        where asked; returns {"rings", "sides", "cap_a", "cap_b", "angles"} so the caller can set UVs and materials
+    tube(a, b, r, m=None, sides=8, cap_a=False, cap_b=True, r_b=None, rings=None, twist=0.0, frame=None, smooth=True,
+         name="tube")
+        one straight tube from a to b as its own object (sweep on a fresh bmesh): the posts, roots and poles whose
+        buried or hidden end has no cap (review R2-251, which replaced five hand-written tube builders and capless)
 """
 import math
 
@@ -47,6 +55,47 @@ def rod(a, b, r, m, verts=8, caps=True):
     o.rotation_mode = "QUATERNION"
     o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
     return o
+
+
+def _frame(d):
+    """Two unit vectors x, y across direction d with x, y, d right-handed: x = d x Z, or d x X when d is near Z."""
+    x = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.99 else Vector((1, 0, 0))).normalized()
+    return x, d.cross(x)
+
+
+def sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None):
+    """A tube with `sides` flat sides into bm along pts (at least two points), ring i of radius radii[i] round pts[i].
+    Ring vertex k sits at angle angles[k] = 2 pi (k + twist) / sides from the frame's x toward its y. frame=(x, y) sets the
+    first ring's frame (x, y and the direction right-handed); by default _frame. Along a bent path each ring's frame is
+    the last one turned onto the new direction (parallel transport), so the tube does not twist. Side faces are wound
+    outward, with loops in the order (ring i k, ring i k+1, ring i+1 k+1, ring i+1 k); cap_b faces along the path, cap_a
+    against it, and neither is made unless asked. Returns {"rings": [[BMVert]], "sides": [[BMFace] per segment],
+    "cap_a": BMFace or None, "cap_b": BMFace or None, "angles": [float]}."""
+    pts = [Vector(p) for p in pts]
+    angles = [2 * math.pi * (k + twist) / sides for k in range(sides)]
+    dirs = [(pts[i + 1] - pts[i]).normalized() for i in range(len(pts) - 1)]
+    tans = [dirs[0]] + [(dirs[i - 1] + dirs[i]).normalized() for i in range(1, len(dirs))] + [dirs[-1]]
+    x, y = (Vector(frame[0]), Vector(frame[1])) if frame else _frame(tans[0])
+    rings, prev = [], tans[0]
+    for c, r, t in zip(pts, radii, tans):
+        q = prev.rotation_difference(t)
+        x, y, prev = q @ x, q @ y, t
+        rings.append([bm.verts.new(c + (x * math.cos(a) + y * math.sin(a)) * r) for a in angles])
+    faces = [[bm.faces.new((A[k], A[(k + 1) % sides], B[(k + 1) % sides], B[k])) for k in range(sides)] for A, B in zip(rings, rings[1:])]
+    return {"rings": rings, "sides": faces, "angles": angles,
+            "cap_a": bm.faces.new(rings[0][::-1]) if cap_a else None, "cap_b": bm.faces.new(rings[-1]) if cap_b else None}
+
+
+def tube(a, b, r, m=None, sides=8, cap_a=False, cap_b=True, r_b=None, rings=None, twist=0.0, frame=None, smooth=True, name="tube"):
+    """A straight tube from a to b as its own object (see sweep): radius r at a and r_b (default r) at b, or rings, a list
+    of (t, radius) with t from 0 at a to 1 at b. By default the end at a (in the ground or inside another part) is open
+    and the end at b capped. m: the material (smooth shaded unless smooth=False)."""
+    a, b = Vector(a), Vector(b)
+    rings = rings or ((0.0, r), (1.0, r if r_b is None else r_b))
+    bm = bmesh.new()
+    sweep(bm, [a.lerp(b, t) for t, _ in rings], [rr for _, rr in rings], sides, cap_a, cap_b, twist, frame)
+    o = obj_from_bm(bm, name)
+    return with_material(o, m, smooth) if m else o
 
 
 def ball(r, at=(0, 0, 0), scale=(1, 1, 1), m=None, seg=16, rot=(0, 0, 0)):
@@ -107,19 +156,6 @@ def drop_faces(o, test):
     bm = bmesh.new()
     bm.from_mesh(o.data)
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if test(f.normal, f.calc_center_median())], context="FACES")
-    bm.to_mesh(o.data)
-    bm.free()
-    return o
-
-
-def capless(o, a, b, keep_end=True):
-    """Drop a rod's caps that nobody sees: the one at a (in the ground or the stump), and the one at b unless keep_end."""
-    apply_all(o)
-    d = (Vector(b) - Vector(a)).normalized()
-    bm = bmesh.new()
-    bm.from_mesh(o.data)
-    gone = [f for f in bm.faces if abs(f.normal.dot(d)) > 0.98 and (not keep_end or (f.calc_center_median() - Vector(a)).dot(d) < 0.01)]
-    bmesh.ops.delete(bm, geom=gone, context="FACES")
     bm.to_mesh(o.data)
     bm.free()
     return o

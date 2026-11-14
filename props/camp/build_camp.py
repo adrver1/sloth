@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, join, obj_from_bm, rod, rough_up, sweep, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
 STYLES = ("storybook", "rustic", "jungle")      # the archived styles build() remakes; the picked set comes from the light bake
@@ -82,22 +82,14 @@ def painted_bamboo(a, h, r, m, node_m, step=0.38, band=0.035, sides=8):
         z = min(h, z + step - band); zs.append(z); kinds.append(0)
         if z < h - band:
             z += band; zs.append(z); kinds.append(1)
-    n = sides
-    verts = [(a[0] + r * math.cos((k + 0.5) * 2 * math.pi / n), a[1] + r * math.sin((k + 0.5) * 2 * math.pi / n), a[2] + zz)
-             for zz in zs for k in range(n)]
-    faces, mats = [], []
-    for i, kind in enumerate(kinds):
-        for k in range(n):
-            faces.append((i * n + k, i * n + (k + 1) % n, (i + 1) * n + (k + 1) % n, (i + 1) * n + k)); mats.append(kind)
-    faces.append(tuple(len(zs) * n - n + k for k in range(n))); mats.append(0)
-    me = bpy.data.meshes.new("post")
-    me.from_pydata(verts, [], faces)
-    o = bpy.data.objects.new("post", me)
-    bpy.context.collection.objects.link(o)
+    bm = bmesh.new()
+    t = sweep(bm, [(a[0], a[1], a[2] + zz) for zz in zs], [r] * len(zs), sides, twist=0.5, frame=((1, 0, 0), (0, 1, 0)))
+    for seg, kind in zip(t["sides"], kinds):
+        for f in seg:
+            f.material_index = kind
+    o = obj_from_bm(bm, "post")
     o.data.materials.append(m)
     o.data.materials.append(node_m)
-    for poly, mi in zip(o.data.polygons, mats):
-        poly.material_index = mi
     return [o]
 
 

@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, cyl, join, obj_from_bm, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, box, cyl, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
 
 rng = random.Random(23)
 LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
@@ -150,19 +150,13 @@ def tripod_legs():
     for i in range(3):
         a = i / 3 * 2 * math.pi + 0.3
         foot = Vector((math.cos(a) * 0.85, math.sin(a) * 0.85, 0))
-        d = (TOP - foot).normalized()
-        top = TOP + d * 0.16                                       # the tops poke out past the crossing
+        top = TOP + (TOP - foot).normalized() * 0.16               # the tops poke out past the crossing
         L = (top - foot).length
-        x = d.cross(Vector((0, 0, 1))).normalized()
-        y = d.cross(x)
-        ring = lambda c: [c + (x * math.cos(k / n * 2 * math.pi) + y * math.sin(k / n * 2 * math.pi)) * r for k in range(n + 1)]
-        lo, hi = [bm.verts.new(v) for v in ring(foot)], [bm.verts.new(v) for v in ring(top)]
-        for k in range(n):
-            f = bm.faces.new((lo[k], lo[k + 1], hi[k + 1], hi[k]))
+        t = sweep(bm, [foot, top], [r, r], n)
+        for k, f in enumerate(t["sides"][0]):
             for lp, u in zip(f.loops, ((k / n, 0), ((k + 1) / n, 0), ((k + 1) / n, L / 0.5), (k / n, L / 0.5))):
                 lp[uv].uv = u
-        cap = bm.faces.new(hi[:n])
-        for lp in cap.loops:
+        for lp in t["cap_b"].loops:
             lp[uv].uv = (0.5, 0.01)                                # the node colour
     o = obj_from_bm(bm, "TripodLegs")
     o.data.materials.append(image_material("TripodLegs", img))
@@ -185,27 +179,13 @@ def hex_log(a, b, r, M, burnt=0.45, sides=6):
     """A low-poly fire log from a (in the ash) to b: one six-sided tube with a single extra ring where the bark turns to
     char, a cap on the burnt end and none on the buried end. 4 x sides + (sides - 2) triangles."""
     a, b = Vector(a), Vector(b)
-    d = (b - a).normalized()
-    x = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.99 else Vector((1, 0, 0))).normalized()
-    y = d.cross(x)
-    k = a.lerp(b, 1 - burnt)
-    tw = rng.uniform(0, 1)
-    rings = [[c + (x * math.cos((j + tw) / sides * 2 * math.pi) + y * math.sin((j + tw) / sides * 2 * math.pi)) * rr for j in range(sides)]
-             for c, rr in ((a, r), (k, r), (b, r * 0.85))]
-    verts = [v for ring in rings for v in ring]
-    faces, mats = [], []
-    for i, m in ((0, 0), (1, 1)):
-        for j in range(sides):
-            faces.append((i * sides + j, i * sides + (j + 1) % sides, (i + 1) * sides + (j + 1) % sides, (i + 1) * sides + j)); mats.append(m)
-    faces.append(tuple(2 * sides + j for j in range(sides))); mats.append(1)
-    me = bpy.data.meshes.new("log")
-    me.from_pydata([tuple(v) for v in verts], [], faces)
-    o = bpy.data.objects.new("log", me)
-    bpy.context.collection.objects.link(o)
-    me.materials.append(M["bark"])
-    me.materials.append(M["char"])
-    for poly, mi in zip(me.polygons, mats):
-        poly.material_index = mi
+    bm = bmesh.new()
+    t = sweep(bm, [a, a.lerp(b, 1 - burnt), b], [r, r, r * 0.85], sides, twist=rng.uniform(0, 1))
+    for f in t["sides"][1] + [t["cap_b"]]:                         # the burnt end
+        f.material_index = 1
+    o = obj_from_bm(bm, "log")
+    o.data.materials.append(M["bark"])
+    o.data.materials.append(M["char"])
     return [o]
 
 

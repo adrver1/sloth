@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake, pick_device  # noqa: E402
 from lib.export import export_glb, report, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, capless, cyl, join, obj_from_bm, quad, rod, rough_up, torus  # noqa: E402
+from lib.mesh import apply_all, box, cyl, join, obj_from_bm, quad, rod, rough_up, sweep, torus, tube  # noqa: E402
 
 rng = random.Random(11)
 SEAT_TOP = 0.361
@@ -360,18 +360,18 @@ def wood_pile(M):
     # two posts at the ends keep the stack from rolling
     for s in (-1, 1):
         a, b = (s * 0.52, 0, -0.02), (s * 0.54, 0.02, 0.55)
-        p.append(capless(rod(a, b, 0.035, M["bark2"], verts=5), a, b))
+        p.append(tube(a, b, 0.035, M["bark2"], sides=5))          # open at the buried foot
     k0 = mark(p, 0, "End posts")
     # the chopping stump beside it, with the hatchet left in
     sx, sy = 1.0, -0.15
-    stump = cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=8, r2=None, smooth=False)
-    p.append(capless(rough_up(stump, 0.01, 10), (sx, sy, 0), (sx, sy, 0.42), keep_end=False))
+    stump = cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=8, smooth=False, caps=False)   # ring_top is its top
+    p.append(rough_up(stump, 0.01, 10))
     p.append(ring_top(0.215, (sx, sy, 0.421), 8, M))
     for k in range(4):                              # roots flaring into the ground
         t = k / 4 * 2 * math.pi + 0.4
         a = (sx + math.cos(t) * 0.17, sy + math.sin(t) * 0.17, 0.05)
         b = (sx + math.cos(t) * 0.27, sy + math.sin(t) * 0.27, -0.03)
-        p.append(capless(rod(a, b, 0.045, M["bark"], verts=4), a, b, keep_end=False))
+        p.append(tube(a, b, 0.045, M["bark"], sides=4, cap_b=False))   # both ends in the stump or the ground
     k0 = mark(p, k0, "Chopping stump")
     p.append(hatchet(M, (sx + 0.03, sy - 0.02, 0.505), yaw=-0.5, lean=0.85))   # the blade bitten in about 2 cm
     k0 = mark(p, k0, "Hatchet")
@@ -403,24 +403,19 @@ def loose_logs(logs=None, name="LooseLogs"):
     U = lambda x, y: (x / 1024, 1 - y / 1024)  # noqa: E731
     for L, r, x, y, yaw, e, sd in logs or LOOSE:
         c, sn = math.cos(yaw), math.sin(yaw)
-        P = lambda lx, ly, lz: Vector((x + lx * c - ly * sn, y + lx * sn + ly * c, lz))  # noqa: E731
-        ang = [math.radians(30 + 60 * k) for k in range(HEX)]       # a flat face down, so it rests on the ground
-        zc = r * math.cos(math.radians(30))
-        ends = [[bm.verts.new(P(s * L / 2, r * math.cos(a), zc + r * math.sin(a))) for a in ang] for s in (-1, 1)]
+        zc = r * math.cos(math.radians(30))                         # a flat face down, so it rests on the ground
+        t = sweep(bm, [(x - c * L / 2, y - sn * L / 2, zc), (x + c * L / 2, y + sn * L / 2, zc)], [r, r], HEX, cap_a=True,
+                  twist=0.5, frame=((-sn, c, 0), (0, 0, 1)))
         y0, y1 = ATLAS_SIDES[sd]
-        for k in range(HEX):
-            j = (k + 1) % HEX
-            f = bm.faces.new((ends[0][k], ends[1][k], ends[1][j], ends[0][j]))
+        for k, f in enumerate(t["sides"][0]):
             va, vb = y0 + (y1 - y0) * k / HEX, y0 + (y1 - y0) * (k + 1) / HEX   # each face a slice across the band
-            for lp, (ux, vy) in zip(f.loops, ((20, va), (355, va), (355, vb), (20, vb))):
+            for lp, (ux, vy) in zip(f.loops, ((20, va), (20, vb), (355, vb), (355, va))):
                 lp[uv].uv = U(ux, vy)
         ex, ey, er = ATLAS_ENDS[e]
-        for s, ring in ((-1, ends[0][::-1]), (1, ends[1])):
-            f = bm.faces.new(ring)
-            for lp, v in zip(f.loops, ring):
-                a = ang[ends[0 if s < 0 else 1].index(v)]
+        for s, ring, cap in ((-1, t["rings"][0], t["cap_a"]), (1, t["rings"][1], t["cap_b"])):
+            for lp in cap.loops:
+                a = t["angles"][ring.index(lp.vert)]
                 lp[uv].uv = U(ex + er * math.cos(a) * s, ey - er * math.sin(a))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
     o = obj_from_bm(bm, name)
     me = o.data
@@ -584,19 +579,19 @@ def tent_side(M):
     return join(p, "TentSide")
 
 
-def mat_roll(path):
-    """A rolled foam sleeping mat lying on the planks left of the door: an 8-sided prism (28 triangles) with the
-    straps painted on its side and the rolled spiral painted on its ends (mat_roll.png)."""
+def mat_roll_texture(path):
+    """mat_roll.png, 128 x 64: the side (left half: foam ridges along the roll and two dark straps round it) and the end
+    (right half: the rolled layers as a spiral)."""
     from PIL import Image, ImageDraw
     k = 4
     im = Image.new("RGB", (128 * k, 64 * k), (64, 128, 176))
     d = ImageDraw.Draw(im)
-    for x in range(0, 64 * k, 6 * k):                         # the foam's ridges along the roll (left half: the side)
+    for x in range(0, 64 * k, 6 * k):                         # the foam's ridges along the roll
         d.line((x, 0, x, 64 * k), fill=(52, 110, 156), width=2 * k)
     for y in (12, 46):                                         # two straps round it
         d.rectangle((0, y * k, 64 * k, (y + 6) * k), fill=(48, 44, 40))
         d.rectangle((0, (y + 1) * k, 64 * k, (y + 2) * k), fill=(80, 74, 66))
-    d.rectangle((64 * k, 0, 128 * k, 64 * k), fill=(40, 90, 130))   # the end: the rolled layers as a spiral
+    d.rectangle((64 * k, 0, 128 * k, 64 * k), fill=(40, 90, 130))
     cx, cy = 96 * k, 32 * k
     pts = []
     for i in range(400):
@@ -605,23 +600,24 @@ def mat_roll(path):
         pts.append((cx + r * math.cos(t), cy + r * math.sin(t)))
     d.line(pts, fill=(92, 156, 204), width=3 * k)
     im.resize((128, 64), Image.LANCZOS).save(path)
+
+
+def mat_roll(path):
+    """A rolled foam sleeping mat lying on the planks left of the door: an 8-sided prism (28 triangles) with the
+    straps painted on its side and the rolled spiral painted on its ends (mat_roll_texture, written to path)."""
+    mat_roll_texture(path)
     L, r, sides = 0.6, 0.075, 8
-    x0, y0 = -0.95, -1.2
+    x0, y0, zc = -0.95, -1.2, PLANK + r * math.cos(math.pi / sides)
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
-    ang = [2 * math.pi * (i + 0.5) / sides for i in range(sides)]
-    ends = [[bm.verts.new((x0 + s * L / 2, y0 + r * math.cos(t), PLANK + r * math.cos(math.pi / sides) + r * math.sin(t))) for t in ang] for s in (-1, 1)]
-    for i in range(sides):
-        j = (i + 1) % sides
-        f = bm.faces.new((ends[0][i], ends[1][i], ends[1][j], ends[0][j]))
-        for lp, (u, v) in zip(f.loops, ((i / sides, 0), (i / sides, 1), ((i + 1) / sides, 1), ((i + 1) / sides, 0))):
-            lp[uv].uv = (u * 0.5, v)                           # the side half of the image, straps across v
-    for s, ring in ((-1, ends[0][::-1]), (1, ends[1])):
-        f = bm.faces.new(ring)
-        for lp in f.loops:
-            t = ang[(ends[0] if s < 0 else ends[1]).index(lp.vert)]
-            lp[uv].uv = (0.75 + 0.235 * math.cos(t) * s, 0.5 + 0.47 * math.sin(t))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    t = sweep(bm, [(x0 - L / 2, y0, zc), (x0 + L / 2, y0, zc)], [r, r], sides, cap_a=True, twist=0.5, frame=((0, 1, 0), (0, 0, 1)))
+    for i, f in enumerate(t["sides"][0]):                      # the side half of the image, straps across v
+        for lp, (u, v) in zip(f.loops, ((i / sides, 0), ((i + 1) / sides, 0), ((i + 1) / sides, 1), (i / sides, 1))):
+            lp[uv].uv = (u * 0.5, v)
+    for s, ring, cap in ((-1, t["rings"][0], t["cap_a"]), (1, t["rings"][1], t["cap_b"])):
+        for lp in cap.loops:
+            a = t["angles"][ring.index(lp.vert)]
+            lp[uv].uv = (0.75 + 0.235 * math.cos(a) * s, 0.5 + 0.47 * math.sin(a))
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
     o = obj_from_bm(bm, "MatRoll")
     o.data.materials.append(image_material("MatRoll", path))
