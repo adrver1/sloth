@@ -29,7 +29,7 @@ about a minute on a laptop CPU (1/64 of the texels and of the samples of the ful
    per log seat, Name_0-2); thin, no_shadow and unlit (the embers, not light-mapped) cast no shadow; unbaked objects (the
    picked jar lantern) are left out. A new prop needs only its tag in its builder's make(), and a new place an entry in
    layout.js ANCHORS. The picked set's old Fire is left out: the lived fire set replaces it on the page.
-   unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or a dummy): each prop is projected
+   unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or an all-zero dummy): each prop is projected
    and packed on its own into its own rectangle of the atlas, kept in props/camp/atlas.json (see ATLAS), so changing one
    prop leaves every other prop's UVs and its part of the maps as they were (review R2-149). A run into models/ writes
    atlas.json with each prop's UV hash, which --objects checks.
@@ -343,7 +343,7 @@ def allocate(need, aspect):
 
 
 def unwrap(receivers, a):
-    """The light-map UVs: TEXCOORD_0 stays (texture UVs, or a dummy), LM is TEXCOORD_1. Each prop is projected and packed
+    """The light-map UVs: TEXCOORD_0 stays (texture UVs, or an all-zero dummy), LM is TEXCOORD_1. Each prop is projected and packed
     on its own and fitted into its rectangle from atlas.json (or new ones, see ATLAS). Returns the atlas as this run
     used it ({"k": rectangle area per m2 of a prop's surface over how well it packs, "rects": {name: [u0, v0, u1, v1]}})
     and whether it was packed again. The rectangles do not depend on --size; the margins inside them do."""
@@ -351,8 +351,8 @@ def unwrap(receivers, a):
         uvl = o.data.uv_layers
         while len(uvl) > 1:
             uvl.remove(uvl[1])
-        if not len(uvl):
-            uvl.new(name="UV0")
+        if not len(uvl):                                 # a dummy TEXCOORD_0 (nothing reads it), all zeros so it splits no
+            uvl.new(name="UV0", do_init=False)           # vertex; the default per-face unit square split 961 (review R2-155)
         uvl.active = uvl.new(name="LM")
     old = load_atlas()
     rects, k = dict(old.get("rects", {})), old.get("k")
