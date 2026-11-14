@@ -88,12 +88,14 @@ $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETA
 // seeded random, so every visit grows the same tree and hides sloths in the same spots. Each system draws from its own named
 // stream (rng("forest"), rng("sloths"), ...), seeded from ?seed and the name, so one system drawing more or less, or earlier,
 // never moves another's numbers. The same name always hands back the same stream, so the sloth modules share one.
+// start: the stream's own start instead of one mixed from ?seed and the name (forest.js keeps the start its layout was baked with)
 const streams = new Map();
-function rng(name) {
+function rng(name, start) {
   let st = streams.get(name);
   if (st) return st;
   let seed = OPT.seed | 0;
-  for (let i = 0; i < name.length; i++) seed = Math.imul(seed ^ name.charCodeAt(i), 0x01000193);   // FNV-style mix of the name into the seed
+  if (start !== undefined) seed = start | 0;
+  else for (let i = 0; i < name.length; i++) seed = Math.imul(seed ^ name.charCodeAt(i), 0x01000193);   // FNV-style mix of the name into the seed
   const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };   // mulberry32
   st = { rnd, R: (a, b) => a + rnd() * (b - a) };
   streams.set(name, st);

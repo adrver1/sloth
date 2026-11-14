@@ -6,7 +6,9 @@
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "./terrain.js";
 import { D, hex, JEEP, leafMat, LOOK, OPT, rng, S, scene } from "./core.js";
-const { R, rnd } = rng("forest");
+// the forest starts its stream where it always restarted the old shared one (3000 + ?seed), so its trees, and the root mounds
+// under them that shape the ground the light and ground bakes were made on, stay where they were baked
+const { R, rnd } = rng("forest", 3000 + OPT.seed);
 import { V, canvasTex, lcg, rand, sstep } from "./util.js";
 import { GLADE, GLADE_R, HERO, JEEP_TRACK, PATH_A, PATH_HALF, RC, TRACK_HALF, pathDist, pathLane, sloPath } from "./layout.js";
 
