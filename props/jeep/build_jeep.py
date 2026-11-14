@@ -9,6 +9,7 @@ The adventure jeep for the Canopy Camp game (apps/canopy-prototype/camp.html): a
 
     .venv/bin/python props/jeep/build_jeep.py                       # all three, plus a preview still of each
     .venv/bin/python props/jeep/build_jeep.py --style camper --samples 64 --no-preview
+    .venv/bin/python props/jeep/build_jeep.py --device gpu     # stop instead of baking on the CPU when no GPU is on
 
 Each style is one GLB (props/jeep/jeep_<style>.glb) standing on z = 0 with its front toward -Y (three.js +Z): the body
 Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive, the name is kept from when it was the passenger door), DoorD (the other front door)
@@ -27,7 +28,7 @@ from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from lib.bake import bake  # noqa: E402
+from lib.bake import bake, pick_device  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
 from lib.mesh import apply_all, ball, cyl, join, rod, torus, with_material  # noqa: E402
@@ -165,6 +166,7 @@ def panel(a, b, c, d, m, t=0.012):
 
 
 VIEWS = []    # --views: only these preview stills (all when empty)
+DEVICE = "auto"   # --device: the Cycles device for the AO bake and the stills (lib.bake.pick_device: auto, gpu, cpu or a backend)
 TYRE = "mt"   # tread option (--tyre): "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders, "road" smooth with painted grooves
 
 
@@ -806,7 +808,7 @@ def preview(style, objs, samples):
     """Stills of the baked prop on grass in soft daylight: front three-quarter, back, a close-up of the bonnet, and the
     camp side with all three doors open."""
     sc = bpy.context.scene
-    sc.render.engine = "CYCLES"
+    pick_device(sc, DEVICE)                          # --device (review R2-111)
     sc.cycles.samples = samples
     sc.render.resolution_x, sc.render.resolution_y = 900, 700
     sc.view_settings.view_transform = "Standard"
@@ -924,7 +926,7 @@ def build(style, samples, do_preview, preview_samples):
     if style == "expedition":
         for o in objs.values():
             mud_mask(o)
-    bake(list(objs.values()), samples, apply=False)
+    bake(list(objs.values()), samples, apply=False, device=DEVICE)
     doors(objs, False)
     if style == "expedition":
         for o in objs.values():
@@ -939,7 +941,7 @@ def build(style, samples, do_preview, preview_samples):
         reset(); EMPTIES.clear()
         M = mats("ex", **EXPEDITION_COLOURS)
         lod = jeep_lod(M); apply_all(lod)
-        mud_mask(lod); bake([lod], samples, apply=False); mud(lod)
+        mud_mask(lod); bake([lod], samples, apply=False, device=DEVICE); mud(lod)
         lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False)
         print(f"  JeepLOD -> {lpath}")
         return shots
@@ -953,11 +955,13 @@ if __name__ == "__main__":
     ap.add_argument("--preview-samples", type=int, default=48)
     ap.add_argument("--no-preview", action="store_true")
     ap.add_argument("--views", default="")
+    ap.add_argument("--device", default="auto", help="Cycles device: auto (the fastest GPU, else the CPU), gpu (stop if none), cpu, or a backend such as optix")
     ap.add_argument("--wheel", default=WHEEL, choices=["closed", "open"])
     ap.add_argument("--tyre", default=TYRE, choices=["at", "mt", "road"])
     a = ap.parse_args()
     TYRE = a.tyre
     WHEEL = a.wheel
+    DEVICE = a.device
     VIEWS = a.views.split(",") if a.views else []
     for s in (STYLES if a.style == "all" else [a.style]):
         build(s, a.samples, not a.no_preview, a.preview_samples)

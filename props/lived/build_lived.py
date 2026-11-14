@@ -38,7 +38,7 @@ from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from lib.bake import bake  # noqa: E402
+from lib.bake import bake, pick_device  # noqa: E402
 from lib.export import export_glb, report, reset  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, box, capless, cyl, join, obj_from_bm, quad, rod, rough_up, torus  # noqa: E402
@@ -167,8 +167,7 @@ def wood_stack(M, samples):
     stack (end grain on the two ends, log sides on the left and right, log tops on top), so it costs about 100 triangles."""
     logs = stack_logs(M)
     sc = bpy.context.scene
-    sc.render.engine = "CYCLES"
-    sc.cycles.device = "CPU"
+    pick_device(sc)                                  # the fastest GPU there is, else the CPU (review R2-111)
     sc.cycles.samples = samples
     sc.render.film_transparent = True
     sc.view_settings.view_transform = "Standard"

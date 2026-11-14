@@ -5,7 +5,7 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 
     blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --samples 512
     # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 4096
-    # --device auto (the default) bakes on the fastest GPU there is, else the CPU, and prints which; --device cpu forces it
+    # --device auto (the default) bakes on the fastest GPU there is, else the CPU, and prints which; --device cpu forces the CPU, --device gpu stops when there is no GPU
 
 1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
@@ -52,7 +52,7 @@ ap.add_argument("--margin", type=float, default=6)    # texels between islands a
 ap.add_argument("--unwrap-only", action="store_true")
 ap.add_argument("--ground", type=int, default=1024, help="ground map size")
 ap.add_argument("--jeep", default="expedition")
-ap.add_argument("--device", default="auto", help="Cycles device: auto (the fastest GPU, else the CPU), cpu, or a backend such as optix")
+ap.add_argument("--device", default="auto", help="Cycles device: auto (the fastest GPU, else the CPU), gpu (stop if none), cpu, or a backend such as optix")
 a = ap.parse_args(argv)
 T0 = time.time()
 GLOW = ("ru_glass", "wt_glow")
