@@ -7,6 +7,9 @@
 // The light bake (props/camp/bake_camp_lightmap.py) reads where each lantern's light is from the "place" block that
 // props/shadow/export_casters.cjs writes from this page; only the drop below the hang point is still a copy there (the bake's
 // 0.12 m against JAR_Y's 0.125 m, review props-07).
+// Exports lanternLayout({ l0, post, tree }) -> { strings, hang, tie } (the strings' points and where each lantern hangs, campProps.js),
+// and createLanterns({ scene, layout, glowTex }) -> { lights, update(t, dusk) }: it adds the lanterns to the scene; lights are
+// the jars' world positions (the light pools and the sloths' glow), and main.js calls update each frame.
 import * as THREE from "three";
 import { V, canvasTex, tris } from "./util.js";
 
@@ -80,20 +83,25 @@ export function createLanterns({ scene, layout, glowTex }) {
 
   const piv = new THREE.Object3D(), m4 = new THREE.Matrix4(), flameAt = V(0, JAR_Y + 0.01, 0), glowAt = V(0, JAR_Y, 0), tmp = V(0, 0, 0);
   const lights = layout.hang.map((p) => p.clone().setY(p.y + JAR_Y));   // where each lantern's light is (for the ground pools)
+  const swaying = [frame, glass, candle], hang = layout.hang;
   return {
     lights,
+    // each frame (main.js): the sway, and from dusk the flames and glows; by day the flames and glows are hidden, not drawn
+    // at opacity 0, and their points are not moved (R2-091, R2-093)
     update(t, dusk) {
-      const fp = flames.geometry.attributes.position, gp = glows.geometry.attributes.position;
-      layout.hang.forEach((p, i) => {
-        piv.position.copy(p);
+      const lit = dusk > 0.001, fp = flames.geometry.attributes.position, gp = glows.geometry.attributes.position;
+      for (let i = 0; i < hang.length; i++) {
+        piv.position.copy(hang[i]);
         piv.rotation.set(Math.sin(t * 0.45 + i * 2.2) * 0.05, 0, Math.sin(t * 0.6 + i * 1.7) * 0.07);   // a slow sway
         piv.updateMatrix(); m4.copy(piv.matrix);
         frame.setMatrixAt(i, m4); glass.setMatrixAt(i, m4); candle.setMatrixAt(i, m4);
+        if (!lit) continue;
         tmp.copy(flameAt).applyMatrix4(m4); fp.setXYZ(i, tmp.x, tmp.y, tmp.z);
         tmp.copy(glowAt).applyMatrix4(m4); gp.setXYZ(i, tmp.x, tmp.y, tmp.z);
-      });
-      for (const m of [frame, glass, candle]) m.instanceMatrix.needsUpdate = true;
-      fp.needsUpdate = gp.needsUpdate = true;
+      }
+      for (const m of swaying) m.instanceMatrix.needsUpdate = true;
+      flames.visible = glows.visible = lit;
+      if (lit) fp.needsUpdate = gp.needsUpdate = true;
       const fl = 0.9 + 0.1 * Math.sin(t * 11) * Math.sin(t * 6.7);
       glassMat.emissiveIntensity = 0.65 * dusk * fl; candleMat.emissiveIntensity = dusk * fl;
       flames.material.opacity = dusk * fl; glows.material.opacity = 0.85 * dusk * fl;
