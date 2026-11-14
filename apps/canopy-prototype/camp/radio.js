@@ -11,6 +11,7 @@ import { scene } from "./core.js";
 import { V, canvasTex, lam } from "./util.js";
 import { TABLE } from "./layout.js";
 import { me } from "./player.js";
+import "./input.js";   // order only: built after input.js, as before, so the scene keeps its order
 import { addTarget } from "./targets.js";
 import { toast } from "./hud.js";
 import { audio } from "./audio.js";

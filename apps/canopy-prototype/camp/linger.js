@@ -8,6 +8,7 @@ import { uTime } from "./core.js";
 import { V, wrapPi } from "./util.js";
 import { SEATS } from "./layout.js";
 import { me } from "./player.js";
+import "./input.js";   // order only: built after input.js, as before, so the scene keeps its order
 import { addTarget } from "./targets.js";
 import { seatLog } from "./places.js";
 
