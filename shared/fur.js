@@ -10,6 +10,11 @@
 // { warm } (with lambert): uniforms { uWarm (float), uWarmPos (vec3[WARM_N]), uWarmK (float[WARM_N]) } for a warm glow from
 // nearby lanterns and the fire at night, falling off with distance (the camp's lights are baked, so without it the sloths
 // go black next to a lit lantern). The 10-light loop runs only while uWarm > 0.
+// { tint: 0xc9d9a6 } multiplies only the fur (the body's fur fragments and the shells) by this colour, so the face mask,
+// eyes and claws keep their palette colours (Canopy Camp's day tint, review R2-174: it used to tint whole materials, and
+// the cream mask went lime). One uniform per colour, shared by every material made with it.
+// { smooth: true } shades the body's fur with the smoothed normals the shells use, so its facets don't show as hard light
+// steps up close; the mask, eyes and claws keep the model's flat normals (Canopy Camp, review R2-197). No extra triangles.
 // { lod: true } with more than 2 shells: each shell mesh also gets a 2-layer geometry of the same fur length, for a page to
 // swap in further away (shell.userData.furLod = { full, two }; Canopy Camp sloth/life.js).
 import * as THREE from "three";
@@ -67,19 +72,20 @@ function patch(mat, frag, decl = "", nrm = "", pos = "", fdecl = "", warm = null
     if (warm) sh.fragmentShader = sh.fragmentShader.replace("#include <opaque_fragment>", "if (uWarm > 0.0) outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>");
     Object.assign(sh.uniforms, mat.userData.u || {}, warm || {});
   };
-  mat.customProgramCacheKey = () => "fur" + mat.type + !!warm + frag + pos;
+  mat.customProgramCacheKey = () => "fur" + mat.type + !!warm + frag + pos + nrm;
   return mat;
 }
-const BASE = `
-  if (vFur > 0.5) {
+const TINT = "uniform vec3 uFurTint;\n";   // the fragment declaration that goes with a tint
+const base = (tint) => `
+  if (vFur > 0.5) {${tint ? "\n    diffuseColor.rgb *= uFurTint;" : ""}
     float s = strands(vObj, 95.0);
     float streak = vn(vObj * vec3(18.0, 3.5, 18.0));
     diffuseColor.rgb *= 0.78 + 0.42 * s;
     diffuseColor.rgb *= 0.86 + 0.22 * streak;
     diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.18, 1.12, 1.02), smoothstep(0.72, 0.95, s));
   }`;
-const SHELL = `
-  if (vFur < 0.5) discard;
+const shell = (tint) => `
+  if (vFur < 0.5) discard;${tint ? "\n  diffuseColor.rgb *= uFurTint;" : ""}
   float s = strands(vObj, 260.0);
   float clump = vn(vObj * 60.0);
   if (s * (0.7 + 0.5 * clump) < uT * 0.92 + 0.08) discard;
@@ -107,31 +113,38 @@ function shellGeo(geo, shells) {
   geo.userData[key] = out;
   return out;
 }
-const shellMats = new Map();   // one material per (map, length, lambert, warm), shared by every sloth
-function shellMat(map, len, lambert = false, warm = null) {
-  const k = map.uuid + len + lambert + !!warm;
+const shellMats = new Map();   // one material per (map, length, lambert, warm, tint), shared by every sloth
+const tints = new Map();       // one uFurTint uniform per tint colour
+const tintU = (hex) => (hex == null ? null : tints.get(hex) ?? tints.set(hex, { value: new THREE.Color(hex) }).get(hex));
+function shellMat(map, len, lambert = false, warm = null, tint = null) {
+  const k = map.uuid + len + lambert + !!warm + (tint ? tint.value.getHex() : "");
   if (shellMats.has(k)) return shellMats.get(k);
   const mat = lambert ? new THREE.MeshLambertMaterial({ map, alphaTest: 0.5 }) : new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0, alphaTest: 0.5 });
-  mat.userData.u = { uLen: { value: len } };
-  patch(mat, SHELL, "attribute float furLayer; uniform float uLen; varying float uT;", "objectNormal = furNormal;",
-    "uT = furLayer;\ntransformed += normalize(furNormal) * uLen * uT * furMask;\ntransformed.y -= uLen * 0.5 * uT * uT * furMask;", "varying float uT;\n", warm);
+  mat.userData.u = { uLen: { value: len }, ...(tint && { uFurTint: tint }) };
+  patch(mat, shell(tint), "attribute float furLayer; uniform float uLen; varying float uT;", "objectNormal = furNormal;",
+    "uT = furLayer;\ntransformed += normalize(furNormal) * uLen * uT * furMask;\ntransformed.y -= uLen * 0.5 * uT * uT * furMask;", "varying float uT;\n" + (tint ? TINT : ""), warm);
   shellMats.set(k, mat);
   return mat;
 }
 const baseMats = new Map();
 
 export const FUR_ON = !/[?&]fur=0\b/.test(location.search);   // ?fur=0: the original flat sloth, kept as a backup
-export function furify(root, { shells = 4, length = 0.0075, colors = null, lambert = false, warm = null, lod = false } = {}) {
+export function furify(root, { shells = 4, length = 0.0075, colors = null, lambert = false, warm = null, lod = false, tint = null, smooth = false } = {}) {
   if (!FUR_ON) return root;
+  const tu = tintU(tint);
   const meshes = [];
   root.traverse((m) => m.isSkinnedMesh && !m.userData.fur && meshes.push(m));
   for (const m of meshes) {
     const map = m.material.map;
     prepare(m.geometry, map, colors ? colors.map((h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255]) : FUR);
-    const bk = m.material.uuid + lambert + !!warm;
-    if (!baseMats.has(bk)) baseMats.set(bk, patch(lambert ? new THREE.MeshLambertMaterial({ map, color: m.material.color }) : m.material.clone(), BASE, "", "", "", "", lambert && warm));
+    const bk = m.material.uuid + lambert + !!warm + (tu ? tu.value.getHex() : "") + smooth;
+    if (!baseMats.has(bk)) {
+      const mat = lambert ? new THREE.MeshLambertMaterial({ map, color: m.material.color }) : m.material.clone();
+      if (tu) mat.userData.u = { uFurTint: tu };
+      baseMats.set(bk, patch(mat, base(tu), "", smooth ? "objectNormal = mix(objectNormal, furNormal, furMask);" : "", "", tu ? TINT : "", lambert && warm));
+    }
     m.material = baseMats.get(bk);
-    const sh = new THREE.SkinnedMesh(shellGeo(m.geometry, shells), shellMat(map, length, lambert, lambert && warm));
+    const sh = new THREE.SkinnedMesh(shellGeo(m.geometry, shells), shellMat(map, length, lambert, lambert && warm, tu));
     sh.bind(m.skeleton, m.bindMatrix);
     sh.frustumCulled = false;
     sh.userData.fur = true;

@@ -21,7 +21,6 @@ import { eyeKit } from "./face.js";
 import { armBones } from "./arms.js";
 import { underAt } from "./poses.js";
 
-let tinted = false;
 // every sloth's tap sphere shares one geometry and one invisible material (review R2-141); input.js raycasts against them
 const HIT_GEO = new THREE.SphereGeometry(0.42, 8, 6), HIT_MAT = new THREE.MeshBasicMaterial({ visible: false });
 // at night the camp's light is baked into the props, so the sloths take a warm glow from the lanterns and the fire nearby
@@ -34,10 +33,12 @@ function warmStep(lanternGlow, fl, dusk) {             // each frame (main.js): 
 }
 function makeSloth(sc = SL) {
   const o = clone(SLOTH.scene); o.scale.setScalar(sc);
-  furify(o, { shells: D.shells, lambert: OPT.slothmat !== "old", warm: SLOTH_WARM, lod: true });   // ?slothmat=old: the GLB's physical material, as before
+  // ?slothmat=old: the GLB's physical material, as before. tint: the look's sloth tint (core.js S.slothTint) on the fur
+  // only, so the face mask, eyes and claws keep their palette colours (review R2-174); smooth: the fur shades with
+  // smoothed normals, so the head's and body's facets don't show as hard light steps up close (review R2-197)
+  furify(o, { shells: D.shells, lambert: OPT.slothmat !== "old", warm: SLOTH_WARM, lod: true, tint: S.slothTint, smooth: true });
   o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur) { m.geometry.computeBoundingSphere(); m.boundingSphere = m.geometry.boundingSphere.clone(); m.boundingSphere.radius *= 2; } });
   o.traverse((m) => { if (m.userData.fur) { const b = m.parent.children.find((q) => q.isSkinnedMesh && !q.userData.fur); m.boundingSphere = b.boundingSphere.clone(); m.frustumCulled = true; } });
-  if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
   const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
   act.play(); act.time = R(0, 4); act.timeScale = 0.6;   // (kept as s.act)
   scene.add(o);
