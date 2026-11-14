@@ -227,7 +227,7 @@ const snowTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fi
 // Far forest: the ground takes the colour the tree cards would give it there. How much of the ground the trees hide depends on
 // how flat you look across it (cotangent of the view angle): looking down from the summit you see snow between the trees, looking
 // across a far slope you see a wall of trees. uTreeCol and uTreeK (cover per unit cotangent) are measured from the card itself.
-const uTreeCol = { value: new THREE.Color('#33463c') }, uTreeK = { value: 0.2 }, NEAR = isPhone ? 130 : 170, CARD_R = isPhone ? 900 : 1100, uCardR = { value: CARD_R };
+const uTreeCol = { value: new THREE.Color('#33463c') }, uTreeK = { value: 0.2 }, NEAR = isPhone ? 100 : 130, CARD_R = isPhone ? 900 : 1100, uCardR = { value: CARD_R };
 const morph = (half) => (sh) => {
   sh.uniforms.uHalf = half; sh.uniforms.uTreeCol = uTreeCol; sh.uniforms.uTreeK = uTreeK; sh.uniforms.uCardR = uCardR;
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float hc; attribute vec3 nc; attribute vec3 cc; attribute float fm; uniform float uHalf, uTreeK, uCardR; varying float vForest; varying vec2 vWxz;')
@@ -384,14 +384,25 @@ function treeBuilder() {
     },
     // one drooping tier of a spruce: from a point on the trunk, out through a raised middle ring to a rim of N vertices that
     // alternate between bough tips (out and down) and notches (in and up), so the edge is soft and scalloped. 3N triangles.
-    tier(y0, ya, R, N, turn, lit, rr) {
-      const ring = [], mid = [];
-      for (let j = 0; j <= N; j++) { const a = turn + (j / N) * Math.PI * 2, tip = j % 2 === 0, jit = 0.92 + 0.16 * rr(), rad = (tip ? R : R * 0.84) * jit, k = 1.25;
-        const nl = Math.hypot(k, 1), nrm = [(Math.cos(a) * k) / nl, 1 / nl, (Math.sin(a) * k) / nl];
-        ring.push([[Math.cos(a) * rad, tip ? y0 - 0.035 * R / 0.5 : y0 + 0.02, Math.sin(a) * rad], nrm, RG.core, j / N, 0, tmpC.setScalar(lit * (tip ? 1 : 0.62)).clone(), tip ? 0.5 + 0.2 * rr() : 0.2]);
-        const nl2 = Math.hypot(0.7, 1); mid.push([[Math.cos(a) * rad * 0.52, ya - (ya - y0) * 0.4, Math.sin(a) * rad * 0.52], [(Math.cos(a) * 0.7) / nl2, 1 / nl2, (Math.sin(a) * 0.7) / nl2], RG.core, j / N, 0.55, tmpC.setScalar(lit * 0.9).clone(), 0.64 + 0.2 * rr()]); }
-      for (let j = 0; j < N; j++) { const top = [[0, ya, 0], [0, 1, 0], RG.core, (j + 0.5) / N, 1, tmpC.setScalar(lit).clone(), 0.85];
+    // Nothing is regular: each bough tip has its own length and droop, notches vary in depth, the tier sits a little off the
+    // trunk and tilts, so no two tiers (and, with the two shapes and per-tree widths, no two trees) look alike.
+    tier(y0, ya, R, N, turn, lit, rr, off = [0, 0], tilt = [0, 0]) {
+      const ring = [], mid = [], first = [], tl = (x, z) => tilt[0] * x + tilt[1] * z;
+      for (let j = 0; j < N; j++) { const tip = j % 2 === 0; first.push(tip ? [0.78 + 0.42 * rr(), 0.6 + 0.9 * rr()] : [0.62 + 0.25 * rr(), 0]); }
+      for (let jj = 0; jj <= N; jj++) { const j = jj % N, a = turn + (jj / N) * Math.PI * 2 + (j % 2 ? (rr() - 0.5) * 0.15 : 0), tip = j % 2 === 0, [lenK, dro] = first[j], rad = R * lenK, k = 1.25;
+        const nl = Math.hypot(k, 1), nrm = [(Math.cos(a) * k) / nl, 1 / nl, (Math.sin(a) * k) / nl], x = off[0] + Math.cos(a) * rad, z = off[1] + Math.sin(a) * rad;
+        ring.push([[x, (tip ? y0 - 0.04 * dro * R / 0.5 : y0 + 0.025) + tl(x, z), z], nrm, RG.core, jj / N, 0, tmpC.setScalar(lit * (tip ? 1 : 0.6)).clone(), tip ? 0.45 + 0.25 * rr() : 0.18]);
+        const mr = rad * (0.48 + 0.1 * rr()), mx = off[0] * 0.6 + Math.cos(a) * mr, mz = off[1] * 0.6 + Math.sin(a) * mr, nl2 = Math.hypot(0.7, 1);
+        mid.push([[mx, ya - (ya - y0) * (0.34 + 0.12 * rr()) + tl(mx, mz) * 0.6, mz], [(Math.cos(a) * 0.7) / nl2, 1 / nl2, (Math.sin(a) * 0.7) / nl2], RG.core, jj / N, 0.55, tmpC.setScalar(lit * 0.9).clone(), 0.58 + 0.3 * rr()]); }
+      for (let j = 0; j < N; j++) { const top = [[off[0] * 0.3, ya, off[1] * 0.3], [0, 1, 0], RG.core, (j + 0.5) / N, 1, tmpC.setScalar(lit).clone(), 0.85];
         tri(top, mid[j + 1], mid[j]); tri(mid[j], mid[j + 1], ring[j + 1]); tri(mid[j], ring[j + 1], ring[j]); }
+    },
+    // a soft round puff of needles (a squashed icosahedron with smooth normals), snow on its top: 20 triangles
+    puff(c, rx, ry, rz, lit) {
+      const g = new THREE.IcosahedronGeometry(1, 0), p = g.attributes.position;   // already one vertex per corner
+      for (let i = 0; i < p.count; i += 3) { const vs = [0, 1, 2].map((k) => { const x = p.getX(i + k), y = p.getY(i + k), z = p.getZ(i + k), nl = Math.hypot(x, y, z);
+          return [[c[0] + x * rx, c[1] + y * ry, c[2] + z * rz], [x / nl, y / nl, z / nl], RG.core, 0.5 + Math.atan2(z, x) / 6.283, 0.5 + y * 0.45, tmpC.setScalar(lit * (0.62 + 0.38 * (y / nl * 0.5 + 0.5))).clone(), sstep(-0.35, 0.45, y / nl)]; });
+        tri(vs[0], vs[1], vs[2]); }
     },
     // an upright card standing on the trunk axis and reaching outward along angle a (twigs), both faces shown
     fan(base, a, w, h, reg, tint) {
@@ -404,18 +415,21 @@ function treeBuilder() {
   return B;
 }
 const WHITE = new THREE.Color(1, 1, 1);
+// a snowy fir: T drooping, ragged tiers, each overlapping the one below, painted with needle clumps; snow lies on their tops
+function firGeo(seed, T, W0) { const b = treeBuilder(), r = mulberry(seed);
+  b.trunk(0.024, 0.006, -0.05, 0.4, 5, 1, RG.bark, 0.0, 0.55, WHITE);
+  let y0 = 0.07; for (let k = 0; k < T; k++) { const t = k / (T - 1), R0 = W0 * (1 - t * 0.8) * (0.9 + 0.2 * r()), ya = Math.min(1, y0 + (0.27 - 0.05 * t) * (5 / T) * 1.1);
+    b.tier(y0, ya, R0, 12, r() * 6.283, 0.6 + 0.4 * t, r, [(r() - 0.5) * 0.05 * (1 - t), (r() - 0.5) * 0.05 * (1 - t)], [(r() - 0.5) * 0.18, (r() - 0.5) * 0.18]);
+    y0 += (0.68 / (T - 1)) * (0.8 + 0.4 * r()); y0 = Math.min(y0, 0.8); }
+  return b.geo(); }
 const TREES = {   // name: [geometry, share of the far forest's look (filled in by the bake)]
-  spruce: (() => { const b = treeBuilder(), r = mulberry(11);
-    b.trunk(0.024, 0.006, -0.05, 0.4, 5, 1, RG.bark, 0.0, 0.55, WHITE);
-    // five drooping, scalloped tiers, each overlapping the one below, painted with needle clumps; snow lies on their tops
-    const T = 5; for (let k = 0; k < T; k++) { const t = k / (T - 1), y0 = 0.08 + t * 0.66, R0 = 0.5 * (1 - t * 0.78), ya = y0 + 0.24 + 0.04 * (1 - t);
-      b.tier(y0, Math.min(ya, 1), R0, 12, k * 0.9, 0.62 + 0.38 * t, r); }
-    return b.geo(); })(),
+  spruce: firGeo(11, 5, 0.5),
+  spruce2: firGeo(29, 6, 0.44),
   pine: (() => { const b = treeBuilder(), r = mulberry(12);
     b.trunk(0.024, 0.009, -0.05, 0.9, 6, 3, RG.bark, 0.0, 1.0, WHITE, [0.04, -0.02]);
-    for (let i = 0; i < 13; i++) { const a = i * 2.39996, d = i === 0 ? 0 : 0.08 + 0.2 * Math.sqrt(i / 13), y = 0.95 - 0.28 * Math.sqrt(i / 13) + (r() - 0.5) * 0.06, lit = 0.6 + 0.4 * (y - 0.6) / 0.35;
-      b.pad([0.04 + Math.cos(a) * d, y, -0.02 + Math.sin(a) * d], a, 0.2 + 0.08 * r(), d * 1.2 + 0.1, RG.tuft, lit);
-      b.pad([0.04 + Math.cos(a) * d * 0.85, y - 0.035, -0.02 + Math.sin(a) * d * 0.85], a + 1.3, 0.17, 0.5, RG.tuft, lit * 0.8); }
+    // a Scots pine's crown: soft snowy puffs of needles clustered at the top of a long bare trunk, a few lower down
+    for (let i = 0; i < 8; i++) { const a = i * 2.39996 + r(), d = i === 0 ? 0 : 0.1 + 0.16 * Math.sqrt(i / 8), y = 0.9 - 0.2 * Math.sqrt(i / 8) + (r() - 0.5) * 0.05, lit = 0.65 + 0.35 * (y - 0.65) / 0.3, rr = 0.11 + 0.05 * r();
+      b.puff([0.04 + Math.cos(a) * d, y, -0.02 + Math.sin(a) * d], rr * 1.25, rr * 0.7, rr * 1.15, lit); }
     return b.geo(); })(),
   birch: (() => { const b = treeBuilder(), r = mulberry(13), tw = new THREE.Color(0.5, 0.44, 0.5);
     b.trunk(0.018, 0.005, -0.05, 0.86, 5, 3, RG.birch, 0, 1, WHITE, [0.05, 0.03]);
@@ -426,10 +440,10 @@ const TREES = {   // name: [geometry, share of the far forest's look (filled in 
     for (let i = 0; i < 3; i++) b.fan([0, 0.4 + i * 0.12, 0], i * 2.2 + 0.5, 0.3, 0.26, RG.twig, g0);
     return b.geo(); })(),
 };
-const SPECIES = ['spruce', 'pine', 'birch', 'snag'];
-const bushGeo = (() => { const b = treeBuilder();   // a low, snow-laden juniper cushion: 7 pads, 14 triangles
-  for (let i = 0; i < 6; i++) { const a = i * 1.047 + 0.3; b.pad([Math.cos(a) * 0.32, 0.22 + (i % 2) * 0.08, Math.sin(a) * 0.32], a, 0.62, 0.55, RG.tuft, 0.75 + 0.1 * (i % 2)); }
-  b.pad([0, 0.42, 0], 0, 0.6, 0.05, RG.tuft, 1); return b.geo(); })();
+const SPECIES = ['spruce', 'pine', 'birch', 'snag', 'spruce2'];
+const bushGeo = (() => { const b = treeBuilder(), r = mulberry(5);   // a round snow-capped bush: four overlapping puffs, 80 triangles
+  b.puff([0, 0.3, 0], 0.5, 0.42, 0.48, 0.95); for (let i = 0; i < 3; i++) { const a = i * 2.1 + r(); b.puff([Math.cos(a) * 0.36, 0.2, Math.sin(a) * 0.36], 0.32, 0.28, 0.32, 0.8); }
+  return b.geo(); })();
 const logGeo = (() => { const b = treeBuilder(), tint = new THREE.Color(0.9, 0.9, 0.9);   // a fallen trunk along +x, 6 sides, snow on its back: 12 + 8 triangles
   const P = [], s = 6; const g = new THREE.CylinderGeometry(0.5, 0.42, 1, s, 1, false).rotateZ(Math.PI / 2), p = g.attributes.position, n = g.attributes.normal, C = [];
   for (let i = 0; i < p.count; i++) { const top = n.getY(i) > 0.45 && Math.abs(n.getX(i)) < 0.5; tmpC.set(top ? '#fbf7f0' : Math.abs(n.getX(i)) > 0.5 ? '#a07a52' : '#5e4634'); C.push(tmpC.r, tmpC.g, tmpC.b); }
@@ -486,7 +500,7 @@ const rockGeo = (() => { const g = new THREE.IcosahedronGeometry(1, 0), p = g.at
   for (let i = 0; i < p.count; i++) { const top = p.getY(i) > 0.35; tmpC.set(top ? '#fbf7f0' : '#6c645e'); C.push(tmpC.r, tmpC.g, tmpC.b); }
   g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return g; })();
 const ROCK_R = 700, LOG_R = 300, TILE = 256, SAPLING_R = 90;
-const NEAR_MAX = isPhone ? [900, 300, 300, 150] : [1500, 500, 500, 250], CARD_MAX = isPhone ? 30000 : 50000, ROCK_MAX = 700, LOG_MAX = 400, SAPLING_MAX = isPhone ? 500 : 900;
+const NEAR_MAX = isPhone ? [600, 300, 300, 150, 600] : [1000, 500, 500, 250, 1000], CARD_MAX = isPhone ? 30000 : 50000, ROCK_MAX = 700, LOG_MAX = 400, SAPLING_MAX = isPhone ? 500 : 900;
 const treeMat = (lo, hi) => hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: treeTex, alphaTest: 0.5, side: THREE.DoubleSide }), (sh) => { fade(lo, hi, false)(sh); underside(sh); keepAlpha(ATLAS, ATLAS)(sh); }, `tree${lo}`);
 const nearMat = treeMat(NEAR - 30, NEAR), near = SPECIES.map((n, i) => new THREE.InstancedMesh(TREES[n], nearMat, NEAR_MAX[i]));
 const saplingMat = treeMat(SAPLING_R - 25, SAPLING_R), saplings = new THREE.InstancedMesh(TREES.spruce, saplingMat, SAPLING_MAX);   // small spruces in the snow, near you only
@@ -502,10 +516,10 @@ const tiles = new Map();
 // which style grows here: birches low down by the lake and at thin forest edges, pines and dead snags on high, dry ground
 function species(x, z, h, f, roll) {
   const low = 1 - sstep(LAKE + 30, LAKE + 140, h), high = sstep(TREELINE - 260, TREELINE - 40, h), edge = 1 - sstep(0.3, 0.75, f);
-  const pBirch = 0.04 + 0.35 * low * (0.5 + 0.5 * edge) + 0.12 * edge, pSnag = 0.03 + 0.12 * high, pPine = 0.06 + 0.16 * high + 0.1 * sstep(0.45, 0.6, fbm(x / 300 - 4, z / 300 + 9, 2));
-  return roll < pBirch ? 2 : roll < pBirch + pSnag ? 3 : roll < pBirch + pSnag + pPine ? 1 : 0;
+  const pBirch = 0.04 + 0.35 * low * (0.5 + 0.5 * edge) + 0.12 * edge, pSnag = 0.03 + 0.12 * high, pPine = 0.1 + 0.2 * high + 0.1 * sstep(0.45, 0.6, fbm(x / 300 - 4, z / 300 + 9, 2));
+  return roll < pBirch ? 2 : roll < pBirch + pSnag ? 3 : roll < pBirch + pSnag + pPine ? 1 : (roll * 97) % 1 < 0.5 ? 0 : 4;   // two fir shapes
 }
-const SIZE = [[7, 8], [12, 7], [8, 5], [6, 6]];   // height range per style: base + up to extra, in metres
+const SIZE = [[7, 8], [12, 7], [8, 5], [6, 6], [7, 9]];   // height range per style: base + up to extra, in metres
 function tile(ti, tj) {   // trees [x, y, z, size, turn, thin, style], saplings [x, y, z, size, turn], rocks and logs [x, y, z, size, turn] of one 256 m tile, made once
   const key = ti + ',' + tj; let t = tiles.get(key); if (t) return t;
   t = { trees: [], saplings: [], rocks: [], logs: [], cell: new Int32Array((TILE / TCELL) ** 2).fill(-1) }; const n = TILE / TCELL;
@@ -529,15 +543,20 @@ function tile(ti, tj) {   // trees [x, y, z, size, turn, thin, style], saplings 
   tiles.set(key, t); return t;
 }
 // spruces round the summit clearing, framing the porch's view
-const SUMMIT_TREES = []; for (let i = 0; i < 34; i++) { const a = R(0, 6.283); if (Math.abs(((a + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.42) continue; const r = R(19, 40), x = Math.cos(a) * r, z = Math.sin(a) * r; SUMMIT_TREES.push(x, height(x, z) - 0.3, z, R(5, 11), R(0, 6.283), 0, 0); }
+const SUMMIT_TREES = []; for (let i = 0; i < 34; i++) { const a = R(0, 6.283); if (Math.abs(((a + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.42) continue; const r = R(19, 40), x = Math.cos(a) * r, z = Math.sin(a) * r; SUMMIT_TREES.push(x, height(x, z) - 0.3, z, R(5, 11), R(0, 6.283), 0, i % 2 ? 4 : 0); }
+// round snowy bushes along the edge of the summit clearing, out of the porch's view and clear of the camp
+const CAMP_BUSHES = []; { const r = mulberry(77); for (let i = 0; i < 40 && CAMP_BUSHES.length < 22 * 3; i++) { const a = r() * 6.283, d = 13 + 9 * r(), x = Math.cos(a) * d, z = Math.sin(a) * d;
+  if (Math.abs(((a + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.5 || Math.hypot(x - 0.5, z - 11.5) < 7.5 || (Math.abs(x) < 8 && Math.abs(z) < 7)) continue; CAMP_BUSHES.push(x, z, 0.8 + 1.1 * r()); } }
 let placedAt = null, lookSet = false;
 function placeThings(px, pz) {
-  placedAt = { x: px, z: pz }; const nn = [0, 0, 0, 0], seen = [0, 0, 0, 0]; let nc = 0, nr = 0, nl = 0, ns = 0, nb = 0;
+  placedAt = { x: px, z: pz }; const nn = SPECIES.map(() => 0), seen = SPECIES.map(() => 0); let nc = 0, nr = 0, nl = 0, ns = 0, nb = 0;
   const put = (mesh, n, x, y, z, s, turn, flat) => { q.setFromAxisAngle(up, turn); m4.compose(v3.set(x, y, z), q, flat ? sc.set(s * 1.3, s * 0.7, s) : sc.set(s, s, s)); mesh.setMatrixAt(n, m4); };
   const tree = (x, y, z, s, turn, thin, sp) => { const d2 = (x - px) ** 2 + (z - pz) ** 2; seen[sp] += s * s;
-    if (d2 < NEAR * NEAR && nn[sp] < NEAR_MAX[sp]) put(near[sp], nn[sp]++, x, y, z, s, turn);
-    if (d2 > (NEAR - 30) ** 2 && d2 < CARD_R * CARD_R && nc < CARD_MAX) { m4.compose(v3.set(x, y - 0.2, z), q.identity(), sc.set(s, s, s)); cards.setMatrixAt(nc, m4); cardSp.array[nc++] = sp; } };
+    const w = 0.82 + 0.36 * ((turn * 7.31) % 1);   // each tree its own width
+    if (d2 < NEAR * NEAR && nn[sp] < NEAR_MAX[sp]) { q.setFromAxisAngle(up, turn); m4.compose(v3.set(x, y, z), q, sc.set(s * w, s, s * w)); near[sp].setMatrixAt(nn[sp]++, m4); }
+    if (d2 > (NEAR - 30) ** 2 && d2 < CARD_R * CARD_R && nc < CARD_MAX) { m4.compose(v3.set(x, y - 0.2, z), q.identity(), sc.set(s * w, s, s)); cards.setMatrixAt(nc, m4); cardSp.array[nc++] = sp; } };
   for (let i = 0; i < SUMMIT_TREES.length; i += 7) tree(...SUMMIT_TREES.slice(i, i + 7));
+  for (let i = 0; i < CAMP_BUSHES.length; i += 3) put(bushes, nb++, CAMP_BUSHES[i], groundAt(CAMP_BUSHES[i], CAMP_BUSHES[i + 1]) - 0.1, CAMP_BUSHES[i + 1], CAMP_BUSHES[i + 2], i);
   const t0 = Math.floor((px - CARD_R) / TILE), t1 = Math.floor((px + CARD_R) / TILE), u0 = Math.floor((pz - CARD_R) / TILE), u1 = Math.floor((pz + CARD_R) / TILE);
   const order = [];
   for (let tj = u0; tj <= u1; tj++) for (let ti = t0; ti <= t1; ti++) {
@@ -711,6 +730,24 @@ const flag = (() => { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, 
   const tex = canvasTex(128, 64, (c, w, h) => { c.fillStyle = '#2f6a3c'; c.beginPath(); c.moveTo(0, 0); c.lineTo(w, h / 2); c.lineTo(0, h); c.fill(); c.fillStyle = '#f2d27a'; c.beginPath(); c.moveTo(18, 14); c.lineTo(34, 32); c.lineTo(18, 50); c.lineTo(26, 32); c.fill(); });
   const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.55, 6, 1).translate(0.55, 0, 0), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide })));
   cloth.position.y = 4.65; cloth.castShadow = true; g.add(cloth); TRIS.push(['Flag and pole', tris0(pole.geometry) + tris0(cloth.geometry)]); return cloth; })();
+// a snowman by the fire: three lumpy snowballs, coal eyes and buttons, a carrot nose, stick arms, a scout scarf and a bobble hat
+{ const g = new THREE.Group(), sx = CAMP.x - 3.3, sz = CAMP.z - 0.6; g.position.set(sx, TOP - 0.05, sz); g.rotation.y = Math.atan2(CAMP.x + 1.2 - sx, CAMP.z - 5.2 - sz); scene.add(g);
+  const snowM = hazed(new THREE.MeshLambertMaterial({ color: '#fbf7f0', vertexColors: true })), coalM = hazed(new THREE.MeshLambertMaterial({ color: '#22201f' })), carrotM = hazed(new THREE.MeshLambertMaterial({ color: '#e8742a' }));
+  const stickM = hazed(new THREE.MeshLambertMaterial({ color: '#5a3c26' })), scarfM = hazed(new THREE.MeshLambertMaterial({ color: '#2f6a3c' })), hatM = hazed(new THREE.MeshLambertMaterial({ color: '#c8452f' }));
+  let n = 0; const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = o.receiveShadow = true; g.add(o); n += tris0(geo); return o; };
+  const ball = (r, seed) => { const geo = new THREE.SphereGeometry(r, 10, 7), p = geo.attributes.position, rr = mulberry(seed), C = [];   // lumpy, lavender-shaded underneath
+    for (let i = 0; i < p.count; i++) { const k = 1 + (vnoise(p.getX(i) * 5 + seed, p.getZ(i) * 5 + p.getY(i) * 3) - 0.5) * 0.12; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.94, p.getZ(i) * k); const t = p.getY(i) / r * 0.5 + 0.5; tmpC.set('#c9c2dc').lerp(WHITE, sstep(0.05, 0.6, t)); C.push(tmpC.r, tmpC.g, tmpC.b); }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); geo.computeVertexNormals(); return geo; };
+  add(ball(0.55, 3), snowM, 0, 0.48, 0); add(ball(0.4, 7), snowM, 0, 1.18, 0); add(ball(0.29, 11), snowM, 0, 1.68, 0);
+  const coal = new THREE.OctahedronGeometry(0.035, 0);
+  add(coal, coalM, -0.1, 1.76, 0.25); add(coal, coalM, 0.1, 1.76, 0.25); for (const y of [1.3, 1.16, 1.02]) add(coal, coalM, 0, y, 0.38 - Math.abs(y - 1.16) * 0.35);
+  for (let i = 0; i < 5; i++) { const a = -0.55 + i * 0.27; add(new THREE.OctahedronGeometry(0.02, 0), coalM, Math.sin(a) * 0.2, 1.6 - Math.cos(a * 1.2) * 0.04 - 0.02, Math.cos(a) * 0.24); }   // a smile
+  add(new THREE.ConeGeometry(0.04, 0.26, 6).rotateX(Math.PI / 2).translate(0, 0, 0.13), carrotM, 0, 1.68, 0.26, 0.08, 0, 0);
+  const arm = new THREE.CylinderGeometry(0.014, 0.022, 0.75, 4).translate(0, 0.375, 0), twig = new THREE.CylinderGeometry(0.008, 0.012, 0.2, 3).translate(0, 0.1, 0);
+  for (const sd of [-1, 1]) { const a = add(arm, stickM, sd * 0.34, 1.25, 0, 0, 0, -sd * 1.05); add(twig, stickM, sd * 0.85, 1.6, 0, 0, 0, -sd * 0.4); a.rotation.y = sd * 0.25; }
+  add(new THREE.TorusGeometry(0.27, 0.06, 4, 10).rotateX(Math.PI / 2), scarfM, 0, 1.44, 0); add(new THREE.BoxGeometry(0.11, 0.34, 0.03), scarfM, 0.14, 1.28, 0.33, 0.15, 0, 0.12);
+  add(new THREE.SphereGeometry(0.22, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), hatM, 0, 1.86, 0, -0.12, 0, 0.1); add(new THREE.TorusGeometry(0.21, 0.04, 4, 10).rotateX(Math.PI / 2), snowM, 0, 1.87, 0, -0.12, 0, 0.1); add(new THREE.IcosahedronGeometry(0.06, 0), snowM, 0.02, 2.09, -0.02);
+  TRIS.push(['Snowman', n]); }
 const fireSmoke = Array.from({ length: 10 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, depthWrite: false, fog: false })); s.userData.t = i / 10; scene.add(s); return s; });
 
 // chimney smoke: a few soft sprites rising and drifting with the wind
@@ -786,7 +823,7 @@ function pushOut(x, z, cx, cz, hx, hz, turn) {   // out of a box (half sizes hx,
 function treePush(x, z) {
   const n = TILE / TCELL, ci = Math.floor(x / TCELL), cj = Math.floor(z / TCELL), push = (tx, tz, r) => { const dx = x - tx, dz = z - tz, d = Math.hypot(dx, dz); if (d < r && d > 1e-4) { x = tx + (dx / d) * r; z = tz + (dz / d) * r; } };
   for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const gi = ci + di, gj = cj + dj, ti = Math.floor(gi / n), tj = Math.floor(gj / n), t = tile(ti, tj), k = t.cell[(gj - tj * n) * n + (gi - ti * n)];
-    if (k >= 0) push(t.trees[k], t.trees[k + 2], 0.35 + t.trees[k + 3] * (t.trees[k + 6] === 0 ? 0.09 : 0.02)); }
+    if (k >= 0) push(t.trees[k], t.trees[k + 2], 0.35 + t.trees[k + 3] * (t.trees[k + 6] === 0 || t.trees[k + 6] === 4 ? 0.09 : 0.02)); }
   for (let i = 0; i < SUMMIT_TREES.length; i += 7) push(SUMMIT_TREES[i], SUMMIT_TREES[i + 2], 0.35 + SUMMIT_TREES[i + 3] * 0.09);
   return [x, z];
 }
@@ -876,6 +913,6 @@ function frame() {
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, counts: () => [near.map((m) => m.count).join('/'), saplings.count, logs.count, cards.count, rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], LAKE, TOP, TOWER, HUT };
+window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [near.map((m) => m.count).join('/'), saplings.count, logs.count, cards.count, rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT };
 window.__ready = true;
 </script>
