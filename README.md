@@ -52,12 +52,13 @@ Import the layout from `camp/layout.js` and the helpers from `camp/util.js`; don
 
 - `npm run replay` (`tools/camp-replay.cjs`): runs the camp headless on a virtual clock with seeded randomness for 480 frames (`--frames 300` for a quicker run), walks a short tour (boop, feed, night, rain, sit) and prints a fingerprint of the scene, the draws, the shader programs and any errors. It and the scenario tours are optional diagnostics, not gates: comparing two runs of the same code is still useful, but a clean-up may change the camp's behaviour, and the fingerprint with it. `--shots dir` saves screenshots, `--compare dirA dirB` compares two runs' shots.
 - `npm run scenarios` (`tools/camp-scenarios.cjs`): the scenario tours in `tools/tours/` (the operator's day, the sloths' trips, the jeep, the chores, a phone view...), each a state dump per step, run against two checkouts and compared. The header says how to run base against head; differences are something to look at, not a failure in themselves.
-- `tools/camp-page.cjs`: the headless set-up both of them share (Chromium on SwiftShader, three.js from node_modules, the virtual clock).
-- `tools/camp-probe.cjs`: draw calls, triangles per object, shader programs, downloads, textures and the time to ready of one camp page (`PORT=` picks its port).
-
-A Canopy Camp clean-up PR checks the player's experience: the camp loads with no page or console errors, the interactions still work (the replay's tour, or by hand), screenshots at phone and desktop size look no worse, and `camp-probe.cjs` shows no more draws, triangles or programs and no slower frames than main. Replays and scenarios are optional.
+- `tools/camp-page.cjs`: the headless set-up both of them share (Chromium on SwiftShader, three.js from node_modules, the virtual clock). `CAMP_GPU=1` makes it use the machine's real GPU instead (on a GPU machine such as Adriaen's desktop).
+- `tools/camp-probe.cjs`: draw calls, triangles per object, shader programs, downloads, textures and the time to ready of one camp page (`PORT=` picks its port, `ROOT=` serves another checkout). The counts are exact under SwiftShader; its fps is not.
+- `tools/camp-gpu.cjs`: real-GPU frame times, start-up times, draws and a screenshot (`--phone` for the phone view). Run it on Adriaen's desktop through Remote Control.
 - `tools/gen_fingerprint.py`: the same kind of fingerprint for a `props/` generator, run in bpy.
 - `tools/sync-shared.cjs`: `npm run sync-shared` / `npm run check-shared` for the `shared/` copies.
+
+A Canopy Camp clean-up PR checks the player's experience: the camp loads with no page or console errors, the interactions still work (the replay's tour, or by hand), screenshots at phone and desktop size look no worse, `camp-probe.cjs` shows no more draws, triangles or programs than main, and `camp-gpu.cjs` on the desktop shows no slower frames. Replays and scenarios are optional. Keep cloud runs short (a few hundred frames); long runs and play-tests go to Adriaen's desktop. The coding rules are in `docs/CODING-STANDARDS.md`.
 
 ## Run and check
 
