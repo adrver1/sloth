@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { scene } from "../core.js";
 import { V, canvasTex } from "../util.js";
+import { crossFade } from "../actor.js";
 import * as ik from "./ik.js";
 
 const UP = V(0, 1, 0);
@@ -37,9 +38,7 @@ function buildModel(gltf, anims) {
 }
 function play(name, fade = 0.35, { once = false, at = 0, speed = 1 } = {}) {
   const a = clips[name]; if (!a) return null;
-  if (cur === a) { a.timeScale = speed; return a; }
-  a.reset(); a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat); a.clampWhenFinished = once; a.time = at; a.timeScale = speed; a.enabled = true; a.setEffectiveWeight(1); a.play();
-  if (cur) cur.crossFadeTo(a, fade, false); cur = a; return a;
+  return (cur = crossFade(cur, a, fade, { once, at, speed, weigh: true }));   // actor.js: a clip already playing only changes speed
 }
 // character space (x his left-right, y up, z: -1 ahead, +1 behind) to world, for the pose he is in now
 const cs = (x, y, z) => V(x, y, z).applyMatrix4(root.matrixWorld);

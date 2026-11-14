@@ -7,19 +7,15 @@
 //   homeClip(s), dozeClip(s)             [clip, timeScale] for where it is: awake, and asleep
 //   EAT_GRAB                             how many seconds into the eat clips the claws close on the food
 //   canStretch(s)                        it is sitting, or lying where it can sit up, so it can stretch when it wakes
-import * as THREE from "three";
 import { SLOTH } from "../campProps.js";
+import { crossFade } from "../actor.js";
 
 const clipOf = (n) => SLOTH.animations.find((a) => a.name === n);
 const EAT_GRAB = 1.85;                                // s into the eat clips: the claws close on the fruit
 const ONCE = new Set(["stretch", "eat", "eat_high"]);   // played once, then s.once() (see campStep)
-function play(s, name, fade, timeScale = 1, at = 0) {
-  const next = s.mixer.clipAction(clipOf(name)), once = ONCE.has(name); s.once = null;
-  if (once) { next.setLoop(THREE.LoopOnce, 1); next.clampWhenFinished = true; }
-  if (s.act === next && !once) { next.timeScale = timeScale; return; }
-  next.reset(); next.time = at; next.timeScale = timeScale; next.play();
-  if (s.act && s.act !== next) s.act.crossFadeTo(next, fade, false);
-  s.act = next;
+function play(s, name, fade, timeScale = 1, at = 0) {   // (actor.js crossFade: a clip played once starts over, given 1 repetition)
+  const once = ONCE.has(name); s.once = null;
+  s.act = crossFade(s.act, s.mixer.clipAction(clipOf(name)), fade, { once, at, speed: timeScale, reps: 1, restart: true });
 }
 function playOnce(s, name, fade, then, at = 0) { play(s, name, fade, 1, at); s.once = then; }
 
