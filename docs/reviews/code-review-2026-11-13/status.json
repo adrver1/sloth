@@ -1,5 +1,5 @@
 {
- "as_of": "section C round 2, 2026-11-13",
+ "as_of": "section C round 3, 2026-11-14",
  "statuses": [
   "fixed",
   "partly fixed",
@@ -34,7 +34,7 @@
    "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
   },
   "boot-04": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "2626429",
     "d6fbceb",
@@ -42,9 +42,12 @@
     "ae20b20",
     "8e8770b",
     "93e09a3",
-    "70dcb0c"
+    "70dcb0c",
+    "7f62b80",
+    "42d0be8",
+    "9bbca24"
    ],
-   "note": "the APIs are exports and every module the clean-up has reached imports them, the sloths and lab.js included; operator.js, input.js, audio.js, car.js, radio.js and jeepSeat.js still read the window aliases, and the debug hooks are listed in core.js but set in several files (the sloths' in sloth/hooks.js)"
+   "note": "every module imports what it uses: input.js, jeepSeat.js and operator.js take campLife from sloth/hooks.js (operator/state.js is handed it, since it is evaluated before the sloths), main.js hands audio.js the chores and the operator (hearCamp), and core.js pace replaces __campFast inside the page; every window.__ name is set in camp/debug.js"
   },
   "boot-06": {
    "status": "fixed",
@@ -111,7 +114,7 @@
    "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
   },
   "crosscut-03": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "2626429",
     "d6fbceb",
@@ -123,17 +126,22 @@
     "93e09a3",
     "70dcb0c",
     "bfca46a",
-    "571f821"
+    "571f821",
+    "7f62b80",
+    "42d0be8",
+    "9bbca24",
+    "c54ad4a"
    ],
-   "note": "the APIs are exports; the sloths' modules, lab.js, operator.js, input.js, car.js, radio.js and jeepSeat.js import them; input.js, operator/state.js and jeepSeat.js still read __campLife, audio.js __acts and __op (it is evaluated before the chores and the operator exist), sloth/step.js and jeepSeat.js __campFast (core.js lists who reads which)"
+   "note": "no module in camp/ or activities.js reads a window.__ name; the tools' names are all set in camp/debug.js, each with who reads it, and the back-compat re-exports with no reader left are gone (forest.js A0/HERO/RC/V, campProps.js SOUP_POT, sloths.js burst/fx/sprite)"
   },
   "crosscut-04": {
    "status": "partly fixed",
    "commits": [
     "4ddc16e",
-    "4615035"
+    "4615035",
+    "9bbca24"
    ],
-   "note": "the globals are listed in core.js (now with the car's, the radio's and the sound's), marked as API, tool contract or debug hook, and two unused hooks are gone; one debug module is not done: the hooks still sit in main.js (__rest, __face, and __slothS, which still maps every sloth at start-up), clock.js, linger.js, weather.js, car.js, audio.js, radio.js, sloths.js and operator.js (op.scr is still computed every frame)"
+   "note": "one module, camp/debug.js, imported last by main.js, sets every window.__ name with a table of who reads it; the hooks nothing reads are gone (__rest, __face, __slothS, __me, __clocks, __errand, __path, __spots, __sloth, __lab, __op, __acts, __campLife, __audio, __radio, __camera, __car). op.scr is still worked out every frame for opApi.tapAt, since the scenario tours read it at frame time"
   },
   "crosscut-05": {
    "status": "waiting on Adriaen",
@@ -150,16 +158,18 @@
    "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
   },
   "crosscut-07": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "16996b7",
     "633be43",
     "4615035",
     "8778d7f",
     "b9a833a",
-    "a6ef95e"
+    "a6ef95e",
+    "c54ad4a",
+    "7b104e5"
    ],
-   "note": "forest.js, food.js, player.js, jeep.js and input.js done, and the sloths' unread fields (friend among them) are gone; sloths.js still exports COUNT and flowerCrown, which nothing imports now"
+   "note": "the last of them gone too: sloths.js COUNT and flowerCrown, player.js's collide export, core.js's canvasTex import, and the imports main.js and car.js no longer used"
   },
   "crosscut-08": {
    "status": "waiting on Adriaen",
@@ -216,7 +226,7 @@
     "4ddc16e",
     "ea8bc13"
    ],
-   "note": "one table of URL options, storage keys and window globals in core.js, now with time, cycle and the start view; the README copy remains, and the options input.js, sloths.js, operator.js and audio.js parse themselves"
+   "note": "one table of URL options and storage keys at the top of core.js (OPT), now with touch, campsloths, slothmat, lab, sound and station, which every module reads instead of parsing the URL; the README's Canopy Camp section copies it (ddf8cd6). props/shadow/export_casters.cjs's usage line still names props=, which the page ignores"
   },
   "crosscut-17": {
    "status": "waiting on Adriaen",
@@ -442,9 +452,14 @@
    "note": "the blockers option, the fallbacks and the optional-call guards are gone; the old flame sprites are still scaled each frame (camp/chores.js boostFire), because campProps.js still moves them, hidden: they go with campProps.js's own clean-up"
   },
   "operator-09": {
-   "status": "planned",
-   "commits": [],
-   "note": "next round of section C: the shared character layer and the sloths.js split"
+   "status": "partly fixed",
+   "commits": [
+    "27dda54",
+    "c3f1346",
+    "5795b11",
+    "d7ae27c"
+   ],
+   "note": "camp/actor.js holds what the sloths and the operator share and is stateless: aimBone (a bone turned toward a point), crossFade (the clip cross-fade, with the three ways the two players differ as options), makeZ/zAt (the sleep Zs, each character with its own sizes) and yawTo/yawFrom; the sloths' and the operator's modules use them. Left apart, because they give different numbers or work differently: turning (the sloths turn by a share of the gap after wrapPi, the operator at a capped rate after atan2(sin, cos)), walking and steering (a per-frame grid path that gives way, against a generator with blockers, movers and overtaking), the gaze then wave (a view-direction test that fades, against a screen test that resets), finishing a one-shot clip (polling against the mixer's finished event), and bites (only the sloths shrink the food)"
   },
   "operator-10": {
    "status": "partly fixed",
@@ -820,6 +835,44 @@
     "89f77ba"
    ],
    "note": "glide, move, clamber, settle and turn share util.js ease now, but they are still five tweens: one tween() changes the fields of the trip record, which the behaviour checks compare, so it needs its own round (and step 2 changes the climb's timing)"
+  },
+  "operator-14": {
+   "status": "partly fixed",
+   "commits": [
+    "22ef8a7",
+    "4f1df9e"
+   ],
+   "note": "places.js gives seatLog(i), seatKey(i, left) and bedKey(i), and the five modules that looked up Seat_<i> and typed \"log:1\", \"log:0:left\", \"bed:0\" use them; the tap targets are one registry (targets.js, boot-08). Left as it is, because changing it would change what you see: where each one sits on a log (each module's own offset) and serve() not asking who holds the seat before it sets a bowl down"
+  },
+  "boot-08": {
+   "status": "fixed",
+   "commits": [
+    "4f1df9e",
+    "3aa8e15"
+   ],
+   "note": "camp/targets.js is the one registry: addTarget for single things (linger.js, clock.js, radio.js, car.js, operator/talk.js) and addTargets(kind, list) for the sets that change, which their owners add: chores.js the things, input.js the sloths, jeepSeat.js the doors (its doorOptions is local now, so jeepApi and carApi lose it). The targets come in the same order as before; linger, clock, radio, car and operator/talk keep an order-only import of input.js, so the modules are still built in the same order"
+  },
+  "crosscut-22": {
+   "status": "partly fixed",
+   "commits": [
+    "e628a42"
+   ],
+   "note": "tools/camp-page.cjs holds the headless set-up (server, Chromium on SwiftShader, three.js from node_modules with its own uuid stream, the virtual clock, the fingerprint); camp-replay.cjs and camp-scenarios.cjs use it, and the replay prints byte-for-byte what it printed before. camp-probe.cjs and props/shadow/export_casters.cjs still bring their own set-up (the probe serves .ktx2 and other types differently; export_casters is the bake's layout step)"
+  },
+  "hygiene-04": {
+   "status": "fixed",
+   "commits": [
+    "ddf8cd6",
+    "8230fe9"
+   ],
+   "note": "README.md has a Canopy Camp section (module groups, URL options, generators and bakes, tools) and table rows for the camp, props/, tools/ and docs/reviews/; CLAUDE.md has two rule lines pointing there and naming npm run replay and npm run scenarios as the check before a clean-up PR"
+  },
+  "hygiene-22": {
+   "status": "fixed",
+   "commits": [
+    "8230fe9"
+   ],
+   "note": "covered by hygiene-04: the README table has a row for apps/canopy-prototype"
   }
  }
 }
