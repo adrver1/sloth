@@ -11,7 +11,7 @@ import { scene } from "./core.js";
 import { V, canvasTex, lam } from "./util.js";
 import { TABLE } from "./layout.js";
 import { me } from "./player.js";
-import { addTarget } from "./input.js";
+import { addTarget } from "./targets.js";
 import { toast } from "./hud.js";
 import { audio } from "./audio.js";
 

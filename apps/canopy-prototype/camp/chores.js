@@ -4,7 +4,9 @@
 // (boostFire: the one place the chores touch the camp's fire).
 // Exports buildChores(): campLife.js calls it once, last; it returns the activities (acts), which input.js passes taps to,
 // the operator reads (operator/cook.js and day.js cook with it, talk.js lets you give him the food in your hand), and main.js updates
-// each frame; main.js also hands it to audio.js (hearCamp), for the pot's sounds.
+// each frame; main.js also hands it to audio.js (hearCamp), for the pot's sounds. It also adds the things you can use to the
+// tap targets (targets.js).
+import * as THREE from "three";
 import { createActivities } from "../activities.js";
 import { LIVED, camera, scene } from "./core.js";
 import { toast } from "./hud.js";
@@ -13,6 +15,7 @@ import { CRATE, FIRE, SOUP_POT, TABLE, WOOD_PILE } from "./layout.js";
 import { sloths } from "./sloths.js";
 import { burst } from "./fx.js";
 import { me } from "./player.js";
+import { addTargets } from "./targets.js";
 
 // the logs you put on make the camp's fire bigger: each frame the fire chore says how much wider, taller and brighter, on top
 // of what campProps.js (the cards and the old sprites) and the day's light (fireLight) set for this frame. Only here.
@@ -28,6 +31,11 @@ function buildChores() {
     looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
       .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)),
     woodTex: WOOD_TEX ?? null, glowTex, burst, toast, addBlocker: (c, r) => blockers.push([c, r]), boostFire });
+  // the things you can use light up and open a menu (targets.js): only ever the one thing a tap does now (the thing's own
+  // label, activities.js)
+  const sph = new THREE.Sphere();
+  addTargets("things", () => acts.things.filter((t) => t.look).map((t) => [t, () => ({ get look() { return t.look; }, picks: [t.box],
+    at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius), ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] })]));
   return acts;
 }
 

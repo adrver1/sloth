@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { camera, scene } from "./core.js";
 import { V, canvasTex, lam, trisIn } from "./util.js";
 import { HAMMOCK, TENT } from "./layout.js";
-import { addTarget } from "./input.js";
+import { addTarget } from "./targets.js";
 import { toast } from "./hud.js";
 import { day } from "./daytime.js";
 

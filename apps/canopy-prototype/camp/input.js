@@ -1,7 +1,7 @@
 // Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize; and the things
 // you can use: which one lights up (highlight.js) and the pill menu a tap on it opens.
-// Exports addTarget(key, make) (other modules add a thing that lights up and has a menu: linger.js, clock.js, radio.js, car.js,
-// operator/talk.js), aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) and resize() (main.js).
+// The things themselves are tap targets (targets.js), added by the modules that own them; input.js adds the sloths.
+// Exports aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) (debug.js) and resize() (main.js).
 import * as THREE from "three";
 import { $, OPT, R, camera, renderer, scene, uTime } from "./core.js";
 import { keys, pickAt, ray, stickV, toast } from "./hud.js";
@@ -10,9 +10,9 @@ import { hit, sloths } from "./sloths.js";
 import { burst, fx, sprite } from "./fx.js";
 import { campLife } from "./sloth/hooks.js";
 import { me } from "./player.js";
-import { jeepApi } from "./jeep.js";
 import { acts } from "./campLife.js";
 import { createHighlight } from "./highlight.js";
+import { addTargets, allTargets, targetOf } from "./targets.js";
 
 // ---------------------------------------------------------------- input
 const coarse = matchMedia("(pointer: coarse)").matches || OPT.touch;   // ?touch: the phone stick on a desktop too
@@ -74,37 +74,19 @@ function give(s) { const f = acts.give(); if (!f) return; const L = campLife; if
 // the wood pile and the fire. Sloths never light up (Adriaen: too many, too distracting), but a tap on one still opens
 // its menu, and a hold still feeds it straight away.
 const glow = createHighlight(scene, renderer, { width: coarse ? 3.5 : 3 });
-const AIM = 0.45, fwd = new THREE.Vector3(), to = new THREE.Vector3(), box3 = new THREE.Box3(), sph = new THREE.Sphere();
+const AIM = 0.45, fwd = new THREE.Vector3(), to = new THREE.Vector3(), sph = new THREE.Sphere();
 let hover = null, lit = null, menuFor = null;
 $("c").addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") hover = { x: e.clientX, y: e.clientY }; });
 $("c").addEventListener("pointerleave", () => (hover = null));
-// every thing that can light up, made once per thing: what lights, where it is (a sphere), what a ray can hit, when it is in
-// reach, and its menu
-const targets = new Map(), byPick = new Map();
-function target(key, make) { let t = targets.get(key); if (!t) { t = make(); targets.set(key, t); for (const o of t.picks) byPick.set(o, t); } return t; }
-const SLOTH_REACH = 7, DOOR_REACH = 4;
-const DOOR_NAME = { P: "door", D: "door", B: "boot", H: "hood" };
-const extra = [];   // targets other modules add (linger.js: the log seats), as [key, make] like target() takes
-const addTarget = (key, make) => extra.push([key, make]);
-function allTargets() {
-  const out = [];
-  for (const [k, make] of extra) out.push(target(k, make));
-  for (const t of acts.things) if (t.look) out.push(target(t, () => ({ get look() { return t.look; }, picks: [t.box], at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius),
-    ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] })));   // only ever the one thing a tap does now (the thing's own label, activities.js)
-  for (const s of sloths) out.push(target(s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
-    ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })));
-  for (const d of jeepApi?.doors ?? []) out.push(target(d, () => {
-    const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
-    const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
-    return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
-      options: () => [...(jeepApi.doorOptions?.(d) ?? []), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };   // jeepSeat.js: Get in / Get out on the front doors
-  }));
-  return out;
-}
+// every thing that can light up is a target (targets.js), added by the module that owns it; the sloths are added here, since
+// their menu is what you do to them (boop, feed, give)
+const SLOTH_REACH = 7;
+addTargets("sloths", () => sloths.map((s) => [s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
+  ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })]));
 // the ready target under the screen point x, y (or null)
 function targetAt(x, y) {
   const list = allTargets().filter((t) => t.ready()).flatMap((t) => t.picks);
-  const h = pickAt(x, y, list); return h ? byPick.get(h.object) : null;
+  const h = pickAt(x, y, list); return h ? targetOf(h.object) : null;
 }
 function aimStep(dt) {
   let best = null;
@@ -155,4 +137,4 @@ function tap(x, y) {
 
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
 
-export { addTarget, aimStep, boop, feed, resize };
+export { aimStep, boop, feed, resize };

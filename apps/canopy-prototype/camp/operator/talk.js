@@ -9,7 +9,8 @@ import * as THREE from "three";
 import { R, camera, scene } from "../core.js";
 import { V } from "../util.js";
 import { acts as chores } from "../campLife.js";   // your chores (activities.js): the food in your hand
-import { addTarget } from "../input.js";
+import "../input.js";   // order only: input.js is evaluated here, before the operator, as it always was
+import { addTarget } from "../targets.js";
 import { fx } from "../fx.js";
 import { LINES, bag, line, pickLine } from "./lines.js";
 import { B, clips, csDir, root } from "./model.js";

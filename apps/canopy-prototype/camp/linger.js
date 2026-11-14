@@ -8,7 +8,7 @@ import { scene, uTime } from "./core.js";
 import { V, wrapPi } from "./util.js";
 import { SEATS } from "./layout.js";
 import { me } from "./player.js";
-import { addTarget } from "./input.js";
+import { addTarget } from "./targets.js";
 
 const seats = SEATS.map((_, i) => scene.getObjectByName(`Seat_${i}`)).filter(Boolean);   // campProps.js puts one log on each of layout.js's seats
 // where you sit on a log: its middle, a little to its back edge. Seat_0 is Sunny's bench (sloths.js "seat", just right of its
