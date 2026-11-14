@@ -19,6 +19,7 @@ import { move, moveStep } from "./moves.js";
 import { mouthOf } from "./face.js";
 import { pawOf } from "./arms.js";
 import { fruit, restOn, sitFor } from "./table.js";
+import { restHeight } from "../food.js";
 import { cardsSit, cardsStep } from "./cards.js";
 
 const paw = V(), mouthW = V();
@@ -36,7 +37,7 @@ function eatStep(s, T, sd) {
   else if (T.st === "cards") cardsStep(s, T, sd);
   else if (T.st === "eat") {
     if (!F.mesh && s.act.time > EAT_GRAB - 0.1) { F.mesh = fruit(); F.mesh.position.copy(pawOf(s, paw)); }   // a bowl: the fruit comes up out of it
-    if (F.mesh) chewStep(s, F.mesh, F.from ??= F.at.clone().setY(F.at.y + (F.mesh.userData.base?.y ?? 0) / 2), EAT_GRAB);
+    if (F.mesh) chewStep(s, F.mesh, F.from ??= F.at.clone().setY(F.at.y + restHeight(F.mesh)), EAT_GRAB);
   }
 }
 function chew(s, T) {

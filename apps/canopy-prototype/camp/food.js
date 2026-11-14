@@ -2,8 +2,12 @@
 // with its eat clip and it doesn't look out of place). Vegetables come from the kitchen crate, fruit from the plate
 // on the snack table (activities.js). Each item is one mesh at its real size in metres, centred on its middle, with
 // userData.base = its normal scale (sloth/eating.js chewStep shrinks it a bite at a time from that). Flat-shaded, coloured per
-// vertex, one shared material for all of them. Triangles: carrot 15, potato 20, onion 36, mushroom 36, mango, fig and lime 20, apple 21, banana 35.
-// The fruit match the sloths' own table fruit in camp/sloth/table.js (FRUIT): same colours and sizes (the banana here is bent).
+// vertex, one shared material and one geometry per kind for all of them. Triangles: carrot 15, potato 20, onion 36, mushroom 36,
+// mango, fig and lime 20, apple 21, banana 35. The sloths' table and crate fruit (camp/sloth/table.js) are these too.
+//   VEG, FRUIT          [kind, emoji] for the vegetables and the fruit (menus and toasts)
+//   foodGeo(kind)       the shared geometry of one kind, made the first time it is asked for
+//   makeFood(kind)      a new mesh of one kind
+//   restHeight(mesh)    how far its middle sits above the surface it lies on (its geometry's lowest point, at scale 1)
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
@@ -92,8 +96,10 @@ const geos = {};
 export const VEG = [["carrot", "🥕"], ["potato", "🥔"], ["onion", "🧅"], ["mushroom", "🍄"]];
 export const FRUIT = [["mango", "🥭"], ["apple", "🍎"], ["banana", "🍌"], ["fig", ""], ["lime", ""]];
 
+export const foodGeo = (kind) => geos[kind] ??= MAKE[kind]();
 // a new mesh of one kind ("carrot", "mango", ...)
 export function makeFood(kind) {
-  const m = new THREE.Mesh(geos[kind] ??= MAKE[kind](), mat);
+  const m = new THREE.Mesh(foodGeo(kind), mat);
   m.name = `food_${kind}`; m.userData.kind = kind; m.userData.base = new THREE.Vector3(1, 1, 1); return m;
 }
+export function restHeight(m) { const g = m.geometry; if (!g.boundingBox) g.computeBoundingBox(); return -g.boundingBox.min.y; }

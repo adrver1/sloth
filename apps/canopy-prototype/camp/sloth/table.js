@@ -1,9 +1,8 @@
 // Canopy Camp sloths, the food places (Adriaen 2026-11-12: "have them pick up the food item and eat it; crawl on top of the
 // table or reach into the crate", no words or emojis): a fruit lies at each place, on the table top or on the things in the
-// crate. A new fruit is put out a while after one is eaten. Fruit: one 20-triangle icosahedron each, coloured and
-// stretched per kind.
-//   buildTable()        measures where the paw is at the grab of the two eat clips and makes the fruits' shape (sloths.js,
-//                       in its place in the build order)
+// crate. A new fruit is put out a while after one is eaten. The fruit are camp/food.js's (mango, apple, banana, fig, lime:
+// 20 to 35 triangles each, one shared material), the same ones you carry and give.
+//   buildTable()        measures where the paw is at the grab of the two eat clips (sloths.js, in its place in the build order)
 //   buildPlaces()       makes the places and puts a fruit at each, drawing from the sloths' stream (sloths.js
 //                       buildSlothPlaces, called by main.js once the blockers are in); without a table or a crate (?lived=0)
 //                       that one has none
@@ -11,7 +10,7 @@
 //                       crate; [] before buildPlaces. A slot: { name, key (the place it claims, places.js), p
 //                       (where to walk to), u, yaw, clip (eat or eat_high), who, h (the table top), food: { at, mesh, back
 //                       (seconds until a new fruit), grow } }
-//   fruit(mesh)         a new fruit, or the same mesh as a new kind (draws two numbers)
+//   fruit(mesh)         a new fruit (camp/food.js makeFood), or the same mesh as a new kind (draws two numbers)
 //   restOn(food)        lays the food's fruit on the surface at its place (eating.js: the next fruit a table eater takes)
 //   sitFor(slot, sc)    where a sloth of size sc sits so that its paw meets the fruit
 //   fruitStep(sd)       each frame: a fruit is put out again a while after one is eaten, and grows to its size
@@ -26,23 +25,21 @@ import { EAT_GRAB, clipOf } from "./clips.js";
 import { armBones, pawOf } from "./arms.js";
 import { yawQ } from "./poses.js";
 import { isFree } from "./walk.js";
+import { FRUIT, foodGeo, makeFood, restHeight } from "../food.js";
 
 const DOWN = V(0, -1, 0), tmp = V(), ray = new THREE.Raycaster();
-let POIS = null, fruitGeo = null;
+let POIS = null;
 const GRAB = {};                                     // where the paw is at the grab, in the sloth's own frame at scale 1
 function buildTable() {
   { const o = clone(SLOTH.scene), m = new THREE.AnimationMixer(o), arm = armBones(o, "R");
     for (const n of ["eat", "eat_high"]) { m.stopAllAction(); const a = m.clipAction(clipOf(n)); a.play(); a.time = EAT_GRAB; m.update(0); o.updateMatrixWorld(true); GRAB[n] = pawOf({ arm }, V()); } }
-  fruitGeo = new THREE.IcosahedronGeometry(0.5, 0);   // unit size, scaled to the fruit
 }
-// each fruit its real size in metres, across x up y long z (Adriaen: "appropriately sized for what they are")
-const FRUIT = [[0xffa531, [0.08, 0.075, 0.11]], [0xe8473a, [0.08, 0.075, 0.08]], [0xffd94d, [0.036, 0.036, 0.18]], [0x8a4fa8, [0.05, 0.055, 0.05]], [0x9fd36a, [0.055, 0.05, 0.055]]];   // mango, apple, banana, fig, lime
-function fruit(m) {                                  // a new fruit (or the same mesh as a new kind)
-  m ??= new THREE.Mesh(fruitGeo, new THREE.MeshLambertMaterial());
-  const [c, k] = FRUIT[Math.floor(R(0, FRUIT.length))]; m.material.color.setHex(c); m.userData.base = V(...k); m.scale.copy(m.userData.base);
-  m.rotation.set(0, R(0, 6.3), 0.3); m.visible = true; if (!m.parent) scene.add(m); return m;
+function fruit(m) {                                  // a new fruit (or the same mesh as a new kind), upright at its real size, so restOn sits it on its lowest point
+  const kind = FRUIT[Math.floor(R(0, FRUIT.length))][0];
+  if (m) { m.geometry = foodGeo(kind); m.name = `food_${kind}`; m.userData.kind = kind; } else m = makeFood(kind);
+  m.scale.copy(m.userData.base); m.rotation.set(0, R(0, 6.3), 0); m.visible = true; if (!m.parent) scene.add(m); return m;
 }
-const restOn = (F) => F.mesh.position.copy(F.at).setY(F.at.y + F.mesh.userData.base.y / 2);   // lying on the surface at F.at
+const restOn = (F) => F.mesh.position.copy(F.at).setY(F.at.y + restHeight(F.mesh));   // lying on the surface at F.at
 function sitFor(slot, sc) {                          // where it sits so that its paw meets the fruit (scale sc)
   return slot.food.at.clone().sub(GRAB[slot.clip].clone().multiplyScalar(sc).applyQuaternion(yawQ(slot.yaw))).setY(slot.h);
 }
