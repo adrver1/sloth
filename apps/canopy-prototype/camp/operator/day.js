@@ -161,13 +161,11 @@ function pick() {
   let r = R(0, w.reduce((s, [, v]) => s + v, 0)); for (const [k, v] of w) if ((r -= v) <= 0) return k; return w[0][0];
 }
 
-// each frame: start his day on the first, register him as a mover with the sloths' life (again later if it was not there
-// yet), then run the activity one step
+// each frame: start his day on the first, and register him then as a mover with the sloths' life (operator.js hands that
+// over before any frame; without the camp sloths there is none); then run the activity one step
 let it = null;
 function lifeStep(dt) {
   if (!it) { it = lifeLoop(); it.next(); life().addMover?.(root, RADIUS); }
-  if (!life().movers && !op.moverTry) op.moverTry = 1;
-  else if (op.moverTry === 1 && life().addMover) { life().addMover(root, RADIUS); op.moverTry = 2; }
   it.next(dt);
 }
 // the checks (opApi.jump): this activity now, then his day goes on

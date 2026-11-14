@@ -22,7 +22,6 @@ const op = {
   footLock: null,                                      // where his feet stay planted while he sits down or rises
   lean: 0,                                             // bent forward at the waist, 0 to 1.3
   pass: null,                                          // stepping round someone in his way { side, t, d }
-  moverTry: 0,                                         // registering as a mover once the sloths' life is there (0, 1, 2 done)
   // his head and face
   look: 0, gaze: 0, happy: false,                      // head down (-) or round; how long you have looked at him; a smile
   anim: { blink: 2, zz: 0, look: 0 },                  // s to the next blink; the Z's phase; how far his head has turned to you
