@@ -1,10 +1,16 @@
 """
 Lived-in camp props for the Canopy Camp game (apps/canopy-prototype/camp.html): the small things that make the camp
-look used. Built in batches, so each can be checked before the next:
+look used. PROPS (above make()) lists them all, one row each with its builder and how it is lit:
 
-    batch 1   WoodStack   the stacked split logs by the fire as one textured block (renders of the detailed stack)
-              WoodPile    the rest of the pile: end posts, a chopping stump with a hatchet in it, chips and a few loose logs
-              SeatThings  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top
+    WoodStack     the stacked split logs by the fire as one textured block (renders of the detailed stack)
+    LooseLogs     a few loose split logs by the pile (textured)
+    SeatTop       the rustic seat's sawn top (textured; the page puts one on each of three seats)
+    MatRoll       the rolled sleeping mat by the tent (textured)
+    KitchenCrate  the kitchen crate (textured)
+    WoodPile      the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
+    SeatThings    an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
+    TentSide      the wellies by the tent (baked)
+    KitchenThings the pan, plates, honey jar and spoon on the crate (baked)
 
     .venv/bin/python props/lived/build_lived.py
     .venv/bin/python props/lived/build_lived.py --samples 64
@@ -707,24 +713,36 @@ def kitchen_things(M):
     return join(p, "KitchenThings")
 
 
-BAKED = ("WoodPile", "SeatThings", "TentSide", "KitchenThings")    # the props that take vertex colours; the rest are textured
+# Every lived prop, in build order (the seeded stream rng is drawn in this order, so keep it): (name, builder(M, samples),
+# how it is lit, a note for the triangle report). "baked" props take vertex colours (their own AO, or the light bake's
+# flat colours) and lose their UVs; "textured" ones keep their UVs and image. A new prop is one row here; the page
+# (campProps.js) and the light bake (bake_camp_lightmap.py PLACE) still place it by name.
+PROPS = [
+    ("WoodStack", lambda M, s: wood_stack(M, max(s, 48)), "textured", None),
+    ("LooseLogs", lambda M, s: loose_logs(), "textured", None),
+    ("SeatTop", lambda M, s: seat_top(), "textured", "(x3 seats on the page)"),
+    ("MatRoll", lambda M, s: mat_roll(os.path.join(HERE, "mat_roll.png")), "textured", None),
+    ("KitchenCrate", lambda M, s: kitchen_crate(), "textured", None),
+    ("WoodPile", lambda M, s: wood_pile(M), "baked", None),
+    ("SeatThings", lambda M, s: seat_things(M), "baked", None),
+    ("TentSide", lambda M, s: tent_side(M), "baked", None),
+    ("KitchenThings", lambda M, s: kitchen_things(M), "baked", None),
+]
+BAKED = tuple(n for n, _, kind, _ in PROPS if kind == "baked")
+TEXTURED = tuple(n for n, _, kind, _ in PROPS if kind == "textured")
 
 
 def make(samples=32):
-    """Make the lived props in the current scene and return them as {name: object}, the BAKED ones first, each at its own
-    origin. No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
+    """Make the lived props (PROPS) in the current scene and return them as {name: object}, the BAKED ones first, each at
+    its own origin. No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
     M = materials()
-    stack = wood_stack(M, max(samples, 48))
-    loose = loose_logs()
-    top = seat_top()
-    roll = mat_roll(os.path.join(HERE, "mat_roll.png"))
-    crate = kitchen_crate()
-    objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M), "TentSide": tent_side(M), "KitchenThings": kitchen_things(M)}
-    for k, o in objs.items():
+    made = {name: fn(M, samples) for name, fn, _, _ in PROPS}
+    for k in BAKED:                           # the baked props are built from parts: apply them at the origin
+        o = made[k]
         apply_all(o)
         o.location = (0, 0, 0)
         o.name = k
-    return {**objs, "WoodStack": stack, "LooseLogs": loose, "SeatTop": top, "MatRoll": roll, "KitchenCrate": crate}
+    return {k: made[k] for k in BAKED + TEXTURED}
 
 
 def build(samples=32, parts_out=None, colour=None, path=None):
@@ -738,7 +756,7 @@ def build(samples=32, parts_out=None, colour=None, path=None):
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
     path = export_glb(list(every.values()), path or os.path.join(HERE, "lived.glb"), image_format="JPEG", quiet=True)
-    report([every[k] for k in ("WoodStack", "LooseLogs", "KitchenCrate", "MatRoll", "SeatTop")], note={"SeatTop": "(x3 seats on the page)"})
+    report([every[k] for k in TEXTURED], note={n: t for n, _, _, t in PROPS if t})
     for k, o in objs.items():
         report([o])
         part = o.data.attributes["part"]
