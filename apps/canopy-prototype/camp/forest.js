@@ -203,7 +203,7 @@ function forestWall() {
   // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
   const wall = [];
   {
-    const g = bake(new THREE.CylinderGeometry(0.35, 0.65, 20, 8, 3, true).translate(0, 10, 0), 0, 9);
+    const g = bake(wallTrunk(), 0, 9);
     for (let i = 0; i < 400 && wall.length < 70; i++) {
       const a = R(0, 6.28), r = RC + 1.2 + Math.pow(rnd(), 1.4) * 15, x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (HERO.some((h) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w[0] - x, w[1] - z) < 1.6)) continue;
@@ -211,11 +211,28 @@ function forestWall() {
     }
     for (const [x, z, s] of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);   // each tree on its own root mound
     const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
-    wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1), y0 = groundHeight(x, z) - 0.15; w[3] = keep ? y0 + 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
+    // each trunk is seated by the lowest ground round its base, not at its centre, so no side of the base stands above the
+    // ground on a slope or a hummock (review R2-164)
+    const seat = (x, z, s) => { let y = Infinity; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; y = Math.min(y, groundHeight(x + Math.cos(a) * 0.65 * s, z + Math.sin(a) * 0.65 * s)); } return y - 0.05; };
+    wall.forEach((w, i) => { const [x, z, s] = w, keep = trackDist(x, z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1), y0 = seat(x, z, s); w[3] = keep ? y0 + 20 * sy : 0;   // w[3]: trunk top, for the crown limbs
       w[4] = y0; m.compose(V(x, y0, z), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), ry), V(s * keep, sy * keep, s * keep)); im.setMatrixAt(i, m); });
     scene.add(im);
   }
   return wall;
+}
+
+// One trunk shape for the whole wall (one instanced draw): 8 sides tapering from 0.65 to 0.35 m over 20 m, with a buttress
+// flare in its bottom metre and a slight bend, as the big trees have (review R2-201). Its rings stand at -0.25, 0.5, 1.5, 6.7,
+// 13.3 and 20 m: the two low ones shape the flare, and the bottom one is 0.25 m under the ground, so the base meets the ground
+// even where the ground mesh cuts across a root mound lower than groundHeight (review R2-164). 80 triangles.
+function wallTrunk() {
+  const ys = [20, 13.33, 6.67, 1.5, 0.5, -0.25], g = new THREE.CylinderGeometry(1, 1, 1, 8, ys.length - 1, true), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const ring = Math.round((0.5 - p.getY(i)) * (ys.length - 1)), y = ys[ring], a = Math.atan2(p.getZ(i), p.getX(i));
+    const r = (0.65 - 0.3 * Math.max(0, y) / 20) * (1 + 0.6 * Math.exp(-1.5 * Math.max(0, y)) * (0.5 + 0.5 * Math.cos(4 * a + 0.4)));
+    p.setXYZ(i, Math.cos(a) * r + 0.15 * Math.sin(0.3 * y), y, Math.sin(a) * r);
+  }
+  return g;
 }
 
 // Cards (the leaves, the crown leaves, the verge bushes and the ferns) are collected as raw matrices and colours (cardSet),

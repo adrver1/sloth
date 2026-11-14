@@ -282,6 +282,11 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
         float show = smoothstep(1.0 - litW - 0.03, 1.0 - litW + 0.03, l1.a) * step(0.01, l1.a);
         c = mix(c, sRGBTransferEOTF(vec4(l1.rgb, 1.0)).rgb * (0.85 + 0.3 * mS), show);
         hB = hB * inD + 0.006 * show;
+        #ifdef FAR
+          // the forest's finest hummocks (period about 1 m): camp/terrain.js leaves this octave out of the height, since the mesh's
+          // rings are too far apart to follow it, so it is a bump here (review R2-164)
+          hB += 0.165 * vnoise(vG * 0.946 + vec2(-7.1, 2.9)) * smoothstep(uRC + 0.5, uRC + 5.0, rr);
+        #endif
         diffuseColor.rgb = c;
         albedoG = diffuseColor.rgb;
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`)

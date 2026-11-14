@@ -24,7 +24,10 @@ function vnoise(x, z) {
   const a = hash(i, j), b = hash(i + 1, j), c = hash(i, j + 1), d = hash(i + 1, j + 1);
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
-const fbm = (x, z) => 0.55 * vnoise(x, z) + 0.3 * vnoise(x * 2.1 + 5.2, z * 2.1 - 1.3) + 0.15 * vnoise(x * 4.3 - 7.1, z * 4.3 + 2.9);
+// two octaves only: a finer one (period about 1 m) is finer than the ground mesh's rings, so the mesh could not follow it and the
+// trunks, ferns and plants placed by this function floated or sank by up to 27 cm (review R2-164). ground.js paints that octave
+// as a shading bump instead; the 0.075 keeps the hummocks' mean height where the third octave had it.
+const fbm = (x, z) => 0.55 * vnoise(x, z) + 0.3 * vnoise(x * 2.1 + 5.2, z * 2.1 - 1.3) + 0.075;
 export const jeepDist = JEEP === "none" ? () => 1e9 : (x, z) => lineDist(JEEP_TRACK.pts, x, z);
 // the track's bounding box grown by the bank's outer edge (6.4 m): the track levels nothing outside it, so groundHeight skips the scan there
 const JB = (() => { const b = [1e9, 1e9, -1e9, -1e9]; if (JEEP !== "none") for (const p of JEEP_TRACK.pts) { b[0] = Math.min(b[0], p.x); b[1] = Math.min(b[1], p.z); b[2] = Math.max(b[2], p.x); b[3] = Math.max(b[3], p.z); }
