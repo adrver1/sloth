@@ -53,7 +53,8 @@ let glowTex, LANTERNS, fireLight, rayMat, motes, pools, SLOTH, LMTEX, LMSUN, WOO
 //   camp_lm_sun_<k>.png  R where the sun reaches (scales the live sun), G sky occlusion (scales the live sky light)
 // By day the props are lit live (sun and sky, shaded by the bake) plus a share of the warm lights; at night they show all four
 // lights, baked, unlit, faded in with uNight. COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
-// The lightMap slot (intensity 0) only gives the shader its sampler and UV; it adds no light. Light button: 2K or 1K (4K: ?lm=4k, local only).
+// The lightMap slot only gives the shader its sampler and UV: three's own light-map read (lights_fragment_maps, whose envmap part
+// these Lambert materials do not use) is cut out, so each pixel reads the map once, as lmQ (R2-096). Light button: 2K or 1K (4K: ?lm=4k, local only).
 // the seat tops and the tripod's bamboo are the only light-mapped parts painted as textures, and their paintings came out far
 // lighter and more saturated than the vertex-coloured props round them (sawn wood about 202,165,118; bamboo 196,184,114),
 // so they glowed by day and at night (camp review B2). Toned down here, not in the textures, so the bake needs nothing.
@@ -66,6 +67,7 @@ const lnight = (mat) => {
     bindLight(sh); sh.uniforms.uNight = uNight; sh.uniforms.uSun = { value: LMSUN };
     sh.fragmentShader = "uniform float uNight; uniform sampler2D uSun;\n" + LIGHT_GLSL + swap(sh.fragmentShader,
       ["#include <lights_fragment_begin>", swap(liveChunk(), ["getDirectionalLightInfo( directionalLight, directLight );", "getDirectionalLightInfo( directionalLight, directLight );\ndirectLight.color *= sunT.r;"])],   // the sun's baked shadow
+      ["#include <lights_fragment_maps>", ""],   // three's second read of the same texel, which intensity 0 threw away (R2-096)
       ["#include <lights_fragment_end>", "#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse *= 0.32 + 0.68 * sunT.g;"],   // sky occlusion on the sky light only
       ["#include <color_fragment>", `#include <color_fragment>
   vec3 baseC = diffuseColor.rgb; vec4 lmQ = lmDecode(texture2D(lightMap, vLightMapUv)); vec4 sunT = texture2D(uSun, vLightMapUv);
