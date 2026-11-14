@@ -67,7 +67,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 ## 8. Tap targets and places
 
-- Rule: anything that lights up and opens a menu is registered in `camp/targets.js` with `addTarget(key, make)` (a single thing) or `addTargets(kind, list)` (a set: `things`, `sloths`, `doors`) by the module that owns it. `input.js` does the lighting and the menus.
+- Rule: anything that lights up and opens a menu is registered in `camp/targets.js` with `addTarget(key, make)` (a single thing) or `addTargets(kind, items, make)` (a set: `things`, `sloths`, `doors`; `items()` hands back the same array while the set is unchanged) by the module that owns it. `input.js` does the lighting and the menus.
 - Why: log seats were described in five modules and tapped through competing targets (operator-14, boot-08).
 - Rule: who holds a seat, a bed or a spot goes through `camp/places.js`: `claim(place, who)`, `release(place, who)`, `holder`, `taken`, `host`/`join`, and `addMover`/`addCrowd`/`movers` for walkers. The log seats' and the tent beds' keys come from `seatKey(i, left)` and `bedKey(i)`; do not build those by hand. The jeep's places are fixed strings: `"jeep:driver"` and `"jeep:passenger"` (`jeepSeat.js` `holdSeat`, read by `sloth/day.js`), `"jeep:hood"` (the engine fix, `sloth/day.js` and `sloth/fix.js`) and `"jeep:P"` (a sloth's guest spot, `sloth/spots.js`).
 - Why: the registry lived inside the sloths and was reached through `window.__campLife`, and characters sat on each other (operator-10, sloths-30, operator-15).
