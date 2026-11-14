@@ -3,9 +3,12 @@ Every baked light in Canopy Camp, from one place (Adriaen 2026-11-12: "We don't 
 in several different places", and bake the whole scene as one). Run it whenever a prop is added, moved or reshaped.
 
     python props/bake_all.py                       # all steps
-    python props/bake_all.py --only light          # or: layout, ground
+    python props/bake_all.py --only light          # or: layout, jeep, ktx, ground
     set BLENDER=...\\blender.exe  and, on the desktop GPU, GPU_RUN=...\\render-jobs\\gpu_run.py
 
+  jeep    props/jeep/build_jeep.py --style <jeep>, only when props/jeep/jeep_<jeep>.glb is older than build_jeep.py or
+          props/lib (or missing): the jeep GLB the light bake casts shadows with, its far LOD and their models/*.txt
+          copies (its own Cycles AO bake, a few seconds)
   light   props/camp/bake_camp_lightmap.py: ONE Blender scene (the ground disc, the picked set, the lived-in props and the
           jeep) under one set of lights, day (the page's sun + sky) and night (fire, lanterns, stove, moon) ->
             models/camp_lm_<4k|2k|1k>.png       props: night light (RGB) and sky occlusion (A), on TEXCOORD_1
@@ -27,15 +30,15 @@ import argparse, os, subprocess, sys, time, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "props"))
-from lib.export import to_txt  # noqa: E402  (plain Python: to_txt needs no Blender)
+from lib.export import builder_sources, stale, to_txt  # noqa: E402  (plain Python: these need no Blender)
 ap = argparse.ArgumentParser()
-ap.add_argument("--only", choices=["light", "ktx", "layout", "ground"], action="append")
+ap.add_argument("--only", choices=["layout", "jeep", "light", "ktx", "ground"], action="append")
 ap.add_argument("--size", type=int, default=4096, help="props light map size")
 ap.add_argument("--ground-size", type=int, default=1024, help="ground light maps size")
 ap.add_argument("--samples", type=int, default=512)
 ap.add_argument("--jeep", default="expedition", help="the toy and camper are archived")
 a = ap.parse_args()
-steps = a.only or ["layout", "light", "ktx", "ground"]   # layout first: the light bake reads the placements ("place") and the deadwood from it
+steps = a.only or ["layout", "jeep", "light", "ktx", "ground"]   # layout first: the light bake reads the placements ("place") and the deadwood from it; the jeep before the light, which casts its shadows
 BLENDER = os.environ.get("BLENDER", "blender")
 GPU_RUN = os.environ.get("GPU_RUN")
 
@@ -64,6 +67,12 @@ if "layout" in steps:
         run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), "picked", a.jeep])
     finally:
         srv.terminate()
+if "jeep" in steps:
+    jeep_py = os.path.join(ROOT, "props/jeep/build_jeep.py")
+    if stale(os.path.join(ROOT, f"props/jeep/jeep_{a.jeep}.glb"), builder_sources(jeep_py)):
+        blender(jeep_py, "--style", a.jeep)
+    else:
+        print(f"jeep: props/jeep/jeep_{a.jeep}.glb is newer than its builder, kept", flush=True)
 if "light" in steps:
     blender(os.path.join(ROOT, "props/camp/bake_camp_lightmap.py"), "--size", str(a.size), "--samples", str(a.samples),
             "--ground", str(a.ground_size), "--jeep", a.jeep)

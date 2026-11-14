@@ -6,10 +6,12 @@ count per object for every model exported: export_glb() prints one line per obje
     tris(o), report(objs, note=None)              triangle counts
     export_glb(objs, path, texcoords=True, image_format=None, quiet=False, txt=None)
     to_txt(path, txt)                             the page's base64 copy of a file (artifacts serve no .glb or .ktx2)
+    stale(path, sources), builder_sources(script) whether a builder's output is missing or older than its code
 
-bpy is imported inside the functions that use it, so to_txt also works from plain Python (props/bake_all.py).
+bpy is imported inside the functions that use it, so to_txt and stale also work from plain Python (props/bake_all.py).
 """
 import base64
+import glob
 import os
 
 
@@ -36,6 +38,16 @@ def to_txt(path, txt):
     with open(path, "rb") as f, open(txt, "w") as g:
         g.write(base64.b64encode(f.read()).decode())
     return txt
+
+
+def builder_sources(script):
+    """The files a builder's output depends on: the script itself and the shared library (props/lib)."""
+    return [script, *sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), "*.py")))]
+
+
+def stale(path, sources):
+    """True when the file at path is missing or older (by modification time) than any of sources."""
+    return not os.path.exists(path) or os.path.getmtime(path) < max(os.path.getmtime(f) for f in sources)
 
 
 def export_glb(objs, path, texcoords=True, image_format=None, quiet=False, txt=None):

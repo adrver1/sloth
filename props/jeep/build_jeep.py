@@ -11,10 +11,16 @@ The adventure jeep for the Canopy Camp game (apps/canopy-prototype/camp.html): a
     .venv/bin/python props/jeep/build_jeep.py --style all --preview            # all three, with every preview still
     .venv/bin/python props/jeep/build_jeep.py --preview front,detail           # only these stills (Cycles, slow)
 
-Each style is one GLB (props/jeep/jeep_<style>.glb) standing on z = 0 with its front toward -Y (three.js +Z): the body
-Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive, the name is kept from when it was the passenger door), DoorD (the other front door)
-and BackDoor (with the spare), each with its origin on its hinge so the page swings it about the vertical; plus empties
-SeatP (driver cushion top, at the wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back) and Boot (middle of the cargo deck). It is the same convention and the same baked light as props/camp/build_camp.py, with the shared helpers of props/lib:
+Each style is one GLB, props/jeep/jeep_<style>.glb, standing on z = 0 with its front toward -Y (three.js +Z): the body
+Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive,
+the name is kept from when it was the passenger door), DoorD (the other front door) and BackDoor (with the spare), each
+with its origin on its hinge so the page swings it about the vertical; plus empties SeatP (driver cushion top, at the
+wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back)
+and Boot (middle of the cargo deck). The expedition, the page's jeep, also writes its far LOD jeep_expedition_lod.glb,
+and the base64 copies the page loads, apps/canopy-prototype/models/jeep_expedition.txt and jeep_expedition_lod.txt.
+props/bake_all.py runs this (its "jeep" step) before the light bake whenever the GLB is older than this script or
+props/lib, because the light bake uses the GLB as a shadow caster.
+It is the same convention and the same baked light as props/camp/build_camp.py, with the shared helpers of props/lib:
 Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
 Previews are opt-in (--preview, Cycles on the CPU): props/jeep/preview_<style>_<view>.png for the views front, back,
 detail, open, door and wheel.
@@ -28,6 +34,7 @@ import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+MODELS = os.path.join(HERE, "..", "..", "apps", "canopy-prototype", "models")   # the page's base64 copies
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
@@ -987,7 +994,8 @@ def build(style, samples, views=None, preview_samples=48):
     if style == "expedition":
         for o in objs.values():
             mud(o)
-    path = export_glb([*objs.values(), *EMPTIES], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False)
+    txt = os.path.join(MODELS, f"jeep_{style}.txt") if style == "expedition" else None   # the archived styles: props/jeep/archive
+    path = export_glb([*objs.values(), *EMPTIES], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False, txt=txt)
     print(f"{style} -> {path}")
     for e in EMPTIES:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
@@ -998,7 +1006,7 @@ def build(style, samples, views=None, preview_samples=48):
         M = mats("ex", **EXPEDITION_COLOURS)
         lod = jeep_lod(M); apply_all(lod)
         mud_mask(lod); bake([lod], samples, apply=False); mud(lod)
-        lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False)
+        lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False, txt=os.path.join(MODELS, "jeep_expedition_lod.txt"))
         print(f"  JeepLOD -> {lpath}")
 
 
@@ -1011,7 +1019,7 @@ if __name__ == "__main__":
                     help="also render Cycles preview stills: all of them, or only the comma-separated views given")
     ap.add_argument("--wheel", default=WHEEL, choices=["closed", "open"])
     ap.add_argument("--tyre", default=TYRE, choices=["at", "mt", "road"], help="the tread; only acts with --wheel open")
-    a = ap.parse_args()
+    a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])   # under blender -b: the args after --
     TYRE = a.tyre
     WHEEL = a.wheel
     views = None if a.preview is None else [v for v in a.preview.split(",") if v]
