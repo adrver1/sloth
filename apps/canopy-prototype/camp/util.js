@@ -12,6 +12,8 @@
 //   tris(geometry)                its triangle count
 //   trisIn(object)                the triangles of every mesh in it (the count each prop prints when it is built)
 //   wrapPi(angle)                 the same angle within -PI..PI: the short way round from one yaw to another
+//   yawTo(dir)                    the yaw that faces along the direction dir (x, z): a character's or a prop's front is its own -Z
+//   yawFrom(a, b)                 the yaw that faces from point a toward point b
 //   ease(k)                       the smoothstep curve for a k that is already 0..1 (sstep without the clamp)
 //   lam(color, opts)              a MeshLambertMaterial of that colour
 //   patchMaterial(mat, id, hook)  adds a shader hook after the material's current one, with a program cache key made of
@@ -59,6 +61,8 @@ export const tris = (g) => (g.index ? g.index.count : g.attributes.position.coun
 export const trisIn = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) n += tris(m.geometry); }); return n; };
 
 export const wrapPi = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+export const yawTo = (d) => Math.atan2(-d.x, -d.z);
+export const yawFrom = (a, b) => Math.atan2(-(b.x - a.x), -(b.z - a.z));
 export const ease = (k) => k * k * (3 - 2 * k);
 
 export const lam = (color, opts) => new THREE.MeshLambertMaterial({ color, ...opts });

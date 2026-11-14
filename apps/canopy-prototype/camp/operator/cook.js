@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { R, camera, scene } from "../core.js";
 import { CRATE, SOUP_POT } from "../layout.js";
-import { V } from "../util.js";
+import { V, yawTo } from "../util.js";
 import { acts as chores } from "../campLife.js";
 import { VEG, makeFood } from "../food.js";
 import { me } from "../player.js";
@@ -14,7 +14,6 @@ import { UP, cs, root } from "./model.js";
 import { crateFront, fireGap } from "./places.js";
 import { op } from "./state.js";
 import { speak } from "./talk.js";
-import { yawTo } from "../actor.js";
 import { face, faceFire, wait, walkTo } from "./walk.js";
 
 // cooking (Adriaen 2026-11-13): the soup from start to finish, the same steps as yours: the pail from under the snack table,

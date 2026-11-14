@@ -5,7 +5,7 @@ import "./sloths.js";   // run after the module before it, as one script did
 import { camera } from "./core.js";
 import { keys, stickV } from "./hud.js";
 import { track } from "./forest.js";
-import { V, polyDist } from "./util.js";
+import { V, polyDist, yawTo } from "./util.js";
 import { GLADE, GLADE_R, PATH_W, RC, d0, sloPath, t0 } from "./layout.js";
 import { blockers } from "./campProps.js";
 import { groundHeight } from "./terrain.js";
@@ -16,7 +16,7 @@ const EYE = 1.55, SPEED = 1.7, BODY = 0.25;   // BODY: how far you keep from thi
 // seat: { pos, yaw, and for the jeep's drop, pitch, leave } while you sit (linger.js, jeepSeat.js); sitK eases 0..1 as you sit
 // down; step() adds drop, how far the eye is lowered on that seat
 const me = { vel: V(), pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), yaw: 0, pitch: 0.08, walkT: 0, lastDrag: -9, seat: null, sitK: 0 };
-me.yaw = Math.atan2(-d0.x, -d0.z);       // face the fire and the big tree behind it
+me.yaw = yawTo(d0);       // face the fire and the big tree behind it
 const look = V();
 // the first stretch of the jeep's track is walkable: past the clearing edge you stay within WALK_W of its centre line,
 // up to WALK_R from the middle, where it fades into the forest

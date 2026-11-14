@@ -18,8 +18,7 @@
 //   postPose(spot, y)                 upright on the spot's post (the hammock's or the line's) at height y
 import * as THREE from "three";
 import { scene } from "../core.js";
-import { V, wrapPi } from "../util.js";
-import { yawTo } from "../actor.js";
+import { V, wrapPi, yawTo } from "../util.js";
 import { HAMMOCK, HERO, LAUNDRY } from "../layout.js";
 
 const UP = V(0, 1, 0), m4 = new THREE.Matrix4(), LL = LAUNDRY;

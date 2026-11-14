@@ -7,7 +7,7 @@
 // glowTex, burst, nearSloth, boostFire }): { burning, level(), flare (0 to 3, eased), addLog(), update(dt) }. The fire itself
 // belongs to the camp: update() hands boostFire(wide, tall, light) the factors and the camp applies them (camp/chores.js).
 import * as THREE from "three";
-import { V } from "../camp/util.js";
+import { V, yawTo } from "../camp/util.js";
 import { logGeo, logMat } from "./parts.js";
 
 const HOLD = 60, SETTLE = 180;
@@ -19,7 +19,7 @@ export function createWoodPile({ scene, woodPile, addBlocker }) {
   const at = woodPile.at.clone();
   let stand = null;
   if (!woodPile.built) {
-    const yaw = Math.atan2(-at.x, -at.z), g = new THREE.Group();
+    const yaw = yawTo(at), g = new THREE.Group();
     [[-0.13, 0.06], [0, 0.06], [0.13, 0.06], [-0.065, 0.17], [0.065, 0.17], [0, 0.28]].forEach(([x, y]) => { const l = new THREE.Mesh(logGeo, logMat); l.rotation.z = Math.PI / 2; l.rotation.y = Math.PI / 2; l.position.set(x, y, 0); g.add(l); });
     g.position.copy(at); g.rotation.y = yaw; scene.add(g); stand = g; addBlocker(at, 0.5);
   }

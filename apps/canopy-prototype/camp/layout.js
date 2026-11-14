@@ -9,7 +9,7 @@
 // no module imports them.
 // campProps.js's CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry for the bake (debug.js).
 import * as THREE from "three";
-import { V, polyDist } from "./util.js";
+import { V, polyDist, yawTo } from "./util.js";
 
 // ---------------------------------------------------------------- the clearing and the ground
 export const RC = 9;      // the clearing's radius: a round clearing with the camp in it; the forest wall starts past RC
@@ -62,7 +62,7 @@ export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
   const t = tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
-  return { at: t, yaw: Math.atan2(-t.x, -t.z), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth (Z0 + H + 0.62)
+  return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth (Z0 + H + 0.62)
     toLocal: (x, z) => { const dx = x - t.x, dz = z - t.z; return [dx * fx + dz * fz, dx * fz - dz * fx]; },
     fromLocal: (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz),
     // in toLocal's terms: no grass in the tent or through its planks (ground.js), and dry under its roof and planks (weather.js)
@@ -78,9 +78,9 @@ export const TABLE = { at: d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.
 export const LANTERN_TIES = { l0: tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8), post: hA.clone().setY(2.35), tree: HERO[0] };
 
 // ---------------------------------------------------------------- the lived-in props (props/lived/)
-const facing = (p) => Math.atan2(-p.x, -p.z);   // the yaw that turns a prop's front to the fire
-export const WOOD_PILE = (() => { const at = V(-0.55, 0, -3.15), yaw = facing(at); return { at, yaw, side: V(Math.cos(yaw), 0, -Math.sin(yaw)) }; })();   // side: its local +X, where the chopping stump stands
-export const CRATE = (() => { const at = V(4.55, 0, 1.7); return { at, yaw: facing(at) }; })();   // the kitchen crate beside the snack table, its front to the fire
+// the wood pile and the crate are turned by yawTo(at): it points their local -Z away from the fire, so their fronts (+Z) face it
+export const WOOD_PILE = (() => { const at = V(-0.55, 0, -3.15), yaw = yawTo(at); return { at, yaw, side: V(Math.cos(yaw), 0, -Math.sin(yaw)) }; })();   // side: its local +X, where the chopping stump stands
+export const CRATE = (() => { const at = V(4.55, 0, 1.7); return { at, yaw: yawTo(at) }; })();   // the kitchen crate beside the snack table, its front to the fire
 export const SOUP_POT = { at: V(0, 0.885, 0), r: 0.147 };   // the soup's surface in the pot over the fire; atmosphere.js lets steam rise off all of it
 // the laundry line (build_laundry.py): two forked sticks east of the fire, between the table and the tent. A and B are
 // roughly where the line is tied; it is 3 m post to post. a, b: its ends; sag at the middle; hang: the gap kept free for a

@@ -9,8 +9,7 @@
 //   greetStep(s, T, sd)           the greet phase: two that meet sit up, face each other, say hello and carry on
 // The words of a hello draw from the seeded stream (core.js R) as they happen.
 import { R, camera } from "../core.js";
-import { V } from "../util.js";
-import { yawFrom, yawTo } from "../actor.js";
+import { V, yawFrom, yawTo } from "../util.js";
 import { RC } from "../layout.js";
 import { blockers } from "../campProps.js";
 import { createNav } from "../nav.js";

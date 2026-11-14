@@ -19,8 +19,7 @@
 import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { LIVED, PROPS, scene } from "../core.js";
-import { V } from "../util.js";
-import { yawTo } from "../actor.js";
+import { V, yawTo } from "../util.js";
 import { HAMMOCK, LAUNDRY, RC, SEATS, TENT } from "../layout.js";
 import { branchCurves } from "../forest.js";
 import { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing } from "../swing.js";

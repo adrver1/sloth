@@ -12,8 +12,7 @@
 import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { R } from "../core.js";
-import { V, ease } from "../util.js";
-import { yawFrom } from "../actor.js";
+import { V, ease, yawFrom } from "../util.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { HW, HW_POST } from "./state.js";

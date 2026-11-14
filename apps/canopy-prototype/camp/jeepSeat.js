@@ -15,8 +15,7 @@
 // The claims go through the sloths' camp life (sloth/hooks.js campLife); core.js pace is the checks' speed-up.
 import * as THREE from "three";
 import { camera, pace, uTime } from "./core.js";
-import { V, ease, wrapPi } from "./util.js";
-import { yawFrom, yawTo } from "./actor.js";
+import { V, ease, wrapPi, yawFrom, yawTo } from "./util.js";
 import { jeepApi } from "./jeep.js";
 import { addTargets } from "./targets.js";
 import { me } from "./player.js";

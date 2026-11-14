@@ -9,8 +9,6 @@
 //                               reps, the repetitions a once clip is given (the sloths 1, the operator three.js's default);
 //                               restart (the sloths start a once clip over, the operator leaves it running); weigh (the
 //                               operator also enables the clip and sets its weight to 1 before it plays)
-//   yawTo(dir)                  the yaw that faces along the direction dir (x, z): a character's forward is its own -Z
-//   yawFrom(a, b)               the yaw that faces from point a toward point b
 //   makeZ()                     a z sprite (fx.js), drawn over the scene's depth like the others but hidden behind things, added to the scene
 //   zAt(z, head, k, Z, f = 1)   a z rising off a sleeper, k (0..1) of the way up: over the head bone when one is given,
 //                               swaying as it rises, and growing. Z: { wob, y0, rise, w0, w1 }, the character's own numbers;
@@ -43,6 +41,3 @@ export function zAt(z, head, k, Z, f = 1) {
   if (head) head.getWorldPosition(z.position).add(V(Z.wob * f * Math.sin(k * 6), (Z.y0 + Z.rise * k) * f, 0));
   const w = (Z.w0 + Z.w1 * k) * f; z.scale.set(w, w / 4, 1);
 }
-
-export const yawTo = (d) => Math.atan2(-d.x, -d.z);
-export const yawFrom = (a, b) => Math.atan2(-(b.x - a.x), -(b.z - a.z));

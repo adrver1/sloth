@@ -14,8 +14,7 @@
 // What it does next, where it wanders and how long it sits draw from the seeded stream (core.js R) as they happen.
 import { jeepApi } from "../jeep.js";
 import { R, scene } from "../core.js";
-import { V } from "../util.js";
-import { yawFrom } from "../actor.js";
+import { V, yawFrom } from "../util.js";
 import { RC } from "../layout.js";
 import { bedKey, claim, holder, hosted, join, release, seatKey, seatLog, taken } from "../places.js";
 import { CRAWL, MAX_OUT, camp, guests } from "./state.js";

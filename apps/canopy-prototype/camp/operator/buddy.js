@@ -5,14 +5,13 @@
 import * as THREE from "three";
 import { R, scene } from "../core.js";
 import { RC } from "../layout.js";
-import { V, ease } from "../util.js";
+import { V, ease, yawTo } from "../util.js";
 import { SLOTH, blockers } from "../campProps.js";
 import { groundHeight as groundAt } from "../terrain.js";
 import { dropAll } from "./handProps.js";
 import { B, UP, body, cs, play, root } from "./model.js";
 import { BED } from "./places.js";
 import { ME, life, op } from "./state.js";
-import { yawTo } from "../actor.js";
 
 function slothPose(s, clip) {
   const c = SLOTH.animations.find((q) => q.name === clip); if (!c) return;

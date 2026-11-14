@@ -10,8 +10,7 @@
 import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { scene } from "../core.js";
-import { V } from "../util.js";
-import { yawFrom, yawTo } from "../actor.js";
+import { V, yawFrom, yawTo } from "../util.js";
 import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { CRAWL, HW, HW_POST, WALK_TS } from "./state.js";

@@ -4,8 +4,7 @@
 // Exports turnToward(yaw, dt, rate), wait(s, until), walkTo(to, { near }), face(yaw), faceFire(), sitOn(seat),
 // standUp().
 import { camera } from "../core.js";
-import { V } from "../util.js";
-import { yawTo } from "../actor.js";
+import { V, yawTo } from "../util.js";
 import { blockers } from "../campProps.js";
 import { me } from "../player.js";
 import { groundHeight as groundAt } from "../terrain.js";   // 0 across the camp floor

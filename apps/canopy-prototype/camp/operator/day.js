@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import { R, scene } from "../core.js";
 import { CRATE, RC, SOUP_POT } from "../layout.js";
-import { V, ease } from "../util.js";
+import { V, ease, yawTo } from "../util.js";
 import { uNight } from "../campProps.js";
 import { acts as chores } from "../campLife.js";   // your chores (activities.js): he cooks only when the pot and the pail are free
 import { me } from "../player.js";
@@ -18,7 +18,6 @@ import { UP, cs, play, root } from "./model.js";
 import { BED, claim, crateFront, findPlaces, fireGap, freeOf, freeSeat, release } from "./places.js";
 import { ME, RADIUS, life, op } from "./state.js";
 import { speak } from "./talk.js";
-import { yawTo } from "../actor.js";
 import { face, faceFire, sitOn, standUp, wait, walkTo } from "./walk.js";
 
 const tmp = V();

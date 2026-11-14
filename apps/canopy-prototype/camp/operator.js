@@ -17,7 +17,7 @@
 // checks drive him with (opApi.go("read"), .state()); main.js hands it to audio.js (hearCamp).
 import { OPT, PRE, camera } from "./core.js";
 import { A0 } from "./layout.js";
-import { V, trisIn } from "./util.js";
+import { V, trisIn, yawTo } from "./util.js";
 import { clearSpot, giveBack, unhost } from "./operator/buddy.js";
 import { jumpTo } from "./operator/day.js";
 import { FID_T } from "./operator/fidget.js";
@@ -28,7 +28,6 @@ import { SEATS, release } from "./operator/places.js";
 import { op, reset, useLife } from "./operator/state.js";
 import { buildRest, opStep } from "./operator/step.js";
 import { buildTalk, gift, saying, talk, tapCol } from "./operator/talk.js";
-import { yawTo } from "./actor.js";
 import { campLife } from "./sloth/hooks.js";   // made when the sloths were built (sloths.js), before this module runs
 
 const ON = OPT.op;
