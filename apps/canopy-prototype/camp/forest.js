@@ -199,7 +199,7 @@ function buildForest() {
   }
   // leaves and ferns go in as 8 wedges round the clearing, one InstancedMesh each, so three.js culls the wedges behind you:
   // an InstancedMesh is culled as a whole, so before this every leaf was drawn every frame (camp review P4, 2026-11-12).
-  // Instances scaled to nothing (kept off the track and the path) are dropped. Same geometry and material as before.
+  // Instances scaled to nothing (kept off the track and the path) are dropped.
   function addSectors(im, n = 8) {
     const m = new THREE.Matrix4(), p = V(), c = new THREE.Color(), groups = Array.from({ length: n }, () => []);
     for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, m); if (Math.abs(m.determinant()) < 1e-9) continue;

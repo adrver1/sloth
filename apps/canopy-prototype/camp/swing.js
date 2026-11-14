@@ -44,17 +44,17 @@ function makeClothBrush() {
   const LL = LAUNDRY, cloth = scene.getObjectByName("LaundryCloth");
   if (!cloth?.material) return null;
   const L = LL.a.distanceTo(LL.b), u = { uX: { value: 0 }, uPush: { value: 0 }, uTime }, mat = cloth.material;   // uTime: the breeze (props thread)
-  patchMaterial(mat, "brush", (sh) => {   // after the props thread's night light (lnight). The GLSL below keeps the indent it had in sloths.js, so the compiled shader text is the same, byte for byte
+  patchMaterial(mat, "brush", (sh) => {   // after the props thread's night light (lnight)
     Object.assign(sh.uniforms, u);
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uX, uPush, uTime;").replace("#include <begin_vertex>", `#include <begin_vertex>
-          float lt = transformed.x / ${L.toFixed(3)} + 0.5, ly = ${LL.a.y.toFixed(3)} - ${LL.sag.toFixed(3)} * 4.0 * lt * (1.0 - lt);
-          float sw = -1.1 * uPush * (1.0 - smoothstep(0.2, 0.45, abs(transformed.x - uX)));
-          vec2 q = transformed.yz - vec2(ly, 0.0);
-          // a gentle breeze: slow gusts roll along the line, and the cloth bends a little more toward its hem (props thread)
-          float gust = 0.55 + 0.45 * sin(uTime * 0.37 + 1.3) * sin(uTime * 0.23);
-          sw += gust * (0.16 * sin(uTime * 1.6 - transformed.x * 1.8) + 0.06 * sin(uTime * 3.7 - transformed.x * 5.0)) * (1.0 + 2.5 * max(0.0, -q.x));
-          float cs = cos(sw), sn = sin(sw);
-          transformed.yz = vec2(ly, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
+      float lt = transformed.x / ${L.toFixed(3)} + 0.5, ly = ${LL.a.y.toFixed(3)} - ${LL.sag.toFixed(3)} * 4.0 * lt * (1.0 - lt);
+      float sw = -1.1 * uPush * (1.0 - smoothstep(0.2, 0.45, abs(transformed.x - uX)));
+      vec2 q = transformed.yz - vec2(ly, 0.0);
+      // a gentle breeze: slow gusts roll along the line, and the cloth bends a little more toward its hem (props thread)
+      float gust = 0.55 + 0.45 * sin(uTime * 0.37 + 1.3) * sin(uTime * 0.23);
+      sw += gust * (0.16 * sin(uTime * 1.6 - transformed.x * 1.8) + 0.06 * sin(uTime * 3.7 - transformed.x * 5.0)) * (1.0 + 2.5 * max(0.0, -q.x));
+      float cs = cos(sw), sn = sin(sw);
+      transformed.yz = vec2(ly, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`);
   });
   mat.needsUpdate = true;
   return (p, on, dt) => { u.uX.value = cloth.worldToLocal(p.clone()).x; u.uPush.value += ((on ? 1 : 0) - u.uPush.value) * Math.min(1, dt * 2); };
