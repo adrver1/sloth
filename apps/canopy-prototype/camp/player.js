@@ -28,7 +28,7 @@ function collide(p) {
   if (r > lim) {
     const [q, d] = walkPts.length > 1 ? onTrack(p) : [null, 1e9];
     const [pd, px, pz] = polyDist(sloPath.pts, p.x, p.z), dg = Math.hypot(p.x - GLADE.x, p.z - GLADE.z), GR = GLADE_R - 0.4;
-    const tp = polyDist(tripPath.pts, p.x, p.z);
+    const tp = polyDist(tripPath.trailPts, p.x, p.z);   // the whole karaoke trail is walkable
     if (dg < GR) {}                                                                          // in the sloth tree's glade
     else if (tp[0] < 1.3) { if (tp[0] > 0.9) { const c = V(tp[1], 0, tp[2]); p.sub(c).multiplyScalar(0.9 / tp[0]).add(c); } }   // on the karaoke trip's path
     else if (pd < PATH_W + 0.4) { if (pd > PATH_W) { const c = V(px, 0, pz); p.sub(c).multiplyScalar(PATH_W / pd).add(c); } }   // on the path: keep to it

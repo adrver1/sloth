@@ -69,16 +69,21 @@ function polyDist(pts, x, z) {                         // distance from (x, z) t
 const tripPath = (() => {
   const ag = Math.atan2(GLADE.z, GLADE.x), P = (da, r) => V(Math.cos(ag + da) * r, 0, Math.sin(ag + da) * r), rg = GLADE.length();
   const curve = new THREE.CatmullRomCurve3([P(0, rg + GLADE_R - 1.4), P(0.02, rg + GLADE_R + 0.6), P(0.06, rg + GLADE_R + 2.4), P(0.13, rg + GLADE_R + 3.5), P(0.24, rg + GLADE_R + 3.9), P(0.37, rg + GLADE_R + 3.7)]);
-  return { curve, pts: curve.getSpacedPoints(40) };
+  // and on (Adriaen 2026-11-14): it trails off like the jeep's track, a real path between green verges that you can walk down,
+  // winding along the forest at about 26 m out (the ground ends at 30 m), then bending in among the trees, where it is lost. trip.js keeps using the
+  // first stretch (curve) for the sign, the question and the cut scene; trail is the whole walkable path.
+  const trail = new THREE.CatmullRomCurve3([...curve.points, P(0.5, rg + GLADE_R + 3.3), P(0.64, rg + GLADE_R + 3.7), P(0.79, rg + GLADE_R + 3.0), P(0.92, rg + GLADE_R + 1.9), P(1.0, rg + GLADE_R - 0.2)]);   // the end bends in, so you look into the trees, not out to where the ground stops
+  return { curve, pts: curve.getSpacedPoints(40), trail, trailPts: trail.getSpacedPoints(80) };
 })();
 // the link between them (Adriaen 2026-11-13: the path stopped at the big glade tree and went on out of sight behind it, so it
 // was easy to miss): from the end of the glade path round the tree, on the side the sign is, to the start of the trip path
 const route = (() => {   // drawn as ONE strip from the clearing to the trip path's end, so there is no seam at either join
   const u = GLADE.clone().normalize(), w = V(-u.z, 0, u.x), C = (a, b) => GLADE.clone().addScaledVector(u, a).addScaledVector(w, b);
-  const curve = new THREE.CatmullRomCurve3([...sloPath.curve.points.slice(0, 5), C(-2.6, 1.25), C(-0.6, 2.3), C(1.4, 1.95), ...tripPath.curve.points].map((q) => q.clone().setY(0)));
-  return { curve, pts: curve.getSpacedPoints(90), u };
+  const curve = new THREE.CatmullRomCurve3([...sloPath.curve.points.slice(0, 5), C(-2.6, 1.25), C(-0.6, 2.3), C(1.4, 1.95), ...tripPath.trail.points].map((q) => q.clone().setY(0)));
+  const pts = curve.getSpacedPoints(140), near = (c) => pts.reduce((b, q, i) => (q.distanceTo(c) < pts[b].distanceTo(c) ? i : b), 0) / 140;
+  return { curve, pts, u, wide: [near(C(-1.6, 1.9)), near(C(1.4, 1.95))] };   // where (0..1) it widens, round the glade tree
 })();
-const pathLane = (x, z) => Math.min(polyDist(sloPath.pts, x, z)[0], polyDist(tripPath.pts, x, z)[0], polyDist(route.pts, x, z)[0]);   // the paths themselves
+const pathLane = (x, z) => Math.min(polyDist(sloPath.pts, x, z)[0], polyDist(route.pts, x, z)[0]);   // the paths themselves
 const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
 const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone()];
 const nearPath = () => false;
@@ -132,8 +137,7 @@ clearing.rotation.x = -Math.PI / 2; clearing.position.y = 0.01; scene.add(cleari
   earth.wrapT = THREE.RepeatWrapping;
   // the glade path, round the glade tree and on down the trip path as one strip (Adriaen 2026-11-13: no seams). It takes over from the
   // baked ground's path at the clearing edge, widens past the tree for two walking hand in hand, and is lost in the trees at its end
-  const gu = (p) => p.clone().sub(GLADE).dot(route.u);   // how far past the glade's middle
-  for (const [curve, half, fade, n] of [[route.curve, (t, p) => 0.75 + 0.5 * sstep(-1.5, 1.2, gu(p)), (t, L, r) => sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 2.5, L, t * L)), 90]]) {   // the trip path: wide enough for two walking hand in hand (Adriaen 2026-11-12), lost in the trees at its end
+  for (const [curve, half, fade, n] of [[route.curve, (t) => 0.75 + 0.5 * sstep(route.wide[0], route.wide[1], t), (t, L, r) => sstep(RC - 0.6, RC + 0.4, r) * (1 - sstep(L - 3.5, L, t * L)), 140]]) {   // the trip path: wide enough for two walking hand in hand (Adriaen 2026-11-12), lost in the trees at its end
   const pos = [], uv = [], col = [], idx = [], L = curve.getLength();
   for (let i = 0; i <= n; i++) {
     const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), r = Math.hypot(p.x, p.z);
@@ -243,6 +247,9 @@ const wall = [];
       if (sd * (p.x * -d.z + p.z * d.x) < 0 && t > 0.4) continue;   // past the sign only on the far side, so the camp side stays open for the cut scene's camera
       const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.5 + ((i * 7) % 3) * 0.45)), r = Math.hypot(q.x, q.z);
       if (r < 28.4 && !wall.some((w) => Math.hypot(w[0] - q.x, w[1] - q.z) < 1.8) && !HERO.some((h) => Math.hypot(h.x - q.x, h.z - q.z) < 4)) wall.push([q.x, q.z, 0.7 + ((i * 5) % 4) * 0.15]); }
+    for (let i = 0; i < 10; i++) { const t = 0.5 + (i >> 1) * 0.11, p = tripPath.trail.getPointAt(t), d = tripPath.trail.getTangentAt(t), sd = (i & 1) ? 1 : -1;   // and on along its trail
+      const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.6 + ((i * 7) % 3) * 0.5)), r = Math.hypot(q.x, q.z);
+      if (r < 29.5 && !wall.some((w) => Math.hypot(w[0] - q.x, w[1] - q.z) < 1.8)) wall.push([q.x, q.z, 0.7 + ((i * 3) % 4) * 0.15]); }
     window.__tripTrunks = wall.length - nT; }
   for (const [x, z, s] of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);   // each tree on its own root mound
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4();
@@ -380,6 +387,32 @@ if (track) {
   }
   addSectors(vm);
 }
+// the same green verges along the karaoke trail past the glade (Adriaen 2026-11-14: like the jeep's track), its own stream too
+{
+  let s3 = 4242; const Q3 = (a, b) => { s3 = (s3 * 16807) % 2147483647; return a + (s3 / 2147483647) * (b - a); };
+  const vc = [], L = route.curve.getLength();
+  for (let l = 1; l < L; l += 1.3) {
+    const t = l / L, p = route.curve.getPointAt(t), d = route.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
+    if (t < route.wide[1] || Math.hypot(p.x - GLADE.x, p.z - GLADE.z) < GLADE_R + 0.5) continue;   // from where it leaves the glade
+    const cutSide = polyDist(tripPath.pts, p.x, p.z)[0] < 0.4 ? -Math.sign(side.dot(p)) : 0;   // along the cut scene's stretch the camp side stays open for its camera
+    for (const k of [-1, 1]) { const ox = Q3(2.1, 3.0), y = Q3(0.4, 2.2), r = Q3(0.7, 1.15); if (k !== cutSide) vc.push([p.x + side.x * k * ox, y, p.z + side.z * k * ox, r]); }
+    const out = side.dot(p) > 0 ? 1 : -1;   // a second row on the outer side, toward where the ground stops, so the trail feels closed in
+    if (t > 0.55) vc.push([p.x + side.x * out * Q3(3.6, 4.6), Q3(0.5, 2.4), p.z + side.z * out * Q3(3.6, 4.6), Q3(0.9, 1.3)]);
+  }
+  { const e = route.curve.getPointAt(1), d = route.curve.getTangentAt(1);   // and a thicket where it ends, so it is lost in the green
+    for (let j = 0; j < 7; j++) { const a = (j - 3) * 0.45, f = 1.6 + (j % 3) * 0.9; vc.push([e.x + (d.x * Math.cos(a) - d.z * Math.sin(a)) * f, Q3(0.4, 1.8), e.z + (d.z * Math.cos(a) + d.x * Math.sin(a)) * f, Q3(0.9, 1.3)]); } }
+  for (const v of vc) v[1] += groundHeight(v[0], v[2]);
+  const vm = new THREE.InstancedMesh(leafGeo, leafM, vc.length * perClump), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(); let i = 0;
+  for (const [x, y, z, r] of vc) for (let k = 0; k < perClump; k++) {
+    const u = V(Q3(-1, 1), Q3(-0.5, 0.8), Q3(-1, 1)).normalize().multiplyScalar(r * Math.cbrt(Q3(0, 1)));
+    e.set(Q3(0, 6.28), Q3(0, 6.28), Q3(0, 6.28)); q.setFromEuler(e);
+    const sc = Q3(leafScale[0], leafScale[1]) * (LOOK === "moss" ? 1 : r * 0.9) * Math.pow(D.leaves, -0.33) * (trackDist(x + u.x, z + u.z) < 1.7 ? 0 : 1);
+    m.compose(V(x + u.x, y + u.y, z + u.z), q, V(sc, sc, sc)); vm.setMatrixAt(i, m);
+    vm.setColorAt(i, c.setHex(S.leaf[(k + i) % 4]).multiplyScalar(0.72 + 0.4 * sstep(0, 14, y + u.y))); i++;
+  }
+  addSectors(vm);
+  window.__trailVerge = { clumps: vc.length, leaves: vc.length * perClump, tris: vc.length * perClump * (leafGeo.index ? leafGeo.index.count : leafGeo.attributes.position.count) / 3 };
+}
 // ferns and undergrowth in a thick band round the clearing
 {
   let g, mat;
@@ -403,4 +436,4 @@ if (track) {
 }
 
 
-export { A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, flatCol, jeepDist, merge, pathDist, polyDist, sloPath, t0, track, trackDist, tripPath, woodMat };
+export { route, A0, FLOOR_OVERLAYS, GLADE, GLADE_R, HERO, JEEP_AT, JEEP_OUT, JEEP_TAN, PATH_W, RC, V, branchCurves, clearing, d0, flatCol, jeepDist, merge, pathDist, polyDist, sloPath, t0, track, trackDist, tripPath, woodMat };
