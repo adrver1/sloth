@@ -211,7 +211,9 @@ async function buildProps() {
     const g = parts.length > 1 ? mergeGeometries(geos) : null;   // null too when their attributes differ: then they stay apart
     if (g) {
       const one = new THREE.Mesh(g, parts[0].material); one.name = "StaticProps"; scene.add(one);
-      for (const m of parts) { const k = new THREE.Object3D(); k.name = m.name; k.position.copy(m.position); k.quaternion.copy(m.quaternion); k.scale.copy(m.scale); m.parent.add(k); m.removeFromParent(); }
+      for (const m of parts) { const k = new THREE.Object3D(); k.name = m.name; k.position.copy(m.position); k.rotation.copy(m.rotation); k.scale.copy(m.scale); m.parent.add(k); m.removeFromParent(); }
+      // (the rotation, not the quaternion: a quaternion turned back into angles gives a yaw past 90 degrees as 180, 180 - yaw, 180, and
+      // export_casters.cjs reads rotation.y, so the tent side's wellies were placed for the bake turned the wrong way)
     }
   }
   // light pools on the ground at night: one painted quad (2 triangles) under the fire and the lantern strings, faded in with the dusk;
