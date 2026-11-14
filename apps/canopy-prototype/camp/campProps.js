@@ -7,6 +7,7 @@
 // not built: ?lived=0, no sunbeams), and buildProps() (main.js, once), which builds them all. The sloth model is in sloth/state.js and
 // uNight in core.js (R2-129).
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, rng, S, scene, sun, uNight, uTime } from "./core.js";
 const { R } = rng("props");
@@ -102,11 +103,13 @@ async function buildProps() {
     const tex = canvasTex(64, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, "rgba(255,240,200,0)"); gr.addColorStop(0.5, "rgba(255,240,200,1)"); gr.addColorStop(1, "rgba(255,240,200,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
       const v = g.createLinearGradient(0, 0, 0, h); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(0.2, "rgba(0,0,0,1)"); v.addColorStop(1, "rgba(0,0,0,0)"); g.globalCompositeOperation = "destination-in"; g.fillStyle = v; g.fillRect(0, 0, w, h); });
     rayMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: S.rays, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
-      forceSinglePass: true });   // one draw per shaft: three.js draws a see-through two-sided material twice (backs, then fronts) and re-keys its shader each time; a flat additive quad looks the same in one
-    // the shafts slant down from the sun's side, all at the same angle like real morning light through a gap in the canopy (review B6)
-    const sd = sun.position.clone().normalize(), up = new THREE.Vector3(0, 1, 0), tilt = new THREE.Quaternion().setFromUnitVectors(up, sd);
-    for (let i = 0; i < 7; i++) { const r = new THREE.Mesh(new THREE.PlaneGeometry(R(0.9, 2.4), 22), rayMat); const a = R(0, 6.28), d = R(0, RC - 3.5);
-      r.quaternion.copy(tilt).multiply(new THREE.Quaternion().setFromAxisAngle(up, R(0, 3.14))); r.position.set(Math.cos(a) * d, 0, Math.sin(a) * d).addScaledVector(sd, 10); scene.add(r); }
+      forceSinglePass: true });   // one pass: three.js draws a see-through two-sided material twice (backs, then fronts) and re-keys its shader each time; a flat additive quad looks the same in one
+    // the shafts slant down from the sun's side, all at the same angle like real morning light through a gap in the canopy (review B6).
+    // All seven in one geometry, one draw (R2-103); additive with no depth write, so their order does not matter
+    const sd = sun.position.clone().normalize(), up = new THREE.Vector3(0, 1, 0), tilt = new THREE.Quaternion().setFromUnitVectors(up, sd), one = new THREE.Vector3(1, 1, 1), shafts = [];
+    for (let i = 0; i < 7; i++) { const g = new THREE.PlaneGeometry(R(0.9, 2.4), 22), a = R(0, 6.28), d = R(0, RC - 3.5);   // the same draws, in the same order, as when each was its own mesh
+      shafts.push(g.applyMatrix4(new THREE.Matrix4().compose(V(Math.cos(a) * d, 0, Math.sin(a) * d).addScaledVector(sd, 10), tilt.clone().multiply(new THREE.Quaternion().setFromAxisAngle(up, R(0, 3.14))), one))); }
+    const rays = new THREE.Mesh(mergeGeometries(shafts), rayMat); rays.name = "Sunbeams"; scene.add(rays);
   }
   {
     const n = Math.round(S.motes * D.fx);
@@ -168,12 +171,13 @@ async function buildProps() {
           : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : fm; });   // the legs: one tube each, nodes in the texture
       scene.add(o);
     }
-    const H = 0.8, flameMat = (ph) => new THREE.ShaderMaterial({
-      uniforms: { uTime, uPh: { value: ph } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-      vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-      fragmentShader: `uniform float uTime, uPh; varying vec2 vUv;
+    // the three crossed cards are one mesh (R2-103): each card's phase (0, 1, 2) is a vertex attribute instead of a uniform per card
+    const H = 0.8, flameMat = new THREE.ShaderMaterial({
+      uniforms: { uTime }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: "attribute float aPh; varying vec2 vUv; varying float vPh; void main() { vUv = uv; vPh = aPh; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: `uniform float uTime; varying vec2 vUv; varying float vPh;
         void main() {
-          float v = vUv.y, t = uTime * (1.0 + 0.15 * uPh) + uPh * 4.0;
+          float v = vUv.y, t = uTime * (1.0 + 0.15 * vPh) + vPh * 4.0;
           float x = vUv.x - 0.5;
           x += (sin(v * 9.0 - t * 7.0) * 0.05 + sin(v * 17.0 - t * 11.0 + 1.3) * 0.025) * v;          // the flame sways more toward its tip
           float tongues = 0.75 + 0.25 * sin(vUv.x * 23.0 + t * 3.0) * sin(vUv.x * 9.0 - t * 2.0);
@@ -183,9 +187,24 @@ async function buildProps() {
           c = mix(c, vec3(1.0, 0.92, 0.6), smoothstep(0.5, 1.0, 1.0 - v) * smoothstep(w * 0.5, 0.0, abs(x)));
           gl_FragColor = vec4(c * a * 1.5, a);
         }` });
-    for (let k = 0; k < 3; k++) {
-      const card = new THREE.Mesh(new THREE.PlaneGeometry(0.7, H).translate(0, H / 2 + 0.03, 0), flameMat(k));
-      card.rotation.y = k * Math.PI / 3; card.renderOrder = 3; scene.add(card); FIRE_CARDS.push(card);   // the activities flare these
+    const cards = [0, 1, 2].map((k) => { const g = new THREE.PlaneGeometry(0.7, H).translate(0, H / 2 + 0.03, 0).rotateY(k * Math.PI / 3);
+      g.setAttribute("aPh", new THREE.Float32BufferAttribute([k, k, k, k], 1)); return g; });
+    const flames = new THREE.Mesh(mergeGeometries(cards), flameMat); flames.name = "Flames";
+    flames.renderOrder = 3; scene.add(flames); FIRE_CARDS.push(flames);   // the activities flare it (chores.js scales it: x and z alike, so it is the same as scaling each card)
+  }
+  // the static vertex-coloured props that nothing looks up by name, lights up or moves, merged into one draw (R2-103): the wood
+  // pile's frame, the wellies by the tent, the tripod's head and the laundry posts. The seats, seat tops, seat things and the tent
+  // are found by name and ray-cast (places.js, operator/places.js, sloth/spots.js), and the highlighted and moving parts
+  // (chores.js looks, swing.js) stay apart too. A merged prop leaves an empty object of its name where it stood, for
+  // props/shadow/export_casters.cjs's layout.
+  {
+    const parts = ["WoodPile", "TentSide", "Tripod", "LaundryPosts"].map((n) => scene.getObjectByName(n))
+      .filter((m) => m?.isMesh && !m.children.length && !m.material.map && m.geometry.attributes.color);
+    const geos = parts.map((m) => { m.updateWorldMatrix(true, false); return m.geometry.clone().applyMatrix4(m.matrixWorld); });
+    const g = parts.length > 1 ? mergeGeometries(geos) : null;   // null too when their attributes differ: then they stay apart
+    if (g) {
+      const one = new THREE.Mesh(g, parts[0].material); one.name = "StaticProps"; scene.add(one);
+      for (const m of parts) { const k = new THREE.Object3D(); k.name = m.name; k.position.copy(m.position); k.quaternion.copy(m.quaternion); k.scale.copy(m.scale); m.parent.add(k); m.removeFromParent(); }
     }
   }
   // light pools on the ground at night: one painted quad (2 triangles) under the fire and the lantern string, faded in as you rest

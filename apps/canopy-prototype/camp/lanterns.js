@@ -3,7 +3,7 @@
 // frame the top of the view like a canopy of lights instead of cutting across it. Four small glass jar lanterns hang on
 // each, a candle in each jar. By day they are plain glass and tin; from dusk the glass glows with a warm gradient, the
 // candle burns and a soft glow sprite shows round each. They sway slowly. Page-lit (no light map: they move), drawn in
-// seven draws for all eight: the two strings, tin and cords, glass, candles, flames, glows.
+// six draws for all eight: the strings, tin and cords, glass, candles, flames, glows.
 // The light bake (props/camp/bake_camp_lightmap.py) reads where each lantern's light is from the "place" block that
 // props/shadow/export_casters.cjs writes from this page; only the drop below the hang point is still a copy there (the bake's
 // 0.12 m against JAR_Y's 0.125 m, review props-07).
@@ -11,6 +11,7 @@
 // and createLanterns({ scene, layout, glowTex }) -> { lights, update(t, dusk) }: it adds the lanterns to the scene; lights are
 // the jars' world positions (the light pools and the sloths' glow), and main.js calls update each frame.
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { V, canvasTex, tris } from "./util.js";
 
 const SAG = 0.5, PER = 4, TREE_Y = 4.6, TREE_IN = 1.0;   // string sag (m), lanterns per string, tie height and how far in from the tree's centre
@@ -58,7 +59,7 @@ export function createLanterns({ scene, layout, glowTex }) {
   // the strings, one thin 3-sided tube each, 16 segments through the 17 points lanternLayout gives (they end at the trunk)
   const strMat = new THREE.MeshLambertMaterial({ color: CORD });
   const tubes = layout.strings.map((s) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(s), 16, 0.009, 3));
-  for (const t of tubes) scene.add(new THREE.Mesh(t, strMat));
+  scene.add(new THREE.Mesh(mergeGeometries(tubes), strMat));   // both strings in one draw (R2-103)
 
   const frame = new THREE.InstancedMesh(frameGeo(), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide }), n);
   // the glass: an open 6-sided jar (12 triangles); its emissive map is a warm gradient, brightest low by the flame
