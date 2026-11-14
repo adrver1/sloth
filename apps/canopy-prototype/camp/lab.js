@@ -6,7 +6,7 @@
 // It drives the sloths through labApi (sloth/hooks.js) and sets the camp's pace for everyone (core.js pace)
 // (sloth/step.js and jeepSeat.js read it; tools/camp-replay.cjs sets it too). Exports toggle().
 import * as THREE from "three";
-import { camera, pace, scene } from "./core.js";
+import { $, camera, pace, scene } from "./core.js";
 import { V } from "./util.js";
 import { me } from "./player.js";
 import { holder } from "./places.js";
@@ -46,7 +46,6 @@ box.innerHTML = `<summary>🧪 Move lab <button id="labClose" style="float:right
   <div class="read" id="labRead"></div></div>`;
 document.body.appendChild(box); box.hidden = true;
 for (const e of ["pointerdown", "pointerup", "pointermove", "wheel"]) box.addEventListener(e, (ev) => ev.stopPropagation());
-const $ = (id) => document.getElementById(id);
 const who = $("labWho"), clipSel = $("labClip"), slider = $("labT"), read = $("labRead");
 cs.forEach((s, i) => who.add(new Option(`${s.name} (${s.spot.name})`, i)));
 for (const n of ["idle", "walk", "cling", "hang_walk", "nap", "reach", "curl", "drive", "peek", "titanic", "stretch", "eat", "eat_high"]) if (L.clipOf(n)) clipSel.add(new Option(n, n));
@@ -90,7 +89,7 @@ clipSel.onchange = () => {
 };
 slider.oninput = () => { if (scrub) { scrub.a.time = +slider.value * scrub.a.getClip().duration; scrub.s.mixer.update(0); } };
 $("labBack").onclick = () => { endScrub(); setSpeed(1); };
-addEventListener("wheel", (e) => { if (follow) dist = THREE.MathUtils.clamp(dist + e.deltaY * 0.003, 0.6, 8); }, { passive: true });
+addEventListener("wheel", (e) => { if (follow && !box.hidden) dist = THREE.MathUtils.clamp(dist + e.deltaY * 0.003, 0.6, 8); }, { passive: true });
 
 // the planned path, as a line on the ground
 const pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff3d7f, depthTest: false }));
