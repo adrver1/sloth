@@ -2,15 +2,16 @@
 import * as THREE from "three";
 import { GAIN } from "../bakedlight.js";
 import { JEEP, PRE, camera, renderer, scene } from "./core.js";
-import { V, canvasTex, ease } from "./util.js";
+import { V, canvasTex, ease, trisIn } from "./util.js";
 import { JEEP_AT, JEEP_TAN } from "./layout.js";
 import { addBlocker } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
 // between the hammock and the first big tree (JEEP_AT, with its track, in layout.js), along the edge, its
-// passenger side (local +X) toward the fire. Its three doors and the hood open and close from their menus (jeepSeat.js adds jeepApi.doors as tap targets, targets.js):
-// DoorP (passenger, camp side), DoorD (driver) and BackDoor (with the spare), each a node on its hinge. Other camp code
-// uses jeepApi (the tools see it as window.__jeep, debug.js): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (passenger cushion top), sill (passenger door sill),
+// driver's side (local +X: left-hand drive) toward the fire. Its three doors and the hood open and close from their menus (jeepSeat.js adds jeepApi.doors as tap targets, targets.js):
+// DoorP (the camp side: the driver's door, to SeatP), DoorD (the passenger's, at -X) and BackDoor (with the spare), each a node on
+// its hinge (the node names are build_jeep.py's). Other camp code
+// uses jeepApi (the tools see it as window.__jeep, debug.js): open/close/isOpen("P" | "D" | "B" | "H" for the hood), seat (the driver's cushion top, SeatP), sill (DoorP's sill),
 // cargo (middle of the cargo deck) and cargoSlots (four spots on it), all world positions. Both stay null with ?jeep=none.
 // Sitting in the front seats is not part of jeepApi: jeepSeat.js has its own seatApi (sit, stand, seatedIn, seatBusy), and no other module adds to jeepApi.
 // cabinLive.receive(object): that object takes the cabin light's shadow (campGround.js gives it the floor and the baked props).
@@ -23,11 +24,11 @@ async function buildJeep() {
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
   const glassM = new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false });   // see-through, a little tinted
   jeep.traverse((m) => { if (m.isMesh) { m.material = m.name.startsWith("Glass") ? glassM : jm; if (m.name.startsWith("Glass")) m.renderOrder = 2; } });
-  // far away (camp review P7): beyond about 12 m the 880-triangle JeepLOD (props/jeep/build_jeep.py jeep_lod) stands in for the
-  // full jeep (6,002 triangles, 12 draws), never while a door is open. Only the jeep's own meshes are hidden, so a sloth sitting
-  // in it (parented to the jeep) stays.
+  // far away (camp review P7): beyond about 12 m the JeepLOD (props/jeep/build_jeep.py jeep_lod) stands in for the full jeep, never
+  // while a door is open. Only the jeep's own meshes are hidden, so a sloth sitting in it (parented to the jeep) stays.
   const jeepMeshes = []; jeep.traverse((m) => { if (m.isMesh) jeepMeshes.push(m); });
   const far = (await PRE.jeepLod)?.scene;
+  console.log(`LOG jeep: ${trisIn(jeep)} tris in ${jeepMeshes.length} draws; far LOD: ${far ? `${trisIn(far)} tris` : "none"}`);
   let isFar = false;
   if (far) { far.traverse((m) => { if (m.isMesh) m.material = jm; }); far.visible = false; scene.add(far); }
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
