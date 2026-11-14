@@ -25,12 +25,12 @@ if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.erro
     // (props/camp/bake_camp_lightmap.py) reads them from this block and keeps no copy of its own
     const at = (n) => { const os = []; window.__scene?.traverse((o) => { if (o.name === n) os.push(o); });   // exactly one, or none
       return os.length === 1 ? [os[0].position.x, os[0].position.z, os[0].rotation.y] : null; };
-    const { lanternGlow } = await import("./camp/campProps.js"), { sun } = await import("./camp/core.js");   // the modules already loaded: no second run
+    const { LANTERNS } = await import("./camp/campProps.js"), { sun } = await import("./camp/core.js");   // the modules already loaded: no second run
     const ld = window.__laundry, jn = window.__jeep?.node, sd = sun.position.clone().normalize();
     const place = { seats: [0, 1, 2].map((i) => at(`Seat_${i}`)), tent: at("Tent"), hammock: at("Hammock"), table: at("Table"),
       woodPile: at("WoodPile"), seatThings: at("SeatThings"), tentSide: at("TentSide"), kitchen: at("KitchenCrate"),
       laundry: ld ? [(ld.a.x + ld.b.x) / 2, (ld.a.z + ld.b.z) / 2, Math.atan2(-ld.dir.z, ld.dir.x)] : null,
-      lanternLights: lanternGlow.map((v) => [v.x, v.y, v.z]), jeep: jn ? [jn.position.x, jn.position.z, jn.rotation.y] : null, sun: [sd.x, sd.y, sd.z] };
+      lanternLights: LANTERNS.lights.map((v) => [v.x, v.y, v.z]), jeep: jn ? [jn.position.x, jn.position.z, jn.rotation.y] : null, sun: [sd.x, sd.y, sd.z] };
     return { layout: { ...L, glade: (window.__glade?.path || []).map((p) => [p.x, p.z]), tent: tent ? [tent.x, tent.z] : null,
       hammock: window.__camp?.hA ? [[window.__camp.hA.x, window.__camp.hA.z], [window.__camp.hB.x, window.__camp.hB.z]] : null,
       deadwood: window.__deadwood?.layout || [],   // each with y, seated on the terrain: occluders in props/camp/bake_camp_lightmap.py

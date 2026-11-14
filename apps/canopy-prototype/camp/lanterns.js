@@ -1,13 +1,13 @@
 // The camp's lantern strings and lanterns (review B3, Adriaen picked "B: V to the big tree" on 2026-11-12): two strings rise
-// from the tent's front A-frame and the hammock's near post to the big tree behind the fire, tied round its trunk, so they
+// from the tent's front A-frame and the hammock's near post to the big tree behind the fire, ending at its trunk, so they
 // frame the top of the view like a canopy of lights instead of cutting across it. Four small glass jar lanterns hang on
 // each, a candle in each jar. By day they are plain glass and tin; from dusk the glass glows with a warm gradient, the
 // candle burns and a soft glow sprite shows round each. They sway slowly. Page-lit (no light map: they move), drawn in
-// five draws for all eight: tin and cords, glass, candles, flames, glows.
+// seven draws for all eight: the two strings, tin and cords, glass, candles, flames, glows.
 // The light bake (props/camp/bake_camp_lightmap.py) reads where each lantern's light is from the "place" block that
 // props/shadow/export_casters.cjs writes from this page; only the drop below the hang point is still a copy there (the bake's
 // 0.12 m against JAR_Y's 0.125 m, review props-07).
-// Exports lanternLayout({ l0, post, tree }) -> { strings, hang, tie } (the strings' points and where each lantern hangs, campProps.js),
+// Exports lanternLayout({ l0, post, tree }) -> { strings, hang } (the strings' points and where each lantern hangs, campProps.js),
 // and createLanterns({ scene, layout, glowTex }) -> { lights, update(t, dusk) }: it adds the lanterns to the scene; lights are
 // the jars' world positions (the light pools and the sloths' glow), and main.js calls update each frame.
 import * as THREE from "three";
@@ -21,23 +21,23 @@ export function lanternLayout({ l0, post, tree }) {
   const strings = [], hang = [];
   for (const e of [l0, post]) {
     const pts = [];
-    for (let i = 0; i <= 30; i++) { const t = i / 30, p = e.clone().lerp(tie, t); p.y -= Math.sin(Math.PI * t) * SAG; pts.push(p); }
+    for (let i = 0; i <= 16; i++) { const t = i / 16, p = e.clone().lerp(tie, t); p.y -= Math.sin(Math.PI * t) * SAG; pts.push(p); }
     strings.push(pts);
     for (let i = 1; i <= PER; i++) { const t = (i / (PER + 1)) * 0.8, p = e.clone().lerp(tie, t); p.y -= Math.sin(Math.PI * t) * SAG; hang.push(p); }
   }
-  return { strings, hang, tie };
+  return { strings, hang };
 }
 
 // a 6-sided prism (or one cap only, h = 0) as plain triangles: the sides, and fans of sides - 2 triangles for the caps asked for
-function prism(r0, r1, h, y, sides, caps, color) {
-  const pos = [], c = new THREE.Color(color), ring = (r, yy) => Array.from({ length: sides }, (_, k) => V(r * Math.cos(k / sides * 2 * Math.PI), yy, r * Math.sin(k / sides * 2 * Math.PI)));
+function prism(r0, r1, h, y, sides, caps) {
+  const pos = [], ring = (r, yy) => Array.from({ length: sides }, (_, k) => V(r * Math.cos(k / sides * 2 * Math.PI), yy, r * Math.sin(k / sides * 2 * Math.PI)));
   const lo = ring(r0, y - h / 2), hi = ring(r1, y + h / 2), tri = (a, b, d) => pos.push(a.x, a.y, a.z, b.x, b.y, b.z, d.x, d.y, d.z);
   if (h) for (let k = 0; k < sides; k++) { const j = (k + 1) % sides; tri(lo[k], hi[k], lo[j]); tri(lo[j], hi[k], hi[j]); }
   if (caps.includes("top")) for (let k = 1; k < sides - 1; k++) tri(hi[0], hi[k + 1], hi[k]);
   if (caps.includes("bottom")) for (let k = 1; k < sides - 1; k++) tri(lo[0], lo[k], lo[k + 1]);
   return pos;
 }
-function quad(w, h, y, color) { return [-w / 2, y - h / 2, 0, w / 2, y - h / 2, 0, w / 2, y + h / 2, 0, -w / 2, y - h / 2, 0, w / 2, y + h / 2, 0, -w / 2, y + h / 2, 0]; }
+function quad(w, h, y) { return [-w / 2, y - h / 2, 0, w / 2, y - h / 2, 0, w / 2, y + h / 2, 0, -w / 2, y - h / 2, 0, w / 2, y + h / 2, 0, -w / 2, y + h / 2, 0]; }
 function geo(parts) {      // [[positions, colour], ...] -> one flat-shaded, vertex-coloured geometry
   const pos = [], col = [];
   for (const [p, color] of parts) { const c = new THREE.Color(color); pos.push(...p); for (let i = 0; i < p.length / 3; i++) col.push(c.r, c.g, c.b); }
@@ -55,7 +55,7 @@ function frameGeo() {        // the cord and the handle one quad each, the tin l
 
 export function createLanterns({ scene, layout, glowTex }) {
   const n = layout.hang.length;
-  // the strings, and a wrap of string round the trunk where they are tied
+  // the strings, one thin 3-sided tube each, 16 segments through the 17 points lanternLayout gives (they end at the trunk)
   const strMat = new THREE.MeshLambertMaterial({ color: CORD });
   const tubes = layout.strings.map((s) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(s), 16, 0.009, 3));
   for (const t of tubes) scene.add(new THREE.Mesh(t, strMat));

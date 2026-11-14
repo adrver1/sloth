@@ -3,7 +3,7 @@
 // main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
 // at night) and motesStep (the drifting motes). Exports those, CAMP, SLOTH (the sloth model), the blockers (the list, read only:
 // addBlocker({ at, r, walk, wild, tag }) adds one, dropBlockers(tag) takes a tag's out again; see the block above them) and the props' parts
-// other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX, fireLight, glowTex, lanternGlow, LANTERNS, rayMat, uNight), and buildProps()
+// other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX, fireLight, glowTex, LANTERNS, rayMat, uNight), and buildProps()
 // (main.js, once), which builds them all.
 import * as THREE from "three";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
@@ -14,7 +14,6 @@ import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, TABLE, TENT, WO
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
-const lanternGlow = [];   // where each lantern's light is (lanterns.js): the ground pools and the sloths' night glow
 // the layout (layout.js): the log seats round the fire (the gap faces the gate), the tent, the hammock posts, the snack table
 // and the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame and the hammock's
 // near post up to the big tree behind the fire
@@ -86,7 +85,7 @@ const lnight = (mat) => {
 async function buildProps() {
   // the lanterns (lanterns.js) and the fire: glow sprites, no real-time shadows; one warm point light for the fire glow
   glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
-  LANTERNS = createLanterns({ scene, layout: LANTERN_LAYOUT, glowTex }); lanternGlow.push(...LANTERNS.lights);
+  LANTERNS = createLanterns({ scene, layout: LANTERN_LAYOUT, glowTex });   // LANTERNS.lights: where each lantern's light is (the pools, the sloths' night glow, the bake's layout)
   // At Detail Low (D.fx 0) the light is made but not added to the scene: a point light at intensity 0 still costs every lit
   // shader per fragment (R2-087). Detail is fixed for the page's life (changing it reloads), so the light count never changes.
   fireLight = new THREE.PointLight(0xff9a4a, D.fx ? 6 : 0, 7, 1.6); fireLight.position.set(0, 0.9, 0); if (D.fx) scene.add(fireLight);
@@ -187,7 +186,7 @@ async function buildProps() {
   }
   // light pools on the ground at night: one painted quad (2 triangles) under the fire and the lantern string, faded in as you rest
   pools = (() => {
-    const pts = [[0, 0, 3.4, 0.9, "255,140,60"], ...lanternGlow.map((p) => [p.x, p.z, 1.4, 0.4, "255,200,120"])];
+    const pts = [[0, 0, 3.4, 0.9, "255,140,60"], ...LANTERNS.lights.map((p) => [p.x, p.z, 1.4, 0.4, "255,200,120"])];
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const [x, z, r] of pts) { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); z0 = Math.min(z0, z - r); z1 = Math.max(z1, z + r); }
     const S = Math.max(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
@@ -215,4 +214,4 @@ function poolsStep(dusk, fl, nightBaked) { pools.visible = dusk > 0 && !nightBak
 // the motes drift slowly round the clearing
 function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
 
-export { addBlocker, buildProps, CAMP, dropBlockers, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, glowTex, lanternGlow, LANTERNS, motesStep, poolsStep, rayMat, uNight };
+export { addBlocker, buildProps, CAMP, dropBlockers, FIRE_CARDS, SLOTH, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, glowTex, LANTERNS, motesStep, poolsStep, rayMat, uNight };

@@ -14,7 +14,7 @@ import { WARM_N, furify } from "../../fur.js";
 import { D, OPT, rng, S, scene } from "../core.js";
 const { R } = rng("sloths");
 import { V } from "../util.js";
-import { SLOTH, lanternGlow } from "../campProps.js";
+import { SLOTH, LANTERNS } from "../campProps.js";
 import { SL, hit, sloths } from "./state.js";
 import { eyeKit } from "./face.js";
 import { armBones } from "./arms.js";
@@ -27,8 +27,8 @@ let tinted = false;
 const SLOTH_WARM = { uWarm: { value: 0 }, uWarmPos: { value: Array.from({ length: WARM_N }, () => V(0, -99, 0)) }, uWarmK: { value: new Array(WARM_N).fill(0) } };
 SLOTH_WARM.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0);   // the last slot is the fire
 function placeLanterns() {
-  const W = SLOTH_WARM, n = Math.min(lanternGlow.length, WARM_N - 1);
-  for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
+  const W = SLOTH_WARM, lights = LANTERNS.lights, n = Math.min(lights.length, WARM_N - 1);
+  for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lights[i]); W.uWarmK.value[i] = 0.15; }
 }
 function warmStep(fl, dusk) {                          // each frame (main.js): the fire's flicker fl, how far the night is in
   SLOTH_WARM.uWarmK.value[WARM_N - 1] = 0.9 * fl; SLOTH_WARM.uWarm.value = dusk;
