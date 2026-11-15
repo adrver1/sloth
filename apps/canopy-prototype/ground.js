@@ -38,7 +38,10 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   const entry = trackPts.find((p) => Math.hypot(p.x, p.z) > RC - 0.6);        // where the jeep's track meets the clearing
 
   // ---------------------------------------------------------------- wear map: R dirt, G lushness (0.5 neutral), B ash / wet mud
-  const wear = canvasTex(M, M, (g) => {
+  // The baked one (props/ground/bake_ground.py) when it came; without it, painted here from its own stream (lcg(seed + 1)), so
+  // the plants below draw the same numbers either way and the painter is skipped when the bake is there (R2-189)
+  const wear = baked ? canvasTex(M, M, (g) => g.drawImage(baked.mask, 0, 0, M, M), { srgb: false }) : canvasTex(M, M, (g) => {
+    const { rnd, R } = lcg(seed + 1);
     g.fillStyle = "rgb(0,128,0)"; g.fillRect(0, 0, M, M);
     const blob = (x, z, r, rgba) => { const X = px(x), Z = px(z), Rp = (r / (2 * RR)) * M, gr = g.createRadialGradient(X, Z, 0, X, Z, Rp); gr.addColorStop(0, rgba); gr.addColorStop(1, rgba.replace(/[\d.]+\)$/, "0)")); g.fillStyle = gr; g.fillRect(X - Rp, Z - Rp, 2 * Rp, 2 * Rp); };
     // lushness: richer grass at the edge and in random patches, drier patches in the open
@@ -65,7 +68,6 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
     for (const { at: c, r } of used) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
   }, { srgb: false });
-  if (baked) { const g = wear.image.getContext("2d"); g.globalCompositeOperation = "copy"; g.drawImage(baked.mask, 0, 0, M, M); wear.needsUpdate = true; }   // the baked wear map (props/ground/bake_ground.py) for the plants' lookups
   wear.anisotropy = 1; wear.flipY = false;   // canvas rows run with +z, like the shader's lookup
 
   // ---------------------------------------------------------------- shadows (Adriaen 2026-11-12): the page has no shadow maps, so castShadows(renderer)
