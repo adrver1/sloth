@@ -100,10 +100,12 @@ def rustic_mats():
 
 
 def rustic_seat(M):
-    """The seat (picked): a split half log on two short stumps, about 104 triangles (review R2-169). The log's flat sawn
+    """The seat (picked): a split half log on two short stumps, 88 triangles (review R2-169, R2-198). The log's flat sawn
     top (SEAT_TOP) is the bisect's own fill face in the pale wood material, kept flat when the bark is roughed up;
     build_lived.py lays the textured SeatTop quad just over it, and with ?lived=0 the fill shows. The stumps are open
-    tubes that end inside the log (no caps: their feet stand on the ground and their tops were inside the log)."""
+    tubes that end inside the log (no caps: their feet stand on the ground and their tops were inside the log), 10-sided:
+    on a 16 cm stump the 1 cm bark noise hides the step from 14 sides (Adriaen 2026-11-15 kept the seat's look and asked only
+    for the wasted faces to go, R2-198)."""
     lg = cyl(0.25, 1.5, at=(0, 0, 0.0), rot=(0, math.pi / 2, 0), m=M["bark"], verts=24)
     apply_all(lg)
     bisect(lg, (0, 0, 0), (0, 0, 1), clear_outer=True, fill=True)
@@ -118,7 +120,7 @@ def rustic_seat(M):
     lg.location.z = SEAT_TOP
     p = [lg]
     for s in (-1, 1):                                 # up to 0.24 m, well inside the log (its underside is 0.11 m up)
-        p.append(rough_up(cyl(0.16, 0.24, at=(s * 0.5, 0, 0.12), m=M["bark"], verts=14, caps=False), 0.01, 10))
+        p.append(rough_up(cyl(0.16, 0.24, at=(s * 0.5, 0, 0.12), m=M["bark"], verts=10, caps=False), 0.01, 10))
     return join(p, "Seat")
 
 
