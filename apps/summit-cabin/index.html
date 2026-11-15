@@ -70,7 +70,7 @@ td:last-child { text-align: right; color: var(--ink); }
       <div class="seg" id="jump" role="group" aria-label="Jump to a place">
         <button data-p="porch" aria-pressed="false">Porch</button><button data-p="camp" aria-pressed="false">Camp</button><button data-p="tower" aria-pressed="false">Lookout</button>
       </div>
-      <button id="speedBtn" class="pill" style="justify-self:start">⏱ Speed test (20 s, stand still)</button>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button id="speedBtn" class="pill">⏱ Speed test (20 s, stand still)</button><button id="walkBtn" class="pill">🏃 Walk test (12 s)</button></div>
       <pre id="speed" hidden style="margin:0;font:12px ui-monospace,monospace;white-space:pre-wrap;user-select:text"></pre>
       <div class="tricks">
         <span class="lbl">How it's done</span>
@@ -371,14 +371,21 @@ for (let L = 0; L < LEVELS; L++) {
     const mesh = new THREE.Mesh(pg, mat); mesh.frustumCulled = false; mesh.receiveShadow = true; if (L >= REAL) mesh.layers.set(2); scene.add(mesh); pg.userData.mesh = mesh; return pg; });
   levels.push({ L, c, g, parts, cx: NaN, cz: NaN, hb: new Float32Array(NB * NB), tris: 0 });
 }
-function updateLevel(lv) {
+// rebuild: the ring itself moved, so its vertices change. Heights, colours and tree cover of the vertices it still shares with
+// where it was are copied over (a ring moves 2 cells at a time, so most are), and only the new rows and columns are worked out.
+// Without rebuild only the hole for the finer ring is cut again (the ring inside moved), which is cheap.
+function updateLevel(lv, rebuild = true) {
   const { c, g, hb } = lv, half = (NC / 2) * c, x0 = lv.cx - half, z0 = lv.cz - half, H = (i, j) => hb[(j + 1) * NB + i + 1];
-  for (let j = 0; j < NB; j++) for (let i = 0; i < NB; i++) hb[j * NB + i] = height(x0 + (i - 1) * c, z0 + (j - 1) * c);
   const A = g.attributes, pos = A.position.array, nor = A.normal.array, col = A.color.array, uv = A.uv.array, hc = A.hc.array, nc = A.nc.array, cc = A.cc.array, fm = A.fm.array;
+  if (rebuild) {
+  const di = Number.isFinite(lv.bx) ? Math.round((x0 - lv.bx) / c) : NB, dj = Number.isFinite(lv.bz) ? Math.round((z0 - lv.bz) / c) : NB; lv.bx = x0; lv.bz = z0;
+  const oldH = hb.slice(), oldC = col.slice(), oldF = fm.slice();
+  for (let j = 0; j < NB; j++) for (let i = 0; i < NB; i++) { const oi = i + di, oj = j + dj; hb[j * NB + i] = oi >= 0 && oi < NB && oj >= 0 && oj < NB ? oldH[oj * NB + oi] : height(x0 + (i - 1) * c, z0 + (j - 1) * c); }
   for (let j = 0; j < NV; j++) for (let i = 0; i < NV; i++) {
     const k = j * NV + i, x = x0 + i * c, z = z0 + j * c, h = H(i, j);
     let nx = H(i - 1, j) - H(i + 1, j), ny = 2 * c, nz = H(i, j - 1) - H(i, j + 1); const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; nor[k * 3] = nx; nor[k * 3 + 1] = ny; nor[k * 3 + 2] = nz; uv[k * 2] = x / 6; uv[k * 2 + 1] = z / 6;
+    { const oi = i + di, oj = j + dj; if (oi >= 0 && oi < NV && oj >= 0 && oj < NV) { const o = oj * NV + oi; col[k * 3] = oldC[o * 3]; col[k * 3 + 1] = oldC[o * 3 + 1]; col[k * 3 + 2] = oldC[o * 3 + 2]; fm[k] = oldF[o]; continue; } }
     const s = 1 - ny, ice = onIce(x, z, h), f = ice ? 0 : forestAt(x, z, h, s);
     if (ice) tmpC.copy(iceC).lerp(snowC, sstep(0.45, 0.75, vnoise(x / 160 + z / 400, z / 45)) * 0.75);   // blue-grey ice with wind-blown snow streaks
     else { rockV.copy(rockC).multiplyScalar(0.62 + 0.7 * vnoise(x / 11 + z / 17, h / 5));   // rock in bands and streaks, not one flat colour
@@ -395,6 +402,8 @@ function updateLevel(lv) {
     const [a, b] = pair; hc[k] = (pos[a * 3 + 1] + pos[b * 3 + 1]) / 2;
     for (let e = 0; e < 3; e++) { nc[k * 3 + e] = (nor[a * 3 + e] + nor[b * 3 + e]) / 2; cc[k * 3 + e] = (col[a * 3 + e] + col[b * 3 + e]) / 2; }
   }
+  for (const a of Object.keys(A)) A[a].needsUpdate = true;
+  }
   // cells inside the finer ring are left out
   const inner = lv.L && lv.L !== REAL ? levels[lv.L - 1] : null, ih = inner ? (NC / 2) * inner.c : 0, ns = lv.parts.map(() => 0); lv.tris = 0;
   for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
@@ -403,7 +412,6 @@ function updateLevel(lv) {
     const a = j * NV + i, b = a + 1, cc2 = a + NV, d = cc2 + 1; let n = ns[sl]; idx[n++] = a; idx[n++] = cc2; idx[n++] = b; idx[n++] = b; idx[n++] = cc2; idx[n++] = d; ns[sl] = n;
   }
   lv.parts.forEach((pg, k) => { pg.setDrawRange(0, ns[k]); pg.index.needsUpdate = true; lv.tris += ns[k] / 3; });
-  for (const a of Object.keys(A)) A[a].needsUpdate = true;
 }
 { const P0 = { x: 95, z: 44 }; for (const lv of levels) if (lv.L >= REAL) { const s2 = 2 * lv.c; lv.cx = Math.round(P0.x / s2) * s2; lv.cz = Math.round(P0.z / s2) * s2; updateLevel(lv); } }   // the far rings, once
 // show only the slices that can be in view: the ground right round your feet always, the rest when their 45°
@@ -415,7 +423,7 @@ function cullTerrain() {
 }
 function updateTerrain(px, pz) {   // fine to coarse, since each ring cuts its hole from the one inside it
   let changed = false;
-  for (const lv of levels) { if (lv.L >= REAL) break; const s = 2 * lv.c, cx = Math.round(px / s) * s, cz = Math.round(pz / s) * s; if (changed || cx !== lv.cx || cz !== lv.cz) { lv.cx = cx; lv.cz = cz; updateLevel(lv); changed = true; } }
+  for (const lv of levels) { if (lv.L >= REAL) break; const s = 2 * lv.c, cx = Math.round(px / s) * s, cz = Math.round(pz / s) * s; const moved = cx !== lv.cx || cz !== lv.cz; if (changed || moved) { lv.cx = cx; lv.cz = cz; updateLevel(lv, moved); changed = true; } }
   return changed;
 }
 
@@ -908,7 +916,7 @@ const flag = (() => { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, 
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 5, 6), ropeMat); pole.position.y = 2.5; pole.castShadow = true; g.add(pole);
   const tex = canvasTex(128, 64, (c, w, h) => { c.fillStyle = '#2f6a3c'; c.beginPath(); c.moveTo(0, 0); c.lineTo(w, h / 2); c.lineTo(0, h); c.fill(); c.fillStyle = '#f2d27a'; c.beginPath(); c.moveTo(18, 14); c.lineTo(34, 32); c.lineTo(18, 50); c.lineTo(26, 32); c.fill(); });
   const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.55, 6, 1).translate(0.55, 0, 0), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide })));
-  cloth.position.y = 4.65; cloth.castShadow = true; g.add(cloth); TRIS.push(['Flag and pole', tris0(pole.geometry) + tris0(cloth.geometry)]); return cloth; })();
+  cloth.position.y = 4.65; g.add(cloth); TRIS.push(['Flag and pole', tris0(pole.geometry) + tris0(cloth.geometry)]); return cloth; })();
 // a snowman by the fire: three lumpy snowballs, coal eyes and buttons, a carrot nose, stick arms, a scout scarf and a bobble hat
 { const g = new THREE.Group(), sx = CAMP.x - 3.3, sz = CAMP.z - 0.6; g.position.set(sx, TOP - 0.05, sz); g.rotation.y = Math.atan2(CAMP.x + 1.2 - sx, CAMP.z - 5.2 - sz); scene.add(g);
   const snowM = hazed(new THREE.MeshLambertMaterial({ color: '#fbf7f0', vertexColors: true })), coalM = hazed(new THREE.MeshLambertMaterial({ color: '#22201f' })), carrotM = hazed(new THREE.MeshLambertMaterial({ color: '#e8742a' }));
@@ -1252,6 +1260,19 @@ const jump = (p) => { const [x, z, t] = PLACES[p]; me.x = x; me.z = z; me.yaw = 
 $('jump').onclick = (e) => { const p = e.target.dataset?.p; if (p) jump(p); };
 // Speed test: times frames on this device with one part of the scene switched off at a time, so we can see where the time goes
 let testing = false;
+// prof: while a walk test runs, the frame records how long (ms of script) each kind of work took
+const prof = { on: false, t: {}, mark(k, t0) { const d = performance.now() - t0, e = this.t[k] || (this.t[k] = { n: 0, sum: 0, max: 0 }); e.n++; e.sum += d; e.max = Math.max(e.max, d); } };
+$('walkBtn').onclick = async () => {
+  if (testing) return; testing = true; const out = $('speed'); out.hidden = false; $('menu').open = false;
+  jump('camp'); await new Promise((r) => setTimeout(r, 1500));
+  const dts = []; prof.t = {}; prof.on = true; keys.add('KeyW'); keys.add('ShiftLeft');
+  await new Promise((done) => { let last = 0; const t0 = performance.now(); const f = (t) => { if (last) dts.push(t - last); last = t; me.yaw += 0.5 / 60; if (t - t0 < 12000) requestAnimationFrame(f); else done(); }; requestAnimationFrame(f); });
+  keys.delete('KeyW'); keys.delete('ShiftLeft'); prof.on = false;
+  const sorted = [...dts].sort((a, b) => a - b), avg = dts.reduce((a, b) => a + b, 0) / dts.length, q = (p) => sorted[Math.floor(p * (sorted.length - 1))];
+  out.textContent = `Walk test (running in a circle, 12 s, ratio ${renderer.getPixelRatio()})\nframes ${dts.length}: avg ${avg.toFixed(1)} ms (${(1000 / avg).toFixed(0)} fps), 95% ${q(0.95).toFixed(1)}, worst ${sorted[sorted.length - 1].toFixed(1)}\nslow frames: ${dts.filter((d) => d > 20).length} over 20 ms, ${dts.filter((d) => d > 34).length} over 34 ms\nscript per kind (times, avg, worst ms):\n` +
+    Object.entries(prof.t).map(([k, e]) => `${k.padEnd(14)}${String(e.n).padStart(4)} ${(e.sum / e.n).toFixed(1).padStart(6)} ${e.max.toFixed(1).padStart(6)}`).join('\n');
+  $('menu').open = true; testing = false;
+};
 $('speedBtn').onclick = async () => {
   if (testing) return; testing = true; const out = $('speed'); out.hidden = false;
   const gl = renderer.getContext(), dbg = gl.getExtension('WEBGL_debug_renderer_info'), gpu = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '?';
@@ -1315,20 +1336,23 @@ const backdrop = (() => {
   function step(all) {
     all = all || !at; const e = camera.position, k2 = stateKey();
     if (!at || Math.hypot(e.x - at.x, e.z - at.z) > 20 || Math.abs(e.y - at.y) > 8 || k2 !== key) { at = { x: e.x, y: e.y, z: e.z }; key = k2; pend = { ...at }; next = 0; }
-    do { if (next < 8) paint(panels[next++], pend); } while (all && next < 8);
+    const was = next; do { if (next < 8) paint(panels[next++], pend); } while (all && next < 8);
+    return next !== was;   // painted a panel this frame
   }
   TRIS.push(['Painted backdrop beyond 1 km (8 panels)', 16]);
   return { step, panels };
 })();
 const sunDir = new THREE.Vector3(), clock = new THREE.Timer(), wind = new THREE.Vector3(); let frames = 0, acc = 0;
 const fogGrey = new THREE.Color('#b9c4d2'), white = new THREE.Color('#ffffff');
-const shadowAt = new THREE.Object3D(); scene.add(shadowAt); sun.target = shadowAt; let lastShKey = '', shadowAge = 0;
+const shadowAt = new THREE.Object3D(); scene.add(shadowAt); sun.target = shadowAt; let lastShKey = '';
 const dist = (p) => Math.hypot(p.x - me.x, p.z - me.z), metres = (d) => (d < 1000 ? `${Math.round(d / 10) * 10} m` : `${(d / 1000).toFixed(1)} km`);
 function frame() {
   clock.update(); const dt = Math.min(clock.getDelta(), 0.05), now = clock.getElapsed();
   walk(dt);
+  const pf = prof.on ? performance.now() : 0;
   updateTerrain(me.x, me.z); cullTerrain(); cullWedges();
-  if (!placedAt || Math.hypot(me.x - placedAt.x, me.z - placedAt.z) > 12 || Math.abs(+$('hour').value - placedAt.h) > 0.75) placeThings(me.x, me.z);
+  if (prof.on) prof.mark('ground', pf);
+  if (!placedAt || Math.hypot(me.x - placedAt.x, me.z - placedAt.z) > 12 || Math.abs(+$('hour').value - placedAt.h) > 0.75) { const t = performance.now(); placeThings(me.x, me.z); if (prof.on) prof.mark('trees', t); }
   // weather eases toward its preset
   const k = 1 - Math.exp(-dt * 1.2); for (const key in W_NOW) W_NOW[key] += (wTarget[key] - W_NOW[key]) * k;
   const storm = W_NOW.storm;
@@ -1343,11 +1367,11 @@ function frame() {
   U.uFogDen.value = W_NOW.fog; U.uFogCol.value.copy(P.hor).lerp(fogGrey, 0.55).multiplyScalar(0.3 + 0.6 * bright);
   sky.material.uniforms.uZen.value.copy(P.zen); sky.material.uniforms.uNight.value = 1 - sstep(-10, -3, el); sky.material.uniforms.uMoonDir.value.copy(moonDir); sky.material.uniforms.uFog.value = 0.92 * storm;
   hemi.color.copy(P.hs); hemi.groundColor.copy(P.hg); hemi.intensity = P.hemi * (1 - 0.3 * storm);
-  // the sun's shadow map is redrawn only when its 4 m grid spot or the light changes, after new trees are placed, and
-  // twice a second for the flag: standing still or turning round costs no shadow pass at all
+  // the sun's shadow map is redrawn only when its 4 m grid spot or the light changes, or after new trees are placed:
+  // standing still or turning round costs no shadow pass at all (the flag's cloth casts none, since it flaps)
   shadowAt.position.set(Math.round(me.x / 4) * 4, Math.round((me.y - 1.65) / 2) * 2, Math.round(me.z / 4) * 4);
   const shKey = `${shadowAt.position.x},${shadowAt.position.y},${shadowAt.position.z},${sunDir.x.toFixed(3)},${sunDir.y.toFixed(3)},${el > -3},${placedAt?.x}`;
-  shadowAge += dt; if (shKey !== lastShKey || shadowAge > 0.5) { renderer.shadowMap.needsUpdate = true; lastShKey = shKey; shadowAge = 0; }
+  if (shKey !== lastShKey) { renderer.shadowMap.needsUpdate = true; lastShKey = shKey; }
   if (el > -3) { sun.color.copy(P.sun); sun.intensity = P.light * (1 - 0.85 * storm); sun.position.copy(shadowAt.position).addScaledVector(sunDir, 250); }
   else { sun.color.set('#9fb4e6'); sun.intensity = 0.75 * (1 - 0.8 * storm); sun.position.copy(shadowAt.position).addScaledVector(moonDir, 250); }
   horMat.color.copy(P.hs).multiplyScalar(0.35 * P.hemi).add(tmpC.copy(P.sun).multiplyScalar(0.25 * P.light));
@@ -1374,8 +1398,10 @@ function frame() {
   sky.position.copy(camera.position); horizon.position.x = camera.position.x; horizon.position.z = camera.position.z; horizon.position.y = (HOR_HI + HOR_LO) / 2 + (camera.position.y - TOP);
   carry.step(dt, bright);
   if (JEEP.lod) { const f = Math.hypot(me.x - JEEP.x, me.z - JEEP.z) > 110; JEEP.lod[0].visible = !f; JEEP.lod[1].visible = f; }
+  const shNow = renderer.shadowMap.needsUpdate, tr = performance.now();
   renderer.render(scene, camera); const mainInfo = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
-  backdrop.step();   // after the frame, so the shadow map it reads already exists
+  if (prof.on) prof.mark(shNow ? 'render+shadow' : 'render', tr);
+  const tb = performance.now(); if (backdrop.step() && prof.on) prof.mark('panel', tb);   // after the frame, so the shadow map it reads already exists
   frames++; acc += dt;
   if (acc > 0.5) { const i = mainInfo;   // the frame itself, not the backdrop's repaint
     slow = frames / acc < 45 && !testing ? slow + 1 : 0; if (slow >= 4 && pr > 1) { pr = Math.max(1, pr - 0.25); renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); slow = 0; }
@@ -1384,6 +1410,6 @@ function frame() {
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop };
+window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop, updateLevel };
 window.__ready = true;
 </script>
