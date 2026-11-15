@@ -8,13 +8,14 @@
 //   the jeep's dash clock lives in car.js and registers here with addClock.
 // Faces, numbers, rims and grain are painted on canvas textures; nothing modelled that paint can do. The tent and the hammock
 // post they stand by come from layout.js (TENT, HAMMOCK). buildClocks() (main.js, once) makes the tent's and the post's.
+// Both levels share it (Adriaen 2026-11-15): it reads the level's scene, camera and day from stage.js, and the summit adds its
+// porch clock with addClock (summit/daytime.js) and calls clockStep(dt, dusk) each frame.
 import * as THREE from "three";
-import { camera, scene } from "./core.js";
+import { camera, day, scene, toStage } from "./stage.js";
 import { V, canvasTex, lam, trisIn } from "./util.js";
 import { HAMMOCK, TENT } from "./layout.js";
 import { addTarget, frameAt } from "./targets.js";
 import { toast } from "./hud.js";
-import { day } from "./daytime.js";
 
 const MOMENTS = [["Morning 🌅", 7.5], ["Midday ☀️", 12], ["Golden hour 🌇", 17.5], ["Night 🌙", 22]];
 export const hand = (w, l, color) => new THREE.Mesh(new THREE.PlaneGeometry(w, l).translate(0, l * 0.4, 0), lam(color, { side: THREE.DoubleSide }));   // pivot near its base
@@ -63,10 +64,10 @@ function addClock({ obj, hands = null, disc = null, lume = null, glow = 0.55, re
   const c = { obj, hands, disc, lume, glow, shake: 0, base: obj.rotation.z, name };
   const picks = []; obj.traverse((m) => m.isMesh && picks.push(m));
   const box = new THREE.Box3(), sph = new THREE.Sphere(), tmp = V();
-  const at = frameAt((v) => { box.setFromObject(obj).getBoundingSphere(sph); v.copy(sph.center); sph.radius = Math.max(sph.radius, 0.2); return sph; });   // once a frame: the car's clock moves with the jeep
+  const at = frameAt((v) => { box.setFromObject(obj).getBoundingSphere(sph); toStage(sph.center); v.copy(sph.center); sph.radius = Math.max(sph.radius, 0.2); return sph; });   // once a frame: the car's clock moves with the jeep
   const set = (h, n) => () => { day.setHour(h); c.shake = 0.7; toast(n); };
   addTarget(obj, () => ({ look: obj, picks, at,
-    ready: ready ?? (() => at(tmp).center.distanceTo(camera.position) < reach),
+    ready: ready ?? (() => !!camera && at(tmp).center.distanceTo(camera.position) < reach),   // the stage's camera, in its frame
     options: () => [...MOMENTS.map(([n, h]) => [n, set(h, n)]), [day.cycle ? "Stop the clock ⏸️" : "Let the day run ⏳", () => { day.setCycle(!day.cycle); toast(day.cycle ? "The day runs on" : "The clock stops"); }]] }));
   console.log(`LOG clock ${name}: ${trisIn(obj)} tris`);
   clocks.push(c); return c;
@@ -121,6 +122,7 @@ function buildClocks() {
 
 // hands from the hour the light shows: they spin forward while the sky eases to the new hour
 function step(dt, dusk) {
+  if (!day) return;   // the summit hands its day over with its stage
   const h = day.shown;
   for (const c of clocks) {
     if (c.hands) { c.hands[0].rotation.z = -(h % 12) / 12 * Math.PI * 2; c.hands[1].rotation.z = -(h % 1) * Math.PI * 2; }

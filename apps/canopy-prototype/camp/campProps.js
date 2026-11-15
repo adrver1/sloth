@@ -18,6 +18,7 @@ const { R } = rng("props");
 import { V, canvasTex, patchMaterial, swap } from "./util.js";
 import { ANCHORS, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE, fromModel, wearBlockers } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
+import { BAMBOO, dressFire } from "./fire.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
 // the layout (layout.js): the log seats round the fire (the gap faces the gate), the tent, the hammock posts, the snack table
@@ -91,7 +92,7 @@ let rayMat = null, WOODPILE = null, WOOD_TEX = null, WOOD_SPOTS = null;   // set
 // the seat tops and the bamboo (the tripod's legs and the hammock posts) are the only light-mapped parts painted as textures, and their paintings came out far
 // lighter and more saturated than the vertex-coloured props round them (sawn wood about 202,165,118; bamboo 196,184,114),
 // so they glowed by day and at night (camp review B2). Toned down here, not in the textures, so the bake needs nothing.
-const SAWN = new THREE.Color().setRGB(0.74, 0.71, 0.68, THREE.SRGBColorSpace), BAMBOO = new THREE.Color().setRGB(0.72, 0.67, 0.6, THREE.SRGBColorSpace);   // about 150,117,80 and 141,123,68
+const SAWN = new THREE.Color().setRGB(0.74, 0.71, 0.68, THREE.SRGBColorSpace);   // about 150,117,80 (BAMBOO: fire.js)
 // one program for every material whose shader code comes out the same (review P3: keyed by uuid, each compiled its own);
 // the hooks chained before and after this one (the laundry's swing) are part of the code, so their source is in the key (patchMaterial)
 const lnight = (mat) => {
@@ -235,40 +236,12 @@ async function buildProps() {
   // textured quad per link). The flames are three crossed cards with an animated flame shader instead of the old glow blobs;
   // the embers are unlit so they glow. (The first fire, rough rocks and split logs under a kettle, is archived with the rustic set.)
   {
-    const F = await PRE.fire, fm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true })), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
-    // the ring's ash bed lies 12 mm up (build_fire.py ring()), exactly where the ground mesh is under the fire since the floor is kept
-    // level under the props (terrain.js FLAT, R2-181; ground.js lifts the floor 12 mm). The two fought for the same depth and the
-    // ground, black under the ash in its night bake, showed through as black wedges and a saw-tooth edge round the logs' feet.
-    // The ring is drawn pulled a little toward the eye, like a decal on the ground, so it always wins the tie (no rebake).
-    const ringMat = lnight(new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }));
+    const F = await PRE.fire;
     fireLight.position.y = 0.4;                                    // inside the fire, below the pot (it hangs higher than the old kettle)
-    for (const o of F.scene.children) { const n = o.name;
-      o.traverse((m) => { if (!m.isMesh) return;
-        m.material = n === "Embers" ? glow : n === "Chain" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }))
-          : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : n === "Ring" ? ringMat : fm; });   // the legs: one tube each, nodes in the texture
-    }
     checkAnchors(F.scene, [["Soup", SOUP_POT.at, SOUP_POT.r]], "fire.glb", ANCHORS.fire);
+    // the ring, legs, logs, embers, pot and chain painted and the flame cards made the shared way (fire.js: the summit's fire is this one)
+    FIRE_CARDS.push(dressFire(F.scene, { into: scene, wrap: lnight }));   // the activities flare it (chores.js scales it)
     stand(F.scene);   // the ring, tripod, fire, embers, pot and chain, at the fire
-    // the three crossed cards are one mesh (R2-103): each card's phase (0, 1, 2) is a vertex attribute instead of a uniform per card
-    const H = 0.8, flameMat = new THREE.ShaderMaterial({
-      uniforms: { uTime }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-      vertexShader: "attribute float aPh; varying vec2 vUv; varying float vPh; void main() { vUv = uv; vPh = aPh; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-      fragmentShader: `uniform float uTime; varying vec2 vUv; varying float vPh;
-        void main() {
-          float v = vUv.y, t = uTime * (1.0 + 0.15 * vPh) + vPh * 4.0;
-          float x = vUv.x - 0.5;
-          x += (sin(v * 9.0 - t * 7.0) * 0.05 + sin(v * 17.0 - t * 11.0 + 1.3) * 0.025) * v;          // the flame sways more toward its tip
-          float tongues = 0.75 + 0.25 * sin(vUv.x * 23.0 + t * 3.0) * sin(vUv.x * 9.0 - t * 2.0);
-          float w = 0.42 * pow(max(0.0, 1.0 - v / tongues), 0.75);                                      // wide at the base, tapering up
-          float a = smoothstep(w, w * 0.35, abs(x)) * smoothstep(0.0, 0.08, v);
-          vec3 c = mix(vec3(1.0, 0.25, 0.04), vec3(1.0, 0.62, 0.15), smoothstep(w, w * 0.4, abs(x)));
-          c = mix(c, vec3(1.0, 0.92, 0.6), smoothstep(0.5, 1.0, 1.0 - v) * smoothstep(w * 0.5, 0.0, abs(x)));
-          gl_FragColor = vec4(c * a * 1.5, a);
-        }` });
-    const cards = [0, 1, 2].map((k) => { const g = new THREE.PlaneGeometry(0.7, H).translate(0, H / 2 + 0.03, 0).rotateY(k * Math.PI / 3);
-      g.setAttribute("aPh", new THREE.Float32BufferAttribute([k, k, k, k], 1)); return g; });
-    const flames = new THREE.Mesh(mergeGeometries(cards), flameMat); flames.name = "Flames";
-    flames.renderOrder = 3; scene.add(flames); FIRE_CARDS.push(flames);   // the activities flare it (chores.js scales it: x and z alike, so it is the same as scaling each card)
   }
   // the static vertex-coloured props that nothing looks up by name, lights up or moves, merged into one draw (R2-103): the wood
   // pile's frame, the wellies by the tent, the tripod's head and the laundry posts. The seats, seat tops, seat things and the tent

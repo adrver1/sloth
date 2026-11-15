@@ -22,6 +22,8 @@
 //                                               NAV { half, rim } (the sloths' grid, sloth/walk.js; the camp's is round its
 //                                               clearing, RC), FOOD() (the food places, sloth/table.js pois' shape),
 //                                               walkY(x, z) (the height a sloth walks at; 0 in the camp, whose clearing is flat)
+//     day                                       the time of day, { set, shown, cycle, setHour(h), setCycle(on) } (the clocks:
+//                                               clock.js; camp/daytime.js day, summit/daytime.js day)
 //     origin                                    where the stage's frame sits in the world (a Vector3), when scene is a group
 //                                               moved off the world's origin (the summit's scout camp); null in the camp. The
 //                                               cast keeps every position in the stage's frame (the fire at the origin, the
@@ -59,19 +61,19 @@ const pace = { fast: undefined };
 let scene = null, camera = null, OPT = null, LIVED = true, D = null, S = null, KEYS = null, me = null;
 let groundAt = () => 0, blockers = [], blockersVersion = () => 0, LANTERNS = { lights: [] };
 let jeepApi = null, branchCurves = [], heroWood = null, trunkR = null, chores = null, OP_DAY = null, HOMES = null, NAV = null, FOOD = null, walkY = null;
-let origin = null;
+let origin = null, day = null;
 const toStage = (v) => (origin ? v.sub(origin) : v), toWorld = (v) => (origin ? v.add(origin) : v);
 let A0 = 0, CRATE = null, HAMMOCK = null, HERO = [], LAUNDRY = null, RC = 0, SEATS = [], SEAT_GAPS = [], SEAT_R = 0, SEAT_SLOT = null, SOUP_POT = null, TABLE = null, TENT = null;
-const NAMES = ["scene", "camera", "OPT", "LIVED", "D", "S", "KEYS", "me", "groundAt", "blockers", "blockersVersion", "LANTERNS", "jeepApi", "branchCurves",
+const NAMES = ["day", "scene", "camera", "OPT", "LIVED", "D", "S", "KEYS", "me", "groundAt", "blockers", "blockersVersion", "LANTERNS", "jeepApi", "branchCurves",
   "heroWood", "trunkR", "chores", "OP_DAY", "HOMES", "NAV", "FOOD", "walkY", "origin", "A0", "CRATE", "HAMMOCK", "HERO", "LAUNDRY", "RC", "SEATS", "SEAT_GAPS", "SEAT_R", "SEAT_SLOT", "SOUP_POT", "TABLE", "TENT"];
 // the level's names: only those given change, so a page can hand over what it makes later; an unknown name is a mistake
 function setStage(o) {
   for (const k of Object.keys(o)) if (!NAMES.includes(k)) throw new Error(`stage.js: no stage name ${k}`);
-  ({ scene = scene, camera = camera, OPT = OPT, LIVED = LIVED, D = D, S = S, KEYS = KEYS, me = me, groundAt = groundAt, blockers = blockers,
+  ({ day = day, scene = scene, camera = camera, OPT = OPT, LIVED = LIVED, D = D, S = S, KEYS = KEYS, me = me, groundAt = groundAt, blockers = blockers,
     blockersVersion = blockersVersion, LANTERNS = LANTERNS, jeepApi = jeepApi, branchCurves = branchCurves, heroWood = heroWood, trunkR = trunkR,
     chores = chores, OP_DAY = OP_DAY, HOMES = HOMES, NAV = NAV, FOOD = FOOD, walkY = walkY, origin = origin, A0 = A0, CRATE = CRATE, HAMMOCK = HAMMOCK, HERO = HERO, LAUNDRY = LAUNDRY, RC = RC, SEATS = SEATS, SEAT_GAPS = SEAT_GAPS,
     SEAT_R = SEAT_R, SEAT_SLOT = SEAT_SLOT, SOUP_POT = SOUP_POT, TABLE = TABLE, TENT = TENT } = o);
 }
 
-export { A0, CRATE, D, FOOD, HAMMOCK, HERO, HOMES, KEYS, LANTERNS, LAUNDRY, LIVED, OP_DAY, OPT, RC, S, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT,
+export { A0, CRATE, day, D, FOOD, HAMMOCK, HERO, HOMES, KEYS, LANTERNS, LAUNDRY, LIVED, OP_DAY, OPT, RC, S, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT,
   blockers, blockersVersion, branchCurves, camera, chores, groundAt, heroWood, jeepApi, me, NAV, origin, pace, rng, scene, setStage, toStage, toWorld, trunkR, uNight, uTime, walkY };

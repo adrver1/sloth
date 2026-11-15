@@ -1,8 +1,7 @@
-// Summit Cabin effects: chimney and fire smoke (plume: one instanced draw each) and the storm's falling snow; main.js moves them each frame.
+// Summit Cabin effects: the cabin chimney's smoke (plume: one instanced draw; the campfire's smoke is the camp's own, life.js) and the storm's falling snow; main.js moves them each frame.
 import * as THREE from 'three';
 import { TOP, YT, isPhone, mulberry } from './land.js';
 import { camera, canvasTex, scene } from './core.js';
-import { CAMP } from './scoutCamp.js';
 import { v3 } from './forest.js';
 
 // chimney smoke: a few soft sprites rising and drifting with the wind
@@ -17,7 +16,7 @@ export function plume(n) { const g = new THREE.InstancedBufferGeometry().copy(ne
   const mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false;
   return { n, P, A, mat, mesh, t: Array.from({ length: n }, (_, i) => i / n), set(i, p, size, a) { P.setXYZW(i, p.x, p.y, p.z, size); A.setX(i, a); }, done() { P.needsUpdate = A.needsUpdate = true; } };
 }
-export const fireSmoke = plume(10), smoke = plume(14), tmpV = new THREE.Vector3();
+export const smoke = plume(14), tmpV = new THREE.Vector3();
 export const chimneyTop = new THREE.Vector3(3.4, TOP + YT + 4.3, 1.7);
 
 // falling snow round the camera, for the storm
@@ -31,15 +30,12 @@ flakes.frustumCulled = false;
 export const wind = new THREE.Vector3();   // m/s, set by fxStep, read by campStep for the flag
 
 export function buildFx() {
-  scene.add(fireSmoke.mesh, smoke.mesh, flakes);
+  scene.add(smoke.mesh, flakes);   // the fire's smoke is the camp's (../atmosphere.js, life.js)
 }
-// each frame after the light: the wind gusts (much stronger in a storm), the fire's and the chimney's smoke drift with it, and
+// each frame after the light: the wind gusts (much stronger in a storm), the chimney's smoke drifts with it, and
 // in a storm the snow falls in a box round the camera
 export function fxStep(dt, now, storm, bright) {
   wind.set(Math.sin(now * 0.13) * 0.6 + 1.2 + 6 * storm, 0, 0.6 + Math.cos(now * 0.11) * 0.4 + 3 * storm);
-  for (let i = 0; i < fireSmoke.n; i++) { const t = (fireSmoke.t[i] = (fireSmoke.t[i] + dt * 0.12) % 1);
-    fireSmoke.set(i, tmpV.set(CAMP.x, TOP + 1.2, CAMP.z).addScaledVector(wind, t * 3).add(v3.set(Math.sin(t * 8) * 0.2, t * 6, 0)), 0.4 + t * 1.8, 0.35 * Math.sin(Math.PI * t) * (1 - 0.7 * storm)); }
-  fireSmoke.mat.uniforms.uBright.value = 0.4 + 0.6 * bright; fireSmoke.done();
   for (let i = 0; i < smoke.n; i++) { const t = (smoke.t[i] = (smoke.t[i] + dt * 0.09) % 1);
     smoke.set(i, tmpV.copy(chimneyTop).addScaledVector(wind, t * 9).add(v3.set(Math.sin(t * 10) * 0.3, t * 9, 0)), 0.6 + t * 2.6, 0.55 * Math.sin(Math.PI * t) * (1 - 0.7 * storm)); }
   smoke.mat.uniforms.uBright.value = 0.35 + 0.65 * bright; smoke.done();

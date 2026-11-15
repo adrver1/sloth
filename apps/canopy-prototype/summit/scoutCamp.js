@@ -9,6 +9,7 @@ import { tmpC } from './terrain.js';
 import { WHITE, v3 } from './forest.js';
 import { bakeStatic } from './cabin.js';
 import { ANCHORS, SEATS, fromModel } from '../camp/layout.js';
+import { dressFire } from '../camp/fire.js';
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
@@ -41,7 +42,7 @@ const MEASURED = ['Seat_0', 'Seat_1', 'Seat_2', 'SeatTop_0', 'SeatTop_1', 'SeatT
 let campLoaded = null;
 export const campReady = new Promise((ok) => { campLoaded = ok; });
 export const fireLight = new THREE.PointLight('#ff9a48', 0, 14, 1.5);
-export const flames = [];
+export const flames = [];   // the flame cards (camp/fire.js dressFire)
 export function tris0(g) { return (g.index ? g.index.count : g.attributes.position.count) / 3; }
 // a string of jar lanterns from the cabin's back corner to a pole by the tent, sagging between
 const lanterns = new THREE.Group();
@@ -58,18 +59,19 @@ export function buildScoutCamp() {
     for (const [file, keep] of Object.entries(KEEP)) fetchBytes(`models/${file}.txt`).then((bin) => {
       loader.parse(bin.buffer, '', (gl) => {
         if (file === 'camp_picked_lm') fromModel(gl.scene.getObjectByName('Tent')?.userData, gl.scene.getObjectByName('Hammock')?.userData);   // the tent's sizes (its bed) for the cast, as campProps.js does
+        // the fire is dressed as the camp dresses it, flames and all (camp/fire.js), with the summit's fog and mute on top
+        if (file === 'fire') flames.push(dressFire(gl.scene, { into: campGroup, wrap: (m) => hazed(m, mute, 'mute') }));
         for (const node of [...gl.scene.children]) { if (keep && !keep.includes(node.name)) continue;
           { const k = node.userData.anchor, A = k === 'seats' ? SEATS[node.userData.seat] : ANCHORS[k];   // stood where its anchor says, as the camp's campProps.js stand does
             if (A) { node.position.set(A.at.x, 0, A.at.z); node.rotation.set(0, A.yaw, 0); } }
           if (node.name === 'WoodPile' || node.name === 'LooseLogs') { node.position.copy(CHOP_NODE); node.rotation.set(0, CHOP_YAW, 0); if (node.name === 'WoodPile') dropPosts(node); }
           node.traverse((o) => { if (!o.isMesh) return;
-            const m0 = o.material, flame = node.name === 'Fire' || node.name === 'Embers';
-            o.material = flame ? new THREE.MeshBasicMaterial({ color: node.name === 'Fire' ? '#ffb15a' : '#ff6a2a', vertexColors: !!o.geometry.attributes.color, transparent: node.name === 'Fire', opacity: 0.9, depthWrite: node.name !== 'Fire' })
-              : hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest }), mute, 'mute');
-            o.castShadow = !flame; o.receiveShadow = true; tris += tris0(o.geometry); if (node.name === 'Fire') flames.push(o); });
+            const m0 = o.material, glow = node.name === 'Embers';
+            if (file !== 'fire') o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest }), mute, 'mute');
+            o.castShadow = !glow; o.receiveShadow = true; tris += tris0(o.geometry); });
           if (MEASURED.includes(node.name)) { const m = node.clone(true); m.traverse((o) => { o.visible = false; }); node.name += '_look'; campGroup.add(m); }
           campGroup.add(node); }
-        TRIS.push([`Scout camp: ${file}`, tris]); tris = 0; bakeStatic(campGroup, (o) => flames.includes(o) || o.parent?.name === 'Embers' || o.name === 'Embers');
+        TRIS.push([`Scout camp: ${file}`, tris]); tris = 0; bakeStatic(campGroup, (o) => flames.includes(o) || o.parent?.name === 'Embers' || o.name === 'Embers');   // the flames (their shader moves them) and the glowing embers stay apart
         if (++loaded === 3) campLoaded();
       });
     }).catch((e) => console.warn('camp props', e));
@@ -107,9 +109,9 @@ export function buildScoutCamp() {
     add(new THREE.SphereGeometry(0.22, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), hatM, 0, 1.86, 0, -0.12, 0, 0.1); add(new THREE.TorusGeometry(0.21, 0.04, 4, 10).rotateX(Math.PI / 2), snowM, 0, 1.87, 0, -0.12, 0, 0.1); add(new THREE.IcosahedronGeometry(0.06, 0), snowM, 0.02, 2.09, -0.02);
     TRIS.push(['Snowman', n]); bakeStatic(g); }
 }
-// each frame after fxStep (it reads the wind): the fire's flickering light and flames, the flag turning in the wind
+// each frame after fxStep (it reads the wind): the fire's flickering light, the flag turning in the wind
 export function campStep(now, night, wind) {
   const fl = 0.8 + 0.2 * Math.sin(now * 13) * Math.sin(now * 7.3 + 1);
-  fireLight.intensity = (5 + 8 * night) * fl; for (const f of flames) f.scale.set(1, 0.85 + 0.25 * fl, 1);
+  fireLight.intensity = (5 + 8 * night) * fl;   // the flames flicker in their own shader (camp/fire.js)
   flag.rotation.y = -Math.atan2(wind.z, wind.x) + Math.sin(now * 3.1) * 0.25; flag.scale.y = 1 - 0.1 * Math.abs(Math.sin(now * 5));
 }

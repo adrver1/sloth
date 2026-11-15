@@ -11,22 +11,24 @@
 // 26 triangles. The jeep's own nodes (build_jeep.py): SeatP is the driver's cushion top, WheelHub the steering wheel's middle;
 // the dash's face toward the driver is at local z 0.14, from y 0.93 to 1.13. Left to right as you sit: the wheel (x 0.36),
 // the key, the clock up top in the middle, the radio in front of the passenger seat.
-// Exports buildCar() (main.js, once), carStep (main.js, each frame) and carApi (inCar, engine; null with ?jeep=none), which
+// Both levels' jeeps have it (Adriaen 2026-11-15: "the jeep doesn't have the key and radio and clock"): buildCar(J, { audio,
+// drive }) takes the jeep's rig (jeepRig.js api), the level's sound (audio/api.js) and drive, [label, go] for the key's menu
+// (the camp: "Drive to the summit", the summit: "Drive back to camp"). Exports buildCar (each page's main.js, once the jeep,
+// its seats and the clocks are in), carStep (each frame) and carApi (inCar, engine; null with ?jeep=none), which the camp's
 // audio/watch.js reads each frame for the engine's sound.
 import * as THREE from "three";
 import { V, canvasTex, trisIn } from "./util.js";
-import { jeepApi } from "./jeep.js";
 import { seatApi } from "./jeepSeat.js";
 import { addTarget } from "./targets.js";
+import { toStage } from "./stage.js";   // the targets' spheres are in the stage's frame
 import { toast } from "./hud.js";
-import { audio } from "./audio.js";
 import { radioOptions, radioPlaying, radioSource } from "./radio.js";
 import { addClock, faceTex, hand } from "./clock.js";
-import { driveApi } from "./drive.js";
 
 let carStep = () => {}, carApi = null;
-function buildCar() {   // main.js, once the jeep, its seats, the radio and the clocks are in
-  const jeep = jeepApi?.node;   // null with ?jeep=none
+let audio = null;
+function buildCar(J, { audio: sound, drive = null }) {   // main.js, once the jeep, its seats, the radio and the clocks are in
+  const jeep = J?.node; audio = sound;   // null with ?jeep=none
   if (!jeep) return;
   const mat = (o) => new THREE.MeshLambertMaterial(o);   // textured and glowing faces (util.js lam is for plain colours)
   const DASH_Z = 0.137;
@@ -34,7 +36,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   const seatL = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
   // its front toward the driver (-z); a tilted part (its top leaning back) comes forward by as much as its lower edge would sink
   // into the dash, so none of it hides behind the dash face (Adriaen 2026-11-13: the clock's bottom half was cut off)
-  const onDash = (o, x, y, tilt = 0, half = 0) => { o.position.set(x, y, DASH_Z - half * Math.abs(Math.sin(tilt))); o.rotation.set(tilt, Math.PI, 0); jeep.add(o); jeepApi.inside?.push(o); return o; };   // hidden with the jeep's parts (jeepRig.js)
+  const onDash = (o, x, y, tilt = 0, half = 0) => { o.position.set(x, y, DASH_Z - half * Math.abs(Math.sin(tilt))); o.rotation.set(tilt, Math.PI, 0); jeep.add(o); J.inside?.push(o); return o; };   // hidden with the jeep's parts (jeepRig.js)
 
   // ---------------------------------------------------------------- in the jeep: getting in and out is jeepSeat.js (seatApi.sit / stand / seatedIn)
   const inCar = () => !!seatApi?.seatedIn();
@@ -57,9 +59,9 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   const KEY_RUN = -0.9, KEY_CRANK = -1.25;
   function start() { if (engine !== "off") return; engine = "crank"; crank = 0; toast("Turning the key… 🔑"); }
   function stop() { engine = "off"; toast("Engine off"); }
-  addTarget(ign, () => ({ look: ign, picks: [keyQuad, ring], at: (v) => { ign.getWorldPosition(v); return keyS.set(v, 0.08); }, ready: inCar,
+  addTarget(ign, () => ({ look: ign, picks: [keyQuad, ring], at: (v) => { toStage(ign.getWorldPosition(v)); return keyS.set(v, 0.08); }, ready: inCar,
     options: () => engine === "off" ? [["Turn the key 🔑", start]]
-      : [["Drive to the summit 🏔️", () => driveApi.away()], ["Turn the engine off", stop]] }));
+      : [...(drive ? [[drive[0], drive[1]]] : []), ["Turn the engine off", stop]] }));
 
   // ---------------------------------------------------------------- the radio, in the middle of the dash
   // its face: a chrome bezel, a glowing display that shows the station, two knobs; the display is redrawn when the station changes
@@ -80,7 +82,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   const rMat = mat({ map: rTex, emissive: 0xffffff, emissiveMap: gTex, emissiveIntensity: 0 });
   const carRadio = onDash(new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), rMat), -0.22, 1.0, -0.1, 0.0375);
   carRadio.name = "CarRadio"; drawRadio();
-  addTarget(carRadio, () => ({ look: carRadio, picks: [carRadio], at: (v) => { carRadio.getWorldPosition(v); return radioS.set(v, 0.1); }, ready: inCar, options: () => radioOptions(carRadio) }));
+  addTarget(carRadio, () => ({ look: carRadio, picks: [carRadio], at: (v) => { toStage(carRadio.getWorldPosition(v)); return radioS.set(v, 0.1); }, ready: inCar, options: () => radioOptions(carRadio) }));
 
   // ---------------------------------------------------------------- the dash clock, high in the middle of the dash
   const clock = new THREE.Group(), lume = mat({ map: faceTex({ bg: "#f6efe0", rim: "#3a3a3a", numbers: ["12", "3", "6", "9"], rimW: 0.12 }), emissive: 0xfff0c8, emissiveIntensity: 0 });
