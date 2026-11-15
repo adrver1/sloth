@@ -11,7 +11,7 @@
 // Exports buildTrip() (main.js, once the operator, the sloths and the input are built), tripStep(dt) (main.js, each frame, after
 // the player has moved: the cut scene takes the camera), and tripApi { ask(), start(names, home), sign, cut(), asking(),
 // counts } for debug.js (window.__trip).
-// Triangles: sign 16, wagon 214; the cut scene's cast are clones made only when it starts (operator 1,034, ponytail 1,326,
+// Triangles: sign 16, wagon 214; the cut scene's cast are clones made only when it starts (operator 1,082, ponytail 1,326,
 // sloths 826 each plus fur), and her model (karaoke/models/her.txt) is fetched only once the question is asked. The road's
 // trunks are the wall's instanced trunk (no new draw) and its bushes one more leaf draw (forest/plants.js trailVerge).
 import * as THREE from "three";

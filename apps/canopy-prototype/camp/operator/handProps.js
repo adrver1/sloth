@@ -22,7 +22,8 @@ function buildHandProps() {
     const b = new THREE.Mesh(new THREE.CircleGeometry(0.02, 6), m); b.material.side = THREE.DoubleSide; b.position.set(0, 0.125, 0.004); b.scale.set(0.8, 1.2, 1); g.add(h, b); return g;   // the head in the handle's plane, its hollow to +Z
   })();
   mug = (() => {   // a tin mug, 8 sides, open top, bottom cap (22 tris), and a handle (24 tris)
-    const g = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.036, 0.09, 8, 1, true), facetLam(0x5f86ad));   // blue enamel, so it reads against his white shirt m.material.side = THREE.DoubleSide; m.position.y = 0.045;
+    const g = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.036, 0.09, 8, 1, true), facetLam(0x5f86ad));   // blue enamel, so it reads against his olive field shirt
+    m.material.side = THREE.DoubleSide; m.position.y = 0.045;   // the open body stands on its cap, 0 to 9 cm, its inside drawn
     const bot = new THREE.Mesh(new THREE.CircleGeometry(0.036, 8), m.material); bot.rotation.x = Math.PI / 2; bot.position.y = 0.001;
     // the handle: a half ring on the +X side (24 tris; Adriaen 2026-11-13: he held the cup oddly, a flat tab gave his hand
     // nothing to hold), seen up close as he sips

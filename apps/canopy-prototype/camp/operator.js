@@ -1,5 +1,5 @@
-// Canopy Camp operator: the bearded operator from desk-at-night (engine/characters/bearded_operator, packed into
-// models/operator.txt, with the clips of his survival build in models/operator_anims.txt) living in the camp. He goes about
+// Canopy Camp operator: the bearded operator from desk-at-night (engine/characters/bearded_operator in its camp_cargo
+// outfit, packed into models/operator.txt, with the clips of his survival build in models/operator_anims.txt) living in the camp. He goes about
 // his day: soup from the pot on a log seat, a mug from the kitchen crate, a book, warming his hands at the fire, a stroll,
 // sleep in the tent bed, making the soup, and playing with a sloth (holds it up into the wind, flies it overhead). He shares
 // the camp with the sloths through camp/places.js and sloth/hooks.js slothLife: he claims the places he uses, registers as a mover

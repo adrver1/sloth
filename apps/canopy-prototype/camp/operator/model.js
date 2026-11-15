@@ -1,4 +1,4 @@
-// Canopy Camp operator, the model: the bearded operator's skinned mesh (1,034 triangles, Lambert, faceted) under a root
+// Canopy Camp operator, the model: the bearded operator's skinned mesh (camp_cargo outfit, 1,082 triangles, Lambert, faceted) under a root
 // group, his clips on one mixer, and a soft round shadow under him (2 triangles: the props' shadows are baked, and he moves).
 // Nothing is built when this module loads: operator.js calls buildModel first, so objects are made in a fixed order.
 // Exports root, body, mixer, cur (the clip playing now), B (his bones by name), clips (his clip actions by name),
