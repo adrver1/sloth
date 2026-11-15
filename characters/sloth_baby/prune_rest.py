@@ -13,7 +13,10 @@ since the pages add to head and arm rotations each frame and rely on the
 mixer to set them again. The accessors and buffer views nothing uses any more
 are removed and the binary chunk is packed again, so the file shrinks too.
 Works on a plain Blender export and on a packed, quantized one (a channel
-whose keys are not plain floats is kept).
+whose keys are not plain floats is kept). Sparse accessors (Blender's sparse
+shape keys) keep their index and value buffer views. A file with an extension
+that points at accessors or buffer views itself (Draco, meshopt, GPU
+instancing) is refused, since those references would not be remapped.
 
     python characters/sloth_baby/prune_rest.py <file.glb | file.txt>...
 
@@ -69,8 +72,9 @@ def prune(glb):
     bl, = struct.unpack_from("<I", glb, 20 + jl)
     binc = glb[28 + jl:28 + jl + bl]
     before = sum(len(a["channels"]) for a in j.get("animations", []))
-    if "extensionsRequired" in j and "EXT_meshopt_compression" in j["extensionsRequired"]:
-        raise SystemExit("meshopt-compressed buffers are not supported")
+    odd = set(j.get("extensionsUsed", [])) & {"EXT_meshopt_compression", "KHR_meshopt_compression", "KHR_draco_mesh_compression", "EXT_mesh_gpu_instancing"}
+    if odd:
+        raise SystemExit(f"not supported: {', '.join(sorted(odd))} (they refer to accessors or buffer views that would not be remapped)")
     for an in j.get("animations", []):
         keep = []
         for ch in an["channels"]:
@@ -94,7 +98,9 @@ def prune(glb):
     j["accessors"] = [j["accessors"][o] for o in acc_used]
     for c, k in refs:
         c[k] = acc_map[c[k]]
-    bv_used = sorted({a["bufferView"] for a in j["accessors"] if "bufferView" in a} | {im["bufferView"] for im in j.get("images", []) if "bufferView" in im})
+    sparse = [a["sparse"][part] for a in j["accessors"] if "sparse" in a for part in ("indices", "values")]
+    bv_used = sorted({a["bufferView"] for a in j["accessors"] if "bufferView" in a} | {sp["bufferView"] for sp in sparse}
+                     | {im["bufferView"] for im in j.get("images", []) if "bufferView" in im})
     bv_map, out = {}, bytearray()
     for o in bv_used:
         bv = j["bufferViews"][o]
@@ -109,6 +115,8 @@ def prune(glb):
     for a in j["accessors"]:
         if "bufferView" in a:
             a["bufferView"] = bv_map[a["bufferView"]]
+    for sp in sparse:
+        sp["bufferView"] = bv_map[sp["bufferView"]]
     for im in j.get("images", []):
         if "bufferView" in im:
             im["bufferView"] = bv_map[im["bufferView"]]
