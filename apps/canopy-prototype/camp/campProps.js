@@ -97,7 +97,7 @@ const lnight = (mat) => {
 // buildProps (main.js, once, after the forest): the lanterns, the fire's light, the sunbeams and motes, then (once their downloads are
 // in) the picked props, the lived-in props, the laundry line, the campfire and the night's light pools
 async function buildProps() {
-  // the lanterns (lanterns.js: a glow sprite round each jar) and the fire (its flame cards and glowing embers, below): no real-time
+  // the lanterns (lanterns.js: a soft glow quad round each jar) and the fire (its flame cards and glowing embers, below): no real-time
   // shadows; one warm point light for the fire's glow
   glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
   LANTERNS = createLanterns({ scene, layout: LANTERN_LAYOUT, glowTex });   // LANTERNS.lights: where each lantern's light is (the pools, the sloths' night glow, the bake's layout)
