@@ -135,8 +135,9 @@ def apply_all(o):
 
 
 def triangulate(o):
-    """Splits o's faces into triangles in place, as a glTF export would (quads and ngons the beauty way), keeping each
-    face's material, smooth flag and corner data (UVs, colours)."""
+    """Splits o's faces into triangles in place (quads and ngons the beauty way), keeping each face's material, smooth
+    flag and corner data (UVs, colours). The glTF exporter would split them its own way (Blender's loop triangles), so
+    a mesh that is triangulated here first is exported with exactly these triangles."""
     bm = bmesh.new()
     bm.from_mesh(o.data)
     bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 3], quad_method="BEAUTY", ngon_method="BEAUTY")

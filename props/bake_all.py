@@ -15,8 +15,9 @@ in several different places", and bake the whole scene as one). Run it whenever 
           and the props' GLBs/txt
   ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), base64 in <map>.ktx2.txt next to the PNGs (artifacts
           don't serve .ktx2), which stay as the fallback;
-          needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH. A run with this step checks
-          for toktx before any step starts. The light step removes the old .ktx2.txt of every map it rewrites and writes
+          needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH. When this step will run
+          (stale, forced, or after a layout or light step that runs), toktx is checked before any step starts. The light step
+          removes the old .ktx2.txt of every map it rewrites and writes
           camp_lights.json without the "ktx2" flag; this step sets the flag only when every map's .ktx2.txt is newer than
           its PNG, so the page never loads an out-of-date KTX2 copy (review R2-005)
   layout  props/shadow/export_casters.cjs: the clearing's layout (the worn spots, the jeep's track, the path, the deadwood,
@@ -61,8 +62,6 @@ GPU_RUN = os.environ.get("GPU_RUN")
 TOKTX = os.environ.get("TOKTX", "toktx")
 MODELS = os.path.join(ROOT, "apps/canopy-prototype/models")
 LOCK = os.path.join(ROOT, "props", "bake.lock.json")
-if "ktx" in steps and not a.check and not (shutil.which(TOKTX) or os.path.isfile(TOKTX)):   # before the light step's GPU minutes, not after
-    sys.exit(f"the ktx step needs Khronos' toktx, and {TOKTX!r} is not on PATH: set TOKTX=<path to toktx> or leave out the ktx step")
 
 
 def blender(script, *args):
@@ -126,7 +125,10 @@ def tool_version(cmd):
 
 
 def light_maps():
-    return [f for p in ("camp_lm_[124]k.png", "camp_lm_sun_[124]k.png") for f in sorted(glob.glob(os.path.join(MODELS, p)))]
+    """The props maps the light step writes: 2K and 1K, and 4K only with --size 4096 (a bake under 4096 removes the old
+    4K maps, which no longer fit the new light-map UVs, review R2-170)."""
+    k = "[124]" if a.size >= 4096 else "[12]"
+    return [f for p in (f"camp_lm_{k}k.png", f"camp_lm_sun_{k}k.png") for f in sorted(glob.glob(os.path.join(MODELS, p)))]
 
 
 def ktx_maps():
@@ -260,6 +262,11 @@ if a.check:
         bad += bool(why)
         print(f"{st}: " + ("current" if not why else "stale: " + "; ".join(why[:8]) + (f"; and {len(why) - 8} more" if len(why) > 8 else "")))
     sys.exit(1 if bad else 0)
+# toktx is checked before the light step's GPU minutes, not after, and only when the ktx step will run: it is stale, or
+# forced, or a step before it runs (the layout makes the light step run, and the light step rewrites the maps it encodes)
+if "ktx" in steps and not (shutil.which(TOKTX) or os.path.isfile(TOKTX)) and (
+        a.force or any(stale(s, load_lock()) for s in ("layout", "light", "ktx") if s in steps)):
+    sys.exit(f"the ktx step needs Khronos' toktx, and {TOKTX!r} is not on PATH: set TOKTX=<path to toktx> or leave out the ktx step")
 for st in steps:
     why = stale(st, load_lock())
     if not why and not a.force:

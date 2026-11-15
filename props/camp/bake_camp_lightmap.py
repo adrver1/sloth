@@ -57,8 +57,9 @@ under a minute on a laptop CPU (1/16 of the texels of the full bake and 1/64 of 
                           every map this step writes has its old .ktx2.txt removed, so the page loads the new PNG until
                           props/bake_all.py's ktx step encodes them again and sets the flag (review R2-005)
    <k> is 2k and 1k (with --size 4096 also 4k, which the page loads only with ?lm=4k); each smaller size is a box filter
-   of the baked one in linear light, encoded after. A map smaller than 1K (a preview) is written as both _1k and _2k, the
-   names the page asks for. Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
+   of the baked one in linear light, encoded after. A map smaller than 2K (a preview, or --size 1024) is written as both
+   _1k and _2k, the names the page asks for. A bake under 4096 removes the old _4k maps, which no longer fit the UVs
+   (?lm=4k then loads the 2K maps). Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
    Thin double-sided cards (tagged thin: the laundry, the chain) take the brighter of their two sides.
    COLOR_0 alpha 0 marks faces that glow at night (materials with the "glow" property: lantern glass, the stove's fire).
 6. export_models writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own
@@ -91,7 +92,8 @@ TINT = {"fire": (1, 0, 0), "stove": (0, 1, 0), "lanterns": (0, 0, 1), "moon": (1
 # Cycles samples per bake call at --samples 512 (scaled with --samples, at least 2), from the noise measured in the
 # committed maps (review R2-171): the sun's visibility is mostly 0 or 1 and its open pass has nothing to shade it, the
 # moon is below 8-bit noise, AO is smooth. The night pass shares its samples among its three lights (about 1.5 x one
-# light's 256 at 2048), and the ground in that call keeps what it had. The ground's day light is a 1K map alone.
+# light's 256 at 2048). The ground's night map is baked in that same call, so it too now shares 512 samples among three
+# lights, where each light had 512 of its own before. The ground's day light is a 1K map alone.
 PASS_SAMPLES = {"AO": 128, "SUN": 96, "GROUND_DAY": 512, "NIGHT": 512, "MOON": 64}
 COLOUR = {"fire": (1.0, 0.50, 0.20), "stove": (1.0, 0.55, 0.15), "lanterns": (1.0, 0.72, 0.38), "moon": (0.55, 0.65, 1.0)}
 # toward the sun, the page's (-4, 10, 3) in Blender axes: kept here because the page's normalised copy differs from this
@@ -693,11 +695,20 @@ def enc(x):                                                                 # li
 
 
 def map_sizes(n):
-    """(file label, pixel size) for a props map baked at n: n and each of 2k and 1k below it; a map under 1K (a preview)
-    goes out at its own size under both names the page asks for."""
-    if n < 1024:
-        return [("1k", n), ("2k", n)]
+    """(file label, pixel size) for a props map baked at n: n and each of 2k and 1k below it. A map under 2K (a preview,
+    or --size 1024) goes out at its own size under both names the page asks for, so neither name keeps an older bake."""
+    if n < 2048:
+        return [("2k", n), ("1k", n)]
     return [(f"{s // 1024}k", s) for s in sorted({n, 2048, 1024}, reverse=True) if s <= n]
+
+
+def drop_4k(out):
+    """A props bake under 4096 writes no 4K maps, and the old ones no longer fit the new light-map UVs, so they are removed
+    (with their KTX2 copies); ?lm=4k then falls back to the 2K maps (core.js lmLoad, review R2-170)."""
+    for name in ("camp_lm", "camp_lm_sun"):
+        for f in (os.path.join(out, f"{name}_4k.png"), os.path.join(out, f"{name}_4k.ktx2.txt")):
+            if os.path.exists(f):
+                os.remove(f); print(f"  removed the old {os.path.basename(f)}: it was baked with other light-map UVs")
 
 
 def drop_ktx(png):
@@ -809,6 +820,8 @@ def main():
         bpy.data.objects.remove(o)
     bpy.data.objects.remove(ground)
     write_maps(maps, a.out or MODELS, a.jeep, None if only is None else [atlas["rects"][n] for n in sorted(only)])
+    if a.size < 4096:
+        drop_4k(a.out or MODELS)
     del maps
     export_models(picked, sets, a.out)
     if not a.out:                                    # the atlas and the UVs the committed maps were baked with
