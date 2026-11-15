@@ -5,7 +5,7 @@
 // trees or the sloths; a step only has to come after the steps whose parts it uses, as the comments say.
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
 import { doneLoading, stepLight } from "../bakedlight.js";
-import { $, DETAIL, OPT, PRE, camera, renderer, scene, uNight, uTime, wireSettings } from "./core.js";
+import { $, DETAIL, OPT, camera, renderer, scene, uNight, uTime, wireSettings } from "./core.js";
 import { buildSky } from "./sky.js";
 import { buildForest } from "./forest.js";
 import { buildProps, fireStep, LANTERNS, motesStep, poolsStep } from "./campProps.js";
