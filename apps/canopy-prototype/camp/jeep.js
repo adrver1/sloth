@@ -84,6 +84,7 @@ async function buildJeep() {
         const step = dt * 1.8; d.cur += Math.max(-step, Math.min(step, d.want - d.cur));
         d.o.rotation[d.axis] = d.open * ease(d.cur / d.open);                // ease in and out
         if (d.axis === "y") moved = true;                                    // a cabin door (the hood turns about x)
+        // on purpose, the hood's swing does not redraw the cabin spot's shadow map, so the hood's shadow from it lags until a cabin door moves
       }
       if (d.cur !== 0) shut = false;
     }
