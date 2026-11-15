@@ -3,6 +3,14 @@
 // colours the way the forest trunks are (forest/trees.js paintBark()): moss on the up-facing bark, pale wood with rings on the cut ends.
 // Lit live like the forest round them, so no light-map bake; their ground shadows join the GPU bake through deadwood (exported; props/shadow/export_casters.cjs imports it).
 // buildDeadwood() (main.js, once the props and the sloths stand, before the ground) places and builds them.
+// The recipes are shared with the glade's log and bench (glade.js, review R2-199), so the two read as the same wood:
+//   paint(g, { bleach, moss, y0, y1, cap, uv })   vertex-colours a geometry with uvs as bark (moss on top), cut ends as rings
+//   bracket(r)                                    one shelf fungus bracket (6 tris), its uvs on the texture's clean strip
+//   fallenLog(L, r)                               the fallen log along x, centred on its axis: tapered, one end broken, one sawn,
+//                                                 a branch stub ([log, stub], painted)
+//   barkTex()                                     the bark painted once (128 px), multiplied over the vertex colours; u > 0.96 is white
+//   CLEAN_UV                                      [u, v] on that white strip, for parts with no bark
+// Exports those, buildDeadwood and deadwood ({ layout, tris }, set by buildDeadwood).
 import * as THREE from "three";
 import { S, scene } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
@@ -21,6 +29,7 @@ function merge(geos) {                               // position, normal, uv and
 
 // vertex colours: bark (or bleached grey for the dead trunk) with moss where a face looks up, darker low down;
 // cap vertices (flagged by the caller) get pale wood, the cap's centre a darker heart, so the cut end shows rings
+const CLEAN_UV = [0.985, 0.5];
 function paint(g, { bleach = 0, moss = 1, y0 = 0, y1 = 1, cap = () => -1, uv = [1, 1] }) {
   g.computeVertexNormals(); g = g.toNonIndexed();
   const t = g.attributes.uv; for (let i = 0; i < t.count; i++) t.setXY(i, t.getX(i) * uv[0] * 0.96, t.getY(i) * uv[1]);   // tiles of bark, kept off the clean strip   // smooth normals round the bark; three's cylinder caps have their own vertices, so the cut ends stay flat
@@ -45,7 +54,32 @@ function bracket(r) {
     P.push(0, -0.02, 0, ...top(a0, -0.015), ...top(a1, -0.015));    // the paler underside
     C.push(...fungus.toArray(), ...fungusRim.toArray(), ...fungusRim.toArray(), ...fungusRim.toArray(), ...fungusRim.toArray(), ...fungusRim.toArray()); }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(C, 3));
-  g.setAttribute("uv", new THREE.Float32BufferAttribute(new Array(P.length / 3 * 2).fill(0).map((_, i) => i % 2 ? 0.5 : 0.985), 2)); g.computeVertexNormals(); return g;   // the texture's clean strip
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(new Array(P.length / 3 * 2).fill(0).map((_, i) => CLEAN_UV[i % 2]), 2)); g.computeVertexNormals(); return g;   // the texture's clean strip
+}
+// the fallen log, 8-sided along x and centred on its axis: tapered, the -x end splintered where it broke off, the +x end sawn
+// with rings, a gentle bow, and a broken branch stub open at its foot inside the log (R2-107). Returns [log, stub], painted.
+function fallenLog(L, r) {
+  const g = new THREE.CylinderGeometry(r * 0.92, r, L, 8, 3, false).rotateZ(Math.PI / 2);
+  const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); if (x < -L / 2 + 0.01) p.setXYZ(i, x - (p.getY(i) > 0 ? 0.12 : 0) + Math.sin(i * 2.7) * 0.06, p.getY(i), p.getZ(i)); p.setY(i, p.getY(i) + 0.04 * Math.sin(x * 2.1)); }   // the broken end splinters
+  const stub = new THREE.ConeGeometry(0.07, 0.6, 5, 1, true).rotateZ(-0.9).translate(0.35, r + 0.15, 0.1);
+  return [paint(g, { y0: -r, y1: r, cap: (x, y, z, nx) => Math.abs(nx) > 0.9 && x > 0 ? Math.min(1, Math.hypot(y, z) < 0.02 ? 1 : 0.15) : -1, uv: [1, 2] }),
+    paint(stub, { moss: 0.5, y0: 0, y1: 0.6 }).translate(0, -0.1, 0)];   // painted where it was first modelled, then set 10 cm lower
+}
+// the bark, painted once and shared (deadwood and the glade): grooves along the wood, flecks and lichen spots; the strip at
+// u > 0.96 stays white for the fungus and anything else with no bark
+let bark = null;
+function barkTex() {
+  if (bark) return bark;
+  bark = canvasTex(128, 128, (g, w, h) => {
+    const { R: Q } = lcg(51);
+    g.fillStyle = "#e8e2d8"; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 26; i++) { const x = Q(0, w * 0.96); g.strokeStyle = `rgba(40,28,18,${Q(0.25, 0.55)})`; g.lineWidth = Q(1, 3); g.beginPath(); g.moveTo(x, 0);
+      for (let y = 0; y <= h; y += 16) g.lineTo(x + Q(-2, 2), y); g.stroke(); }
+    for (let i = 0; i < 90; i++) { g.fillStyle = Q(0, 1) < 0.7 ? `rgba(60,45,30,${Q(0.15, 0.35)})` : `rgba(200,210,170,${Q(0.2, 0.4)})`; g.beginPath(); g.ellipse(Q(0, w * 0.96), Q(0, h), Q(1, 3.5), Q(1, 2.5), 0, 0, 7); g.fill(); }
+    g.fillStyle = "#ffffff"; g.fillRect(w * 0.965, 0, w * 0.035, h);
+  });
+  bark.wrapT = THREE.RepeatWrapping;
+  return bark;
 }
 // brackets stuck to a surface point, facing out along dir (xz), a little tilted
 const shelf = (out, at, dir, r) => { const a = Math.atan2(dir.z, dir.x); out.push(bracket(r).rotateZ(R(-0.12, 0.08)).rotateY(-a + Math.PI / 2).translate(at.x, at.y, at.z)); };
@@ -68,11 +102,7 @@ function buildDeadwood() {
 
   // the fallen log: lying along the edge, half sunk, one end broken off; moss along its back
   if (spots[0]) { const c = spots[0], yaw = Math.atan2(c.z, c.x) + Math.PI / 2 + R(-0.3, 0.3), L = 2.6, r = 0.27, from = parts.length;
-    const g = new THREE.CylinderGeometry(r * 0.92, r, L, 8, 3, false).rotateZ(Math.PI / 2);
-    const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); if (x < -L / 2 + 0.01) p.setXYZ(i, x - (p.getY(i) > 0 ? 0.12 : 0) + Math.sin(i * 2.7) * 0.06, p.getY(i), p.getZ(i)); p.setY(i, p.getY(i) + 0.04 * Math.sin(x * 2.1)); }   // the broken end splinters
-    parts.push(paint(g, { y0: -r, y1: r, cap: (x, y, z, nx) => Math.abs(nx) > 0.9 && x > 0 ? Math.min(1, Math.hypot(y, z) < 0.02 ? 1 : 0.15) : -1, uv: [1, 2] }).rotateY(-yaw).translate(c.x, r * 0.75, c.z));
-    const stub = new THREE.ConeGeometry(0.07, 0.6, 5, 1, true).rotateZ(-0.9).translate(0.35, r + 0.15, 0.1);   // a broken branch stub, open at its foot inside the log (R2-107)
-    parts.push(paint(stub, { moss: 0.5, y0: 0, y1: 0.6 }).rotateY(-yaw).translate(c.x, r * 0.75 - 0.1, c.z));
+    for (const g of fallenLog(L, r)) parts.push(g.rotateY(-yaw).translate(c.x, r * 0.75, c.z));
     const ax = V(Math.cos(yaw), 0, Math.sin(yaw)), side = V(-ax.z, 0, ax.x);
     for (let i = 0; i < 3; i++) { const t = R(-0.9, 0.9), sd = i % 2 ? 1 : -1; shelf(parts, c.clone().addScaledVector(ax, t).addScaledVector(side, sd * r * 0.98).setY(r * 0.75 + R(-0.05, 0.08)), side.clone().multiplyScalar(sd), R(0.12, 0.16)); }
     for (const t of [-0.9, 0, 0.9]) addBlocker({ at: c.clone().addScaledVector(ax, t), r: 0.35, wild: true });
@@ -118,20 +148,9 @@ function buildDeadwood() {
     }
     count("roots", from);
   }
-  // the bark, painted once and multiplied over the vertex colours: grooves along the wood, flecks and lichen spots; the
-  // strip at u > 0.96 stays white for the fungus
-  const barkTex = canvasTex(128, 128, (g, w, h) => {
-    const { R: Q } = lcg(51);
-    g.fillStyle = "#e8e2d8"; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 26; i++) { const x = Q(0, w * 0.96); g.strokeStyle = `rgba(40,28,18,${Q(0.25, 0.55)})`; g.lineWidth = Q(1, 3); g.beginPath(); g.moveTo(x, 0);
-      for (let y = 0; y <= h; y += 16) g.lineTo(x + Q(-2, 2), y); g.stroke(); }
-    for (let i = 0; i < 90; i++) { g.fillStyle = Q(0, 1) < 0.7 ? `rgba(60,45,30,${Q(0.15, 0.35)})` : `rgba(200,210,170,${Q(0.2, 0.4)})`; g.beginPath(); g.ellipse(Q(0, w * 0.96), Q(0, h), Q(1, 3.5), Q(1, 2.5), 0, 0, 7); g.fill(); }
-    g.fillStyle = "#ffffff"; g.fillRect(w * 0.965, 0, w * 0.035, h);
-  });
-  barkTex.wrapT = THREE.RepeatWrapping;
-  const deadMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: barkTex });
+  const deadMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: barkTex() });
   const geo = merge(parts), mesh = new THREE.Mesh(geo, deadMat); mesh.name = "Deadwood"; scene.add(mesh);
   triCount.total = tris(geo);
   deadwood = { layout, tris: triCount };   // for the GPU thread's ground-shadow bake (props/bake_all.py, through debug.js) and the tris report
 }
-export { buildDeadwood, deadwood };
+export { CLEAN_UV, barkTex, bracket, buildDeadwood, deadwood, fallenLog, paint };
