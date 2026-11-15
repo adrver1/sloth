@@ -1,11 +1,14 @@
 // Landscape evolution for Summit Cabin: grows the land from tectonic uplift and river erosion (stream power law with the
 // implicit solver of Braun & Willett 2013, as used for terrains by Cordonnier et al. 2016), plus hillslope creep and a scree
-// angle. Uplift follows the hand-made hLand(), so the mountains and valleys stay where the level wants them: the result keeps
-// hLand's big shapes (a blur of it) and takes the ridges, spurs and branching valleys below that size from the evolved land,
-// scaled to the local relief. Two runs: the world (12.8 km, 25 m cells), then the play area (2.56 km, 5 m cells) grown from
-// the world's result. Writes models/erosion-world.txt and models/erosion-near.txt: the change from hLand in decimetres
-// (Int16, base64 after a JSON header); the page fades each out at its square's edge.
-// Usage: node tools/lem.cjs [steps] [amp]       (about 5 minutes)
+// angle. Two runs:
+// 1) the world, 12.8 km at 25 m: uplift is the level's layout (uplift() below: summit dome, the walls north and west, a ring
+//    of big mountains 2 to 4 km out), the two lakes and the square's edge are base level; heights come straight from the
+//    evolved land, scaled once so its relief matches hLand's.
+// 2) the play area, 2.56 km at 5 m, grown with the world's result as uplift; it keeps the world's shapes above ~150 m and
+//    takes the gullies and spurs below that from its own run, scaled to the local relief (AMP).
+// Writes models/erosion-world.txt and models/erosion-near.txt: the change from hLand in decimetres (Int16, base64 after a JSON
+// header); the page fades each out at its square's edge. Seeded, so a run gives the same land.
+// Usage: node tools/lem.cjs [steps=600] [amp=0.45]       (about 6 minutes)
 const fs = require('fs'), path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const { hLand, sstep, LAKE_P, BIG, NORTH_M, WEST_M, ridged } = new Function(html.slice(html.indexOf('function mulberry'), html.indexOf('function hBase(')) + '\nreturn { hLand, sstep, LAKE_P, BIG, NORTH_M, WEST_M, ridged };')();
