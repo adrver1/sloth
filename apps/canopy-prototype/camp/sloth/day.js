@@ -18,7 +18,7 @@ import { rng, scene } from "../core.js";
 const { R } = rng("slothDay");
 import { V, yawFrom } from "../util.js";
 import { RC } from "../layout.js";
-import { bedKey, claim, holder, hosted, join, seatKey, seatLog, taken } from "../places.js";
+import { bedKey, claim, holder, hosted, join, logSeats, taken } from "../places.js";
 import { CRAWL, MAX_OUT, camp, guests, setTrip } from "./state.js";
 import { moveBack, moveInto, releaseHome } from "./spots.js";
 import { play } from "./clips.js";
@@ -72,8 +72,8 @@ function errand(s) {                                // a place at the table or t
   walkTo(s, slot.p, () => startEat(s, slot, fed(s))); s.trip.slot = slot;   // trip.slot: lend() frees the place if he borrows it on the way
 }
 function wander(s) {
-  const i = [1, 2].find((k) => holder(seatKey(k)) === "operator" && hosted(seatKey(k))), lg = i && seatKey(i);   // he's on a log: now and then go and sit with him
-  if (lg && R(0, 1) < 0.25) { const o = seatLog(i); if (o) { const c = o.position.clone().setY(0); return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!join(lg, s)) goHome(s); }); } }
+  const seat = logSeats().find((q) => q.slots.op && holder(q.key) === q.slots.op.who && hosted(q.key));   // he's on a log: now and then go and sit with him
+  if (seat && R(0, 1) < 0.25) { const c = seat.c; return walkTo(s, c.clone().setLength(c.length() + 0.8), () => { if (!join(seat.key, s)) goHome(s); }); }
   walkTo(s, wanderPoint(), () => { setTrip(s, "rest", { dur: R(5, 9), nap: R(0, 1) < 0.55 }); play(s, "idle", 1.2); });
 }
 const youDrive = () => holder("jeep:driver") === "player";   // you in the jeep's driver seat (jeepSeat.js): its sloth waits

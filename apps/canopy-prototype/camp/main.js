@@ -60,7 +60,7 @@ await buildGround();                   // campGround.js: waits for the ground's 
 doneLoading();                         // bakedlight.js: frees the KTX2 workers once the props' and the ground's light maps are in
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
-buildChores();                         // chores.js: your activities
+buildChores();                         // chores.js: your activities (adds "Set the bowl down" to the log seats' targets, which buildLinger makes below)
 buildSlothPlaces();                    // sloths.js: the food places at the table and the crate, clear of every blocker added above
 await buildOperator();                 // operator.js: waits for his downloads (?op=0: nothing)
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add

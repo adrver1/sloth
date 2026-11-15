@@ -29,7 +29,7 @@ import * as THREE from "three";
 import { jeepApi } from "../jeep.js";
 import { LIVED, scene } from "../core.js";
 import { V, yawTo } from "../util.js";
-import { HAMMOCK, LAUNDRY, RC, SEATS, TENT } from "../layout.js";
+import { HAMMOCK, LAUNDRY, RC, SEATS, SEAT_SLOT, TENT } from "../layout.js";
 import { branchCurves, trunkR } from "../forest.js";
 import { makeClothBrush, makeHammockSwing } from "../swing.js";
 import { bedKey, claim, release, seatKey } from "../places.js";
@@ -47,7 +47,7 @@ function buildSpots() {
   hammock = makeHammockSwing();
   const swing = hammock.swing;
   // the log seat right of the gap, facing the fire
-  const sa = SEATS[0].angle, at = V(SEATS[0].at.x, 0.33, SEATS[0].at.z).addScaledVector(V(-Math.sin(sa), 0, Math.cos(sa)), -0.12);   // on the log's top, 12 cm along it
+  const sa = SEATS[0].angle, at = V(SEATS[0].at.x, 0.33, SEATS[0].at.z).addScaledVector(V(Math.sin(sa), 0, -Math.cos(sa)), SEAT_SLOT.sunny);   // on the log's top, just right of its middle (places.js logSeats: its sunny slot)
   const seat = new THREE.Group(); seat.position.copy(at); seat.rotation.y = Math.atan2(at.x, at.z); scene.add(seat);
   // each spot: where the sloth ends up (local to its group), the clip it plays there, its size there, and the door on the
   // ground it crawls to before climbing in

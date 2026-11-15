@@ -20,10 +20,10 @@ import { EV, emit } from "./camp/events.js";
 const NEAR = 2.5;                          // tap range
 
 // camp: the scene, the camera and you (me); places { woodPile: { at, built }, fire, pot: { at, r }, table:
-// { at, yaw }, crate (or null) }; looks (what lights up for a thing, by name); the wood texture with the carried logs' spots
+// { at, yaw }, crate (or null), seats (the log seats: activities/soupChore.js says what each holds) }; looks (what lights up for a thing, by name); the wood texture with the carried logs' spots
 // in it (woodSpots, from lived.glb, or undefined) and the glow texture; and what the camp
 // does for the chores: burst (a word in the air: the pot's splash and plop), toast(text, sound) (the message, and the sound that goes with it, if any), addBlocker and boostFire (the logs make the camp's fire bigger)
-export function createActivities({ scene, camera, me, places: { woodPile, fire, pot, table, crate }, looks, woodTex, woodSpots, glowTex, burst, toast, addBlocker, boostFire }) {
+export function createActivities({ scene, camera, me, places: { woodPile, fire, pot, table, crate, seats: logSeats }, looks, woodTex, woodSpots, glowTex, burst, toast, addBlocker, boostFire }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   if (woodTex) paintLogs(woodTex, woodSpots);
   const pile = createWoodPile({ scene, woodPile, addBlocker });
@@ -32,18 +32,19 @@ export function createActivities({ scene, camera, me, places: { woodPile, fire, 
   const told = (kind, by = "you") => emit(EV.act, { kind, by });
   const carry = createCarry({ camera, me, toast });
   const fireChore = createFireChore({ scene, fire, glowTex, boostFire });
-  const soupChore = createSoupChore({ scene, me, pot, fire, carry, burst, toast, told });
+  const soupChore = createSoupChore({ scene, me, pot, fire, seats: logSeats, carry, burst, toast, told });
   const { soup, seats } = soupChore, { burning } = fireChore;
 
   // ---------------------------------------------------------------- things you can tap
   // an invisible sphere each; when: a tap does something now; act: what it does; label: the words on the tap menu (what a
   // tap does now, with what you are carrying); why: what to say when it doesn't apply; look: what lights up when it applies
-  // (looks[name], the props' own objects, so the highlight hugs the real thing; look may be a function of what you hold)
+  // (looks[name], the props' own objects, so the highlight hugs the real thing; look may be a function of what you hold);
+  // on: the object of another tap target this thing is part of (a log seat), which then shows its label beside its own
   const things = [], hitList = [];
-  function thing({ name, at, r, when, act, label, why = () => null, look = null }) {
+  function thing({ name, at, r, when, act, label, why = () => null, look = null, on = null }) {
     const box = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(at).setY(at.y + r * 0.6); scene.add(box);
     const own = looks[name] ?? look ?? null;
-    const t = { name, at, box, when, act, label, why, get look() { return typeof own === "function" ? own() : own; } }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
+    const t = { name, at, box, when, act, label, why, on, get look() { return typeof own === "function" ? own() : own; } }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
   }
   const held = () => carry.held, full = "Your hands are full. Put it back first ✋";
   // somewhere you take one thing from, and that takes it back: free hands or that thing in them
@@ -95,8 +96,8 @@ export function createActivities({ scene, camera, me, places: { woodPile, fire, 
     thing({ name: "fruitbowl", at: bowlAt, r: 0.28, look: [fruitBowl ?? tableObj], ...source("fruit", () => { const [n, e] = carry.takeNext("fruit"); toast(`Got ${an(n)} ${n} ${e}`.trim(), "knock"); }),
       label: () => { const [n, e] = held() === "fruit" ? carry.now("fruit") : carry.next("fruit"); return (held() === "fruit" ? `Put the ${n} back ${e}` : `Take ${an(n)} ${n} ${e}`).trim(); } });
   }
-  // the log seats: somewhere to set a bowl down
-  for (const seat of seats) thing({ name: `seat${seats.indexOf(seat)}`, at: seat.c.clone().setY(0), r: 0.6, look: [seat.o], when: () => held() === "bowl" && !seat.bowl,
+  // the log seats: somewhere to set a bowl down (an option on the seat's own tap target, linger.js, beside sitting down)
+  for (const seat of seats) thing({ name: `seat${seats.indexOf(seat)}`, at: seat.c.clone().setY(0), r: 0.6, look: [seat.o], on: seat.o, when: () => held() === "bowl" && !seat.bowl,
     act() { carry.hold(null); soupChore.serve(seat); }, label: () => "Set the bowl down 🍲",
     why: () => held() === "bowl" && seat.bowl ? "A bowl's there already" : null });
 

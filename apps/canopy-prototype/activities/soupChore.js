@@ -5,10 +5,12 @@
 // is not touched: a flat disc at the soup's surface shows it empty, water or broth, and fades away once the soup is done so
 // the modelled soup shows. Triangles: the surface disc 12, the pail 60 (camp/pail.js), a bowl 24; the bubbles
 // are a pool of 10 quads in one draw (atmosphere.js pool), drawn over the surface disc.
-// Exports createSoupChore({ scene, me, pot, fire, carry, burst, toast, told }): { soup (its state), seats,
+// Exports createSoupChore({ scene, me, pot, fire, seats, carry, burst, toast, told }): { soup (its state), seats,
 // wants() (would a tap on the pot do something with what you hold), pour(), addVeg(), ladle(), serve(seat), placePail(table)
 // (builds the pail under the table: the caller says when, since things are built in a fixed order), cook (the same steps for
-// the operator, camp/operator/cook.js), update(dt, flare) }.
+// the operator, camp/operator/cook.js), update(dt, flare) }. seats in: the log seats, each { o (the log), c (its middle),
+// along (its long axis), ends: its two ends, each { at (on its top), free(), take(), leave() } (a bowl takes its end while it
+// stands there) }; seats out: the same with top and bowl (the bowl on it, or null).
 import * as THREE from "three";
 import { makePail } from "../camp/pail.js";
 import { V, timers } from "../camp/util.js";
@@ -19,7 +21,7 @@ import { bowlGeo, bowlMat, bubbleTex, flat, soupGeo, soupMat, surfTex } from "./
 const COOK = 20, BOWLS = 3;
 const STAGE = { empty: 0x2e2824, water: 0x86a9b0, 1: 0xc8a466, 2: 0xd9852f, 3: 0xd6712a };
 
-export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toast, told }) {
+export function createSoupChore({ scene, me, pot: potAt, fire, seats: logs, carry, burst, toast, told }) {
   const pot = { at: potAt.at.clone(), r: potAt.r };
   // stage: empty, water, cooking, ready. bowls: ladled out of this pot. refill: the last bowl emptied the pot and nothing has
   // gone in since, so putting that bowl back fills it again
@@ -55,16 +57,18 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
     else if (soup.stage === "empty" && soup.refill) { soup.stage = "ready"; soup.veg = 2; soup.bowls = BOWLS - 1; soup.refill = false; soup.fade = 0; surfCol.set(STAGE[2]); surfTo.set(STAGE[2]); }
   }
   carry.onPutBack("bowl", bowlBack);
-  // the bowls on the log seats: each seat holds one; a bowl is eaten up after a while and goes
-  const seats = [];
-  scene.traverse((o) => { if (/^Seat(_\d)?$/.test(o.name) && o.parent === scene) { const b = new THREE.Box3().setFromObject(o), c = b.getCenter(V()); seats.push({ o, top: b.max.y, c, bowl: null }); } });
+  // the bowls on the log seats (the camp's table of them, handed in: camp/places.js logSeats via camp/chores.js): each seat
+  // holds one, at one of its two ends; a bowl is eaten up after a while and goes
+  const seats = logs.map((q) => ({ ...q, top: q.ends[0].at.y, bowl: null }));
   const bowlsOut = [];
   function serve(seat) {
-    // set it at the seat's end nearer to you, a little in from the edge, so it doesn't sit under a sloth on the middle of it
-    const along = V(1, 0, 0).applyQuaternion(seat.o.quaternion).setY(0).normalize(), toMe = V(me.pos.x - seat.c.x, 0, me.pos.z - seat.c.z);
-    const at = seat.c.clone().addScaledVector(along, (toMe.dot(along) >= 0 ? 1 : -1) * 0.32).setY(seat.top);
+    // at the seat's end nearer to you (each end sits a little in from the edge, so it isn't under a sloth on the middle of
+    // it), or the other end when someone sits on that one (the operator: review R2-209) or a bowl holds it
+    const near = V(me.pos.x - seat.c.x, 0, me.pos.z - seat.c.z).dot(seat.along) >= 0 ? 0 : 1;
+    const end = [seat.ends[near], seat.ends[1 - near]].find((e) => e.free()) ?? seat.ends[near], at = end.at.clone();
+    end.take();
     const g = new THREE.Group(), s = new THREE.Mesh(soupGeo, soupMat); g.add(new THREE.Mesh(bowlGeo, bowlMat), s); g.position.copy(at); g.scale.setScalar(1.3); scene.add(g);
-    const b = { g, s, t: 0, seat }; seat.bowl = b; bowlsOut.push(b);
+    const b = { g, s, t: 0, seat, end }; seat.bowl = b; bowlsOut.push(b);
     // the two nearest sloths perk up, one after the other
     later.after(0.6, () => emit(EV.cheer, { at, max: 4, words: ["*sniff sniff*"], life: 2 }));
     later.after(1.3, () => emit(EV.cheer, { at, max: 4, words: ["🍲"], life: 2, skip: 1 }));
@@ -125,7 +129,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
       // bowls on the seats: the soup goes down over a minute and a half, then the bowl is taken away
       for (let i = bowlsOut.length - 1; i >= 0; i--) { const b = bowlsOut[i]; b.t += dt;
         b.s.position.y = -0.03 * Math.min(1, b.t / 90); b.s.visible = b.t < 90;
-        if (b.t > 120) { scene.remove(b.g); b.seat.bowl = null; bowlsOut.splice(i, 1); } }
+        if (b.t > 120) { scene.remove(b.g); b.seat.bowl = null; b.end.leave(); bowlsOut.splice(i, 1); } }
     },
   };
 }

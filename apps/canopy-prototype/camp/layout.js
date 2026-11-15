@@ -72,6 +72,12 @@ export const FIRE = V(0, 0, 0);   // the campfire stands at the origin
 // three log seats round the fire, the gap toward the gate: angle round the fire, where each stands and its yaw
 export const SEAT_R = 2.1;
 export const SEATS = [0, 1, 2].map((i) => { const a = A0 + Math.PI + (i - 1) * 1.15; return { angle: a, at: V(Math.cos(a) * SEAT_R, 0, Math.sin(a) * SEAT_R), yaw: -a + Math.PI / 2 }; });
+// where things go on a log seat (places.js logSeats builds each seat's slots from these): metres along the log from its
+// middle, + to your right as you face the fire from it. sunny: Sunny's spot on Seat_0, just right of its middle (sloth/spots.js);
+// youOn0: you on Sunny's bench, at its left end, leaving Sunny room (Adriaen 2026-11-12); back: how far you sit back from the
+// middle, away from the fire; op: the operator's end of Seat_1 and Seat_2; bowl: a bowl of soup at either end, a little in
+// from the edge (activities/soupChore.js serve)
+export const SEAT_SLOT = { sunny: 0.12, youOn0: -0.55, back: 0.12, op: 0.36, bowl: 0.32 };
 // the ways in to the fire between the logs, as angles round it: the gate's gap, and half way between each pair of seats
 // (0.575 is half the seats' 1.15). The operator stands in one to reach the pot (operator/places.js fireGap)
 export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
