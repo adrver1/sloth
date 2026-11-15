@@ -1,10 +1,12 @@
 // Summit Cabin: the big log cabin with its porch to the south, the fire lookout on the watch hill, and bakeStatic(root), which
 // merges a group's still meshes into one draw per look. Windows, door and porch lights are exported for main.js's night glow.
+// The cabin and lookout carry baked light maps (lightmap.js); bakeSources() gives the bake its night lights.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { D, R, RH, RIDGE, TOP, TOWER, TRIS, W, WH, YB, YT, mulberry } from './land.js';
 import { canvasTex, hazed, scene, tris } from './core.js';
 import { m4, q, sc, up, v3 } from './forest.js';
+import { buildLightmap, lightmapStep } from './lightmap.js';
 
 // ---------------------------------------------------------------- the cabin: a big log cabin with a porch toward the south (-z)
 const cabin = new THREE.Group();
@@ -94,6 +96,7 @@ export const placeTris = (g) => { let n = 0; g.traverse((o) => { if (o.isMesh) n
 const tower = new THREE.Group();
 
 export function buildCabin() {
+  cabin.name = 'Cabin'; tower.name = 'Lookout';   // the light map's mesh names (lightmap.js receivers)
   cabin.position.set(0, TOP, 0);
   scene.add(cabin);
   { const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, 2.85, 0.24), M.wood, 4); [-5.6, -1.9, 1.9, 5.6].forEach((x, i) => posts.setMatrixAt(i, m4.makeTranslation(x, YB + 1.42, -(D / 2 + 2.8)))); posts.castShadow = true; cabin.add(posts); }
@@ -124,9 +127,26 @@ export function buildCabin() {
   // (the fishing hut on the lake was removed 2026-11-15: you can't walk there or see it from the level)
   TRIS.push(['Fire lookout', placeTris(tower)]);
   bakeStatic(tower);
+  buildLightmap([cabin, tower]);   // lightmap.js: sky occlusion and the night light, baked (loads; left off until baked)
 }
+// for the light-map bake (props/summit/export_summit.cjs): the night lights in the world, as the bake makes them. Windows and
+// the door are glowing rectangles (centre, the way they face, width, height); the porch lamp, the light inside and the scout
+// camp's fire are points. Kinds: window, door, point (with the page's colour and range).
+export function bakeSources() {
+  const out = [], mw = new THREE.Matrix4(), p = new THREE.Vector3(), qq = new THREE.Quaternion(), s = new THREE.Vector3(), n = new THREE.Vector3();
+  scene.updateMatrixWorld(true);
+  for (const g of [cabin, tower]) g.traverse((o) => {
+    if (o.isInstancedMesh && o.material === winMat) { const w = o.geometry.parameters.width, h = o.geometry.parameters.height;
+      for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, mw); mw.premultiply(o.matrixWorld).decompose(p, qq, s); n.set(0, 0, 1).applyQuaternion(qq);
+        out.push({ kind: 'window', at: p.toArray(), normal: n.toArray(), w: w * s.x, h: h * s.y }); } }
+    if (o.isMesh && o.material === doorMat) { o.matrixWorld.decompose(p, qq, s); n.set(0, 0, 1).applyQuaternion(qq); out.push({ kind: 'door', at: p.toArray(), normal: n.toArray(), w: 1.2, h: 2.3 }); } });
+  scene.traverse((l) => { if (l.isPointLight) out.push({ kind: 'point', at: l.getWorldPosition(p).toArray(), color: '#' + l.color.getHexString(), distance: l.distance, name: l === porchLight ? 'porch' : l === inside ? 'inside' : 'fire' }); });
+  return out;
+}
+
 // each frame: warm windows, always a little lit, glowing after dark (night 0..1, daylight.js LIGHT)
 export function cabinStep(night) {
   const glow = 0.25 + 2.4 * night;
   winMat.emissiveIntensity = glow; doorMat.emissiveIntensity = glow; porchLight.intensity = 9 * night; inside.intensity = 6 * night;
+  lightmapStep(night);
 }

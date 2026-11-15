@@ -37,6 +37,10 @@ in several different places", and bake the whole scene as one). Run it whenever 
           Chrome> when the repo's playwright has no browser of its own); it stops the bake if the page gave an incomplete
           layout or disagrees with layout_pure.mjs
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
+  summit  the Summit Cabin's light maps (Adriaen 2026-11-15): props/summit/export_summit.cjs boots summit.html and writes the
+          cabin's and lookout's meshes with their light-map UVs (summit/lightmap.js packLightmap) and night lights to
+          props/summit/summit_static.glb and summit_layout.json, then props/summit/bake_summit_lightmap.py bakes sky occlusion
+          and the night light -> models/summit_lm_ao_<2k|1k>.png, summit_lm_night_<2k|1k>.png and summit_lm.json
 
 Stamps (review R2-140): after each step, props/bake.lock.json records the hash of every input the step read (its scripts,
 props/lib, the layout JSON, the jeep GLB, its command line, the Blender or toktx version) and of every output it wrote.
@@ -58,7 +62,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "props"))
 from lib.export import to_txt  # noqa: E402  (plain Python: it needs no Blender)
 ap = argparse.ArgumentParser()
-ap.add_argument("--only", choices=["layout", "jeep", "light", "ktx", "ground"], action="append")
+ap.add_argument("--only", choices=["layout", "jeep", "light", "ktx", "ground", "summit"], action="append")
 ap.add_argument("--size", type=int, default=2048, help="props light map size: 2048, the largest the page ships (review R2-170)")
 ap.add_argument("--ground-size", type=int, default=1024, help="ground light maps size")
 ap.add_argument("--samples", type=int, default=512, help="the light step's sample scale (bake_camp_lightmap.py PASS_SAMPLES)")
@@ -67,7 +71,7 @@ ap.add_argument("--objects", help="light step: bake only these props (Name,Name,
 ap.add_argument("--force", action="store_true", help="run the chosen steps even when bake.lock.json says they are current")
 ap.add_argument("--check", action="store_true", help="report which steps' outputs are stale and run nothing")
 a = ap.parse_args()
-steps = a.only or ["layout", "jeep", "light", "ktx", "ground"]   # layout first: the light bake reads the placements ("place") and the deadwood from it; the jeep before the light, which casts its shadows
+steps = a.only or ["layout", "jeep", "light", "ktx", "ground", "summit"]   # layout first: the light bake reads the placements ("place") and the deadwood from it; the jeep before the light, which casts its shadows
 BLENDER = os.environ.get("BLENDER", "blender")
 GPU_RUN = os.environ.get("GPU_RUN")
 TOKTX = os.environ.get("TOKTX", "toktx")
@@ -161,6 +165,15 @@ JEEP_SCRIPT = os.path.join(ROOT, "props/jeep", "build_jeep.py" if a.jeep == "exp
 JEEP_CMD = [] if a.jeep == "expedition" else ["--style", a.jeep]     # the archived styles: build_jeep_styles.py (review R2-258)
 
 
+SUMMIT_CMD = ["--samples", str(a.samples)]
+SUMMIT_DIR = os.path.join(ROOT, "props/summit")
+
+
+def summit_outputs():
+    return [os.path.join(SUMMIT_DIR, f) for f in ("summit_static.glb", "summit_layout.json")] + \
+        [os.path.join(MODELS, f"summit_lm_{k}_{s}k.png") for k in ("ao", "night") for s in (2, 1)] + [os.path.join(MODELS, "summit_lm.json")]
+
+
 def jeep_outputs():
     """The jeep step's files: its GLB, and for the expedition (the page's jeep) its far LOD and both base64 copies."""
     out = [os.path.join(ROOT, "props/jeep", f"jeep_{a.jeep}.glb")]
@@ -188,6 +201,11 @@ def inputs(step):
         return {**hashes(ktx_maps()), "cmd": KTX_CMD, "toktx": tool_version(TOKTX)}
     if step == "ground":
         return {**hashes([os.path.join(ROOT, "props/ground/bake_ground.py"), LAYOUT_JSON]), "cmd": ["--props", "picked"]}
+    if step == "summit":   # the summit page's code that makes the cabin, the lookout and their UVs (the page checks the bake's sig too)
+        files = [os.path.join(ROOT, "apps/canopy-prototype/summit", f) for f in ("cabin.js", "lightmap.js", "land.js", "core.js", "forest.js")]
+        files += [os.path.join(SUMMIT_DIR, f) for f in ("export_summit.cjs", "bake_summit_lightmap.py")] + tree("props/lib", exts=(".py",))
+        gpu = file_hash(GPU_RUN) if GPU_RUN and os.path.isfile(GPU_RUN) else None
+        return {**hashes(files), "cmd": SUMMIT_CMD, "blender": tool_version(BLENDER), "gpu_run": gpu}
 
 
 def outputs(step):
@@ -205,6 +223,8 @@ def outputs(step):
         return hashes([f[:-4] + ".ktx2.txt" for f in ktx_maps()])
     if step == "ground":
         return hashes([os.path.join(MODELS, "camp_ground_picked.jpg"), os.path.join(MODELS, "camp_ground_picked_mask.png")])
+    if step == "summit":
+        return hashes(summit_outputs())
 
 
 def load_lock():
@@ -280,7 +300,12 @@ def step_ground():
     run([sys.executable, os.path.join(ROOT, "props/ground/bake_ground.py"), "--props", "picked"], env=env)
 
 
-STEPS = {"layout": step_layout, "jeep": step_jeep, "light": step_light, "ktx": step_ktx, "ground": step_ground}
+def step_summit():
+    run(["node", os.path.join(SUMMIT_DIR, "export_summit.cjs")])   # serves the repo itself, on a free port, like the layout step
+    blender(os.path.join(SUMMIT_DIR, "bake_summit_lightmap.py"), *SUMMIT_CMD)
+
+
+STEPS = {"layout": step_layout, "jeep": step_jeep, "light": step_light, "ktx": step_ktx, "ground": step_ground, "summit": step_summit}
 if a.check:
     lock, bad = load_lock(), 0
     for st in steps:
