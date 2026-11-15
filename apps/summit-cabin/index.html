@@ -6,7 +6,7 @@
 <style>
 /* One fixed look over a 3D scene: frosted dark glass panels on the view. */
 :root {
-  --ink: #eef3fa; --ink-dim: #a9b8cc; --glass: rgba(14, 22, 36, 0.62); --edge: rgba(190, 210, 235, 0.22);
+  --ink: #eef3fa; --ink-dim: #a9b8cc; --glass: rgba(14, 22, 36, 0.62); --glass-solid: rgba(22, 30, 44, 0.78); --edge: rgba(190, 210, 235, 0.22);
   --accent: #ffc27a; --night: #0b1220;
   --ui: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
   color-scheme: dark;
@@ -42,6 +42,7 @@ td:last-child { text-align: right; color: var(--ink); }
 #stick { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%; touch-action: none; display: none; }
 #knob { position: absolute; left: 38px; top: 38px; width: 44px; height: 44px; border-radius: 50%; background: rgba(238, 243, 250, 0.55); }
 #run { position: fixed; right: max(24px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; border-radius: 50%; font: 700 15px var(--ui); color: var(--ink); cursor: pointer; display: none; }
+#stick, #run, #stats, #hint { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--glass-solid); }   /* a blur over the moving 3D view is redone every frame */
 #run[aria-pressed="true"] { background: rgba(255, 194, 122, 0.35); box-shadow: inset 0 0 0 2px var(--accent); }
 .touch #stick, .touch #run { display: block; }
 #carry { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(64px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 3; }
@@ -239,7 +240,7 @@ function forestAt(x, z, h, s) {
 
 // ---------------------------------------------------------------- renderer, scene, camera
 const renderer = new THREE.WebGLRenderer({ antialias: !isPhone, powerPreference: 'high-performance' });
-let pr = Math.min(devicePixelRatio, isPhone ? 1.5 : 2), slow = 0; renderer.setPixelRatio(pr);   // frame() lowers it if the frame rate drops, like the camp
+let pr = Math.min(devicePixelRatio, isPhone ? 1.5 : 2), prTop = pr, slow = 0, fast = 0, raised = false; renderer.setPixelRatio(pr);   // frame() lowers it if the frame rate drops, like the camp, and raises it again when there is room
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;   // redrawn only when needed (frame())
@@ -1214,11 +1215,14 @@ if (touch) document.body.classList.add('touch');
 addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; keys.add(e.code); }); addEventListener('keyup', (e) => keys.delete(e.code)); addEventListener('blur', () => keys.clear());
 const cv = renderer.domElement; let look = null;
 cv.addEventListener('pointerdown', (e) => { look = { id: e.pointerId, x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
-cv.addEventListener('pointermove', (e) => { if (!look || e.pointerId !== look.id) return; me.yaw -= (e.clientX - look.x) * 0.0045; me.pitch = Math.max(-1.35, Math.min(1.2, me.pitch - (e.clientY - look.y) * 0.0045)); look.x = e.clientX; look.y = e.clientY; });
+// drags are gathered here and turned into camera turns once per frame, eased over ~3 frames (walk()): touch events come at
+// their own pace, not the screen's, so applying them as they arrive made turning judder even at 60 fps
+const lookPend = { x: 0, y: 0 };
+cv.addEventListener('pointermove', (e) => { if (!look || e.pointerId !== look.id) return; lookPend.x += (e.clientX - look.x) * 0.0045; lookPend.y += (e.clientY - look.y) * 0.0045; look.x = e.clientX; look.y = e.clientY; });
 cv.addEventListener('pointerup', () => { look = null; }); cv.addEventListener('pointercancel', () => { look = null; });
 { const el = $('stick'), knob = $('knob'); let id = null;
-  const set = (e) => { const r = el.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), l = Math.hypot(dx, dy), k = Math.min(1, l / 50) / (l || 1); stick.x = dx * k; stick.y = dy * k; knob.style.transform = `translate(${stick.x * 38}px, ${stick.y * 38}px)`; };
-  el.addEventListener('pointerdown', (e) => { id = e.pointerId; el.setPointerCapture(id); set(e); });
+  let r = null; const set = (e) => { const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), l = Math.hypot(dx, dy), k = Math.min(1, l / 50) / (l || 1); stick.x = dx * k; stick.y = dy * k; knob.style.transform = `translate3d(${stick.x * 38}px, ${stick.y * 38}px, 0)`; };
+  el.addEventListener('pointerdown', (e) => { id = e.pointerId; el.setPointerCapture(id); r = el.getBoundingClientRect(); set(e); });   // the stick's box is measured once per touch, not on every move
   el.addEventListener('pointermove', (e) => { if (e.pointerId === id) set(e); });
   const end = () => { id = null; stick.x = stick.y = 0; knob.style.transform = ''; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); }
 $('run').onclick = () => { me.run = !me.run; $('run').setAttribute('aria-pressed', String(me.run)); };
@@ -1240,6 +1244,7 @@ function treePush(x, z) {
   return [x, z];
 }
 function walk(dt) {
+  { const k = 1 - Math.exp(-dt * 30), tx = lookPend.x * k, ty = lookPend.y * k; lookPend.x -= tx; lookPend.y -= ty; me.yaw -= tx; me.pitch = Math.max(-1.35, Math.min(1.2, me.pitch - ty)); }
   let f = 0, s = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
   if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1; if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
@@ -1404,7 +1409,11 @@ function frame() {
   const tb = performance.now(); if (backdrop.step() && prof.on) prof.mark('panel', tb);   // after the frame, so the shadow map it reads already exists
   frames++; acc += dt;
   if (acc > 0.5) { const i = mainInfo;   // the frame itself, not the backdrop's repaint
-    slow = frames / acc < 45 && !testing ? slow + 1 : 0; if (slow >= 4 && pr > 1) { pr = Math.max(1, pr - 0.25); renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); slow = 0; }
+    // not in the first 5 s (shaders compiling); a step back up that then runs slow is not tried again
+    const fpsNow = frames / acc, live = now > 5 && !testing; slow = live && fpsNow < 45 ? slow + 1 : 0; fast = live && fpsNow > 57 ? fast + 1 : 0;
+    if (slow >= 4 && pr > 1) { if (raised) prTop = pr - 0.25; pr = Math.max(1, pr - 0.25); raised = false; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); slow = 0; }
+    else if (fast >= 16 && pr < prTop) { pr = Math.min(prTop, pr + 0.25); raised = true; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); fast = 0; }
+    else if (fast >= 16) raised = false;
     $('stats').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lake hut ${metres(dist(HUT))} · Lookout ${metres(dist(TOWER))}`;
     window.__stats = { calls: i.calls, tris: i.triangles, fps: Math.round(frames / acc), pr }; frames = 0; acc = 0; if ($('menu').open) showTris(); }
 }
