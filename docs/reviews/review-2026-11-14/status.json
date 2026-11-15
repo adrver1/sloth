@@ -30,6 +30,51 @@
   "5ca7672": "sky.js and daylight.js fade the backdrop's top into the dome rim at every hour and sink the domes 0.5 m, so no seam shows from the track's open end since R2-161",
   "4ec6013": "layout.js gladeTurn uses wrapPi, and stale comments in core.js, ground.js, camp.html and CODING-STANDARDS are corrected"
  },
+ "final_play_test": {
+  "date": "2026-11-15",
+  "what": "Adriaen's final check of the baked result on his desktop GPU (after the rebake 8dae856 and the KTX2 maps d758416): four items, then a review of their fixes",
+  "items": {
+   "wedge": {
+    "status": "fixed",
+    "note": "A black wedge (night) and a dark saw-tooth edge (day) at the campfire logs' feet: the ash ring and the level floor (R2-181) sat in the same plane. The Ring now draws with a decal polygon offset.",
+    "commits": [
+     "88b9676"
+    ],
+    "needs_rebake": false
+   },
+   "lab_camera": {
+    "status": "fixed",
+    "note": "In the move lab the follow camera sat inside the hammock's sling. It now rises over cloth and other solids (016201d); after the review it searches a few times a second instead of every frame, eases its height, comes down only after the lower view stays clear, and always tries the orbit's top.",
+    "commits": [
+     "016201d",
+     "e6e0108"
+    ],
+    "needs_rebake": false
+   },
+   "scenarios_tool": {
+    "status": "fixed",
+    "note": "camp-scenarios found no tap menu on main, which has no #tapmenu; it now finds it on both.",
+    "commits": [
+     "c779b63"
+    ],
+    "needs_rebake": false
+   },
+   "canopy_haze": {
+    "status": "not_applicable",
+    "note": "Explained, no change: the backdrop is now a 34 m cylinder at 40 m (top 27 m) that follows the camera, so its top is about 40 deg up from the eye at 30 m and about 32 deg at 40 m; above that the sky dome's haze shows. A taller backdrop (43 m) would close it but also stretches the painted trees 1.26x vertically (nearer main's proportions); left for Adriaen to judge from a screenshot beside main.",
+    "commits": [],
+    "needs_rebake": false
+   },
+   "operator_shadow": {
+    "status": "fixed",
+    "note": "Sibling of the wedge found in the review: the operator's blob shadow (groundHeight + 0.012) z-fought with the level floor in every flat zone; it now has the same decal offset. The rain ripples, 2 mm under the floor, now sit 4 mm over it with the offset too.",
+    "commits": [
+     "e7d1211"
+    ],
+    "needs_rebake": false
+   }
+  }
+ },
  "findings": {
   "R2-001": {
    "status": "fixed",
