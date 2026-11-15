@@ -10,7 +10,7 @@ import { me } from "../player.js";
 import { groundHeight as groundAt } from "../terrain.js";   // 0 across the camp floor
 import { csDir, cur, play, root } from "./model.js";
 import { RADIUS, op } from "./state.js";
-import { movers } from "../places.js";
+import { eachMover } from "../places.js";
 import { slothLife } from "../sloth/hooks.js";   // undefined with ?campsloths=0
 
 const WALK = 1.05, STRIDE = 1.28;                      // his walking speed, m/s; the walk clip's feet move 1.28 m a cycle
@@ -36,13 +36,13 @@ function* walkTo(to, { near = 0.12 } = {}) {
       if (od < lim && Math.hypot(to.x - c.x, to.z - c.z) > br) want.addScaledVector(V(ox / od, 0, oz / od), (lim - od) / lim * 1.6);
     }
     let block = null;
-    for (const [mp, mr] of movers()) {
-      if (mp === root.position) continue;
-      const ox = mp.x - p.x, oz = mp.z - p.z, od = Math.hypot(ox, oz); if (od > mr + RADIUS + 0.9) continue;
+    eachMover((mp, mr) => {
+      if (mp === root.position) return;
+      const ox = mp.x - p.x, oz = mp.z - p.z, od = Math.hypot(ox, oz); if (od > mr + RADIUS + 0.9) return;
       const ahead = (ox * want.x + oz * want.z) / (od || 1);
       if (ahead > 0.3 && od < mr + RADIUS + 0.45 && !(mp === camera.position && me.seat)) block = [ox / od, oz / od];   // you sitting: he goes by in front of you
-      if (ahead > 0) want.add(V(-oz / od, 0, ox / od).multiplyScalar(0.6 * ahead));   // keep right of them
-    }
+      if (ahead > 0) { want.x -= oz / od * 0.6 * ahead; want.z += ox / od * 0.6 * ahead; }   // keep right of them
+    });
     want.normalize();
     let speed = WALK * Math.min(1, dist / 0.4 + 0.35);
     // someone in the way: a short pause, then he steps round them and walks on past (Adriaen: he queued behind slow sloths,

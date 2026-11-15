@@ -25,7 +25,7 @@ const ACTIONS = [
   { id: "leave", row: 0, label: "Get food", can: atHome, run: (s) => L.leave(s) },
   { id: "wander", row: 0, label: "Wander", can: onGround, run: (s) => L.wander(s) },
   { id: "home", row: 0, label: "Go home", can: onGround, run: (s) => L.goHome(s) },
-  { id: "smore", row: 0, label: "S'more", can: (s) => s.spot.name === "seat" && atHome(s), run: (s) => L.smore(s) },
+  { id: "smore", row: 0, label: "S'more", can: (s) => !!s.spot.bench && atHome(s), run: (s) => L.smore(s) },
   { id: "wave", row: 0, label: "Wave", can: () => true, run: (s) => L.wave(s) },
   { id: "all", row: 0, label: "Everyone out", can: () => true, run: () => { for (const q of cs) if (atHome(q)) L.leave(q); } },
   { id: "nap", row: 1, label: "Nap", can: (s) => !s.dozing && sitting(s) && !s.spot.asleep, run: (s) => L.nap(s) },
@@ -96,7 +96,7 @@ clipSel.onchange = () => {
 };
 slider.oninput = () => { if (scrub) { scrub.a.time = +slider.value * scrub.a.getClip().duration; scrub.s.mixer.update(0); } };
 $("labBack").onclick = () => { endScrub(); setSpeed(1); };
-addEventListener("wheel", (e) => { if (follow) dist = THREE.MathUtils.clamp(dist + e.deltaY * 0.003, 0.6, 8); }, { passive: true });
+addEventListener("wheel", (e) => { if (follow && !box.hidden) dist = THREE.MathUtils.clamp(dist + e.deltaY * 0.003, 0.6, 8); }, { passive: true });
 
 // the planned path: one fixed buffer of points (it grows if a path is longer), written in place each frame and drawn up to
 // the path's length, so a shorter path keeps no old tail and nothing is allocated per frame (review R2-059)

@@ -31,11 +31,11 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
   function pour() {   // the water goes in: the surface turns to water with a burst of bubbles
     soup.stage = "water"; soup.veg = 0; surfTo.set(STAGE.water); soup.fade = 1;
     for (let i = 0; i < 8; i++) setTimeout(() => bubble(1.4), i * 70);
-    burst(pot.at.clone().add(V(0, 0.25, 0)), "splash!", 1, 1.2, 60);
+    burst(pot.at.clone().add(V(0, 0.25, 0)), "splash!", 1.2, 60);
   }
   function addVeg() {
     soup.veg++; surfTo.set(STAGE[Math.min(3, soup.veg)]);
-    burst(pot.at.clone().add(V(0, 0.25, 0)), "plop!", 1, 1.2, 60); for (let i = 0; i < 4; i++) bubble(1.2);
+    burst(pot.at.clone().add(V(0, 0.25, 0)), "plop!", 1.2, 60); for (let i = 0; i < 4; i++) bubble(1.2);
     if (soup.veg === 2 && soup.stage === "water") { soup.stage = "cooking"; soup.cook = 0; setTimeout(() => toast("The soup is bubbling 🍲"), 700); }
   }
   function ladle() {   // a bowl out of the pot; after the last one it is empty again
@@ -54,7 +54,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
     const g = new THREE.Group(), s = new THREE.Mesh(soupGeo, soupMat); g.add(new THREE.Mesh(bowlGeo, bowlMat), s); g.position.copy(at); g.scale.setScalar(1.3); scene.add(g);
     const b = { g, s, t: 0, seat }; seat.bowl = b; bowlsOut.push(b);
     const near = nearSloth(at, 4);
-    near.slice(0, 2).forEach((sl, i) => setTimeout(() => { sl.nod = 1.6; burst(sl.p.clone().add(V(0, 0.3, 0)), i ? "🍲" : "*sniff sniff*", 1, 2, 60); }, 600 + i * 700));
+    near.slice(0, 2).forEach((sl, i) => setTimeout(() => { sl.nod = 1.6; burst(sl.p.clone().add(V(0, 0.3, 0)), i ? "🍲" : "*sniff sniff*", 2, 60); }, 600 + i * 700));
     dispatchEvent(new CustomEvent("camp-food", { detail: { kind: "soup", at: at.clone() } }));   // for the sloths' own lives (sloth life thread)
   }
   // the water pail, under the snack table out of the way (Adriaen 2026-11-13): between its legs (local x +-0.45), nudged
@@ -96,7 +96,7 @@ export function createSoupChore({ scene, me, pot: potAt, fire, carry, burst, toa
       if (soup.stage === "cooking") {
         soup.cook += dt * (1 + 0.25 * flare); const k = Math.min(1, soup.cook / COOK);
         if (Math.random() < dt * (2 + 10 * k)) bubble(0.8 + 0.6 * k);
-        if (k >= 1) { soup.stage = "ready"; soup.fade = 1; const s = nearSloth(fire, 6)[0]; if (s) { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), "*smells good*", 1, 2.2, 60); } toast("Soup's ready 🍲", "clink"); if (soup.by === "you") told("soup"); }
+        if (k >= 1) { soup.stage = "ready"; soup.fade = 1; const s = nearSloth(fire, 6)[0]; if (s) { s.nod = 1.6; burst(s.p.clone().add(V(0, 0.3, 0)), "*smells good*", 2.2, 60); } toast("Soup's ready 🍲", "clink"); if (soup.by === "you") told("soup"); }
       } else if (soup.stage === "ready") {
         soup.fade = Math.max(0, soup.fade - dt / 2); surf.material.opacity = soup.fade; surf.visible = soup.fade > 0.01;
         if (Math.random() < dt * 2) bubble(0.7);

@@ -1,7 +1,8 @@
 // Canopy Camp forest trees: bark painted with "baked" light (AO by height and crevice, moss on the upper sides), the two big
 // mossy trees with their low branches and lianas, the forest wall of trunks on root mounds, and the crowns of limbs and leaves.
 // Exports heroTrees(), forestWall() (returns the wall's trees), crowns(wall, clumps) (buildForest steps, forest.js),
-// branchCurves (the big trees' low branches, which the sloths hang from) and TOP (the big trees' height).
+// branchCurves (the big trees' low branches, which the sloths hang from), TOP (the big trees' height), and heroWood (the big
+// trees' wood, one mesh) and trunkR(y) (their trunk's widest radius at height y), both for the sloths' climbs (review R2-082).
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "../terrain.js";
 import { D, S, scene } from "../core.js";
@@ -38,11 +39,16 @@ function merge(geos) {                               // position, normal, colour
 }
 
 const branchCurves = [], TOP = 15;   // the big trees' low branches (the sloths hang from them), and their height
+// a big tree's trunk: a cylinder 1.05 across at the foot to 0.6 at the top, with a wobble of up to about 10% and a root flare
+// (heroTrees). trunkR(y) is its radius at height y at its widest, which the sloths' climbs start from (sloth/poses.js).
+const TRUNK_FOOT = 1.05, TRUNK_TOP = 0.6;
+const trunkR = (y) => (TRUNK_FOOT + (TRUNK_TOP - TRUNK_FOOT) * y / TOP) * (1.1 + 0.7 * Math.exp(-1.5 * y));
+let heroWood = null;   // the big trees' bark, branches and lianas: one mesh (heroTrees), which the sloths' climbs measure
 
 function heroTrees() {
   // ---------------------------------------------------------------- the big mossy trees (as in the tree demo), low branches reaching over the clearing
   for (const { at: c, flare: k } of HERO) {
-    const g = new THREE.CylinderGeometry(0.6, 1.05, TOP, 14, 16, true); g.translate(0, TOP / 2, 0);
+    const g = new THREE.CylinderGeometry(TRUNK_TOP, TRUNK_FOOT, TOP, 14, 16, true); g.translate(0, TOP / 2, 0);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
@@ -81,7 +87,7 @@ function heroTrees() {
     }
     return g;
   }
-  scene.add(new THREE.Mesh(merge(woodGeos), barkMat));
+  heroWood = new THREE.Mesh(merge(woodGeos), barkMat); scene.add(heroWood);
 }
 
 // The wall's trees, as { x, z, s, y0, top }: where each stands, its girth scale, the height its trunk is seated at, and its
@@ -198,4 +204,4 @@ function crowns(wall, clumps) {
   }
 }
 
-export { branchCurves, crowns, forestWall, heroTrees, TOP };
+export { branchCurves, crowns, forestWall, heroTrees, heroWood, TOP, trunkR };

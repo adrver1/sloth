@@ -10,7 +10,7 @@ import { buildSky } from "./sky.js";
 import { buildForest } from "./forest.js";
 import { buildProps, fireStep, LANTERNS, motesStep, poolsStep } from "./campProps.js";
 import { buildJeep, jeepStep } from "./jeep.js";
-import { buildSloths, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
+import { buildSloths, buildSlothPlaces, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
@@ -61,6 +61,7 @@ doneLoading();                         // bakedlight.js: frees the KTX2 workers 
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
 buildChores();                         // chores.js: your activities
+buildSlothPlaces();                    // sloths.js: the food places at the table and the crate, clear of every blocker added above
 await buildOperator();                 // operator.js: waits for his downloads (?op=0: nothing)
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
@@ -133,9 +134,9 @@ renderer.setAnimationLoop((now) => {
   const raw = last ? (now - last) / 1000 : 0, dt = Math.min(raw, 0.05); last = now; uTime.value += dt;
   jeepSeatStep(dt); lingerStep(dt); step(dt);
   slothsStep(dt);                                          // sloths.js: every sloth's clip, its life on top of it, the squish of a boop and its nod
-  campStep(dt, me.seat);                                   // sloths.js: the camp sloths' day; no one sits on the seat you are on
+  campStep(dt);                                            // sloths.js: the camp sloths' day (linger.js has claimed the log you sit on)
   labStep(dt);                                             // labButton.js: the move lab, while it is open
-  hammockStep(dt);                                         // sloths.js: the hammock's swing and its napper's z's
+  hammockStep(dt);                                         // sloths.js: the hammock's swing (its napper's z's are in campStep)
   opStep(dt);
   jeepStep(dt); carStep(dt);
   fxStep(dt);                                              // fx.js: the words and hearts in the air

@@ -53,7 +53,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 ## 6. One named random stream per system
 
-- Rule: seeded randomness comes from `core.js` `rng(name)`, one stream per system: `sky`, `forest`, `props`, `daylight`, `sloths` (all of `sloth/`), `operator` (all of `operator/`), `fx`. The same name returns the same stream. Use `R(a, b)` or `rnd()` from that stream.
+- Rule: seeded randomness comes from `core.js` `rng(name)`, one stream per system: `sky`, `forest`, `props`, `daylight`, `sloths` (where the sloths are placed: `sloths.js` and `sloth/body.js` `makeSloth`), `slothDay` (their run-time timers, the rest of `sloth/`, review R2-117), `operator` (all of `operator/`), `fx`. The same name returns the same stream. Use `R(a, b)` or `rnd()` from that stream.
 - Why: one shared stream meant that drawing one more number anywhere moved every tree and sloth after it, and texture noise depended on the detail level (world-13, sloths-35, props-10, genbake-20).
 - Noise that must not touch any seeded stream uses `util.js` `rand(a, b)` (Math.random). A private repeatable stream uses `util.js` `lcg(seed)`.
 - Do not change the forest's stream (`rng("forest", 3000 + seed)`) or the order of its draws without a rebake: the trees and their root mounds are in the light and ground bakes.

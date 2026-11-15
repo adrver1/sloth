@@ -9,20 +9,21 @@
 //   chewStep(s, mesh, from, t0)      during an eat clip, from t0 seconds in: the food goes from `from` into its paw and to
 //                                    its lips, a bite smaller each time the painted mouth closes
 import { rng, scene } from "../core.js";
-const { R } = rng("sloths");
+const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { release } from "../places.js";
-import { WALK_TS } from "./state.js";
+import { WALK_TS, setTrip } from "./state.js";
 import { EAT_GRAB, play, playOnce } from "./clips.js";
 import { UP, turnTo } from "./poses.js";
 import { move, moveStep } from "./moves.js";
-import { mouthOf } from "./face.js";
+import { mouthOf, openMouth } from "./face.js";
 import { pawOf } from "./arms.js";
 import { fruit, restOn, sitFor } from "./table.js";
+import { restHeight } from "../food.js";
 import { cardsSit, cardsStep } from "./cards.js";
 
 const paw = V(), mouthW = V();
-function startEat(s, slot, done) { Object.assign(s.trip, { phase: "eat", st: "turn", t: 0, slot, cards: false, done }); play(s, "idle", 1); }
+function startEat(s, slot, done) { setTrip(s, "eat", { st: "turn", slot, cards: false, done }); play(s, "idle", 1); }
 function eatStep(s, T, sd) {
   const slot = T.slot, F = slot?.food;
   if (T.st === "turn") {                           // face the fruit, then up onto the table or up against the crate
@@ -36,7 +37,7 @@ function eatStep(s, T, sd) {
   else if (T.st === "cards") cardsStep(s, T, sd);
   else if (T.st === "eat") {
     if (!F.mesh && s.act.time > EAT_GRAB - 0.1) { F.mesh = fruit(); F.mesh.position.copy(pawOf(s, paw)); }   // a bowl: the fruit comes up out of it
-    if (F.mesh) chewStep(s, F.mesh, F.from ??= F.at.clone().setY(F.at.y + (F.mesh.userData.base?.y ?? 0) / 2), EAT_GRAB);
+    if (F.mesh) chewStep(s, F.mesh, F.from ??= F.at.clone().setY(F.at.y + restHeight(F.mesh)), EAT_GRAB);
   }
 }
 function chew(s, T) {
@@ -63,7 +64,7 @@ function chewStep(s, mesh, from, t0) {
   if (base) mesh.scale.copy(base).multiplyScalar(1 - 0.22 * bites);
   mesh.visible = bites < 4;
   const m = mouthOf(s), open = t > 3.0 && t < 6.9 ? Math.max(0, Math.sin(2 * Math.PI * 9 * (t / 8 - 0.4) + 0.6)) : 0;
-  m.visible = open > 0.08; m.scale.set(0.9, Math.max(0.01, open), 1);
+  m.visible = open > 0.08; openMouth(s, 0.9, open);
 }
 
 export { chewStep, eatStep, startEat };

@@ -2,9 +2,11 @@
 // Exports (all stay at their empty value with ?jeep=none):
 //   buildJeep()      main.js, once the props stand: waits for the jeep's downloads, parks it and adds its two blockers
 //   jeepStep(dt)     main.js, each frame: moves the doors and fades the cabin light
-//   jeepApi          { node, doors, open(w), close(w), isOpen(w), seat, sill } for the other camp modules (the tools see it as
-//                    window.__jeep, debug.js): w is "P" | "D" | "B" | "H" (the hood); seat (the driver's cushion top, SeatP) and
-//                    sill (DoorP's sill) are world positions; doors is the doors' tap targets (jeepSeat.js, targets.js).
+//   jeepApi          { node, doors, open(w), close(w), isOpen(w), seat, sill, engineFront, engineSeat } for the other camp
+//                    modules (the tools see it as window.__jeep, debug.js): w is "P" | "D" | "B" | "H" (the hood); seat (the
+//                    driver's cushion top, SeatP), sill (DoorP's sill), engineFront (on the ground before the bumper) and
+//                    engineSeat (on the front of the engine bay: sloth/fix.js) are world positions; doors is the doors' tap
+//                    targets (jeepSeat.js, targets.js).
 //                    Sitting in the front seats is not part of jeepApi: jeepSeat.js has its own seatApi, and no other module adds to it.
 //   cabinLive        { receive(object) }: that object takes the cabin light's shadow (campGround.js gives it the floor and the baked props)
 // The jeep (props/jeep/build_jeep.py) is parked at the clearing edge between the hammock and the first big tree (JEEP_AT, with its
@@ -49,6 +51,7 @@ async function buildJeep() {
     doors[k] = { o, open, axis, cur: 0, want: 0 };
   }
   const world = (n) => jeep.getObjectByName(n)?.getWorldPosition(V()) ?? at.clone();
+  const local = (x, y, z) => jeep.localToWorld(V(x, y, z));   // a point in the jeep's frame, in the world
   // the cabin light (Adriaen 2026-11-12): on while any door stands open. CabinLight is its lens (unlit when on); the light it
   // throws is live: one shadowed spot light (cabSpot), redrawn while a cabin door moves; it replaced the baked keyframes.
   // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the lenses are plain parts of the body.
@@ -109,6 +112,9 @@ async function buildJeep() {
     open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
     isOpen: (w = "B") => !!doors[w] && Math.abs(doors[w].cur) > Math.abs(doors[w].open) * 0.8,
     seat: world("SeatP"), sill: world("DoorSill"),
+    // the engine fix (sloth/fix.js): where a sloth stands before the front bumper, and where it sits on the front of the
+    // engine bay to work, in the jeep's frame (+Z ahead) as build_jeep.py shapes the bonnet (review R2-141)
+    engineFront: local(0.3, 0, 2.35).setY(0), engineSeat: local(0.25, 0.94, 1.5),
   };
 }
 

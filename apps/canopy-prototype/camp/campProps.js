@@ -3,7 +3,8 @@
 // Every baked node stands where its anchor tag says (stand, layout.js ANCHORS, review R2-249).
 // main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
 // at night) and motesStep (the drifting motes). Exports those, CAMP, the blockers (the list, read only:
-// addBlocker({ at, r, walk, wild, tag }) adds one, dropBlockers(tag) takes a tag's out again; see the block above them) and the props' parts
+// addBlocker({ at, r, walk, wild, tag }) adds one, dropBlockers(tag) takes a tag's out again,
+// blockersVersion() counts the changes; see the block above them) and the props' parts
 // other modules use (FIRE_CARDS, fireLight, glowTex, LANTERNS, and WOODPILE, WOOD_TEX, WOOD_SPOTS (the carried logs' spots in the
 // stack's atlas) and rayMat, which stay null when their part is not built: ?lived=0, no sunbeams), buildProps() (main.js, once),
 // which builds them all, and buildPools() (campGround.js, only for a ground with no baked night light). It checks layout.js
@@ -36,11 +37,14 @@ const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
 // Who adds them, in main.js's build order: this file (the fixed camp, then buildProps), jeep.js, deadwood.js, glade.js, then the
 // ground (campGround.js createGround) paints its worn dirt, paths and plants round the list as it stands at that moment; only
 // after that do tentInside.js (the tent's walls) and the chores (the wood stand, through chores.js) add theirs. Readers: player.js,
-// nav.js (the sloths' grid, made again when the list's length changes), operator/walk.js, operator/places.js, operator/buddy.js,
+// nav.js (the sloths' grid, made again when blockersVersion() changes:
+// review R2-113, the list's length stays the same through a swap), operator/walk.js, operator/places.js, operator/buddy.js,
 // deadwood.js and ground.js.
 const blockers = [];
-function addBlocker({ at, r, walk = null, wild = false, tag = null }) { const b = { at, r, walk, wild, tag }; blockers.push(b); return b; }
-function dropBlockers(tag) { for (let i = blockers.length - 1; i >= 0; i--) if (blockers[i].tag === tag) blockers.splice(i, 1); }
+let blockersRev = 0;   // counts every change, so nav.js knows to build its grid again
+function addBlocker({ at, r, walk = null, wild = false, tag = null }) { const b = { at, r, walk, wild, tag }; blockers.push(b); blockersRev++; return b; }
+function dropBlockers(tag) { for (let i = blockers.length - 1; i >= 0; i--) if (blockers[i].tag === tag) { blockers.splice(i, 1); blockersRev++; } }
+const blockersVersion = () => blockersRev;
 addBlocker({ at: V(0, 0, 0), r: 0.9, walk: { r: 0.75 } });   // the fire
 addBlocker({ at: TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), r: 1.9, tag: "tent" });   // the whole tent, until tentInside.js puts in its walls
 // the table, the hammock posts and the seats take their circles from layout.js WEAR (wearBlockers), like the lived-in props,
@@ -290,4 +294,4 @@ function poolsStep(dusk, fl) { if (!pools) return; pools.visible = dusk > 0; poo
 // the motes drift slowly round the clearing
 function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
 
-export { addBlocker, buildPools, buildProps, CAMP, dropBlockers, FIRE_CARDS, WOODPILE, WOOD_SPOTS, WOOD_TEX, blockers, fireLight, fireStep, glowTex, LANTERNS, motesStep, poolsStep, rayMat };
+export { addBlocker, buildPools, buildProps, CAMP, dropBlockers, FIRE_CARDS, WOODPILE, WOOD_SPOTS, WOOD_TEX, blockers, blockersVersion, fireLight, fireStep, glowTex, LANTERNS, motesStep, poolsStep, rayMat };

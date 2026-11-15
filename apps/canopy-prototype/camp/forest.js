@@ -2,13 +2,14 @@
 // trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants. The steps live in
 // camp/forest/: base.js (the forest stream, the track, trackDist), floor.js (ribbons and the grass tile), trees.js (bark, the
 // big trees, the wall, the crowns), cards.js (the leaf card, the scatter, the culled sectors) and plants.js (leaf clumps, verge, ferns).
-// Exports buildForest() (main.js, once), FLOOR_OVERLAYS, branchCurves (the big trees' low branches), grassTex (the clearing's
+// Exports buildForest() (main.js, once), FLOOR_OVERLAYS, branchCurves (the big trees' low branches), heroWood and trunkR(y)
+// (the big trees' wood and trunk radius, for the sloths' climbs: forest/trees.js), grassTex (the clearing's
 // grass tile, for campGround.js), track and trackDist, and for glade.js's bushes leafGeo, leafM, perClump, cards(n), scatterLeaves,
 // clumpN and withLeafN (the leaf card, its material, how many leaves a clump draws from its stream, how many of n become cards,
 // the leaf scatter every leafy thing shares, a leaf's light normal and the card geometry that carries them).
 import { track, trackDist } from "./forest/base.js";
 import { FLOOR_OVERLAYS, clearingFloor, grassTex, trackRoad } from "./forest/floor.js";
-import { branchCurves, crowns, forestWall, heroTrees } from "./forest/trees.js";
+import { branchCurves, crowns, forestWall, heroTrees, heroWood, trunkR } from "./forest/trees.js";
 import { cards, clumpN, leafCard, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest/cards.js";
 import { ferns, verge, wallLeaves } from "./forest/plants.js";
 
@@ -26,4 +27,4 @@ function buildForest() {
   ferns();                       // ferns and undergrowth round the clearing
 }
 
-export { buildForest, FLOOR_OVERLAYS, branchCurves, cards, clumpN, grassTex, leafGeo, leafM, perClump, scatterLeaves, track, trackDist, withLeafN };
+export { buildForest, FLOOR_OVERLAYS, branchCurves, cards, clumpN, grassTex, heroWood, leafGeo, leafM, perClump, scatterLeaves, track, trackDist, trunkR, withLeafN };

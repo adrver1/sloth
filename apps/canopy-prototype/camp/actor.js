@@ -38,6 +38,6 @@ export function crossFade(cur, next, fade, { once = false, at = 0, speed = 1, re
 
 export function makeZ() { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; }
 export function zAt(z, head, k, Z, f = 1) {
-  if (head) head.getWorldPosition(z.position).add(V(Z.wob * f * Math.sin(k * 6), (Z.y0 + Z.rise * k) * f, 0));
+  if (head) head.getWorldPosition(z.position).add(vb.set(Z.wob * f * Math.sin(k * 6), (Z.y0 + Z.rise * k) * f, 0));
   const w = (Z.w0 + Z.w1 * k) * f; z.scale.set(w, w / 4, 1);
 }

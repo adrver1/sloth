@@ -20,7 +20,7 @@ import { V, ease, wrapPi, yawFrom, yawTo } from "./util.js";
 import { jeepApi } from "./jeep.js";
 import { addTargets } from "./targets.js";
 import { me } from "./player.js";
-import { sloths } from "./sloths.js";
+import { OUT, sloths } from "./sloths.js";
 import { claim, release } from "./places.js";
 import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
@@ -42,9 +42,8 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   const eyeWorld = () => jeep.position.y + S0.y + EYE_UP;
 
   // a sloth in (or getting into or out of) the driver's seat: the jeep sloth at home, a guest napping there, one at the door
-  const OUTSIDE = new Set(["walk", "greet", "eat", "rest", "fix", "held"]);
   const slothIn = (side) => side === "driver"
-    ? sloths.find((s) => s.spot?.car && !OUTSIDE.has(s.trip?.phase))
+    ? sloths.find((s) => s.spot?.car && !OUT.has(s.trip?.phase))   // sloth/state.js OUT: the phases away from its spot
     : sloths.find((s) => { const p = s.o.getWorldPosition(V()), l = jeep.worldToLocal(p); return l.y > 0.4 && Math.abs(l.x - SIDES.passenger.seat.x) < 0.3 && Math.abs(l.z - SIDES.passenger.seat.z) < 0.4; });
 
   let cur = null;   // { side, phase: "walk" | "door" | "in" | "settle" | "sat" | "open" | "out", t, opened, ... }
@@ -94,7 +93,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   jeepSeatStep = (dt) => {
     if (shut && (shut.t -= dt * (pace.fast || 1)) <= 0) { J.close(shut.k); shut = null; }
     if (!cur) return;
-    const T = cur, s = T.s; T.t += dt * (pace.fast || 1);   // core.js pace: quicker for checks
+    const T = cur, s = T.s; T.t += dt * (pace.fast ?? 1);   // core.js pace: quicker for checks, 0 while the move lab is paused
     if (T.phase !== "sat") me.lastDrag = uTime.value;   // no gaze drift while moving (linger.js)
     if (me.seat !== seat) { if (T.phase === "sat") { if (!stand()) return; } else me.seat = seat; }
     if (T.phase === "walk") {                          // round to the door, opening it when you get close

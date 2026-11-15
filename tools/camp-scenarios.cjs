@@ -143,7 +143,7 @@ function helpers([base, present]) {
       claims: life ? Object.fromEntries(CLAIMS.map((k) => [k, nm(life.holder(k))]).filter(([, v]) => v)) : null,
       movers: life ? life.movers().map(([p, r]) => [p.x, p.y, p.z, r]) : null, spots: (T.spots || []).map((q) => [q.name, !!q.home, nm(q.who), q.scale]),
       guests: L?.guests?.() ?? null,
-      pois: L?.pois ? L.pois().map((P) => [P.name, P.slots.map((q) => [q.key, nm(q.who), q.h, q.yaw, q.p.toArray(), q.food.at.toArray(), q.food.back, q.food.grow ?? null, q.food.mesh ? [q.food.mesh.visible, ...q.food.mesh.scale.toArray(), q.food.mesh.material.color.getHex()] : null])]) : null,
+      pois: L?.pois ? L.pois().map((P) => [P.name, P.slots.map((q) => [q.key, nm(q.who), q.h, q.yaw, q.p.toArray(), q.food.at.toArray(), q.food.back, q.food.grow ?? null, q.food.mesh ? [q.food.mesh.visible, ...q.food.mesh.scale.toArray(), q.food.mesh.userData.kind ?? null] : null])]) : null,
       fx: T.fx ? T.fx.map((f) => [f.t, f.life, !!f.fly]) : null, hit: M.hit ? M.hit.length : null,
       op: O ? tryTo(() => { const o = O.op, dbg = O.dbg(); return { state: O.state(), op: Object.fromEntries(OPK.map((k) => [k, flat(o[k])]).filter(([, v]) => v !== null && v !== false && v !== 0)), buddy: o.buddy?.name ?? null, carry: o.carry ? [o.carry.s?.name, o.carry.k, flat(o.carry.from), flat(o.carry.q0)] : null, inHand: o.inHand ? [o.inHand.type, o.inHand.children.length, o.inHand.visible] : null,
         line: O.line(), why: O.why(), dbg: { inHand: dbg.inHand ?? null, w: dbg.w }, seats: O.seats(), root: [...O.root.position.toArray(), ...O.root.quaternion.toArray()], running: Object.entries(O.acts).filter(([, a]) => a.isRunning()).map(([n, a]) => [n, a.time, a.getEffectiveWeight(), a.timeScale]) }; }) : null,

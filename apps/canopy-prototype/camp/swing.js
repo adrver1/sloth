@@ -1,24 +1,23 @@
 // Canopy Camp swing: the two props a sloth sets moving (camp review sloths-32: they are props, not sloths; they lived in
 // sloths.js). Both add a vertex-shader hook after the prop's baked-light hook (campProps.js lnight) with util.js
-// patchMaterial, as the other modules do (review props-13).
-//   HAMMOCK_PIVOT          how high the hammock's rope knots are: the line it swings about
+// patchMaterial, as the other modules do (review props-13). The hammock's shape (its pivot line, knots, ropes and the band
+// that stays put) is layout.js HAMMOCK (review R2-141).
 //   makeHammockSwing()     adds a group at the hammock's pivot line to the scene and gives the Hammock mesh a material of
 //                          its own that swings the sling and its ropes about that line (the posts and the leaves on top stay
 //                          put). Returns { swing: the group that swings with it (the napper lies in it), push: 0..1, a harder
 //                          swing for a while (set it to 1 after a boop), step(dt): each frame, a slow swing that push adds to }
 //   makeClothBrush()       the laundry line's towel and socks sway in a breeze (uTime), and swing aside round the line where
 //                          a sloth brushes past. Returns brush(p, on, dt): p where the sloth is (world), on while it is at the
-//                          cloth; or null when there is no cloth
+//                          cloth, dt the camp's paced seconds (the sloths' sd); or null when there is no cloth. Off and swung
+//                          back, it returns at once.
 // sloth/spots.js buildSpots calls both while it builds the camp sloths' spots, so the scene's objects keep their order; nothing runs on import.
 import * as THREE from "three";
 import { scene, uTime } from "./core.js";
 import { HAMMOCK, LAUNDRY } from "./layout.js";
 import { patchMaterial, swap } from "./util.js";
 
-const HAMMOCK_PIVOT = 1.75;
-
 function makeHammockSwing() {
-  const PIV = HAMMOCK_PIVOT, sway = { value: 0 };
+  const H0 = HAMMOCK, PIV = H0.pivot, f = (x) => x.toFixed(3), sway = { value: 0 };
   const hg = new THREE.Group(); hg.position.set(HAMMOCK.mid.x, PIV, HAMMOCK.mid.z); hg.rotation.y = HAMMOCK.yaw; scene.add(hg);
   const swing = new THREE.Group(); hg.add(swing);
   const ham = scene.getObjectByName("Hammock");
@@ -27,9 +26,9 @@ function makeHammockSwing() {
     patchMaterial(mat, "sway", (sh) => {
       sh.uniforms.uSway = sway;
       sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nuniform float uSway;"], ["#include <begin_vertex>", `#include <begin_vertex>
-        float sw = uSway * (1.0 - smoothstep(1.03, 1.43, abs(transformed.x))) * (1.0 - smoothstep(1.8, 1.95, transformed.y));
-        vec2 q = transformed.yz - vec2(${PIV.toFixed(2)}, 0.0); float cs = cos(sw), sn = sin(sw);
-        transformed.yz = vec2(${PIV.toFixed(2)}, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`]);
+        float sw = uSway * (1.0 - smoothstep(${f(H0.endX)}, ${f(H0.knotX)}, abs(transformed.x))) * (1.0 - smoothstep(${f(H0.roof[0])}, ${f(H0.roof[1])}, transformed.y));
+        vec2 q = transformed.yz - vec2(${f(PIV)}, 0.0); float cs = cos(sw), sn = sin(sw);
+        transformed.yz = vec2(${f(PIV)}, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`]);
     });
     ham.material = mat;
   }
@@ -57,7 +56,12 @@ function makeClothBrush() {
       transformed.yz = vec2(ly, 0.0) + vec2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);`]);
   });
   mat.needsUpdate = true;
-  return (p, on, dt) => { u.uX.value = cloth.worldToLocal(p.clone()).x; u.uPush.value += ((on ? 1 : 0) - u.uPush.value) * Math.min(1, dt * 2); };
+  // one scratch vector, and nothing to do once the cloth has swung back and no one is at it (review R2-066)
+  const lp = new THREE.Vector3();
+  return (p, on, dt) => {
+    if (!on && u.uPush.value < 1e-3) { u.uPush.value = 0; return; }
+    u.uX.value = cloth.worldToLocal(lp.copy(p)).x; u.uPush.value += ((on ? 1 : 0) - u.uPush.value) * Math.min(1, dt * 2);
+  };
 }
 
-export { HAMMOCK_PIVOT, makeClothBrush, makeHammockSwing };
+export { makeClothBrush, makeHammockSwing };
