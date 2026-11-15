@@ -8,6 +8,8 @@ import { camera, hex, rng, S, scene } from "./core.js";
 const { R } = rng("sky");
 import { canvasTex, lcg, swap } from "./util.js";
 import { FAR } from "./layout.js";
+// the backdrop and the domes keep the shape they had at 30 m, scaled up to FAR, so they fill the same part of the view
+const LIFT = FAR / 30;
 
 const NIGHT_RIM = new THREE.Color(0x0b1622);   // the night dome's rim (its texture's "#0b1622" below)
 const uSkyDusk = { value: 0 }, uSkyRim = { value: NIGHT_RIM.clone() }, uSkyHaze = { value: 0 }, uSkyFog = { value: scene.fog?.color ?? new THREE.Color() };   // see the backdrop's shader below
@@ -80,16 +82,18 @@ function buildSky() {
     }
   });
   back.wrapS = THREE.RepeatWrapping; back.repeat.x = 2;
-  sky = new THREE.Mesh(new THREE.CylinderGeometry(FAR, FAR, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
-  sky.position.y = 10; scene.add(sky);
-  // the backdrop's top melts into the dome's rim colour (uSkyRim, daylight.js: the day dome's rim by day, the night dome's at night),
-  // so there's no hard line where the two meet: at night over the top half (Adriaen 2026-11-12), by day over only the top strip,
-  // above the painted crowns (since R2-161 the backdrop is 40 m out and its top shows from the open end of the jeep's track)
-  // and away from plain day (dusk, dawn mist, golden hour, rain, night) it sinks into the scene's own fog colour by uSkyHaze, so
+  // the backdrop stands FAR (40 m) out but is drawn LIFT times taller and higher, so it fills the same angles it did at 30 m: 34 m tall,
+  // centred 10 m up at 30 m. At 40 m with its old size it sat lower in view and the misty sky showed more above the crowns, which made
+  // the canopy look hazier (Adriaen picked the 30 m look, 2026-11-15)
+  sky = new THREE.Mesh(new THREE.CylinderGeometry(FAR, FAR, 34 * LIFT, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
+  sky.position.y = 10 * LIFT; scene.add(sky);
+  // the backdrop's top melts into the dome's rim colour (uSkyRim, daylight.js: the day dome's rim by day, the night dome's at night)
+  // as the dusk comes, over the top half (Adriaen 2026-11-12); by day it stays painted to the top, as in the 30 m look Adriaen picked
+  // (2026-11-15), so the crowns read crisp. Away from plain day (dusk, dawn mist, golden hour, rain, night) it sinks into the scene's own fog colour by uSkyHaze, so
   // it sits behind the same haze as the near forest instead of staying day-green (Adriaen 2026-11-13). daylight.js sets the amount.
   sky.material.onBeforeCompile = (sh) => { sh.uniforms.uDusk = uSkyDusk; sh.uniforms.uRim = uSkyRim; sh.uniforms.uHaze = uSkyHaze; sh.uniforms.uFogC = uSkyFog;
     sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nuniform float uDusk; uniform float uHaze; uniform vec3 uRim; uniform vec3 uFogC;"],
-      ["#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, uFogC, uHaze);\noutgoingLight = mix(outgoingLight, uRim, mix(smoothstep(0.8, 0.98, vMapUv.y), smoothstep(0.45, 0.96, vMapUv.y), uDusk));\n#include <opaque_fragment>"]); };
+      ["#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, uFogC, uHaze);\noutgoingLight = mix(outgoingLight, uRim, uDusk * smoothstep(0.45, 0.96, vMapUv.y));\n#include <opaque_fragment>"]); };
   // the open sky over the clearing: a low dome capping the backdrop, painted with soft clouds and a fringe of leaves round its rim
   // (planar UVs, so the clouds don't pinch at the top); one draw, no fog, dimmed at dusk with the backdrop
   const ZENITH = ["#e8f1df", "#a6cdd6"];
@@ -108,12 +112,12 @@ function buildSky() {
     }
   });
   // 24 x 8 segments (360 triangles): the UVs are planar, so the clouds need no finer mesh, and the low rim hides behind the backdrop (review R2-077)
-  const domeGeo = new THREE.SphereGeometry(FAR, 24, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
+  const domeGeo = new THREE.SphereGeometry(FAR, 24, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45 * LIFT, 1);
   { const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / (2 * FAR), 0.5 - p.getZ(i) / (2 * FAR)); }
   dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
-  // its rim sits 0.5 m below the backdrop's top (27 m): the dome's 24 sides cut inside the backdrop's 32, and level with it they left a
+  // its rim sits just below the backdrop's top (27 m in the 30 m look, times LIFT): the dome's 24 sides cut inside the backdrop's 32, and level with it they left a
   // thin crack of background between the two at dusk; the rim colours match there (uSkyRim), so the overlap does not show
-  const DOME_Y = 26.5;
+  const DOME_Y = 26.5 * LIFT;
   dome.position.y = DOME_Y; scene.add(dome);
   // the night sky (camp review B1, Adriaen 2026-11-12): a second dome, deep blue to near black at the rim, with stars and a few faint
   // wisps, faded in over the day dome with dusk; and the moon, a soft disc with a halo, up in the canopy gap where the start view sees
