@@ -378,9 +378,12 @@ def anchor(name, at, size=1.0):
 
 
 def select_only(o):
-    """Make o the only selected object and the active one (without the select_all operator, which walks every object)."""
+    """Make o the only selected object and the active one (without the select_all operator, which walks every object).
+    The selection can still hold a None for an object just removed while selected (drop_enclosed removes the parts it
+    empties), which is skipped."""
     for s in list(bpy.context.view_layer.objects.selected):
-        s.select_set(False)
+        if s is not None:
+            s.select_set(False)
     o.select_set(True)
     bpy.context.view_layer.objects.active = o
 
