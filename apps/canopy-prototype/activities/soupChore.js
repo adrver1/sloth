@@ -16,7 +16,7 @@ import { makePail } from "../camp/pail.js";
 import { V, timers } from "../camp/util.js";
 import { pool } from "../atmosphere.js";
 import { EV, emit } from "../camp/events.js";
-import { bowlGeo, bowlMat, bubbleTex, flat, soupGeo, soupMat, surfTex } from "./parts.js";
+import { bowlGeo, bowlMat, bubbleTex, emptyMat, flat, soupGeo, soupMat, surfTex } from "./parts.js";
 
 const COOK = 20, BOWLS = 3;
 const STAGE = { empty: 0x2e2824, water: 0x86a9b0, 1: 0xc8a466, 2: 0xd9852f, 3: 0xd6712a };
@@ -126,10 +126,13 @@ export function createSoupChore({ scene, me, pot: potAt, fire, seats: logs, carr
       const L = bubbles.live;
       for (let i = L.length - 1; i >= 0; i--) { const b = L[i]; b.t += dt; const k = b.t / b.life; if (k >= 1) { L[i] = L[L.length - 1]; L.pop(); continue; } b.size = b.big * (0.4 + k); b.alpha = 1 - k * k; }
       bubbles.flush();
-      // bowls on the seats: the soup goes down over a minute and a half, then the bowl is taken away
+      // bowls on the seats: the soup goes down over a minute and a half; then the disc stays at the bottom as the empty bowl's
+      // enamel floor (the cup is open below, so hiding it showed the seat through the bowl, Adriaen 2026-11-15), and after
+      // half a minute more the bowl shrinks away over half a second instead of vanishing at once
       for (let i = bowlsOut.length - 1; i >= 0; i--) { const b = bowlsOut[i]; b.t += dt;
-        b.s.position.y = -0.03 * Math.min(1, b.t / 90); b.s.visible = b.t < 90;
-        if (b.t > 120) { scene.remove(b.g); b.seat.bowl = null; b.end.leave(); bowlsOut.splice(i, 1); } }
+        b.s.position.y = -0.03 * Math.min(1, b.t / 90); if (b.t >= 90) b.s.material = emptyMat;
+        if (b.t > 120) b.g.scale.setScalar(1.3 * Math.max(0, 1 - (b.t - 120) / 0.5));
+        if (b.t > 120.5) { scene.remove(b.g); b.seat.bowl = null; b.end.leave(); bowlsOut.splice(i, 1); } }
     },
   };
 }

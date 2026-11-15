@@ -260,12 +260,13 @@ def build_scene(pl):
     bake and the page all see the same triangles), each prop where the page stands it ([x, z, yaw] in three.js metres,
     from pl and each object's tags). Returns (picked, sets {set name: meshes}, anchors {set name: empties}, receivers, counts
     {name: triangles}).
-    The builders' make() run in this scene, and their own renders and AO bakes set its device to the CPU (and the stack's
-    render its film and view transform). The scene's settings from just after the reset are put back once they are done,
-    so the GPU that GPU_RUN's load handler chose after the reset is the one the bake runs on (review R2-254)."""
+    The builders' make() run in this scene; the wood stack renders its logs in a scene of its own (build_lived.wood_stack),
+    because a render here also drew the camp round the origin into its atlas (2026-11-15 wood pile bug). The scene's
+    device from just after the reset is put back once they are done, so the GPU that GPU_RUN's load handler chose after
+    the reset is the one the bake runs on (review R2-254)."""
     reset()
     sc = bpy.context.scene
-    keep = (sc.cycles.device, sc.render.film_transparent, sc.view_settings.view_transform)
+    keep = sc.cycles.device
     objs = build_camp.picked()
     for o in objs.values():
         o.location = (0, 0, 0)                        # each is joined from parts (join() applied them)
@@ -292,7 +293,7 @@ def build_scene(pl):
             meshes += stand(o, pl)
         audit([o for o in made if o.type == "MESH"], label=sname)
         sets[sname] = meshes
-    sc.cycles.device, sc.render.film_transparent, sc.view_settings.view_transform = keep
+    sc.cycles.device = keep
     receivers = [o for o in picked + [o for s in sets.values() for o in s] if not o.get("unlit")]
     counts = {o.name: tris(o) for o in picked + [o for s in sets.values() for o in s]}
     return picked, sets, anchors, receivers, counts

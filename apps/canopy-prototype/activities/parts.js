@@ -1,6 +1,6 @@
 // Camp activities, shared parts: the geometry, materials and painted textures the chores share (a log, a soup bowl and its
 // soup, the pot's surface shade, a bubble), made once when the page loads, and the food's names. Triangles: a log 24 with
-// its caps, a bowl 16 and its soup 8.
+// its caps, a bowl 16 and its soup 8 (which stays as the empty bowl's floor).
 // Exports the parts by name, paintLogs(woodTex, spots) (the logs take the props' wood atlas at spots, from lived.glb), soupBowl() (a new bowl of soup),
 // an(name) ("a" or "an") and flat(a, b) (the distance between two points on the ground).
 import * as THREE from "three";
@@ -24,6 +24,8 @@ export const bowlGeo = new THREE.CylinderGeometry(0.075, 0.048, 0.05, 8, 1, true
 export const bowlMat = new THREE.MeshLambertMaterial({ color: 0xf2ead8, side: THREE.DoubleSide });   // cream enamel, so it reads on the wooden seats
 export const soupGeo = new THREE.CircleGeometry(0.068, 8).rotateX(-Math.PI / 2); soupGeo.translate(0, 0.04, 0);
 export const soupMat = new THREE.MeshLambertMaterial({ color: 0xd9822e });
+// the bowl's floor once the soup is eaten: the soup disc stays at the bottom in a slightly shaded enamel, since the cup is open below
+export const emptyMat = new THREE.MeshLambertMaterial({ color: 0xd9d0bd });
 // the pot's surface: a soft radial shade, tinted per stage (iron, water, broth), 12 tris
 export const surfTex = tex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 2, 32, 32, 32); r.addColorStop(0, "#ffffff"); r.addColorStop(0.75, "#d8d8d8"); r.addColorStop(1, "#8a8a8a"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
 export const bubbleTex = tex(32, 32, (g) => { g.strokeStyle = "rgba(255,244,225,.95)"; g.lineWidth = 3; g.beginPath(); g.arc(16, 16, 11, 0, 7); g.stroke(); g.fillStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.arc(16, 16, 9, 0, 7); g.fill(); });
