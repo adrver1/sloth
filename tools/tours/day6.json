@@ -1,0 +1,6 @@
+[
+[
+2,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__campFast = 6; T.log.push(['ph', ph()]);"
+]
+]

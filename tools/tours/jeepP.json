@@ -1,0 +1,114 @@
+[
+[
+5,
+"const T = window.__T, J = T.jeep, me = T.me; { const j = J.node.position, c = T.centre('DoorD'); T.near('DoorD', 2.2, [2 * c.x - j.x, 2 * c.z - j.z]); }"
+],
+[
+8,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('DoorD');"
+],
+[
+10,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('DoorD');"
+],
+[
+12,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Sit in the passenger');T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+40,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+60,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+80,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+100,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+110,
+"const T = window.__T, J = T.jeep, me = T.me; T.face(T.clock('car').obj);T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+113,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap(T.clock('car').obj);"
+],
+[
+115,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Night');"
+],
+[
+150,
+"const T = window.__T, J = T.jeep, me = T.me; T.face(T.clock('car').obj);"
+],
+[
+152,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap(T.clock('car').obj);"
+],
+[
+154,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Let the day run');"
+],
+[
+200,
+"const T = window.__T, J = T.jeep, me = T.me; T.face(T.clock('car').obj);"
+],
+[
+202,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap(T.clock('car').obj);"
+],
+[
+204,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Stop the clock');"
+],
+[
+210,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Ignition');"
+],
+[
+212,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Ignition');"
+],
+[
+214,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Turn the key');"
+],
+[
+250,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Ignition');T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+252,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Ignition');"
+],
+[
+254,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Turn the engine off');"
+],
+[
+260,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('DoorD');"
+],
+[
+262,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('DoorD');"
+],
+[
+264,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Get out');T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+300,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+],
+[
+340,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['st', J.seatedIn(), J.seatBusy('driver'), J.seatBusy('passenger'), T.car.inCar(), !!me.seat]);"
+]
+]

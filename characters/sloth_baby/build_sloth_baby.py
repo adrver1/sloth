@@ -21,7 +21,11 @@ little smile.
     python characters/sloth_baby/build_sloth_baby.py [--style plush|baby|all]
 
 Modelled sitting upright, origin under its bottom, facing +Y like the
-cast, about 0.3 m tall.
+cast, about 0.3 m tall. Each export then goes through prune_rest.py, which
+drops the clip channels that only hold a bone at its rest pose. To pack it
+for Canopy Camp, run pack_chars.mjs --own (README.md) and base64 the result
+into apps/canopy-prototype/models/sloth.txt, or run prune_rest.py on the
+.txt the camp has.
 """
 import argparse
 import math
@@ -33,6 +37,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "..", "engine", "characters", "_shar
 import base_body as base  # noqa: E402  (imports bpy)
 import bpy  # noqa: E402
 import sloth_rig  # noqa: E402
+import prune_rest  # noqa: E402  (no bpy: also runs on its own, on a packed .txt)
 
 Vector, X, Y, Z = base.Vector, base.X, base.Y, base.Z
 FUR, DARK, FACE, MASK, CLAW, TAN = "sloth_fur", "sloth_fur_dark", "sloth_face", "sloth_mask", "claw", "sloth_tan"
@@ -290,6 +295,7 @@ def build(style, out):
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=False,
                               export_animations=True, export_animation_mode="NLA_TRACKS",
                               export_frame_range=False, export_frame_step=3)
+    prune_rest.prune_file(path)   # drops the channels that only hold a bone at rest (review R2-104)
     print(f"{ob.name}: {tris} triangles -> {path}")
 
 

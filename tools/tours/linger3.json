@@ -1,0 +1,22 @@
+[
+[
+5,
+"const T = window.__T, J = T.jeep, me = T.me; T.near('Seat_1', 2.2);"
+],
+[
+8,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Seat_1');"
+],
+[
+10,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Seat_1'); T.choose('Sit by the fire');"
+],
+[
+50,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Seat_1'); T.tap('Seat_1'); T.choose('Stand up'); T.log.push(['seat after', !!me.seat]);"
+],
+[
+80,
+"const T = window.__T, J = T.jeep, me = T.me; T.log.push(['end', !!me.seat, me.sitK]);"
+]
+]

@@ -1,5 +1,5 @@
 {
- "as_of": "section C round 2, 2026-11-13",
+ "as_of": "section C round 6 and the leaf sway, 2026-11-14",
  "statuses": [
   "fixed",
   "partly fixed",
@@ -25,31 +25,49 @@
    "note": ""
   },
   "boot-03": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "16996b7",
     "ae20b20",
-    "30a3173"
+    "30a3173",
+    "5622685",
+    "c5f8db8",
+    "d0d345c",
+    "56bc3b7",
+    "83de465",
+    "7c2a9d4"
    ],
-   "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
+   "note": "every order-only import is gone (input.js in five modules, save.js, fur.js, hud.js, sky.js, sloths.js); main.js holds the build order as calls, and each system has its own random stream (92f6efe), so the order no longer moves the layout"
   },
   "boot-04": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "2626429",
     "d6fbceb",
     "00f93fb",
-    "ae20b20"
+    "ae20b20",
+    "8e8770b",
+    "93e09a3",
+    "70dcb0c",
+    "7f62b80",
+    "42d0be8",
+    "9bbca24",
+    "d0d345c",
+    "2dd7dc8",
+    "e66242c"
    ],
-   "note": "the APIs are exports and every module the clean-up has reached imports them (daylight.js imports groundHeight, jeepSeat.js the jeep's API); sloths.js, operator.js, input.js, audio.js, car.js and radio.js still read the window aliases (next round), jeepSeat.js and lab.js still read __campLife, __car, __lab and __campFast, which have no export yet, and the debug hooks are not in one place yet"
+   "note": "every module imports what it uses: the operator's modules, jeepSeat.js and input.js import the places from camp/places.js and the sloths' own part (slothLife: path, lend, giveBack, eatGift) from sloth/hooks.js, with no setter (2dd7dc8); audio.js imports the chores, the operator and carApi (d0d345c, e66242c; it was handed them by hearCamp), and core.js pace replaces __campFast inside the page; every window.__ name is set in camp/debug.js"
   },
   "boot-06": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "4b4c73f",
-    "7bece27"
+    "7bece27",
+    "0092c59",
+    "8964b12",
+    "8865ca2"
    ],
-   "note": "fire, pools, motes, sun shadows, the day clock and the palette are step functions in their owners; the sloths' squish and nod, the flying emojis and the glow uniforms are still written out in main.js's loop until sloths.js gets a step function (next round); the one-frame dusk lag is kept on purpose, since moving it changes behaviour"
+   "note": "every piece of per-frame work is a step function in its owner, and main.js calls them in one order; the day, the weather and setLight now run first, so the fire, uNight, the sloths' glow, the pools and the lanterns use this frame's dusk (duskLast is gone)"
   },
   "boot-12": {
    "status": "fixed",
@@ -59,12 +77,14 @@
    "note": ""
   },
   "boot-17": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "4ddc16e",
-    "ea8bc13"
+    "ea8bc13",
+    "8e8770b",
+    "34684d1"
    ],
-   "note": "OPT and KEYS in core.js, now with time, cycle, pos, yaw and pitch; input.js (touch), sloths.js (campsloths, slothmat, lab), operator.js (op) and audio.js (sound, station, its storage key) still parse their own (next round)"
+   "note": "every URL option and storage key is in core.js OPT and KEYS: campsloths, slothmat and lab (sloths' modules), touch (input.js), op (operator.js), sound, station and the sound settings' key (audio.js); only fur.js reads location itself, because index.html and nooks.html share it"
   },
   "boot-18": {
    "status": "fixed",
@@ -74,18 +94,21 @@
    "note": ""
   },
   "boot-19": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "LOOK, PROPS and CABIN and the other looks' S entries are gone from core.js; the model file names say picked, and the jeep's live cabin light is no longer behind a switch"
   },
   "boot-20": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "16996b7",
     "633be43",
-    "8778d7f"
+    "8778d7f",
+    "a6ef95e"
    ],
-   "note": "highlight lit getter, player.js leftovers and core.js's pr variable removed; input.js's unused imports and its 'lit.at(to).center' remain (next round)"
+   "note": "the boot files' dead bits are gone, input.js's unused imports and its 'lit.at(to).center' included"
   },
   "crosscut-01": {
    "status": "fixed",
@@ -103,23 +126,34 @@
    "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
   },
   "crosscut-03": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "2626429",
     "d6fbceb",
     "00f93fb",
     "ae20b20",
-    "4615035"
+    "4615035",
+    "8e8770b",
+    "e4e2b5c",
+    "93e09a3",
+    "70dcb0c",
+    "bfca46a",
+    "571f821",
+    "7f62b80",
+    "42d0be8",
+    "9bbca24",
+    "c54ad4a"
    ],
-   "note": "the APIs are exports and every module the clean-up has reached imports them; sloths.js, operator.js, input.js, audio.js, car.js, radio.js, jeepSeat.js and lab.js still read __camp, __jeep, __laundry, __acts, __campLife, __me, __car, __op, __lab, __labStep and __campFast (core.js lists who reads which)"
+   "note": "no module in camp/ or activities.js reads a window.__ name; the tools' names are all set in camp/debug.js, each with who reads it, and the back-compat re-exports with no reader left are gone (forest.js A0/HERO/RC/V, campProps.js SOUP_POT, sloths.js burst/fx/sprite)"
   },
   "crosscut-04": {
    "status": "partly fixed",
    "commits": [
     "4ddc16e",
-    "4615035"
+    "4615035",
+    "9bbca24"
    ],
-   "note": "the globals are listed in core.js (now with the car's, the radio's and the sound's), marked as API, tool contract or debug hook, and two unused hooks are gone; one debug module is not done: the hooks still sit in main.js (__rest, __face, and __slothS, which still maps every sloth at start-up), clock.js, linger.js, weather.js, car.js, audio.js, radio.js, sloths.js and operator.js (op.scr is still computed every frame)"
+   "note": "one module, camp/debug.js, imported last by main.js, sets every window.__ name with a table of who reads it; the hooks nothing reads are gone (__rest, __face, __slothS, __me, __clocks, __errand, __path, __spots, __sloth, __lab, __op, __acts, __campLife, __audio, __radio, __camera, __car). op.scr is still worked out every frame for opApi.tapAt, since the scenario tours read it at frame time"
   },
   "crosscut-05": {
    "status": "waiting on Adriaen",
@@ -127,28 +161,41 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "crosscut-06": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "16996b7",
     "ae20b20",
-    "30a3173"
+    "30a3173",
+    "5622685",
+    "c5f8db8",
+    "d0d345c",
+    "56bc3b7",
+    "83de465",
+    "7c2a9d4"
    ],
-   "note": "the 7 duplicate bare imports are gone, and main.js states that its import list is the build order and which modules draw from the seeded stream; the 2 unneeded bare imports (sky.js, player.js) and their comments remain"
+   "note": "no camp module has a bare import left: the build order is main.js's list of build calls, so the chain and its cycle are gone"
   },
   "crosscut-07": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "16996b7",
     "633be43",
     "4615035",
-    "8778d7f"
+    "8778d7f",
+    "b9a833a",
+    "a6ef95e",
+    "c54ad4a",
+    "7b104e5",
+    "f5f9508"
    ],
-   "note": "forest.js, food.js, player.js and jeep.js (jeepTap, the camper's ladder) done; sloths.js's COUNT, flowerCrown and friend, and input.js's import of them, remain (next round)"
+   "note": "the last of them gone too: sloths.js COUNT and flowerCrown, player.js's collide export, core.js's canvasTex import, and the imports main.js and car.js no longer used, and forest.js's A0 and sloth/step.js's scene"
   },
   "crosscut-08": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "removed in the efficiency clean-up (Adriaen 2026-11-14: byte-for-byte sameness no longer required): the fire's three hidden glow sprites (campProps.js fireStep, chores.js boostFire) and daylight.js's hidden firefly cloud. A section D item: restore from 83de465's parent if they are wanted back"
   },
   "crosscut-09": {
    "status": "partly fixed",
@@ -157,18 +204,25 @@
     "d6fbceb",
     "00f93fb",
     "633be43",
-    "bdd3760"
+    "bdd3760",
+    "8e8770b",
+    "89f77ba",
+    "e74c786",
+    "87b1b03",
+    "abb4bea"
    ],
-   "note": "camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack and its eye-drop ease (both round differently from the helper) and daylight.js's sm (THREE.MathUtils.smoothstep, moved from main.js as it was); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js remain (next round)"
+   "note": "camp/util.js (V, canvasTex, lam, trisIn, wrapPi, ease, rand, yawTo, yawFrom ...); the sloths (camp/sloth/), operator.js, activities.js, input.js, audio.js, car.js, radio.js and the modules from PRs #15 and #16 use it. Left, each because it rounds differently from the helper: player.js onTrack and its eye-drop ease, operator/walk.js's angle wrap; daylight.js's sm is THREE.MathUtils.smoothstep"
   },
   "crosscut-10": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "1eaa862",
     "d6fbceb",
-    "8778d7f"
+    "8778d7f",
+    "8e8770b",
+    "978fcba"
    ],
-   "note": "camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js remain (next round)"
+   "note": "camp/layout.js is the one source: clock.js, linger.js, the sloths (camp/sloth/), the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area) read it; the moved values were checked bit for bit on both branches"
   },
   "crosscut-13": {
    "status": "fixed",
@@ -178,26 +232,39 @@
    "note": ""
   },
   "crosscut-14": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "4b4c73f",
-    "7bece27"
+    "7bece27",
+    "0092c59",
+    "8964b12",
+    "5622685",
+    "c5f8db8",
+    "d0d345c",
+    "56bc3b7",
+    "83de465",
+    "7c2a9d4",
+    "25a996f",
+    "52a8b5f"
    ],
-   "note": "main.js's inline blocks moved to their owners, except the sloths' three pieces (sloths.js, next round), and its import list is the stated build order; init(ctx) per module, a frame registry and the core.js split remain"
+   "note": "no camp module builds anything when it is imported: each exports a build function (buildSky, buildForest, buildProps, buildJeep, buildSloths, buildDeadwood, buildGlade, buildGround, buildOperator, initInput, initAudio, buildClocks, buildRadio...), and main.js calls them in one commented list; the last two exceptions are gone too: audio.js's listeners, Tap for sound pill and Sound button are initAudio() (25a996f), and core.js's settings buttons are wireSettings() (52a8b5f). The per-frame work was already in step functions. A frame registry and a core.js split were not needed for this and are not done"
   },
   "crosscut-15": {
    "status": "partly fixed",
    "commits": [
     "d720668",
     "4ddc16e",
-    "ea8bc13"
+    "ea8bc13",
+    "136323e"
    ],
-   "note": "one table of URL options, storage keys and window globals in core.js, now with time, cycle and the start view; the README copy remains, and the options input.js, sloths.js, operator.js and audio.js parse themselves"
+   "note": "one table of URL options and storage keys at the top of core.js (OPT), now with touch, campsloths, slothmat, lab, sound and station, which every module reads instead of parsing the URL; the README's Canopy Camp section points to it (ec67fc1). A pos, yaw or pitch that is not a number now keeps the default start view (136323e). props/shadow/export_casters.cjs's usage line still names props=, which the page ignores"
   },
   "crosscut-17": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "the looks (world-04), the prop-set switch PROPS and the cabin switch CABIN are gone; the camper jeep was already gone"
   },
   "genbake-01": {
    "status": "fixed",
@@ -303,9 +370,12 @@
    "note": "the GPU bake printed \"GPU OPTIX RTX 5070 Ti\" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain"
   },
   "gencamp-08": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "c36f734",
+    "8422fe0"
+   ],
+   "note": "the archived styles' builders and their command lines live next to their GLBs (props/camp/archive/build_camp_styles.py, props/jeep/archive/build_jeep_styles.py, review R2-258); build_camp.py keeps only what picked() uses and build_jeep.py only the Expedition, its LOD and what the archive shares (body() takes the wheel and the toy's sizes as arguments). Every live and archived build makes the same geometry as before, object for object"
   },
   "gencamp-13": {
    "status": "partly fixed",
@@ -409,35 +479,52 @@
    "note": "shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs"
   },
   "operator-07": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
-    "16996b7"
+    "16996b7",
+    "a6ef95e",
+    "bedef9b",
+    "83de465"
    ],
-   "note": "kettle spout removed (pot: SOUP_POT); flames and blockers options remain"
+   "note": "the blockers option, the fallbacks and the optional-call guards are gone (16996b7, a6ef95e, bedef9b), and the old flame sprites with them (83de465): chores.js boostFire scales only the flame cards"
   },
   "operator-09": {
-   "status": "planned",
-   "commits": [],
-   "note": "next round of section C: the shared character layer and the sloths.js split"
+   "status": "fixed",
+   "commits": [
+    "27dda54",
+    "c3f1346",
+    "5795b11",
+    "d7ae27c",
+    "abb4bea",
+    "afe9420"
+   ],
+   "note": "camp/actor.js is the one character layer the sloths and the operator share (review R2-212): clips (crossFade), turning (turnYaw, a share of the gap or a capped rate, each character's own numbers), a step along a yaw, the walker in the way (ahead), a wander point (ringPoint), bone aim, the gaze test and timer before a wave, the sleep Zs and bites. Each keeps its own state machine: the sloths' grid path that gives way and the operator's generator that steers round blockers and overtakes, and how a one-shot clip is known to be done"
   },
   "operator-10": {
-   "status": "planned",
-   "commits": [],
-   "note": "next round of section C: the shared character layer and the sloths.js split"
+   "status": "partly fixed",
+   "commits": [
+    "d109364",
+    "2dd7dc8"
+   ],
+   "note": "camp/places.js (claims, hosts, movers) and camp/nav.js (the grid and A*, over a list of blockers, with the body radius and fire berth as arguments) exist; the sloths, the operator and jeepSeat.js import them directly, and the operator reaches only the sloths' own part (slothLife) through sloth/hooks.js, with no setter (2dd7dc8). Left: movers() still builds a new array on every call"
   },
   "operator-12": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "1eaa862",
     "d6fbceb",
-    "8778d7f"
+    "8778d7f",
+    "8e8770b",
+    "978fcba"
    ],
-   "note": "camp/layout.js is the one source and clock.js and linger.js read it; the copies in sloths.js, operator.js, input.js, activities.js, audio.js and radio.js remain (next round)"
+   "note": "camp/layout.js is the one source: clock.js, linger.js, the sloths (camp/sloth/), the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area) read it; the moved values were checked bit for bit on both branches"
   },
   "operator-16": {
-   "status": "planned",
-   "commits": [],
-   "note": "next round of section C: the shared character layer and the sloths.js split"
+   "status": "partly fixed",
+   "commits": [
+    "571f821"
+   ],
+   "note": "camp/operator/: state, model, ik, handProps, places, walk, buddy, day, cook, lines, talk, handPose, fidget, headPose, step; one state object with named fields and reset(part). The scripts still clean up through dropAll and reset, not try/finally"
   },
   "props-01": {
    "status": "fixed",
@@ -452,16 +539,20 @@
    "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
   },
   "props-03": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "removed in the efficiency clean-up (Adriaen 2026-11-14: byte-for-byte sameness no longer required): the fire's three hidden glow sprites (campProps.js fireStep, chores.js boostFire) and daylight.js's hidden firefly cloud. A section D item: restore from 83de465's parent if they are wanted back"
   },
   "props-06": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
-    "1eaa862"
+    "1eaa862",
+    "8e8770b",
+    "978fcba"
    ],
-   "note": "camp/layout.js is the one source; the copies in sloths.js, operator.js, input.js and activities.js remain (next round)"
+   "note": "camp/layout.js is the one source: clock.js, linger.js, the sloths (camp/sloth/), the operator (crate, soup pot, tent frame and bed, gaps in the seat ring), the chores (wood pile, fire, pot, table and its yaw), radio.js (table yaw) and audio.js (the tent's dry area) read it; the moved values were checked bit for bit on both branches"
   },
   "props-07": {
    "status": "partly fixed",
@@ -474,9 +565,11 @@
   "props-08": {
    "status": "fixed",
    "commits": [
-    "2626429"
+    "2626429",
+    "bfca46a",
+    "e66242c"
    ],
-   "note": "exports, with the window names kept as aliases for the files that still read them"
+   "note": "exports, and the window names are gone except the ones debug.js sets for the tools (window.__car went); each module owns its own API: jeep.js jeepApi (the doors and the jeep's places), jeepSeat.js seatApi (sit, stand, seatedIn, seatBusy) and car.js carApi (inCar, engine), and nothing adds to jeepApi any more (e66242c)"
   },
   "props-11": {
    "status": "fixed",
@@ -485,13 +578,22 @@
    ],
    "note": "shared/fur.js is the source; npm run sync-shared writes the six copies and check-shared fails if one differs"
   },
+  "props-12": {
+   "status": "fixed",
+   "commits": [
+    "9800b8e"
+   ],
+   "note": "leafMat passes the sway as a per-material uniform, so the ferns and the leaves share one program and each sways by its own amount. sky.js and ground.js set onBeforeCompile directly too, but their shader text has no values in it, so their default cache key is right."
+  },
   "props-13": {
    "status": "partly fixed",
    "commits": [
     "5dab33a",
-    "2ce6f7a"
+    "2ce6f7a",
+    "59499d8",
+    "e5a8db1"
    ],
-   "note": "util.js patchMaterial; sloths.js and operator.js still chain their hooks by hand (next round)"
+   "note": "util.js patchMaterial; the hammock's and the towel's hooks (swing.js) use it; operator.js still chains its hooks by hand"
   },
   "props-16": {
    "status": "waiting on Adriaen",
@@ -529,9 +631,10 @@
   "sloths-04": {
    "status": "fixed",
    "commits": [
-    "68529c0"
+    "68529c0",
+    "1a0e5b5"
    ],
-   "note": ""
+   "note": "giving what you carry to a wild sloth no longer throws either: it gets it the way it gets a flower (1a0e5b5)"
   },
   "sloths-22": {
    "status": "fixed",
@@ -541,24 +644,44 @@
    "note": ""
   },
   "sloths-29": {
-   "status": "planned",
-   "commits": [],
-   "note": "next round of section C: the shared character layer and the sloths.js split"
+   "status": "fixed",
+   "commits": [
+    "7c1884f",
+    "ed5cbaf",
+    "6a76fb7",
+    "23ee011",
+    "93e09a3",
+    "f353638"
+   ],
+   "note": "sloths.js is a 90-line entry module that builds the sloths in the old order; camp/sloth/ holds 24 modules with one job each (the longest is 123 lines), with state.js for what they share. The shared character layer with operator.js (C4, camp/actor.js) is a later round; the mouth card is made by face.js buildFace() at the old point, and order-only imports of fur.js (main.js) and save.js (sloths.js) keep every old module's evaluation order and draw counts"
   },
   "sloths-30": {
-   "status": "planned",
-   "commits": [],
-   "note": "next round of section C: the shared character layer and the sloths.js split"
+   "status": "partly fixed",
+   "commits": [
+    "d109364",
+    "93e09a3",
+    "2dd7dc8"
+   ],
+   "note": "camp/places.js and camp/nav.js export the registry and the path finding, and the sloths, lab.js, the operator, jeepSeat.js and input.js import them; sloth/hooks.js keeps only the sloths' own part (slothLife: path, lend, giveBack, eatGift), and the operator's life() indirection and its optional calls are gone (2dd7dc8). Left: movers() building a new array on every call, and the claim of the seat you sit on, which is still in the sloths' step (sloth/step.js seatWatch), not in linger.js"
   },
   "sloths-31": {
-   "status": "planned",
-   "commits": [],
-   "note": "next round of section C"
+   "status": "fixed",
+   "commits": [
+    "8e8770b"
+   ],
+   "note": "the sloths import jeepApi, layout.js (HAMMOCK, SEATS, TENT, TABLE, CRATE, LAUNDRY) and util.js; main.js hands the player's seat to campStep(dt, me.seat), and the check-only speed-up is core.js pace (debug.js maps window.__campFast onto it), so the sloths read nothing from window"
   },
   "sloths-32": {
-   "status": "planned",
-   "commits": [],
-   "note": "next round of section C: the shared character layer and the sloths.js split"
+   "status": "fixed",
+   "commits": [
+    "0092c59",
+    "c42cc88",
+    "e4e2b5c",
+    "8964b12",
+    "59499d8",
+    "e5a8db1"
+   ],
+   "note": "fx.js (sprite, burst, fxStep), swing.js (the hammock's sway and the cloth's breeze, with patchMaterial), labButton.js (the button and labStep), and slothsStep, warmStep and hammockStep for main.js; SL and slothLife are no longer exported. swing.js is called from the sloths' spots, not from campProps.js, so the scene's objects keep their order"
   },
   "world-01": {
    "status": "fixed",
@@ -569,9 +692,11 @@
    "note": "rebaked on the GPU in b700bf0, so the trunk now casts its baked shadow"
   },
   "world-04": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "the Painterly and Low-poly branches are gone from forest.js, glade.js, sky.js and ground.js, and the moss code is the only code; LOOK, S.flat and the other looks' S entries are gone (Adriaen 2026-11-14: the clean-up is for maintainability; the looks live on in index.html and in git history). Every forest draw runs in the same order: all 190 meshes' geometry and instances match 230b97f"
   },
   "world-05": {
    "status": "partly fixed",
@@ -593,9 +718,11 @@
    "note": ""
   },
   "world-10": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "the hidden firefly cloud is gone from daylight.js (atmosphere.js draws the blinking fireflies); a section D item, removed in the efficiency clean-up"
   },
   "world-11": {
    "status": "fixed",
@@ -618,9 +745,13 @@
     "d6fbceb",
     "00f93fb",
     "633be43",
-    "bdd3760"
+    "bdd3760",
+    "8e8770b",
+    "89f77ba",
+    "e74c786",
+    "87b1b03"
    ],
-   "note": "camp/util.js (now with trisIn, wrapPi and ease); the six modules from PRs #15 and #16 use it, except player.js onTrack and its eye-drop ease (both round differently from the helper) and daylight.js's sm (THREE.MathUtils.smoothstep, moved from main.js as it was); the copies in sloths.js, operator.js, input.js, activities.js, audio.js, car.js and radio.js remain (next round)"
+   "note": "camp/util.js (V, canvasTex, lam, trisIn, wrapPi, ease, rand ...); the sloths (camp/sloth/), operator.js, activities.js, input.js, audio.js, car.js, radio.js and the modules from PRs #15 and #16 use it. Left, each because it rounds differently from the helper: player.js onTrack and its eye-drop ease, operator/walk.js's angle wrap; daylight.js's sm is THREE.MathUtils.smoothstep"
   },
   "world-16": {
    "status": "fixed",
@@ -651,6 +782,234 @@
     "7bece27"
    ],
    "note": "camp.html's header and module list and main.js's header say what is there, and the kettle comments in campLife.js are gone; the comment fixes in sloths.js, campProps.js, bakedlight.js, ground.js and atmosphere.js remain, and camp.html's CSS merges (see boot-22)"
+  },
+  "operator-23": {
+   "status": "partly fixed",
+   "commits": [
+    "e74c786"
+   ],
+   "note": "V, canvasTex, ease and lam come from util.js; the repeated expressions (yaw to the camera, facing the fire, the reach and ease loops) are as they were"
+  },
+  "operator-06": {
+   "status": "fixed",
+   "commits": [
+    "a6ef95e",
+    "287fc96"
+   ],
+   "note": "clipOf, the scratch vector, the unused state fields, sipping()'s argument and the second turn before the bed are gone; the moverTry retry went too, as the sloths' life now arrives by import before any frame"
+  },
+  "operator-17": {
+   "status": "partly fixed",
+   "commits": [
+    "bedef9b",
+    "87b1b03",
+    "44eb928"
+   ],
+   "note": "each thing carries its own label; activities/ carry.js, fireChore.js, soupChore.js, fruitBowl.js, parts.js; 12 options instead of 19. The Put it back pill still carries its own CSS (camp.html was not in this round)"
+  },
+  "operator-11": {
+   "status": "partly fixed",
+   "commits": [
+    "978fcba",
+    "a6d52a9"
+   ],
+   "note": "tentInside.js and the operator use layout.js TENT.fromLocal and TENT.bed; sloths.js still writes the frame out itself"
+  },
+  "sloths-34": {
+   "status": "partly fixed",
+   "commits": [
+    "5859ad4"
+   ],
+   "note": "body.js hang() is the one place a sloth is made and lists every field with its meaning; a fresh trip record per phase, the shadowing locals and the long lines remain"
+  },
+  "sloths-26": {
+   "status": "partly fixed",
+   "commits": [
+    "89f77ba",
+    "52867ce"
+   ],
+   "note": "wakeUp, claimHome and releaseHome, pawOf for either paw, armBones and yawQ are each written once; moveInto and yawToward are not done, and leave() and giveBack() keep their own `if (s.asleep)` eye-opening, because opening the eyes without the test would cut a blink short; the z sprites have one maker (naps.js makeZs)"
+  },
+  "operator-24": {
+   "status": "fixed",
+   "commits": [
+    "a6d52a9",
+    "571f821",
+    "87b1b03"
+   ],
+   "note": "campLife.js's and operator.js's headers and comments rewritten with the splits"
+  },
+  "operator-15": {
+   "status": "fixed",
+   "commits": [
+    "a6d52a9",
+    "d0d345c"
+   ],
+   "note": "campLife.js is gone: main.js calls buildGround, buildTentInside, buildAtmosphere and buildChores in its build list, and groundLife, atmo and acts are exported by campGround.js, campAir.js and chores.js"
+  },
+  "operator-13": {
+   "status": "fixed",
+   "commits": [
+    "a6ef95e"
+   ],
+   "note": "the constant PROPS === \"picked\" conditions are unwrapped"
+  },
+  "sloths-20": {
+   "status": "fixed",
+   "commits": [
+    "d109364",
+    "b9a833a",
+    "8e70606",
+    "537dbfb",
+    "2f77115"
+   ],
+   "note": "s.lit, s.fav, s.friend, the wild sloths' perch, spot.ignore, removeMover, shutEyes and dozeClip's constant `? 1 : 1` are gone; cast.js says why it keeps trait and fav; the split's exports that nothing imported (SLOTH_WARM, slothLife, rouse, wake, SPEED, clearLine, atHome) are module-private, and window.__campLife.join and __camp.sloths, which nothing read, are gone"
+  },
+  "sloths-24": {
+   "status": "fixed",
+   "commits": [
+    "89f77ba"
+   ],
+   "note": "poses.js underAt is the one hanging pose: hang(), the rope and the line use it, and BR is gone"
+  },
+  "sloths-33": {
+   "status": "partly fixed",
+   "commits": [
+    "93e09a3"
+   ],
+   "note": "campStep is a table of one step function per phase (sloth/step.js PHASE); LIVELY and GROUND are still separate sets in sloth/state.js, the spots are still told apart by name and flags in wayIn.js and wayOut.js, and WHO is still a table in sloths.js"
+  },
+  "operator-19": {
+   "status": "partly fixed",
+   "commits": [
+    "bfca46a",
+    "bedef9b",
+    "25a996f"
+   ],
+   "note": "the operator imports acts, the fire's boost has one owner (camp/chores.js boostFire), audio.js's two globals are gone (hearCamp, see crosscut-03), and the chores name their own sounds (audio.js cue) instead of audio.js reading the #toast text (25a996f). Left: the window events (camp-act, camp-food) have no one module, and the chores still set s.nod on a sloth"
+  },
+  "sloths-25": {
+   "status": "checked, still open",
+   "commits": [
+    "89f77ba"
+   ],
+   "note": "glide, move, clamber, settle and turn share util.js ease now, but they are still five tweens: one tween() changes the fields of the trip record, which the behaviour checks compare, so it needs its own round (and step 2 changes the climb's timing)"
+  },
+  "operator-14": {
+   "status": "partly fixed",
+   "commits": [
+    "22ef8a7",
+    "4f1df9e"
+   ],
+   "note": "places.js gives seatLog(i), seatKey(i, left) and bedKey(i), and the five modules that looked up Seat_<i> and typed \"log:1\", \"log:0:left\", \"bed:0\" use them; the tap targets are one registry (targets.js, boot-08). Left as it is, because changing it would change what you see: where each one sits on a log (each module's own offset) and serve() not asking who holds the seat before it sets a bowl down"
+  },
+  "boot-08": {
+   "status": "fixed",
+   "commits": [
+    "4f1df9e",
+    "3aa8e15"
+   ],
+   "note": "camp/targets.js is the one registry: addTarget for single things (linger.js, clock.js, radio.js, car.js, operator/talk.js) and addTargets(kind, list) for the sets that change, which their owners add: chores.js the things, input.js the sloths, jeepSeat.js the doors (its doorOptions is local now, so jeepApi and carApi lose it). The targets come in the same order as before; linger, clock, radio, car and operator/talk keep an order-only import of input.js, so the modules are still built in the same order"
+  },
+  "crosscut-22": {
+   "status": "partly fixed",
+   "commits": [
+    "e628a42"
+   ],
+   "note": "tools/camp-page.cjs holds the headless set-up (server, Chromium on SwiftShader, three.js from node_modules with its own uuid stream, the virtual clock, the fingerprint); camp-replay.cjs and camp-scenarios.cjs use it, and the replay prints byte-for-byte what it printed before. camp-probe.cjs and props/shadow/export_casters.cjs still bring their own set-up (the probe serves .ktx2 and other types differently; export_casters is the bake's layout step)"
+  },
+  "hygiene-04": {
+   "status": "fixed",
+   "commits": [
+    "ddf8cd6",
+    "8230fe9"
+   ],
+   "note": "README.md has a Canopy Camp section (module groups, URL options, generators and bakes, tools) and table rows for the camp, props/, tools/ and docs/reviews/; CLAUDE.md has two rule lines pointing there and naming npm run replay and npm run scenarios as the check before a clean-up PR"
+  },
+  "hygiene-22": {
+   "status": "fixed",
+   "commits": [
+    "8230fe9"
+   ],
+   "note": "covered by hygiene-04: the README table has a row for apps/canopy-prototype"
+  },
+  "world-13": {
+   "status": "fixed",
+   "commits": [
+    "92f6efe",
+    "2dcf9b2"
+   ],
+   "note": "core.js rng(name): each system has its own stream, seeded from ?seed and its name, so the layout no longer depends on module order, on what another system drew or on another system's detail level; the forest's stream starts at 3000 + ?seed (rng(name, start)), where it restarted the old shared one, so the forest and the ground it shapes stay as baked. Texture noise uses Math.random or a fixed lcg"
+  },
+  "props-10": {
+   "status": "fixed",
+   "commits": [
+    "92f6efe"
+   ],
+   "note": "the shafts and motes draw from their own stream (rng(\"props\")), so the detail level no longer moves anything else"
+  },
+  "sloths-35": {
+   "status": "partly fixed",
+   "commits": [
+    "92f6efe"
+   ],
+   "note": "the sloths' timers no longer share a stream with the forest, the props or the operator (rng(\"sloths\")); within the sloths, placing the wild sloths and the timers still share one stream, which only matters if the placement draws change"
+  },
+  "world-09": {
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "both discs are gone: sky.js exports forestFloorTex and forest.js grassTex, and createGround takes grassMap instead of the clearing mesh"
+  },
+  "boot-21": {
+   "status": "fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "the hidden 120-point firefly cloud is no longer built or updated (daylight.js)"
+  },
+  "props-09": {
+   "status": "partly fixed",
+   "commits": [
+    "83de465"
+   ],
+   "note": "campProps.js has no block-scoped var exports left: everything buildProps makes is a module-level let set when it runs; the sloth model (SLOTH) and the night uniform (uNight) still live in campProps.js"
+  },
+  "boot-09": {
+   "status": "partly fixed",
+   "commits": [
+    "1a0e5b5"
+   ],
+   "note": "lab.js imports labApi (sloth/hooks.js), holder (places.js) and pace (core.js) instead of globals, and with ?campsloths=0 labButton.js adds no lab, so nothing throws (1a0e5b5). Left: the panel is built when lab.js is first imported, and the wheel handler does not check that the panel is open"
+  },
+  "boot-07": {
+   "status": "partly fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "the settings buttons are wired by core.js wireSettings(), which main.js calls, not at import; the forest-only leaf material and the unnamed light are still in core.js"
+  },
+  "props-04": {
+   "status": "partly fixed",
+   "commits": [
+    "52a8b5f"
+   ],
+   "note": "the constant CABIN switch is inlined and gone from core.js; the rest was not looked at in this round"
+  },
+  "props-17": {
+   "status": "partly fixed",
+   "commits": [
+    "1a0e5b5"
+   ],
+   "note": "?jeep=none no longer asks for a night ground map that was never baked (no 404s; the ground is lit live, as it was after the failed downloads). Left: its day shadow map is still the stale bake, and a night map for it needs a bake on Adriaen's GPU"
+  },
+  "world-14": {
+   "status": "partly fixed",
+   "commits": [
+    "a2aaf40"
+   ],
+   "note": "buildForest is a list of named steps (clearingFloor, trackRoad, heroTrees, forestWall, leafCard, wallLeaves, crowns, verge, ferns) in the same order; the repeated ribbon builders and leaf-instancing loops are as they were"
   }
  }
 }

@@ -1,21 +1,57 @@
 """
 Vertex-colour light for the props/ generators, both into the "Col" colour attribute drawn by one "Baked" material:
 
-    bake(objs, samples, split=False, apply=True)   Cycles ambient occlusion (with a ground plane) times each face's base
+    bake(objs, samples, split=False, apply=True, device="auto")
+                                                   Cycles ambient occlusion (with a ground plane) times each face's base
                                                    colour, for props that carry their own light (the archived camp
-                                                   styles, the jeep, a builder run on its own)
-    flat_colours(objs, glow=())                    the plain base colours, no light, for props the light bake lights
-                                                   (props/camp/bake_camp_lightmap.py); alpha 0 marks glowing faces
+                                                   styles, the jeep, a builder run on its own), on pick_device(device)
+    flat_colours(objs)                             the plain base colours, no light, for props the light bake lights
+                                                   (props/camp/bake_camp_lightmap.py); alpha 0 marks the faces of
+                                                   materials with the "glow" property (lantern glass, the stove's fire)
+    pick_device(scene, choice="auto")              puts Cycles on the fastest GPU backend there is (OptiX, CUDA, Metal,
+                                                   HIP), else the CPU, prints which, and returns "GPU" or "CPU"; "gpu"
+                                                   or a backend name stops the script when there is no such GPU, "cpu"
+                                                   forces the CPU. Every script that renders or bakes calls it (review
+                                                   R2-111), after the last reset(), because a factory reset also resets
+                                                   the preferences that hold the GPU choice (review R2-226)
 
 Before the AO bake each object (unless it has the "coarse" property) has its transforms applied (apply=True) or, with
 split=True, its long edges split by densify() so the per-vertex AO has room to vary ("ao_edge" sets the length). The
 low-triangle rule (Adriaen 2026-11-11) means only the archived styles split.
+
+    corner_values(me, per_face)                    a per-face array spread to every face corner (loop), for foreach_set
+    ao_times_base(me)                              bake()'s last step: "AO" x each face's base colour into "Col"
+
+The colours are worked out with numpy over whole arrays and written with one foreach_set per object (review R2-253).
 """
+import sys
+
 import bpy
-from mathutils import Vector
+import numpy as np
 
 from lib.materials import baked_material
 from lib.mesh import apply_all
+
+
+def corner_values(me, per_face):
+    """per_face (one row per polygon of me) spread to the face corners: row i of the result belongs to loop i."""
+    n = len(me.polygons)
+    start, total = np.empty(n, np.int64), np.empty(n, np.int64)
+    me.polygons.foreach_get("loop_start", start)
+    me.polygons.foreach_get("loop_total", total)
+    face = np.repeat(np.arange(n), total)                                     # the polygon of each corner, in polygon order
+    loop = np.repeat(start, total) + np.arange(len(face)) - np.repeat(np.cumsum(total) - total, total)
+    per_face = np.asarray(per_face)
+    out = np.empty((len(me.loops),) + per_face.shape[1:], per_face.dtype)
+    out[loop] = per_face[face]
+    return out
+
+
+def _face_materials(me):
+    """Each polygon's material slot index."""
+    mi = np.empty(len(me.polygons), np.int64)
+    me.polygons.foreach_get("material_index", mi)
+    return mi
 
 
 def densify(o, edge=0.13):
@@ -37,11 +73,11 @@ def densify(o, edge=0.13):
     bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def bake(objs, samples, split=False, apply=True):
-    """Cycles AO (distance 0.6, over a 40 m ground plane) x base colour into "Col"; see the module docstring."""
+def bake(objs, samples, split=False, apply=True, device="auto"):
+    """Cycles AO (distance 0.6, over a 40 m ground plane) x base colour into "Col", on pick_device(device); see the
+    module docstring."""
     sc = bpy.context.scene
-    sc.render.engine = "CYCLES"
-    sc.cycles.device = "CPU"
+    pick_device(sc, device)
     sc.cycles.samples = samples
     sc.world = sc.world or bpy.data.worlds.new("w")
     bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
@@ -63,37 +99,68 @@ def bake(objs, samples, split=False, apply=True):
         sc.world.light_settings.distance = 0.6
         bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
     bpy.data.objects.remove(ground)
-    # colour = base colour x soft AO, into the attribute the exporter writes as COLOR_0
     for o in objs:
-        me = o.data
-        ao = me.color_attributes["AO"]
-        col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        bases = [Vector(m["base"]) for m in me.materials]
-        for poly in me.polygons:
-            base = bases[poly.material_index]
-            for li in poly.loop_indices:
-                a = ao.data[li].color[0]
-                k = 0.32 + 0.68 * a
-                col.data[li].color = (base.x * k, base.y * k, base.z * k, 1)
-        me.color_attributes.remove(ao)
-        me.color_attributes.active_color = me.color_attributes["Col"]
-        me.materials.clear()
-        me.materials.append(baked_material(roughness=0.9))   # one plain material that uses the colour attribute
+        ao_times_base(o.data)
 
 
-def flat_colours(objs, glow=()):
-    """Plain base colours into "Col" (alpha 0 on faces whose material name is in glow), one "Baked" material each."""
+def ao_times_base(me):
+    """Colour = base colour x soft AO (the "AO" attribute, then removed) into "Col", the attribute the exporter writes as
+    COLOR_0; then one plain material that uses it in place of the mesh's materials."""
+    a = np.empty(len(me.loops) * 4, np.float32)
+    me.color_attributes["AO"].data.foreach_get("color", a)
+    k = 0.32 + 0.68 * a[0::4]
+    bases = np.array([m["base"] for m in me.materials], np.float32)
+    rgba = np.ones((len(me.loops), 4), np.float32)
+    rgba[:, :3] = corner_values(me, bases[_face_materials(me)]) * k[:, None]
+    col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
+    col.data.foreach_set("color", rgba.ravel())
+    me.color_attributes.remove(me.color_attributes["AO"])
+    me.color_attributes.active_color = me.color_attributes["Col"]
+    me.materials.clear()
+    me.materials.append(baked_material(roughness=0.9))
+
+
+def flat_colours(objs):
+    """Plain base colours into "Col" (alpha 0 on faces whose material has the "glow" property), one "Baked" material each.
+    An object with a "paint_image" property (the name of a loaded image: build_camp.py paint_uvs) keeps that image on its
+    UV0 in its Baked material (lib.materials.baked_material), for the page to multiply over the colours."""
     for o in objs:
         me = o.data
         for c in list(me.color_attributes):
             me.color_attributes.remove(me.color_attributes[c.name])
         col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        for poly in me.polygons:
-            m = me.materials[poly.material_index] if me.materials else None
-            base = Vector(m["base"]) if m and "base" in m else Vector((0.5, 0.5, 0.5))
-            al = 0.0 if m and m.name.split(".")[0] in glow else 1.0
-            for li in poly.loop_indices:
-                col.data[li].color = (base.x, base.y, base.z, al)
+        slots = [(*(m["base"] if m and "base" in m else (0.5, 0.5, 0.5)), 0.0 if m and m.get("glow") else 1.0)
+                 for m in me.materials] or [(0.5, 0.5, 0.5, 1.0)]                # no material: grey
+        per_face = np.array(slots, np.float32)[_face_materials(me) if me.materials else np.zeros(len(me.polygons), np.int64)]
+        col.data.foreach_set("color", corner_values(me, per_face).ravel())
         me.color_attributes.active_color = col
-        m = baked_material()
+        m = baked_material(image=bpy.data.images.get(o.get("paint_image", "")) if o.get("paint_image") else None)
         me.materials.clear(); me.materials.append(m)
+
+
+def pick_device(scene, choice="auto"):
+    """Set scene.cycles.device to the fastest GPU backend available, enabling that backend's devices in the Cycles
+    preferences, and print the choice. choice: "auto" (OptiX, CUDA, Metal, then HIP, else the CPU), "gpu" (the same
+    order, but stop the script when there is none), one backend by name (stop when it has no device), or "cpu"."""
+    scene.render.engine = "CYCLES"
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    choice = choice.lower()
+    if choice != "cpu":
+        for backend in (["OPTIX", "CUDA", "METAL", "HIP"] if choice in ("auto", "gpu") else [choice.upper()]):
+            try:
+                prefs.compute_device_type = backend
+            except TypeError:
+                continue                                # this Blender build has no such backend
+            prefs.get_devices()
+            gpus = [d for d in prefs.devices if d.type == backend]
+            if gpus:
+                for d in prefs.devices:
+                    d.use = d.type == backend
+                scene.cycles.device = "GPU"
+                print(f"  Cycles device: GPU, {backend} ({', '.join(d.name for d in gpus)})", flush=True)
+                return "GPU"
+    if choice not in ("auto", "cpu"):
+        sys.exit(f"Cycles device {choice!r} was asked for, but this machine has no such GPU on")
+    scene.cycles.device = "CPU"
+    print(f"  Cycles device: CPU ({'asked for' if choice == 'cpu' else 'no supported GPU found'})", flush=True)
+    return "CPU"

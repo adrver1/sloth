@@ -1,6 +1,10 @@
-// Copies the shared source files in shared/ into every app folder that uses them, each copy marked as generated.
-// Each app folder is published on its own (as an artifact and on GitHub Pages), so a page needs its own copy next to it;
-// shared/ is the one place to edit. Run after changing a file in shared/:
+// Keeps the files that several app folders carry the same. Each app folder is published on its own (as an artifact and on
+// GitHub Pages), so a page needs its own copy next to it, and this script stops the copies drifting apart.
+//   COPIES: source files in shared/, copied into each folder with a GENERATED line on top. shared/ is the one place to edit.
+//   SAME:   base64 models (no room for a header line) that must stay byte-for-byte equal. The first folder listed holds the
+//           source; repack that one, then run this to copy it to the rest (review R2-223). The camp's own models/sloth.txt
+//           is left out on purpose: tools/pack-chars.cjs packs it with newer clips, and moving the other pages up to it
+//           would change their clips, which is Adriaen's call.
 //   node tools/sync-shared.cjs           # (npm run sync-shared) write the copies
 //   node tools/sync-shared.cjs --check   # (npm run check-shared) exit 1 if any copy differs from its source
 const fs = require('fs'), path = require('path');
@@ -8,6 +12,11 @@ const ROOT = path.resolve(__dirname, '..');
 // source in shared/ -> the folders that keep a copy of it under the same name
 const COPIES = {
   'fur.js': ['apps/canopy-prototype', 'apps/catch-the-baby', 'apps/fur-options', 'apps/karaoke', 'apps/playtime', 'stickers/renderer'],
+};
+// a model path -> the folders that carry it; the first folder's file is the source
+const SAME = {
+  'models/sloth.txt': ['apps/playtime', 'apps/catch-the-baby', 'apps/fur-options', 'apps/karaoke', 'stickers/renderer'],
+  'models/ponytail.txt': ['apps/playtime', 'stickers/renderer'],
 };
 const header = (src) => `// GENERATED from shared/${src} by tools/sync-shared.cjs. Do not edit this copy: edit shared/${src}, then run npm run sync-shared.\n`;
 
@@ -21,6 +30,15 @@ for (const [src, dirs] of Object.entries(COPIES)) {
     if (have === want) continue;
     if (check) { console.error(`${rel} differs from shared/${src} (run npm run sync-shared)`); bad++; }
     else { fs.writeFileSync(file, want); console.log(`wrote ${rel}`); written++; }
+  }
+}
+for (const [rel, [first, ...rest]] of Object.entries(SAME)) {
+  const want = fs.readFileSync(path.join(ROOT, first, rel));
+  for (const dir of rest) {
+    const file = path.join(ROOT, dir, rel), out = path.posix.join(dir, rel);
+    if (fs.existsSync(file) && fs.readFileSync(file).equals(want)) continue;
+    if (check) { console.error(`${out} differs from ${first}/${rel} (repack the first, then run npm run sync-shared)`); bad++; }
+    else { fs.writeFileSync(file, want); console.log(`wrote ${out}`); written++; }
   }
 }
 if (check) { if (bad) process.exit(1); console.log('shared copies are up to date'); }

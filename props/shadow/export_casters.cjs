@@ -1,46 +1,59 @@
-// Writes props/shadow/layout_<props>.json, the clearing's layout as the live page has it (prop spots, the jeep's track,
-// the path to the glade, the tent, the hammock, the deadwood and the ground's height grid), for props/ground/bake_ground.py
-// and props/camp/bake_camp_lightmap.py, plus "place": where the page stands each baked prop and light (seats, tent,
-// hammock, table, wood pile, kitchen crate, laundry line, lantern lights, jeep, sun), read from the live page. The light
-// bake places everything from that block (it keeps no copy of its own). props/bake_all.py runs it first (its "layout" step) and serves the repo on :8765.
-//   python3 -m http.server 8765   (from the repo root, in the background; LAYOUT_PORT=<port> to use another port)
-//   node props/shadow/export_casters.cjs [props=picked] [jeep=expedition]
-// (It used to write casters_<props>_<jeep>.glb too, for a ground-shadow bake script that is gone: the light bake makes the
+// Writes props/shadow/layout_picked.json, the clearing's layout for props/ground/bake_ground.py and
+// props/camp/bake_camp_lightmap.py: the worn spots (camp/layout.js WEAR), the jeep's track, the path to the glade, the
+// tent, the hammock, the deadwood, and "place": where the page stands each baked prop and light (the log seats,
+// "anchors" = layout.js ANCHORS, the places the props' anchor tags name, review R2-249; the points the lanterns hang from
+// and their lights, the jeep and the sun). The light bake places everything from that block and keeps no copy of its own.
+// Everything but the deadwood comes from props/shadow/layout_pure.mjs, which works it out in node from the camp's pure
+// modules (review R2-257). The deadwood still needs the page: deadwood.js seats it on the terrain, whose root mounds come
+// from the forest's seeded stream. So this boots camp.html under SwiftShader, takes the deadwood from deadwood.js, and
+// checks that the page agrees with layout_pure.mjs where the page builds things itself: the seats and the jeep as they
+// stand in the scene, the lantern lights, the sun, the track and the worn spots ground.js used. A page error, a
+// disagreement, or a layout with a part missing writes nothing and exits 1, so the bake stops instead of baking quietly
+// wrong (review R2-232). props/bake_all.py runs it first (its "layout" step).
+//   node props/shadow/export_casters.cjs [jeep]     jeep: expedition (the default) or none; only expedition writes the file
+// It serves the repo itself on a free port (LAYOUT_PORT=<port> picks one) through tools/camp-page.cjs openCamp, the set-up
+// every camp tool shares (review R2-127); CHROMIUM=<a Chrome> picks the browser when playwright has none of its own.
+// (It used to write casters_picked_<jeep>.glb too, for a ground-shadow bake script that is gone: the light bake makes the
 // ground's shadows now. The file name stays so the bake steps and notes that name it still match.)
-const { chromium } = require("playwright"), fs = require("fs"), path = require("path");
-const [props = "picked", jeep = "expedition"] = process.argv.slice(2), root = path.resolve(__dirname, "../..");
-if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.error(`only picked props and the expedition jeep (or none) exist now, not ${props} / ${jeep}`); process.exit(2); }
+// Any page error, console error or failed download (the same watch() as tools/camp-page.cjs) counts as a page error here
+// (review R2-062).
+const fs = require("fs"), path = require("path"), { pathToFileURL } = require("url");
+const { openCamp, watch } = require("../../tools/camp-page.cjs");
+const [jeep = "expedition"] = process.argv.slice(2);
+if (!["expedition", "none"].includes(jeep)) { console.error(`only the expedition jeep (or none) exists now, not ${jeep}`); process.exit(2); }
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROME || (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined), args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-  const p = await b.newPage({ viewport: { width: 400, height: 300 } });
-  p.on("pageerror", (e) => console.log("PAGEERR", e.message));
-  await p.route(/cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/(.*)/, (r) => r.fulfill({ body: fs.readFileSync(root + "/node_modules/three/" + r.request().url().split("three@0.186.1/")[1]), contentType: "text/javascript" }));
-  await p.route(/fonts\.(googleapis|gstatic)\.com|_lm_4k|camp_shadow_/, (r) => r.abort());
-  await p.goto(`http://localhost:${process.env.LAYOUT_PORT || 8765}/apps/canopy-prototype/camp.html?jeep=${jeep}&lm=1k`);   // the smallest light maps: the layout needs none
-  await p.waitForFunction("window.__ready", null, { timeout: 120000 }); await p.waitForTimeout(5000);
-  const out = await p.evaluate(async () => {
-    const L = window.__ground?.layout, tent = window.__camp?.tentAt;
-    if (!L) return { error: "window.__ground.layout is missing" };
-    // where the page stands each baked prop, [x, z, yaw] (three.js metres, yaw about +y), and the lights; the light bake
-    // (props/camp/bake_camp_lightmap.py) reads them from this block and keeps no copy of its own
+  const { pureLayout } = await import(pathToFileURL(path.join(__dirname, "layout_pure.mjs")).href);
+  const pure = pureLayout();
+  // the ground's baked shadows are a bake output the layout does not need (a new jeep has none yet): an empty 1x1 PNG
+  const blank = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
+  let errs = [];
+  const before = async (p) => { ({ errs } = await watch(p)); await p.route(/camp_shadow_/, (r) => r.fulfill({ body: blank, contentType: "image/png" })); };
+  // the smallest light maps: the layout needs none. Every module is built once __ready is set
+  const { page: p, close } = await openCamp({ port: +(process.env.LAYOUT_PORT || 0), query: `?jeep=${jeep}&lm=1k`, width: 400, height: 300, before, timeout: 120000 });
+  const page = await p.evaluate(async () => {
+    // the modules already loaded: importing them again runs nothing
+    const [{ deadwood }, { LANTERNS }, { sun }, { track }, { groundLife }, { jeepApi }] = await Promise.all(
+      ["deadwood", "campProps", "core", "forest", "campGround", "jeep"].map((m) => import(`./camp/${m}.js`)));
     const at = (n) => { const os = []; window.__scene?.traverse((o) => { if (o.name === n) os.push(o); });   // exactly one, or none
       return os.length === 1 ? [os[0].position.x, os[0].position.z, os[0].rotation.y] : null; };
-    const { lanternGlow } = await import("./camp/campProps.js"), { sun } = await import("./camp/core.js");   // the modules already loaded: no second run
-    const ld = window.__laundry, jn = window.__jeep?.node, sd = sun.position.clone().normalize();
-    const place = { seats: [0, 1, 2].map((i) => at(`Seat_${i}`)), tent: at("Tent"), hammock: at("Hammock"), table: at("Table"),
-      woodPile: at("WoodPile"), seatThings: at("SeatThings"), tentSide: at("TentSide"), kitchen: at("KitchenCrate"),
-      laundry: ld ? [(ld.a.x + ld.b.x) / 2, (ld.a.z + ld.b.z) / 2, Math.atan2(-ld.dir.z, ld.dir.x)] : null,
-      lanternLights: lanternGlow.map((v) => [v.x, v.y, v.z]), jeep: jn ? [jn.position.x, jn.position.z, jn.rotation.y] : null, sun: [sd.x, sd.y, sd.z] };
-    return { layout: { ...L, glade: (window.__glade?.path || []).map((p) => [p.x, p.z]), tent: tent ? [tent.x, tent.z] : null,
-      hammock: window.__camp?.hA ? [[window.__camp.hA.x, window.__camp.hA.z], [window.__camp.hB.x, window.__camp.hB.z]] : null,
-      deadwood: window.__deadwood?.layout || [],   // each with y, seated on the terrain: occluders in props/camp/bake_camp_lightmap.py
-      height: window.__terrainGrid?.(128) || null, place } };   // camp/terrain.js: the ground's height, 128 x 128 over 60 m (rows +z), for the bake's ground mesh
+    const jn = jeepApi?.node, sd = sun.position.clone().normalize();
+    return { deadwood: deadwood?.layout || [],   // each with y, seated on the terrain: occluders in props/camp/bake_camp_lightmap.py
+      check: { seats: [0, 1, 2].map((i) => at(`Seat_${i}`)), lanternLights: LANTERNS.lights.map((v) => [v.x, v.y, v.z]), lanternHang: LANTERNS.hang.map((v) => [v.x, v.y, v.z]),
+        jeep: jn ? [jn.position.x, jn.position.z, jn.rotation.y] : null, sun: [sd.x, sd.y, sd.z],
+        track: track ? track.pts.map((q) => [q.x, q.z]) : [], wear: groundLife?.layout?.wear ?? null } };
   });
-  // a layout with parts missing would bake quietly wrong, so stop the bake here instead
-  const miss = out.error ? [out.error] : ["spots", "track", "glade", "tent", "hammock", "height"].filter((k) => !out.layout[k] || out.layout[k].length === 0);
-  if (!out.error && !out.layout.deadwood.length) miss.push("deadwood");
-  if (!out.error) for (const [k, v] of Object.entries(out.layout.place)) if (v === null || (Array.isArray(v) && (!v.length || v.includes(null)))) miss.push(`place.${k}`);
-  if (miss.length) { console.error("layout incomplete, nothing written: " + miss.join(", ")); await b.close(); process.exit(1); }
-  if (jeep === "expedition") fs.writeFileSync(path.join(__dirname, `layout_${props}.json`), JSON.stringify(out.layout));   // for props/ground/bake_ground.py
-  console.log(`layout_${props}.json: ${out.layout.spots.length} spots, ${out.layout.deadwood.length} deadwood, track of ${out.layout.track.length}`); await b.close();
-})();
+  const miss = [];
+  if (errs.length) miss.push(`the page logged ${errs.length} error(s):\n  ` + errs.join("\n  "));
+  if (!page.deadwood.length) miss.push("deadwood");
+  // the page must agree with layout_pure.mjs (to 1e-6 m) wherever it builds the thing itself
+  const want = { seats: pure.place.seats, lanternLights: pure.place.lanternLights, lanternHang: pure.place.lanternHang, jeep: jeep === "none" ? null : pure.place.jeep,
+    sun: pure.place.sun, track: jeep === "none" ? [] : pure.track, wear: pure.wear.filter((w) => jeep !== "none" || !w.name.startsWith("jeep")) };
+  const same = (a, c) => (typeof a === "number" && typeof c === "number") ? Math.abs(a - c) < 1e-6
+    : Array.isArray(a) && Array.isArray(c) ? a.length === c.length && a.every((v, i) => same(v, c[i]))
+    : a && c && typeof a === "object" && typeof c === "object" ? Object.keys({ ...a, ...c }).every((k) => same(a[k], c[k])) : a === c;
+  for (const k of Object.keys(want)) if (!same(page.check[k], want[k])) miss.push(`the page's ${k} is not layout_pure.mjs's`);
+  if (miss.length) { console.error("layout not written: " + miss.join(", ")); await close(); process.exit(1); }
+  const layout = { ...pure, deadwood: page.deadwood };
+  if (jeep === "expedition") fs.writeFileSync(path.join(__dirname, "layout_picked.json"), JSON.stringify(layout));   // for props/ground/bake_ground.py
+  console.log(`layout_picked.json: ${layout.wear.length} worn spots, ${layout.deadwood.length} deadwood, track of ${layout.track.length}; the page agrees with layout_pure.mjs`); await close();
+})().catch((e) => { console.error(e); process.exit(1); });

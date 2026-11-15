@@ -1,0 +1,445 @@
+{
+ "jeepP": {
+  "frames": 340,
+  "every": 20,
+  "tour": "jeepP.json"
+ },
+ "jeepD": {
+  "frames": 480,
+  "every": 20,
+  "tour": "jeepD.json"
+ },
+ "clocks": {
+  "frames": 260,
+  "every": 10,
+  "tour": "clocks.json"
+ },
+ "menu": {
+  "frames": 440,
+  "every": 20,
+  "tour": "menu.json"
+ },
+ "linger": {
+  "frames": 470,
+  "every": 20,
+  "tour": "linger.json"
+ },
+ "walk": {
+  "frames": 660,
+  "every": 20,
+  "tour": "walk.json"
+ },
+ "phone": {
+  "frames": 200,
+  "every": 20,
+  "tour": "menu.json",
+  "vw": 390,
+  "vh": 844,
+  "touch": true,
+  "query": "?touch=1"
+ },
+ "stylesD": {
+  "frames": 8,
+  "marks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "tour": "styles.json",
+  "vw": 1280,
+  "vh": 800
+ },
+ "stylesP": {
+  "frames": 8,
+  "marks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "tour": "styles.json",
+  "vw": 390,
+  "vh": 844,
+  "touch": true,
+  "query": "?touch=1"
+ },
+ "link": {
+  "frames": 6,
+  "marks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "tour": "link.json"
+ },
+ "linger2": {
+  "frames": 100,
+  "every": 10,
+  "tour": "linger2.json"
+ },
+ "walk2": {
+  "frames": 750,
+  "every": 15,
+  "tour": "walk2.json"
+ },
+ "linger3": {
+  "frames": 90,
+  "every": 10,
+  "tour": "linger3.json"
+ },
+ "evo": {
+  "frames": 20,
+  "every": 20,
+  "evalorder": true
+ },
+ "time_rain": {
+  "frames": 40,
+  "every": 20,
+  "storage": {
+   "canopy-time": "21.50",
+   "canopy-cycle": "on",
+   "canopy-weather": "rain"
+  }
+ },
+ "time_dawn": {
+  "frames": 40,
+  "every": 20,
+  "storage": {
+   "canopy-time": "6.25",
+   "canopy-cycle": "off",
+   "canopy-weather": "changing"
+  }
+ },
+ "time_bad": {
+  "frames": 40,
+  "every": 20,
+  "storage": {
+   "canopy-time": "abc",
+   "canopy-cycle": "1",
+   "canopy-weather": "snow"
+  }
+ },
+ "time_24": {
+  "frames": 40,
+  "every": 20,
+  "storage": {
+   "canopy-time": "24",
+   "canopy-cycle": "on"
+  }
+ },
+ "time_empty": {
+  "frames": 40,
+  "every": 20,
+  "storage": {
+   "canopy-time": "",
+   "canopy-weather": "clear"
+  }
+ },
+ "time_url": {
+  "frames": 40,
+  "every": 20,
+  "storage": {
+   "canopy-time": "21.50",
+   "canopy-cycle": "on",
+   "canopy-weather": "rain"
+  },
+  "query": "?time=9&cycle=0&weather=clear"
+ },
+ "time_urlbad": {
+  "frames": 40,
+  "every": 20,
+  "storage": {
+   "canopy-time": "-3",
+   "canopy-cycle": "off"
+  },
+  "query": "?time=abc&cycle="
+ },
+ "time_url0": {
+  "frames": 40,
+  "every": 20,
+  "storage": {
+   "canopy-time": "18.25",
+   "canopy-cycle": "on"
+  },
+  "query": "?time=&cycle=0"
+ },
+ "view_url": {
+  "frames": 40,
+  "every": 20,
+  "query": "?time=24&cycle=1&pos=1,-2&yaw=abc&pitch="
+ },
+ "lab": {
+  "frames": 800,
+  "every": 25,
+  "tour": "lab.json"
+ },
+ "day": {
+  "frames": 1200,
+  "every": 40,
+  "tour": "day.json"
+ },
+ "day6": {
+  "frames": 700,
+  "every": 35,
+  "tour": "day6.json"
+ },
+ "gifts": {
+  "frames": 480,
+  "every": 20,
+  "tour": "gifts.json"
+ },
+ "op": {
+  "frames": 950,
+  "every": 25,
+  "tour": "op.json"
+ },
+ "you": {
+  "frames": 560,
+  "every": 20,
+  "tour": "you.json"
+ },
+ "labui": {
+  "frames": 360,
+  "every": 15,
+  "tour": "labui2.json",
+  "query": "?dev"
+ },
+ "q_lab": {
+  "frames": 80,
+  "every": 20,
+  "tour": "short.json",
+  "query": "?lab"
+ },
+ "q_nocamp": {
+  "frames": 80,
+  "every": 20,
+  "query": "?campsloths=0"
+ },
+ "q_nocamplab": {
+  "frames": 40,
+  "every": 20,
+  "query": "?campsloths=0&lab"
+ },
+ "q_slothmat": {
+  "frames": 80,
+  "every": 20,
+  "tour": "short.json",
+  "query": "?slothmat=old"
+ },
+ "q_nojeep": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "query": "?jeep=none"
+ },
+ "q_nolived": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "query": "?lived=0"
+ },
+ "q_noop": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "query": "?op=0"
+ },
+ "q_low": {
+  "frames": 120,
+  "every": 20,
+  "tour": "short.json",
+  "query": "?detail=low"
+ },
+ "q_high": {
+  "frames": 120,
+  "every": 20,
+  "tour": "short.json",
+  "query": "?detail=high&time=21.5"
+ },
+ "q_seed3": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "query": "?seed=3"
+ },
+ "phone_gifts": {
+  "frames": 200,
+  "every": 20,
+  "tour": "gifts.json",
+  "vw": 390,
+  "vh": 844,
+  "touch": true,
+  "query": "?touch=1"
+ },
+ "save_sloths1": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "storage": {
+   "canopy-camp-save": "{\"v\":1,\"at\":1,\"parts\":{\"sloths\":{\"camp\":[{\"name\":\"Figgy\",\"nap\":\"bed:0\",\"sleep\":40,\"napT\":7},{\"name\":\"Pip\",\"nap\":\"hammock:1\",\"sleep\":0,\"napT\":5},{\"name\":\"Bandit\",\"nap\":\"jeep:P\",\"sleep\":30,\"napT\":11},{\"name\":\"Hazel\",\"nap\":\"bed:1\",\"sleep\":12,\"napT\":4},{\"name\":\"Sunny\",\"nap\":null,\"sleep\":20,\"napT\":9},{\"name\":\"Hibi\",\"nap\":null,\"sleep\":0,\"napT\":6},{\"name\":\"Mango\",\"nap\":null,\"sleep\":0,\"napT\":3}],\"wild\":[{\"nap\":null,\"sleep\":25,\"napT\":8},{\"nap\":null,\"sleep\":0,\"napT\":2}]}}}"
+  }
+ },
+ "save_sloths2": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "storage": {
+   "canopy-camp-save": "{\"v\":1,\"at\":1,\"parts\":{\"sloths\":{\"camp\":[{\"name\":\"Hibi\",\"nap\":null,\"sleep\":100,\"napT\":30},{\"name\":\"Sunny\",\"nap\":\"bed:0\",\"sleep\":0,\"napT\":14},{\"name\":\"Figgy\",\"nap\":\"nowhere\",\"sleep\":8},{\"name\":\"Nobody\",\"nap\":\"bed:1\",\"sleep\":9,\"napT\":1},{\"name\":\"Mango\",\"nap\":null,\"sleep\":15,\"napT\":\"x\"},{\"name\":\"Pip\",\"nap\":\"bed:0\",\"sleep\":22,\"napT\":2},{\"name\":\"Hazel\",\"nap\":\"hammock:1\",\"sleep\":5,\"napT\":2}],\"wild\":[{\"napT\":1}]}}}"
+  }
+ },
+ "save_sloths3": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "storage": {
+   "canopy-camp-save": "{\"v\":1,\"at\":1,\"parts\":{\"sloths\":{\"camp\":\"x\",\"wild\":null},\"operator\":{\"lines\":[]}}}",
+   "canopy-time": "21.50",
+   "canopy-weather": "rain"
+  }
+ },
+ "save_sloths4": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "storage": {
+   "canopy-camp-save": "{\"v\":1,\"at\":1,\"parts\":{\"sloths\":{\"camp\":[{\"name\":\"Mango\",\"nap\":\"jeep:P\",\"sleep\":50,\"napT\":3},{\"name\":\"Sunny\",\"nap\":\"hammock:1\",\"sleep\":0,\"napT\":3},{\"name\":\"Bandit\",\"nap\":\"bed:1\",\"sleep\":60,\"napT\":3}],\"wild\":[{\"sleep\":5},{\"sleep\":70,\"napT\":4}]}}}"
+  }
+ },
+ "save_sloths5": {
+  "frames": 300,
+  "every": 20,
+  "tour": "short.json",
+  "storage": {
+   "canopy-camp-save": "{\"v\":2,\"at\":1,\"parts\":{\"sloths\":{\"camp\":[{\"name\":\"Figgy\",\"nap\":\"bed:0\",\"sleep\":40,\"napT\":7}]}}}"
+  }
+ },
+ "chores": {
+  "frames": 720,
+  "every": 20,
+  "tour": "chores.json"
+ },
+ "opacts": {
+  "frames": 1180,
+  "every": 10,
+  "tour": "opacts.json"
+ },
+ "opday": {
+  "frames": 1460,
+  "every": 40,
+  "tour": "opday.json"
+ },
+ "slothday": {
+  "frames": 1760,
+  "every": 40,
+  "tour": "slothday.json"
+ },
+ "car": {
+  "frames": 460,
+  "every": 20,
+  "tour": "car.json"
+ },
+ "radio": {
+  "frames": 150,
+  "every": 10,
+  "tour": "radio.json"
+ },
+ "op_phone": {
+  "frames": 140,
+  "every": 10,
+  "tour": "op_phone.json",
+  "vw": 390,
+  "vh": 844,
+  "touch": true,
+  "query": "?touch=1"
+ },
+ "q_op0": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "query": "?op=0"
+ },
+ "q_jeepnone": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "query": "?jeep=none"
+ },
+ "q_lived0": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "query": "?lived=0"
+ },
+ "q_campsloths0": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "query": "?campsloths=0"
+ },
+ "q_sound": {
+  "frames": 150,
+  "every": 10,
+  "tour": "radio.json",
+  "query": "?sound=0&station=kalimba"
+ },
+ "q_mix": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "query": "?seed=3&detail=low&time=21.5&weather=rain"
+ },
+ "save_audio": {
+  "frames": 150,
+  "every": 10,
+  "tour": "radio.json",
+  "storage": {
+   "canopy-audio": "{\"volume\":0.5,\"muted\":false,\"music\":true,\"musicVolume\":0.8,\"station\":\"lullaby\",\"v\":2}"
+  }
+ },
+ "save_audioold": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "query": "?station=nope",
+  "storage": {
+   "canopy-audio": "{\"volume\":0.3,\"muted\":true,\"music\":false,\"station\":\"campfire\"}"
+  }
+ },
+ "save_audiobad": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "audio": "block",
+  "storage": {
+   "canopy-audio": "{not json"
+  }
+ },
+ "save_op": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "storage": {
+   "canopy-camp-save": "{\"operator\":{\"lines\":{\"awake\":[\"I love you, exactly as you are.\",\"Proud of you. Always, bonita.\",\"gone line\"],\"thanks\":[\"Delicious. You spoil me, my love.\"],\"fire\":[],\"nokey\":[\"x\"],\"eat\":\"bad\"}}}"
+  }
+ },
+ "save_bad": {
+  "frames": 80,
+  "every": 20,
+  "tour": "op_mini.json",
+  "storage": {
+   "canopy-camp-save": "{broken"
+  }
+ }
+}

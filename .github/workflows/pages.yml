@@ -1,9 +1,12 @@
 # Publishes Canopy Camp (apps/canopy-prototype) to GitHub Pages on every push to
 # main that touches the camp, the way desk-at-night's old pages.yml did for the
-# control room. Camp threads merge into claude/project-thread-otpcew first; a PR
-# from there to main publishes. The camp is plain static files (models and light maps are
+# control room. Each thread opens a PR to main; merging it publishes. The camp is plain static files (models and light maps are
 # committed, three.js loads from jsDelivr), so nothing is built: the folder is
-# copied as it is and a root index.html forwards to camp.html.
+# copied, the old prototypes (the prototypes/ folder) and any 4K light map are left out, the
+# base64 models and KTX2 maps are decoded to binary files, which camp.html is told to load (R2-214), and
+# index.html files at the root and in the folder forward to camp.html (review R2-208). The build stops when the site
+# is over 30 MB (about 20 MB on 2026-11-14). The static checks in check.yml run first, and nothing is published
+# when they fail.
 # Site: https://adrver1.github.io/sloth/ (camp at canopy-prototype/camp.html)
 name: Deploy camp
 
@@ -14,6 +17,7 @@ on:
       - apps/canopy-prototype/**
       - apps/karaoke/**
       - .github/workflows/pages.yml
+      - .github/workflows/check.yml
   workflow_dispatch:
 
 permissions:
@@ -26,7 +30,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check:   # the static checks (check.yml): a camp that does not load is not published
+    uses: ./.github/workflows/check.yml
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4   # no submodules: the camp doesn't use engine/
@@ -34,15 +42,33 @@ jobs:
         run: |
           mkdir -p _site
           cp -rL apps/canopy-prototype _site/canopy-prototype   # -L: canopy-prototype/karaoke is a link to apps/karaoke (the karaoke trip)
+          C=_site/canopy-prototype
+          rm -rf $C/models/*_4k.png $C/prototypes
+          # Pages serves binary files, so the base64 copies go back to what they encode (review R2-214): X.txt is a GLB and
+          # X.ktx2.txt a KTX2 map. camp.html's camp-models meta then tells bakedlight.js fetchBytes to load those instead.
+          for f in $C/models/*.txt; do
+            case "$f" in *.ktx2.txt) out="${f%.txt}"; want="KTX 20"; got=$(base64 -d "$f" | head -c 7 | tail -c 6) ;;
+                         *) out="${f%.txt}.glb"; want="glTF"; got=$(base64 -d "$f" | head -c 4) ;; esac
+            if [ "$got" != "$want" ]; then echo "::error::$f is not a base64 $want file"; exit 1; fi
+            base64 -d "$f" > "$out" && rm "$f"
+          done
+          grep -q '<meta name="camp-models" content="base64">' $C/camp.html || { echo "::error::camp.html has no camp-models meta"; exit 1; }
+          sed -i 's|<meta name="camp-models" content="base64">|<meta name="camp-models" content="binary">|' $C/camp.html
           sha=$(git rev-parse --short HEAD)
-          cat > _site/index.html <<HTML
+          forward() {   # $1: the index.html to write, $2: camp.html relative to it
+            cat > "$1" <<HTML
           <!doctype html><meta charset="utf-8"><title>Canopy Camp</title>
           <link rel="icon" href="data:,">
-          <meta http-equiv="refresh" content="0; url=canopy-prototype/camp.html">
+          <meta http-equiv="refresh" content="0; url=$2">
           <!-- built from $sha -->
-          <a href="canopy-prototype/camp.html">Canopy Camp</a>
+          <a href="$2">Canopy Camp</a>
           HTML
+          }
+          forward _site/index.html canopy-prototype/camp.html
+          forward $C/index.html camp.html
           du -sh _site
+          mb=$(du -sm _site | cut -f1)
+          if [ "$mb" -gt 30 ]; then echo "::error::The site is $mb MB, over the 30 MB guard: a big file got into apps/canopy-prototype"; exit 1; fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

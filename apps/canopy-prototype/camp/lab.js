@@ -2,13 +2,41 @@
 // visually"). A panel over the camp: pick one of the seven camp sloths, start any of its moves (leave for food, wander, go
 // home, s'more, wave, everyone out), slow it down, pause and step, follow it with an orbit camera (drag to turn round it,
 // pinch or wheel to zoom), see the path it plans, and scrub any clip frame by frame on it. Opened from the ⚙️ menu (Move lab)
-// or with ?lab; the ✕ closes it and gives back your own view, the normal speed and the live clips.
+// or with ?lab (labButton.js does both); the ✕ closes it and gives back your own view, the normal speed and the live clips.
+// It drives the sloths through labApi (sloth/hooks.js) and sets the camp's pace for everyone (core.js pace)
+// (sloth/step.js and jeepSeat.js read it; tools/camp-replay.cjs sets it too). Exports toggle().
+// Each move is one row of ACTIONS (its button, when it can start, what it does); the clip menu lists every clip the sloth
+// model has (labApi.clipNames). The read-out and the greyed-out buttons are updated about 5 times a second (review R2-144).
 import * as THREE from "three";
-import { camera, scene } from "./core.js";
+import { $, camera, pace, scene } from "./core.js";
 import { V } from "./util.js";
 import { me } from "./player.js";
+import { holder } from "./places.js";
+import { labApi } from "./sloth/hooks.js";
+import { opApi } from "./operator.js";
+import { setLabStep } from "./labButton.js";
 
-const L = window.__lab, cs = L.camp;
+const L = labApi, cs = L.camp;   // (with ?campsloths=0 there are no camp sloths, and labButton.js opens no lab)
+// the moves, each once: its button (row, label), when it can start for sloth s (the button is greyed out otherwise) and what
+// it does. A click runs it only when it can start.
+const atHome = (s) => s.trip.phase === "home", sitting = (s) => atHome(s) || s.trip.phase === "rest";
+const onGround = (s) => L.GROUND.has(s.trip.phase) && s.trip.phase !== "greet";
+const ACTIONS = [
+  { id: "leave", row: 0, label: "Get food", can: atHome, run: (s) => L.leave(s) },
+  { id: "wander", row: 0, label: "Wander", can: onGround, run: (s) => L.wander(s) },
+  { id: "home", row: 0, label: "Go home", can: onGround, run: (s) => L.goHome(s) },
+  { id: "smore", row: 0, label: "S'more", can: (s) => !!s.spot.bench && atHome(s), run: (s) => L.smore(s) },
+  { id: "wave", row: 0, label: "Wave", can: () => true, run: (s) => L.wave(s) },
+  { id: "all", row: 0, label: "Everyone out", can: () => true, run: () => { for (const q of cs) if (atHome(q)) L.leave(q); } },
+  { id: "nap", row: 1, label: "Nap", can: (s) => !s.dozing && sitting(s) && !s.spot.asleep, run: (s) => L.nap(s) },
+  { id: "wake", row: 1, label: "Wake", can: (s) => !!s.dozing, run: (s) => L.wake(s) },
+  { id: "yawn", row: 1, label: "Yawn", can: () => true, run: (s) => L.yawn(s) },
+  { id: "stretch", row: 1, label: "Stretch", can: sitting, run: (s) => L.stretch(s) },
+  { id: "fix", row: 1, label: "Fix engine", can: (s) => !!s.spot.car && atHome(s), run: (s) => L.fix(s) },
+  { id: "trip", row: 1, label: "Cozy nap", can: (s) => atHome(s) && !s.spot.guest,
+    run: (s) => { const k = L.guests().filter((k) => !holder(k)); L.napTrip(s, k[Math.floor(Math.random() * k.length)]); } },
+  { id: "cards", row: 1, label: "Cards", can: (s) => atHome(s) && !s.spot.guest, run: (s) => L.cards(s) },
+];
 const css = document.createElement("style");
 css.textContent = `
 #lab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(96px + env(safe-area-inset-top, 0px)); width: min(300px, calc(100vw - 32px));
@@ -31,46 +59,30 @@ document.head.appendChild(css);
 const box = document.createElement("details"); box.id = "lab"; box.open = true;
 box.innerHTML = `<summary>🧪 Move lab <button id="labClose" style="float:right;padding:2px 9px" aria-label="Close the move lab">✕</button></summary><div class="in">
   <div class="row"><select id="labWho"></select><button id="labFollow" class="on">Follow</button><button id="labPath" class="on">Path</button></div>
-  <div class="row"><button data-do="leave">Get food</button><button data-do="wander">Wander</button><button data-do="home">Go home</button>
-    <button data-do="smore">S'more</button><button data-do="wave">Wave</button><button data-do="all">Everyone out</button></div>
-  <div class="row"><button data-do="nap">Nap</button><button data-do="wake">Wake</button><button data-do="yawn">Yawn</button><button data-do="stretch">Stretch</button><button data-do="fix">Fix engine</button><button data-do="trip">Cozy nap</button><button data-do="cards">Cards</button></div>
+  ${[0, 1].map((r) => `<div class="row">${ACTIONS.filter((a) => a.row === r).map((a) => `<button data-do="${a.id}">${a.label}</button>`).join("")}</div>`).join("")}
   <div class="row"><span class="lbl">Speed</span>${[0, 0.25, 0.5, 1, 2, 4].map((v) => `<button data-sp="${v}">${v ? v + "×" : "Pause"}</button>`).join("")}<button id="labStep">Step ▸</button></div>
   <div class="row"><span class="lbl">Clip</span><select id="labClip"><option value="">(live)</option></select><button id="labBack">Back to life</button></div>
   <div class="row"><input type="range" id="labT" min="0" max="1" step="0.001" value="0" disabled></div>
   <div class="read" id="labRead"></div></div>`;
 document.body.appendChild(box); box.hidden = true;
 for (const e of ["pointerdown", "pointerup", "pointermove", "wheel"]) box.addEventListener(e, (ev) => ev.stopPropagation());
-const $ = (id) => document.getElementById(id);
 const who = $("labWho"), clipSel = $("labClip"), slider = $("labT"), read = $("labRead");
 cs.forEach((s, i) => who.add(new Option(`${s.name} (${s.spot.name})`, i)));
-for (const n of ["idle", "walk", "cling", "hang_walk", "nap", "reach", "curl", "drive", "peek", "titanic", "stretch", "eat", "eat_high"]) if (L.clipOf(n)) clipSel.add(new Option(n, n));
+for (const n of L.clipNames()) clipSel.add(new Option(n, n));   // every clip the sloth model has
+const buttons = ACTIONS.map((a) => [a, box.querySelector(`[data-do="${a.id}"]`)]);
 
+let readT = 0;   // seconds to the next read-out (readOut, below); 0 updates it on the next frame
 let sel = cs[0], follow = true, showPath = true, speed = 1, stepLeft = 0, scrub = null, dist = 1.6 + cs[0].sc * 0.4;
 const pick = () => (sel = cs[+who.value]);
-who.onchange = () => { endScrub(); pick(); dist = 1.6 + sel.sc * 0.4; };
+who.onchange = () => { endScrub(); pick(); dist = 1.6 + sel.sc * 0.4; readT = 0; cam.used = null; };
 $("labClose").onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggle(); };
 $("labFollow").onclick = (e) => { follow = !follow; e.target.classList.toggle("on", follow); document.body.classList.toggle("follow", follow); };
 $("labPath").onclick = (e) => { showPath = !showPath; e.target.classList.toggle("on", showPath); };
-const setSpeed = (v) => { speed = v; window.__campFast = v; box.querySelectorAll("[data-sp]").forEach((b) => b.classList.toggle("on", +b.dataset.sp === v)); };
+const setSpeed = (v) => { speed = v; pace.fast = v; box.querySelectorAll("[data-sp]").forEach((b) => b.classList.toggle("on", +b.dataset.sp === v)); };
 box.querySelectorAll("[data-sp]").forEach((b) => (b.onclick = () => setSpeed(+b.dataset.sp)));
 setSpeed(1);
 $("labStep").onclick = () => { if (speed) setSpeed(0); stepLeft = 3; };   // three frames at 1x, then paused again
-box.querySelectorAll("[data-do]").forEach((b) => (b.onclick = () => {
-  endScrub(); const s = sel, ph = s.trip.phase, d = b.dataset.do;
-  if (d === "leave" && ph === "home") L.leave(s);
-  if (d === "wander" && L.GROUND.has(ph) && ph !== "greet") L.wander(s);
-  if (d === "home" && L.GROUND.has(ph) && ph !== "greet") L.goHome(s);
-  if (d === "smore") L.smore(s);
-  if (d === "wave") L.wave(s);
-  if (d === "fix") L.fix(s);
-  if (d === "cards") L.cards(s);
-  if (d === "trip") { const k = L.guests().filter((k) => !window.__campLife.holder(k)); L.napTrip(s, k[Math.floor(Math.random() * k.length)]); }
-  if (d === "nap") L.nap(s);
-  if (d === "wake") L.wake(s);
-  if (d === "yawn") L.yawn(s);
-  if (d === "stretch" && (ph === "home" || ph === "rest")) L.stretch(s);
-  if (d === "all") for (const q of cs) if (q.trip.phase === "home") L.leave(q);
-}));
+for (const [a, b] of buttons) b.onclick = () => { endScrub(); if (a.can(sel)) a.run(sel); readT = 0; };
 // the clip scrubber: everything paused, the chosen clip held on the sloth at the slider's time
 function endScrub() {
   if (!scrub) return;
@@ -84,36 +96,115 @@ clipSel.onchange = () => {
 };
 slider.oninput = () => { if (scrub) { scrub.a.time = +slider.value * scrub.a.getClip().duration; scrub.s.mixer.update(0); } };
 $("labBack").onclick = () => { endScrub(); setSpeed(1); };
-addEventListener("wheel", (e) => { if (follow) dist = THREE.MathUtils.clamp(dist + e.deltaY * 0.003, 0.6, 8); }, { passive: true });
+addEventListener("wheel", (e) => { if (follow && !box.hidden) dist = THREE.MathUtils.clamp(dist + e.deltaY * 0.003, 0.6, 8); }, { passive: true });
 
-// the planned path, as a line on the ground
-const pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff3d7f, depthTest: false }));
+// the planned path: one fixed buffer of points (it grows if a path is longer), written in place each frame and drawn up to
+// the path's length, so a shorter path keeps no old tail and nothing is allocated per frame (review R2-059)
+const pathBuf = (n) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * 3), 3).setUsage(THREE.DynamicDrawUsage)); return g; };
+const pathLine = new THREE.Line(pathBuf(128), new THREE.LineBasicMaterial({ color: 0xff3d7f, depthTest: false }));
 pathLine.renderOrder = 9; pathLine.frustumCulled = false; scene.add(pathLine);
+function drawPath(from, path) {
+  const n = path.length + 1;
+  if (n > pathLine.geometry.attributes.position.count) { pathLine.geometry.dispose(); pathLine.geometry = pathBuf(Math.max(n, 2 * pathLine.geometry.attributes.position.count)); }
+  const pos = pathLine.geometry.attributes.position;
+  pos.setXYZ(0, from.x, 0.04, from.z);
+  for (let i = 1; i < n; i++) pos.setXYZ(i, path[i - 1].x, 0.04, path[i - 1].z);
+  pos.needsUpdate = true; pathLine.geometry.setDrawRange(0, n);
+}
 const tgt = V(), wp = V();
+// the follow camera stays in front of anything solid between it and the sloth (play-test 2026-11-14: with Sunny in the
+// operator's arms it ended up inside a surface and showed a flat beige view). The solids are the camp's opaque meshes and
+// the operator (not the leaves, the sloths or the see-through cards), gathered again every 2 s while the lab follows, since
+// ?lab opens it before the rest of the camp is built; the camera stops 0.12 m short of the first one the ray from the
+// sloth meets.
+// Cloth too (final play-test 2026-11-15: in the hammock, q_lab frame 40, the camera sat inside the sling's bowl and showed
+// only fabric). The ray is cast both ways, out from the sloth and back from where the camera would be, so a one-sided
+// surface such as the tent's canvas stops it from either side. And the camera first looks for a clear view higher up
+// (ELEV_STEP at a time, up to the orbit's top) before it is pulled in: from inside the sling's bowl, the laundry or under
+// a seat it rises over the edge and looks down at the sloth, instead of stopping a hand's width from the cloth, which the
+// swing (swing.js, drawn in the vertex shader, so a ray only sees the sling at rest) could then carry through the camera.
+// The search runs about 6 times a second (SCAN_T), and up to 20 while you turn or zoom, not every frame (review of the final
+// fixes: up to 14 casts a frame while blocked, ~25 ms here). The camera eases to the height it found (ease, below) and only
+// comes down again once the lower view has stayed clear for LOWER_AFTER searches, so a thin post or a tripod leg sweeping
+// through the line of sight no longer pops it up and down. Each frame one cast each way at the height actually used keeps
+// the camera in front of the nearest solid: it is pulled in at once and eases back out.
+let solids = [], solidsT = 0;
+const ray = new THREE.Raycaster(), dir = V(), far = V(), hits = [], ELEV_STEP = 0.25, EL_TOP = 1.3, SCAN_T = 0.15, LOWER_AFTER = 3;
+const cam = { want: 0, used: null, d: 0, scanT: 0, lowerN: 0, yaw: 0, el: 0, dist: 0 };   // used null: snap on the next frame
+// how far from tgt along dir the first solid is (dist when there is none in the way); hits is reused, nothing is allocated
+function clearTo(dist) {
+  let d = dist;
+  ray.set(tgt, dir); ray.near = 0.15; ray.far = dist; hits.length = 0;
+  for (const h of ray.intersectObjects(solids, false, hits)) if (shown(h.object)) { d = Math.min(d, h.distance); break; }
+  far.copy(tgt).addScaledVector(dir, dist); ray.set(far, dir.negate()); ray.near = 0; ray.far = dist - 0.15; hits.length = 0;
+  for (const h of ray.intersectObjects(solids, false, hits)) if (shown(h.object)) d = Math.min(d, dist - h.distance);   // the last hit back is the one nearest the sloth
+  dir.negate(); hits.length = 0;
+  return d;
+}
+// the lowest clear height from el up to the orbit's top, which is always tried last (el itself when none is clear). Between
+// full searches a raised camera only checks its own height and the step below (4 casts instead of up to 14)
+function scan(el, full) {
+  if (!full && cam.want > el + 1e-6) {                  // raised already: still clear there, and the step below still not? (4 casts)
+    const below = el + (Math.ceil((cam.want - el) / ELEV_STEP - 1e-6) - 1) * ELEV_STEP;
+    aim(cam.want); if (clearTo(dist) >= dist) { aim(below); if (clearTo(dist) < dist) return cam.want; }
+  }
+  for (let k = 0; ; k++) {
+    const e = Math.min(el + k * ELEV_STEP, EL_TOP);
+    aim(e); if (clearTo(dist) >= dist) return e;
+    if (e >= EL_TOP) return el;
+  }
+}
+const aim = (el) => dir.set(Math.sin(me.yaw) * Math.cos(el), Math.sin(el), Math.cos(me.yaw) * Math.cos(el));
+function findSolids() {
+  const op = opApi?.root, inOp = (o) => { for (let p = o; p; p = p.parent) if (p === op) return true; return false; };
+  const list = [];
+  scene.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || pathLine === o) return;
+    if (o.isSkinnedMesh && !inOp(o)) return;   // the sloths
+    if ([].concat(o.material).some((m) => m.transparent || m.depthWrite === false || !m.visible || !m.colorWrite)) return;   // and not the unseen tap spheres round the sloths
+    list.push(o);
+  });
+  return list;
+}
+const shown = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+// the read-out and the buttons' greying, about 5 times a second (and at once after a pick or a click)
+function readOut(s) {
+  const T = s.trip, a = scrub ? scrub.a : s.act, p = s.o.getWorldPosition(wp);
+  read.textContent = `${s.name}: ${T.phase}${T.st ? "/" + T.st : ""}${s.dozing ? " · asleep" : ""}${T.phase === "walk" ? ` · ${T.path.length} pts left` : ""}\nclip ${a?.getClip().name ?? "-"} ${a ? a.time.toFixed(2) + " / " + a.getClip().duration.toFixed(2) + " s" : ""} × ${a?.timeScale.toFixed(2) ?? ""}\n` +
+    `at ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)} · size ${s.sc.toFixed(2)}`;
+  for (const [act, b] of buttons) { const off = !act.can(s); if (b.disabled !== off) b.disabled = off; }
+}
 const labStep = (dt) => {
-  if (stepLeft > 0 && --stepLeft === 0) window.__campFast = 0; else if (stepLeft > 0) window.__campFast = 1;
+  if (stepLeft > 0 && --stepLeft === 0) pace.fast = 0; else if (stepLeft > 0) pace.fast = 1;
   const s = sel, T = s.trip;
   pathLine.visible = showPath && T.phase === "walk" && T.path?.length > 0;
-  if (pathLine.visible) pathLine.geometry.setFromPoints([s.o.getWorldPosition(wp).clone(), ...T.path].map((p) => V(p.x, 0.04, p.z)));
+  if (pathLine.visible) drawPath(s.o.getWorldPosition(wp), T.path);
   if (follow) {                                       // orbit: drag turns round it (me.yaw), up and down tilts (me.pitch)
     s.o.getWorldPosition(tgt).y += 0.2 * s.sc / 2.6;
-    const el = THREE.MathUtils.clamp(0.35 - me.pitch, -0.2, 1.3);
-    camera.position.set(tgt.x + Math.sin(me.yaw) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z + Math.cos(me.yaw) * Math.cos(el) * dist);
+    const el = THREE.MathUtils.clamp(0.35 - me.pitch, -0.2, EL_TOP);
+    if ((solidsT -= dt) < 0) { solids = findSolids(); solidsT = 2; cam.scanT = 0; }
+    const turned = Math.abs(me.yaw - cam.yaw) > 0.05 || Math.abs(el - cam.el) > 0.05 || Math.abs(dist - cam.dist) > 0.1;
+    cam.scanT -= dt;
+    if (cam.used === null || (cam.scanT <= 0) || (turned && cam.scanT < SCAN_T - 0.05)) {   // a drag searches at most 20 times a second               // as asked, then higher until the view is clear
+      const e = scan(el, turned || cam.used === null); cam.scanT = SCAN_T; cam.yaw = me.yaw; cam.el = el; cam.dist = dist;
+      if (e >= cam.want || turned || cam.used === null) { cam.want = e; cam.lowerN = 0; }   // up at once (or where you turned to)
+      else if (++cam.lowerN >= LOWER_AFTER) { cam.want = e; cam.lowerN = 0; }             // down once it has stayed clear
+    }
+    const k = cam.used === null ? 1 : 1 - Math.exp(-8 * dt);
+    cam.used = cam.used === null ? cam.want : cam.used + (cam.want - cam.used) * k;
+    aim(cam.used); let d = clearTo(dist);                                       // the safety net: in front of the nearest solid
+    if (d < dist) d = Math.max(0.25, d - 0.12);                                  // (nowhere clear, inside the tent, or mid-ease)
+    cam.d = d < cam.d || k === 1 ? d : cam.d + (d - cam.d) * k;                 // pulled in at once, eased back out
+    camera.position.copy(tgt).addScaledVector(dir, cam.d);
     camera.lookAt(tgt);
   }
-  const a = scrub ? scrub.a : s.act;
-  read.textContent = `${s.name}: ${T.phase}${T.st ? "/" + T.st : ""}${s.dozing ? " · asleep" : ""}${T.phase === "walk" ? ` · ${T.path.length} pts left` : ""}\nclip ${a?.getClip().name ?? "-"} ${a ? a.time.toFixed(2) + " / " + a.getClip().duration.toFixed(2) + " s" : ""} × ${a?.timeScale.toFixed(2) ?? ""}\n` +
-    `at ${s.o.getWorldPosition(wp).toArray().map((v) => v.toFixed(2)).join(", ")} · size ${s.sc.toFixed(2)}`;
-  box.querySelectorAll("[data-do]").forEach((b) => {
-    const ph = T.phase, d = b.dataset.do;
-    b.disabled = d === "leave" ? ph !== "home" : d === "wander" || d === "home" ? !L.GROUND.has(ph) || ph === "greet" : d === "smore" ? s.spot.name !== "seat" || ph !== "home" : d === "nap" ? !!s.dozing || (ph !== "home" && ph !== "rest") || !!s.spot.asleep : d === "wake" ? !s.dozing : d === "stretch" ? !(ph === "home" || ph === "rest") : d === "fix" ? !s.spot.car || ph !== "home" : d === "trip" || d === "cards" ? ph !== "home" || !!s.spot.guest : false;
-  });
+  if ((readT -= dt) <= 0) { readT = 0.2; readOut(s); }
 };
 
 // open and close: closed, the panel is hidden, nothing is driven and you have your own view back
 export function toggle() {
   const open = box.hidden; box.hidden = !open;
   document.body.classList.toggle("lab", open); document.body.classList.toggle("follow", open && follow);
-  if (open) { window.__labStep = labStep; setSpeed(1); return; }
-  endScrub(); setSpeed(1); window.__campFast = 1; window.__labStep = null; pathLine.visible = false;
+  if (open) { cam.used = null; setLabStep(labStep); setSpeed(1); return; }
+  endScrub(); setSpeed(1); pace.fast = 1; setLabStep(null); pathLine.visible = false;
 }

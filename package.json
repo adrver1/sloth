@@ -4,13 +4,25 @@
   "type": "module",
   "description": "Baby sloth character, karaoke, synth, stickers and games",
   "scripts": {
-    "serve": "npx http-server -p 8765 -c-1 .",
+    "serve": "node tools/serve.cjs 8765",
+    "check": "node tools/check-imports.cjs && node tools/py.cjs tools/check-python.py && node tools/sync-shared.cjs --check",
+    "probe": "node tools/camp-probe.cjs --strict /apps/canopy-prototype/camp.html shots/probe.png",
+    "probe:phone": "node tools/camp-probe.cjs --strict --phone /apps/canopy-prototype/camp.html shots/probe_phone.png",
+    "gpu": "node tools/camp-gpu.cjs --shot shots/gpu.png",
+    "gpu:phone": "node tools/camp-gpu.cjs --phone --shot shots/gpu_phone.png",
     "replay": "node tools/camp-replay.cjs",
+    "scenarios": "node tools/camp-scenarios.cjs",
     "sync-shared": "node tools/sync-shared.cjs",
-    "check-shared": "node tools/sync-shared.cjs --check"
+    "check-shared": "node tools/sync-shared.cjs --check",
+    "bake": "node tools/py.cjs props/bake_all.py",
+    "bake:layout": "node tools/py.cjs props/bake_all.py --only layout",
+    "bake:ktx": "node tools/py.cjs props/bake_all.py --only ktx",
+    "pack:sloth": "node tools/pack-chars.cjs sloth",
+    "pack:operator": "node tools/pack-chars.cjs operator",
+    "stickers": "node tools/stickers.cjs"
   },
   "devDependencies": {
-    "playwright": "^1.49.0",
+    "playwright": "1.63.0",
     "three": "0.186.1"
   }
 }

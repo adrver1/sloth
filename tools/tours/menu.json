@@ -1,0 +1,66 @@
+[
+[
+3,
+"const T = window.__T, J = T.jeep, me = T.me; T.click('menu');"
+],
+[
+5,
+"const T = window.__T, J = T.jeep, me = T.me; T.slider(21.5);"
+],
+[
+40,
+"const T = window.__T, J = T.jeep, me = T.me; T.slider(6);"
+],
+[
+80,
+"const T = window.__T, J = T.jeep, me = T.me; T.slider(17.5);"
+],
+[
+110,
+"const T = window.__T, J = T.jeep, me = T.me; T.slider(0);"
+],
+[
+130,
+"const T = window.__T, J = T.jeep, me = T.me; T.slider(23.75);"
+],
+[
+140,
+"const T = window.__T, J = T.jeep, me = T.me; T.click('cycle');"
+],
+[
+200,
+"const T = window.__T, J = T.jeep, me = T.me; T.click('weather');"
+],
+[
+240,
+"const T = window.__T, J = T.jeep, me = T.me; T.click('cycle');"
+],
+[
+250,
+"const T = window.__T, J = T.jeep, me = T.me; T.click('weather');"
+],
+[
+290,
+"const T = window.__T, J = T.jeep, me = T.me; T.click('weather');"
+],
+[
+300,
+"const T = window.__T, J = T.jeep, me = T.me; T.slider(9.25);"
+],
+[
+320,
+"const T = window.__T, J = T.jeep, me = T.me; window.__time(8); T.log.push(['__time 8']);"
+],
+[
+335,
+"const T = window.__T, J = T.jeep, me = T.me; T.rest(); T.log.push(['__rest']);"
+],
+[
+350,
+"const T = window.__T, J = T.jeep, me = T.me; T.click('cycle'); window.__campFast = 6;"
+],
+[
+420,
+"const T = window.__T, J = T.jeep, me = T.me; T.click('cycle');"
+]
+]

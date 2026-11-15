@@ -628,8 +628,12 @@ function confetti(n) {
 }
 // ---------------------------------------------------------------- the cast
 async function glb(url) {
-  const txt = (await (await fetch(url)).text()).trim();
-  const bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
+  // camp mode: Canopy Camp's Pages deploy serves the camp's models (../models/) as binary .glb files instead of their base64 .txt
+  // copies (.github/workflows/pages.yml), so a camp model that is not there as .txt is fetched as .glb
+  const r = await fetch(url);
+  let bin;
+  if (!r.ok && CAMP && url.startsWith("../models/")) { const g = await fetch(url.replace(/\.txt$/, ".glb")); if (!g.ok) throw new Error(`${url} ${g.status}`); bin = new Uint8Array(await g.arrayBuffer()); }
+  else bin = Uint8Array.from(atob((await r.text()).trim()), (c) => c.charCodeAt(0));
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 const [HER, SLOTH, CASTM, OPM, OPA] = await Promise.all([glb("models/her.txt"), glb(CAMP ? "../models/sloth.txt" : "models/sloth.txt"),   // camp mode: the camp's own sloths

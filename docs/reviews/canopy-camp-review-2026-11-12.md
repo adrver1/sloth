@@ -1,5 +1,7 @@
 # Canopy Camp review: performance, coziness, maintainability
 
+This repo copy is the one kept up to date (review R2-219); the copy in the project files (`canopy-hide-and-seek/review/camp-review.md`) is older.
+
 Review of `apps/canopy-prototype/camp.html` as of branch `claude/project-thread-c8zad5` (ed8df86, the merge branch the live page is built from), 2026-11-12. Default settings: look Mossy, props "Our camp", Detail Medium, Light 2K, Cabin baked, jeep Expedition.
 
 This is an audit only; no app code changed. Numbers come from `tools/camp-probe.cjs` (headless Chromium, SwiftShader, so fps is meaningless there; draw calls, triangles, bytes and textures are exact). Screenshots of the start view: `/mnt/project-files/canopy-hide-and-seek/review/` (desktop, night, phone).
