@@ -98,7 +98,7 @@ export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
   const t = tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
-  return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth [bx, by, height]
+  return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49], pegs: [],   // chimney: the pipe's mouth [bx, by, height]; pegs: the guy ropes' pegs [bx, by] (none on a set baked before R2-203)
     toLocal: (x, z) => { const dx = x - t.x, dz = z - t.z; return [dx * fx + dz * fz, dx * fz - dz * fx]; },
     fromLocal: (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz),
     // in toLocal's terms: the floor rectangle (a from a0 to a1, |b| below b) is kept level (terrain.js) and has no grass in the tent or
@@ -124,7 +124,7 @@ export const HAMMOCK = { a: hA, b: hB, mid: hA.clone().add(hB).multiplyScalar(0.
 // set has loaded, before any module reads them. The numbers above only stand in for a camp set baked before the extras
 // existed; drop them, and this fallback, after the next light bake.
 export function fromModel(tent = {}, hammock = {}) {
-  for (const k of ["W", "yf", "yb", "DW", "stove", "chimney", "bed"]) if (tent[k] !== undefined) TENT[k] = tent[k];
+  for (const k of ["W", "yf", "yb", "DW", "stove", "chimney", "bed", "pegs"]) if (tent[k] !== undefined) TENT[k] = tent[k];
   const { knot: k, rope_end: e } = hammock;
   if (k && e) Object.assign(HAMMOCK, { pivot: k[2], knotX: -k[0], endX: -e[0], endY: e[2] - k[2] });
 }
