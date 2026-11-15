@@ -6,13 +6,10 @@
 // Exports lifeStep(dt) (step.js, each frame; an error in an activity is logged and his day starts again) and jumpTo(kind)
 // (the checks, opChecks.jump: stop what he is doing cleanly, start that activity now, then carry on).
 import * as THREE from "three";
-import { LIVED, rng, scene, uNight } from "../core.js";
+import { chores, CRATE, LIVED, me, RC, rng, scene, SOUP_POT, uNight } from "../stage.js";
 const { R } = rng("operator");
-import { CRATE, RC, SOUP_POT } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
 import { ringPoint } from "../actor.js";
-import { acts as chores } from "../chores.js";   // your chores (activities.js): he cooks only when the pot and the pail are free
-import { me } from "../player.js";
 import { giveBack, cuddleSeated, host, napTogether, pickUp, putDown, unhost } from "./buddy.js";
 import { cook } from "./cook.js";
 import { book, bowl, dropAll, hold, mug, spoon } from "./handProps.js";

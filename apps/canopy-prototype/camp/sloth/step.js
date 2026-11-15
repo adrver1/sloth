@@ -10,7 +10,7 @@
 //                        linger.js, so no sloth sits on you.)
 // core.js pace (window.__campFast for the tools) speeds the sloths' day up for checks; the move lab slows it, and pauses it
 // with 0 (the camp sloths' clips, trips and z's stop; blinks, the look at you and the wild sloths' clips go on).
-import { OPT, pace } from "../core.js";
+import { OPT, pace } from "../stage.js";
 import { SL, camp, wild } from "./state.js";
 import { glideStep, slideStep } from "./moves.js";
 import { brush } from "./spots.js";

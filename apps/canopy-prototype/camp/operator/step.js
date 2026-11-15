@@ -2,10 +2,8 @@
 // or rises, then the poses laid over the clip in a fixed order (hands, a fidget, head and face), the tap column and the
 // speech bubble follow him, his shadow goes under him and you are nudged out of him.
 // Exports buildRest() (operator.js, after the Z's) and opStep(dt) (main.js, each frame; nothing with ?op=0, when he is not built).
-import { OPT } from "../core.js";
+import { groundAt, me, OPT } from "../stage.js";
 import { V } from "../util.js";
-import { me } from "../player.js";
-import { groundHeight as groundAt } from "../terrain.js";
 import { lifeStep } from "./day.js";
 import { fidgetStep } from "./fidget.js";
 import { poseHands } from "./handPose.js";

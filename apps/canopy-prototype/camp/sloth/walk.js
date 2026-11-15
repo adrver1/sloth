@@ -9,11 +9,9 @@
 //   greetStep(s, T, sd)           the greet phase: two that meet sit up, face each other, say hello and carry on (a pause
 //                                 inside a walk, on the walk's trip record, so the path is kept)
 // The words of a hello draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
-import { camera, rng } from "../core.js";
+import { blockers, blockersVersion, camera, RC, rng } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, yawFrom, yawTo } from "../util.js";
-import { RC } from "../layout.js";
-import { blockers, blockersVersion } from "../campProps.js";
 import { createNav } from "../nav.js";
 import { walkers } from "../places.js";
 import { burst } from "../fx.js";

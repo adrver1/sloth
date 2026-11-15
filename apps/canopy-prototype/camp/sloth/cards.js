@@ -13,7 +13,7 @@
 //   quitGame(s)               its game ends (it was borrowed: lend.js); the other one goes home
 // The game's length, the pauses and where a card lands draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
 import * as THREE from "three";
-import { rng, scene } from "../core.js";
+import { rng, scene } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, canvasTex } from "../util.js";
 import { claim, release, taken } from "../places.js";

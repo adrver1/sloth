@@ -5,7 +5,7 @@
 //   slothsStep(dt)     each frame, for every sloth (main.js): its clip, slothLife, the squish of a boop and a nod
 // Blinks draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
 import * as THREE from "three";
-import { camera, rng } from "../core.js";
+import { camera, rng } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { LIVELY, SL, sloths } from "./state.js";

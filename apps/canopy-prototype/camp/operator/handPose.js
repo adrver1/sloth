@@ -4,8 +4,7 @@
 // for food you give him. Each block reads the state and places bones and props; the order is the order they were always in.
 // Exports poseHands(dt) (step.js, each frame).
 import * as THREE from "three";
-import { uTime } from "../core.js";
-import { SOUP_POT } from "../layout.js";
+import { SOUP_POT, uTime } from "../stage.js";
 import { V, ease } from "../util.js";
 import { book, bowl, mug, pail, spoon, stick, veg } from "./handProps.js";
 import { THUMB, handQuat } from "./ik.js";

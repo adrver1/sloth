@@ -14,7 +14,7 @@
 //   giftFly(s, dt)           each frame otherwise: its right paw comes up (arms.js giftArm), the food flies into it, the
 //                            paw lifts it to its lips and it shrinks a bite at a time while the mouth munches (Adriaen
 //                            2026-11-13: "they eat without hands")
-import { rng, scene } from "../core.js";
+import { rng, scene } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { WALK_TS } from "./state.js";

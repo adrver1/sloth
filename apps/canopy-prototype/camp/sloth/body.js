@@ -15,10 +15,9 @@
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { FUR_ON, WARM_N, furify } from "../../fur.js";
-import { D, OPT, rng, S, scene } from "../core.js";
+import { D, LANTERNS, OPT, rng, S, scene } from "../stage.js";
 const { R } = rng("sloths");
 import { V } from "../util.js";
-import { LANTERNS } from "../campProps.js";
 import { SL, SLOTH, hit, sloths } from "./state.js";
 import { eyeKit } from "./face.js";
 import { armBones } from "./arms.js";

@@ -3,12 +3,9 @@
 // him at a place he holds (camp/sloths.js: a sloth that comes there calls life.join, which asks his host).
 // Exports pickUp(clip, slothClip), putDown(), giveBack(at = clearSpot(), yaw = facing him), clearSpot(), cuddleSeated(), napTogether(), host(key), unhost().
 import * as THREE from "three";
-import { rng, scene } from "../core.js";
+import { blockers, groundAt, RC, rng, scene } from "../stage.js";
 const { R } = rng("operator");
-import { RC } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
-import { blockers } from "../campProps.js";
-import { groundHeight as groundAt } from "../terrain.js";
 import { dropAll } from "./handProps.js";
 import { B, UP, body, cs, play, root } from "./model.js";
 import { BED } from "./places.js";

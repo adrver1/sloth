@@ -39,7 +39,7 @@
 //                               f scales it (the small sloths). Its opacity and how fast k runs stay with the character.
 //   bite(mesh, n, per, min = 0.1)   food n bites smaller: its scale is its userData.base (or 1) times 1 - per x n, at least min
 import * as THREE from "three";
-import { camera, scene } from "./core.js";
+import { camera, scene } from "./stage.js";
 import { V, wrapPi } from "./util.js";
 import { sprite } from "./fx.js";
 

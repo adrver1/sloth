@@ -7,10 +7,9 @@
 // palmAt(side, out, d) (the points at his lips and in front of a palm, also for handPose.js), tapCol,
 // saying() (the bubble's text) and chestOnScreen() (where his chest is on screen, for the checks: opChecks.tapAt).
 import * as THREE from "three";
-import { camera, rng, scene } from "../core.js";
+import { camera, chores, rng, scene } from "../stage.js";
 const { R } = rng("operator");
 import { V, timers } from "../util.js";
-import { acts as chores } from "../chores.js";   // your chores (activities.js): the food in your hand
 import { addTarget } from "../targets.js";
 import { EV, on } from "../events.js";
 import { fx } from "../fx.js";

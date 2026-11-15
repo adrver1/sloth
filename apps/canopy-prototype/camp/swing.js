@@ -12,8 +12,7 @@
 //                          back, it returns at once.
 // sloth/spots.js buildSpots calls both while it builds the camp sloths' spots, so the scene's objects keep their order; nothing runs on import.
 import * as THREE from "three";
-import { scene, uTime } from "./core.js";
-import { HAMMOCK, LAUNDRY } from "./layout.js";
+import { HAMMOCK, LAUNDRY, scene, uTime } from "./stage.js";
 import { patchMaterial, swap } from "./util.js";
 
 function makeHammockSwing() {

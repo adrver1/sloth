@@ -17,10 +17,9 @@
 //   fruitStep(sd)       each frame: a fruit is put out again a while after one is eaten, and grows to its size
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { rng, scene } from "../core.js";
+import { CRATE, RC, rng, scene, TABLE } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
-import { CRATE, RC, TABLE } from "../layout.js";
 import { SLOTH } from "./state.js";
 import { EAT_GRAB, clipOf } from "./clips.js";
 import { armBones, pawOf } from "./arms.js";

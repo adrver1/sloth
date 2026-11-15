@@ -7,7 +7,7 @@
 // turnHand (ik.js on his bones) and UP.
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { scene } from "../core.js";
+import { scene } from "../stage.js";
 import { V, canvasTex } from "../util.js";
 import { crossFade, kitLook } from "../actor.js";
 import * as ik from "./ik.js";

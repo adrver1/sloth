@@ -7,7 +7,7 @@
 //                            that changes all the time (a nap's seconds still to go) need not be saved each time it changes
 //                            (review R2-081)
 // To start the camp fresh, remove the key from localStorage.
-import { KEYS } from "./core.js";
+import { KEYS } from "./stage.js";
 
 const KEY = KEYS.save, V = 1;
 let all = {};

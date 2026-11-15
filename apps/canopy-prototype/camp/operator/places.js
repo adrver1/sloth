@@ -4,11 +4,8 @@
 // Exports SEATS, BED (null until findPlaces has found the tent), findPlaces(), fireGap(from), crateFront() (where he stands
 // at the kitchen crate), freeOf(p, r), freeSeat(), claimPlace(key) and releasePlace() (named apart from camp/places.js claim and release, which take a place and who).
 import * as THREE from "three";
-import { scene } from "../core.js";
-import { CRATE, SEAT_GAPS, TENT } from "../layout.js";
+import { blockers, CRATE, me, scene, SEAT_GAPS, TENT } from "../stage.js";
 import { V } from "../util.js";
-import { blockers } from "../campProps.js";
-import { me } from "../player.js";
 import { root } from "./model.js";
 import { ME, RADIUS, op } from "./state.js";
 import { bedKey, claim, holder, logSeats, release, taken } from "../places.js";

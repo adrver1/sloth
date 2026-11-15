@@ -7,7 +7,7 @@
 //   stopSmore(s)          puts the stick away (it leaves its seat, or is borrowed)
 // The wait until the next one draws from the sloths' day stream (core.js rng("slothDay")) as it happens.
 import * as THREE from "three";
-import { rng, scene } from "../core.js";
+import { rng, scene } from "../stage.js";
 const { R } = rng("slothDay");
 import { V } from "../util.js";
 import { play, playOnce } from "./clips.js";

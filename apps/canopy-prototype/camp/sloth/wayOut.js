@@ -8,10 +8,8 @@
 // hand over hand along it to the trunk, turns onto the trunk and climbs down it tail first, facing the bark, then steps
 // off onto the ground (wayIn.js climbUp is the same the other way). Trunk radius from poses.js barkOf; speed is hang_walk's.
 import * as THREE from "three";
-import { jeepApi } from "../jeep.js";
-import { scene } from "../core.js";
+import { HAMMOCK, jeepApi, LAUNDRY, scene, TENT } from "../stage.js";
 import { V, yawFrom, yawTo } from "../util.js";
-import { HAMMOCK, LAUNDRY, TENT } from "../layout.js";
 import { CRAWL, HW, HW_POST, WALK_TS, setTrip } from "./state.js";
 import { play } from "./clips.js";
 import { barkOf, climbYaw, linePose, postPose, ropeLen, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";

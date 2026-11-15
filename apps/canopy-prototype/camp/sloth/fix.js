@@ -8,8 +8,7 @@
 //   fixStep(s, T, sd)      the fix phase, each frame
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { jeepApi } from "../jeep.js";
-import { scene } from "../core.js";
+import { jeepApi, scene } from "../stage.js";
 import { V } from "../util.js";
 import { release } from "../places.js";
 import { setTrip } from "./state.js";

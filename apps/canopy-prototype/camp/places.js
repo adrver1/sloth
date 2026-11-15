@@ -27,8 +27,7 @@
 //   part of it (Sunny holds "log:0", you on that bench "log:0:left"); bedKey(i): the tent bed's two places, "bed:0" and
 //   "bed:1" (the operator lies along the whole bed as "bed:0"). Build these keys with seatKey and bedKey, never by hand.
 import * as THREE from "three";
-import { camera, scene } from "./core.js";
-import { SEATS, SEAT_SLOT } from "./layout.js";
+import { camera, scene, SEAT_SLOT, SEATS } from "./stage.js";
 
 const claims = new Map(), hosts = new Map(), walkers = [], crowds = [];
 

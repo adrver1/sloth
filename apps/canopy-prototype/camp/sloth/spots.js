@@ -26,11 +26,8 @@
 // is a copy with guest, of (the home it was copied from), key (the place it claims, places.js), bed and maxSc.
 // The modules ask a spot these, not its name; the name is in its home key and the move lab. Nothing runs on import; sloths.js calls the two builders in their place in the build order.
 import * as THREE from "three";
-import { jeepApi } from "../jeep.js";
-import { LIVED, scene } from "../core.js";
+import { branchCurves, HAMMOCK, jeepApi, LAUNDRY, LIVED, RC, scene, SEAT_SLOT, SEATS, TENT, trunkR } from "../stage.js";
 import { V, yawTo } from "../util.js";
-import { HAMMOCK, LAUNDRY, RC, SEATS, SEAT_SLOT, TENT } from "../layout.js";
-import { branchCurves, trunkR } from "../forest.js";
 import { makeClothBrush, makeHammockSwing } from "../swing.js";
 import { bedKey, claim, release, seatKey } from "../places.js";
 import { SL, guests, sloths, spots } from "./state.js";
