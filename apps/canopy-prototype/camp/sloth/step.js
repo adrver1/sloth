@@ -33,7 +33,7 @@ const STEP = { walk: walkStep, greet: greetStep, eat: eatStep, fix: fixStep, res
 
 function campStep(dt) {
   if (!OPT.campsloths) return;
-  keep(dt);
+  if (OPT.slothsave !== false) keep(dt);   // the summit keeps none (plan L5: they start at their spots each visit)
   const fast = pace.fast ?? 1, sd = dt * fast;   // ?? not ||: the lab's Pause and Step set 0 (review R2-044)
   doorShutStep(sd);
   let out = 0; for (const s of camp) if (s.trip.phase !== "home") out++;

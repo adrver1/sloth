@@ -4,7 +4,7 @@
 // put out a while after one is eaten. The fruit are camp/food.js's (mango, apple, banana, fig, lime:
 // 20 to 35 triangles each, one shared material), the same ones you carry and give.
 //   buildTable()        measures where the paw is at the grab of the two eat clips (sloths.js, in its place in the build order)
-//   buildPlaces()       makes the places and puts a fruit at each, drawing from the sloths' day stream (sloths.js
+//   buildPlaces()       makes the places (the table's and the crate's, or a level's own: stage.js FOOD(tableAndCrate)) and puts a fruit at each, drawing from the sloths' day stream (sloths.js
 //                       buildSlothPlaces, called by main.js once the blockers are in); without a table or a crate (?lived=0)
 //                       that one has none
 //   pois()              the places: [{ name: "table" | "crate", c, slots }], two on the table (its two ends) and two at the
@@ -14,10 +14,11 @@
 //   fruit(mesh)         a new fruit (camp/food.js makeFood), or the same mesh as a new kind (draws two numbers)
 //   restOn(food)        lays the food's fruit on the surface at its place (eating.js: the next fruit a table eater takes)
 //   sitFor(slot, sc)    where a sloth of size sc sits so that its paw meets the fruit
+//   GRAB                where the paw is at the grab of eat and eat_high (a level's own food places, stage.js FOOD)
 //   fruitStep(sd)       each frame: a fruit is put out again a while after one is eaten, and grows to its size
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { CRATE, RC, rng, scene, TABLE } from "../stage.js";
+import { CRATE, FOOD, RC, rng, scene, TABLE } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { SLOTH } from "./state.js";
@@ -56,8 +57,9 @@ function edgeOf(obj, box, c, u, minY) {             // box: obj's bounding box i
 const topAt = (objs, p) => { ray.set(tmp.set(p.x, 3, p.z), DOWN); ray.far = 4; return ray.intersectObjects(objs, true)[0]?.point.y ?? 0; };   // the highest of objs (a list) under p
 // the places, made once in the build order (main.js, after the glade, the tent's walls and the chores have added their
 // blockers, since a place's ground point must be free on the sloths' grid). They used to be made on the first frame.
-function buildPlaces() {
-  POIS = [];
+function buildPlaces() { POIS = FOOD ? FOOD(tableAndCrate) : tableAndCrate(); }   // FOOD: a level's own (stage.js), given these to add to
+function tableAndCrate() {
+  const out = [];
   const inCrate = ["KitchenCrate", "KitchenThings"].map((n) => scene.getObjectByName(n)).filter(Boolean);   // the crate (its tins) and the pan, plates and jar on them
   for (const o of inCrate) o.updateWorldMatrix(true, false);   // stood in place (campProps.js stand) but not drawn yet, so the rays see them where they are
   for (const [name, obj, c, minY, n] of [["table", scene.getObjectByName("Table"), TABLE.at, 0.5, 2], ["crate", scene.getObjectByName("KitchenCrate"), CRATE.at, 0.15, 2]]) {
@@ -85,8 +87,9 @@ function buildPlaces() {
       slot.food = { at, mesh: fruit(), back: 0 }; restOn(slot.food);
       slots.push(slot);
     }
-    POIS.push({ name, c, slots });
+    out.push({ name, c, slots });
   }
+  return out;
 }
 const pois = () => POIS ?? [];
 function fruitStep(sd) {
@@ -102,4 +105,4 @@ function fruitStep(sd) {
   }
 }
 
-export { buildPlaces, buildTable, fruit, fruitStep, pois, restOn, sitFor };
+export { GRAB, buildPlaces, buildTable, fruit, fruitStep, pois, restOn, sitFor };
