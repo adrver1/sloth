@@ -11,7 +11,7 @@
 // plays). The letterbox and fade are two page elements.
 import { OPT, camera } from "./core.js";
 import { V, wheelsOf, yawTo } from "./util.js";
-import { JEEP_TRACK } from "./layout.js";
+import { DRIVE_CAM_S, JEEP_TRACK } from "./layout.js";
 import { groundHeight } from "./terrain.js";
 import { me } from "./player.js";
 import { resize } from "./input.js";
@@ -51,9 +51,10 @@ async function start(home) {
   // the camera stands on the track where it leaves the clearing, high enough to see over the verge bushes, and turns to follow the jeep as
   // it drives off up the track and round the bend into the trees (home: as it comes down toward you and stops). The near plane
   // (1.5 m) clips the verge leaves by the lens.
-  const cam = trackAt(0.12 * LEN).p.add(V(0, 3.4, 0));
+  const cam = trackAt(DRIVE_CAM_S * LEN).p.add(V(0, 3.4, 0));   // the forest keeps its lines of sight to the jeep clear (layout.js cutSight)
   spin ??= wheelsOf(j);
   shot = { t: 0, home, cam, left: false, s: along(0, home), riders };
+  jeepApi.driving = true;   // its headlights come on at night (headlights.js)
   document.body.classList.add("drive-cut"); skip.hidden = false;
   if (home) fade.classList.remove("on");   // the page opened dark; its transition fades up on the jeep coming home
 }
@@ -81,7 +82,7 @@ function end() {
     const sill = jeepApi.sill, out = sill.clone().sub(j.position).setY(0).normalize();
     me.pos.copy(sill).addScaledVector(out, 0.7).setY(0); me.yaw = yawTo(V(-me.pos.x, 0, -me.pos.z)); me.pitch = 0.04;
   }
-  shot = null; camera.near = NEAR0; resize();
+  shot = null; camera.near = NEAR0; resize(); jeepApi.driving = false;
   document.body.classList.remove("drive-cut"); skip.hidden = true;
   fade.classList.remove("on");   // its transition fades the view back in
 }

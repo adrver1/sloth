@@ -18,6 +18,8 @@
 import * as THREE from "three";
 import { V, canvasTex, ease } from "./util.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { addHeadlights } from "./headlights.js";
+import { uNight } from "./stage.js";
 
 export function rigJeep(jeep, { camera, renderer, far = null, spot = true }) {
   jeep.updateMatrixWorld(true);
@@ -36,6 +38,9 @@ export function rigJeep(jeep, { camera, renderer, far = null, spot = true }) {
       whole.add(w);
     } }
   whole.visible = false; jeep.add(whole);
+  // the headlights (headlights.js; Adriaen 2026-11-15): on at dusk and night while the engine runs (car.js sets api.engineOn) or
+  // the jeep drives in a shot (the drives set api.driving); added after the parts are listed, so they are never merged or hidden with them
+  const heads = addHeadlights(jeep);
   const NEAR = 6, at = V(), last = jeep.getWorldPosition(V()); let moving = 0, live = true;   // last: where it stood last frame (parked now)
   // the doors and the hood (Adriaen 2026-11-12, hinged at the windscreen): how far each swings (rad) and about which axis come
   // from the node's glTF extras, "open" and "axis", which build_jeep.py writes from its HINGES and HOOD_OPEN (review R2-250).
@@ -99,6 +104,7 @@ export function rigJeep(jeep, { camera, renderer, far = null, spot = true }) {
       if (d.cur !== 0) shut = false;
     }
     lightStep(dt, moved);
+    heads.step(dt, (api.engineOn || api.driving ? 1 : 0) * THREE.MathUtils.smoothstep(uNight.value, 0.25, 0.6));
     jeep.getWorldPosition(at); if (at.distanceToSquared(last) > 1e-8) { moving = 0.5; last.copy(at); } else moving -= dt;
     const d = camera.position.distanceTo(at);
     if (far) {
@@ -115,7 +121,7 @@ export function rigJeep(jeep, { camera, renderer, far = null, spot = true }) {
   const api = {
     // lod: the far look, its own scene object (drive.js moves it with the jeep); inside: things in the cab (car.js's dash)
     // that draw only with the parts
-    node: jeep, lod: far, inside: [],
+    node: jeep, lod: far, inside: [], engineOn: false, driving: false,   // engineOn, driving: the headlights' switches (car.js, the drives)
     doors: Object.entries(doors).map(([k, d]) => ({ k, o: d.o, toggle: () => (d.want = d.want ? 0 : d.open), get open() { return d.want !== 0; } })),   // for the highlight and its menu (jeepSeat.js, targets.js)
     open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
     isOpen: (w = "B") => !!doors[w] && Math.abs(doors[w].cur) > Math.abs(doors[w].open) * 0.8,

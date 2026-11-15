@@ -82,7 +82,7 @@ export const PATHS = [sloPath, tripPath];
 for (const p of PATHS) p.ribbon ??= ribbonCurve(p);   // one curve per path, read by forest/floor.js, forest/plants.js and glade.js
 // ribbonCurve(path): the curve a path's ribbon is drawn along, its lead points then its own curve's
 function ribbonCurve(path) { return new THREE.CatmullRomCurve3([...path.lead, ...path.curve.points].map((q) => q.clone().setY(0))); }
-// cutSight(x, z, r): true when a thing of radius r at (x, z) stands in the karaoke cut scene camera's line of sight. trip.js films
+// cutSight(x, z, r): true when a thing of radius r at (x, z) stands in the karaoke cut scene camera's line of sight (or the drive's, below). trip.js films
 // the wagon from the camp's side of the road (side on, and three-quarter from ahead on an upright phone), so the forest keeps
 // those lines clear of trunks (forest/trees.js) and bushes (forest/plants.js)
 const sight = [];
@@ -115,6 +115,12 @@ export const JEEP_TRACK = (() => {
   const curve = new THREE.CatmullRomCurve3([P(1.2, 0), P(-1.5, 0), P(-3.6, 0.5), P(-4.9, 2.4), P(-5.6, 5.5), P(-5.4, 10), P(-4.2, 16), P(-3, 24)]);
   return { curve, pts: curve.getSpacedPoints(90) };
 })();
+// the drive's shot (drive.js) films the jeep from the track's start (0.12 of the way) as it drives up the track and round the bend:
+// the forest keeps those lines of sight clear too (cutSight), or the verge bushes on the bend's inside hid the jeep (Adriaen
+// 2026-11-15: "driving off from the jungle camp, the car can't be seen")
+export const DRIVE_CAM_S = 0.12;
+{ const c = JEEP_TRACK.curve, cam = c.getPointAt(DRIVE_CAM_S);
+  for (let t = 0.26; t <= 0.8; t += 0.03) sight.push([cam, c.getPointAt(t)]); }
 
 // ---------------------------------------------------------------- the camp: log seats round the fire, tent, hammock, table
 export const FIRE = V(0, 0, 0);   // the campfire stands at the origin

@@ -73,6 +73,9 @@ function verge() {
       if (Math.hypot(p.x, p.z) < RC - 0.5) continue;
       for (const k of [-1, 1]) vc.push({ x: p.x + side.x * k * Q2(2.2, 3.2), y: Q2(0.5, 2.6), z: p.z + side.z * k * Q2(2.2, 3.2), r: Q2(0.7, 1.2) });
     }
+    // a bush in the drive shot's line of sight goes as a whole (layout.js cutSight; Adriaen 2026-11-15: the bushes on the bend's
+    // inside hid the jeep driving off); the rest stand where they were
+    for (let i = vc.length - 1; i >= 0; i--) if (cutSight(vc[i].x, vc[i].z, vc[i].r)) vc.splice(i, 1);
     for (const v of vc) v.y += groundHeight(v.x, v.z);   // on the banks beside the track
     const vm = cardSet(), m = new THREE.Matrix4(), c = new THREE.Color(), n = V(), p = V(), sc = V(), keep = cards(perClump);
     let i = 0;

@@ -24,6 +24,7 @@ import { CAST_O, castCam, syncBack, syncCast } from './castStage.js';
 import { campGroup } from './scoutCamp.js';
 import { createAtmosphere } from '../atmosphere.js';
 import { SOUP_POT, TENT } from '../camp/layout.js';
+import { addStoveGlow } from '../camp/stove.js';
 import { cue } from './audio.js';
 
 let opApi = null, opStep = null, jumpTo = null, slothStep = null, slothList = null;
@@ -44,6 +45,7 @@ export function buildLife() {
     // the camp's own air round the fire (Adriaen 2026-11-15: "add smoke to the campfire like in the cozy camp"), in the camp's
     // frame like the cast; no butterflies or fireflies in the snow
     atmo = createAtmosphere({ scene: campGroup, camera: castCam, fx: 1, pot: SOUP_POT, chimneys: [TENT.fromLocal(...TENT.chimney)], bugs: false });
+    addStoveGlow({ into: campGroup, camera: castCam, fog: false });   // the tent stove's fire, as the camp's (camp/stove.js)
     sl.buildSlothLife(SL); slothStep = sl.slothStep; slothList = sl.camp; hands = sl.hands;   // the sloths first, as in the camp: he finds them in their places
     // he starts by the fire on its woodpile side, looking at it, as in the camp
     const p = V(Math.cos(A0 + 0.9) * 2.6, 0, Math.sin(A0 + 0.9) * 2.6);
