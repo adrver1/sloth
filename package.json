@@ -19,6 +19,7 @@
     "bake:ktx": "node tools/py.cjs props/bake_all.py --only ktx",
     "pack:sloth": "node tools/pack-chars.cjs sloth",
     "pack:operator": "node tools/pack-chars.cjs operator",
+    "pack:operator-winter": "node tools/pack-chars.cjs operator_winter",
     "stickers": "node tools/stickers.cjs"
   },
   "devDependencies": {

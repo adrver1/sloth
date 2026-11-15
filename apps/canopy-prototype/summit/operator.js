@@ -2,10 +2,11 @@
 // comes in the jeep too. For now he has one spot, his end of the middle log seat by the fire (camp/layout.js SEAT_SLOT.op, as in
 // the camp), sitting with the camp's seated clip, sipping from his mug now and then, and waving when you come up to the fire.
 // His camp activities (firewood, the pot, the porch with a sloth) come with the routines follow-up.
-// The model and clips are the camp's (models/operator.txt, operator_anims.txt), with the camp's kit look (camp/actor.js kitLook:
+// He wears his winter look A, the puffer and beanie (models/operator_winter.txt, npm run pack:operator-winter; Adriaen
+// 2026-11-15), on the camp's rig, so the camp's clips (models/operator_anims.txt) play on it; the camp's kit look (camp/actor.js kitLook:
 // a crisp texture, flat-shaded Lambert), copied here because camp/actor.js pulls in the camp's core.
 // Exports buildOperator() (main.js, once: starts the downloads) and operatorStep(dt) (main.js, each frame after the sloths).
-// Triangles: his mesh (camp_cargo outfit, 1,082), one draw; he casts the sun's shadow like the sloths.
+// Triangles: his mesh (winter_a outfit, 1,354), one draw; he casts the sun's shadow like the sloths.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { fetchBytes } from '../bakedlight.js';
@@ -34,7 +35,7 @@ function play(name, { once = false, fade = 0.4 } = {}) {
 
 export function buildOperator() {
   const load = (f) => fetchBytes(f).then((bin) => new Promise((ok, no) => new GLTFLoader().parse(bin.buffer, '', ok, no)));
-  Promise.all([load('models/operator.txt'), load('models/operator_anims.txt')]).then(([G, A]) => {
+  Promise.all([load('models/operator_winter.txt'), load('models/operator_anims.txt')]).then(([G, A]) => {
     // his end of the middle log, across the fire from where you come in (Bandit sits in its middle), facing the fire
     const s = SEATS[1], along = new THREE.Vector3(Math.sin(s.angle), 0, -Math.cos(s.angle)), seat = s.at.clone().addScaledVector(along, SEAT_SLOT.op + 0.12);
     const root = kitLook(G.scene); root.position.set(CAMP.x + seat.x, TOP, CAMP.z + seat.z);   // seated, the clips keep his root under his hips (camp/operator/walk.js) root.rotation.y = Math.atan2(seat.x, seat.z);
