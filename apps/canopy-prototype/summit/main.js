@@ -20,6 +20,7 @@ import { buildDrive, driveStep } from './drive.js';
 import { buildSloths, slothsStep } from './sloths.js';
 import { buildOperator, operatorStep } from './operator.js';
 import { buildDaytime, daytimeApi, daytimeStep } from './daytime.js';
+import { audioStep, buildAudio } from './audio.js';
 
 // ---------------------------------------------------------------- the build list (the order the scene's children were added in the prototype)
 buildCore();        // core.js: the canvas on the page, the sky dome
@@ -37,6 +38,7 @@ buildDaylight();    // daylight.js: hemisphere light and sun, the sun's shadow s
 buildPlayer();      // player.js: keys, stick, look drags, settings panel handlers
 buildBackdrop();    // backdrop.js: eight painted panels for the land beyond 1 km
 buildDaytime();     // daytime.js: the camp's hour and day cycle, the porch clock, the time slider
+buildAudio();      // audio.js: the sound settings, the first-tap start, the porch radio (sound only after a tap)
 buildDrive();       // drive.js: the drive's letterbox and the Drive back pill (needs the road's jeep group and the pill row); come from the camp, the arrival plays on the first frame
 if (BARE) scene.children.slice(MADE_FROM).forEach((o) => { if (!o.isCamera) o.visible = false; });
 
@@ -59,6 +61,7 @@ function frame() {
   campStep(now, LIGHT.night, wind);
   slothsStep(dt, now);   // after the light: they doze off when it is dark
   operatorStep(dt);      // after the sloths: his sips and his wave
+  audioStep(dt);         // after the light and the wind: the ear, the beds, the crackles and calls, your steps
   if (!BARE) { carry.step(dt, LIGHT.bright); roadStep(); }
   const shNow = renderer.shadowMap.needsUpdate, tr = performance.now();
   renderer.render(scene, camera); const mainInfo = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };

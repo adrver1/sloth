@@ -23,6 +23,7 @@ import { CAMP } from './scoutCamp.js';
 import { plume } from './fx.js';
 import { LIGHT } from './daylight.js';
 import { winterGear } from './winter.js';
+import { cue } from './audio.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const inCamp = (x, y, z) => V(CAMP.x + x, TOP + y, CAMP.z + z);   // a point in the camp's frame (fire at the origin), in the world
@@ -92,7 +93,7 @@ export function buildSloths() {
     let best = null, bd = 6;   // within reach
     for (const s of sloths) { sph.set(tmp.copy(s.o.position).addScaledVector(up, 0.12 * s.base), 0.16 * s.base); const hit = ray.ray.intersectSphere(sph, puffAt);
       if (hit) { const d = hit.distanceTo(camera.position); if (d < bd) { bd = d; best = s; } } }
-    if (best) best.squish = 1;
+    if (best) { best.squish = 1; cue('boop', best.head.getWorldPosition(V())); }
   });
 }
 

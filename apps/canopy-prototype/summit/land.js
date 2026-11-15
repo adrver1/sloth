@@ -20,14 +20,16 @@ export const TRIS = [];
 //   ?drivestay the way home ends here instead of loading the camp, for checks                         drive.js
 //   ?time=H    the hour (0..24); otherwise the camp's saved hour, or 15.5                         daytime.js
 //   ?cycle=1|0 the day cycle on or off; otherwise the camp's saved choice                             daytime.js
+//   ?sound=0   start muted, ?station=ID start on that station (for that visit only, as in the camp)  audio.js
 const Q = new URLSearchParams(location.search);
 const sameSite = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
 export const OPT = { ero: Q.get('ero') !== 'off', bare: Q.get('bare') === '1', from: Q.has('back'), back: Q.has('back') && sameSite(Q.get('back')) ? Q.get('back') : 'camp.html', drivestay: Q.has('drivestay') };
-// the camp's saved settings, shared with it (camp/core.js KEYS and store): the hour and the day cycle carry over both ways
-export const KEYS = { time: 'canopy-time', cycle: 'canopy-cycle' };
+// the camp's saved settings, shared with it (camp/core.js KEYS and store): the hour, the day cycle and the sound carry over both ways
+export const KEYS = { time: 'canopy-time', cycle: 'canopy-cycle', audio: 'canopy-audio' };
 export const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 { const v = Q.get('time') || store.get(KEYS.time), h = v ? Number(v) : 15.5;   // ?time= and ?cycle= as in the camp, for that visit
   OPT.time = h >= 0 && h < 24 ? h : 15.5; OPT.cycle = Q.has('cycle') ? Q.get('cycle') !== '0' : store.get(KEYS.cycle) === 'on'; }
+OPT.sound = Q.get('sound') !== '0'; OPT.station = Q.get('station');
 const ERO = await (async () => { if (!OPT.ero) return null;
   const load = async (f) => { const r = await fetch(`models/${f}.json`); if (!r.ok) throw new Error(`${f} ${r.status}`); const m = await r.json(); m.d = new Int16Array(b64bytes(m.d).buffer); return m; };   // d: the height change, int16 times scale, base64
   try { return await Promise.all([load('summit-erosion-world'), load('summit-erosion-near')]); } catch (e) { console.warn('no erosion', e); return null; } })();

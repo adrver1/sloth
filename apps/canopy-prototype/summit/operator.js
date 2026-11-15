@@ -13,6 +13,7 @@ import { SEATS, SEAT_SLOT } from '../camp/layout.js';
 import { TOP, TRIS } from './land.js';
 import { me, scene } from './core.js';
 import { CAMP } from './scoutCamp.js';
+import { cue } from './audio.js';
 
 let op = null;
 
@@ -55,7 +56,7 @@ export function operatorStep(dt) {
   op.t -= dt;
   if (op.cur === op.clips.seated_idle) {
     if (!op.waved && d < 4) { op.waved = true; play('wave', { once: true }); }
-    else if (op.t < 0) { op.t = 12 + Math.random() * 8; play('sip', { once: true }); }
+    else if (op.t < 0) { op.t = 12 + Math.random() * 8; play('sip', { once: true }); setTimeout(() => cue('slurp', op.root.position.clone().setY(op.root.position.y + 1.2)), 900); }
   }
   if (d > 10) op.waved = false;
   op.mixer.update(dt);

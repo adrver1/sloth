@@ -18,9 +18,9 @@
 // The ⚙️ menu has a fallback: Sound: All / Nature only / Off. ?sound=0 starts muted and ?station= picks one, for that visit only (core.js OPT). Settings are kept per viewer (KEYS.audio).
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): audio/context.js LEVEL and the bus gains are the knobs.
 import * as THREE from "three";
-import { $, KEYS, camera, store } from "./core.js";
-import { STATIONS, ac, applyGain, bus, comp, loadSettings, makeHint, own, saved, set, showHint, start, wake } from "./audio/context.js";
-import { SFX } from "./audio/sfx.js";
+import { $, KEYS, OPT, camera, store } from "./core.js";
+import { STATIONS, ac, applyGain, bus, comp, hooks, loadSettings, makeHint, own, saved, set, showHint, start, wake } from "./audio/context.js";
+import { SFX, startBeds } from "./audio/sfx.js";
 import { mus, musicFrom } from "./audio/music.js";
 import { audioStep } from "./audio/watch.js";
 
@@ -71,6 +71,7 @@ function showBtn() { if (!btn) return; btn.textContent = "Sound: " + (set.muted 
 // It reads the saved settings, listens for the first tap or key (browsers block sound before that), makes the Tap for sound
 // pill, wakes the sound when you come back to the tab, and wires the ⚙️ Sound button.
 function initAudio() {
+  Object.assign(hooks, { stored: () => store.get(KEYS.audio), sound: OPT.sound, station: OPT.station, beds: startBeds, started: keep });   // the camp's parts of the shared engine (audio/context.js)
   loadSettings();
   // start only on events that count as a tap everywhere (iOS ignores pointerdown and touchstart for audio)
   for (const ev of ["pointerup", "keydown", "touchend", "click"]) addEventListener(ev, () => { start(); setTimeout(showHint, 600); }, { capture: true, passive: true });
