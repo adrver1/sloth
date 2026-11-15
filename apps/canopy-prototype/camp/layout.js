@@ -9,8 +9,8 @@
 // are ANCHORS, at the end of this file). Two values are
 // typed again there: the sun's direction (the bake stops if the two differ) and the lantern drop, lanterns.js JAR_Y, with no
 // check (review props-07). LAUNDRY and SOUP_POT restate build_laundry.py and build_fire.py; campProps.js checks them against
-// the anchors in those GLBs (review R2-252). SEAT_R and JEEP_OUT are exported for checks; no module
-// imports them. PATH_A, where the footpath leaves the camp, also sets the glade path's lead points, where its ribbon starts (forest/floor.js).
+// the anchors in those GLBs (review R2-252). SEAT_R is read by operator/cook.js (the fire side of a seat, where he hands a bowl);
+// JEEP_OUT is exported for checks, and no module imports it. PATH_A, where the footpath leaves the camp, also sets the glade path's lead points, where its ribbon starts (forest/floor.js).
 import * as THREE from "three";
 import { V, lineDist, yawTo } from "./util.js";
 

@@ -68,11 +68,11 @@ under a minute on a laptop CPU (1/16 of the texels of the full bake and 1/64 of 
    (?lm=4k then loads the 2K maps). Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
    Thin double-sided cards (tagged thin: the laundry, the chain) take the brighter of their two sides.
    COLOR_0 alpha 0 marks faces that glow at night (materials with the "glow" property: lantern glass, the stove's fire).
-6. export_models writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own
-   origin, so the page places them from their tags; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt
-   copies (all into --out instead, when given). Every node carries its tags as glTF extras (three.js userData); the
-   WoodStack also carries the carried logs' atlas spots from props/lived/wood_stack.json (review R2-243). The GLBs carry
-   quantized normals, colours and UVs (KHR_mesh_quantization, lib/quantize.py), and the unlit props no normals (R2-109).
+6. export_models writes props/camp/camp_picked_lm.glb (the Table with its plate, FruitBowl, as a child: review
+   R2-159), props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so the page places them from their
+   tags; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt copies (all into --out instead, when given).
+   Every node carries its tags as glTF extras (three.js userData); the WoodStack also carries the carried logs' atlas
+   spots from props/lived/wood_stack.json (review R2-243). The GLBs carry quantized normals, colours and UVs (KHR_mesh_quantization, lib/quantize.py), and the unlit props no normals (R2-109).
 A three.js point (x, y, z) is Blender (x, -z, y); a yaw set as rotation.y on the page is the same angle about Blender's z
 (the fallen log, which deadwood.js turns with rotateY(-yaw), takes -yaw).
 The run's memory: one props-sized and one ground-sized float image are made once and reused by every bake pass, and each
@@ -278,7 +278,7 @@ def build_scene(pl):
             bpy.data.objects.remove(o)
         else:
             triangulate(o)
-            picked += stand(o, pl)
+            picked += [o] if o.parent else stand(o, pl)   # a child (the Table's FruitBowl, review R2-159) moves with its parent
 
     sets, anchors = {}, {}
     for sname, made in make_lived_sets().items():

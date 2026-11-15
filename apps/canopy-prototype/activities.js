@@ -3,7 +3,7 @@
 // it. You carry one thing at a time. This file is the list of things you can tap: where each is, when a tap does something,
 // what it does, what the tap menu calls it and what to say when it does not apply. The work behind them is in activities/:
 // carry.js (what you hold, and putting it back), fireChore.js (logs on the fire), soupChore.js (the pot, the pail, the bowls
-// on the seats), fruitBowl.js (the fruit plate cut off the table model) and parts.js (the shared geometry and names).
+// on the seats), fruitBowl.js (the fruit plate, the table model's FruitBowl child) and parts.js (the shared geometry and names).
 // It knows the camp only through what camp/chores.js hands it (the places, the props that light up, the fire's boost);
 // camp/input.js passes taps in and camp/main.js calls update() each frame.
 // Exports createActivities(camp): { pick(ray), tap(hit), ready(thing), update(dt, time), things, held, burning, level(),
@@ -15,23 +15,24 @@ import { splitBowl } from "./activities/fruitBowl.js";
 import { an, flat, paintLogs } from "./activities/parts.js";
 import { createSoupChore } from "./activities/soupChore.js";
 import { V } from "./camp/util.js";
+import { EV, emit } from "./camp/events.js";
 
 const NEAR = 2.5;                          // tap range
 
-// camp: the scene, the camera, you (me) and the sloths; places { woodPile: { at, built }, fire, pot: { at, r }, table:
+// camp: the scene, the camera and you (me); places { woodPile: { at, built }, fire, pot: { at, r }, table:
 // { at, yaw }, crate (or null) }; looks (what lights up for a thing, by name); the wood texture with the carried logs' spots
 // in it (woodSpots, from lived.glb, or undefined) and the glow texture; and what the camp
-// does for the chores: burst (a word over a sloth), toast(text, sound) (the message, and the sound that goes with it, if any), addBlocker and boostFire (the logs make the camp's fire bigger)
-export function createActivities({ scene, camera, me, sloths, places: { woodPile, fire, pot, table, crate }, looks, woodTex, woodSpots, glowTex, burst, toast, addBlocker, boostFire }) {
+// does for the chores: burst (a word in the air: the pot's splash and plop), toast(text, sound) (the message, and the sound that goes with it, if any), addBlocker and boostFire (the logs make the camp's fire bigger)
+export function createActivities({ scene, camera, me, places: { woodPile, fire, pot, table, crate }, looks, woodTex, woodSpots, glowTex, burst, toast, addBlocker, boostFire }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   if (woodTex) paintLogs(woodTex, woodSpots);
   const pile = createWoodPile({ scene, woodPile, addBlocker });
-  const nearSloth = (at, max = 4) => sloths.filter((s) => !s.wild && s.p).map((s) => [s, s.p.distanceTo(at)]).filter(([, d]) => d < max).sort((a, b) => a[1] - b[1]).map(([s]) => s);
-  // what you just did, for the operator to remark on (camp/operator/talk.js "camp-act"); by: "you" or "operator"
-  const told = (kind, by = "you") => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by } }));
+  // what you just did, for the operator to remark on (camp/events.js EV.act, heard by camp/operator/talk.js); by: "you" or
+  // "operator". The sloths' part in the chores goes through EV.cheer and EV.food, so the chores never touch a sloth.
+  const told = (kind, by = "you") => emit(EV.act, { kind, by });
   const carry = createCarry({ camera, me, toast });
-  const fireChore = createFireChore({ scene, fire, glowTex, burst, nearSloth, boostFire });
-  const soupChore = createSoupChore({ scene, me, pot, fire, carry, burst, toast, told, nearSloth });
+  const fireChore = createFireChore({ scene, fire, glowTex, boostFire });
+  const soupChore = createSoupChore({ scene, me, pot, fire, carry, burst, toast, told });
   const { soup, seats } = soupChore, { burning } = fireChore;
 
   // ---------------------------------------------------------------- things you can tap
@@ -75,15 +76,16 @@ export function createActivities({ scene, camera, me, sloths, places: { woodPile
     look: () => (held() === "log" ? looks.fireOnly : looks.pot) ?? null });   // the fire lights up for a log, the pot for everything else
   // the water pail under the snack table (built here, after the fire's sphere: the order things are made in is kept)
   const { at: pailAt, pail } = soupChore.placePail(table);
+  // the pail is not there while the operator carries it (cook.takePail hides it): no second one from the empty spot (review R2-069)
   thing({ name: "canister", at: pailAt, r: 0.3, look: [pail],   // the thing keeps its first name: the scenario tours find it by it
-    when: () => (!held() && soup.stage === "empty") || held() === "water",
+    when: () => (!held() && soup.stage === "empty" && pail.visible) || held() === "water",
     act() { if (held()) { carry.putBack(); return; } carry.hold("water"); pail.visible = false; toast("Got the water 💧", "slosh"); },
     label: () => held() === "water" ? "Put the pail back 💧" : "Take the pail of water 💧",
-    why: () => held() ? full : soup.stage !== "empty" ? "Water's in already" : null });
+    why: () => held() ? full : soup.stage !== "empty" ? "Water's in already" : !pail.visible ? "He's fetching water already 💧" : null });
   // the kitchen crate: one vegetable at a time, a different one each time
   if (crate) thing({ name: "crate", at: crate, r: 0.4, look: looks.crate ?? null, ...source("veg", () => { const [n, e] = carry.takeNext("veg"); toast(`Got a ${n} ${e}`, "knock"); }),
     label: () => { const [n, e] = held() === "veg" ? carry.now("veg") : carry.next("veg"); return held() === "veg" ? `Put the ${n} back ${e}` : `Take a ${n} ${e}`; } });
-  // the fruit plate on the snack table (split off the Table model, activities/fruitBowl.js): one fruit at a time to give to a
+  // the fruit plate on the snack table (the Table's FruitBowl child, activities/fruitBowl.js): one fruit at a time to give to a
   // sloth or the operator (Adriaen 2026-11-13: veg from the crate, fruit from the fruit bowl)
   const tableObj = scene.getObjectByName("Table");
   const fruitBowl = tableObj && splitBowl(tableObj);

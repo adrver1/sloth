@@ -74,9 +74,11 @@ function helpers([base, present]) {
   // the camp's APIs: the module's export where it has one, else the window.__ name an older checkout set
   const api = (n, k, g) => T.mods[n]?.[k] ?? window[g];
   Object.defineProperties(T, {
-    op: { get: () => api('camp/operator.js', 'opApi', '__op') }, acts: { get: () => T.mods['camp/chores.js']?.acts ?? api('camp/campLife.js', 'acts', '__acts') },   // chores.js since campLife.js went
+    op: { get: () => { const o = api('camp/operator.js', 'opApi', '__op'), c = T.mods['camp/operator/checks.js']?.opChecks; return o && c ? Object.defineProperties({ ...o }, Object.getOwnPropertyDescriptors(c)) : o; } },   // his checks' hooks: operator/checks.js opChecks (2026-11-14)
+    acts: { get: () => T.mods['camp/chores.js']?.acts ?? api('camp/campLife.js', 'acts', '__acts') },   // chores.js since campLife.js went
     lab: { get: () => api('camp/sloth/hooks.js', 'labApi', '__lab') }, life: { get: () => api('camp/sloth/hooks.js', 'campLife', '__campLife') ?? (T.mods['camp/sloth/hooks.js']?.slothLife && { ...T.mods['camp/places.js'], ...T.mods['camp/sloth/hooks.js'].slothLife }) },   // since 2026-11-14 the places are camp/places.js and the sloths' part is slothLife
-    jeep: { get: () => { const j = api('camp/jeep.js', 'jeepApi', '__jeep'), s = T.mods['camp/jeepSeat.js']?.seatApi; return j && s ? { ...j, ...s } : j; } },   // the seats have been jeepSeat.js seatApi since 2026-11-14 car: { get: () => api('camp/car.js', 'carApi', '__car') },
+    jeep: { get: () => { const j = api('camp/jeep.js', 'jeepApi', '__jeep'), s = T.mods['camp/jeepSeat.js']?.seatApi; return j && s ? { ...j, ...s } : j; } },   // the seats have been jeepSeat.js seatApi since 2026-11-14
+    car: { get: () => api('camp/car.js', 'carApi', '__car') },
     audio: { get: () => api('camp/audio.js', 'audio', '__audio') }, clocks: { get: () => api('camp/clock.js', 'clocks', '__clocks') },
     spots: { get: () => api('camp/sloth/state.js', 'spots', '__spots') }, radio: { get: () => api('camp/radio.js', 'radio', '__radio') },
     fx: { get: () => T.mods['camp/fx.js']?.fx ?? T.mods['camp/sloths.js']?.fx },
@@ -123,7 +125,7 @@ function helpers([base, present]) {
     shells: s.shells.map((m) => m.visible ? 1 : 0).join(''), mouth: s.mouth ? [s.mouth.visible, ...s.mouth.scale.toArray()] : null,
     act: s.act ? [s.act.getClip().name, s.act.time, s.act.timeScale, s.act.paused, s.act.getEffectiveWeight()] : null }; };
   const CLAIMS = ['table:0', 'table:1', 'crate:0', 'crate:1', 'hammock:1', 'jeep:P', 'bed:0', 'bed:1', 'jeep:hood', 'jeep:driver', 'jeep:passenger', 'log:0', 'log:0:left', 'log:1', 'log:2', 'hammock:Hibi', 'seat:Sunny', 'jeep:Mango', 'line:Pip', 'tent:Hazel', 'branch:Figgy', 'branch:Bandit'];
-  const OPK = ['kind', 'place', 'seated', 'lying', 'sleeping', 'look', 'face', 'gaze', 'ik', 'footLock', 'pass', 'cooking', 'fid', 'lean', 'eat', 'pail', 'stir', 'veg', 'happy', 'next', 'last', 'wasNight', 'poured', 'scr', 'prop'];
+  const OPK = ['kind', 'place', 'seated', 'lying', 'sleeping', 'look', 'face', 'gaze', 'ik', 'footLock', 'pass', 'cooking', 'fid', 'lean', 'eat', 'pail', 'stir', 'veg', 'happy', 'next', 'last', 'prop'];
   const keysOf = (o) => o ? Object.keys(o).sort().join() : null;
   T.state = () => { const me = T.me, J = T.jeep, d = T.day, W = T.mods['camp/weather.js']?.weather, cam = T.cam, O = T.op, A = T.acts, L = T.lab, life = T.life, M = T.mods['camp/sloths.js'] || {};
     const st = { me: me ? { pos: me.pos.toArray(), yaw: me.yaw, pitch: me.pitch, sitK: me.sitK, drop: me.drop ?? null, vel: me.vel.toArray(), walkT: me.walkT, lastDrag: me.lastDrag, seat: me.seat ? { pos: me.seat.pos.toArray(), yaw: me.seat.yaw, drop: me.seat.drop ?? null, pitch: me.seat.pitch ?? null, car: me.seat.car ?? null, leave: typeof me.seat.leave } : null } : null,
@@ -184,7 +186,7 @@ async function drive(name, sc, root, port, outDir, shots, p, EVO) {
   await page.loadCamp(p, port, sc.query || '', errs);
   const rndReady = await p.evaluate(() => [window.__rndN ?? null, window.__mrN ?? null]);
   await p.addStyleTag({ content: 'body > :not(canvas) { visibility: hidden !important; }' });
-  const present = ['camp/sloth/hooks.js', 'camp/sloth/state.js', 'camp/fx.js', 'camp/places.js', 'camp/campLife.js', 'camp/chores.js', 'camp/jeepSeat.js'].filter((n) => fs.existsSync(path.join(root, 'apps/canopy-prototype', n)));
+  const present = ['camp/sloth/hooks.js', 'camp/sloth/state.js', 'camp/fx.js', 'camp/places.js', 'camp/campLife.js', 'camp/chores.js', 'camp/jeepSeat.js', 'camp/operator/checks.js'].filter((n) => fs.existsSync(path.join(root, 'apps/canopy-prototype', n)));
   await p.evaluate(helpers, [`http://localhost:${port}/apps/canopy-prototype/`, present]);
   const loadErr = await p.evaluate(() => window.__T.load());
   const TOUR = sc.tour ? JSON.parse(fs.readFileSync(path.join(TOURS, sc.tour), 'utf8')) : [];

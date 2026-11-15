@@ -24,17 +24,18 @@ function seatSpot(o, log) {
   if (o === seatLog(0)) pos.addScaledVector(V(-Math.sin(a), 0, Math.cos(a)), 0.55);
   return { pos, yaw: Math.atan2(pos.x, pos.z), log };   // facing the fire in the middle
 }
-const box = new THREE.Box3(), sph = new THREE.Sphere();
+const vAt = V();
 let drift = 0;
 function buildLinger() {
   seats = SEATS.map((_, i) => seatLog(i));
   seats.forEach((o, i) => { if (!o) return;
     const picks = []; o.traverse((m) => m.isMesh && picks.push(m));
-    const at = (v) => { box.setFromObject(o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
+    let S = null;   // the log never moves: its bounds are worked out once, when first asked for
+    const at = (v) => { S ??= new THREE.Box3().setFromObject(o).getBoundingSphere(new THREE.Sphere()); v.copy(S.center); return S; };
     const { pos, yaw } = seatSpot(o, i);
     const sitHere = () => { me.seat = { pos, yaw, log: i }; me.yaw = yaw; me.pitch = -0.12; me.lastDrag = -9; drift = 0; };
     addTarget(o, () => ({ look: o, picks, at,
-      ready: () => me.seat?.pos === pos || at(V()).center.distanceTo(me.pos) < 3.2,
+      ready: () => me.seat?.pos === pos || at(vAt).center.distanceTo(me.pos) < 3.2,
       options: () => me.seat?.pos === pos ? [["Stand up", () => { me.seat = null; }]] : [["Sit by the fire 🔥", sitHere]] }));
   });
 }

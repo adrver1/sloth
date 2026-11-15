@@ -14,7 +14,6 @@ import { toast } from "./hud.js";
 import { cue } from "./audio.js";
 import { FIRE_CARDS, WOODPILE, WOOD_SPOTS, WOOD_TEX, addBlocker, fireLight, glowTex } from "./campProps.js";
 import { CRATE, FIRE, SOUP_POT, TABLE, WOOD_PILE } from "./layout.js";
-import { sloths } from "./sloths.js";
 import { burst } from "./fx.js";
 import { me } from "./player.js";
 import { addTargets } from "./targets.js";
@@ -28,16 +27,16 @@ const boostFire = (wide, tall, light) => {
 
 let acts = null;   // the activities, once buildChores has made them
 function buildChores() {
-  acts = createActivities({ scene, camera, me, sloths,
+  acts = createActivities({ scene, camera, me,
     places: { woodPile: { at: WOOD_PILE.at, built: !!WOODPILE }, fire: FIRE, pot: SOUP_POT, table: TABLE, crate: LIVED ? CRATE.at : null },   // built: the props' pile stands there (not with ?lived=0, when the fire chore stacks plain logs)
     looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js)
       .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)),
     woodTex: WOOD_TEX ?? null, woodSpots: WOOD_SPOTS, glowTex, burst, toast: (text, sound) => { toast(text); if (sound) cue(sound); }, addBlocker: (at, r) => addBlocker({ at, r }), boostFire });
   // the things you can use light up and open a menu (targets.js): only ever the one thing a tap does now (the thing's own
   // label, activities.js)
-  const sph = new THREE.Sphere();
-  addTargets("things", () => acts.things.filter((t) => t.look).map((t) => [t, () => ({ get look() { return t.look; }, picks: [t.box],
-    at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius), ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] })]));
+  const sph = new THREE.Sphere(), lit = acts.things.filter((t) => t.look);   // the things never change once made
+  addTargets("things", () => lit, (t) => ({ get look() { return t.look; }, picks: [t.box],
+    at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius), ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] }));
   return acts;
 }
 

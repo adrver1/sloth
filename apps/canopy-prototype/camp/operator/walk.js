@@ -1,8 +1,8 @@
 // Canopy Camp operator, getting about: a path round the blockers (the sloths' planner when it is there), steering round the
 // others walking about, stopping to listen when you speak to him, turning on the spot, and sitting down on a seat and
 // rising from it with his feet planted. All generators: an activity script runs them with yield*, one step a frame.
-// Exports turnToward(yaw, dt, rate), wait(s, until), walkTo(to, { near }), face(yaw), faceFire(), sitOn(seat),
-// standUp().
+// Exports turnToward(yaw, dt, rate), yawToYou() (the yaw from him to the camera), wait(s, until), walkTo(to, { near }),
+// face(yaw), faceFire(), sitOn(seat), standUp().
 import { camera } from "../core.js";
 import { V, yawTo } from "../util.js";
 import { blockers } from "../campProps.js";
@@ -14,7 +14,7 @@ import { eachMover } from "../places.js";
 import { slothLife } from "../sloth/hooks.js";   // undefined with ?campsloths=0
 
 const WALK = 1.05, STRIDE = 1.28;                      // his walking speed, m/s; the walk clip's feet move 1.28 m a cycle
-const tmp = V();
+const tmp = V(), vW = V(), vS = V(), vFw = V(), vWas = V(), vYou = V();   // scratch: a walking frame allocates nothing (review R2-019)
 function pathTo(to) {
   const p = slothLife?.path(root.position, to);
   if (p?.length) return p.map((q) => q.clone());
@@ -29,11 +29,11 @@ function* walkTo(to, { near = 0.12 } = {}) {
     const dt = yield, p = root.position, goal = pts[0], d = tmp.set(goal.x - p.x, 0, goal.z - p.z), dist = d.length();
     if (op.talk.t > 0 && !op.carry) { yield* listen(); play("walk", 0.3, { speed: 0.9 }); continue; }   // spoken to: stop, turn to you, then walk on
     if (dist < (pts.length > 1 ? 0.3 : near)) { pts.shift(); continue; }
-    const want = d.normalize().clone();
+    const want = vW.copy(d).normalize();
     // keep clear of blockers (unless the goal is inside one: a seat, the bed) and of everyone walking about
     for (const { at: c, r: br } of blockers) {
       const ox = p.x - c.x, oz = p.z - c.z, od = Math.hypot(ox, oz), lim = br + RADIUS + 0.15;
-      if (od < lim && Math.hypot(to.x - c.x, to.z - c.z) > br) want.addScaledVector(V(ox / od, 0, oz / od), (lim - od) / lim * 1.6);
+      if (od < lim && Math.hypot(to.x - c.x, to.z - c.z) > br) { const k = (lim - od) / lim * 1.6 / od; want.x += ox * k; want.z += oz * k; }
     }
     let block = null;
     eachMover((mp, mr) => {
@@ -41,20 +41,20 @@ function* walkTo(to, { near = 0.12 } = {}) {
       const ox = mp.x - p.x, oz = mp.z - p.z, od = Math.hypot(ox, oz); if (od > mr + RADIUS + 0.9) return;
       const ahead = (ox * want.x + oz * want.z) / (od || 1);
       if (ahead > 0.3 && od < mr + RADIUS + 0.45 && !(mp === camera.position && me.seat)) block = [ox / od, oz / od];   // you sitting: he goes by in front of you
-      if (ahead > 0) { want.x -= oz / od * 0.6 * ahead; want.z += ox / od * 0.6 * ahead; }   // keep right of them
+      if (ahead > 0) { const k = 0.6 * ahead / od; want.x -= oz * k; want.z += ox * k; }   // keep right of them
     });
     want.normalize();
     let speed = WALK * Math.min(1, dist / 0.4 + 0.35);
     // someone in the way: a short pause, then he steps round them and walks on past (Adriaen: he queued behind slow sloths,
     // and they waited for him too, so a jam formed); he keeps to the side he started overtaking on
-    if (block) { waited += dt; if (waited < 0.6) speed = 0; else { op.pass = { side: op.pass?.side ?? 1, t: 1.6, d: block }; if (waited > 4) { op.pass.side *= -1; waited = 0.6; } } } else waited = 0;   // no way past on that side (a table, someone sitting): try the other
+    if (block) { waited += dt; if (waited < 0.6) speed = 0; else { if (op.pass) { op.pass.t = 1.6; op.pass.d = block; } else op.pass = { side: 1, t: 1.6, d: block }; if (waited > 4) { op.pass.side *= -1; waited = 0.6; } } } else waited = 0;   // no way past on that side (a table, someone sitting): try the other
     if (op.pass && waited >= 0.6 || op.pass?.t > 0 && !block) {   // overtaking: committed to the side step for 1.6 s, then back on his line
-      op.pass.t -= dt; want.addScaledVector(V(-op.pass.d[1], 0, op.pass.d[0]), 1.4 * op.pass.side * Math.min(1, op.pass.t + 0.4)).normalize(); speed = WALK * 0.8;
+      op.pass.t -= dt; want.addScaledVector(vS.set(-op.pass.d[1], 0, op.pass.d[0]), 1.4 * op.pass.side * Math.min(1, op.pass.t + 0.4)).normalize(); speed = WALK * 0.8;
       if (op.pass.t <= 0 && !block) op.pass = null;
     }
     const turn = turnToward(yawTo(want), dt, 3.2); if (turn > 1.2) speed *= 0.3;
-    const fwd = csDir(0, 0, -1).setY(0).normalize();
-    const was = p.clone(); p.addScaledVector(fwd, speed * dt); p.y = groundAt(p.x, p.z);
+    const fwd = csDir(0, 0, -1, vFw).setY(0).normalize();
+    const was = vWas.copy(p); p.addScaledVector(fwd, speed * dt); p.y = groundAt(p.x, p.z);
     cur.timeScale = Math.max(0.35, speed / STRIDE);    // the clip's feet move 1.28 m a cycle: match it, so they don't slide
     stuck = was.distanceTo(p) < 0.15 * dt && !block ? stuck + dt : 0;
     if (stuck > 3) { pts.splice(0, pts.length, ...pathTo(to)); stuck = 0; }
@@ -63,8 +63,8 @@ function* walkTo(to, { near = 0.12 } = {}) {
 }
 function* listen() {                                   // stop and turn to you while you talk, then a moment before going on
   play("idle", 0.3);
-  yield* face(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)));
-  while (op.talk.t > 0) { const dt = yield; turnToward(yawTo(V(camera.position.x - root.position.x, 0, camera.position.z - root.position.z)), dt, 1.2); }
+  yield* face(yawToYou());
+  while (op.talk.t > 0) { const dt = yield; turnToward(yawToYou(), dt, 1.2); }
   yield* wait(0.6);
 }
 function* face(yaw) {                                  // turn on the spot with small steps (the walk clip, slow), easing in and out
@@ -100,5 +100,6 @@ function* standUp() {
   op.footLock = null; root.position.y = groundAt(root.position.x, root.position.z);
 }
 
+const yawToYou = () => yawTo(vYou.set(camera.position.x - root.position.x, 0, camera.position.z - root.position.z));
 function* faceFire() { yield* face(yawTo(V(-root.position.x, 0, -root.position.z))); }   // the fire is at the camp's origin
-export { face, faceFire, sitOn, standUp, turnToward, wait, walkTo };
+export { face, faceFire, sitOn, standUp, turnToward, wait, walkTo, yawToYou };

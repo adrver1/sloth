@@ -20,7 +20,9 @@ const puffTex = () => canvasTex(64, 64, (g, s) => {
 const sparkTex = () => canvasTex(32, 32, (g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, "rgba(255,255,230,1)"); gr.addColorStop(0.35, "rgba(255,190,90,.8)"); gr.addColorStop(1, "rgba(255,120,40,0)"); g.fillStyle = gr; g.fillRect(0, 0, s, s); }, { aniso: 1 });
 
 // a pool of n billboard quads in one draw; each live particle has position (x, y, z), size, alpha and spin, and may have
-// stretch, its height over its width (1 when it is not set). Returns { mesh, mat, live, n, add(p), flush() }
+// stretch, its height over its width (1 when it is not set). Returns { mesh, mat, live, n, add(p), flush() }. Exported
+// for the chores' sparks and the soup's bubbles too (activities/fireChore.js, soupChore.js). An empty pool is hidden, so
+// it costs no draw.
 export function pool(scene, n, map, blending, order) {
   const geo = new THREE.InstancedBufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
@@ -40,14 +42,15 @@ export function pool(scene, n, map, blending, order) {
       }`,
     transparent: true, depthWrite: false, blending,
   });
-  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = order; scene.add(mesh);
+  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = order; mesh.visible = false; scene.add(mesh);
   const live = [];
   return {
     mat, mesh, live, n,
     add(p) { if (live.length < n) live.push(p); },
     flush() {                                          // write the live particles into the instance buffers
+      if (!live.length && !geo.instanceCount) return;   // empty and already so: nothing to upload
       for (let i = 0; i < live.length; i++) { const p = live[i]; at.setXYZ(i, p.x, p.y, p.z); sa.setXYZW(i, p.size, p.alpha, p.spin, p.stretch ?? 1); }
-      geo.instanceCount = live.length; at.needsUpdate = sa.needsUpdate = true;
+      geo.instanceCount = live.length; mesh.visible = live.length > 0; at.needsUpdate = sa.needsUpdate = true;
     },
   };
 }

@@ -1,5 +1,5 @@
-// Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, tap to boop, hold to feed, and resize; and the things
-// you can use: which one lights up (highlight.js) and the pill menu a tap on it opens.
+// Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, a tap that opens a menu (on a sloth: boop, feed or
+// give), a hold on a sloth that feeds it, and resize; and the things you can use: which one lights up (highlight.js) and the pill menu a tap on it opens.
 // The things themselves are tap targets (targets.js), added by the modules that own them; input.js adds the sloths.
 // Exports initInput() (main.js, once), aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) (debug.js), resize() (main.js)
 // and warmHighlight() (main.js, once, before the shaders are compiled).
@@ -13,8 +13,9 @@ import { burst, fx, sprite } from "./fx.js";
 import { slothLife } from "./sloth/hooks.js";
 import { me } from "./player.js";
 import { acts } from "./chores.js";
+import { EV, emit } from "./events.js";
 import { createHighlight } from "./highlight.js";
-import { addTargets, allTargets, targetOf } from "./targets.js";
+import { addTargets, allTargets, targetOf, tick } from "./targets.js";
 
 // ---------------------------------------------------------------- input
 let coarse = false, stick = null, stickId = null, glow = null, menu = null;   // set by initInput
@@ -48,7 +49,7 @@ const lookEnd = (e) => {
   if (L.moved < 12 && !L.held && !L.pinch && performance.now() - L.t0 < 450) tap(e.clientX, e.clientY);
 };
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
-const told = (kind, s) => dispatchEvent(new CustomEvent("camp-act", { detail: { kind, by: "you", name: s.name } }));   // the operator may remark on it
+const told = (kind, s) => emit(EV.act, { kind, by: "you", name: s.name });   // the operator may remark on it (events.js)
 function boop(s) { told("boop", s); s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1.6, 64); }
 // feeding (Adriaen 2026-11-12: every camp sloth is already your friend, so no friend counter or "new friend"; and eating
 // shows no words or emojis): a flower flies from you to its mouth, it nods and munches it (slothLife's mouth)
@@ -71,12 +72,14 @@ function give(s) { const f = acts.give(); if (!f) return; if (slothLife && !s.wi
 // its menu, and a hold still feeds it straight away.
 const AIM = 0.45, fwd = new THREE.Vector3(), to = new THREE.Vector3(), sph = new THREE.Sphere();
 let hover = null, lit = null, menuFor = null;
+const picksNow = [];   // scratch: what a ray may hit, refilled for each pick
 // the ready target under the screen point x, y (or null)
 function targetAt(x, y) {
-  const list = allTargets().filter((t) => t.ready()).flatMap((t) => t.picks);
-  const h = pickAt(x, y, list); return h ? targetOf(h.object) : null;
+  picksNow.length = 0; for (const t of allTargets()) if (t.ready()) picksNow.push(...t.picks);
+  const h = pickAt(x, y, picksNow); return h ? targetOf(h.object) : null;
 }
 function aimStep(dt) {
+  tick();                                               // a new frame for the targets' bounds (targets.js frameAt)
   let best = null;
   if (menuFor) best = menuFor.ready() ? menuFor : (closeMenu(), null);
   else if (hover) { best = looks.size ? lit : targetAt(hover.x, hover.y); if (best?.quiet) best = null; }   // a mouse: what it is over (kept while dragging)
@@ -94,7 +97,7 @@ function aimStep(dt) {
 }
 function openMenu(t) {
   menuFor = t; menu.replaceChildren(...t.options().map(([label, fn]) => {
-    const b = document.createElement("button"); b.textContent = label;
+    const b = document.createElement("button"); b.textContent = label; b.className = "tap-pill";   // styled in camp.html
     b.onclick = (e) => { e.stopPropagation(); closeMenu(); fn(); }; return b; }));
   menu.style.display = "flex"; placeMenu();
 }
@@ -146,8 +149,8 @@ function initInput() {
   // every thing that can light up is a target (targets.js), added by the module that owns it; the sloths are added here, since
   // their menu is what you do to them (boop, feed, give)
   const SLOTH_REACH = 7;
-  addTargets("sloths", () => sloths.map((s) => [s, () => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
-    ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } })]));
+  addTargets("sloths", () => sloths, (s) => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
+    ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } }));
   // the menu: a few pill buttons over the thing, following it while it is open (its look is camp.html's #tapmenu rules)
   menu = document.createElement("div"); menu.id = "tapmenu";
   document.body.append(menu);

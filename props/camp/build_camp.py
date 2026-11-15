@@ -345,10 +345,12 @@ def rustic_lantern(M):
     return join(p, "Lantern")
 
 
-def rustic_table(M):
+def rustic_table(M, bowl=False):
     """The snack table (picked), trimmed (camp review 2026-11-12, 166 triangles): two 8-sided stumps with no caps
     (the top hides theirs), four plain plank boxes, a 6-sided enamel mug like the seat's (lib/mesh.py mug, review R2-194)
-    and an empty white plate: the page lays the fruit you can take on it (activities/fruitBowl.js, review R2-176)."""
+    and an empty white plate: the page lays the fruit you can take on it (activities/fruitBowl.js, review R2-176). With
+    bowl=True (the picked set) the plate is its own object, "FruitBowl", a child of the Table at the same origin, so the
+    page can light up just the plate (review R2-159); the archived rustic style keeps it joined into the Table."""
     p = []
     for s in (-1, 1):
         leg = rough_up(cyl(0.2, 0.62, at=(s * 0.45, 0, 0.31), m=M["bark"], verts=8, smooth=False), 0.012, 10)
@@ -356,8 +358,12 @@ def rustic_table(M):
     for k in range(4):
         p.append(box((1.3, 0.17, 0.05), at=(0, (k - 1.5) * 0.18, 0.645), m=M["wood"]))
     p.append(mug(M, (0.3, 0.1, 0.67), n=6))                  # on the plank tops (z 0.67), its handle toward +X
-    p.append(drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda n, c: n.z < -0.9))
-    return join(p, "Table")
+    plate = drop_faces(cyl(0.14, 0.03, at=(-0.2, -0.05, 0.685), m=M["white"], verts=8, r2=0.12, smooth=False), lambda n, c: n.z < -0.9)
+    if not bowl:
+        return join(p + [plate], "Table")
+    table, plate = join(p, "Table"), join([plate], "FruitBowl")
+    plate.parent = table                               # both origins are at the world origin, so its local transform stays identity
+    return table, plate
 
 
 def rustic():
@@ -694,17 +700,18 @@ def picked():
     made, in the order the light bake's atlas has always seen them (seat, table, hammock, tent, then the posts). The jar lanterns are
     drawn by the page (lanterns.js), so the set has no lantern mesh (review R2-236). The tent, hammock and table lose the
     faces that point down onto the ground (lib/mesh.py drop_ground_faces, review R2-154). Each is tagged with where the page stands it (lib.export.tag, review R2-249): the
-    posts stand in the hammock's frame."""
+    posts stand in the hammock's frame. "FruitBowl" is the plate, a child of "Table" with no tag of its own
+    (review R2-159): whoever places the Table moves it too."""
     rng.seed(7)
     R, J = rustic_mats(), jungle_mats()
-    seat, table = rustic_seat(R), rustic_table(R)
+    seat, (table, bowl) = rustic_seat(R), rustic_table(R, bowl=True)
     hammock = jungle_hammock(J, plain_posts=True)
     hammock["coarse"] = True                    # Adriaen 2026-11-11: the densified cloth was ~7k triangles
     tent = wall_tent()
     drop_ground_faces([tent, hammock, table])   # the bottoms standing on the ground (review R2-154; the seat has none, R2-169)
     h = HAMMOCK_SPAN / 2                        # the posts in the hammock's frame; the page and the bake place both alike
     posts = textured_posts("HammockPosts", [(-h, 0, 0), (h, 0, 0)], 2.4, 0.055)
-    return {"Seat": tag(seat, "seats"), "Tent": tag(tent, "tent"), "Hammock": tag(hammock, "hammock"), "Table": tag(table, "table"),
+    return {"Seat": tag(seat, "seats"), "Tent": tag(tent, "tent"), "Hammock": tag(hammock, "hammock"), "Table": tag(table, "table"), "FruitBowl": bowl,
             "HammockPosts": tag(posts, "hammock")}
 
 

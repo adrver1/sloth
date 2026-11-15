@@ -1,7 +1,7 @@
 // Camp activities, what you carry: one thing at a time (a log, the water pail, a vegetable, a fruit or a bowl of soup), shown
 // low in the bottom right of the view, swaying a little as you walk.
 // Putting things back (Adriaen 2026-11-13: a vegetable taken before the pot had water left you stuck, hands full): a
-// "Put it back" pill in the corner whenever you carry something (Q or Backspace on a keyboard), and the place it came
+// "Put it back" pill in the corner (#putBack, styled in camp.html) whenever you carry something (Q or Backspace on a keyboard), and the place it came
 // from (wood pile, crate, pail spot) takes it back too. It goes back where it came from; a bowl goes back in the pot.
 // Triangles: the log 24, the pail 60 (camp/pail.js), a bowl 24, the food 15 to 36 (camp/food.js).
 // Exports createCarry({ camera, me, toast }): { held, hold(what), putBack(), onPutBack(what, fn), takeNext("veg" | "fruit"),
@@ -36,14 +36,11 @@ export function createCarry({ camera, me, toast }) {
     dropBtn.style.display = what ? "block" : "none";
   }
   function takeNext(kind) { at[kind] = (at[kind] + 1) % NAMES[kind][0].length; hold(kind); return now(kind); }
-  const dropBtn = document.createElement("button"); dropBtn.textContent = "✋ Put it back";
-  dropBtn.style.cssText = "position:fixed;z-index:3;display:none;right:max(16px,env(safe-area-inset-right,0px));" +
-    "font:600 15px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 15px;box-shadow:0 3px 0 rgb(138 90 59 / .25);cursor:pointer";
+  const dropBtn = document.createElement("button"); dropBtn.textContent = "✋ Put it back"; dropBtn.className = "tap-pill";   // its look and place: camp.html's .tap-pill and #putBack
+  dropBtn.style.display = "none";
   for (const ev of ["pointerdown", "pointerup"]) dropBtn.addEventListener(ev, (e) => e.stopPropagation());
   dropBtn.onclick = (e) => { e.stopPropagation(); putBack(); };
   dropBtn.id = "putBack"; document.body.append(dropBtn);
-  document.head.append(Object.assign(document.createElement("style"), { textContent:   // above what you hold; on a phone also above the hint and stick row
-    "#putBack{bottom:calc(150px + env(safe-area-inset-bottom,0px))} body.touch #putBack{bottom:calc(220px + env(safe-area-inset-bottom,0px))}" }));
   addEventListener("keydown", (e) => { if ((e.key === "q" || e.key === "Q" || e.key === "Backspace") && held && !e.target.closest?.("input,textarea")) putBack(); });
   // what else happens when a thing goes back (the pail stands under the table again, the bowl's soup is back in the pot):
   // its chore says so with onPutBack

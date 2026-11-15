@@ -2,7 +2,7 @@
 // in pools by what he is doing, with remarks on what you just did and a few for sitting with you and for cooking. Lines
 // come from a shuffled bag per pool, so none repeats until all have been said; the bags are kept in the camp save
 // (camp/save.js, part "operator"; Adriaen: a reload carries on where he left off), read once when this module loads.
-// Exports LINES, bag, pickLine(pool) and line() (the line for what he is doing now).
+// Exports LINES, pickLine(pool) and line() (the line for what he is doing now).
 import { load, save } from "../save.js";
 import { mug } from "./handProps.js";
 import { op } from "./state.js";
@@ -26,7 +26,7 @@ const LINES = {   // spoken to his life partner, "bonita" (Adriaen, 2026-11-12)
   thanks: ["Mm, the {food}! Thank you, bonita.", "You always know what I need, my love.", "Food tastes better from you, bonita.",
     "Delicious. You spoil me, my love.", "Thank you, bonita. Come share it with me."],
   sleep: ["Mmm... love you too, bonita...", "Zz... you're doing fine, my love... zz", "Mm... come here... sleep well, bonita..."],
-  // remarks on what you just did (activities.js / input.js "camp-act"; Adriaen 2026-11-13)
+  // remarks on what you just did (activities.js / input.js, events.js EV.act; Adriaen 2026-11-13)
   react_log: ["Look at that fire go, bonita.", "You've got the touch with that fire, my love."],
   react_water: ["Soup night? I like where this is going."],
   react_veg: ["Chef bonita at work.", "Smells like home already."],
@@ -53,4 +53,4 @@ function pickLine(k) {   // the next line from a pool's shuffled bag (kept in th
   const l = bag[k].pop(); save("operator", { lines: bag }); return l;
 }
 
-export { LINES, bag, line, pickLine };
+export { LINES, line, pickLine };

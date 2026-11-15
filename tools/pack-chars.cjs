@@ -12,9 +12,10 @@ const path = require('path'), fs = require('fs'), os = require('os'), { spawnSyn
 const ROOT = path.resolve(__dirname, '..'), MODELS = path.join(ROOT, 'apps/canopy-prototype/models');
 const PACK = path.resolve(process.env.PACK_CHARS || path.join(ROOT, 'engine/web/scripts/pack_chars.mjs'));
 const OP = path.join(ROOT, 'engine/characters/bearded_operator');
-// the clips the camp plays on the operator (camp/operator/), kept in operator_anims.txt; add a clip here when the camp plays a new one
-const OPERATOR_CLIPS = ['idle', 'walk', 'seated_idle', 'stand_up', 'sip', 'hug', 'play', 'play_titanic', 'play_airplane', 'play_knees',
-  'wave', 'blink', 'happy', 'talk', 'phone', 'phone_down', 'step_down'];
+// the clips the camp plays on the operator (camp/operator/), kept in operator_anims.txt; add a clip here when the camp plays a new one.
+// Only those are packed (review R2-213: hug, play, play_knees, phone, phone_down and step_down were 40% of the keyframes and
+// never played)
+const OPERATOR_CLIPS = ['idle', 'walk', 'seated_idle', 'stand_up', 'sip', 'play_titanic', 'play_airplane', 'wave', 'blink', 'happy', 'talk'];
 
 const what = process.argv[2];
 if (!['sloth', 'operator'].includes(what)) { console.error('usage: node tools/pack-chars.cjs sloth|operator'); process.exit(2); }

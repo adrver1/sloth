@@ -22,6 +22,11 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
 #perf { background: rgb(255 248 238 / .9); box-shadow: 0 3px 0 rgb(138 90 59 / .18); font-variant-numeric: tabular-nums;
   font-size: 12px; font-weight: 500; padding: 5px 10px; color: var(--soft); text-align: right; line-height: 1.25; border-radius: 14px; }
+/* a button pill: the tap menu's buttons (camp/input.js) and the Put it back button (activities/carry.js) */
+.tap-pill { font: 600 16px var(--display); color: var(--ink); background: rgb(255 248 238 / .94); border: 0; border-radius: 999px; padding: 9px 16px; box-shadow: 0 3px 0 rgb(138 90 59 / .25); cursor: pointer; white-space: nowrap; }
+/* the Put it back pill: bottom right, above what you hold; on a phone also above the hint and the stick row */
+#putBack { position: fixed; z-index: 3; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+body.touch #putBack { bottom: calc(220px + env(safe-area-inset-bottom, 0px)); }
 .bar { position: fixed; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top, 0px)); display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap;
   padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
 .bar button { pointer-events: auto; font: 600 13px var(--display); color: var(--ink); background: #ffe9a8; border: 0; border-radius: 999px;
@@ -33,10 +38,8 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 #toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none;
   font-weight: 700; font-size: 34px; color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
 #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-/* the pill menu a tap on a lit thing opens (input.js makes it and places it over the thing) */
+/* the pill menu a tap on a lit thing opens (input.js makes it and places it over the thing; its buttons are .tap-pill) */
 #tapmenu { position: fixed; left: 0; top: 0; display: none; flex-direction: column; gap: 6px; transform: translate(-50%, -100%); z-index: 3; }
-#tapmenu button { font: 600 16px var(--display); color: var(--ink); background: rgb(255 248 238 / .94); border: 0; border-radius: 999px;
-  padding: 9px 16px; box-shadow: 0 3px 0 rgb(138 90 59 / .25); cursor: pointer; white-space: nowrap; }
 .bar .menu { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .bar .menu[hidden] { display: none; }
 .bar .time { pointer-events: auto; display: flex; align-items: center; gap: 8px; font: 600 13px var(--display); background: rgb(255 248 238 / .85); border-radius: 999px; padding: 4px 12px; box-shadow: 0 2px 0 rgb(138 90 59 / .2); }

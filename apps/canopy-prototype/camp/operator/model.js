@@ -2,7 +2,8 @@
 // group, his clips on one mixer, and a soft round shadow under him (2 triangles: the props' shadows are baked, and he moves).
 // Nothing is built when this module loads: operator.js calls buildModel first, so objects are made in a fixed order.
 // Exports root, body, mixer, cur (the clip playing now), B (his bones by name), clips (his clip actions by name),
-// buildModel(gltf, anims), play(name, fade, { once, at, speed }), cs and csDir (his own frame to the world), reach and
+// buildModel(gltf, anims), play(name, fade, { once, at, speed }), cs(x, y, z, out) and csDir(x, y, z, out) (his own frame
+// to the world, into out or a new vector), reach and
 // turnHand (ik.js on his bones) and UP.
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
@@ -39,9 +40,10 @@ function play(name, fade = 0.35, { once = false, at = 0, speed = 1 } = {}) {
   const a = clips[name]; if (!a) return null;
   return (cur = crossFade(cur, a, fade, { once, at, speed, weigh: true }));   // actor.js: a clip already playing only changes speed
 }
-// character space (x his left-right, y up, z: -1 ahead, +1 behind) to world, for the pose he is in now
-const cs = (x, y, z) => V(x, y, z).applyMatrix4(root.matrixWorld);
-const csDir = (x, y, z) => V(x, y, z).transformDirection(root.matrixWorld);
+// character space (x his left-right, y up, z: -1 ahead, +1 behind) to world, for the pose he is in now. The per-frame poses
+// pass a scratch vector as `out` so they allocate nothing (review R2-019); without one a new vector is returned.
+const cs = (x, y, z, out = V()) => out.set(x, y, z).applyMatrix4(root.matrixWorld);
+const csDir = (x, y, z, out = V()) => out.set(x, y, z).transformDirection(root.matrixWorld);
 // his own arms and hands (ik.js works on any bone map)
 const reach = (side, target, pole, w) => ik.reach(B, side, target, pole, w);
 const turnHand = (side, q, w) => ik.turnHand(B, side, q, w);
