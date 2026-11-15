@@ -262,7 +262,8 @@ function walkable(x, z) {
   return Math.hypot(x - HT.x, z - HT.z) < 10.5;   // the hilltop, inside its rail
 }
 // Trees only grow where the ground is gentle enough (Adriaen 2026-11-15: trees on very steep ground look wrong): full forest up
-// to 30°, thinning out to none at 40°. s is 1 - cos(slope angle).
+// to 30°, thinning out to none at 40°. s is 1 - cos(slope angle). Boulders follow the same rule (they would roll off steeper
+// ground), most common on the rough slopes just under the limit.
 const TREE_S = [1 - Math.cos((30 * Math.PI) / 180), 1 - Math.cos((40 * Math.PI) / 180)];
 function forestAt(x, z, h, s) {
   if (onIce(x, z, h)) return 0;
@@ -754,7 +755,7 @@ function tile(ti, tj) {   // trees [x, y, z, size, turn, thin, style], saplings 
     const s = slope(x, z), f = forestAt(x, z, h, s);
     if (p < Math.min(1, 1.1 * f)) { const sp = species(x, z, h, f, hash(gi + 21, gj - 17)), [b0, b1] = SIZE[sp]; t.cell[j * n + i] = t.trees.length;
       t.trees.push(x, h - 0.3, z, (b0 + b1 * hash(gi + 5, gj + 5)) * (0.75 + 0.5 * f), hash(gi + 2, gj - 2) * 6.283, hash(gi - 7, gj + 1), sp); }
-    else if (rockRoll < 0.012 + 0.08 * sstep(0.12, 0.4, s)) t.rocks.push(x, h - 0.4, z, 0.8 + 2.8 * hash(gi - 3, gj + 8) ** 2, hash(gi + 8, gj) * 6.283);
+    else if (rockRoll < (0.01 + 0.015 * sstep(0.04, TREE_S[0], s)) * (1 - sstep(TREE_S[0], TREE_S[1], s))) t.rocks.push(x, h - 0.4, z, 0.8 + 2.8 * hash(gi - 3, gj + 8) ** 2, hash(gi + 8, gj) * 6.283);
     // the forest floor: a fallen log now and then, and young spruces between the big trees and at the edges
     const lx = x + 5, lz = z - 4, lh = height(lx, lz);
     if (f > 0.25 && hash(gi + 31, gj + 3) < 0.07 * f && !clear(lx, lz, lh)) t.logs.push(lx, lh - 0.15, lz, 4 + 5 * hash(gi, gj + 40), hash(gi + 40, gj) * 6.283);
