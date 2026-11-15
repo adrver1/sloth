@@ -1,6 +1,6 @@
 <title>Summit Cabin</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="A walkable winter mountaintop with a cabin, a lake hut and a lookout tower: a test of long views where near and far are one world.">
+<meta name="description" content="A walkable winter mountaintop with a cabin, a scout camp and a lookout tower: a test of long views where near and far are one world.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
 <style>
@@ -97,7 +97,7 @@ td:last-child { text-align: right; color: var(--ink); }
 //  - Terrain is ten square rings round the player, each twice as coarse as the one inside it, 2 m cells at your feet and 1 km
 //    cells at 16 km, so near ground is detailed; each ring is cut in eight slices and only those in view are drawn (about 35k triangles).
 //  - One fixed tree layout drawn three ways by distance: full trees near (spruce, pine, birch, snag), cards that face you further out, colour beyond.
-//  - Places to walk to: the cabin, a fishing hut on a frozen lake, a fire lookout on its hill, with marked trails.
+//  - Places to walk to: the cabin and scout camp, and a fire lookout on its hill up the boardwalk.
 //  - A painted horizon of far mountains on a ring at 22 km. Real-time shadows only round the player.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -911,7 +911,7 @@ const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6); inside.position.set(
 { let n = 0; cabin.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); TRIS.push(['Cabin, porch, woodpile', n]); }
 bakeStatic(cabin);
 
-// ---------------------------------------------------------------- places to walk to: the fire lookout, the fishing hut, the trail poles
+// ---------------------------------------------------------------- places to walk to: the fire lookout
 const placeTris = (g) => { let n = 0; g.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); return n; };
 const tower = new THREE.Group(); tower.position.set(TOWER.x, TOWER.y - 0.5, TOWER.z); tower.rotation.y = 0.5; scene.add(tower);
 { // a fire lookout: four legs, painted X braces, a glazed cab and a pyramid roof under snow
@@ -927,17 +927,8 @@ const tower = new THREE.Group(); tower.position.set(TOWER.x, TOWER.y - 0.5, TOWE
   tower.add(glass);
   const roof = part(new THREE.ConeGeometry(4.1, 1.8, 4, 1, true), M.snow, 0, TH + 3.45, 0, tower); roof.rotation.y = Math.PI / 4;
 }
-const hut = new THREE.Group(); hut.position.set(HUT.x, HUT.y, HUT.z); hut.rotation.y = Math.atan2(SHORE.x - HUT.x, SHORE.z - HUT.z); scene.add(hut);
-{ // a fishing hut on the ice: log box, snowy gable roof, a lit window and door facing the shore, a stovepipe
-  part(new THREE.BoxGeometry(2.6, 2.1, 2.2), M.log, 0, 1.05, 0, hut);
-  for (const sd of [-1, 1]) { const r = part(new THREE.BoxGeometry(3.0, 0.22, 1.6), M.snow, 0, 2.45, sd * 0.62, hut); r.rotation.x = sd * 0.6; }
-  const gableGeo = new THREE.BufferGeometry(); gableGeo.setAttribute('position', new THREE.Float32BufferAttribute([1.3, 2.1, -1.1, 1.3, 2.1, 1.1, 1.3, 2.9, 0, -1.3, 2.1, 1.1, -1.3, 2.1, -1.1, -1.3, 2.9, 0], 3)); gableGeo.computeVertexNormals();
-  part(gableGeo, M.roof, 0, 0, 0, hut);
-  const w = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.6), winMat); w.position.set(-0.6, 1.3, 1.11); hut.add(w);
-  const dr = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 1.7), doorMat); dr.position.set(0.55, 0.85, 1.11); hut.add(dr);
-  part(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 5, 1, true), M.roof, 0.8, 3.0, -0.4, hut);
-}
-TRIS.push(['Fire lookout', placeTris(tower)], ['Fishing hut', placeTris(hut)]); bakeStatic(tower); bakeStatic(hut);
+// (the fishing hut on the lake was removed 2026-11-15: you can't walk there or see it from the level)
+TRIS.push(['Fire lookout', placeTris(tower)]); bakeStatic(tower);
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
@@ -1307,7 +1298,7 @@ cv.addEventListener('pointerup', () => { look = null; }); cv.addEventListener('p
   el.addEventListener('pointermove', (e) => { if (e.pointerId === id) set(e); });
   const end = () => { id = null; stick.x = stick.y = 0; knob.style.transform = ''; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); }
 $('run').onclick = () => { me.run = !me.run; $('run').setAttribute('aria-pressed', String(me.run)); };
-// standing on the cabin's floor and porch; walls, the hut and the lookout's legs push you out
+// standing on the cabin's floor and porch; walls and the lookout's legs push you out
 function groundAt(x, z) { if (BARE) return height(x, z); if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
   if (BW_CUT && x > BW_CUT[0] && x < BW_CUT[1] && z > BW_CUT[2] && z < BW_CUT[3]) { const b = polyNear(BW, x, z); if (b.d < 1.3) return Math.max(g, bwY(b) + 0.06); } return g; }   // on the bridge or the boardwalk you walk on its boards   // on the bridge you walk on its deck
 function pushOut(x, z, cx, cz, hx, hz, turn) {   // out of a box (half sizes hx, hz, turned by `turn`)
@@ -1332,7 +1323,7 @@ function walk(dt) {
   f -= stick.y; s += stick.x; const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
   const speed = (me.run || keys.has('ShiftLeft') || keys.has('ShiftRight') ? 12 : 3.2) * dt, sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
   let x = me.x + (-sy * f + cy * s) * speed, z = me.z + (-cy * f - sy * s) * speed;
-  if (!BARE) { [x, z] = pushOut(x, z, 0, 0, W / 2 + 0.35, D / 2 + 0.35, 0); [x, z] = pushOut(x, z, HUT.x, HUT.z, 1.6, 1.4, -hut.rotation.y); }
+  if (!BARE) { [x, z] = pushOut(x, z, 0, 0, W / 2 + 0.35, D / 2 + 0.35, 0); }
   [x, z] = treePush(x, z);
   if (!BARE) [x, z] = pushOut(x, z, JEEP.x, JEEP.z, 2.0, 1.0, 0);   // the jeep lies along x
   if (!walkable(x, z)) { if (walkable(x, me.z)) z = me.z; else if (walkable(me.x, z)) x = me.x; else { x = me.x; z = me.z; } }
@@ -1495,7 +1486,7 @@ function frame() {
     if (slow >= 4 && pr > 1) { if (raised) prTop = pr - 0.25; pr = Math.max(1, pr - 0.25); raised = false; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); slow = 0; }
     else if (fast >= 16 && pr < prTop) { pr = Math.min(prTop, pr + 0.25); raised = true; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); fast = 0; }
     else if (fast >= 16) raised = false;
-    $('stats').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lake hut ${metres(dist(HUT))} · Lookout ${metres(dist(TOWER))}`;
+    $('stats').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lookout ${metres(dist(TOWER))}`;
     window.__stats = { calls: i.calls, tris: i.triangles, fps: Math.round(frames / acc), pr }; frames = 0; acc = 0; if ($('menu').open) showTris(); }
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
