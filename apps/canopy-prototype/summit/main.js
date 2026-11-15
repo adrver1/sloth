@@ -16,6 +16,7 @@ import { LIGHT, SKY, WEATHER, W_NOW, buildDaylight, daylightStep } from './dayli
 import { buildPlayer, fmt, jump, press, prof, showTris, testing, walk } from './player.js';
 import { backdrop, buildBackdrop } from './backdrop.js';
 import { ready, stats } from './debug.js';
+import { buildDrive, driveStep } from './drive.js';
 
 // ---------------------------------------------------------------- the build list (the order the scene's children were added in the prototype)
 buildCore();        // core.js: the canvas on the page, the sky dome
@@ -30,6 +31,7 @@ buildFx();          // fx.js: smoke plumes and the storm's snow
 buildDaylight();    // daylight.js: hemisphere light and sun, the sun's shadow spot
 buildPlayer();      // player.js: keys, stick, look drags, settings panel handlers
 buildBackdrop();    // backdrop.js: eight painted panels for the land beyond 1 km
+buildDrive();       // drive.js: the drive's letterbox and the Drive back pill (needs the road's jeep group and the pill row); come from the camp, the arrival plays on the first frame
 if (BARE) scene.children.slice(MADE_FROM).forEach((o) => { if (!o.isCamera) o.visible = false; });
 
 // ---------------------------------------------------------------- each frame
@@ -38,6 +40,7 @@ const dist = (p) => Math.hypot(p.x - me.x, p.z - me.z), metres = (d) => (d < 100
 function frame() {
   clock.update(); const dt = Math.min(clock.getDelta(), 0.05), now = clock.getElapsed();
   walk(dt);   // you move first, so the ground, the trees and the shadow spot follow this frame's position
+  driveStep(dt);   // a drive shot takes the camera, and moves you to it so the near ground and trees are round it
   const pf = prof.on ? performance.now() : 0;
   updateTerrain(me.x, me.z); cullTerrain(); cullWedges();
   if (prof.on) prof.mark('ground', pf);

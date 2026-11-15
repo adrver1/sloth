@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BW, BW_CORNERS, HT, JEEP, PLAT_R, ROAD, ROAD_Y, TOP, TOWER, TRIS, bwY, edgeR, groundAt, height, mulberry, polyNear, trailHalf } from './land.js';
-import { canvasTex, hazed, me, scene, tris } from './core.js';
+import { camera, canvasTex, hazed, scene, tris } from './core.js';
 import { tmpC } from './terrain.js';
 import { m4, q, rockGeo, rocks, sc, up, v3 } from './forest.js';
 import { fetchBytes } from '../bakedlight.js';
@@ -112,7 +112,7 @@ export function buildRoad() {
     TRIS.push(['Tunnel mouth (painted)', 2]);
   }
   { // the jeep that brought us, parked at the head of the road; the camp's own Expedition model
-    const g = new THREE.Group(); g.position.set(JEEP.x, TOP, JEEP.z); g.rotation.y = JEEP.turn; scene.add(g);
+    const g = new THREE.Group(); g.position.set(JEEP.x, TOP, JEEP.z); g.rotation.y = JEEP.turn; scene.add(g); JEEP.node = g;   // drive.js drives it
     fetchBytes('models/jeep_expedition.txt').then((bin) => {
       new GLTFLoader().parse(bin.buffer, '', (gl) => { let n = 0;
         gl.scene.traverse((o) => { if (!o.isMesh) return; const m0 = o.material; o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : m0.color, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, opacity: m0.opacity, alphaTest: m0.alphaTest }), mute, 'mute');
@@ -141,8 +141,8 @@ export function buildRoad() {
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
   }
 }
-// each frame: the jeep shows as its boxes beyond 110 m
+// each frame: the jeep shows as its boxes beyond 110 m from the camera (wherever it is: drive.js drives it)
 export function roadStep() {
   if (!JEEP.lod) return;
-  const far = Math.hypot(me.x - JEEP.x, me.z - JEEP.z) > 110; JEEP.lod[0].visible = !far; JEEP.lod[1].visible = far;
+  const p = JEEP.node.position, far = Math.hypot(camera.position.x - p.x, camera.position.z - p.z) > 110; JEEP.lod[0].visible = !far; JEEP.lod[1].visible = far;
 }

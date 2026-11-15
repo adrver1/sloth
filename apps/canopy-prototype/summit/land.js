@@ -15,8 +15,12 @@ export const TRIS = [];
 // URL options, parsed here once (coding standards section 7):
 //   ?ero=off   the land before erosion (default on)              read here (ERO)
 //   ?bare=1    the grown land alone, nothing man-made             BARE: main.js, player.js, map.js, road.js
+//   ?back=URL  the camp's address (camp/drive.js sets it): you have just driven here, so the jeep's arrival plays, and the
+//              way home goes back to it (only an address on this site; default camp.html)          drive.js (from, back)
+//   ?drivestay the way home ends here instead of loading the camp, for checks                         drive.js
 const Q = new URLSearchParams(location.search);
-export const OPT = { ero: Q.get('ero') !== 'off', bare: Q.get('bare') === '1' };
+const sameSite = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
+export const OPT = { ero: Q.get('ero') !== 'off', bare: Q.get('bare') === '1', from: Q.has('back'), back: Q.has('back') && sameSite(Q.get('back')) ? Q.get('back') : 'camp.html', drivestay: Q.has('drivestay') };
 const ERO = await (async () => { if (!OPT.ero) return null;
   const load = async (f) => { const r = await fetch(`models/${f}.json`); if (!r.ok) throw new Error(`${f} ${r.status}`); const m = await r.json(); m.d = new Int16Array(b64bytes(m.d).buffer); return m; };   // d: the height change, int16 times scale, base64
   try { return await Promise.all([load('summit-erosion-world'), load('summit-erosion-near')]); } catch (e) { console.warn('no erosion', e); return null; } })();
@@ -152,7 +156,7 @@ export const bwY = (b) => { const P = BW[b.i], Q = BW[Math.min(b.i + 1, BW.lengt
 BW_CUT = [Math.min(...BW.map((p) => p[0])) - 6, Math.max(...BW.map((p) => p[0])) + 6, Math.min(...BW.map((p) => p[1])) - 6, Math.max(...BW.map((p) => p[1])) + 6];
 const TRAILS = [BW.filter((p, i) => i % 10 === 0 || i === BW.length - 1).map((p) => [p[0], p[1]])];
 export function trailDist(x, z) { let best = 1e9; for (const t of TRAILS) for (let i = 0; i < t.length - 1; i++) { const [ax, az] = t[i], [bx, bz] = t[i + 1], dx = bx - ax, dz = bz - az, k = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz))); best = Math.min(best, Math.hypot(x - ax - dx * k, z - az - dz * k)); } return best; }
-export const LOOK_TRAIL = BW, JEEP = { x: -12, z: 1.2, turn: Math.PI / 2 };   // the jeep that brought us, parked at the head of the road
+export const LOOK_TRAIL = BW, JEEP = { x: -12, z: 1.2, turn: Math.PI / 2 };   // the jeep that brought us, parked at the head of the road (road.js adds node, its group, and lod)
 // where you may walk: the summit inside its rail and rocks, the road to the tunnel, the lookout trail (wider as it leaves the
 // summit) and the lookout's hilltop. Everything else is fenced off by what you see: the cliff rail, rocks, the mountain walls.
 export const lip = (x) => -8.5 + 3 * Math.sin(x / 9), PLAT_R = 22;
