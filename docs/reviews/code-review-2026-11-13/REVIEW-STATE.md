@@ -1,6 +1,6 @@
 # Canopy Camp code review: state for the next reviewer
 
-Written 2026-11-14 on branch `c-a` (head 95b79a7) for a future AI coding session; the second review's status (section 1, "Second review: status on fx-integ") was brought up to date on 2026-11-15 on branch `fx-integ`. It says what the two reviews covered, where the findings stand, and what to review next. Every count below was read from the files named; re-run the commands to check them.
+Written 2026-11-14 on branch `c-a` (head 95b79a7) for a future AI coding session; the second review's status (section 1, "Second review: status after the rebake") was brought up to date on 2026-11-15 on branch `claude/project-thread-n6c974`, after the GPU rebake. It says what the two reviews covered, where the findings stand, and what to review next. Every count below was read from the files named; re-run the commands to check them.
 
 ## 1. The two reviews
 
@@ -14,7 +14,7 @@ There are two reviews. The second is the current list.
 | Findings | 267, in 10 areas | 258 (`R2-001` to `R2-258`), in 10 areas and 4 groups |
 | Status tracking | `status.json`, rendered by `build.py` | `status.json` (no build script; edit it directly) |
 
-`docs/reviews/review-2026-11-14/` is committed on `fx-integ`. If it is missing where you are, look for it on that branch or on `main` before assuming it is lost.
+`docs/reviews/review-2026-11-14/` is committed on `fx-integ` and `claude/project-thread-n6c974`. If it is missing where you are, look for it on those branches or on `main` before assuming it is lost.
 
 ### First review (2026-11-13)
 
@@ -31,31 +31,30 @@ There are two reviews. The second is the current list.
 - Groups: A fix now, no rebake, no pick (170); B fix now, then one rebake (19); C needs Adriaen's pick (50); D needs Adriaen's decision on scope (19). Impacts: 9 high, 77 medium, 172 low. These are the `counts` block of its `findings.json` as of 21:11 on 2026-11-14; re-read that block if the file is newer.
 - Criteria are Adriaen's: player experience on a phone, development speed including AI iteration, few triangles, keep every asset variant.
 
-### Second review: status on fx-integ (2026-11-15)
+### Second review: status after the rebake (2026-11-15)
 
-Read from `docs/reviews/review-2026-11-14/status.json` (one entry per R2 id: status, one-sentence note, commits, needs_rebake, lane). Nine fix lanes were merged into `fx-integ` (gen-camp, gen-jeep, gen-bake, hygiene, boot, props, world, sloths, operator), then the cross-cutting items, Adriaen's picks and a whole-branch check with its repairs. Nothing is pushed and no rebake has run.
+Read from `docs/reviews/review-2026-11-14/status.json` (one entry per R2 id: status, one-sentence note, commits, needs_rebake, lane, followup). The nine fix lanes, the cross-cutting items and Adriaen's picks were merged on `fx-integ`, then into `claude/project-thread-n6c974`. The GPU rebake has run (8dae856, KTX2 maps d758416), Adriaen checked the result on his desktop GPU (`final_play_test` in `status.json`), the operator wears camp_cargo (look B) since the engine pin move (b7814cb), and the run-time stand-ins for the old bake are gone (7f8b34c). Nothing is pushed.
 
 | Status | Count |
 |---|---|
-| fixed | 201 (4 of them, R2-164, R2-181, R2-184, R2-255, are on the page now and also need the rebake for the baked ground and maps) |
-| waiting_rebake | 32 |
-| partly | 16 |
+| fixed | 238 |
+| partly | 11 |
 | already_fixed | 5 (R2-002, R2-011, R2-133, R2-180, R2-211) |
 | blocked | 2 (R2-214, R2-219) |
 | deferred | 1 (R2-178, Adriaen: no visible difference) |
-| pending_lead | 1 (R2-218, delete the merged remote branches) |
+| pending_lead | 1 (R2-218) |
 
-Waiting for the GPU rebake (`props/bake_all.py`, all steps): R2-109, R2-146, R2-147, R2-149 to R2-158, R2-163, R2-168 to R2-172, R2-177, R2-190, R2-191, R2-193 to R2-195, R2-198, R2-203, R2-243, R2-249, R2-251, R2-252, R2-254. Partly done and finished only by it: R2-148, R2-159, R2-250, R2-256, R2-214. The bake itself has never run since gen-bake reworked it (fixed atlas rectangles in `props/camp/atlas.json`, written on the first run; 2048 maps; per-pass samples; device auto).
+No entry needs a rebake any more. Fixes from the final GPU check: the fire ring's z-fight with the level floor (88b9676) and its siblings, the operator's blob shadow and the rain ripples (e7d1211), both noted on R2-181; the move lab's follow camera (016201d, e6e0108); the scenario tool's tap menu on main (c779b63).
 
-After the rebake, delete the run-time stand-ins in the same commit as the new `models/*.txt`: `campProps.js` `UNTAGGED` and the checkAnchors skip for missing anchors, `jeep.js` `OLD` door table, the `layout.js` `TENT` and `HAMMOCK` numbers that `fromModel` overwrites (and the literal sizes in `props/shadow/layout_pure.mjs`), the plate cutting and red-tomato filter in `activities/fruitBowl.js` (keep the `FruitBowl` lookup), and the `CARRIED` fallback in `activities/parts.js`. Then look at the light maps, the re-rolled ground, the tent inside, the hammock and its ground shadow, the fire and the wood pile by eye. If the desktop Blender's audit reports Tent back-only above 20, raise `KNOWN["camp_picked/Tent"]` (the light bake only warns; the jeep step stops on a new fault).
+What is left:
+- Waiting on Adriaen: the canopy haze above the backdrop (`final_play_test.canopy_haze`: a taller backdrop would hide it but stretches the painted trees; judge from a screenshot beside main).
+- pending_lead: R2-218, delete the merged remote branches after this branch is merged.
+- blocked: R2-214 (commit .glb and .ktx2 as the source and make the base64 copies at publish time: only Adriaen's go-ahead is missing now), R2-219 (one-line pointers in the `/mnt/project-files` copies).
+- partly: R2-004 (the CI probe job is continue-on-error; make it block deploys once its runner time is known), R2-033 (lam, tris and tent-frame sharing left to other findings), R2-034 (`camp/operator/` still calls `THREE.MathUtils.smoothstep`), R2-083 (far sloths' mixers every 4th frame), R2-087 (the cabin SpotLight stays at intensity 0; Adriaen's pick), R2-125 (upstream desk-at-night PR not opened), R2-174 (the `?fur=0` tint is Adriaen's call), R2-183 (the shaft fade on a real GPU), R2-215 (`?slothmat=old` and `pois` kept for Adriaen and the tours), R2-238 (check that R2-239 closed the rest), R2-257 (the deadwood still needs the browser; making it pure moves the forest and needs a rebake).
+- Not recorded as checked: audio by ear (rain starts at full level, insects use `sstep`, the jeep engine stops 30 s after everyone leaves, `camp/audio/` reworked); real-GPU frame times (`npm run gpu`, `npm run gpu:phone`).
+- First review's `status.json` still lacks the entries the R2 fixes close (for example gencamp-06 via R2-226, genbake-03 via R2-111, genlived-13 via R2-231, genlived-10 via R2-251, genlived-03 via R2-243, and the `fixed_by_restructure` ids in section 3).
 
-What is left besides the rebake:
-- partly: R2-004 (the CI probe job is continue-on-error; make it block deploys once its runner time is known), R2-033 (lam, tris and tent-frame sharing left to other findings), R2-034 (`camp/operator/` still calls `THREE.MathUtils.smoothstep`), R2-083 (far sloths' mixers every 4th frame not done), R2-087 (the cabin SpotLight stays at intensity 0; Adriaen's pick), R2-125 (upstream desk-at-night PR not opened), R2-174 (the `?fur=0` tint is Adriaen's call), R2-183 (check the shaft fade on a real GPU), R2-200 (desk-at-night branch `claude/project-thread-n6c974-outfits`: needs a PR, the submodule pin moved and the operator repacked), R2-215 (`?slothmat=old` and `pois` kept for Adriaen and the tours), R2-238 (check that R2-239 closed the rest), R2-257 (the deadwood still needs the browser; making it pure moves the forest and needs a rebake).
-- blocked: R2-214 (commit .glb and .ktx2 as source: rebake plus Adriaen's go-ahead), R2-219 (one-line pointers in the `/mnt/project-files` copies).
-- Not checked in the cloud: audio by ear (rain starts at full level, insects use `sstep`, the jeep engine stops 30 s after everyone leaves, `camp/audio/context.js` reworked); real-GPU frame times (`npm run gpu`, `npm run gpu:phone`); a play-test of the hammock rope climb, the operator's put-down, cuddle and nap, the chore sparks, the R2-068 wave, the jeep doors, the merged log-seat menu while holding a bowl, and the operator's wave-back (now the sloths' line-of-sight test).
-- First review's `status.json` still lacks the entries the R2 fixes close (for example gencamp-06 via R2-226, genbake-03 via R2-111, genlived-13 via R2-231, genlived-10 via R2-251, genlived-03 via R2-243, and the `fixed_by_restructure` ids below).
-
-Probe on fx-integ against base a6a4716 (SwiftShader, no errors): desktop 126 draws, 50,596 triangles, 55 programs (base 138, 59,750, 93); phone 71 draws, 39,167 triangles, 55 programs (base 87, 50,112, 84). `?jeep=none` on the phone links 54 programs against 48 at base: R2-217's live sun-shadow cast and blur, plus effects that are now drawn there too.
+Probe at 7f8b34c (SwiftShader, no errors): desktop 124 draws, 49,183 triangles, 56 programs; phone 72 draws, 39,357 triangles, 56 programs (c0b2627 the same, within 2 triangles of animation).
 
 ## 2. Coverage and gaps
 
@@ -90,7 +89,7 @@ Not looked at by either review, or only in part (from both reviews' own notes; `
 
 ## 3. First review: status on c-a (2026-11-14)
 
-This section is the first review as of `c-a`. Most of the open findings it ranks below were fixed on `fx-integ` under their R2 ids (R2-001, R2-003, R2-146 waiting for the rebake, R2-004 partly, R2-207, R2-160, R2-161, R2-162, R2-170, R2-171, R2-140, R2-254, R2-006 to R2-020); see section 1 for what is open now.
+This section is the first review as of `c-a`. Most of the open findings it ranks below were fixed on `fx-integ` under their R2 ids (R2-001, R2-003, R2-146, R2-004 partly, R2-207, R2-160, R2-161, R2-162, R2-170, R2-171, R2-140, R2-254, R2-006 to R2-020); see section 1 for what is open now.
 
 `python3 docs/reviews/code-review-2026-11-13/build.py` on `c-a` prints:
 
@@ -147,7 +146,7 @@ The second review found these fixed or no longer relevant (`fixed_by_restructure
 - First review: edit `docs/reviews/code-review-2026-11-13/status.json`. It uses a 1-space JSON indent; keep it. Each entry is `"<id>": {"status": ..., "commits": [...], "note": ...}`, and `status` must be one of the strings in its `statuses` list (`fixed`, `partly fixed`, `checked, still open`, `in progress`, `planned`, `waiting on Adriaen`, `open`). Update `as_of`.
 - Then run `python3 docs/reviews/code-review-2026-11-13/build.py`. It rewrites `findings.md` and fails if `status.json` names an id that is not in `findings.json`. Commit `status.json` and `findings.md` together. Never edit `findings.md` or `findings.json` by hand.
 - Ids are `<area key>-NN` (for example `boot-06`, `genbake-23`) and are fixed: they never change or get reused. A finding missing from `status.json` is open.
-- Second review: ids are `R2-NNN`; `old_ids` and `sources` map them to first-review ids. Its status is `docs/reviews/review-2026-11-14/status.json` (1-space indent, no build script): edit the entry's `status` (one of its `statuses` keys), `note` (one sentence), `commits` and `needs_rebake`, update `counts` and `as_of`, and update section 1 of this file. When the rebake lands, move each `waiting_rebake` entry to `fixed` in the same commit as the new models.
+- Second review: ids are `R2-NNN`; `old_ids` and `sources` map them to first-review ids. Its status is `docs/reviews/review-2026-11-14/status.json` (1-space indent, no build script): edit the entry's `status` (one of its `statuses` keys), `note` (one sentence), `commits` and `needs_rebake`, update `counts` and `as_of`, and update section 1 of this file. A change that needs a new rebake goes in as `waiting_rebake` until the GPU thread has baked it.
 - Line numbers in both `findings.json` files are on the reviewed commits (21d168d and b538272). Grep for the named function instead.
 
 ## 6. How to check a change

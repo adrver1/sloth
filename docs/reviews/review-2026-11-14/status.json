@@ -4,7 +4,7 @@
   "commit": "b538272f7b7308f65ab75404f8e29a6e5deb095c",
   "date": "2026-11-14"
  },
- "as_of": "branch fx-integ at 5ca7672, 2026-11-15: the nine fix lanes merged, the cross-cutting items (R2-209, R2-211, R2-212, R2-258), Adriaen's picks, and the whole-branch check's repairs; no light, jeep or ground rebake yet",
+ "as_of": "branch claude/project-thread-n6c974 at 7f8b34c, 2026-11-15: the GPU rebake (8dae856) and its KTX2 maps (d758416) are in, Adriaen's final check on his desktop GPU and its fixes, the operator in camp_cargo (desk-at-night #166/#167 and the pin move), and the run-time stand-ins for the old bake removed",
  "statuses": {
   "fixed": "done and visible on the page now (needs_rebake true: the page part is in, the baked maps catch up at the next rebake)",
   "waiting_rebake": "done in a generator or the bake; it shows only after the GPU light (and jeep or ground) rebake",
@@ -17,12 +17,11 @@
  },
  "fields": "status; note (one sentence); commits (on this repo's branch unless prefixed desk-at-night@); needs_rebake (the GPU rebake must run before the change is complete on the page); lane (the fix lane or step that did it); followup (what a review follow-up changed, when there was one)",
  "counts": {
-  "fixed": 201,
-  "waiting_rebake": 32,
-  "partly": 16,
+  "fixed": 238,
   "already_fixed": 5,
-  "blocked": 2,
+  "partly": 11,
   "deferred": 1,
+  "blocked": 2,
   "pending_lead": 1
  },
  "other_fixes": {
@@ -1186,13 +1185,15 @@
    "lane": "fx-hygiene"
   },
   "R2-109": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "New props/lib/quantize.py rewrites a finished GLB with KHR_mesh_quantization: int8 normals, uint8 colours, uint16 UVs where they lie in 0..1, and no normals on unlit objects (the Embers, welded from 180 to 72 vertices). export_glb(small=True) runs it for the light bake's final exports and for the jeep and its LOD.",
    "commits": [
-    "f20fc12"
+    "f20fc12",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-236": {
    "status": "fixed",
@@ -1536,15 +1537,17 @@
    "lane": "fx-gen-jeep"
   },
   "R2-243": {
-   "status": "waiting_rebake",
-   "note": "The carried logs' atlas spots are set once in build_lived.py CARRIED and reach the page as a WoodStack glTF extra (campProps.js WOOD_SPOTS); activities/parts.js uses its own CARRIED fallback until the rebake.",
+   "status": "fixed",
+   "note": "The carried logs' atlas spots are set once in build_lived.py CARRIED and reach the page only as a WoodStack glTF extra (campProps.js WOOD_SPOTS).",
    "commits": [
     "fd07b91",
-    "9f8f8f7"
+    "9f8f8f7",
+    "8dae856",
+    "7f8b34c"
    ],
-   "needs_rebake": true,
+   "needs_rebake": false,
    "lane": "fx-gen-camp",
-   "followup": "The carried spots are now set once, as CARRIED in props/lived/build_lived.py. stack_spots() writes them into wood_stack.json as \"carried\" next to \"spots\", and the tracked json is updated."
+   "followup": "The carried spots are now set once, as CARRIED in props/lived/build_lived.py. stack_spots() writes them into wood_stack.json as \"carried\" next to \"spots\", and the tracked json is updated. Verified on the real GPU after rebake 8dae856. The run-time stand-in for the old bake is gone (7f8b34c)."
   },
   "R2-244": {
    "status": "fixed",
@@ -1653,157 +1656,194 @@
    "lane": "fx-gen-jeep"
   },
   "R2-146": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "build_fire.lathe() now takes flip=True, which reverses the faces after the spin.",
    "commits": [
-    "24fe57f"
+    "24fe57f",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-147": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The bail is now wire(): a smooth three-sided tube (sweep) along the same seven points, radius 7 mm, with no caps because its ends sit in the lugs.",
    "commits": [
-    "24fe57f"
+    "24fe57f",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-148": {
-   "status": "partly",
+   "status": "fixed",
    "note": "New lib drop_enclosed(parts) removes, before each join, faces that lie wholly inside another closed part, tested by ray parity on 9 or more sample points per face.",
    "commits": [
-    "22713f5"
+    "22713f5",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-jeep"
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "The rebake rebuilt the jeep with it: 5,371 triangles in 10 meshes on the page, 638 in the LOD. Verified on the real GPU after rebake 8dae856."
   },
   "R2-249": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Builders now tag their objects through lib.export.tag: an anchor (a key of the new layout.js ANCHORS, or 'seats') and the flags thin, no_shadow, unlit and unbaked.",
    "commits": [
-    "8766e63"
+    "8766e63",
+    "8dae856",
+    "7f8b34c"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856. The run-time stand-in for the old bake is gone (7f8b34c)."
   },
   "R2-250": {
-   "status": "partly",
+   "status": "fixed",
    "note": "The generators now write the numbers as glTF extras (export_glb extras=True): door and hood open angle and axis from build_jeep.py; tent walls, doorway, stove, chimney and bed, plus the hammock knot and rope end, from build_camp.py.",
    "commits": [
-    "1c7c901"
+    "1c7c901",
+    "8dae856",
+    "7f8b34c"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-jeep"
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "The rebaked models carry the extras, and 7f8b34c removed the stand-in numbers (jeep.js OLD, layout.js TENT and HAMMOCK sizes); fromModel now throws when one is missing. Verified on the real GPU after rebake 8dae856."
   },
   "R2-251": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "props/lib/mesh.py now has sweep(), which builds a tube into a bmesh along a list of points with its faces wound outward and only the caps asked for, and tube(), one straight tube as its own object. hex_log, tripod_legs, loose_logs, mat_roll and painted_bamboo all use sweep now, with the same vertices and UVs as before.",
    "commits": [
-    "a24c4ee"
+    "a24c4ee",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-252": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "build_laundry.py now exports empties LineA, LineB and Hang, and build_fire.py exports Soup (scaled by SOUP_R), through a new lib/mesh.py anchor() helper.",
    "commits": [
-    "dba14af"
+    "dba14af",
+    "8dae856",
+    "7f8b34c"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856. The run-time stand-in for the old bake is gone (7f8b34c)."
   },
   "R2-149": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Each receiver is now projected and packed on its own and fitted into a fixed rectangle in props/camp/atlas.json.",
    "commits": [
-    "5b6128f"
+    "5b6128f",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-150": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "In add_occluders, the fallen log's shadow caster now uses -yaw and stands at y + 0.75 r, matching deadwood.js (rotateY(-yaw), axis 0.75 r up).",
    "commits": [
-    "013f356"
+    "013f356",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-151": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The three socks now hang 4 mm behind the line's vertical strip (y=-0.004) instead of in its plane.",
    "commits": [
-    "929ec1b"
+    "929ec1b",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-152": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Each soup bit now sits 0.6 mm above the one before (SOUP.z + 0.002 + 0.0006*i).",
    "commits": [
-    "929ec1b"
+    "929ec1b",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-153": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Each lining corner now moves 1.7 cm inward along the averaged normal of the canvas faces that meet there (mitred so every face plane moves the same amount), instead of being scaled toward the tent's centre.",
    "commits": [
-    "f9501f9"
+    "f9501f9",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-154": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "A new lib/mesh.py drop_ground_faces() deletes faces that point down (normal z < -0.7) with their centre within 5 cm of the ground, tested in world space.",
    "commits": [
-    "3f7e3fc"
+    "3f7e3fc",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-155": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The placeholder UV0 for props with no texture is now made with do_init=False, so it is all zeros and splits no vertex.",
    "commits": [
-    "304c259"
+    "304c259",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-156": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The headlight lenses are joined into Jeep, and the map and compass into Hood, so they still lift with it.",
    "commits": [
-    "1071b15"
+    "1071b15",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-jeep"
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-157": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Fire, stove and lanterns are now baked in one pass as pure red, green and blue lamps and read back one channel each.",
    "commits": [
-    "c872e09"
+    "c872e09",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-158": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The props being baked that cast shadows are now baked through one joined copy (BakeReceivers), and their originals are hidden while it bakes.",
    "commits": [
-    "c872e09"
+    "c872e09",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-253": {
    "status": "fixed",
@@ -1815,14 +1855,16 @@
    "lane": "fx-gen-jeep"
   },
   "R2-159": {
-   "status": "partly",
-   "note": "build_camp.py makes the plate (FruitBowl, 22 tris) a child of Table and the bake keeps a parented object with its parent; the run-time plate cutting in activities/fruitBowl.js stays until the rebake.",
+   "status": "fixed",
+   "note": "build_camp.py makes the plate (FruitBowl, 22 tris) a child of Table, the bake keeps it with its parent, and activities/fruitBowl.js only looks it up.",
    "commits": [
-    "ab907a9"
+    "ab907a9",
+    "8dae856",
+    "7f8b34c"
    ],
-   "needs_rebake": true,
+   "needs_rebake": false,
    "lane": "fx-operator",
-   "followup": "The run-time triangle cutting in activities/fruitBowl.js can only go once camp_picked_lm.txt is rebaked."
+   "followup": "The run-time triangle cutting in activities/fruitBowl.js can only go once camp_picked_lm.txt is rebaked. The rebake put the FruitBowl in camp_picked_lm.txt, and 7f8b34c removed the run-time plate cutting and tomato filter. Verified on the real GPU after rebake 8dae856."
   },
   "R2-160": {
    "status": "fixed",
@@ -1855,24 +1897,27 @@
    "lane": "fx-world"
   },
   "R2-163": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "I took the fix's first recommendation: one dark underlay quad (fascia colour, 2 triangles) at z=0.005 under the whole tent floor, in build_camp.py wall_tent.",
    "commits": [
-    "f9501f9"
+    "f9501f9",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-164": {
    "status": "fixed",
    "note": "terrain.js drops the third fbm octave (ground.js paints it as shading) and wall trunks sit at their lowest ground, so no trunk base floats; the regenerated height grid (-0.19 to +0.26 m in forest cells) reaches the baked ground only with the ground and light rebake.",
    "commits": [
     "4dde207",
-    "a3f5317"
+    "a3f5317",
+    "8dae856"
    ],
-   "needs_rebake": true,
+   "needs_rebake": false,
    "lane": "fx-world",
-   "followup": "So R2-164 does depend on the light and ground rebake, which is already pending for R2-184 and covers it."
+   "followup": "So R2-164 does depend on the light and ground rebake, which is already pending for R2-184 and covers it. Verified on the real GPU after rebake 8dae856."
   },
   "R2-165": {
    "status": "fixed",
@@ -1902,51 +1947,60 @@
    "lane": "fx-props"
   },
   "R2-168": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Removed the winch drum, which sat inside the winch box, and the two axle rods, which sat inside the chassis and wheels.",
    "commits": [
-    "535945a"
+    "535945a",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-jeep"
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-169": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The seat drops its stump caps and its top board, and the stumps now end inside the log.",
    "commits": [
-    "08c2010"
+    "08c2010",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-170": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "--size now defaults to 2048 and a props bake under 4096 deletes the stale 4K maps, so ?lm=4k falls back to the 2K maps; it takes effect with the rebake.",
    "commits": [
     "9dbd21a",
-    "1cef260"
+    "1cef260",
+    "8dae856"
    ],
-   "needs_rebake": true,
+   "needs_rebake": false,
    "lane": "fx-gen-bake",
-   "followup": "A props bake under 4096 now deletes camp_lm_4k.png, camp_lm_sun_4k.png and their .ktx2.txt copies, and ?lm=4k then falls back to the 2K maps through core.js lmLoad. bake_all.light_maps() stamps the 4K maps only with --size 4096, and map_sizes writes both _2k and _1k for any n under 2048."
+   "followup": "A props bake under 4096 now deletes camp_lm_4k.png, camp_lm_sun_4k.png and their .ktx2.txt copies, and ?lm=4k then falls back to the 2K maps through core.js lmLoad. bake_all.light_maps() stamps the 4K maps only with --size 4096, and map_sizes writes both _2k and _1k for any n under 2048. Verified on the real GPU after rebake 8dae856."
   },
   "R2-171": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Each bake call now sets its own samples from PASS_SAMPLES, given at --samples 512 and scaled with it (at least 2), and prints what it used: AO 128, sun pair 96 (1.5 x 64, since two suns share the samples), ground day 512, night RGB 512 shared by three lights (it also covers the 1K ground in the same call), moon 64.",
    "commits": [
-    "c872e09"
+    "c872e09",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-172": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "bake_camp_lightmap.py now has LM_WEIGHT, which scales each prop's light-map area by its weight squared before its atlas rectangle is sized.",
    "commits": [
-    "1db29b1"
+    "1db29b1",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-173": {
    "status": "fixed",
@@ -1988,13 +2042,15 @@
    "lane": "fx-gen-camp"
   },
   "R2-177": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Option C: the hammock is a coarse 8x4 one-sided sling drawn from both sides, painted from props/camp/camp_paint.png, with one alpha card of painted strings per end (Hammock 84 + HammockPosts 32 tris); the page falls back to the old materials until the rebake ships the atlas.",
    "commits": [
-    "00b0b08"
+    "00b0b08",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "picks"
+   "needs_rebake": false,
+   "lane": "picks",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-178": {
    "status": "deferred",
@@ -2004,15 +2060,16 @@
    "lane": ""
   },
   "R2-254": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The bake no longer writes scratch GLBs and imports them again. build_scene resets once, makes the picked set, then runs each lived builder's make() into the same scene and removes anything else a builder leaves behind.",
    "commits": [
     "1db29b1",
-    "cc1b673"
+    "cc1b673",
+    "8dae856"
    ],
-   "needs_rebake": true,
+   "needs_rebake": false,
    "lane": "fx-gen-bake",
-   "followup": "Commit cc1b673 fixed it: build_scene saves the scene's Cycles device, film transparency and view transform right after the reset and puts them back once the lived builders have run. setup_render now prints the device and compute device type before the first bake, and adds a warning when a non-preview bake would run on the CPU."
+   "followup": "Commit cc1b673 fixed it: build_scene saves the scene's Cycles device, film transparency and view transform right after the reset and puts them back once the lived builders have run. setup_render now prints the device and compute device type before the first bake, and adds a warning when a non-preview bake would run on the CPU. Verified on the real GPU after rebake 8dae856."
   },
   "R2-255": {
    "status": "fixed",
@@ -2020,20 +2077,23 @@
    "commits": [
     "a5a96d6",
     "5102e26",
-    "06e78f6"
+    "06e78f6",
+    "8dae856"
    ],
-   "needs_rebake": true,
+   "needs_rebake": false,
    "lane": "fx-gen-bake",
-   "followup": "Each WEAR entry now has a set field (camp, seats, lived, laundry or jeep), and wearBlockers(set) in layout.js returns its blocker circles. campProps.js and jeep.js now build every one of those blockers from WEAR instead of retyping the radii and offsets, and campGround.js filters by set."
+   "followup": "Each WEAR entry now has a set field (camp, seats, lived, laundry or jeep), and wearBlockers(set) in layout.js returns its blocker circles. campProps.js and jeep.js now build every one of those blockers from WEAR instead of retyping the radii and offsets, and campGround.js filters by set. Verified on the real GPU after rebake 8dae856."
   },
   "R2-256": {
-   "status": "partly",
+   "status": "fixed",
    "note": "Each builder now has its own random.Random: stack_logs (11), wood pile chips (12), fire logs (23), embers (24), soup bits (25).",
    "commits": [
-    "da370ae"
+    "da370ae",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "The rebake built lived.txt and fire.txt with these streams. Verified on the real GPU after rebake 8dae856."
   },
   "R2-179": {
    "status": "fixed",
@@ -2056,10 +2116,14 @@
    "note": "terrain.js now keeps the camp's 3 cm swell at exactly 0 under each prop: the fire, seats, table, crate, wood pile, hammock and laundry posts, plus the tent floor rectangle (all from layout.js).",
    "commits": [
     "3f582e4",
-    "804c526"
+    "804c526",
+    "8dae856",
+    "88b9676",
+    "e7d1211"
    ],
-   "needs_rebake": true,
-   "lane": "fx-props"
+   "needs_rebake": false,
+   "lane": "fx-props",
+   "followup": "Verified on the real GPU after rebake 8dae856. The level floor z-fought with what lay in its plane: the fire's ash ring (a black wedge at night, fixed in 88b9676), the operator's blob shadow and the rain ripples (e7d1211); each now draws with a decal polygon offset."
   },
   "R2-182": {
    "status": "fixed",
@@ -2086,10 +2150,12 @@
    "note": "The rim noise is now vnoise(x/r*1.6 + 11, z/r*1.6), a circle in noise space, so the seam on the -x axis is gone (the step went from 8.7 cm to 0).",
    "commits": [
     "7e5dc92",
-    "a3f5317"
+    "a3f5317",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-world"
+   "needs_rebake": false,
+   "lane": "fx-world",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-185": {
    "status": "fixed",
@@ -2140,24 +2206,27 @@
    "lane": "fx-props"
   },
   "R2-190": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Each far-LOD wheel is now 8 sides of tread, the tyre's outer side and a rim fan, open on the inside: 40 triangles instead of 88.",
    "commits": [
-    "7462c38"
+    "7462c38",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-jeep"
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-191": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The mirrors are plain boxes, the compass is 8-sided and the tow hooks are lib/mesh.py arc() pieces whose ends go into the bumper (Jeep 4447 tris).",
    "commits": [
     "ca5c2ed",
-    "703d43e"
+    "703d43e",
+    "8dae856"
    ],
-   "needs_rebake": true,
+   "needs_rebake": false,
    "lane": "fx-gen-jeep",
-   "followup": "The arc now runs from 150 to 420 degrees in 5 segments, so both ends go into the bumper."
+   "followup": "The arc now runs from 150 to 420 degrees in 5 segments, so both ends go into the bumper. Verified on the real GPU after rebake 8dae856."
   },
   "R2-192": {
    "status": "fixed",
@@ -2169,31 +2238,37 @@
    "lane": "fx-props"
   },
   "R2-193": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "In bake_ground.py soil(), the ash is darker (0.5 instead of 0.63); the char threshold widens to 0.6-0.85 and gathers toward the fire stones and the inner ring.",
    "commits": [
-    "b2e9090"
+    "b2e9090",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-bake"
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-194": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "mug() moved from build_lived.py into props/lib/mesh.py as mug(M, at, n).",
    "commits": [
-    "e6cd9ee"
+    "e6cd9ee",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-195": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "BOOT_SCALE goes from 1.25 to 1.05, so the boots are about 31 cm long; the fallen boot's lift above the planks now follows the scale.",
    "commits": [
-    "4644ffa"
+    "4644ffa",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "fx-gen-camp"
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-196": {
    "status": "fixed",
@@ -2214,13 +2289,15 @@
    "lane": "fx-sloths"
   },
   "R2-198": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "The log seat keeps today's look and loses only wasted faces: its two stumps go from 14 to 10 sides (Seat 104 -> 88 in the builder; the shipped bake still has 164 per seat).",
    "commits": [
-    "93cff1a"
+    "93cff1a",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "picks"
+   "needs_rebake": false,
+   "lane": "picks",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-199": {
    "status": "fixed",
@@ -2233,12 +2310,16 @@
    "lane": "picks"
   },
   "R2-200": {
-   "status": "partly",
-   "note": "On desk-at-night branch claude/project-thread-n6c974-outfits (not pushed, no PR) the three camp outfits are optional kit GLBs and the wrist hole is capped (+8 tris); the camp keeps the office outfit and gets the wrist fix only after a PR, a submodule pin move and an operator repack.",
+   "status": "fixed",
+   "note": "The three camp outfits are optional kit GLBs and the wrist hole is capped in desk-at-night (#166, #167, merged); since the engine pin move (b7814cb) the camp's operator wears camp_cargo (look B) with the tapered forearm (3db4ded).",
    "commits": [
     "desk-at-night@7b48028",
     "desk-at-night@0bd647d",
-    "desk-at-night@1588a4e"
+    "desk-at-night@1588a4e",
+    "desk-at-night@798b179",
+    "b7814cb",
+    "3db4ded",
+    "9fc86d3"
    ],
    "needs_rebake": false,
    "lane": "desk-at-night"
@@ -2262,14 +2343,16 @@
    "lane": "fx-world"
   },
   "R2-203": {
-   "status": "waiting_rebake",
+   "status": "fixed",
    "note": "Option C: the tent canvas, seams, hem, patch and bed are painted from the shared atlas, the side walls are one column and four guy ropes run to pegs that the page blocks once the Tent node carries them (Tent 876 tris in the builder, 826 shipped).",
    "commits": [
     "00b0b08",
-    "ba41f51"
+    "ba41f51",
+    "8dae856"
    ],
-   "needs_rebake": true,
-   "lane": "picks"
+   "needs_rebake": false,
+   "lane": "picks",
+   "followup": "Verified on the real GPU after rebake 8dae856."
   },
   "R2-204": {
    "status": "fixed",
@@ -2392,11 +2475,12 @@
   },
   "R2-214": {
    "status": "blocked",
-   "note": "Pages serves binary files and the binary load path works, but committing .glb and .ktx2 as the source and making the base64 copies at publish time waits for the rebake and Adriaen's go-ahead.",
+   "note": "Pages serves binary files and the binary load path works; the rebake has run (8dae856), so committing .glb and .ktx2 as the source and making the base64 copies at publish time waits only for Adriaen's go-ahead.",
    "commits": [
-    "c3bfdf4"
+    "c3bfdf4",
+    "8dae856"
    ],
-   "needs_rebake": true,
+   "needs_rebake": false,
    "lane": "fx-hygiene",
    "followup": "The rest waits for the next rebake and Adriaen's go-ahead: commit .glb/.ktx2 as the source, generate the base64 copies at publish time, flip the default meta and clean up .gitattributes/.gitignore."
   },
