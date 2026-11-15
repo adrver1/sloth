@@ -103,15 +103,16 @@ function buildDeadwood() {
     layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);   // was lost in the comment above: unseated, untallied, not in the bake
   }
   // roots (forest-ground note 2b): low half-round roots spreading 1.5 to 2.6 m from both big trees over the ground, across the sloths'
-  // way down, so the trees sit in the ground instead of on it. 16 triangles each, in the same draw and bark as the deadwood.
+  // way down, so the trees sit in the ground instead of on it. Each is a low ridge, two faces round over three rings (8 triangles,
+  // smooth-shaded so it reads round from eye height; R2-192 halved them from 16), in the same draw and bark as the deadwood.
   { const from = parts.length;
     for (const { at: h, roots: n } of HERO) for (let i = 0; i < n; i++) {
       const a = (i / n) * 6.28 + R(-0.25, 0.25), L = R(1.5, 2.6), r0 = R(0.11, 0.15), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), bend = R(-0.35, 0.35);
       const P = [], U = [], I = [];
       for (let j = 0; j <= 2; j++) { const t = j / 2, rad = r0 * (1 - 0.75 * t), c = h.clone().addScaledVector(dir, 0.9 + t * L).addScaledVector(side, bend * t * t);
-        for (let q = 0; q <= 4; q++) { const th = (q / 4) * Math.PI, x = c.x + side.x * Math.cos(th) * rad, z = c.z + side.z * Math.cos(th) * rad;
-          P.push(x, groundHeight(x, z) - 0.015 - 0.04 * t * t + Math.sin(th) * rad * 0.7, z); U.push(q / 4, t * L * 1.5); } }
-      for (let j = 0; j < 2; j++) for (let q = 0; q < 4; q++) { const b = j * 5 + q; I.push(b, b + 5, b + 1, b + 1, b + 5, b + 6); }
+        for (let q = 0; q <= 2; q++) { const th = (q / 2) * Math.PI, x = c.x + side.x * Math.cos(th) * rad, z = c.z + side.z * Math.cos(th) * rad;
+          P.push(x, groundHeight(x, z) - 0.015 - 0.04 * t * t + Math.sin(th) * rad * 0.7, z); U.push(q / 2, t * L * 1.5); } }
+      for (let j = 0; j < 2; j++) for (let q = 0; q < 2; q++) { const b = j * 3 + q; I.push(b, b + 3, b + 1, b + 1, b + 3, b + 4); }
       const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2)); g.setIndex(I);
       parts.push(paint(g, { moss: 0.8, y0: -2, y1: -1 }));
     }

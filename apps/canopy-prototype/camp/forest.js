@@ -118,7 +118,7 @@ function trackRoad() {
   if (track) {
     const Q = rand;   // texture noise only: leaves the seeded layout alone
     const ribbon = (width, y, tex, alpha, tile, order) => {
-      const n = 140, pos = [], uv = [], col = [], idx = [], L = track.curve.getLength();
+      const n = 60, pos = [], uv = [], col = [], idx = [], L = track.curve.getLength();   // 60 segments, about 0.5 m each: the curve reads as smooth as with 140 (R2-192)
       for (let i = 0; i <= n; i++) {
         const t = i / n, p = track.curve.getPointAt(t), d = track.curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), a = alpha(p, t * L);
         for (const k of [-1, 1]) { const q = p.clone().addScaledVector(side, k * width / 2); pos.push(q.x, y, q.z); uv.push((k + 1) / 2, (t * L) / tile); col.push(1, 1, 1, a); }
