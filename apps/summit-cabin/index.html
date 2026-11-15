@@ -208,7 +208,7 @@ function height(x, z) {
   return Math.max(Math.min(LAKE, LAKE_H), h);
 }
 const onIce = (x, z, h) => h <= LAKE + 0.05 || (h <= BIG_H + 0.05 && bigE(x, z) < 1.05) || (h <= LAKE_H + 0.05 && Math.hypot(x - LAKE_P.x, z - LAKE_P.z) < LAKE_P.r + 1);
-const TREELINE = LAKE + 720;   // above the summit, so the cabin sits in a forest clearing with the view framed by trees
+const TREELINE = TOP + 110;   // just above the summit, so the cabin sits in a forest clearing but the mountains round it are bare on top
 // the lookout stands on the top of its hill; the fishing hut out on the ice, 45 m from the shore nearest the cabin
 const TOWER = { x: HT.x, z: HT.z, y: height(HT.x, HT.z) };
 const SHORE = (() => { const k = Math.hypot(LAKE_P.x, LAKE_P.z); return { x: LAKE_P.x - (LAKE_P.x / k) * LAKE_P.r, z: LAKE_P.z - (LAKE_P.z / k) * LAKE_P.r }; })();
@@ -752,21 +752,23 @@ function tile(ti, tj) {   // trees [x, y, z, size, turn, thin, style], saplings 
     const x = (gi + 0.15 + 0.7 * hash(gi, gj + 11)) * TCELL, z = (gj + 0.15 + 0.7 * hash(gi + 13, gj)) * TCELL;
     const rockRoll = hash(gi - 9, gj * 3 + 2), h = height(x, z);
     if (clear(x, z, h)) continue;
-    const s = slope(x, z), f = forestAt(x, z, h, s);
+    // exposed crests above the summit stay bare: where the ground stands more than ~2 m above its surroundings 15 m out
+    const crest = h > TOP - 40 ? h - (height(x + 15, z) + height(x - 15, z) + height(x, z + 15) + height(x, z - 15)) / 4 : 0;
+    const s = slope(x, z), f = forestAt(x, z, h, s) * (1 - sstep(1.5, 3.5, crest));
     if (p < Math.min(1, 1.1 * f)) { const sp = species(x, z, h, f, hash(gi + 21, gj - 17)), [b0, b1] = SIZE[sp]; t.cell[j * n + i] = t.trees.length;
       t.trees.push(x, h - 0.3, z, (b0 + b1 * hash(gi + 5, gj + 5)) * (0.75 + 0.5 * f), hash(gi + 2, gj - 2) * 6.283, hash(gi - 7, gj + 1), sp); }
     else if (rockRoll < (0.01 + 0.015 * sstep(0.04, TREE_S[0], s)) * (1 - sstep(TREE_S[0], TREE_S[1], s))) t.rocks.push(x, h - 0.4, z, 0.8 + 2.8 * hash(gi - 3, gj + 8) ** 2, hash(gi + 8, gj) * 6.283);
     // the forest floor: a fallen log now and then, and young spruces between the big trees and at the edges
     const lx = x + 5, lz = z - 4, lh = height(lx, lz);
     if (f > 0.25 && hash(gi + 31, gj + 3) < 0.07 * f && !clear(lx, lz, lh)) t.logs.push(lx, lh - 0.15, lz, 4 + 5 * hash(gi, gj + 40), hash(gi + 40, gj) * 6.283);
-    const sx = x - 6 + 3 * hash(gi + 50, gj), sz = z + 5 - 3 * hash(gi, gj + 50), sh = height(sx, sz), sf = forestAt(sx, sz, sh, s);
+    const sx = x - 6 + 3 * hash(gi + 50, gj), sz = z + 5 - 3 * hash(gi, gj + 50), sh = height(sx, sz), sf = forestAt(sx, sz, sh, s) * (1 - sstep(1.5, 3.5, crest));
     if (hash(gi + 60, gj + 61) < 0.3 + 0.8 * sf * (1 - sf) * 2 && sf > 0.05 && !clear(sx, sz, sh)) t.saplings.push(sx, sh - 0.25, sz, 1.2 + 2.8 * hash(gi + 62, gj) ** 1.5, hash(gi, gj + 63) * 6.283);
   }
   tiles.set(key, t); return t;
 }
 // spruces round the summit clearing, framing the porch's view
 const SUMMIT_TREES = []; for (let i = 0; i < 34; i++) { const a = R(0, 6.283); if (Math.abs(((a + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.42) continue; const r = R(19, 40), x = Math.cos(a) * r, z = Math.sin(a) * r; if ((roadNear(x, z)?.d ?? 99) < 7 || polyNear(LOOK_TRAIL, x, z).d < 5 || Math.hypot(x - JEEP.x, z - JEEP.z) < 5) continue; SUMMIT_TREES.push(x, height(x, z) - 0.3, z, R(5, 11), R(0, 6.283), 0, i % 2 ? 4 : 0); }
-// round snowy bushes along the edge of the summit clearing, out of the porch's view and clear of the camp
+// round snowy bushes along the edge of the summit clearing: not placed since v22 (Adriaen 2026-11-15: they read as buried treetops)
 const CAMP_BUSHES = []; { const r = mulberry(77); for (let i = 0; i < 40 && CAMP_BUSHES.length < 22 * 3; i++) { const a = r() * 6.283, d = 13 + 9 * r(), x = Math.cos(a) * d, z = Math.sin(a) * d;
   if (Math.abs(((a + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.5 || Math.hypot(x - 0.5, z - 11.5) < 7.5 || (Math.abs(x) < 8 && Math.abs(z) < 7) || (roadNear(x, z)?.d ?? 99) < 5 || polyNear(LOOK_TRAIL, x, z).d < 3 || Math.hypot(x - JEEP.x, z - JEEP.z) < 4) continue; CAMP_BUSHES.push(x, z, 0.8 + 1.1 * r()); } }
 let placedAt = null, lookSet = false;
@@ -778,7 +780,6 @@ function placeThings(px, pz) {
     if (d2 < NEAR * NEAR && nearBuf[sp].length < NEAR_MAX[sp]) nearBuf[sp].push([d2, x, y, z, s, turn, w]);
     if (d2 > (NEAR - 12) ** 2 && d2 < CARD_R * CARD_R && nc < CARD_MAX) { const k = wedgeOf(x - px, z - pz); m4.compose(v3.set(x, y - 0.2, z), q.identity(), sc.set(s * w, s, s)); cards[k].setMatrixAt(cn[k], m4); cards[k].userData.sp.array[cn[k]++] = sp; nc++; } };
   for (let i = 0; i < SUMMIT_TREES.length; i += 7) tree(...SUMMIT_TREES.slice(i, i + 7));
-  for (let i = 0; i < CAMP_BUSHES.length; i += 3) put(bushes, nb++, CAMP_BUSHES[i], groundAt(CAMP_BUSHES[i], CAMP_BUSHES[i + 1]) - 0.1, CAMP_BUSHES[i + 1], CAMP_BUSHES[i + 2], i);
   const t0 = Math.floor((px - CARD_R) / TILE), t1 = Math.floor((px + CARD_R) / TILE), u0 = Math.floor((pz - CARD_R) / TILE), u1 = Math.floor((pz + CARD_R) / TILE);
   const order = [];
   for (let tj = u0; tj <= u1; tj++) for (let ti = t0; ti <= t1; ti++) {
@@ -791,7 +792,7 @@ function placeThings(px, pz) {
     for (let i = 0; i < t.rocks.length; i += 5) { const x = t.rocks[i], z = t.rocks[i + 2]; if (nr < ROCK_MAX && (x - px) ** 2 + (z - pz) ** 2 < ROCK_R * ROCK_R) put(rocks, nr++, x, t.rocks[i + 1], z, t.rocks[i + 3], t.rocks[i + 4], true); }
     for (let i = 0; i < t.logs.length; i += 5) { const x = t.logs[i], z = t.logs[i + 2]; if (nl < LOG_MAX && (x - px) ** 2 + (z - pz) ** 2 < LOG_R * LOG_R) { q.setFromAxisAngle(up, t.logs[i + 4]); m4.compose(v3.set(x, t.logs[i + 1], z), q, sc.set(t.logs[i + 3], 0.5, 0.5)); logs.setMatrixAt(nl++, m4); } }
     for (let i = 0; i < t.saplings.length; i += 5) { const x = t.saplings[i], z = t.saplings[i + 2]; if ((x - px) ** 2 + (z - pz) ** 2 >= SAPLING_R * SAPLING_R) continue;
-      if ((i / 5) % 5 < 2) { if (nb < SAPLING_MAX) put(bushes, nb++, x, t.saplings[i + 1] + 0.1, z, 0.9 + t.saplings[i + 3] * 0.35, t.saplings[i + 4]); } else if (ns < SAPLING_MAX) put(saplings, ns++, x, t.saplings[i + 1], z, t.saplings[i + 3], t.saplings[i + 4]); }
+      if ((i / 5) % 5 < 2) continue; if (ns < SAPLING_MAX) put(saplings, ns++, x, t.saplings[i + 1], z, t.saplings[i + 3], t.saplings[i + 4]); }
   }
   nearBuf.forEach((B, sp) => { const cnt = near[sp].map(() => 0); let k = 0, kx = 0;
     for (const [d2, x, y, z, s, turn, w] of B) { q.setFromAxisAngle(up, turn); m4.compose(v3.set(x, y, z), q, sc.set(s * w, s, s * w)); const b = d2 < CLOSE_R * CLOSE_R ? WEDGES : wedgeOf(x - px, z - pz);
