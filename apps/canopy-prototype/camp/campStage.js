@@ -11,8 +11,9 @@ import { groundHeight } from "./terrain.js";
 import { branchCurves, trunkR } from "./forest.js";
 import { A0, CRATE, HAMMOCK, HERO, LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT } from "./layout.js";
 import { setStage } from "./stage.js";
+import { day } from "./daytime.js";
 
-setStage({ scene, camera, OPT, LIVED, D, S, KEYS, me, groundAt: groundHeight, blockers, blockersVersion, branchCurves, trunkR,
+setStage({ day, scene, camera, OPT, LIVED, D, S, KEYS, me, groundAt: groundHeight, blockers, blockersVersion, branchCurves, trunkR,
   A0, CRATE, HAMMOCK, HERO, LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT });
 setPlayer({ camera, groundAt: groundHeight, bounds: campBounds, blockers });
 campStart(me);

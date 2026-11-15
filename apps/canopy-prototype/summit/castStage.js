@@ -22,6 +22,7 @@ import { camera, me } from './core.js';
 import { CAMP, CHOP, campGroup } from './scoutCamp.js';
 import { A0, CRATE, HAMMOCK, LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT, WOOD_PILE, wearBlockers } from '../camp/layout.js';
 import { setStage } from '../camp/stage.js';
+import { daytimeApi } from './daytime.js';
 import { yawTo } from '../camp/util.js';
 
 if (CAMP.turn) throw new Error('castStage.js: the cast keeps a shifted frame only, so the scout camp must not turn');
@@ -89,7 +90,7 @@ export function syncBack() { if (castMe.pos.x !== was.x || castMe.pos.z !== was.
 function groundAt(x, z) { const wx = x + CAST_O.x, wz = z + CAST_O.z; return onPorch(wx, wz) ? YB : onSteps(wx, wz) ? YB * (wx - STEPS.x0) / (STEPS.x1 - STEPS.x0) : height(wx, wz) - TOP; }
 
 const NO_CHORES = { cook: { stage: 'none', can: () => false }, food: () => null };
-setStage({ scene: campGroup, camera: castCam, origin: CAST_O, OPT: { op: true, campsloths: true, slothsave: false, slothmat: 'lambert' }, LIVED: true,
+setStage({ day: daytimeApi.day, scene: campGroup, camera: castCam, origin: CAST_O, OPT: { op: true, campsloths: true, slothsave: false, slothmat: 'lambert' }, LIVED: true,
   D: { shells: 3 }, S: { slothTint: 0xffffff }, KEYS: { save: 'canopy-camp-save' }, me: castMe, groundAt, walkY: groundAt, NAV: { half: 20, rim: 19.5 }, blockers, blockersVersion: () => 0,
   LANTERNS: { lights: [] }, jeepApi: null, branchCurves: [], heroWood: null, trunkR: null, chores: NO_CHORES,
   A0, CRATE, HAMMOCK, HERO: [], LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT });

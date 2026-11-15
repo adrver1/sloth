@@ -16,10 +16,11 @@ import { LIGHT, SKY, WEATHER, W_NOW, buildDaylight, daylightStep } from './dayli
 import { buildPlayer, jump, press, prof, showTris, testing, walk } from './player.js';
 import { backdrop, buildBackdrop } from './backdrop.js';
 import { ready, stats } from './debug.js';
-import { buildDrive, driveStep } from './drive.js';
+import { buildDrive, driveApi, driveStep } from './drive.js';
 import { buildLife, lifeHooks, lifeStep } from './life.js';
 import { buildDaytime, daytimeApi, daytimeStep } from './daytime.js';
-import { audioStep, buildAudio } from './audio.js';
+import { audio, audioStep, buildAudio } from './audio.js';
+import { clockStep } from '../camp/clock.js';
 
 // ---------------------------------------------------------------- the build list (the order the scene's children were added in the prototype)
 buildCore();        // core.js: the canvas on the page, the sky dome
@@ -48,8 +49,11 @@ let seats = null;
 function jeepStep(dt) {
   if (!JEEP.rig) return;
   JEEP.rig.step(dt);
-  if (!seats) { seats = 'loading'; import('../camp/jeepSeat.js').then((m) => { m.buildJeepSeats(JEEP.rig.api); seats = m; }).catch((e) => console.warn('jeep seats', e)); }
-  else if (seats !== 'loading') seats.jeepSeatStep(dt);
+  // the camp's seats and dash (key, radio, clock: camp/car.js), once the jeep is in; imported here, after the stage is set
+  if (!seats) { seats = 'loading'; Promise.all([import('../camp/jeepSeat.js'), import('../camp/car.js')]).then(([m, car]) => {
+    m.buildJeepSeats(JEEP.rig.api); car.buildCar(JEEP.rig.api, { audio, drive: ['Drive back to camp 🌴', () => driveApi.away()] }); seats = { step: (d) => { m.jeepSeatStep(d); car.carStep(d); } };
+  }).catch((e) => console.warn('jeep seats', e)); }
+  else if (seats !== 'loading') seats.step(dt);
 }
 const dist = (p) => Math.hypot(p.x - me.x, p.z - me.z), metres = (d) => (d < 1000 ? `${Math.round(d / 10) * 10} m` : `${(d / 1000).toFixed(1)} km`);
 function frame() {
@@ -61,8 +65,9 @@ function frame() {
   updateTerrain(me.x, me.z); cullTerrain(); cullWedges();
   if (prof.on) prof.mark('ground', pf);
   if (!placedAt || Math.hypot(me.x - placedAt.x, me.z - placedAt.z) > 12 || Math.abs(+$('hour').value - placedAt.h) > 0.75) { const t = performance.now(); placeThings(me.x, me.z); if (prof.on) prof.mark('trees', t); }
-  daytimeStep(dt);    // the camp's hour: the cycle, the eased hour shown, the slider and the clock's hands (the light reads the slider)
+  daytimeStep(dt);    // the camp's hour: the cycle, the eased hour shown and the slider (the light reads the slider)
   daylightStep(dt);   // before everything lit: sets LIGHT, the sun, the sky's uniforms and the shadow map's redraw flag
+  clockStep(dt, LIGHT.night);   // the camp's clocks (camp/clock.js): the porch clock and the jeep's dash clock, hands and glow
   sky.position.copy(camera.position); horizonStep();
   cabinStep(LIGHT.night);
   fxStep(dt, now, LIGHT.storm, LIGHT.bright);   // sets the wind before the flag reads it

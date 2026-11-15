@@ -20,15 +20,18 @@ import { TRIS } from './land.js';
 import { me } from './core.js';
 import { campReady } from './scoutCamp.js';
 import { LIGHT } from './daylight.js';
-import { CAST_O, syncBack, syncCast } from './castStage.js';
+import { CAST_O, castCam, syncBack, syncCast } from './castStage.js';
+import { campGroup } from './scoutCamp.js';
+import { createAtmosphere } from '../atmosphere.js';
+import { SOUP_POT, TENT } from '../camp/layout.js';
 import { cue } from './audio.js';
 
 let opApi = null, opStep = null, jumpTo = null, slothStep = null, slothList = null;
 // for the shot scripts (main.js hands it to debug.js __scene.life): him, the sloths, an activity now (day.js jumpTo), the day run ahead
 // and for the camp's input (player.js hands them to camp/input.js): what you hold from the basket, handing it over, the
 // camp's eating, and a boop's sound (slothLife.js)
-let hands = null;
-export const lifeHooks = { get op() { return opApi; }, get sloths() { return slothList; }, jump: (k) => jumpTo(k), origin: () => CAST_O,
+let hands = null, atmo = null;   // atmo: the camp's fire smoke, sparks, the soup's steam and the tent stove's smoke (../atmosphere.js)
+export const lifeHooks = { get op() { return opApi; }, get atmo() { return atmo; }, get sloths() { return slothList; }, jump: (k) => jumpTo(k), origin: () => CAST_O,
   held: () => hands?.held() ?? null, give: () => hands?.handOver() ?? null, eat: (s, mesh, from) => hands?.eat(s, mesh, from), booped: (s) => hands?.booped(s),
   sim: (sec) => { for (let t = 0; t < sec; t += 0.05) lifeStep(0.05); return opApi.state(); } };   // his day run ahead
 // The cast is imported here, once castStage.js has run, never statically: land.js awaits at its top level, so the browser runs
@@ -38,6 +41,9 @@ export function buildLife() {
   const load = (f) => fetchBytes(f).then((bin) => new Promise((ok, no) => new GLTFLoader().parse(bin.buffer, '', ok, no)));
   Promise.all([load('models/operator_winter.txt'), load('models/operator_anims.txt'), load('models/sloth.txt'), cast(), campReady]).then(([G, A, SL, [start, step, day, opDay, sl]]) => {
     setStage({ OP_DAY: opDay.OP_DAY_SUMMIT }); opStep = step.opStep; jumpTo = day.jumpTo;
+    // the camp's own air round the fire (Adriaen 2026-11-15: "add smoke to the campfire like in the cozy camp"), in the camp's
+    // frame like the cast; no butterflies or fireflies in the snow
+    atmo = createAtmosphere({ scene: campGroup, camera: castCam, fx: 1, pot: SOUP_POT, chimneys: [TENT.fromLocal(...TENT.chimney)], bugs: false });
     sl.buildSlothLife(SL); slothStep = sl.slothStep; slothList = sl.camp; hands = sl.hands;   // the sloths first, as in the camp: he finds them in their places
     // he starts by the fire on its woodpile side, looking at it, as in the camp
     const p = V(Math.cos(A0 + 0.9) * 2.6, 0, Math.sin(A0 + 0.9) * 2.6);
@@ -50,8 +56,10 @@ export function buildLife() {
 // each frame after the light: the stand-ins follow the camera and you, the night and the clock go to the cast, the sloths' step
 // (slothLife.js), his step
 export function lifeStep(dt) {
+  uTime.value += dt;   // the flames' shader runs on it too (camp/fire.js), before the cast is in
   if (!opApi) return;
-  syncCast(); uNight.value = LIGHT.night; uTime.value += dt;
+  syncCast(); uNight.value = LIGHT.night;
+  atmo?.update(dt, uTime.value, LIGHT.night);
   slothStep(dt, uTime.value);
   opStep(dt);
   syncBack();

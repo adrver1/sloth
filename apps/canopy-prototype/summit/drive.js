@@ -1,14 +1,15 @@
 // Summit Cabin drive (Adriaen 2026-11-15, plan in the project files, canopy-hide-and-seek/summit-level/plan.md): the second of
 // the drive's two shots. Come from the camp (camp/drive.js sends you here with ?back=<the camp's address>), the jeep drives out
-// of the tunnel onto the bridge, past the camera, and you then stand by it where it is parked at the head of the road. Near the
-// parked jeep a "Drive back to camp" pill plays the way home: the jeep drives along the bridge into the tunnel, and the camp
+// of the tunnel onto the bridge, past the camera, and you then stand by it where it is parked at the head of the road. As in the
+// camp, the way home is on the jeep's key (camp/car.js, Adriaen 2026-11-15): sit at the wheel, turn the key, and "Drive back to
+// camp" plays it: the jeep drives along the bridge into the tunnel, and the camp
 // loads with ?from=summit, where its arrival plays. A tap skips a shot. ?drivestay (land.js OPT) ends the way home here, for checks.
 // Exports buildDrive() (main.js, once the jeep's group exists), driveStep(dt) (main.js, each frame right after walk: the shot
 // takes the camera, and holds you where the camera is so the ground and trees round it are the near ones), and driveApi
 // { away(), home(), shot() } for checks, which import this module.
 // The parked jeep itself drives, with everyone in it: camp/riders.js, the same as the camp's drive (him at the wheel, you, and
 // the seven sloths in their winter gear; clones only while a shot plays). Arriving, the shot waits (dark) until the cast is
-// built, at most 10 s. The letterbox, fade, skip layer and pill are page elements.
+// built, at most 10 s. The letterbox, fade and skip layer are page elements.
 import { $, BARE, JEEP, OPT, ROAD, ROAD_Y, TOP, groundAt } from './land.js';
 import { camera, me } from './core.js';
 import { wheelsOf } from '../camp/util.js';
@@ -25,7 +26,7 @@ body.drive-cut #hud, body.drive-cut #hint, body.drive-cut #stats, body.drive-cut
 `;
 const DUR = 6;   // seconds a shot lasts
 const P = ROAD.portal.s;
-let shot = null, fade = null, skip = null, pill = null, homeDue = false, spin = null, boarding = false, waited = 0;
+let shot = null, fade = null, skip = null, homeDue = false, spin = null, boarding = false, waited = 0;
 
 // the road s metres from the summit (it ends in the tunnel at P): where, its height, and the way toward the tunnel
 function roadAt(s) {
@@ -83,20 +84,17 @@ export function buildDrive() {
   fade = Object.assign(document.createElement('div'), { className: 'drive-fade' }); document.body.append(fade);
   skip = Object.assign(document.createElement('div'), { className: 'drive-skip', hidden: true, title: 'Tap to skip' }); document.body.append(skip);
   skip.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (shot && !shot.left) shot.t = Math.max(shot.t, DUR - 0.8); });
-  pill = Object.assign(document.createElement('button'), { className: 'panel pill', textContent: '🚙 Drive back to camp', hidden: true });
-  pill.onclick = (e) => { e.stopPropagation(); start(false); }; $('carry').append(pill);
   if (OPT.from) {   // come from the camp: start dark, and play the jeep's arrival on the first frame
     history.replaceState(null, '', location.href.replace(/([?&])back=[^&#]*&?/, '$1').replace(/[?&]$/, ''));
     fade.style.transition = 'none'; fade.classList.add('on'); requestAnimationFrame(() => { fade.style.transition = ''; });   // start() fades up once everyone is in
     homeDue = true;
   }
 }
-// each frame, right after walk(): a shot takes the camera; otherwise the pill shows while you stand by the parked jeep
+// each frame, right after walk(): a shot takes the camera
 export function driveStep(dt) {
   if (!fade) return false;
   if (homeDue && JEEP.node && ((lifeHooks.op && lifeHooks.sloths) || (waited += dt) > 10)) { homeDue = false; start(true); }
   if (shot) { step(dt); return true; }
-  pill.hidden = Math.hypot(me.x - JEEP.x, me.z - JEEP.z) > 5;
   return false;
 }
 export const driveApi = { away: () => start(false), home: () => start(true), shot: () => shot };

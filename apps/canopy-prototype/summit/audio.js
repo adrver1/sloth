@@ -4,7 +4,7 @@
 // the summit's own beds instead of the jungle's:
 //   wind      brown noise through a low-pass, in gusts, stronger in the snowstorm, with a thin whistle over the lookout's height
 //   the fire  a soft roar and crackles at the fire ring, louder as you come near
-//   snow      your footsteps crunch (a step every 0.7 m)
+//   snow      no steps of your own (Adriaen 2026-11-15: "remove the loud footsteps"); his steps still crunch where he walks
 //   by day a raven calls far off now and then; at night the camp's owl
 // The radio is the camp's own (camp/radio.js, Adriaen 2026-11-15: "use the one from the original camp"), on the porch bench beside
 // Mango: it lights up, its menu turns it on, changes the station, quieter, louder, off, and the music comes from it, loudest on
@@ -30,7 +30,7 @@ const R = (a, b) => a + Math.random() * (b - a);
 const FIRE = new THREE.Vector3(CAMP.x, TOP + 0.4, CAMP.z);
 const RADIO = new THREE.Vector3(-1.95, TOP + YB + 0.45, -(D / 2 + 0.4));   // on the porch bench's seat
 const beds = {}, tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
-let btn = null, gust = 0.5, gustT = 0, crackT = 0, callT = 8, stepD = 0, last = null;
+let btn = null, gust = 0.5, gustT = 0, crackT = 0, callT = 8;
 const keep = () => { store.set(KEYS.audio, saved()); showBtn(); };
 export const audio = makeAudio(keep);   // the camp's sound API, which the radio drives
 
@@ -46,7 +46,7 @@ function raven() {
   const a = R(0, 6.28), pos = tmp.set(me.x + Math.cos(a) * 40, me.y + 15, me.z + Math.sin(a) * 40).clone(), out = spot(pos, 8, bus.nature), t = ac.currentTime, n = 2 + (Math.random() < 0.5);
   for (let i = 0; i < n; i++) { const t0 = t + i * 0.42, g = gain(out, 0); env(g, t0, 0.02, 0.07, 0.22, 0.05); const o = osc('sawtooth', R(310, 350), t0, 0.32, filt('bandpass', 1300, 3, g)); o.frequency.linearRampToValueAtTime(260, t0 + 0.3); }
 }
-function crunch(soft, pos = null) {   // pos: someone else's step, heard where it is (his, life.js)
+function crunch(soft, pos) {   // someone else's step, heard where it is (his, life.js)
   const t = ac.currentTime, g = gain(pos ? spot(pos, 1) : bus.sfx, 0); env(g, t, 0.01, soft ? 0.05 : 0.08, 0.13);
   noise(t, 0.16, filt('bandpass', R(900, 1400), 0.9, g)); const h = gain(g, 0.5); noise(t + 0.015, 0.1, filt('highpass', R(3000, 4500), 0.7, h));
 }
@@ -84,7 +84,4 @@ export function audioStep(dt) {
   beds.whistle.gain.setTargetAtTime((0.004 + 0.02 * storm + 0.012 * high) * gust, t, 1.5);
   if ((crackT -= dt) < 0) { crackT = R(0.05, 0.4); crackle(Math.random() < 0.08); }
   if ((callT -= dt) < 0) { callT = R(18, 40); if (storm < 0.5) LIGHT.night > 0.6 ? SFX.owl() : raven(); }
-  // your steps in the snow
-  if (last) { const d = Math.hypot(me.x - last.x, me.z - last.z); if (d < 2) { stepD += d; if (stepD > 0.7) { stepD = 0; crunch(false); } } }
-  last = last || {}; last.x = me.x; last.z = me.z;
 }

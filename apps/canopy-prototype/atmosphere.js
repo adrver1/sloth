@@ -58,7 +58,7 @@ export function pool(scene, n, map, blending, order) {
 // fire at the clearing centre; pot = { at: the centre of the soup's surface in world space, r: its radius }: steam rises from
 // the whole surface (null: no steam). The kettle and its spout steam went with the kettle (the open pot replaced it).
 // chimneys: world points at the mouth of a stovepipe (the tent's, under its rain cap); thin smoke curls out sideways from under the cap and rises
-export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0, 0, 0), pot = null, chimneys = [], sloths = [], roam = 7.5 }) {
+export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0, 0, 0), pot = null, chimneys = [], sloths = [], roam = 7.5, bugs = true }) {   // bugs: false leaves out the butterflies and fireflies (the summit's snow)
   const k = fx > 1 ? 1.5 : fx ? 1 : 0.5;   // detail: low, medium, high
   const puff = puffTex();
   const smoke = pool(scene, Math.round(26 * k), puff, THREE.NormalBlending, 3);
@@ -144,14 +144,14 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
     if (chim) chim.mat.uniforms.tint.value.copy(smoke.mat.uniforms.tint.value);
     if (steam) steam.mat.uniforms.tint.value.setScalar(1 - 0.45 * dusk);
     sparks.mat.uniforms.tint.value.setScalar(1 + 0.4 * dusk);
-    flutter.update(dt, time, dusk);
-    flies.update(dt, time, dusk);
+    flutter?.update(dt, time, dusk);
+    flies?.update(dt, time, dusk);
   }
-  const flutter = butterflies(scene, Math.round(8 * k), sloths, roam);
-  const flies = fireflies(scene, Math.round(70 * k), roam);
+  const flutter = bugs ? butterflies(scene, Math.round(8 * k), sloths, roam) : null;
+  const flies = bugs ? fireflies(scene, Math.round(70 * k), roam) : null;
   // debug: for screenshots and checks by hand in the console (the butterflies' list and land(i, k), the live particle counts); nothing
   // in the repo reads them (R2-128)
-  return { update, debug: { butterflies: flutter, stats: () => ({ smoke: smoke.live.length, chimney: chim ? chim.live.length : 0, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter.landed() }) } };
+  return { update, debug: { butterflies: flutter, stats: () => ({ smoke: smoke.live.length, chimney: chim ? chim.live.length : 0, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter?.landed() ?? 0 }) } };
 }
 
 // ---------------------------------------------------------------- butterflies: two wing quads each, hinged on the body and flapped in the shader; all in one draw

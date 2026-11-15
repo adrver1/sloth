@@ -35,7 +35,7 @@ import { buildRadio, radioStep } from "./radio.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
 import { buildTrip, tripStep } from "./trip.js";
-import { buildDrive, driveStep } from "./drive.js";
+import { buildDrive, driveApi, driveStep } from "./drive.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
 import { ready, stats } from "./debug.js";
 
@@ -86,7 +86,7 @@ await fonts;                           // the clock and radio faces below are pa
 buildClocks();                         // clock.js: the tent's alarm clock and the dial on the hammock post
 buildRadio({ scene, audio });          // radio.js: the radio on the snack table
 buildJeepSeats(jeepApi);                      // jeepSeat.js: the jeep's doors and seats
-buildCar();                            // car.js: the key, the dash radio and the dash clock
+buildCar(jeepApi, { audio, drive: ["Drive to the summit 🏔️", () => driveApi.away()] });   // car.js: the key, the dash radio and the dash clock
 buildDrive();                          // drive.js: the drive to the summit's page bits; back from the summit, the jeep's arrival plays on the first frame (needs the jeep and the input)
 buildTrip();                           // trip.js: the karaoke sign (a tap target), the question card, the cut scene's page bits; back from the karaoke stage, it stands you by the sign (before the daylight, which reads where you stand)
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
