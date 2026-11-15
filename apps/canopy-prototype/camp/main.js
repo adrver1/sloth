@@ -11,6 +11,7 @@ import { buildSky, skyStep } from "./sky.js";
 import { buildForest, heroWood } from "./forest.js";
 import { buildProps, fireStep, LANTERNS, motesStep, poolsStep } from "./campProps.js";
 import { buildJeep, jeepApi, jeepStep } from "./jeep.js";
+import { buildCampMap, campMapStep } from "./campMap.js";
 import { setStage } from "./stage.js";
 import { buildSloths, buildSlothPlaces, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
@@ -55,6 +56,7 @@ const fonts = Promise.race([Promise.all(["700 46px Fredoka", "600 22px Fredoka"]
 buildSky();                            // sky.js: the backdrop, the domes, the moon
 buildForest();                         // forest.js: the big trees, the forest wall, the ribbons on the floor, leaves, ferns
 await buildProps();                    // campProps.js: lanterns, fire, the baked props, the lived-in props, the laundry
+buildCampMap();                        // campMap.js: the map and compass (jeep.js lays them on its bonnet)
 await buildJeep();                     // jeep.js (?jeep=none: nothing)
 setStage({ LANTERNS, heroWood, jeepApi });   // stage.js: what the cast uses of the props, the big trees and the jeep, now they are made
 // the characters: the sloths use the big trees' branches, the props and the jeep
@@ -168,6 +170,7 @@ renderer.setAnimationLoop((now) => {
   poolsStep(dusk, fl);
   LANTERNS.update(uTime.value, dusk);
   clockStep(dt, dusk);
+  campMapStep(dt, 1 - 0.7 * dusk);                         // campMap.js: the map and compass in your hands
   daylightStep(dt, wet);                                   // the mist banks and the palette
   motesStep(dt);
   atmo.update(dt, uTime.value, dusk);

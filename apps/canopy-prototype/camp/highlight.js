@@ -87,7 +87,8 @@ export function createHighlight(scene, renderer, { width = 2.5 } = {}) {
       for (const mesh of current) {
         const p = partsFor(mesh); mesh.updateWorldMatrix(true, false);
         p.outline.matrix.copy(mesh.matrixWorld); p.glow.matrix.copy(mesh.matrixWorld);
-        p.outline.visible = p.glow.visible = mesh.visible;
+        let shown = true; for (let q = mesh; q; q = q.parent) if (!q.visible) { shown = false; break; }   // hidden with a parent too (the map and compass on the jeep's hood, while you hold them)
+        p.outline.visible = p.glow.visible = shown;
       }
     },
   };

@@ -20,6 +20,8 @@ import * as THREE from "three";
 import { JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { trisIn } from "./util.js";
 import { rigJeep } from "./jeepRig.js";
+import { dropHoodMap } from "./mapCompass.js";
+import { campMapHood } from "./campMap.js";
 import { JEEP_AT, JEEP_TAN, wearBlockers } from "./layout.js";
 import { addBlocker } from "./campProps.js";
 
@@ -44,7 +46,9 @@ async function buildJeep() {
   // its doors, hood, cabin light and far look: the same rig as the summit's jeep (jeepRig.js)
   jeep.traverse((m) => { if (m.isMesh && !m.name.startsWith("Glass")) { m.castShadow = true; m.receiveShadow = true; } });
   cabinLive = { receive: (o) => o.traverse((m) => { if (m.isMesh) m.receiveShadow = true; }) };
+  dropHoodMap(jeep);   // the model's painted map comes off the bonnet: the shared map and compass lie there (mapCompass.js)
   const rig = rigJeep(jeep, { camera, renderer, far: far || null });
+  campMapHood(jeep);   // after the rig, so its merged copy leaves them out
   jeepStep = rig.step; jeepApi = rig.api;
 }
 
