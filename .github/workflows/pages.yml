@@ -15,6 +15,7 @@ on:
     branches: [main]
     paths:
       - apps/canopy-prototype/**
+      - apps/karaoke/**
       - .github/workflows/pages.yml
       - .github/workflows/check.yml
   workflow_dispatch:
@@ -40,7 +41,7 @@ jobs:
       - name: Lay out the site
         run: |
           mkdir -p _site
-          cp -r apps/canopy-prototype _site/canopy-prototype
+          cp -rL apps/canopy-prototype _site/canopy-prototype   # -L: canopy-prototype/karaoke is a link to apps/karaoke (the karaoke trip)
           C=_site/canopy-prototype
           rm -rf $C/models/*_4k.png $C/prototypes
           # Pages serves binary files, so the base64 copies go back to what they encode (review R2-214): X.txt is a GLB and

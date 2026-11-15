@@ -96,6 +96,7 @@ function aimStep(dt) {
   if (menuFor) placeMenu();
 }
 function openMenu(t) {
+  if (t.tap) { t.tap(); return; }   // a thing with one obvious use does it straight away (targets.js: trip.js's karaoke sign asks its question)
   menuFor = t; menu.replaceChildren(...t.options().map(([label, fn]) => {
     const b = document.createElement("button"); b.textContent = label; b.className = "tap-pill";   // styled in camp.html
     b.onclick = (e) => { e.stopPropagation(); closeMenu(); fn(); }; return b; }));

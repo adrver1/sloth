@@ -1,10 +1,11 @@
-// Canopy Camp forest floor: the clearing's grass tile, the footpath's ribbon to the glade and the jeep's dirt road with its ruts.
+// Canopy Camp forest floor: the clearing's grass tile, the footpaths' ribbons (to the glade, and on round its tree down the
+// karaoke trip's road) and the jeep's dirt road with its ruts.
 // Exports FLOOR_OVERLAYS (the ribbons, which take the ground's contact shadow: groundLife.shadeOn), grassTex (the grass tile,
 // set by clearingFloor, for campGround.js), clearingFloor() and trackRoad() (buildForest steps, forest.js).
 import * as THREE from "three";
 import { hex, S, scene } from "../core.js";
 import { V, canvasTex, rand, sstep } from "../util.js";
-import { PATHS, RC, TRACK_HALF } from "../layout.js";
+import { PATHS, PATH_HALF, RC, TRACK_HALF, ribbonCurve } from "../layout.js";
 import { R, track } from "./base.js";
 
 const FLOOR_OVERLAYS = [];   // the path and track ribbons drawn on the floor: they take the ground's contact shadow (groundLife.shadeOn)
@@ -13,12 +14,13 @@ let grassTex;   // set by clearingFloor
 // A ribbon on the floor along a curve (the footpath and the jeep's track and ruts): n segments, half its width either side,
 // y above 0, tex tiled along it every tile metres, alpha(point, metres along, length) per row, drawn in renderOrder order. Wound
 // face up, so it needs no back side. It takes the ground's contact shadow (FLOOR_OVERLAYS, groundLife.shadeOn).
+// half is a number, or a function of t (0..1 along the curve) for a ribbon that widens (the karaoke road, layout.js tripPath).
 function ribbon(curve, { n, half, y, tex, alpha, tile, order }) {
   const pos = [], uv = [], col = [], idx = [], L = curve.getLength();
   for (let i = 0; i <= n; i++) {
-    const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), a = alpha(p, t * L, L);
+    const t = i / n, p = curve.getPointAt(t), d = curve.getTangentAt(t), side = V(-d.z, 0, d.x).normalize(), a = alpha(p, t * L, L), h = typeof half === "function" ? half(t) : half;
     for (const k of [-1, 1]) {
-      const q = p.clone().addScaledVector(side, k * half);
+      const q = p.clone().addScaledVector(side, k * h);
       pos.push(q.x, y, q.z); uv.push((k + 1) / 2, (t * L) / tile); col.push(1, 1, 1, a);
     }
     if (i) { const b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
@@ -39,7 +41,8 @@ function clearingFloor() {
     for (let i = 0; i < 1400; i++) { g.strokeStyle = hex(S.leaf[i % 4]); g.globalAlpha = R(0.2, 0.6); g.lineWidth = 1.5; const x = R(0, w), y = R(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-2, 2), y - R(3, 8)); g.stroke(); }
   });
   grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(6, 6);
-  // the footpath to the glade: one ribbon of trodden earth (1 draw, 96 triangles); the glade's own floor is camp/glade.js
+  // the footpaths: one ribbon of trodden earth (1 draw: 320 triangles, the glade path, the bend round the glade tree and the
+  // karaoke road in one strip); the glade's own floor is camp/glade.js
   {
     const Q = rand;   // texture noise only
     // packed earth, warmer and lighter than the forest floor so it reads from the camp (Adriaen 2026-11-14: "more prominent"): two darker
@@ -63,9 +66,15 @@ function clearingFloor() {
     // one ribbon per path (layout.js PATHS): it starts at the path's lead points in the camp (the glade path's: just past the log
     // seats round the fire, out between the tent and the laundry line, Adriaen 2026-11-14: "continue past the tent to the camp")
     // and runs along the path's own curve, which the player and the terrain follow. About 2 m wide, about 1.2 m of it bare
-    // earth; it fades in at the seats and out into the glade.
-    for (const path of PATHS)
-      ribbon(new THREE.CatmullRomCurve3([...path.lead, ...path.curve.points]), { n: 48, half: path.half * 1.35, y: 0.024, tex: earth, tile: 2.5, order: 1, alpha: (p, l, L) => sstep(0, 1.0, l) * (1 - sstep(L - 1.2, L, l)) });
+    // earth; it fades in at the seats and out into the glade. A path that covers another (the karaoke road covers the glade
+    // path) is drawn along it as one strip, widening from PATH_HALF to its own width over its wide stretch, and the covered
+    // path's own ribbon is left out, so the joins have no seams (Adriaen 2026-11-13).
+    const covered = new Set(PATHS.map((p) => p.covers).filter(Boolean));
+    for (const path of PATHS) {
+      if (covered.has(path.id)) continue;
+      const w = path.wide, h0 = PATH_HALF * 1.35, h1 = path.half * 1.35, fade = path.fade ?? 1.2;
+      ribbon(ribbonCurve(path), { n: path.segs ?? 48, half: w ? (t) => h0 + (h1 - h0) * sstep(w[0], w[1], t) : h1, y: 0.024, tex: earth, tile: 2.5, order: 1, alpha: (p, l, L) => sstep(0, 1.0, l) * (1 - sstep(L - fade, L, l)) });
+    }
   }
 }
 

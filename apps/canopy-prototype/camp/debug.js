@@ -16,6 +16,7 @@
 //   __jeep           jeepApi (jeep.js), when there is a jeep               camp-scenarios.cjs on old checkouts
 //   __ground         groundLife (campGround.js): its triangles and counts  camp-probe.cjs (review R2-128)
 //   __deadwood       deadwood (deadwood.js): its triangles                 camp-probe.cjs (review R2-128)
+//   __trip           tripApi (trip.js): the karaoke trip's sign, question, cut scene and the road's forest counts   camp-probe.cjs (its counts; a js argument drives the trip)
 // (props/shadow/export_casters.cjs imports the modules it reads instead: deadwood.js, campProps.js, core.js, forest.js,
 // campGround.js and jeep.js, review R2-257.)
 // Exports stats and ready().
@@ -29,6 +30,7 @@ import { boop, feed } from "./input.js";
 import { setWeather } from "./weather.js";
 import { sit } from "./linger.js";
 import { day } from "./daytime.js";
+import { tripApi } from "./trip.js";
 
 const stats = {};
 // every name is set here, once everything they point to is built, and __ready last
@@ -36,7 +38,7 @@ function ready() {
   Object.assign(window, {
     __scene: scene, __stats: stats,
     __time: (h) => day.setHour(h, true), __boop: (i) => boop(sloths[i]), __feed: (i) => feed(sloths[i]), __stick: (x, y) => stickV.set(x, y),
-    __sit: sit, __weather: setWeather, __ground: groundLife, __deadwood: deadwood,
+    __sit: sit, __weather: setWeather, __ground: groundLife, __deadwood: deadwood, __trip: tripApi,
   });
   if (jeepApi) window.__jeep = jeepApi;
   Object.defineProperty(window, "__campFast", { get: () => pace.fast, set: (v) => { pace.fast = v; }, configurable: true });

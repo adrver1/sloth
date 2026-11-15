@@ -30,6 +30,7 @@ import { audioStep, initAudio } from "./audio.js";
 import { buildRadio, radioStep } from "./radio.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
+import { buildTrip, tripStep } from "./trip.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
 import { ready, stats } from "./debug.js";
 
@@ -76,6 +77,7 @@ buildClocks();                         // clock.js: the tent's alarm clock and t
 buildRadio();                          // radio.js: the radio on the snack table
 buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
 buildCar();                            // car.js: the key, the dash radio and the dash clock
+buildTrip();                           // trip.js: the karaoke sign (a tap target), the question card, the cut scene's page bits; back from the karaoke stage, it stands you by the sign (before the daylight, which reads where you stand)
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
 castSunShadows();                      // campGround.js: the live sun shadows, once every prop stands, only without the baked map (it failed to load, or ?jeep=none)
 
@@ -133,6 +135,7 @@ let last = 0;   // the time stamp of the last frame, in ms, from the one the loo
 renderer.setAnimationLoop((now) => {
   const raw = last ? (now - last) / 1000 : 0, dt = Math.min(raw, 0.05); last = now; uTime.value += dt;
   jeepSeatStep(dt); lingerStep(dt); step(dt);
+  tripStep(dt);                                            // trip.js: the karaoke trip; its cut scene takes the camera after the player has moved
   slothsStep(dt);                                          // sloths.js: every sloth's clip, its life on top of it, the squish of a boop and its nod
   campStep(dt);                                            // sloths.js: the camp sloths' day (linger.js has claimed the log you sit on)
   labStep(dt);                                             // labButton.js: the move lab, while it is open

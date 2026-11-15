@@ -32,6 +32,8 @@ import { SUN } from "./layout.js";
 //            lmpreview (letters, digits,                                     models), campGround.js (the ground's baked shadow and night maps): a preview
 //            - and _, / between parts)                                       bake, props/camp/bake_camp_lightmap.py --preview; anything else keeps models
 //   fur      1 | 0                         1                                 fur.js reads location itself (the pages in prototypes/ share it)
+//   tripstay (present)                     absent                            trip.js (the karaoke trip's cut scene ends on the camp instead of
+//                                                                            going on to the karaoke stage: for checks)
 const qs = new URLSearchParams(location.search);
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };   // a number, or null when it is missing or not a number
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
@@ -70,6 +72,7 @@ const OPT = {
   touch: qs.has("touch"),
   sound: qs.get("sound") !== "0",
   station: qs.get("station"),
+  tripstay: qs.has("tripstay"),
   lmdir: /^[\w-]+(\/[\w-]+)*\/?$/.test(qs.get("lmdir") || "") ? qs.get("lmdir").replace(/\/?$/, "/") : "models/",   // no dots, no host: only the app's own folders
 };
 const DETAIL = OPT.detail;

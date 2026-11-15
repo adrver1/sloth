@@ -11,6 +11,8 @@
 // check (review props-07). LAUNDRY and SOUP_POT restate build_laundry.py and build_fire.py; campProps.js checks them against
 // the anchors in those GLBs (review R2-252). SEAT_R is read by operator/cook.js (the fire side of a seat, where he hands a bowl);
 // JEEP_OUT is exported for checks, and no module imports it. PATH_A, where the footpath leaves the camp, also sets the glade path's lead points, where its ribbon starts (forest/floor.js).
+// The karaoke trip's road is the PATHS entry tripPath (trip.js, forest/, glade.js); ribbonCurve(path) is the curve a path's
+// ribbon follows and cutSight(x, z, r) the trip's cut scene camera's lines of sight, which the forest keeps clear.
 import * as THREE from "three";
 import { V, lineDist, wrapPi, yawTo } from "./util.js";
 
@@ -30,7 +32,9 @@ export const A0 = HERO_ANGLE, d0 = HERO_DIR, t0 = HERO_ACROSS;
 // ---------------------------------------------------------------- the footpaths, the glades and the big trees (Adriaen 2026-11-11)
 // They are data, so a second path, glade or big tree is one more entry (review R2-036). PATHS lists the footpaths, each
 //   { id, curve, pts (its spaced points), half (the ribbon's half width, forest.js), lane (the half width the player keeps to,
-//   player.js), lead (points in the camp the ribbon starts from before the path's own curve, forest.js) }.
+//   player.js), lead (points in the camp the ribbon starts from before the path's own curve, forest.js), and optionally covers
+//   (the id of a path whose ribbon this one's runs along and replaces), segs and fade (the ribbon's segments, 48, and the metres
+//   it fades out over at its end, 1.2), wide ([a, b]: the ribbon is PATH_HALF wide up to a and its own half from b, 0..1 along it) }.
 // GLADES lists the glades { id, at, r, tree (its HERO entry) }. HERO lists the big mossy trees { id, at, flare (the phase of its
 // root flare, forest.js), roots (how many surface roots, deadwood.js), mound (null, or { r, h }: a root mound on its forest side
 // only, terrain.js) }. pathLane, pathDist, terrain.js's levelling, the path ribbons, player.js's keep-to-the-path rule, the
@@ -47,7 +51,38 @@ export const sloPath = (() => {
   // and the terrain follow starts at RC - 2
   return { id: "glade", curve, pts: curve.getSpacedPoints(48), half: PATH_HALF, lane: PATH_W, lead: [P(PATH_A, 3.0), P(PATH_A, 5.0)] };
 })();
-export const PATHS = [sloPath];
+// the karaoke trip's road (Adriaen 2026-11-12/14, trip.js): the glade path goes on round the glade tree, on the side away from
+// the bench, and leaves the glade as a road straight away from the camp, like the jeep's, until it is lost in a thicket near
+// where the ground ends. Its curve runs from the bend round the tree to the thicket; the player keeps within its lane. Its ribbon
+// (ribbonCurve) starts at its lead, the glade path's lead and first five points, so the glade path, the bend and the road are
+// drawn as ONE strip with no seams at the joins (Adriaen 2026-11-13); it covers the glade path's own ribbon, which is then not
+// drawn. The ribbon is the glade path's width up to wide[0] (0..1 along it) and widens to its own 2.5 m (half * 1.35: two
+// walking hand in hand) by wide[1], where the road starts; segs and fade: its segments and the metres it fades out over.
+// cut: the road's straight stretch { curve, pts }, along which the sign stands and the wagon cut scene walks (trip.js); walking
+// far enough down it asks "Go to karaoke?" too.
+const GU = GLADE.clone().normalize(), GW = V(-GU.z, 0, GU.x), atGlade = (a, b) => GLADE.clone().addScaledVector(GU, a).addScaledVector(GW, b);
+export const tripPath = (() => {
+  const dir = (b) => GU.clone().multiplyScalar(Math.cos(b)).addScaledVector(GW, Math.sin(b)), D = dir(1.0), S0 = atGlade(1.0, 2.5), at = (s) => S0.clone().addScaledVector(D, s);
+  const cut = new THREE.CatmullRomCurve3([at(0), at(3), at(6), at(9)]);
+  const trail = [at(0), at(3), at(6), at(9), at(10.4).addScaledVector(dir(1.0 + Math.PI / 2), 0.25), at(9).addScaledVector(dir(1.3), 3.0)];   // a slight bend at the end, into the trees
+  const curve = new THREE.CatmullRomCurve3([atGlade(-2.6, 1.25), atGlade(-0.6, 2.25), ...trail]);
+  const path = { id: "karaoke", curve, pts: curve.getSpacedPoints(64), half: 1.25 / 1.35, lane: 0.9, lead: [...sloPath.lead, ...sloPath.curve.points.slice(0, 5)],
+    covers: "glade", segs: 160, fade: 2.5, wide: [0, 1], cut: { curve: cut, pts: cut.getSpacedPoints(40) } };
+  const pts = ribbonCurve(path).getSpacedPoints(160), near = (c) => pts.reduce((b, q, i) => (q.distanceTo(c) < pts[b].distanceTo(c) ? i : b), 0) / 160;
+  path.wide = [near(atGlade(-2.0, 1.7)), near(at(0))];
+  return path;
+})();
+export const PATHS = [sloPath, tripPath];
+// ribbonCurve(path): the curve a path's ribbon is drawn along (forest/floor.js), its lead points then its own curve's
+export function ribbonCurve(path) { return new THREE.CatmullRomCurve3([...path.lead, ...path.curve.points].map((q) => q.clone().setY(0))); }
+// cutSight(x, z, r): true when a thing of radius r at (x, z) stands in the karaoke cut scene camera's line of sight. trip.js films
+// the wagon from the camp's side of the road (side on, and three-quarter from ahead on an upright phone), so the forest keeps
+// those lines clear of trunks (forest/trees.js) and bushes (forest/plants.js)
+const sight = [];
+{ const c = tripPath.cut.curve, L = c.getLength();
+  for (let s = 0.3 * L; s <= L; s += 0.5) { const t = s / L, p = c.getPointAt(t), d = c.getTangentAt(t), sd = V(-d.z, 0, d.x), inn = sd.dot(p) > 0 ? -1 : 1;
+    sight.push([p, p.clone().addScaledVector(sd, 6 * inn).addScaledVector(d, 2.6)], [p, p.clone().addScaledVector(sd, 3 * inn).addScaledVector(d, 5)]); } }
+export const cutSight = (x, z, r) => sight.some(([a, b]) => lineDist([a, b], x, z) < r + 0.5);
 // the big tree at the clearing's edge behind the fire, and the glade's tree, 0.4 m off the glade's middle, away from where the
 // karaoke route passes it (Adriaen 2026-11-14: clear of the path)
 const campTree = { id: "camp", at: d0.clone().multiplyScalar(RC + 0.4), flare: 0, roots: 10, mound: { r: 2.6, h: 0.45 } };

@@ -1,6 +1,6 @@
 // Canopy Camp glade: the sloth tree's clearing at the end of the footpath behind the tent, dressed like the camp (Adriaen 2026-11-14:
 // "the same treatment as the main camp with beautification and making it real"). One painted floor (lush grass with sun flecks, a moss
-// ring at the tree's foot, a trodden patch where the path ends and people stand to look up at the sloths, leaf litter thickening into
+// ring at the tree's foot, a trodden patch where the path ends and people stand to look up at the sloths, the karaoke road worn round the tree, leaf litter thickening into
 // the forest), a bench made like the camp's log seats (a sawn half log on two stumps) facing the tree, a fallen mossy log made like
 // the camp's own by the table (deadwood.js fallenLog: tapered, broken at one end, sawn at the other, three shelf brackets; review
 // R2-199, Adriaen's pick B), mossy stones, two clusters of
@@ -13,8 +13,8 @@
 // of day and the weather).
 import * as THREE from "three";
 import { D, S, scene, sun } from "./core.js";
-import { V, canvasTex, lcg, sstep, tris } from "./util.js";
-import { GLADE, GLADE_EXIT, GLADE_R, GLADES, RC, gladeTurn, pathLane, sloPath } from "./layout.js";
+import { V, canvasTex, lcg, polyDist, sstep, tris } from "./util.js";
+import { GLADE, GLADE_EXIT, GLADE_R, GLADES, RC, cutSight, gladeTurn, pathLane, ribbonCurve, sloPath, tripPath } from "./layout.js";
 import { addBlocker, rayMat } from "./campProps.js";
 import { cards, clumpN, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest.js";
 import { CLEAN_UV, barkMat, bracket, fallenLog, paint as paintBark } from "./deadwood.js";
@@ -38,15 +38,19 @@ const SHROOMS = [[LOG.at.clone().addScaledVector(V(Math.cos(LOG.yaw), 0, Math.si
 const STAND = at(2.2, 0);   // the trodden spot under the low branches, where the path ends
 const LAST = sloPath.pts.slice(-12);   // the path's last stretch, which runs into the glade
 const pathEnd = (x, z) => { let d = 1e9; for (const q of LAST) d = Math.min(d, Math.hypot(q.x - x, q.z - z)); return d; };
-// how worn the ground is: the path's last stretch running on to the trodden spot (0 grass .. 1 bare earth). It is 0 farther than
-// 0.8 m from that lane and the path's last stretch and farther than 1.15 m from STAND; WORN_BOX is the box round all of that.
+// the karaoke road's way round the glade tree (layout.js tripPath): the part of its ribbon on the glade's floor disc
+const ROUTE = ribbonCurve(tripPath).getSpacedPoints(160).filter((q) => Math.hypot(q.x - G.x, q.z - G.z) < FR + 1.3);
+// how worn the ground is: the path's last stretch running on to the trodden spot, and the karaoke road round the tree (0 grass ..
+// 1 bare earth). It is 0 farther than 0.8 m from that lane and the path's last stretch, farther than 1.15 m from STAND and
+// farther than 1.25 m from the road; WORN_BOX is the box round all of that.
 const worn = (x, z) => {
   const s = STAND, e = end, dx = s.x - e.x, dz = s.z - e.z, t = Math.max(0, Math.min(1, ((x - e.x) * dx + (z - e.z) * dz) / (dx * dx + dz * dz)));
   const lane = Math.hypot(x - (e.x + dx * t), z - (e.z + dz * t));
-  return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)));
+  return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)), 1 - sstep(0.7, 1.25, polyDist(ROUTE, x, z)[0]));
 };
 const WORN_BOX = new THREE.Box2().setFromPoints([end, STAND].map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(1.15)
-  .union(new THREE.Box2().setFromPoints(LAST.map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(0.8));
+  .union(new THREE.Box2().setFromPoints(LAST.map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(0.8))
+  .union(new THREE.Box2().setFromPoints(ROUTE.map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(1.25));
 const taken = (x, z, pad) => Math.hypot(x - TREE.x, z - TREE.z) < TRUNK + 0.15 + pad || Math.hypot(x - BENCH.at.x, z - BENCH.at.z) < 0.85 + pad
   || STONES.some(([c, r]) => Math.hypot(x - c.x, z - c.z) < r + pad) || (() => { const ax = Math.cos(LOG.yaw), az = Math.sin(LOG.yaw), u = (x - LOG.at.x) * ax + (z - LOG.at.z) * az, v = -(x - LOG.at.x) * az + (z - LOG.at.z) * ax;
     return Math.abs(u) < LOG.len / 2 + pad && Math.abs(v) < LOG.r + 0.1 + pad; })();
@@ -64,7 +68,7 @@ function buildGlade() {
     blob(TREE.x - G.x, TREE.z - G.z, TRUNK + 0.4, "rgba(70,62,40,A)", 0.6);                                                           // bare and dark where the canopy drips
     for (let i = 0; i < 14; i++) { const a = R(0, 6.28), r = R(0.6, GLADE_R - 0.6); blob(Math.cos(a) * r, Math.sin(a) * r, R(0.3, 0.7), "rgba(255,246,190,A)", R(0.18, 0.3)); }   // sun flecks through the leaves
     // the trodden earth from the path's end to the spot under the branches: soft-edged, a little darker in the middle where most feet go.
-    // Only the pixels inside WORN_BOX can be worn, about a tenth of the disc (review R2-016).
+    // Only the pixels inside WORN_BOX can be worn (review R2-016): the trodden end of the path and the karaoke road round the tree.
     const img = g.getImageData(0, 0, PX, PX), d = img.data, mud = [143, 118, 83], mid = [118, 96, 66];
     const px = (w, c) => Math.max(0, Math.min(PX - 1, Math.floor(((w - c) / FR + 1) * PX / 2)));   // world x or z to its pixel column or row
     const x0 = px(WORN_BOX.min.x, G.x), x1 = px(WORN_BOX.max.x, G.x) + 1, y0 = px(WORN_BOX.min.y, G.z), y1 = px(WORN_BOX.max.y, G.z) + 1;
@@ -184,11 +188,12 @@ function buildGlade() {
   // ---------------------------------------------------------------- bushes out on the flat forest floor round the glade, where the bare leaf
   // litter met the fog (Adriaen 2026-11-14: not round the tree, that was too crowded). Low leafy mounds of the forest's own leaf cards
   // (forest.js leafGeo, 2 tris each), one instanced draw. Kept off the camp's clearing, the footpath, and the wedge the karaoke road
-  // leaves the glade by (layout.js GLADE_EXIT, turns round the glade from the path's end; the trip's route also clears itself through pathLane).
+  // leaves the glade by (layout.js GLADE_EXIT, turns round the glade from the path's end; the road itself is clear through pathLane), and
+  // the karaoke cut scene's view (layout.js cutSight).
   {
     const B = [];
     const off = (x, z) => { const t = gladeTurn(x, z);
-      return (t > GLADE_EXIT[0] && t < GLADE_EXIT[1]) || Math.hypot(x - G.x, z - G.z) < GLADE_R + 1.3 || Math.hypot(x, z) < RC + 1.5 || pathLane(x, z) < 2.2; };
+      return (t > GLADE_EXIT[0] && t < GLADE_EXIT[1]) || Math.hypot(x - G.x, z - G.z) < GLADE_R + 1.3 || Math.hypot(x, z) < RC + 1.5 || pathLane(x, z) < 2.2 || cutSight(x, z, 0.8); };
     // in clumps of two or three, as undergrowth grows, filling the flat floor out to where the fog takes over
     for (let tries = 0, groups = 0; tries < 800 && groups < Math.round(16 * Math.min(k, 1.2)); tries++) {
       const c = at(R(GLADE_R + 1.8, GLADE_R + 7.5), R(-Math.PI, Math.PI));

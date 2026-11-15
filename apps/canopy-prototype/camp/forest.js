@@ -1,20 +1,21 @@
 // Canopy Camp forest: the clearing floor with the path and track ribbons (the layout itself is layout.js), the two big mossy
 // trees with their low branches, the forest wall of trunks, leaves in culled wedges, ferns and verge plants. The steps live in
 // camp/forest/: base.js (the forest stream, the track, trackDist), floor.js (ribbons and the grass tile), trees.js (bark, the
-// big trees, the wall, the crowns), cards.js (the leaf card, the scatter, the culled sectors) and plants.js (leaf clumps, verge, ferns).
+// big trees, the wall, the crowns), cards.js (the leaf card, the scatter, the culled sectors) and plants.js (leaf clumps, verges, ferns).
 // Exports buildForest() (main.js, once), FLOOR_OVERLAYS, branchCurves (the big trees' low branches), heroWood and trunkR(y)
 // (the big trees' wood and trunk radius, for the sloths' climbs: forest/trees.js), grassTex (the clearing's
 // grass tile, for campGround.js), track and trackDist, and for glade.js's bushes leafGeo, leafM, perClump, cards(n), scatterLeaves,
 // clumpN and withLeafN (the leaf card, its material, how many leaves a clump draws from its stream, how many of n become cards,
-// the leaf scatter every leafy thing shares, a leaf's light normal and the card geometry that carries them).
+// the leaf scatter every leafy thing shares, a leaf's light normal and the card geometry that carries them), and roadForest (the
+// karaoke road's trunks and bushes, counted for trip.js).
 import { track, trackDist } from "./forest/base.js";
 import { FLOOR_OVERLAYS, clearingFloor, grassTex, trackRoad } from "./forest/floor.js";
-import { branchCurves, crowns, forestWall, heroTrees, heroWood, trunkR } from "./forest/trees.js";
+import { branchCurves, crowns, forestWall, heroTrees, heroWood, roadTrunks, trunkR } from "./forest/trees.js";
 import { cards, clumpN, leafCard, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest/cards.js";
-import { ferns, verge, wallLeaves } from "./forest/plants.js";
+import { ferns, trailVerge, verge, wallLeaves } from "./forest/plants.js";
 
 // buildForest (main.js, once, right after the sky) runs the steps below in this order. Every step but the crowns and the
-// verge draws from the forest stream, so the order is what keeps the forest as it was baked: do not move a step.
+// verges draws from the forest stream, so the order is what keeps the forest as it was baked: do not move a step.
 function buildForest() {
   clearingFloor();               // the grass tile and the footpath to the glade
   trackRoad();                   // the jeep's dirt road and the tyre ruts (not with ?jeep=none)
@@ -24,7 +25,11 @@ function buildForest() {
   const clumps = wallLeaves(wall);   // the leaf clumps on the wall, the branches, the big crowns and the eye-height edge
   crowns(wall, clumps);          // limbs into the clumps and a crown on each near forest tree (its own stream)
   verge();                       // bushes along the jeep's track (its own stream)
+  roadForest.verge = trailVerge();   // bushes along the karaoke road (its own stream)
+  roadForest.trunks = roadTrunks;
   ferns();                       // ferns and undergrowth round the clearing
 }
+// what the karaoke road's forest came to: { trunks (how many line it), verge ({ clumps, tris } of its bushes) }, set by buildForest
+const roadForest = { trunks: 0, verge: null };
 
-export { buildForest, FLOOR_OVERLAYS, branchCurves, cards, clumpN, grassTex, heroWood, leafGeo, leafM, perClump, scatterLeaves, track, trackDist, trunkR, withLeafN };
+export { buildForest, FLOOR_OVERLAYS, roadForest, branchCurves, cards, clumpN, grassTex, heroWood, leafGeo, leafM, perClump, scatterLeaves, track, trackDist, trunkR, withLeafN };

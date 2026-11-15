@@ -6,7 +6,8 @@
 // them live (GAIN), and adds the warm ones a little by day (they show in the shade; the sun drowns them in the open).
 // The jeep's cabin light is live (one spot light, camp/jeep.js); its baked light, door spill and headlights were dropped from the
 // bake on 2026-11-12 and their shader path from here (review R2-210).
-// Exports lightDir(dir) (where camp_lights.json is), initKtx(renderer), fetchBytes(txt), loadLightMap(png, { channel,
+// Exports lightDir(dir) (where camp_lights.json is), initKtx(renderer), fetchBytes(txt), b64bytes(txt) (base64 text to bytes:
+// camp/trip.js reads the karaoke stage's model, which the Pages deploy leaves as text), loadLightMap(png, { channel,
 // anisotropy, ktx }), doneLoading(), LIGHT (the uniforms), GAIN (each light's strength), LIGHT_GLSL, LIGHT_MIX(base, q, night,
 // spot), liveChunk(chunk), bindLight(shader) and stepLight(fl, t) (main.js, each frame).
 import * as THREE from "three";
@@ -32,7 +33,7 @@ export function initKtx(renderer) {
 // base64 text -> bytes. The models and the KTX2 maps are committed as base64 .txt files (artifacts serve text and images only).
 // Uint8Array.from(atob(txt), callback) called the callback per character: 140 ms for the 3 MB light map, against 8 ms for
 // this loop and 2 ms where the browser has Uint8Array.fromBase64 (measured in Chromium).
-function b64bytes(txt) {
+export function b64bytes(txt) {
   if (Uint8Array.fromBase64) return Uint8Array.fromBase64(txt);
   const s = atob(txt), n = s.length, u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = s.charCodeAt(i); return u;
 }

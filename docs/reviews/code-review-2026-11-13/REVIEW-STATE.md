@@ -83,7 +83,7 @@ Not looked at by either review, or only in part (from both reviews' own notes; `
 - The `engine/` submodule (desk-at-night: character kit, ponytail engineer, bearded operator). It was not checked out; only GLB stats were read.
 - The sloth styles `plush` and `plush_real`, the archived camp and jeep styles (`props/camp/archive/build_camp_styles.py`, `props/jeep/archive/build_jeep_styles.py`), `characters/aussie_critters`.
 - Other apps in `apps/` (karaoke, synth, stickers-page, playtime, catch-the-baby, fur-options, playtime-tools), the stickers renderer and packs (including the 500 KB WhatsApp limit), and the canopy pages other than `camp.html`.
-- The karaoke trip branch and its route through the glade, beyond what `glade.js` reads.
+- The karaoke trip (PR #32), beyond what `glade.js` reads. It was merged into `fx-integ` on 2026-11-15 and ported to the restructured modules (`trip.js`, `layout.js` `tripPath` as a `PATHS` entry, `forest/` and `glade.js` reading it, `debug.js` `__trip`); neither review has read that port.
 - `glade.js`, `deadwood.js` and the `atmosphere.js` pools only in part. `tools/tours/*.json` (28 files) were not reviewed.
 - The 68 findings then marked fixed were not spot-checked for regressions (only props-01 and sloths-03).
 - Evidence files for the second review live in session scratchpads (`evidence_dir` per finding) and may be gone.

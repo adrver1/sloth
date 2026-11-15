@@ -2,9 +2,10 @@
 // menu when tapped. input.js does the lighting and the menus; the module that owns a thing adds it here. A target is made
 // once per key, the first time it is asked for: { look (what lights up, or null), quiet (never lights up: a sloth, the
 // operator), picks (what a tap's ray can hit), at(v) (its place: a sphere), ready() (in reach now), options() ([label, fn]
-// pairs for the menu) }.
+// pairs for the menu), and optionally tap() (a thing with one obvious use: a tap does it at once instead of opening the menu,
+// trip.js's karaoke sign) }.
 //   addTarget(key, make)        one thing (linger.js the log seats, clock.js, radio.js, car.js the key and the dash radio,
-//                               operator/talk.js the operator)
+//                               operator/talk.js the operator, trip.js the karaoke sign)
 //   addTargets(kind, items, make)  a set: items() gives its things (the same array while they stay the same, so nothing is
 //                               rebuilt each frame), make(item) makes one's target, and each item is its key. kind is one
 //                               of KINDS: "things" (chores.js: the wood pile, the fire, the pot...), "sloths" (input.js: their

@@ -3,11 +3,13 @@
 // Exports heroTrees(), forestWall() (returns the wall's trees), crowns(wall, clumps) (buildForest steps, forest.js),
 // branchCurves (the big trees' low branches, which the sloths hang from), TOP (the big trees' height), and heroWood (the big
 // trees' wood, one mesh) and trunkR(y) (their trunk's widest radius at height y), both for the sloths' climbs (review R2-082).
+// roadTrunks: how many trunks line the karaoke road (set by forestWall). Every wall tree stands clear of the karaoke cut scene's
+// lines of sight (layout.js cutSight).
 import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "../terrain.js";
 import { D, S, scene } from "../core.js";
 import { V, lcg, sstep } from "../util.js";
-import { FAR, GLADE, GLADE_EXIT, GLADE_R, HERO, RC, gladeTurn, pathLane } from "../layout.js";
+import { FAR, GLADE, GLADE_EXIT, GLADE_R, HERO, RC, cutSight, gladeTurn, pathLane, tripPath } from "../layout.js";
 import { R, rnd, trackDist, UP } from "./base.js";
 import { addSectors, cards, cardSet, clumpN, leafColour, leafGeo, leafM, perClump, scatterLeaves } from "./cards.js";
 
@@ -92,12 +94,13 @@ function heroTrees() {
 
 // The wall's trees, as { x, z, s, y0, top, glade }: where each stands, its girth scale, the height its trunk is seated at, its
 // trunk's top (0 for a tree left out on the track or the path), which the crown limbs grow from, and glade (true for the
-// glade's own trees, last in the list).
+// glade's own trees and the karaoke road's, last in the list; road marks the road's).
 // The glade's trees (review R2-161, Adriaen's pick C): GLADE_TREES more trunks round the glade's outer half, so near 3D trees stand
 // between it and the backdrop. They draw from their own stream (GLADE_SEED; their leaves GLADE_SEED + 1, plants.js), come after
 // every forest tree, and stand clear of the glade's edge, its path, the karaoke road's wedge (layout.js GLADE_EXIT) and, with
 // their root mounds, the baked ground square (RC + 0.8 each way), so the forest stream, the bakes and the glade stay as they were.
 const GLADE_TREES = 25, GLADE_SEED = 1610;
+let roadTrunks = 0;   // how many trunks line the karaoke road (forestWall; trip.js reports it)
 function forestWall() {
   // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
   const wall = [];
@@ -114,8 +117,26 @@ function forestWall() {
     if (trackDist(x, z) < 2.3 || HERO.some(({ at: h }) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w.x - x, w.z - z) < 1.7)) continue;
     wall.push({ x, z, s: Gs.R(0.6, 1.3), y0: 0, top: 0, glade: true }); n++;
   }
-  // each tree on its own root mound
-  for (const { x, z, s } of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);
+  // the karaoke road runs out past where the wall thins, so a few trunks line it, at fixed spots (no stream drawn for where
+  // they stand). They count as glade trees (glade: true): their turn and height come from the glade's stream after the glade's
+  // own, their leaves and crowns last, so the forest stream stays as baked. Past the sign only on the far side, so the camp
+  // side stays open for the cut scene's camera (layout.js cutSight)
+  const nT = wall.length, cut = tripPath.cut.curve, road = tripPath.curve;
+  for (let i = 0; i < 12; i++) {
+    const t = 0.12 + (i >> 1) * 0.16, p = cut.getPointAt(t), d = cut.getTangentAt(t), sd = (i & 1) ? 1 : -1;
+    if (sd * (p.x * -d.z + p.z * d.x) < 0 && t > 0.4) continue;
+    const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.5 + ((i * 7) % 3) * 0.45));
+    if (Math.hypot(q.x, q.z) < 28.4 && !wall.some((w) => Math.hypot(w.x - q.x, w.z - q.z) < 1.8) && !HERO.some(({ at: h }) => Math.hypot(h.x - q.x, h.z - q.z) < 4)) wall.push({ x: q.x, z: q.z, s: 0.7 + ((i * 5) % 4) * 0.15, y0: 0, top: 0, glade: true, road: true });
+  }
+  for (let i = 0; i < 6; i++) {   // and on along the road past the cut scene's stretch
+    const t = 0.8 + (i >> 1) * 0.08, p = road.getPointAt(t), d = road.getTangentAt(t), sd = (i & 1) ? 1 : -1;
+    const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.6 + ((i * 7) % 3) * 0.5));
+    if (Math.hypot(q.x, q.z) < 29.5 && !wall.some((w) => Math.hypot(w.x - q.x, w.z - q.z) < 1.8)) wall.push({ x: q.x, z: q.z, s: 0.7 + ((i * 3) % 4) * 0.15, y0: 0, top: 0, glade: true, road: true });
+  }
+  roadTrunks = wall.length - nT;
+  // each tree on its own root mound; a tree kept off the track, the paths and the cut scene's lines of sight has none
+  const kept = (x, z, s) => trackDist(x, z) > 2.2 && !cutSight(x, z, 0.65 * s);
+  for (const { x, z, s } of wall) if (kept(x, z, s)) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);
   // each trunk is seated by the lowest ground round its base, not at its centre, so no side of the base stands above the
   // ground on a slope or a hummock (review R2-164)
   const seat = (x, z, s) => {
@@ -125,7 +146,7 @@ function forestWall() {
   };
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4(), q = new THREE.Quaternion();
   wall.forEach((w, i) => {
-    const draw = w.glade ? Gs.R : R, keep = trackDist(w.x, w.z) > 2.2 ? 1 : 0, ry = draw(0, 6), sy = draw(0.8, 1.1);
+    const draw = w.glade ? Gs.R : R, keep = kept(w.x, w.z, w.s) ? 1 : 0, ry = draw(0, 6), sy = draw(0.8, 1.1);
     w.y0 = seat(w.x, w.z, w.s);
     w.top = keep ? w.y0 + 20 * sy : 0;
     m.compose(V(w.x, w.y0, w.z), q.setFromAxisAngle(UP, ry), V(w.s * keep, sy * keep, w.s * keep));
@@ -223,4 +244,4 @@ function crowns(wall, clumps) {
   }
 }
 
-export { branchCurves, crowns, forestWall, heroTrees, heroWood, TOP, trunkR };
+export { branchCurves, crowns, forestWall, heroTrees, heroWood, roadTrunks, TOP, trunkR };

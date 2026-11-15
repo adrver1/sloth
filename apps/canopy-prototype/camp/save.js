@@ -2,6 +2,7 @@
 // reload (or the trip to the karaoke stage and back) carries on where you left off. Owners: operator (his lines still to come),
 // sloths (sloth/saved.js), trip (the karaoke trip). Settings (detail, time, weather, light map) keep their own keys in core.js.
 //   load("sloths") -> the part as saved, or null;  save("sloths", data) -> written soon (batched, and on page hide).
+//   flush() -> everything saved is written now (trip.js, before the page goes to the karaoke stage).
 //   track("sloths", snap) -> snap() is called for a fresh copy of the part whenever the page is hidden or left, so a value
 //                            that changes all the time (a nap's seconds still to go) need not be saved each time it changes
 //                            (review R2-081)
@@ -23,4 +24,4 @@ function hide() {                                   // the page is hidden or lef
 }
 addEventListener("pagehide", hide);
 document.addEventListener("visibilitychange", () => document.hidden && hide());
-export { load, save, track };
+export { flush, load, save, track };

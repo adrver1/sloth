@@ -1,6 +1,7 @@
 // Canopy Camp budget probe: loads a camp page headless (SwiftShader) and prints JSON with draw calls, triangles per object,
 // every download with its size, textures and page errors, and the camp's own counts (the ground's triangles and plants, the deadwood's
-// triangles per piece: window.__ground.tris and .counts, window.__deadwood.tris). fps is meaningless under SwiftShader; the counts are exact.
+// triangles per piece: window.__ground.tris and .counts, window.__deadwood.tris; the karaoke trip's road: window.__trip.counts, and
+// whether its question is up or its cut scene running, so a js argument can walk the road or start the trip). fps is meaningless under SwiftShader; the counts are exact.
 // Usage (from the repo root, after npm ci):
 //   [PORT=0] [ROOT=<checkout>] node tools/camp-probe.cjs [--phone] [--strict] "/apps/canopy-prototype/camp.html" out.png [width height] [js to run before the shot]
 // PORT picks the local port (0, the default, takes a free one; the machine is shared; the server listens on 127.0.0.1 only and
@@ -44,7 +45,8 @@ const PHONE = flags.includes('--phone'), STRICT = flags.includes('--strict');
     });
     // the camp's own triangle counts: the ground's floor and plants with the plant counts per kind (ground.js), and each deadwood piece (deadwood.js)
     const G = window.__ground, ground = G ? { tris: G.tris, counts: G.counts } : null, deadwood = window.__deadwood?.tris ?? null;
-    return { programs: window.__programs, programNames: window.__progNames, progSrc: window.__progSrc, stats: window.__stats, ground, deadwood, rows, tex: [...tex.values()] };
+    const T = window.__trip, trip = T ? { road: T.counts, asking: T.asking(), cut: !!T.cut() } : null;
+    return { programs: window.__programs, programNames: window.__progNames, progSrc: window.__progSrc, stats: window.__stats, ground, deadwood, trip, rows, tex: [...tex.values()] };
   });
   console.log(JSON.stringify({ net, tReady, errs: errs.slice(0, 10), ...info }));
   await close();
