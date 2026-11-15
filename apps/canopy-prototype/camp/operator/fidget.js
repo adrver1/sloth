@@ -3,7 +3,7 @@
 // night rub his hands, yawn. Each is a pose laid over the clip for a few seconds, eased in and out.
 // Exports fidgetStep(dt) (step.js, each frame, after his hands' pose) and FID_T (how long each lasts, s).
 import * as THREE from "three";
-import { rng, uNight } from "../stage.js";
+import { rng, toStage, uNight } from "../stage.js";
 const { R } = rng("operator.face");   // its own stream: blinks and fidgets follow frame timing, so they must not move his day's picks (review R2-122)
 import { V } from "../util.js";
 import { B, UP, clips, csDir, cur, reach } from "./model.js";
@@ -17,7 +17,7 @@ function pickFid() {
 }
 const vH = V(), vFw = V(), vSd = V(), vT = V(), vC = V(), vP = V();   // scratch: a fidget frame allocates nothing (review R2-019)
 function fidget(F, e) {
-  const t = F.t, head = B.head.getWorldPosition(vH), fw = csDir(0, 0, -1, vFw), sd = csDir(1, 0, 0, vSd);
+  const t = F.t, head = toStage(B.head.getWorldPosition(vH)), fw = csDir(0, 0, -1, vFw), sd = csDir(1, 0, 0, vSd);
   switch (F.kind) {
     case "scratch": reach("R", vT.copy(head).addScaledVector(fw, 0.13).addScaledVector(UP, -0.12).addScaledVector(sd, 0.015 + 0.012 * Math.sin(t * 13)), csDir(1, -0.5, 0.2, vP), e);
       B.head.rotateX(0.12 * e); B.head.rotateZ(-0.06 * e); break;   // fingers in his beard, chin up a little

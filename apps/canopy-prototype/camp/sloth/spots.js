@@ -26,7 +26,7 @@
 // is a copy with guest, of (the home it was copied from), key (the place it claims, places.js), bed and maxSc.
 // The modules ask a spot these, not its name; the name is in its home key and the move lab. Nothing runs on import; sloths.js calls the two builders in their place in the build order.
 import * as THREE from "three";
-import { branchCurves, HAMMOCK, jeepApi, LAUNDRY, LIVED, RC, scene, SEAT_SLOT, SEATS, TENT, trunkR } from "../stage.js";
+import { branchCurves, HAMMOCK, jeepApi, LAUNDRY, LIVED, RC, scene, SEAT_SLOT, SEATS, TENT, toStage, toWorld, trunkR } from "../stage.js";
 import { V, yawTo } from "../util.js";
 import { makeClothBrush, makeHammockSwing } from "../swing.js";
 import { bedKey, claim, release, seatKey } from "../places.js";
@@ -87,7 +87,7 @@ function buildSpots() {
   {
     const tg = new THREE.Group(); tg.position.copy(TENT.at).setY(0); tg.rotation.y = TENT.yaw; scene.add(tg); tg.updateMatrixWorld(true);
     spots.push({ name: "tent", parent: tg, at: V(0, 0.04, 0.9), yaw: Math.PI, clip: "peek", scale: 1.9, noHop: true, doze: ["peek", 0.15],
-      via: tg.localToWorld(V(0, 0, 1.7)).setY(0), door: tg.localToWorld(V(0, 0, 0.3)).setY(0) });
+      via: toStage(tg.localToWorld(V(0, 0, 1.7))).setY(0), door: toStage(tg.localToWorld(V(0, 0, 0.3))).setY(0) });
   }
   // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths
   const tips = [];
@@ -114,7 +114,7 @@ function buildGuests() {
   if (H) guest(H, { key: "hammock:1", at: V(-0.42, sling() + 0.04, 0.02), asleep: false, maxSc: 2.0 });
   if (Jp && jeepApi?.seat) guest(Jp, { key: "jeep:P", at: Jp.parent.worldToLocal(jeepApi.seat.clone()), yaw: Math.PI, clip: "curl", scale: 2.2, sitUp: false });
   if (Tp) {                                         // the bed along the tent's left wall (tentInside.js), its middle at layout.js TENT.bed
-    const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = Tp.parent.localToWorld(V(x, 0, z)); ray.set(V(w.x, 1.2, w.z), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? h.point.y : 0.3; };
+    const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = toStage(Tp.parent.localToWorld(V(x, 0, z))); ray.set(toWorld(V(w.x, 1.2, w.z)), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? toStage(h.point).y : 0.3; };
     const [bx, by] = TENT.bed;                      // in the tent frame (bx, -by); the two lie 4 cm toward the door from its middle
     for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = bx + dx, z = 0.04 - by; guest(Tp, { bed: true, key: bedKey(i), at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, sitUp: true }); }
   }

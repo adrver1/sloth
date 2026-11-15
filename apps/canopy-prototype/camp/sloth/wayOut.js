@@ -8,7 +8,7 @@
 // hand over hand along it to the trunk, turns onto the trunk and climbs down it tail first, facing the bark, then steps
 // off onto the ground (wayIn.js climbUp is the same the other way). Trunk radius from poses.js barkOf; speed is hang_walk's.
 import * as THREE from "three";
-import { HAMMOCK, jeepApi, LAUNDRY, scene, TENT } from "../stage.js";
+import { HAMMOCK, jeepApi, LAUNDRY, scene, TENT, toStage } from "../stage.js";
 import { V, yawFrom, yawTo } from "../util.js";
 import { CRAWL, HW, HW_POST, WALK_TS, setTrip } from "./state.js";
 import { play } from "./clips.js";
@@ -44,7 +44,7 @@ function bedOut(s, spot, go) {
     glide(s, { p: V(x + 0.42, top - 0.06, z), q: Q(side, -0.55) }, 1.2, () =>                    // paws over, nose down
       glide(s, { p: V(x + 0.56, 0.02, z), q: Q(side, -0.3) }, 1.4, () =>                       // down onto the floor
         glide(s, { p: V(x + 0.67, 0.02, z + 0.05), q: Q(side + 0.4) }, 1.0, () => {            // level again, turning to the door
-          const door = spot.door, away = yawFrom(s.o.getWorldPosition(tmp), door);
+          const door = spot.door, away = yawFrom(toStage(s.o.getWorldPosition(tmp)), door);
           scene.attach(s.o); play(s, "walk", 1, WALK_TS);
           glide(s, { p: door.clone(), q: yawQ(away) }, 2.2, () => {
             const out = yawFrom(door, spot.via); s.trip.yaw = out;
@@ -66,7 +66,7 @@ function exitSpot(s, go) {
     return glide(s, ropePose(s, ropeLen() - 0.05), 3, () => slide(s, ropeLen() - 0.05, 0.1, postV(s), (u, sd, P) => ropePose(s, u, P), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK.pivot - 0.2 * s.sc, go); }));
   }
   if (spot.car) { setTrip(s, "exit", { go }); jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
-  const away = spot.via ? yawFrom(spot.door, spot.via) : yawFrom(s.o.getWorldPosition(tmp), spot.door);
+  const away = spot.via ? yawFrom(spot.door, spot.via) : yawFrom(toStage(s.o.getWorldPosition(tmp)), spot.door);
   scene.attach(s.o); play(s, "walk", 1.5, WALK_TS);
   glide(s, { p: spot.door.clone(), q: yawQ(away) }, 2.5, () => {
     s.trip.yaw = away;

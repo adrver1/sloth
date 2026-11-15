@@ -14,7 +14,7 @@
 //   giftFly(s, dt)           each frame otherwise: its right paw comes up (arms.js giftArm), the food flies into it, the
 //                            paw lifts it to its lips and it shrinks a bite at a time while the mouth munches (Adriaen
 //                            2026-11-13: "they eat without hands")
-import { rng, scene } from "../stage.js";
+import { rng, scene, toStage } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { WALK_TS } from "./state.js";
@@ -52,11 +52,11 @@ function eatGift(s, mesh, from) {
 function giftStep(s, sd) {
   const G = s.gift, t = s.act.time;
   if (G.wait != null) { G.wait -= sd; if (G.wait < 0) { s.gift = null; resume(s); } return; }
-  if (t < EAT_GRAB) { pawOf(s, paw); const k = sstep(EAT_GRAB - 0.9, EAT_GRAB, t); G.mesh.position.lerpVectors(G.from, paw, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.25; G.land.copy(paw); }
+  if (t < EAT_GRAB) { toStage(pawOf(s, paw)); const k = sstep(EAT_GRAB - 0.9, EAT_GRAB, t); G.mesh.position.lerpVectors(G.from, paw, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.25; G.land.copy(paw); }
   else chewStep(s, G.mesh, G.land, EAT_GRAB);
 }
 function giftFly(s, dt) {
-  const G = s.gift; G.t += dt; mouthOf(s).getWorldPosition(mouthW); pawOf(s, paw);
+  const G = s.gift; G.t += dt; toStage(mouthOf(s).getWorldPosition(mouthW)); toStage(pawOf(s, paw));
   if (G.t < 0.9) { const k = sstep(0, 0.9, G.t); G.mesh.position.lerpVectors(G.from, paw, k); G.mesh.position.y += Math.sin(Math.PI * k) * 0.3; return; }
   if (G.t < 3.6) {
     if (!G.at && G.t > 1.2) { G.at = true; s.nod = 0.8; s.munch = 2.4; }

@@ -8,7 +8,7 @@
 //   eatStep(s, T, sd)                the eat phase, each frame: turn to the food, up onto the table, eat (or play cards)
 //   chewStep(s, mesh, from, t0)      during an eat clip, from t0 seconds in: the food goes from `from` into its paw and to
 //                                    its lips, a bite smaller each time the painted mouth closes
-import { rng, scene } from "../stage.js";
+import { rng, scene, toStage } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { release } from "../places.js";
@@ -37,7 +37,7 @@ function eatStep(s, T, sd) {
   } else if (T.st === "move") moveStep(s, T);
   else if (T.st === "cards") cardsStep(s, T, sd);
   else if (T.st === "eat") {
-    if (!F.mesh && s.act.time > EAT_GRAB - 0.1) { F.mesh = fruit(); F.mesh.position.copy(pawOf(s, paw)); }   // a bowl: the fruit comes up out of it
+    if (!F.mesh && s.act.time > EAT_GRAB - 0.1) { F.mesh = fruit(); F.mesh.position.copy(toStage(pawOf(s, paw))); }   // a bowl: the fruit comes up out of it
     if (F.mesh) chewStep(s, F.mesh, F.from ??= F.at.clone().setY(F.at.y + restHeight(F.mesh)), EAT_GRAB);
   }
 }
@@ -59,8 +59,8 @@ function chew(s, T) {
 // clip's head bobs nine times a clip, four while it holds it to its mouth, 3.2 to 6.8 s); a painted mouth opens and shuts
 function chewStep(s, mesh, from, t0) {
   const t = s.act.time; if (t < t0) return;
-  pawOf(s, paw); mesh.position.lerpVectors(from, paw, sstep(t0, t0 + 0.35, t));
-  mouthOf(s).getWorldPosition(mouthW); mesh.position.lerp(mouthW, 0.75 * sstep(2.8, 3.3, t) * (1 - sstep(6.6, 7.0, t)));   // right up to its lips while it bites
+  toStage(pawOf(s, paw)); mesh.position.lerpVectors(from, paw, sstep(t0, t0 + 0.35, t));
+  toStage(mouthOf(s).getWorldPosition(mouthW)); mesh.position.lerp(mouthW, 0.75 * sstep(2.8, 3.3, t) * (1 - sstep(6.6, 7.0, t)));   // right up to its lips while it bites
   const bites = t < 3.2 ? 0 : Math.floor((t - 3.2) / (8 / 9));
   bite(mesh, bites, 0.22);
   mesh.visible = bites < 4;

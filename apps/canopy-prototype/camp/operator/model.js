@@ -7,7 +7,7 @@
 // turnHand (ik.js on his bones) and UP.
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { scene } from "../stage.js";
+import { scene, toStage } from "../stage.js";
 import { V, canvasTex } from "../util.js";
 import { crossFade, kitLook } from "../actor.js";
 import * as ik from "./ik.js";
@@ -37,7 +37,7 @@ function play(name, fade = 0.35, { once = false, at = 0, speed = 1 } = {}) {
 }
 // character space (x his left-right, y up, z: -1 ahead, +1 behind) to world, for the pose he is in now. The per-frame poses
 // pass a scratch vector as `out` so they allocate nothing (review R2-019); without one a new vector is returned.
-const cs = (x, y, z, out = V()) => out.set(x, y, z).applyMatrix4(root.matrixWorld);
+const cs = (x, y, z, out = V()) => toStage(out.set(x, y, z).applyMatrix4(root.matrixWorld));   // in the stage's frame (stage.js toStage)
 const csDir = (x, y, z, out = V()) => out.set(x, y, z).transformDirection(root.matrixWorld);
 // his own arms and hands (ik.js works on any bone map)
 const reach = (side, target, pole, w) => ik.reach(B, side, target, pole, w);

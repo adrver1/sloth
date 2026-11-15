@@ -39,7 +39,7 @@
 //                               f scales it (the small sloths). Its opacity and how fast k runs stay with the character.
 //   bite(mesh, n, per, min = 0.1)   food n bites smaller: its scale is its userData.base (or 1) times 1 - per x n, at least min
 import * as THREE from "three";
-import { camera, scene } from "./stage.js";
+import { camera, scene, toStage } from "./stage.js";
 import { V, wrapPi } from "./util.js";
 import { sprite } from "./fx.js";
 
@@ -100,7 +100,7 @@ export const gazeStep = (g, on, dt, fade) => on ? g + dt : fade === undefined ? 
 
 export function makeZ() { const z = sprite("z", 110); z.material.depthTest = true; scene.add(z); return z; }
 export function zAt(z, head, k, Z, f = 1) {
-  if (head) head.getWorldPosition(z.position).add(vb.set(Z.wob * f * Math.sin(k * 6), (Z.y0 + Z.rise * k) * f, 0));
+  if (head) toStage(head.getWorldPosition(z.position)).add(vb.set(Z.wob * f * Math.sin(k * 6), (Z.y0 + Z.rise * k) * f, 0));
   const w = (Z.w0 + Z.w1 * k) * f; z.scale.set(w, w / 4, 1);
 }
 
