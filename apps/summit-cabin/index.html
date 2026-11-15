@@ -261,9 +261,12 @@ function walkable(x, z) {
   if (Math.hypot(x - CL.x, z - CL.z) < 15) return true;   // step off into the clearing
   return Math.hypot(x - HT.x, z - HT.z) < 10.5;   // the hilltop, inside its rail
 }
+// Trees only grow where the ground is gentle enough (Adriaen 2026-11-15: trees on very steep ground look wrong): full forest up
+// to 30°, thinning out to none at 40°. s is 1 - cos(slope angle).
+const TREE_S = [1 - Math.cos((30 * Math.PI) / 180), 1 - Math.cos((40 * Math.PI) / 180)];
 function forestAt(x, z, h, s) {
   if (onIce(x, z, h)) return 0;
-  return sstep(0.3, 0.42, fbm(x / 650 + 3, z / 650 - 7, 3)) * (1 - sstep(TREELINE - 50, TREELINE, h)) * (1 - sstep(0.28, 0.42, s));
+  return sstep(0.3, 0.42, fbm(x / 650 + 3, z / 650 - 7, 3)) * (1 - sstep(TREELINE - 50, TREELINE, h)) * (1 - sstep(TREE_S[0], TREE_S[1], s));
 }
 
 // ---------------------------------------------------------------- renderer, scene, camera
@@ -741,14 +744,14 @@ const SIZE = [[7, 8], [12, 7], [8, 5], [6, 6], [7, 9]];   // height range per st
 function tile(ti, tj) {   // trees [x, y, z, size, turn, thin, style], saplings [x, y, z, size, turn], rocks and logs [x, y, z, size, turn] of one 256 m tile, made once
   const key = ti + ',' + tj; let t = tiles.get(key); if (t) return t;
   t = { trees: [], saplings: [], rocks: [], logs: [], cell: new Int32Array((TILE / TCELL) ** 2).fill(-1) }; const n = TILE / TCELL;
-  const slope = (x, z, h) => { const gx = (height(x + 2, z) - h) / 2, gz = (height(x, z + 2) - h) / 2; return 1 - 1 / Math.sqrt(1 + gx * gx + gz * gz); };
+  const slope = (x, z) => { const gx = (height(x + 5, z) - height(x - 5, z)) / 10, gz = (height(x, z + 5) - height(x, z - 5)) / 10; return 1 - 1 / Math.sqrt(1 + gx * gx + gz * gz); };   // over ±5 m, so the hill decides, not a snow hummock
   const clear = (x, z, h) => Math.hypot(x, z) < 30 || Math.hypot(x - CL.x, z - CL.z) < 22 || trailDist(x, z) < 6 || (roadNear(x, z)?.d ?? 99) < 9 || onIce(x, z, h) || Math.hypot(x - TOWER.x, z - TOWER.z) < 40 || Math.hypot(x - HUT.x, z - HUT.z) < 22;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const gi = ti * n + i, gj = tj * n + j, p = hash(gi * 3 + 1, gj * 7 - 5);
     const x = (gi + 0.15 + 0.7 * hash(gi, gj + 11)) * TCELL, z = (gj + 0.15 + 0.7 * hash(gi + 13, gj)) * TCELL;
     const rockRoll = hash(gi - 9, gj * 3 + 2), h = height(x, z);
     if (clear(x, z, h)) continue;
-    const s = slope(x, z, h), f = forestAt(x, z, h, s);
+    const s = slope(x, z), f = forestAt(x, z, h, s);
     if (p < Math.min(1, 1.1 * f)) { const sp = species(x, z, h, f, hash(gi + 21, gj - 17)), [b0, b1] = SIZE[sp]; t.cell[j * n + i] = t.trees.length;
       t.trees.push(x, h - 0.3, z, (b0 + b1 * hash(gi + 5, gj + 5)) * (0.75 + 0.5 * f), hash(gi + 2, gj - 2) * 6.283, hash(gi - 7, gj + 1), sp); }
     else if (rockRoll < 0.012 + 0.08 * sstep(0.12, 0.4, s)) t.rocks.push(x, h - 0.4, z, 0.8 + 2.8 * hash(gi - 3, gj + 8) ** 2, hash(gi + 8, gj) * 6.283);
