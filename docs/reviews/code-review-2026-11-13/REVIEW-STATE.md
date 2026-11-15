@@ -37,18 +37,17 @@ Read from `docs/reviews/review-2026-11-14/status.json` (one entry per R2 id: sta
 
 | Status | Count |
 |---|---|
-| fixed | 238 |
+| fixed | 239 |
 | partly | 11 |
 | already_fixed | 5 (R2-002, R2-011, R2-133, R2-180, R2-211) |
 | blocked | 2 (R2-214, R2-219) |
 | deferred | 1 (R2-178, Adriaen: no visible difference) |
-| pending_lead | 1 (R2-218) |
 
 No entry needs a rebake any more. Fixes from the final GPU check: the fire ring's z-fight with the level floor (88b9676) and its siblings, the operator's blob shadow and the rain ripples (e7d1211), both noted on R2-181; the move lab's follow camera (016201d, e6e0108); the scenario tool's tap menu on main (c779b63).
 
 What is left:
 - The canopy haze above the backdrop (`final_play_test.items.canopy_haze`) is fixed: Adriaen picked the 30 m look with no day top fade (2026-11-15); sky.js draws the backdrop and domes FAR/30 times taller (`LIFT`).
-- pending_lead: R2-218, delete the merged remote branches after this branch is merged.
+- R2-218 is done: the 33 merged remote branches were deleted on 2026-11-15, after PR #33 merged.
 - blocked: R2-214 (commit .glb and .ktx2 as the source and make the base64 copies at publish time: only Adriaen's go-ahead is missing now), R2-219 (one-line pointers in the `/mnt/project-files` copies).
 - partly: R2-004 (the CI probe job is continue-on-error; make it block deploys once its runner time is known), R2-033 (lam, tris and tent-frame sharing left to other findings), R2-034 (`camp/operator/` still calls `THREE.MathUtils.smoothstep`), R2-083 (far sloths' mixers every 4th frame), R2-087 (the cabin SpotLight stays at intensity 0; Adriaen's pick), R2-125 (upstream desk-at-night PR not opened), R2-174 (the `?fur=0` tint is Adriaen's call), R2-183 (the shaft fade on a real GPU), R2-215 (`?slothmat=old` and `pois` kept for Adriaen and the tours), R2-238 (check that R2-239 closed the rest), R2-257 (the deadwood still needs the browser; making it pure moves the forest and needs a rebake).
 - Not recorded as checked: audio by ear (rain starts at full level, insects use `sstep`, the jeep engine stops 30 s after everyone leaves, `camp/audio/` reworked); real-GPU frame times (`npm run gpu`, `npm run gpu:phone`); a play-test of the hammock rope climb, the operator's put-down and cuddle, the chore sparks, the R2-068 wave, the merged log-seat menu while holding a bowl, and the operator's wave-back (now the sloths' line-of-sight test). Run headless since: the jeep doors, the sloth's hammock and bed naps, and the operator sleeping in the tent bed.

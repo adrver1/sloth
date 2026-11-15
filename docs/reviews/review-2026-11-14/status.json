@@ -17,12 +17,11 @@
  },
  "fields": "status; note (one sentence); commits (on this repo's branch unless prefixed desk-at-night@); needs_rebake (the GPU rebake must run before the change is complete on the page); lane (the fix lane or step that did it); followup (what a review follow-up changed, when there was one)",
  "counts": {
-  "fixed": 238,
+  "fixed": 239,
   "already_fixed": 5,
   "partly": 11,
   "deferred": 1,
-  "blocked": 2,
-  "pending_lead": 1
+  "blocked": 2
  },
  "other_fixes": {
   "7b37067": "props/lib/audit.py KNOWN gains jeep_expedition/GlassB back_only 2 and lowers Jeep overlaps 15 -> 6, so the rebake's jeep step no longer stops on the audit",
@@ -2514,8 +2513,8 @@
    "lane": "fx-props"
   },
   "R2-218": {
-   "status": "pending_lead",
-   "note": "Deleting the merged remote branches is left to the lead, after this branch is merged.",
+   "status": "fixed",
+   "note": "Done 2026-11-15 with Adriaen's go-ahead, after PR #33 merged: all 33 remote branches fully merged into main were deleted (each checked as an ancestor of origin/main first). Left: main, claude/project-thread-n6c974 and the unmerged claude/project-thread-ns6tgy.",
    "commits": [],
    "needs_rebake": false,
    "lane": ""
