@@ -10,6 +10,7 @@ import { camera, canvasTex, hazed, me, scene, touch } from './core.js';
 // front of you. The map is north-up with a lettered grid (columns A to H west to east, rows 1 to 8 north to south, 150 m
 // squares), so a spot can be named as "D3". North is +z here: the noon sun stands over the cliff, which faces south.
 // Compass and map: map 2 tris, compass card 16 + rim 32, the same again on the hood (Lambert, lit) and in your hands (unlit).
+export let carry;
 const MAP = { cx: -20, cz: -230, S: 1200, PX: 1024, G: 8 };   // 1.2 km square: the summit, the road and tunnel, the watch hill and the big lake below
 const heading = (yaw) => ((Math.atan2(Math.sin(yaw), -Math.cos(yaw)) * 180) / Math.PI + 360) % 360;   // 0 north, 90 east
 const POINTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], pointOf = (deg) => POINTS[Math.round(deg / 45) % 8];
@@ -49,58 +50,61 @@ function drawMapBase() {
   g.strokeStyle = '#6b5a44'; g.lineWidth = 10; g.strokeRect(5, 5, W - 10, W - 10);
   return c;
 }
-export const carry = (() => {
-  const mapCv = document.createElement('canvas'); mapCv.width = mapCv.height = MAP.PX; const mapG = mapCv.getContext('2d');
-  mapG.fillStyle = '#ece4d0'; mapG.fillRect(0, 0, MAP.PX, MAP.PX); mapG.fillStyle = '#6b5a44'; mapG.font = '700 60px system-ui'; mapG.textAlign = 'center'; mapG.fillText('MAP', MAP.PX / 2, MAP.PX / 2);
-  const mapTex = new THREE.CanvasTexture(mapCv); mapTex.colorSpace = THREE.SRGBColorSpace; mapTex.anisotropy = 8;
-  const card = canvasTex(256, 256, (g, w) => { const c = w / 2; g.fillStyle = '#f3efe4'; g.beginPath(); g.arc(c, c, c - 2, 0, 7); g.fill();
-    g.strokeStyle = '#2b2b2b'; for (let d = 0; d < 360; d += 10) { const a = (d * Math.PI) / 180, r0 = d % 90 ? c - 22 : c - 34; g.lineWidth = d % 30 ? 2 : 4; g.beginPath(); g.moveTo(c + Math.sin(a) * r0, c - Math.cos(a) * r0); g.lineTo(c + Math.sin(a) * (c - 8), c - Math.cos(a) * (c - 8)); g.stroke(); }
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '800 40px system-ui, sans-serif'; [['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(([t, d]) => { const a = (d * Math.PI) / 180; g.fillStyle = t === 'N' ? '#c0281c' : '#222'; g.fillText(t, c + Math.sin(a) * (c - 58), c - Math.cos(a) * (c - 58)); });
-    g.fillStyle = '#c0281c'; g.beginPath(); g.moveTo(c, 34); g.lineTo(c + 13, c); g.lineTo(c - 13, c); g.fill(); g.fillStyle = '#e8e8e8'; g.strokeStyle = '#555'; g.lineWidth = 2; g.beginPath(); g.moveTo(c, w - 34); g.lineTo(c + 13, c); g.lineTo(c - 13, c); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = '#333'; g.beginPath(); g.arc(c, c, 7, 0, 7); g.fill(); });
-  const cardG = new THREE.CircleGeometry(1, 16), rimG = new THREE.CylinderGeometry(1.08, 1.08, 0.28, 16, 1, true).rotateX(Math.PI / 2).translate(0, 0, -0.1), mapG3 = new THREE.PlaneGeometry(1, 1);
-  const make = (lit) => { const M = (o) => lit ? hazed(new THREE.MeshLambertMaterial(o)) : new THREE.MeshBasicMaterial({ ...o, fog: false, toneMapped: false, depthTest: false });
-    const map = new THREE.Mesh(mapG3, M({ map: mapTex, side: THREE.DoubleSide })), comp = new THREE.Group(), face = new THREE.Mesh(cardG, M({ map: card })), rim = new THREE.Mesh(rimG, M({ color: '#3b3f44', side: THREE.DoubleSide }));
-    comp.add(rim, face); if (!lit) [map, face, rim].forEach((m, i) => { m.renderOrder = 10 + [0, 2, 1][i]; m.frustumCulled = false; });
-    return { map, comp, face, mats: [map.material, face.material, rim.material] }; };
-  // on the hood: the map folded open beside the compass
-  const hood = make(true), hoodAt = new THREE.Group(); hoodAt.add(hood.map, hood.comp); scene.add(hoodAt);
-  hood.map.scale.set(0.42, 0.42, 1); hood.map.rotation.set(-Math.PI / 2, 0, 0.3); hood.map.position.set(0.05, 0.004, -0.12); hood.comp.scale.setScalar(0.05); hood.comp.rotation.x = -Math.PI / 2; hood.comp.position.set(0.12, 0.03, 0.2);
-  hoodAt.visible = false;   // placed once the jeep has loaded (setHood)
-  const setHood = (root) => { const ray = new THREE.Raycaster(), best = { y: -1e9, x: 0 };
-    root.updateMatrixWorld(true);   // the hood: the highest ground near the front of the jeep, below its windscreen
-    for (let f = 0.9; f <= 2.2; f += 0.1) { const p = new THREE.Vector3(JEEP.x + f, TOP + 4, JEEP.z); ray.set(p, new THREE.Vector3(0, -1, 0)); const h = ray.intersectObject(root, true)[0]; if (h && h.point.y < TOP + 1.45 && h.point.y > best.y - 0.02 && f > 1.2) { best.y = h.point.y; best.x = JEEP.x + f; } }
-    hoodAt.position.set(best.x - 0.2, best.y + 0.005, JEEP.z); hoodAt.rotation.y = JEEP.turn - Math.PI / 2; hoodAt.userData.placed = true; hoodAt.visible = !held; HOOD.y = best.y; HOOD.x = best.x; };
-  const HOOD = { x: JEEP.x + 1.6, y: TOP + 1.1 };
-  // in your hands
-  const hand = make(false), hands = new THREE.Group(); hands.add(hand.map, hand.comp); camera.add(hands); if (!camera.parent) scene.add(camera); hands.visible = false;
-  hand.comp.rotation.x = -1.05;
-  let held = false, raised = 0, raiseTo = 0, drawT = 0;
-  const btn = (id, label, fn) => { const b = document.createElement('button'); b.id = id; b.className = 'panel pill'; b.textContent = label; b.hidden = true; b.onclick = (e) => { e.stopPropagation(); fn(); }; $('carry').append(b); return b; };
-  const take = btn('take', '🧭 Take the map and compass', () => setHeld(true)), look = btn('mapBtn', '🗺 Look at the map', () => { raiseTo = raiseTo ? 0 : 1; look.textContent = raiseTo ? '🗺 Lower the map' : '🗺 Look at the map'; }), back = btn('putBack', '✋ Put it back', () => setHeld(false));
-  const read = $('bearing');
-  function setHeld(v) { if (v === held) return; held = v; if (v && !mapBase) { mapBase = drawMapBase(); } hands.visible = v; hoodAt.visible = !v && hoodAt.userData.placed; raiseTo = 0; look.textContent = '🗺 Look at the map'; drawT = 0; }
-  addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; if (e.code === 'KeyE' && !take.hidden) setHeld(true); else if ((e.code === 'KeyQ' || e.code === 'Backspace') && held) setHeld(false); else if (e.code === 'KeyM' && held) look.click(); });
-  function step(dt, bright) {
-    const near = Math.hypot(me.x - HOOD.x, me.z - JEEP.z) < 3.4 && hoodAt.userData.placed;
-    take.hidden = held || !near; look.hidden = back.hidden = !held; read.hidden = !held;
-    if (!held) return;
-    const hd = heading(me.yaw); read.textContent = `${Math.round(hd)}° ${pointOf(hd)} · grid ${mapCell(me.x, me.z)}`;
-    raised += (raiseTo - raised) * Math.min(1, dt * 8);
-    // sized to the view: on a narrow phone screen both still fit side by side
-    const hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 0.5, hw = hh * camera.aspect, s = Math.min(0.15, hw * 0.8), r = Math.min(0.045, hw * 0.27);
-    const lift = touch ? hh * 0.34 : 0, t = THREE.MathUtils.smoothstep(raised, 0, 1), big = Math.min(hw * 2, hh * 2) * 0.94;
-    hand.map.scale.setScalar(s + (big - s) * t); hand.map.position.set(Math.max(-hw * 0.5, -hw + s * 0.6) * (1 - t), (-hh + s * 0.42 + lift) * (1 - t), -0.5); hand.map.rotation.set(-0.55 * (1 - t), 0.25 * (1 - t), 0.12 * (1 - t));
-    hand.comp.scale.setScalar(r); hand.comp.position.set(touch ? 0 : Math.min(hw * 0.5, hw - r * 1.3), -hh + r * 0.9 + (touch ? hh * 0.16 : 0) - 0.3 * t, -0.5); hand.face.rotation.z = THREE.MathUtils.degToRad(hd);   // on a phone between the stick and Run, above the bearing
-    for (const m of hand.mats) m.color.setScalar(0.3 + 0.7 * bright);
-    drawT -= dt; if (drawT <= 0 && mapBase) { drawT = 0.15; paint(); }
-  }
-  function paint() {   // the map with your arrow on it
-    if (!mapBase) return; const hd = heading(me.yaw);
-    { const [u, v] = mapUV(me.x, me.z), a = THREE.MathUtils.degToRad(hd); mapG.drawImage(mapBase, 0, 0); mapG.save(); mapG.translate(u, v); mapG.rotate(a);
-      mapG.fillStyle = '#1a5fd0'; mapG.strokeStyle = '#fff'; mapG.lineWidth = 4; mapG.beginPath(); mapG.moveTo(0, -22); mapG.lineTo(13, 14); mapG.lineTo(0, 7); mapG.lineTo(-13, 14); mapG.closePath(); mapG.stroke(); mapG.fill(); mapG.restore(); mapTex.needsUpdate = true; }
-  }
-  setTimeout(() => { if (!mapBase) mapBase = drawMapBase(); drawT = 0; paint(); }, 2500);   // the hood's copy shows the map too
-  return { step, setHood, setHeld, hoodAt, get held() { return held; } };
-})();
-TRIS.push(['Map and compass (on the hood and in your hands, 2 + 48 each)', 100]);
+
+export function buildMap() {
+  carry = (() => {
+    const mapCv = document.createElement('canvas'); mapCv.width = mapCv.height = MAP.PX; const mapG = mapCv.getContext('2d');
+    mapG.fillStyle = '#ece4d0'; mapG.fillRect(0, 0, MAP.PX, MAP.PX); mapG.fillStyle = '#6b5a44'; mapG.font = '700 60px system-ui'; mapG.textAlign = 'center'; mapG.fillText('MAP', MAP.PX / 2, MAP.PX / 2);
+    const mapTex = new THREE.CanvasTexture(mapCv); mapTex.colorSpace = THREE.SRGBColorSpace; mapTex.anisotropy = 8;
+    const card = canvasTex(256, 256, (g, w) => { const c = w / 2; g.fillStyle = '#f3efe4'; g.beginPath(); g.arc(c, c, c - 2, 0, 7); g.fill();
+      g.strokeStyle = '#2b2b2b'; for (let d = 0; d < 360; d += 10) { const a = (d * Math.PI) / 180, r0 = d % 90 ? c - 22 : c - 34; g.lineWidth = d % 30 ? 2 : 4; g.beginPath(); g.moveTo(c + Math.sin(a) * r0, c - Math.cos(a) * r0); g.lineTo(c + Math.sin(a) * (c - 8), c - Math.cos(a) * (c - 8)); g.stroke(); }
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '800 40px system-ui, sans-serif'; [['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(([t, d]) => { const a = (d * Math.PI) / 180; g.fillStyle = t === 'N' ? '#c0281c' : '#222'; g.fillText(t, c + Math.sin(a) * (c - 58), c - Math.cos(a) * (c - 58)); });
+      g.fillStyle = '#c0281c'; g.beginPath(); g.moveTo(c, 34); g.lineTo(c + 13, c); g.lineTo(c - 13, c); g.fill(); g.fillStyle = '#e8e8e8'; g.strokeStyle = '#555'; g.lineWidth = 2; g.beginPath(); g.moveTo(c, w - 34); g.lineTo(c + 13, c); g.lineTo(c - 13, c); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#333'; g.beginPath(); g.arc(c, c, 7, 0, 7); g.fill(); });
+    const cardG = new THREE.CircleGeometry(1, 16), rimG = new THREE.CylinderGeometry(1.08, 1.08, 0.28, 16, 1, true).rotateX(Math.PI / 2).translate(0, 0, -0.1), mapG3 = new THREE.PlaneGeometry(1, 1);
+    const make = (lit) => { const M = (o) => lit ? hazed(new THREE.MeshLambertMaterial(o)) : new THREE.MeshBasicMaterial({ ...o, fog: false, toneMapped: false, depthTest: false });
+      const map = new THREE.Mesh(mapG3, M({ map: mapTex, side: THREE.DoubleSide })), comp = new THREE.Group(), face = new THREE.Mesh(cardG, M({ map: card })), rim = new THREE.Mesh(rimG, M({ color: '#3b3f44', side: THREE.DoubleSide }));
+      comp.add(rim, face); if (!lit) [map, face, rim].forEach((m, i) => { m.renderOrder = 10 + [0, 2, 1][i]; m.frustumCulled = false; });
+      return { map, comp, face, mats: [map.material, face.material, rim.material] }; };
+    // on the hood: the map folded open beside the compass
+    const hood = make(true), hoodAt = new THREE.Group(); hoodAt.add(hood.map, hood.comp); scene.add(hoodAt);
+    hood.map.scale.set(0.42, 0.42, 1); hood.map.rotation.set(-Math.PI / 2, 0, 0.3); hood.map.position.set(0.05, 0.004, -0.12); hood.comp.scale.setScalar(0.05); hood.comp.rotation.x = -Math.PI / 2; hood.comp.position.set(0.12, 0.03, 0.2);
+    hoodAt.visible = false;   // placed once the jeep has loaded (setHood)
+    const setHood = (root) => { const ray = new THREE.Raycaster(), best = { y: -1e9, x: 0 };
+      root.updateMatrixWorld(true);   // the hood: the highest ground near the front of the jeep, below its windscreen
+      for (let f = 0.9; f <= 2.2; f += 0.1) { const p = new THREE.Vector3(JEEP.x + f, TOP + 4, JEEP.z); ray.set(p, new THREE.Vector3(0, -1, 0)); const h = ray.intersectObject(root, true)[0]; if (h && h.point.y < TOP + 1.45 && h.point.y > best.y - 0.02 && f > 1.2) { best.y = h.point.y; best.x = JEEP.x + f; } }
+      hoodAt.position.set(best.x - 0.2, best.y + 0.005, JEEP.z); hoodAt.rotation.y = JEEP.turn - Math.PI / 2; hoodAt.userData.placed = true; hoodAt.visible = !held; HOOD.y = best.y; HOOD.x = best.x; };
+    const HOOD = { x: JEEP.x + 1.6, y: TOP + 1.1 };
+    // in your hands
+    const hand = make(false), hands = new THREE.Group(); hands.add(hand.map, hand.comp); camera.add(hands); if (!camera.parent) scene.add(camera); hands.visible = false;
+    hand.comp.rotation.x = -1.05;
+    let held = false, raised = 0, raiseTo = 0, drawT = 0;
+    const btn = (id, label, fn) => { const b = document.createElement('button'); b.id = id; b.className = 'panel pill'; b.textContent = label; b.hidden = true; b.onclick = (e) => { e.stopPropagation(); fn(); }; $('carry').append(b); return b; };
+    const take = btn('take', '🧭 Take the map and compass', () => setHeld(true)), look = btn('mapBtn', '🗺 Look at the map', () => { raiseTo = raiseTo ? 0 : 1; look.textContent = raiseTo ? '🗺 Lower the map' : '🗺 Look at the map'; }), back = btn('putBack', '✋ Put it back', () => setHeld(false));
+    const read = $('bearing');
+    function setHeld(v) { if (v === held) return; held = v; if (v && !mapBase) { mapBase = drawMapBase(); } hands.visible = v; hoodAt.visible = !v && hoodAt.userData.placed; raiseTo = 0; look.textContent = '🗺 Look at the map'; drawT = 0; }
+    addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; if (e.code === 'KeyE' && !take.hidden) setHeld(true); else if ((e.code === 'KeyQ' || e.code === 'Backspace') && held) setHeld(false); else if (e.code === 'KeyM' && held) look.click(); });
+    function step(dt, bright) {
+      const near = Math.hypot(me.x - HOOD.x, me.z - JEEP.z) < 3.4 && hoodAt.userData.placed;
+      take.hidden = held || !near; look.hidden = back.hidden = !held; read.hidden = !held;
+      if (!held) return;
+      const hd = heading(me.yaw); read.textContent = `${Math.round(hd)}° ${pointOf(hd)} · grid ${mapCell(me.x, me.z)}`;
+      raised += (raiseTo - raised) * Math.min(1, dt * 8);
+      // sized to the view: on a narrow phone screen both still fit side by side
+      const hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 0.5, hw = hh * camera.aspect, s = Math.min(0.15, hw * 0.8), r = Math.min(0.045, hw * 0.27);
+      const lift = touch ? hh * 0.34 : 0, t = THREE.MathUtils.smoothstep(raised, 0, 1), big = Math.min(hw * 2, hh * 2) * 0.94;
+      hand.map.scale.setScalar(s + (big - s) * t); hand.map.position.set(Math.max(-hw * 0.5, -hw + s * 0.6) * (1 - t), (-hh + s * 0.42 + lift) * (1 - t), -0.5); hand.map.rotation.set(-0.55 * (1 - t), 0.25 * (1 - t), 0.12 * (1 - t));
+      hand.comp.scale.setScalar(r); hand.comp.position.set(touch ? 0 : Math.min(hw * 0.5, hw - r * 1.3), -hh + r * 0.9 + (touch ? hh * 0.16 : 0) - 0.3 * t, -0.5); hand.face.rotation.z = THREE.MathUtils.degToRad(hd);   // on a phone between the stick and Run, above the bearing
+      for (const m of hand.mats) m.color.setScalar(0.3 + 0.7 * bright);
+      drawT -= dt; if (drawT <= 0 && mapBase) { drawT = 0.15; paint(); }
+    }
+    function paint() {   // the map with your arrow on it
+      if (!mapBase) return; const hd = heading(me.yaw);
+      { const [u, v] = mapUV(me.x, me.z), a = THREE.MathUtils.degToRad(hd); mapG.drawImage(mapBase, 0, 0); mapG.save(); mapG.translate(u, v); mapG.rotate(a);
+        mapG.fillStyle = '#1a5fd0'; mapG.strokeStyle = '#fff'; mapG.lineWidth = 4; mapG.beginPath(); mapG.moveTo(0, -22); mapG.lineTo(13, 14); mapG.lineTo(0, 7); mapG.lineTo(-13, 14); mapG.closePath(); mapG.stroke(); mapG.fill(); mapG.restore(); mapTex.needsUpdate = true; }
+    }
+    setTimeout(() => { if (!mapBase) mapBase = drawMapBase(); drawT = 0; paint(); }, 2500);   // the hood's copy shows the map too
+    return { step, setHood, setHeld, hoodAt, get held() { return held; } };
+  })();
+  TRIS.push(['Map and compass (on the hood and in your hands, 2 + 48 each)', 100]);
+}

@@ -58,15 +58,6 @@ const treeCover = (f) => Math.min(1, 1.1 * f) * (0.75 + 0.5 * f) ** 2 * (49 + 56
 // painted into the backdrop (below), which draws them as eight flat panels.
 const CLIP_R = 1000, uClipR = { value: CLIP_R };
 export const LEVELS = 10, SLICES = 8, NC = isPhone ? 48 : 64, REAL = isPhone ? 6 : 5, NV = NC + 1, NB = NV + 2, levels = [], terrainMats = [];
-for (let L = 0; L < LEVELS; L++) {
-  const g = new THREE.BufferGeometry(), c = 2 ** (L + 1), half = { value: (NC / 2) * c };
-  for (const [name, n] of [['position', 3], ['normal', 3], ['color', 3], ['uv', 2], ['hc', 1], ['nc', 3], ['cc', 3], ['fm', 1]]) g.setAttribute(name, new THREE.BufferAttribute(new Float32Array(NV * NV * n), n));
-  const mat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex }), morph(half, L >= REAL), L >= REAL ? 'far' : 'near'); terrainMats.push(mat);
-  // each ring is drawn as eight 45° slices round you sharing its vertices; cullTerrain() hides the slices outside your view
-  const parts = [...Array(SLICES + 1)].map(() => { const pg = new THREE.BufferGeometry(); for (const k in g.attributes) pg.setAttribute(k, g.attributes[k]); pg.setIndex(new THREE.BufferAttribute(new Uint16Array((NC * NC * 6) / 4), 1));
-    const mesh = new THREE.Mesh(pg, mat); mesh.frustumCulled = false; mesh.receiveShadow = true; if (L >= REAL) mesh.layers.set(2); scene.add(mesh); pg.userData.mesh = mesh; return pg; });
-  levels.push({ L, c, g, parts, cx: NaN, cz: NaN, hb: new Float32Array(NB * NB), tris: 0 });
-}
 // rebuild: the ring itself moved, so its vertices change. Heights, colours and tree cover of the vertices it still shares with
 // where it was are copied over (a ring moves 2 cells at a time, so most are), and only the new rows and columns are worked out.
 // Without rebuild only the hole for the finer ring is cut again (the ring inside moved), which is cheap.
@@ -109,7 +100,6 @@ export function updateLevel(lv, rebuild = true) {
   }
   lv.parts.forEach((pg, k) => { pg.setDrawRange(0, ns[k]); pg.index.needsUpdate = true; lv.tris += ns[k] / 3; });
 }
-{ const P0 = { x: 95, z: 44 }; for (const lv of levels) if (lv.L >= REAL) { const s2 = 2 * lv.c; lv.cx = Math.round(P0.x / s2) * s2; lv.cz = Math.round(P0.z / s2) * s2; updateLevel(lv); } }   // the far rings, once
 // show only the slices that can be in view: the ground right round your feet always, the rest when their 45°
 // wedge overlaps the view's width plus a margin; looking steeply down shows the near rings whole
 export function cullTerrain() {
@@ -123,3 +113,15 @@ export function updateTerrain(px, pz) {   // fine to coarse, since each ring cut
   return changed;
 }
 
+export function buildTerrain() {
+  for (let L = 0; L < LEVELS; L++) {
+    const g = new THREE.BufferGeometry(), c = 2 ** (L + 1), half = { value: (NC / 2) * c };
+    for (const [name, n] of [['position', 3], ['normal', 3], ['color', 3], ['uv', 2], ['hc', 1], ['nc', 3], ['cc', 3], ['fm', 1]]) g.setAttribute(name, new THREE.BufferAttribute(new Float32Array(NV * NV * n), n));
+    const mat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex }), morph(half, L >= REAL), L >= REAL ? 'far' : 'near'); terrainMats.push(mat);
+    // each ring is drawn as eight 45° slices round you sharing its vertices; cullTerrain() hides the slices outside your view
+    const parts = [...Array(SLICES + 1)].map(() => { const pg = new THREE.BufferGeometry(); for (const k in g.attributes) pg.setAttribute(k, g.attributes[k]); pg.setIndex(new THREE.BufferAttribute(new Uint16Array((NC * NC * 6) / 4), 1));
+      const mesh = new THREE.Mesh(pg, mat); mesh.frustumCulled = false; mesh.receiveShadow = true; if (L >= REAL) mesh.layers.set(2); scene.add(mesh); pg.userData.mesh = mesh; return pg; });
+    levels.push({ L, c, g, parts, cx: NaN, cz: NaN, hb: new Float32Array(NB * NB), tris: 0 });
+  }
+  { const P0 = { x: 95, z: 44 }; for (const lv of levels) if (lv.L >= REAL) { const s2 = 2 * lv.c; lv.cx = Math.round(P0.x / s2) * s2; lv.cz = Math.round(P0.z / s2) * s2; updateLevel(lv); } }   // the far rings, once
+}

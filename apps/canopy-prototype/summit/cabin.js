@@ -7,7 +7,7 @@ import { canvasTex, hazed, scene, tris } from './core.js';
 import { m4, q, sc, up, v3 } from './forest.js';
 
 // ---------------------------------------------------------------- the cabin: a big log cabin with a porch toward the south (-z)
-const cabin = new THREE.Group(); cabin.position.set(0, TOP, 0); scene.add(cabin);
+const cabin = new THREE.Group();
 const logTex = canvasTex(256, 512, (g, w, h) => { const n = 11, lh = h / n, r = mulberry(3);
   for (let k = 0; k < n; k++) { const y = k * lh, gr = g.createLinearGradient(0, y, 0, y + lh);
     gr.addColorStop(0, '#463d36'); gr.addColorStop(0.2, '#857a6c'); gr.addColorStop(0.5, '#a39784'); gr.addColorStop(0.85, '#6e6355'); gr.addColorStop(1, '#3c342e');
@@ -68,11 +68,12 @@ const roofSide = (ry, len, pitch, at, width, slab = 0.22) => {   // a roof slab 
   part(new THREE.BoxGeometry(width, slab, len), M.roof, 0, 0, len / 2, tilt); part(new THREE.BoxGeometry(width + 0.1, 0.28, len * 0.72), M.snow, 0, slab / 2 + 0.12, len * 0.36, tilt);   // the snow has slid, the rusty tin shows at the eaves
 };
 const pitch = Math.atan2(RH, D / 2), rlen = Math.hypot(RH, D / 2) + 0.75;
-roofSide(0, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4); roofSide(Math.PI, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4);
+roofSide(0, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4);
+roofSide(Math.PI, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4);
 roofSide(Math.PI, 3.5, 0.14, new THREE.Vector3(0, YT - 0.15, -D / 2), W + 0.6, 0.18);   // the porch roof
-part(new THREE.BoxGeometry(1.0, 4.4, 1.0), M.stone, 3.4, YT + 1.9, 1.7); part(new THREE.BoxGeometry(1.15, 0.22, 1.15), M.snow, 3.4, YT + 4.2, 1.7);
+part(new THREE.BoxGeometry(1.0, 4.4, 1.0), M.stone, 3.4, YT + 1.9, 1.7);
+part(new THREE.BoxGeometry(1.15, 0.22, 1.15), M.snow, 3.4, YT + 4.2, 1.7);
 part(new THREE.BoxGeometry(W, 0.3, 3.0), M.wood, 0, YB - 0.15, -(D / 2 + 1.5));   // porch deck
-{ const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, 2.85, 0.24), M.wood, 4); [-5.6, -1.9, 1.9, 5.6].forEach((x, i) => posts.setMatrixAt(i, m4.makeTranslation(x, YB + 1.42, -(D / 2 + 2.8)))); posts.castShadow = true; cabin.add(posts); }
 part(new THREE.BoxGeometry(1.8, 0.45, 0.5), M.wood, -2.7, YB + 0.22, -(D / 2 + 0.45));   // bench by the door
 { const ends = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#3b2a1c'; g.fillRect(0, 0, w, h); const r = mulberry(9);
     for (let y = 8; y < h; y += 15) for (let x = 8 + (y % 2) * 7; x < w; x += 15) { const rr = 6 + r() * 2.5; g.fillStyle = '#c99c66'; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill(); g.strokeStyle = 'rgba(120,80,45,.7)'; g.beginPath(); g.arc(x, y, rr * 0.5, 0, 7); g.stroke(); } }, true);
@@ -81,32 +82,51 @@ export const winMat = lam({ map: winTex, emissive: '#ffffff', emissiveMap: winTe
 const windows = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), winMat, 6);
 [[-3.6, YB + 1.9, -D / 2 - 0.02, Math.PI, 1.5], [3.6, YB + 1.9, -D / 2 - 0.02, Math.PI, 1.5], [-3.2, YB + 1.9, D / 2 + 0.02, 0, 1.4], [2.0, YB + 1.9, D / 2 + 0.02, 0, 1.4], [W / 2 + 0.02, YT + 0.9, 0, Math.PI / 2, 1.1], [-W / 2 - 0.02, YT + 0.9, 0, -Math.PI / 2, 1.1]]
   .forEach(([x, y, z, ry, s], i) => windows.setMatrixAt(i, m4.compose(v3.set(x, y, z), q.setFromAxisAngle(up, ry), sc.set(s, s, 1))));
-cabin.add(windows);
 export const doorMat = lam({ map: doorTex, emissive: '#ffffff', emissiveMap: doorTex });
-const door = part(new THREE.PlaneGeometry(1.2, 2.3), doorMat, 0, YB + 1.15, -D / 2 - 0.02); door.rotation.y = Math.PI;
+const door = part(new THREE.PlaneGeometry(1.2, 2.3), doorMat, 0, YB + 1.15, -D / 2 - 0.02);
 const lampMat = new THREE.MeshBasicMaterial({ color: '#ffd28a' });
 part(new THREE.BoxGeometry(0.18, 0.28, 0.18), lampMat, 1.05, YB + 2.45, -D / 2 - 0.14);
-export const porchLight = new THREE.PointLight('#ffb760', 0, 22, 1.6); porchLight.position.set(1.05, YB + 2.3, -D / 2 - 0.6); cabin.add(porchLight);
-export const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6); inside.position.set(0, YB + 1.8, D / 2 + 1.4); cabin.add(inside);   // the glow from the back windows on the snow
-{ let n = 0; cabin.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); TRIS.push(['Cabin, porch, woodpile', n]); }
-bakeStatic(cabin);
+export const porchLight = new THREE.PointLight('#ffb760', 0, 22, 1.6);
+export const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6);
 
 // ---------------------------------------------------------------- places to walk to: the fire lookout
 export const placeTris = (g) => { let n = 0; g.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); return n; };
-const tower = new THREE.Group(); tower.position.set(TOWER.x, TOWER.y - 0.5, TOWER.z); tower.rotation.y = 0.5; scene.add(tower);
-{ // a fire lookout: four legs, painted X braces, a glazed cab and a pyramid roof under snow
-  const TH = 12, LS = 2.2;
-  const legs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.28, TH, 0.28), M.wood, 4); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b], i) => legs.setMatrixAt(i, m4.makeTranslation(a * LS, TH / 2, b * LS))); legs.castShadow = true; tower.add(legs);
-  const braceTex = canvasTex(128, 256, (g, w, h) => { g.strokeStyle = '#5a3c26'; g.lineWidth = 9; for (let k = 0; k < 3; k++) { const y0 = (k * h) / 3, y1 = ((k + 1) * h) / 3; g.beginPath(); g.moveTo(4, y0); g.lineTo(w - 4, y1); g.moveTo(w - 4, y0); g.lineTo(4, y1); g.moveTo(0, y0 + 4); g.lineTo(w, y0 + 4); g.stroke(); } });
-  const braceMat = lam({ map: braceTex, alphaTest: 0.5, side: THREE.DoubleSide });
-  for (const [x, z, ry] of [[0, -LS, 0], [0, LS, 0], [-LS, 0, Math.PI / 2], [LS, 0, Math.PI / 2]]) { const b = part(new THREE.PlaneGeometry(LS * 2, TH - 0.5), braceMat, x, (TH - 0.5) / 2, z, tower); b.rotation.y = ry; }
-  part(new THREE.BoxGeometry(6.2, 0.3, 6.2), M.wood, 0, TH, 0, tower);   // the deck
-  const cab = part(new THREE.BoxGeometry(4.6, 2.4, 4.6), M.log, 0, TH + 1.35, 0, tower);
-  const glass = new THREE.InstancedMesh(new THREE.PlaneGeometry(3.8, 1.1), winMat, 4);
-  for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2; glass.setMatrixAt(i, m4.compose(v3.set(Math.sin(a) * 2.32, TH + 1.6, Math.cos(a) * 2.32), q.setFromAxisAngle(up, a), sc.set(1, 1, 1))); }
-  tower.add(glass);
-  const roof = part(new THREE.ConeGeometry(4.1, 1.8, 4, 1, true), M.snow, 0, TH + 3.45, 0, tower); roof.rotation.y = Math.PI / 4;
-}
-// (the fishing hut on the lake was removed 2026-11-15: you can't walk there or see it from the level)
-TRIS.push(['Fire lookout', placeTris(tower)]); bakeStatic(tower);
+const tower = new THREE.Group();
 
+export function buildCabin() {
+  cabin.position.set(0, TOP, 0);
+  scene.add(cabin);
+  { const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, 2.85, 0.24), M.wood, 4); [-5.6, -1.9, 1.9, 5.6].forEach((x, i) => posts.setMatrixAt(i, m4.makeTranslation(x, YB + 1.42, -(D / 2 + 2.8)))); posts.castShadow = true; cabin.add(posts); }
+  cabin.add(windows);
+  door.rotation.y = Math.PI;
+  porchLight.position.set(1.05, YB + 2.3, -D / 2 - 0.6);
+  cabin.add(porchLight);
+  inside.position.set(0, YB + 1.8, D / 2 + 1.4);
+  cabin.add(inside);   // the glow from the back windows on the snow
+  { let n = 0; cabin.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); TRIS.push(['Cabin, porch, woodpile', n]); }
+  bakeStatic(cabin);
+  tower.position.set(TOWER.x, TOWER.y - 0.5, TOWER.z);
+  tower.rotation.y = 0.5;
+  scene.add(tower);
+  { // a fire lookout: four legs, painted X braces, a glazed cab and a pyramid roof under snow
+    const TH = 12, LS = 2.2;
+    const legs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.28, TH, 0.28), M.wood, 4); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b], i) => legs.setMatrixAt(i, m4.makeTranslation(a * LS, TH / 2, b * LS))); legs.castShadow = true; tower.add(legs);
+    const braceTex = canvasTex(128, 256, (g, w, h) => { g.strokeStyle = '#5a3c26'; g.lineWidth = 9; for (let k = 0; k < 3; k++) { const y0 = (k * h) / 3, y1 = ((k + 1) * h) / 3; g.beginPath(); g.moveTo(4, y0); g.lineTo(w - 4, y1); g.moveTo(w - 4, y0); g.lineTo(4, y1); g.moveTo(0, y0 + 4); g.lineTo(w, y0 + 4); g.stroke(); } });
+    const braceMat = lam({ map: braceTex, alphaTest: 0.5, side: THREE.DoubleSide });
+    for (const [x, z, ry] of [[0, -LS, 0], [0, LS, 0], [-LS, 0, Math.PI / 2], [LS, 0, Math.PI / 2]]) { const b = part(new THREE.PlaneGeometry(LS * 2, TH - 0.5), braceMat, x, (TH - 0.5) / 2, z, tower); b.rotation.y = ry; }
+    part(new THREE.BoxGeometry(6.2, 0.3, 6.2), M.wood, 0, TH, 0, tower);   // the deck
+    const cab = part(new THREE.BoxGeometry(4.6, 2.4, 4.6), M.log, 0, TH + 1.35, 0, tower);
+    const glass = new THREE.InstancedMesh(new THREE.PlaneGeometry(3.8, 1.1), winMat, 4);
+    for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2; glass.setMatrixAt(i, m4.compose(v3.set(Math.sin(a) * 2.32, TH + 1.6, Math.cos(a) * 2.32), q.setFromAxisAngle(up, a), sc.set(1, 1, 1))); }
+    tower.add(glass);
+    const roof = part(new THREE.ConeGeometry(4.1, 1.8, 4, 1, true), M.snow, 0, TH + 3.45, 0, tower); roof.rotation.y = Math.PI / 4;
+  }
+  // (the fishing hut on the lake was removed 2026-11-15: you can't walk there or see it from the level)
+  TRIS.push(['Fire lookout', placeTris(tower)]);
+  bakeStatic(tower);
+}
+// each frame: warm windows, always a little lit, glowing after dark (night 0..1, daylight.js LIGHT)
+export function cabinStep(night) {
+  const glow = 0.25 + 2.4 * night;
+  winMat.emissiveIntensity = glow; doorMat.emissiveIntensity = glow; porchLight.intensity = 9 * night; inside.intensity = 6 * night;
+}

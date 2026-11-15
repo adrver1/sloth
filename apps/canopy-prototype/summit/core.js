@@ -6,7 +6,7 @@ import { $, D, TOP, TRIS, YB, isPhone } from './land.js';
 
 // ---------------------------------------------------------------- renderer, scene, camera
 export const renderer = new THREE.WebGLRenderer({ antialias: !isPhone, powerPreference: 'high-performance' });
-let pr = Math.min(devicePixelRatio, isPhone ? 1.5 : 2), prTop = pr, slow = 0, fast = 0, raised = false; renderer.setPixelRatio(pr);
+let pr = Math.min(devicePixelRatio, isPhone ? 1.5 : 2), prTop = pr, slow = 0, fast = 0, raised = false;
 // called twice a second with the frame rate; not in the first 5 s (shaders compiling, live false); a step back up that then runs slow is not tried again
 export function adaptPixelRatio(fpsNow, live) {
   // a steady 30 is Safari's cap for embedded pages until you tap them (or Low Power Mode), not a slow frame
@@ -17,10 +17,8 @@ export function adaptPixelRatio(fpsNow, live) {
   else if (fast >= 16) raised = false;
   return pr;
 }   // frame() lowers it if the frame rate drops, like the camp, and raises it again when there is room
-renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;   // redrawn only when needed (frame())
-$('stage').appendChild(renderer.domElement);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 export const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xffffff, 1, 2);   // switches the fog chunk on; the chunk itself is ours (below)
 export const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.3, 40000);
@@ -82,11 +80,22 @@ export const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), new TH
   }`,
   side: THREE.BackSide, depthWrite: false, depthTest: false,
 }));
-sky.renderOrder = -10; sky.frustumCulled = false; scene.add(sky);
-TRIS.push(['Sky dome', tris(sky.geometry)]);
+sky.frustumCulled = false;
 
 
 // you: where your eyes are and which way you look (player.js moves it), and the sun's direction (daylight.js sets it)
 export const me = { x: 0, z: -D / 2 - 1.6, y: TOP + YB + 1.65, yaw: 0, pitch: -0.12, run: false };
 export const touch = matchMedia('(pointer: coarse)').matches;
 export const sunDir = new THREE.Vector3();
+
+export function buildCore() {
+  renderer.setPixelRatio(pr);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.autoUpdate = false;   // redrawn only when needed (frame())
+  $('stage').appendChild(renderer.domElement);
+  sky.renderOrder = -10;
+  scene.add(sky);
+  TRIS.push(['Sky dome', tris(sky.geometry)]);
+}
