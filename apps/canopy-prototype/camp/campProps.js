@@ -15,7 +15,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, rng, S, scene, sun, uNight, uTime } from "./core.js";
 const { R } = rng("props");
-import { V, canvasTex, patchMaterial, swap } from "./util.js";
+import { V, canvasTex, glowTex as sharedGlow, patchMaterial, swap } from "./util.js";
 import { ANCHORS, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE, fromModel, wearBlockers } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 import { BAMBOO, dressFire } from "./fire.js";
@@ -157,7 +157,7 @@ function stand(root) {
 async function buildProps() {
   // the lanterns (lanterns.js: a soft glow quad round each jar) and the fire (its flame cards and glowing embers, below): no real-time
   // shadows; one warm point light for the fire's glow
-  glowTex = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
+  glowTex = sharedGlow();   // util.js
   LANTERNS = createLanterns({ scene, layout: LANTERN_LAYOUT, glowTex });   // LANTERNS.lights: where each lantern's light is (the pools, the sloths' night glow, the bake's layout)
   // At Detail Low (D.fx 0) the light is made but not added to the scene: a point light at intensity 0 still costs every lit
   // shader per fragment (R2-087). Detail is fixed for the page's life (changing it reloads), so the light count never changes.

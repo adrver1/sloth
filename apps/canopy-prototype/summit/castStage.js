@@ -7,19 +7,20 @@
 //   groundAt        the land under the camp's frame, and the porch deck where it is
 //   blockers        the fire, the tent, the camp's seats, table, crate and woodpile (layout.js WEAR), the snowman, the poles,
 //                   the cabin's walls and porch posts, the cabin's woodpile
-//   chores          none here: no soup, no food in your hands (operator/day.js leaves out what needs them)
+//   chores          your chores (camp/chores.js), set by life.js once they are built; none until then
 //   walkY, NAV      the sloths walk on groundAt too (up the porch steps), on a grid wide enough for the porch
 //   OPT             the camp's sloths too, saving nothing of them (plan L5: they start at their spots each visit)
 //   HOMES, FOOD     their homes and food places (slothHomes.js), set by life.js once it is built
 //   OP_DAY          his summit day (opDay.js), set by life.js once it is built
-// No jeep, hammock, laundry line, big trees or lanterns' warmth here (HAMMOCK and LAUNDRY still get the camp's values, which
+//   LANTERNS        the jar lanterns on the string from the cabin to the tent: the sloths glow warm near them at night, as in the camp
+// No jeep, hammock, laundry line or big trees here (HAMMOCK and LAUNDRY still get the camp's values, which
 // the sloths' poses measure from when they load; no spot here uses them). Exports castCam, castMe, syncCast(), syncBack(), CAST_O
 // and the summit's places in the camp's frame (PLACES: the cabin's woodpile, the porch bench, the snowman, the way round the cabin).
 // Imported by life.js, which imports the cast only after it (see life.js).
 import * as THREE from 'three';
 import { D, TOP, W, YB, height } from './land.js';
 import { camera, me } from './core.js';
-import { CAMP, CHOP, campGroup } from './scoutCamp.js';
+import { CAMP, CHOP, campGroup, lanternLights } from './scoutCamp.js';
 import { A0, CRATE, HAMMOCK, LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT, WOOD_PILE, wearBlockers } from '../camp/layout.js';
 import { setStage } from '../camp/stage.js';
 import { daytimeApi } from './daytime.js';
@@ -83,7 +84,11 @@ export function syncCast() {
   castCam.projectionMatrix.copy(camera.projectionMatrix); castCam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
   castCam.updateMatrixWorld(true);
   castMe.pos.set(me.x - CAST_O.x, groundAt(me.x - CAST_O.x, me.z - CAST_O.z), me.z - CAST_O.z); was.copy(castMe.pos);
+  // your seat (a log by the fire: camp/linger.js, or the jeep's), in the camp's frame: he comes and joins you at the fire (operator/day.js)
+  const s = me.seat; if (s !== seatWas) { seatWas = s; castMe.seat = s && { ...s, pos: s.pos.clone().sub(CAST_O) }; }
+  else if (s) castMe.seat.pos.copy(s.pos).sub(CAST_O);
 }
+let seatWas = null;
 // after it: a nudge he gave you (operator/step.js) moves you
 export function syncBack() { if (castMe.pos.x !== was.x || castMe.pos.z !== was.z) { me.x += castMe.pos.x - was.x; me.z += castMe.pos.z - was.z; } }
 
@@ -92,5 +97,5 @@ function groundAt(x, z) { const wx = x + CAST_O.x, wz = z + CAST_O.z; return onP
 const NO_CHORES = { cook: { stage: 'none', can: () => false }, food: () => null };
 setStage({ day: daytimeApi.day, scene: campGroup, camera: castCam, origin: CAST_O, OPT: { op: true, campsloths: true, slothsave: false, slothmat: 'lambert' }, LIVED: true,
   D: { shells: 3 }, S: { slothTint: 0xffffff }, KEYS: { save: 'canopy-camp-save' }, me: castMe, groundAt, walkY: groundAt, NAV: { half: 20, rim: 19.5 }, blockers, blockersVersion: () => 0,
-  LANTERNS: { lights: [] }, jeepApi: null, branchCurves: [], heroWood: null, trunkR: null, chores: NO_CHORES,
+  LANTERNS: { lights: lanternLights }, jeepApi: null, branchCurves: [], heroWood: null, trunkR: null, chores: NO_CHORES,
   A0, CRATE, HAMMOCK, HERO: [], LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT });

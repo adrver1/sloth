@@ -9,29 +9,30 @@ import { doneLoading, stepLight } from "../bakedlight.js";
 import { $, DETAIL, OPT, camera, renderer, scene, uNight, uTime, wireSettings } from "./core.js";
 import { buildSky, skyStep } from "./sky.js";
 import { buildForest, heroWood } from "./forest.js";
-import { buildProps, fireStep, LANTERNS, motesStep, poolsStep } from "./campProps.js";
+import { addBlocker, buildProps, FIRE_CARDS, fireLight, fireStep, glowTex, LANTERNS, motesStep, poolsStep, WOODPILE, WOOD_SPOTS, WOOD_TEX } from "./campProps.js";
+import { WOOD_PILE } from "./layout.js";
 import { buildJeep, jeepApi, jeepStep } from "./jeep.js";
 import { buildCampMap, campMapStep } from "./campMap.js";
 import { setStage } from "./stage.js";
 import { buildSloths, buildSlothPlaces, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
-import { me, step } from "./player.js";
+import { me, speedSliders, step } from "./player.js";
 import { buildDeadwood } from "./deadwood.js";
 import { buildGlade } from "./glade.js";
 import { buildGround, castSunShadows } from "./campGround.js";
 import { buildTentInside } from "./tentInside.js";
 import { atmo, buildAtmosphere } from "./campAir.js";
-import { acts, buildChores } from "./chores.js";
+import { acts, buildChores, food, handOver } from "./chores.js";
 import { buildOperator, opStep } from "./operator.js";
 import { aimStep, initInput, resize, warmHighlight } from "./input.js";
-import { ray } from "./hud.js";
+import { ray, toast } from "./hud.js";
 import { slothLife } from "./sloth/hooks.js";
 import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
 import { dayStep, wireTimeMenu } from "./daytime.js";
 import { buildClocks, clockStep } from "./clock.js";
-import { audio, audioStep, initAudio } from "./audio.js";
+import { audio, audioStep, cue, initAudio } from "./audio.js";
 import { buildRadio, radioStep } from "./radio.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
@@ -69,15 +70,18 @@ await buildGround();                   // campGround.js: waits for the ground's 
 doneLoading();                         // bakedlight.js: frees the KTX2 workers once the props' and the ground's light maps are in
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
-buildChores();                         // chores.js: your activities (adds "Set the bowl down" to the log seats' targets, which buildLinger makes below)
+buildChores({ woodPile: { at: WOOD_PILE.at, built: !!WOODPILE }, glowTex, woodTex: WOOD_TEX, woodSpots: WOOD_SPOTS,   // chores.js: your activities (adds "Set the bowl down" to the log seats' targets, which buildLinger makes below)
+  toast: (text, sound) => { toast(text); if (sound) cue(sound); }, addBlocker: (at, r) => addBlocker({ at, r }),   // built: the props' pile stands there (not with ?lived=0, when the fire chore stacks plain logs)
+  boostFire: (wide, tall, light) => { for (const c of FIRE_CARDS) c.scale.set(wide, tall, wide); fireLight.intensity *= light; } });   // the logs you put on make the fire bigger, on top of fireStep's light
 setStage({ chores: acts });            // stage.js: the operator joins in with them
 buildSlothPlaces();                    // sloths.js: the food places at the table and the crate, clear of every blocker added above
 await buildOperator();                 // operator.js: waits for his downloads (?op=0: nothing)
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
 wireSettings();                        // core.js: the ⚙️ menu, and its Detail and Light buttons
+if (OPT.dev) speedSliders($("opts"));   // player.js: the walking speeds, for trying them out (?dev)
 initInput({ renderer, scene, camera, canvas: $("c"), stick: $("stick"), help: $("q"), touch: OPT.touch,   // input.js, shared with the summit
-  carry: { food: () => acts.food(), give: () => { const f = acts.give(); return f && { mesh: f.make(), from: f.from, emoji: f.emoji }; } },
+  carry: { food, give: handOver },   // chores.js: what you hold
   eat: (s, mesh, from) => !!slothLife && (slothLife.eatGift(s, mesh, from), true),
   missed: (x, y, h) => { const a = acts.pick(ray); if (a && (!h || a.distance < h.distance)) { acts.tap(a); return true; } return false; } });   // a chore out of reach says why
 initAudio();                           // audio.js: the first-tap listeners, the Tap for sound pill, the ⚙️ Sound button

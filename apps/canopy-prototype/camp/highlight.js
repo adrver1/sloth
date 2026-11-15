@@ -87,7 +87,7 @@ export function createHighlight(scene, renderer, { width = 2.5 } = {}) {
       for (const mesh of current) {
         const p = partsFor(mesh); mesh.updateWorldMatrix(true, false);
         p.outline.matrix.copy(mesh.matrixWorld); p.glow.matrix.copy(mesh.matrixWorld);
-        let shown = true; for (let q = mesh; q; q = q.parent) if (!q.visible) { shown = false; break; }   // hidden with a parent too (the map and compass on the jeep's hood, while you hold them)
+        let shown = true; for (let q = mesh; q; q = q.parent) if (!q.visible && !q.userData.standIn) { shown = false; break; }   // hidden with a parent too (the map and compass on the jeep's hood, while you hold them); a stand-in (summit/scoutCamp.js: never drawn, its look merged away) still lights up
         p.outline.visible = p.glow.visible = shown;
       }
     },

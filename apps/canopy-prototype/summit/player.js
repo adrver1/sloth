@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { $, BARE, BIG, D, HILL_P, HT, JEEP, LAKE, OPT, TRIS, W, groundAt, height, walkable } from './land.js';
 import { camera, me, renderer, scene, touch, tris } from './core.js';
 import { keys, stickV } from '../camp/hud.js';
-import { setPlayer, step } from '../camp/player.js';
+import { setPlayer, speedSliders, step } from '../camp/player.js';
 import { aimStep, initInput, resize } from '../camp/input.js';
 import { CAST_O, blockers as castBlockers } from './castStage.js';
 import { lifeHooks } from './life.js';
@@ -61,7 +61,9 @@ export function showTris() {
 }
 
 export function buildPlayer() {
-  if (OPT.debug) { $('dev').hidden = false; $('stats').hidden = false; }   // the prototype's tools, for checks (Adriaen 2026-11-15 Q16: they go from the game)
+  if (OPT.debug) { $('dev').hidden = false; $('perf').hidden = false; document.body.classList.add('debug'); speedSliders($('speeds')); }
+  // the ⚙️ button opens and closes the menu under it, as in the camp (camp/hud.css)
+  $('menu').onclick = () => { const o = $('opts'); o.hidden = !o.hidden; $('menu').setAttribute('aria-expanded', String(!o.hidden)); if (!o.hidden) showTris(); };   // the prototype's tools, for checks (Adriaen 2026-11-15 Q16: they go from the game)
   if (BARE) {   // on the bare land: the highest point near the old summit, a high point on the ridge north-east, and the big lake's shore
     const top = (cx, cz, R, st) => { let b = [cx, cz, -1e9]; for (let i = -R; i <= R; i += st) for (let j = -R; j <= R; j += st) { const h = height(cx + i, cz + j); if (h > b[2]) b = [cx + i, cz + j, h]; } return b; };
     const S1 = top(0, 0, 400, 8), S2 = top(HILL_P.x, HILL_P.z, 260, 8);
@@ -72,9 +74,9 @@ export function buildPlayer() {
   }
   setPlayer({ camera, groundAt: (x, z) => groundAt(x, z) + (me.hover || 0), bounds, blockers: walkBlockers });   // hover: a debug lift for overview shots
   // the camp's input: what you carry is a fruit from the porch basket (slothLife.js), eaten by the camp's own eating
-  initInput({ renderer, scene, camera, canvas: renderer.domElement, stick: $('stick'), help: $('hint'), touch: OPT.touch,
+  initInput({ renderer, scene, camera, canvas: renderer.domElement, stick: $('stick'), help: $('q'), touch: OPT.touch,
     carry: { food: () => lifeHooks.held?.() ?? null, give: () => lifeHooks.give?.() ?? null }, eat: (s, mesh, from) => !!lifeHooks.eat && (lifeHooks.eat(s, mesh, from), true),
-    onBoop: (s) => lifeHooks.booped?.(s) });
+    missed: (x, y, h) => lifeHooks.missed(h) });   // a chore out of reach says why (camp/chores.js)
   resize();
   $('jump').onclick = (e) => { const p = e.target.dataset?.p; if (p) jump(p); };
   $('walkBtn').onclick = async () => {

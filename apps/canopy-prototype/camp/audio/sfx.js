@@ -76,7 +76,7 @@ const SFX = {
   owl() { const a = R(0, 6.28), pos = tmp.set(Math.cos(a) * 16, 9, Math.sin(a) * 16).clone(), out = spot(pos, 4, bus.nature), t = ac.currentTime;
     [[0, 0.35], [0.55, 0.2], [0.8, 0.6]].forEach(([d, l]) => { const g = gain(out, 0); env(g, t + d, 0.06, 0.08, l); const o = osc("sine", 390, t + d, l + 0.1, filt("lowpass", 700, 1, g)); o.frequency.linearRampToValueAtTime(350, t + d + l); }); },
   crackle(big) { const t = ac.currentTime, g = gain(fire.out, 0); env(g, t, 0.001, big ? R(0.25, 0.4) : R(0.04, 0.14), big ? 0.05 : R(0.008, 0.03)); noise(t, 0.08, filt("highpass", big ? 900 : R(1800, 4500), 0.8, g)); },
-  bubble() { const t = ac.currentTime, g = gain(fire.pot, 0), f = R(250, 450); env(g, t, 0.005, R(0.03, 0.07), 0.05); osc("sine", f, t, 0.08, g).frequency.exponentialRampToValueAtTime(f * 2.2, t + 0.05); },
+  bubble() { if (!fire.pot) return; const t = ac.currentTime, g = gain(fire.pot, 0), f = R(250, 450); env(g, t, 0.005, R(0.03, 0.07), 0.05); osc("sine", f, t, 0.08, g).frequency.exponentialRampToValueAtTime(f * 2.2, t + 0.05); },
   knock(pos) { const t = ac.currentTime, g = gain(spot(pos, 1), 0); env(g, t, 0.003, 0.08, 0.08); osc("sine", R(260, 340), t, 0.1, g); noise(t, 0.04, filt("bandpass", 1200, 2, gain(g, 0.5))); },
   plop(pos) { const t = ac.currentTime, g = gain(spot(pos, 1), 0); env(g, t, 0.005, 0.14, 0.18); osc("sine", 180, t, 0.2, g).frequency.exponentialRampToValueAtTime(520, t + 0.12); noise(t, 0.15, filt("bandpass", 900, 1.2, gain(g, 0.4))); },
   slosh(pos) { const t = ac.currentTime, g = gain(spot(pos, 1), 0); env(g, t, 0.04, 0.07, 0.3, 0.1); const b = filt("bandpass", 600, 2, g); b.frequency.linearRampToValueAtTime(1100, t + 0.15); b.frequency.linearRampToValueAtTime(700, t + 0.4); noise(t, 0.5, b); },

@@ -10,24 +10,24 @@
 // (main.js, each frame: your seat's claim, then the drift) and sit(i), which sits you on seat i at once (the tools:
 // debug.js __sit). A log seat's me.seat is { pos, yaw, log: its index in layout.js SEATS }.
 import * as THREE from "three";
-import { uTime } from "./core.js";
+import { toStage, toWorld, uTime } from "./stage.js";
 import { V, wrapPi } from "./util.js";
 import { me } from "./player.js";
 import { addTarget } from "./targets.js";
 import { claim, logSeats, release } from "./places.js";
 
-const seatSpot = (seat) => ({ pos: seat.slots.you.at, yaw: seat.slots.you.yaw, log: seat.i });   // facing the fire in the middle
+const seatSpot = (seat) => ({ pos: toWorld(seat.slots.you.at.clone()), yaw: seat.slots.you.yaw, log: seat.i });   // facing the fire in the middle; you walk in the world (the slot is in the stage's frame)
 const vAt = V();
 let drift = 0;
 function buildLinger() {
   logSeats().forEach((seat) => { const { o, i } = seat;
     const picks = []; o.traverse((m) => m.isMesh && picks.push(m));
     let S = null;   // the log never moves: its bounds are worked out once, when first asked for
-    const at = (v) => { S ??= new THREE.Box3().setFromObject(o).getBoundingSphere(new THREE.Sphere()); v.copy(S.center); return S; };
+    const at = (v) => { if (!S) { S = new THREE.Box3().setFromObject(o).getBoundingSphere(new THREE.Sphere()); toStage(S.center); } v.copy(S.center); return S; };   // in the stage's frame, as every target
     const { pos, yaw } = seatSpot(seat);
     const sitHere = () => { me.seat = { pos, yaw, log: i }; me.yaw = yaw; me.pitch = -0.12; me.lastDrag = -9; drift = 0; };
     addTarget(o, () => ({ look: o, picks, at,
-      ready: () => me.seat?.pos === pos || at(vAt).center.distanceTo(me.pos) < 3.2,
+      ready: () => me.seat?.pos === pos || toWorld(vAt.copy(at(vAt).center)).distanceTo(me.pos) < 3.2,
       options: () => me.seat?.pos === pos ? [["Stand up", () => { me.seat = null; }]] : [["Sit by the fire 🔥", sitHere]] }));
   });
 }

@@ -19,7 +19,7 @@ const CSS = `
 .drive-bar { position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .6s ease; z-index: 20; pointer-events: none; }
 .drive-bar.top { top: 0 } .drive-bar.bot { bottom: 0 }
 body.drive-cut .drive-bar { height: 11vh; }
-body.drive-cut #hud, body.drive-cut #hint, body.drive-cut #stats, body.drive-cut #stick, body.drive-cut #run { visibility: hidden; }
+body.drive-cut .hud, body.drive-cut .bar, body.drive-cut #q, body.drive-cut .stick, body.drive-cut #toast { visibility: hidden; }
 .drive-fade { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity .7s; z-index: 21; pointer-events: none; }
 .drive-fade.on { opacity: 1; }
 .drive-skip { position: fixed; inset: 0; z-index: 22; }

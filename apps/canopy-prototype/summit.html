@@ -13,91 +13,49 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="A walkable winter mountaintop with a cabin, a scout camp and a lookout tower: a test of long views where near and far are one world.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="camp/hud.css">   <!-- the camp's HUD, shared (Adriaen 2026-11-15): the ⚙️ bar, the stick, the hint, the fps pill -->
 <style>
-body { margin: 0; }
 [hidden] { display: none !important; }
-/* One fixed look over a 3D scene: frosted dark glass panels on the view. */
-:root {
-  --ink: #eef3fa; --ink-dim: #a9b8cc; --glass: rgba(14, 22, 36, 0.62); --glass-solid: rgba(22, 30, 44, 0.78); --edge: rgba(190, 210, 235, 0.22);
-  --accent: #ffc27a; --night: #0b1220;
-  --ui: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
-  --display: var(--ui); --bubble-ink: #3a2a20;   /* his speech bubble (camp/operator/talk.js): dark words on its cream */
-  color-scheme: dark;
-}
-html, body { height: 100%; }
-body { background: var(--night); color: var(--ink); font-family: var(--ui); overflow: hidden; }
+:root { color-scheme: light; --bubble-ink: #3a2a20; }   /* his speech bubble (camp/operator/talk.js): dark words on its cream */
+html, body { height: 100%; margin: 0; }
+body { background: #0b1220; color: var(--ink); font-family: var(--display); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 #stage { position: fixed; inset: 0; }
 #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.panel { background: var(--glass); border: 1px solid var(--edge); border-radius: 12px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-#hud { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); width: min(360px, calc(100% - 150px)); padding: 10px 12px; display: grid; gap: 10px; font-size: 15px; max-height: calc(100% - 200px); overflow: auto; }
-#hud summary { list-style: none; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
-#hud summary::-webkit-details-marker { display: none; }
-#hud summary small { font-weight: 500; font-size: 13px; color: var(--ink-dim); letter-spacing: 0.04em; text-transform: uppercase; }
-#hud summary small::after { content: " ▾"; }
-#hud details[open] summary small::after { content: " ▴"; }
-#hud .body { display: grid; gap: 10px; margin-top: 10px; }
-.row { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; }
-.row label, .lbl { color: var(--ink-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
-output { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
-input[type=range] { width: 100%; accent-color: var(--accent); }
-.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 3px; border-radius: 9px; background: rgba(255,255,255,0.06); }
-.seg button { font: 600 14px var(--ui); color: var(--ink-dim); background: transparent; border: 0; border-radius: 7px; padding: 7px 4px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: rgba(255, 194, 122, 0.18); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255, 194, 122, 0.5); }
-.seg button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tricks { font-size: 14px; color: var(--ink-dim); }
-.checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 8px; }
-.checks label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
-td { padding: 2px 0; border-top: 1px solid var(--edge); }
-td:last-child { text-align: right; color: var(--ink); }
-#stats { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); padding: 6px 10px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-dim); text-align: right; line-height: 1.35; }
-#hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 6px 12px; font-size: 13px; color: var(--ink-dim); white-space: nowrap; }
-#stick { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%; touch-action: none; display: none; }
-#knob { position: absolute; left: 38px; top: 38px; width: 44px; height: 44px; border-radius: 50%; background: rgba(238, 243, 250, 0.55); }
-#stick, #stats, #hint { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--glass-solid); }   /* a blur over the moving 3D view is redone every frame */
-.touch #stick { display: block; }
-.pill { font: 600 15px var(--ui); color: var(--ink); padding: 9px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
-
-.touch #hint { display: none; }
-@media (max-width: 560px) { #hud { width: calc(100% - 32px); } #stats { top: calc(64px + env(safe-area-inset-top, 0px)); } }
-
+body.debug .bar { top: calc(84px + env(safe-area-inset-top, 0px)); }   /* ?debug=1: under the three lines of the fps pill */
+/* the summit's own buttons in the camp's ⚙️ menu: the weather, and with ?debug=1 the prototype's tools in a cream card */
+#dev { pointer-events: auto; background: rgb(255 248 238 / .94); border-radius: 18px; padding: 10px 12px; box-shadow: 0 3px 0 rgb(138 90 59 / .2); font-size: 13px; color: var(--soft);
+  width: min(340px, calc(100vw - 32px)); max-height: 50vh; overflow: auto; display: grid; gap: 8px; justify-items: end; }
+#dev .lbl { justify-self: start; font-weight: 600; }
+#dev .checks { justify-self: start; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+#dev .checks label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+#dev table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+#dev td { padding: 2px 0; border-top: 1px solid rgb(138 90 59 / .15); } #dev td:last-child { text-align: right; color: var(--ink); }
 </style>
 </head>
 <body>
 
 <div id="stage"></div>
-<div id="hint" class="panel">WASD or arrows to walk · drag to look</div>
-<div id="stats" class="panel" hidden>…</div>
-<section id="hud" class="panel" aria-label="Scene controls">
-  <details id="menu">
-    <summary>Summit Cabin <small>Settings</small></summary>
-    <div class="body">
-      <div class="row"><label for="hour">Time</label><div class="row" style="grid-template-columns:1fr auto"><input id="hour" type="range" min="0" max="24" step="0.05" value="15.5"><output id="hourOut">15:30</output></div></div>
-      <div class="seg" id="weather" role="group" aria-label="Weather">
-        <button data-w="clear" aria-pressed="true">Clear</button><button data-w="valley" aria-pressed="false">Valley fog</button><button data-w="storm" aria-pressed="false">Snowstorm</button>
-      </div>
-      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button id="sound" class="pill">Sound: All</button></div>
-      <div id="dev" hidden>   <!-- ?debug=1: the prototype's jumps, tests and triangle table (Adriaen 2026-11-15 Q16: they go from the game) -->
-        <span class="lbl">Jump to</span>
-        <div class="seg" id="jump" role="group" aria-label="Jump to a place">
-          <button data-p="porch" aria-pressed="false">Porch</button><button data-p="camp" aria-pressed="false">Camp</button><button data-p="tower" aria-pressed="false">Lookout</button>
-        </div>
-        <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button id="speedBtn" class="pill">⏱ Speed test (20 s, stand still)</button><button id="walkBtn" class="pill">🏃 Walk test (12 s)</button></div>
-        <pre id="speed" hidden style="margin:0;font:12px ui-monospace,monospace;white-space:pre-wrap;user-select:text"></pre>
-        <div class="tricks">
-          <span class="lbl">How it's done</span>
-          <div class="checks">
-            <label><input id="hazeOn" type="checkbox" checked> Distance haze</label>
-            <label><input id="wire" type="checkbox"> Terrain wireframe</label>
-          </div>
-          <table id="tris"></table>
-        </div>
-      </div>
+<div class="hud"><div id="perf" hidden>…</div></div>   <!-- ?debug=1: the fps, draws and triangles (main.js) -->
+<div id="q">Stick to walk · drag to look<br>Tap a sloth, or anything that lights up, to see what you can do</div>
+<div class="stick" id="stick" hidden><i></i></div>
+<div class="bar">
+  <button id="menu" aria-label="Settings" aria-expanded="false">⚙️</button>
+  <div class="menu" id="opts" hidden>
+    <label class="time">🕐 <input type="range" id="hour" min="0" max="24" step="0.05" value="15.5" aria-label="Time of day"><span id="hourOut">15:30</span></label>
+    <div class="row" id="weather" role="group" aria-label="Weather"><button data-w="clear" aria-pressed="true">☀️ Clear</button><button data-w="valley" aria-pressed="false">🌫 Valley fog</button><button data-w="storm" aria-pressed="false">❄️ Snowstorm</button></div>
+    <button id="sound">Sound: All</button>
+    <div id="dev" hidden>   <!-- ?debug=1: the prototype's jumps, tests, walking speeds and triangle table (Adriaen 2026-11-15 Q16: they go from the game) -->
+      <div class="row" id="jump" role="group" aria-label="Jump to a place"><button data-p="porch" aria-pressed="false">Porch</button><button data-p="camp" aria-pressed="false">Camp</button><button data-p="tower" aria-pressed="false">Lookout</button></div>
+      <div class="row" id="speeds"></div>
+      <div class="row"><button id="speedBtn">⏱ Speed test (20 s, stand still)</button><button id="walkBtn">🏃 Walk test (12 s)</button></div>
+      <pre id="speed" hidden style="margin:0;font:12px ui-monospace,monospace;white-space:pre-wrap;user-select:text;justify-self:stretch"></pre>
+      <span class="lbl">How it's done</span>
+      <div class="checks"><label><input id="hazeOn" type="checkbox" checked> Distance haze</label><label><input id="wire" type="checkbox"> Terrain wireframe</label></div>
+      <table id="tris"></table>
     </div>
-  </details>
-</section>
-<div id="stick" class="panel" aria-label="Walk"><div id="knob"></div></div>
+  </div>
+</div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module" src="summit/main.js"></script>

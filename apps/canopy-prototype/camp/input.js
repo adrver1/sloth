@@ -25,13 +25,16 @@ import { addTargets, allTargets, targetOf, tick } from "./targets.js";
 
 let L = null;   // the level's page (initInput)
 // the look of what input.js and hud.js put on the page, in both levels: the pills of a tap's menu (.tap-pill, also car.js's
-// and trip.js's in the camp), the menu over the thing, and the toast (hud.js)
+// and trip.js's in the camp), the menu over the thing, the toast (hud.js) and the chores' Put it back pill (activities/carry.js)
 const CSS = `
 .tap-pill { font: 600 16px var(--display, system-ui); color: #4a3426; background: rgb(255 248 238 / .94); border: 0; border-radius: 999px; padding: 9px 16px; box-shadow: 0 3px 0 rgb(138 90 59 / .25); cursor: pointer; white-space: nowrap; }
 #tapmenu { position: fixed; left: 0; top: 0; display: none; flex-direction: column; gap: 6px; transform: translate(-50%, -100%); z-index: 3; }
 #toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none; z-index: 6;
   font: 700 34px var(--display, system-ui); color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
 #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+#putBack { position: fixed; z-index: 3; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+body.touch #putBack { bottom: calc(220px + env(safe-area-inset-bottom, 0px)); }
+body.drive-cut #putBack, body.trip-cut #putBack { visibility: hidden; }
 `;
 let fxR = null;   // the boop words' stream (stage.js rng "fx"), taken the first time
 // ---------------------------------------------------------------- input
