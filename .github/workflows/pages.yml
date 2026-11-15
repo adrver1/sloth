@@ -52,8 +52,10 @@ jobs:
             if [ "$got" != "$want" ]; then echo "::error::$f is not a base64 $want file"; exit 1; fi
             base64 -d "$f" > "$out" && rm "$f"
           done
-          grep -q '<meta name="camp-models" content="base64">' $C/camp.html || { echo "::error::camp.html has no camp-models meta"; exit 1; }
-          sed -i 's|<meta name="camp-models" content="base64">|<meta name="camp-models" content="binary">|' $C/camp.html
+          for page in camp summit; do   # summit.html: the Summit Cabin level loads the camp's models the same way
+            grep -q '<meta name="camp-models" content="base64">' $C/$page.html || { echo "::error::$page.html has no camp-models meta"; exit 1; }
+            sed -i 's|<meta name="camp-models" content="base64">|<meta name="camp-models" content="binary">|' $C/$page.html
+          done
           sha=$(git rev-parse --short HEAD)
           forward() {   # $1: the index.html to write, $2: camp.html relative to it
             cat > "$1" <<HTML
