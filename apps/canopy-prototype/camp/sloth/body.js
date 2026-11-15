@@ -40,6 +40,9 @@ function makeSloth(sc = SL) {
   // only, so the face mask, eyes and claws keep their palette colours (review R2-174); smooth: the fur shades with
   // smoothed normals, so the head's and body's facets don't show as hard light steps up close (review R2-197)
   furify(o, { shells: D.shells, lambert: OPT.slothmat !== "old", warm: SLOTH_WARM, lod: true, tint: S.slothTint, smooth: true });
+  // ?fur=0, the flat backup sloth: furify leaves it as it is, and it has one palette material with no fur mask, so it keeps
+  // the whole-material tint it had before R2-174 (the face mask goes a little green). Its look is Adriaen's call.
+  if (!FUR_ON) o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint));
   o.traverse((m) => { if (m.isSkinnedMesh && !m.userData.fur) { m.geometry.computeBoundingSphere(); m.boundingSphere = m.geometry.boundingSphere.clone(); m.boundingSphere.radius *= 2; } });
   o.traverse((m) => { if (m.userData.fur) { const b = m.parent.children.find((q) => q.isSkinnedMesh && !q.userData.fur); m.boundingSphere = b.boundingSphere.clone(); m.frustumCulled = true; } });
   const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
