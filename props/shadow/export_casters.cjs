@@ -1,7 +1,7 @@
 // Writes props/shadow/layout_<props>.json, the clearing's layout as the live page has it (prop spots, the jeep's track,
 // the path to the glade, the tent, the hammock, the deadwood and the ground's height grid), for props/ground/bake_ground.py
 // and props/camp/bake_camp_lightmap.py, plus "place": where the page stands each baked prop and light (seats, tent,
-// hammock, table, wood pile, kitchen crate, laundry line, lantern lights, jeep, sun), read from the live page. The light
+// hammock, table, wood pile, kitchen crate, laundry line, the points the lanterns hang from, jeep, sun), read from the live page. The light
 // bake places everything from that block (it keeps no copy of its own). props/bake_all.py runs it first (its "layout" step) and serves the repo on :8765.
 //   python3 -m http.server 8765   (from the repo root, in the background; LAYOUT_PORT=<port> to use another port)
 //   node props/shadow/export_casters.cjs [props=picked] [jeep=expedition]
@@ -30,7 +30,7 @@ if (props !== "picked" || !["expedition", "none"].includes(jeep)) { console.erro
     const place = { seats: [0, 1, 2].map((i) => at(`Seat_${i}`)), tent: at("Tent"), hammock: at("Hammock"), table: at("Table"),
       woodPile: at("WoodPile"), seatThings: at("SeatThings"), tentSide: at("TentSide"), kitchen: at("KitchenCrate"),
       laundry: ld ? [(ld.a.x + ld.b.x) / 2, (ld.a.z + ld.b.z) / 2, Math.atan2(-ld.dir.z, ld.dir.x)] : null,
-      lanternLights: LANTERNS.lights.map((v) => [v.x, v.y, v.z]), jeep: jn ? [jn.position.x, jn.position.z, jn.rotation.y] : null, sun: [sd.x, sd.y, sd.z] };
+      lanternHang: LANTERNS.hang.map((v) => [v.x, v.y, v.z]), jeep: jn ? [jn.position.x, jn.position.z, jn.rotation.y] : null, sun: [sd.x, sd.y, sd.z] };
     return { layout: { ...L, glade: (window.__glade?.path || []).map((p) => [p.x, p.z]), tent: tent ? [tent.x, tent.z] : null,
       hammock: window.__camp?.hA ? [[window.__camp.hA.x, window.__camp.hA.z], [window.__camp.hB.x, window.__camp.hB.z]] : null,
       deadwood: window.__deadwood?.layout || [],   // each with y, seated on the terrain: occluders in props/camp/bake_camp_lightmap.py

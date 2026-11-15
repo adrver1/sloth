@@ -98,17 +98,17 @@ def B(x, y, z):            # three.js -> Blender
 # that step first)
 seat_at = [tuple(v) for v in PL["seats"]]
 TENT, HAMMOCK, TABLE, JEEP = (tuple(PL[k]) for k in ("tent", "hammock", "table", "jeep"))
-# the lanterns sway, so the page draws them and they are not baked; their lights are. The page's light is 0.125 m below
-# each lantern's hang point (lanterns.js JAR_Y), the bake's 0.12 m: 5 mm higher (review props-07), kept so the bake
-# stays as it was
-PAGE_LANTERN_DROP, LANTERN_DROP = 0.125, 0.12
-lanterns = [(x, y + PAGE_LANTERN_DROP, z) for x, y, z in PL["lanternLights"]]        # where each lantern hangs
+# the lanterns sway, so the page draws them and they are not baked; their lights are. The bake hangs each light 0.12 m below
+# its lantern's hang point (as the page has it: lanterns.js hang), 5 mm above the page's jar centre (lanterns.js JAR_Y,
+# 0.125 m): a deliberate offset, kept so the bake stays as it was (review props-07, R2-187)
+LANTERN_DROP = 0.12
+lanterns = [tuple(v) for v in PL["lanternHang"]]                                   # where each lantern hangs
 # toward the sun, the page's (-4, 10, 3): kept here because the page's normalised copy differs from this one in the
 # last float bit (6e-8), and the bake must stay as it was; it stops if the two ever disagree
 sd = Vector((-4, -3, 10)).normalized()
 if (sd - B(*PL["sun"])).length > 1e-6:
     sys.exit(f"the page's sun {PL['sun']} is not the bake's {tuple(sd)}: update sd")
-print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points (the page: {PAGE_LANTERN_DROP} m)")
+print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points")
 PLACE = {
     "lived": {"WoodPile": PL["woodPile"], "WoodStack": PL["woodPile"], "LooseLogs": PL["woodPile"], "SeatThings": PL["seatThings"],
               "TentSide": PL["tentSide"], "MatRoll": PL["tentSide"], "KitchenCrate": PL["kitchen"], "KitchenThings": PL["kitchen"]},
