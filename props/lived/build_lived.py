@@ -252,9 +252,9 @@ def wood_stack(M, samples):
             shutil.rmtree(tmpdir, ignore_errors=True)
     else:
         print("  wood stack: renders unchanged (wood_stack.json), reusing wood_stack.jpg")
-    lx = [(o.matrix_world @ v.co).x for o in logs for v in o.data.vertices]
-    if outline[0][0] < min(lx) - 0.02 or outline[-1][0] > max(lx) + 0.02:     # something besides the logs is in the end render
-        sys.exit(f"wood stack: the outline spans x {outline[0][0]:.3f} to {outline[-1][0]:.3f} but the logs {min(lx):.3f} to {max(lx):.3f}")
+    bad = _stack_outline_check(logs, outline, px)
+    if bad:                                          # something besides the logs is in the end render
+        sys.exit(f"wood stack: {bad}")
     if cached is None:                               # stamped only once the outline is the logs' own
         with open(stamp, "w") as f:
             json.dump({"key": key, "parts": parts, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
@@ -266,6 +266,36 @@ def wood_stack(M, samples):
     bpy.data.scenes.remove(sc)
     bpy.data.worlds.remove(world)
     return _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
+
+
+def _stack_outline_check(logs, outline, px):
+    """None when the outline from the end render is the logs' own, else what is wrong. The logs' silhouette is found
+    again by rays from the front (-Y), the way the end camera looks, and the outline may not start or end more than
+    2 cm past the logs, nor have a column more than 2 cm above the logs' top over the same 12-pixel window. It catches
+    any other object drawn into the end render beside or above the logs (the 2026-11-15 seat), not one hidden behind
+    them, nor anything that reaches only the side or top renders."""
+    from mathutils.bvhtree import BVHTree
+    V, F = [], []
+    for o in logs:
+        mw, base = o.matrix_world, len(V)
+        V += [mw @ v.co for v in o.data.vertices]
+        F += [[base + k for k in pl.vertices] for pl in o.data.polygons]
+    tree = BVHTree.FromPolygons(V, F)
+    lx = [v.x for v in V]
+    if outline[0][0] < min(lx) - 0.02 or outline[-1][0] > max(lx) + 0.02:
+        return f"the outline spans x {outline[0][0]:.3f} to {outline[-1][0]:.3f} but the logs {min(lx):.3f} to {max(lx):.3f}"
+    Z1, half = STACK_BOX["z"][1], 6 / px
+    for x, z in outline[1:-1]:
+        top = 0.0
+        for k in range(7):                           # the window the outline scan takes its column's top from
+            cx = x - half + 2 * half * k / 6
+            for i in range(round(Z1 / 0.002), round(top / 0.002), -1):   # down from the top in 2 mm steps
+                if tree.ray_cast(Vector((cx, -3, i * 0.002)), Vector((0, 1, 0)))[0] is not None:
+                    top = i * 0.002
+                    break
+        if z > top + 0.004 + 0.02:
+            return f"the outline is {z:.3f} m high at x {x:.3f} but the logs only {top:.3f} m"
+    return None
 
 
 def _stack_key(logs, samples, px):
