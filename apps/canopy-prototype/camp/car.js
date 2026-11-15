@@ -1,7 +1,7 @@
 // Canopy Camp in the jeep (diegetic controls, Adriaen 2026-11-13): open the driver's door (DoorP, the camp side) and "Get in"
 // sits you at the wheel; while the jeep's sloth is playing at driving there, you ride beside it (either front door). In there three things light up like everything else you can use:
 //   the key in the ignition: "Turn the key" cranks and starts the engine (the key turns, the jeep shudders, then idles with a
-//     gentle tremble); "Drive somewhere" is the placeholder for fast travel to other levels; "Turn the engine off"
+//     gentle tremble); "Drive to the summit" plays the drive's first shot and loads the Summit Cabin (drive.js); "Turn the engine off"
 //   the radio in the middle of the dash: the same menu as the radio on the snack table (radio.js); the music then plays from it
 //   the dash clock: the same menu as the camp's other clocks (clock.js)
 // "Get out" on the door, or walking off with the stick or the keys, puts you back outside the door you came in by. The
@@ -22,6 +22,7 @@ import { toast } from "./hud.js";
 import { audio } from "./audio.js";
 import { radioOptions, radioPlaying, radioSource } from "./radio.js";
 import { addClock, faceTex, hand } from "./clock.js";
+import { driveApi } from "./drive.js";
 
 let carStep = () => {}, carApi = null;
 function buildCar() {   // main.js, once the jeep, its seats, the radio and the clocks are in
@@ -58,7 +59,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   function stop() { engine = "off"; toast("Engine off"); }
   addTarget(ign, () => ({ look: ign, picks: [keyQuad, ring], at: (v) => { ign.getWorldPosition(v); return keyS.set(v, 0.08); }, ready: inCar,
     options: () => engine === "off" ? [["Turn the key 🔑", start]]
-      : [["Drive somewhere 🗺️", () => toast("Trips by jeep are coming soon 🚧")], ["Turn the engine off", stop]] }));
+      : [["Drive to the summit 🏔️", () => driveApi.away()], ["Turn the engine off", stop]] }));
 
   // ---------------------------------------------------------------- the radio, in the middle of the dash
   // its face: a chrome bezel, a glowing display that shows the station, two knobs; the display is redrawn when the station changes

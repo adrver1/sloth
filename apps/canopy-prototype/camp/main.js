@@ -31,6 +31,7 @@ import { buildRadio, radioStep } from "./radio.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
 import { buildTrip, tripStep } from "./trip.js";
+import { buildDrive, driveStep } from "./drive.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
 import { ready, stats } from "./debug.js";
 
@@ -77,6 +78,7 @@ buildClocks();                         // clock.js: the tent's alarm clock and t
 buildRadio();                          // radio.js: the radio on the snack table
 buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
 buildCar();                            // car.js: the key, the dash radio and the dash clock
+buildDrive();                          // drive.js: the drive to the summit's page bits; back from the summit, the jeep's arrival plays on the first frame (needs the jeep and the input)
 buildTrip();                           // trip.js: the karaoke sign (a tap target), the question card, the cut scene's page bits; back from the karaoke stage, it stands you by the sign (before the daylight, which reads where you stand)
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
 castSunShadows();                      // campGround.js: the live sun shadows, once every prop stands, only without the baked map (it failed to load, or ?jeep=none)
@@ -135,7 +137,8 @@ let last = 0;   // the time stamp of the last frame, in ms, from the one the loo
 renderer.setAnimationLoop((now) => {
   const raw = last ? (now - last) / 1000 : 0, dt = Math.min(raw, 0.05); last = now; uTime.value += dt;
   jeepSeatStep(dt); lingerStep(dt); step(dt);
-  tripStep(dt);                                            // trip.js: the karaoke trip; its cut scene takes the camera after the player has moved
+  const shot = driveStep(dt);                              // drive.js: the drive to and from the summit; its shot takes the camera after the player has moved
+  const cut = tripStep(dt) || shot;                        // trip.js: the karaoke trip; its cut scene takes the camera after the player has moved
   slothsStep(dt);                                          // sloths.js: every sloth's clip, its life on top of it, the squish of a boop and its nod
   campStep(dt);                                            // sloths.js: the camp sloths' day (linger.js has claimed the log you sit on)
   labStep(dt);                                             // labButton.js: the move lab, while it is open
@@ -150,7 +153,7 @@ renderer.setAnimationLoop((now) => {
   const wet = weather.wet;
   setLight(hour, wet); const dusk = light.dusk;            // daylight.js: this frame's dusk, golden hour and mist
   const fl = fireStep(dusk);                               // campProps.js: the fire's flicker
-  acts.update(dt, uTime.value); aimStep(dt);               // the chores (after fireStep: a log on the fire boosts its light) and what lights up
+  acts.update(dt, uTime.value); if (!cut) aimStep(dt);     // the chores (after fireStep: a log on the fire boosts its light) and what lights up (nothing during a cut scene)
   uNight.value = dusk; stepLight(fl, uTime.value);         // the baked night light: how far it is faded in, and its flicker (bakedlight.js)
   warmStep(fl, dusk);                                      // sloths.js: the sloths' night glow, from the lanterns and the fire
   poolsStep(dusk, fl);

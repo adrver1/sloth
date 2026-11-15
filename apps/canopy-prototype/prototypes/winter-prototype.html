@@ -1,0 +1,86 @@
+<!-- PROTOTYPE (throwaway): the seven camp sloths in winter gear for the Summit Cabin level, three looks to pick from (?look=a|b|c). Built on names-prototype.html. Delete once a look is picked and built. -->
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sloth Winter Looks</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+<style>
+html,body{margin:0;height:100%;background:#dfe8f2;font-family:Fredoka,system-ui,sans-serif;color:#4a3426;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.lab{position:fixed;transform:translate(-50%,0);text-align:center;font-weight:600;font-size:15px;line-height:1.15;background:rgb(255 248 238/.9);border-radius:12px;padding:4px 8px;white-space:nowrap;box-shadow:0 2px 0 rgb(138 90 59/.2)}
+.lab small{display:block;font-weight:500;font-size:11.5px;color:#8a6a55}
+@media (max-aspect-ratio:1/1){.lab{font-size:13px;padding:3px 6px}.lab small{font-size:10px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { furify } from "../fur.js";
+import { CAST } from "../camp/cast.js";
+const txt = (await (await fetch("../models/sloth.txt")).text()).trim(), bin = Uint8Array.from(atob(txt), c => c.charCodeAt(0));
+const G = await new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); document.body.appendChild(renderer.domElement);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xdfe8f2);
+scene.add(new THREE.HemisphereLight(0xeef4ff, 0xb8c4d8, 2.2)); const sun = new THREE.DirectionalLight(0xfff0d0, 1.6); sun.position.set(2, 4, 3); scene.add(sun);
+const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(20, 48).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xf6f8fc })); scene.add(ground);
+// the seven and how each is dressed: camp/cast.js, the camp's own list (review R2-116: this page had its own copy)
+const Q = new URLSearchParams(location.search), TURN = +(Q.get("turn") || 0), NEAR = Q.has("near");
+const SL = 2.4, GAP = 0.62, items = [];
+const ONLY = Q.get("only");
+
+// ---- winter gear: knit texture per sloth colour; parts hang off the head bone (head y 0.02..0.137, x ±0.078, z -0.092 face .. 0.049 back)
+const LOOK = Q.get("look") || "a";
+const COL = { Hibi: ["#ff6f9c", "#ffe1ea"], Mango: ["#ff8a1f", "#fff4dc"], Figgy: ["#8a4fb8", "#e9dcf5"], Bandit: ["#5a9e35", "#f1f6e6"], Pip: ["#6fc3e8", "#ffffff"], Hazel: ["#3f7fd0", "#e3eefc"], Sunny: ["#ffcf33", "#fff6d6"] };
+function knit(base, light, stripes) { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d");
+  g.fillStyle = base; g.fillRect(0, 0, 64, 64);
+  if (stripes) { g.fillStyle = light; for (let y = 0; y < 64; y += 16) g.fillRect(0, y, 64, 6); }
+  g.strokeStyle = "rgba(0,0,0,.18)"; g.lineWidth = 1.5; for (let y = 2; y < 64; y += 6) for (let x = 0; x < 64; x += 6) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + 3, y + 4); g.lineTo(x + 6, y); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
+const put = (g, pos, rot = [0, 0, 0], sc = [1, 1, 1]) => g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(...pos), new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot)), new THREE.Vector3(...sc)));
+const tri = (g) => (g.index ? g.index.count : g.attributes.position.count) / 3;
+function winter(c, h) {
+  const [base, light] = COL[c.name], hatM = new THREE.MeshLambertMaterial({ map: knit(base, light, LOOK !== "b") }), scM = new THREE.MeshLambertMaterial({ map: knit(base, light, true), side: THREE.DoubleSide });
+  const pom = new THREE.MeshLambertMaterial({ color: light }), parts = [];
+  const add = (g, m, parent = h) => { const o = new THREE.Mesh(g, m); o.userData.gear = true; parent.add(o); parts.push(g); return o; };
+  // the hat: a dome over the crown, tipped back off the eyes
+  const tip = [0.45, 0, 0], at = [0, 0.098, 0.006];   // tipped back: the front rim rides above the eye patches
+  if (LOOK === "a" || LOOK === "b") {
+    add(put(new THREE.SphereGeometry(0.08, 8, 3, 0, Math.PI * 2, 0, Math.PI / 2), at, tip, [1, 0.9, 1.02]), hatM);   // 48 tris
+    add(put(new THREE.CylinderGeometry(0.083, 0.084, 0.022, 8, 1, true), [0, 0.103, 0.004], tip, [1, 1, 1.03]), hatM);   // turned-up band, 16
+    add(put(new THREE.IcosahedronGeometry(LOOK === "a" ? 0.026 : 0.02, 0), [0, 0.168, 0.04]), pom);   // bobble, 20
+  }
+  if (LOOK === "b") for (const sd of [-1, 1]) add(put(new THREE.ConeGeometry(0.022, 0.05, 4, 1, true), [sd * 0.082, 0.062, 0.03], [0.2, 0, sd * -0.1]), hatM);   // ear flaps, 8 each
+  if (LOOK === "c") { // earmuffs on a band, no hat
+    for (const sd of [-1, 1]) add(put(new THREE.IcosahedronGeometry(0.028, 0), [sd * 0.086, 0.07, 0.012], [0, 0, 0], [0.55, 1, 1]), pom);
+    add(put(new THREE.TorusGeometry(0.088, 0.006, 3, 8, Math.PI), [0, 0.07, 0.012], [0.35, 0, 0]), hatM); }
+  // the scarf: a chunky ring round the neck and two tails over the chest
+  const thick = LOOK === "b" ? 0.024 : 0.018;
+  add(put(new THREE.TorusGeometry(0.052, thick, 4, 8), [0, 0.012, -0.006], [Math.PI / 2, 0, 0], [1.08, 0.9, 1]), scM);   // 64
+  const tail = (x, a, l) => add(put(new THREE.PlaneGeometry(0.026, l).translate(0, -l / 2, 0), [x, 0.0, -0.068], [0.25, 0, a]), scM);
+  if (LOOK !== "b") { tail(0.016, -0.12, LOOK === "c" ? 0.11 : 0.07); tail(0.03, 0.1, LOOK === "c" ? 0.09 : 0.06); }
+  return parts.reduce((n, g) => n + tri(g), 0);
+}
+CAST.forEach((c, i) => {
+  if (ONLY && c.name !== ONLY) return;
+  const o = clone(G.scene); o.traverse(m => { if (m.isMesh) { m.frustumCulled = false; m.material = m.material.clone(); if (c.tint) m.material.color.setHex(c.tint); } });
+  furify(o, { shells: 4 }); o.scale.setScalar(SL * (c.scale || 1)); o.rotation.y = Math.PI;
+  const mx = new THREE.AnimationMixer(o); mx.clipAction(G.animations.find(a => a.name === "idle")).play(); mx.setTime(i * 0.7);
+  const base = new Set(); o.traverse((m) => m.isMesh && base.add(m));
+  const h = o.getObjectByName("head"); c.dress?.(h, o); o.traverse((m) => { if (/trait_(scarf|leafHat)/.test(m.name)) m.visible = false; }); c.gear = winter(c, h); scene.add(o);
+  let tris = 0; o.traverse((m) => { if (m.isMesh && !base.has(m)) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); c.tris = tris;
+  const el = document.createElement("div"); el.className = "lab"; el.innerHTML = `${c.name}<small>look ${LOOK.toUpperCase()} · ${c.gear} tris</small>`; window.__tris = Object.fromEntries(CAST.map((x) => [x.name, x.tris])); document.body.appendChild(el);
+  items.push({ o, mx, el, i });
+});
+function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); cam.aspect = a;
+  const ph = a < 1 && !ONLY;   // phone: two rows (four behind, three in front), seen from a bit higher so the rows separate
+  for (const it of items) { const back = ph && it.i < 4, n = ph ? (back ? 4 : 3) : 7, k = ph ? (back ? it.i : it.i - 4) : it.i;
+    it.o.position.set((k - (n - 1) / 2) * GAP, 0, back ? -2.4 : 0); it.o.rotation.y = Math.PI + TURN + (k - (n - 1) / 2) * 0.06; }
+  cam.fov = ph ? 44 : 30; if (ph) { cam.position.set(0, 3.4, 5.6); cam.lookAt(0, 0.2, -1.1); } else { if (ONLY) { for (const it of items) it.o.position.set(0, 0, 0); cam.position.set(0, 0.6, 1.6); cam.lookAt(0, 0.36, 0); } else { cam.position.set(0, 0.85, NEAR ? 3.0 : 5.2); cam.lookAt(0, 0.3, 0); } } cam.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+const v = new THREE.Vector3(), clock = new THREE.Clock();
+renderer.setAnimationLoop(() => { const dt = clock.getDelta(); for (const it of items) { it.mx.update(dt); v.copy(it.o.position); v.y = -0.02; v.project(cam);
+  it.el.style.left = ((v.x + 1) / 2 * innerWidth) + "px"; it.el.style.top = ((1 - v.y) / 2 * innerHeight + 6) + "px"; }
+  renderer.render(scene, cam); window.__ready = true; });
+window.__G = G; window.__THREE = THREE;
+</script>

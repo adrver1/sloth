@@ -5,11 +5,14 @@
 // The settings: set (this visit's values), loadSettings(), saved() (the JSON to store: the URL's one-visit overrides left out)
 // and own(key) (the viewer changed key, so it is stored from now on).
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): LEVEL and the bus gains are the knobs.
+// The page's own parts come in through `hooks`, so the Summit Cabin (summit/audio.js) shares this engine and the music
+// without the camp's core: stored() (the saved settings' JSON), sound and station (the URL's one-visit ?sound= and
+// ?station=), beds() (the page's nature beds, started with the graph) and started() (after the first tap). camp/audio.js
+// sets them for the camp before initAudio.
 import * as THREE from "three";
-import { KEYS, OPT, store } from "../core.js";
-import { startBeds } from "./sfx.js";
 import { musicTick, routeMusic } from "./music.js";
-import { keep } from "../audio.js";
+
+const hooks = { stored: () => null, sound: true, station: null, beds: () => {}, started: () => {} };
 
 const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix: music sits well under the camp
 const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
@@ -19,10 +22,10 @@ const set = { volume: 0.8, muted: false, music: true, musicVolume: 0.5, station:
 // link does not leave later visits muted (review R2-056). A setting the viewer changes on the page is theirs again (own).
 const urlOnly = {};
 function loadSettings() {
-  Object.assign(set, (() => { try { return JSON.parse(store.get(KEYS.audio) || "{}"); } catch { return {}; } })());
+  Object.assign(set, (() => { try { return JSON.parse(hooks.stored() || "{}"); } catch { return {}; } })());
   if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
-  if (!OPT.sound) { urlOnly.muted = set.muted; set.muted = true; }
-  if (STATIONS.some((s) => s.id === OPT.station)) { urlOnly.station = set.station; set.station = OPT.station; }
+  if (!hooks.sound) { urlOnly.muted = set.muted; set.muted = true; }
+  if (STATIONS.some((s) => s.id === hooks.station)) { urlOnly.station = set.station; set.station = hooks.station; }
 }
 const own = (key) => { delete urlOnly[key]; };
 const saved = () => JSON.stringify({ ...set, ...urlOnly });
@@ -45,7 +48,7 @@ function boot() {
   // the radio's sound: music goes through a small speaker (a band-pass) when it comes from the radio
   bus.musicOut = ac.createGain(); bus.music.disconnect(); bus.music.connect(bus.musicOut); bus.musicOut.connect(master);
   NOISE = noiseBuf(2, "white"); BROWN = noiseBuf(4, "brown"); CRICKET = cricketBuf();
-  applyGain(true); startBeds(); return true;
+  applyGain(true); hooks.beds(); return true;
 }
 function noiseBuf(sec, kind) {
   const n = Math.floor(ac.sampleRate * sec), b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0); let last = 0;
@@ -100,7 +103,7 @@ function unlock() {
 function start() {
   if (!boot()) return false;
   if ((ac.state !== "running" || kick) && !set.muted) { kick = false; unlock(); ac.resume().catch(() => {}); }
-  if (!started) { started = true; routeMusic(); setInterval(musicTick, 100); keep(); }   // music keeps time even when frames drop
+  if (!started) { started = true; routeMusic(); setInterval(musicTick, 100); hooks.started(); }   // music keeps time even when frames drop
   return true;
 }
 // the "Tap for sound" pill (made by makeHint, which initAudio calls): shown if the sound still hasn't started after a tap
@@ -119,4 +122,4 @@ function makeHint() {
   document.body.append(hint);
 }
 
-export { ac, applyGain, BROWN, bus, comp, CRICKET, env, filt, gain, loadSettings, makeHint, noise, osc, own, pick, saved, set, showHint, spot, start, STATIONS, wake };
+export { ac, applyGain, BROWN, bus, comp, CRICKET, env, filt, gain, hooks, loadSettings, makeHint, noise, osc, own, pick, saved, set, showHint, spot, start, STATIONS, wake };

@@ -107,7 +107,7 @@ async function buildJeep() {
     }
   };
   jeepApi = {
-    node: jeep,
+    node: jeep, lod: far || null,   // lod: the far look, its own scene object (drive.js moves it with the jeep)
     doors: Object.entries(doors).map(([k, d]) => ({ k, o: d.o, toggle: () => (d.want = d.want ? 0 : d.open), get open() { return d.want !== 0; } })),   // for the highlight and its menu (jeepSeat.js, targets.js)
     open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
     isOpen: (w = "B") => !!doors[w] && Math.abs(doors[w].cur) > Math.abs(doors[w].open) * 0.8,
