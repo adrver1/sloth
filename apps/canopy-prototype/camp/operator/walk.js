@@ -4,11 +4,8 @@
 // Turning, stepping and the walker ahead are actor.js's (turnYaw, stepAlong, ahead), with his own rates.
 // Exports turnToward(yaw, dt, rate) (his turn, at most rate rad/s), yawToYou() (the yaw from him to the camera), wait(s, until), walkTo(to, { near }),
 // face(yaw), faceFire(), sitOn(seat), standUp().
-import { camera } from "../core.js";
+import { blockers, camera, groundAt, me } from "../stage.js";
 import { V, wrapPi, yawTo } from "../util.js";
-import { blockers } from "../campProps.js";
-import { me } from "../player.js";
-import { groundHeight as groundAt } from "../terrain.js";   // 0 across the camp floor
 import { cur, play, root } from "./model.js";
 import { RADIUS, op } from "./state.js";
 import { eachMover } from "../places.js";

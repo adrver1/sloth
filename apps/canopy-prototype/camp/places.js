@@ -27,8 +27,7 @@
 //   part of it (Sunny holds "log:0", you on that bench "log:0:left"); bedKey(i): the tent bed's two places, "bed:0" and
 //   "bed:1" (the operator lies along the whole bed as "bed:0"). Build these keys with seatKey and bedKey, never by hand.
 import * as THREE from "three";
-import { camera, scene } from "./core.js";
-import { SEATS, SEAT_SLOT } from "./layout.js";
+import { camera, scene, SEAT_SLOT, SEATS, toStage, toWorld } from "./stage.js";
 
 const claims = new Map(), hosts = new Map(), walkers = [], crowds = [];
 
@@ -55,13 +54,13 @@ function logSeats() {
   if (seatTable) return seatTable;
   const logs = SEATS.map((_, i) => seatLog(i)); if (logs.some((o) => !o)) return [];
   const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), things = scene.getObjectByName("SeatThings");
-  const thingsAt = things && new THREE.Box3().setFromObject(things).getCenter(new THREE.Vector3());
+  const thingsAt = things && toStage(new THREE.Box3().setFromObject(things).getCenter(new THREE.Vector3()));
   const toFire = (p) => Math.atan2(p.x, p.z);
   seatTable = logs.map((o, i) => {
     o.updateMatrixWorld(true);
-    const c = o.getWorldPosition(new THREE.Vector3()).setY(0), along = new THREE.Vector3(1, 0, 0).transformDirection(o.matrixWorld).setY(0).normalize();
-    const tops = [o, scene.getObjectByName(`SeatTop_${i}`)].filter(Boolean), boxTop = new THREE.Box3().setFromObject(o).max.y;
-    const onTop = (d) => { const p = c.clone().addScaledVector(along, d); ray.set(p.clone().setY(3), down); ray.far = 4; return p.setY(ray.intersectObjects(tops, true)[0]?.point.y ?? boxTop); };
+    const c = toStage(o.getWorldPosition(new THREE.Vector3())).setY(0), along = new THREE.Vector3(1, 0, 0).transformDirection(o.matrixWorld).setY(0).normalize();
+    const tops = [o, scene.getObjectByName(`SeatTop_${i}`)].filter(Boolean), boxTop = toStage(new THREE.Box3().setFromObject(o).max).y;
+    const onTop = (d) => { const p = c.clone().addScaledVector(along, d); ray.set(toWorld(p.clone().setY(3)), down); ray.far = 4; const h = ray.intersectObjects(tops, true)[0]; return p.setY(h ? toStage(h.point).y : boxTop); };
     const seat = { i, key: seatKey(i), o, c, along, slots: {}, ends: [] };
     seat.ends = [1, -1].map((sg, e) => ({ at: onTop(sg * SEAT_SLOT.bowl), key: seatKey(i, "end" + e), seat }));
     const you = c.clone().multiplyScalar(1 + SEAT_SLOT.back / c.length());
@@ -72,7 +71,7 @@ function logSeats() {
     seat.slots.you = { at: you, yaw: toFire(you), key: i === 0 ? seatKey(0, "left") : seatKey(i), who: "player" };
     if (i > 0) {   // the operator's end: the first log's -along end, the second's +along, or away from the things on the log
       let side = i === 1 ? -1 : 1;
-      if (thingsAt && thingsAt.distanceTo(o.getWorldPosition(new THREE.Vector3())) < 1.2) side = thingsAt.clone().sub(c).dot(along) > 0 ? -1 : 1;
+      if (thingsAt && thingsAt.distanceTo(toStage(o.getWorldPosition(new THREE.Vector3()))) < 1.2) side = thingsAt.clone().sub(c).dot(along) > 0 ? -1 : 1;
       seat.slots.op = { at: onTop(side * SEAT_SLOT.op), yaw: toFire(c), key: seatKey(i), who: "operator", end: side > 0 ? 0 : 1 };
     }
     return seat;

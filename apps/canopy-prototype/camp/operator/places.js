@@ -4,11 +4,8 @@
 // Exports SEATS, BED (null until findPlaces has found the tent), findPlaces(), fireGap(from), crateFront() (where he stands
 // at the kitchen crate), freeOf(p, r), freeSeat(), claimPlace(key) and releasePlace() (named apart from camp/places.js claim and release, which take a place and who).
 import * as THREE from "three";
-import { scene } from "../core.js";
-import { CRATE, SEAT_GAPS, TENT } from "../layout.js";
+import { blockers, CRATE, me, scene, SEAT_GAPS, TENT, toStage, toWorld } from "../stage.js";
 import { V } from "../util.js";
-import { blockers } from "../campProps.js";
-import { me } from "../player.js";
 import { root } from "./model.js";
 import { ME, RADIUS, op } from "./state.js";
 import { bedKey, claim, holder, logSeats, release, taken } from "../places.js";
@@ -23,8 +20,8 @@ function findPlaces() {
   const tent = scene.getObjectByName("Tent");
   if (tent) {   // the bed along the tent's left wall (build_camp.py wall_tent: bed at (-W + 0.48, yb - 1.01), head toward +y; layout.js TENT.bed)
     const at = TENT.fromLocal, [bx, by] = TENT.bed;   // the tent's own frame: x across, y toward the back
-    const c = at(bx, by); ray.set(V(c.x, 3, c.z), DOWN); ray.far = 4;
-    const hits = ray.intersectObject(tent, true).filter((h) => h.point.y < 0.8 && h.point.y > 0.2), top = hits[0]?.point.y ?? 0.45;
+    const c = at(bx, by); ray.set(toWorld(V(c.x, 3, c.z)), DOWN); ray.far = 4;
+    const hits = ray.intersectObject(tent, true).map((h) => toStage(h.point).y).filter((y) => y < 0.8 && y > 0.2), top = hits[0] ?? 0.45;
     const head = at(bx, 1.2).sub(at(bx, 0)).normalize();
     BED = { key: bedKey(0), c: c.setY(top), head, side: at(-0.28, 0.35), door: at(0, -1.7), inside: at(0, -0.45), across: at(1, 0).sub(at(0, 0)).normalize() };
   }

@@ -7,7 +7,7 @@
 //   stopSmore(s)          puts the stick away (it leaves its seat, or is borrowed)
 // The wait until the next one draws from the sloths' day stream (core.js rng("slothDay")) as it happens.
 import * as THREE from "three";
-import { rng, scene } from "../core.js";
+import { rng, scene, toStage } from "../stage.js";
 const { R } = rng("slothDay");
 import { V } from "../util.js";
 import { play, playOnce } from "./clips.js";
@@ -30,7 +30,7 @@ function smoreStep(s, dt) {
   if (!s.smore) { s.smoreT -= dt; if (s.smoreT < 0 && act.time < 0.3 && !s.dozing) s.smore = { hold: 0 }; else return; }
   const sm = s.smore;
   if (act.time >= 3.9 && sm.hold < 9) { act.timeScale = 0; sm.hold += dt; sm.held = true; } else act.timeScale = 1;
-  pawOf(s, paw);
+  toStage(pawOf(s, paw));
   const to = FIRE_AT.clone().sub(paw), L = Math.max(0.3, Math.min(1.15, to.length() - 0.7));
   smoreStick.position.copy(paw); smoreStick.quaternion.setFromUnitVectors(UP, to.normalize()); smoreStick.scale.set(1, L, 1);
   mallow.position.copy(paw).addScaledVector(to, L - 0.03); mallow.quaternion.copy(smoreStick.quaternion);

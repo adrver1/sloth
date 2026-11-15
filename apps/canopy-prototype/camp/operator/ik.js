@@ -7,14 +7,15 @@
 import * as THREE from "three";
 import { V } from "../util.js";
 import { aimBone } from "../actor.js";
+import { toStage } from "../stage.js";
 
 const Y = V(0, 1, 0);                                  // a bone points along its own +Y
 // scratch, so a reach or a hand pose allocates nothing (review R2-019); the arguments are only read
 const vs = V(), ve = V(), vh = V(), vg = V(), vd = V(), vp = V(), vu = V();
-export function reach(B, side, target, pole, w = 1) {   // two-bone reach: put the wrist at world target, the elbow toward pole
+export function reach(B, side, target, pole, w = 1) {   // two-bone reach: put the wrist at target (in the stage's frame, stage.js), the elbow toward pole
   if (w <= 0) return;
   const up = B["upper_arm" + side], fo = B["forearm" + side], ha = B["hand" + side];
-  const s = up.getWorldPosition(vs), e = fo.getWorldPosition(ve), h = ha.getWorldPosition(vh);
+  const s = toStage(up.getWorldPosition(vs)), e = toStage(fo.getWorldPosition(ve)), h = toStage(ha.getWorldPosition(vh));
   const l1 = s.distanceTo(e), l2 = e.distanceTo(h);
   const goal = vg.copy(h).lerp(target, w), d = Math.min(Math.max(s.distanceTo(goal), 0.05), l1 + l2 - 0.002);
   const dir = vd.copy(goal).sub(s).normalize(), perp = vp.copy(pole).addScaledVector(dir, -pole.dot(dir)).normalize();

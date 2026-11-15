@@ -10,7 +10,7 @@
 //   fxStep(dt)                       moves and fades them each frame and takes the finished ones out (main.js); a finished
 //                                    sprite's material is disposed (its texture too when it is not kept), a mesh is only taken out
 import * as THREE from "three";
-import { rng, scene } from "./core.js";
+import { rng, scene } from "./stage.js";
 const { R } = rng("fx");
 import { V, canvasTex, ease } from "./util.js";
 

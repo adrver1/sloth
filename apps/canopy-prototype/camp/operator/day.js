@@ -6,13 +6,10 @@
 // Exports lifeStep(dt) (step.js, each frame; an error in an activity is logged and his day starts again) and jumpTo(kind)
 // (the checks, opChecks.jump: stop what he is doing cleanly, start that activity now, then carry on).
 import * as THREE from "three";
-import { LIVED, rng, scene, uNight } from "../core.js";
+import { chores, CRATE, LIVED, me, RC, rng, scene, SOUP_POT, toStage, uNight } from "../stage.js";
 const { R } = rng("operator");
-import { CRATE, RC, SOUP_POT } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
 import { ringPoint } from "../actor.js";
-import { acts as chores } from "../chores.js";   // your chores (activities.js): he cooks only when the pot and the pail are free
-import { me } from "../player.js";
 import { giveBack, cuddleSeated, host, napTogether, pickUp, putDown, unhost } from "./buddy.js";
 import { cook } from "./cook.js";
 import { book, bowl, dropAll, hold, mug, spoon } from "./handProps.js";
@@ -127,11 +124,11 @@ const DO = {
   },
   *play() {                                            // borrow a sloth that's about on the ground and play with it
     const L = slothLife; if (!L) return;
-    const s = (L.sloths || []).filter((q) => q.o && q.o.getWorldPosition(tmp).y < 0.6 && Math.hypot(tmp.x, tmp.z) < RC - 1)
-      .map((q) => [q, q.o.getWorldPosition(tmp).distanceTo(root.position) * R(0.5, 1.5) + (q.trip?.phase === "home" ? 3 : 0)]).sort((a, b) => a[1] - b[1]).map(([q]) => q).find((q) => L.lend(q, ME));   // nearest-ish, the ones out and about first
+    const s = (L.sloths || []).filter((q) => q.o && toStage(q.o.getWorldPosition(tmp)).y < 0.6 && Math.hypot(tmp.x, tmp.z) < RC - 1)
+      .map((q) => [q, toStage(q.o.getWorldPosition(tmp)).distanceTo(root.position) * R(0.5, 1.5) + (q.trip?.phase === "home" ? 3 : 0)]).sort((a, b) => a[1] - b[1]).map(([q]) => q).find((q) => L.lend(q, ME));   // nearest-ish, the ones out and about first
     if (!s) return;
     op.buddy = s; op.happy = true;
-    const at = s.o.getWorldPosition(V()), d = at.clone().sub(root.position).setY(0);
+    const at = toStage(s.o.getWorldPosition(V())), d = at.clone().sub(root.position).setY(0);
     yield* walkTo(at.clone().addScaledVector(d.normalize(), -0.55));
     yield* face(yawTo(at.clone().sub(root.position)));
     for (const [clip, slothClip, T] of [["play_titanic", "titanic", R(8, 12)], ["play_airplane", "titanic", R(6, 9)]]) {

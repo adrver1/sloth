@@ -4,7 +4,7 @@
 //   lend(s, who, opt)       who takes s; false when it can't be borrowed now. It gives up its place at the table, its card
 //                           game, its s'more and its home claim, and wakes (opt.asleep: it sleeps on in his arms)
 //   giveBack(s, at, yaw)    s is put down at `at` (its y is the ground there, 0 if it has none), facing yaw, and sits there a moment before going home
-import { rng, scene } from "../core.js";
+import { rng, scene } from "../stage.js";
 const { R } = rng("slothDay");
 import { release } from "../places.js";
 import { LENDABLE, camp, setTrip } from "./state.js";

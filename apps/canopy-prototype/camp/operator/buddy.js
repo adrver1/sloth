@@ -3,12 +3,9 @@
 // him at a place he holds (camp/sloths.js: a sloth that comes there calls life.join, which asks his host).
 // Exports pickUp(clip, slothClip), putDown(), giveBack(at = clearSpot(), yaw = facing him), clearSpot(), cuddleSeated(), napTogether(), host(key), unhost().
 import * as THREE from "three";
-import { rng, scene } from "../core.js";
+import { blockers, groundAt, RC, rng, scene, toStage, toWorld } from "../stage.js";
 const { R } = rng("operator");
-import { RC } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
-import { blockers } from "../campProps.js";
-import { groundHeight as groundAt } from "../terrain.js";
 import { dropAll } from "./handProps.js";
 import { B, UP, body, cs, play, root } from "./model.js";
 import { BED } from "./places.js";
@@ -23,7 +20,7 @@ function* lift(s, bone, local, quat, dur = 0.5) {      // move the sloth from wh
   scene.attach(s.o); const p0 = s.o.position.clone(), q0 = s.o.quaternion.clone();
   for (let t = 0; t < dur;) {
     t += yield; const e = ease(Math.min(1, t / dur));
-    body.updateMatrixWorld(true); const wp = bone.localToWorld(local.clone()), wq = bone.getWorldQuaternion(new THREE.Quaternion()).multiply(quat);
+    body.updateMatrixWorld(true); const wp = toStage(bone.localToWorld(local.clone())), wq = bone.getWorldQuaternion(new THREE.Quaternion()).multiply(quat);
     s.o.position.lerpVectors(p0, wp, e); s.o.position.y += Math.sin(e * Math.PI) * 0.12; s.o.quaternion.slerpQuaternions(q0, wq, e);
   }
   bone.add(s.o); s.o.position.copy(local); s.o.quaternion.copy(quat);
@@ -49,11 +46,11 @@ const facing = (p) => yawTo(root.position.clone().sub(p)) + Math.PI;   // the ya
 // log seats, the table, the fire and the rest (campProps blockers), never inside one (Adriaen: it was dropped through a bench)
 function clearSpot() {
   for (const d of [0.55, 0.75, 0.95]) for (const a of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, 2.3, -2.3, Math.PI]) {
-    const p = root.localToWorld(V(Math.sin(a) * d, 0, -Math.cos(a) * d)); p.y = 0;
+    const p = toStage(root.localToWorld(V(Math.sin(a) * d, 0, -Math.cos(a) * d))); p.y = 0;
     if (Math.hypot(p.x, p.z) > RC - 1) continue;
     if (blockers.every((b) => Math.hypot(p.x - b.at.x, p.z - b.at.z) > b.r + 0.22)) return p;
   }
-  return root.localToWorld(V(0.1, 0, -0.55));
+  return toStage(root.localToWorld(V(0.1, 0, -0.55)));
 }
 function* putDown() {                                   // set it down in front of him, facing him, and let it go
   if (!op.buddy || !op.carry) return; const c = op.carry, to = clearSpot(); to.y = groundAt(to.x, to.z);
@@ -65,7 +62,7 @@ function* cuddleSeated() {                             // a sloth joined him on 
   const s = op.buddy; dropAll(); op.happy = true; play("seated_idle", 0.4);
   const lap = cs(0, 0.52, -0.22), q = new THREE.Quaternion();   // the sloth faces the fire with him
   slothPose(s, "idle"); s.cuddled = true;
-  yield* lift(s, B.hips, B.hips.worldToLocal(lap.clone()), B.hips.getWorldQuaternion(q).invert().multiply(root.getWorldQuaternion(new THREE.Quaternion())), 0.8);
+  yield* lift(s, B.hips, B.hips.worldToLocal(toWorld(lap.clone())), B.hips.getWorldQuaternion(q).invert().multiply(root.getWorldQuaternion(new THREE.Quaternion())), 0.8);
   op.ik = { hug: 0 };
   for (let t = 0, T = R(20, 35); t < T;) { t += yield; op.ik.hug = Math.min(1, t / 1, (T - t) / 1); op.look = -0.35 - 0.1 * Math.sin(t * 0.8); }
   op.ik = null; op.look = 0; giveBack();

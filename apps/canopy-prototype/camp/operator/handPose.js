@@ -4,8 +4,7 @@
 // for food you give him. Each block reads the state and places bones and props; the order is the order they were always in.
 // Exports poseHands(dt) (step.js, each frame).
 import * as THREE from "three";
-import { uTime } from "../core.js";
-import { SOUP_POT } from "../layout.js";
+import { SOUP_POT, toStage, uTime } from "../stage.js";
 import { V, ease } from "../util.js";
 import { book, bowl, mug, pail, spoon, stick, veg } from "./handProps.js";
 import { THUMB, handQuat } from "./ik.js";
@@ -21,12 +20,12 @@ const va = V(), vb = V(), vAt = V(), vT = V(), vPole = V(), vX = V(), vF = V(), 
 function poseHands(dt) {
   if (op.carry) {                                      // a sloth in his hands: its armpits where the clip puts his hands, his hands under its arms
     const c = op.carry, sl = c.s.o;                    // c.arms: its two upper-arm bones, found once in buddy.js pickUp
-    const hm = B.handL.getWorldPosition(va).add(B.handR.getWorldPosition(vb)).multiplyScalar(0.5);
-    sl.updateMatrixWorld(true); const pL = c.arms[0].getWorldPosition(vP), pR = c.arms[1].getWorldPosition(vF);
+    const hm = toStage(B.handL.getWorldPosition(va)).add(toStage(B.handR.getWorldPosition(vb))).multiplyScalar(0.5);
+    sl.updateMatrixWorld(true); const pL = toStage(c.arms[0].getWorldPosition(vP)), pR = toStage(c.arms[1].getWorldPosition(vF));
     const off = vD.copy(pL).add(pR).multiplyScalar(0.5).sub(sl.position);
     const high = cur === clips.play_airplane, want = hm.addScaledVector(UP, high ? 0.12 : -0.13).addScaledVector(csDir(0, 0, -1, vX), high ? 0.05 : 0.12).sub(off);   // held out in front, its head below his chin (up overhead when it flies)
     sl.position.lerpVectors(c.from, want, c.k); sl.position.y += Math.sin(c.k * Math.PI) * 0.1; sl.quaternion.slerpQuaternions(c.q0, root.quaternion, c.k);
-    sl.updateMatrixWorld(true); c.arms[0].getWorldPosition(pL); c.arms[1].getWorldPosition(pR);
+    sl.updateMatrixWorld(true); toStage(c.arms[0].getWorldPosition(pL)); toStage(c.arms[1].getWorldPosition(pR));
     const side = vS.copy(pR).sub(pL).normalize();
     reach("R", pR.addScaledVector(side, 0.03).addScaledVector(UP, -0.035), csDir(1, -0.8, 0.4, vPole), c.k);
     reach("L", pL.addScaledVector(side, -0.03).addScaledVector(UP, -0.035), csDir(-1, -0.8, 0.4, vPole), c.k);
@@ -43,12 +42,12 @@ function poseHands(dt) {
     // a hand behind each half at its lower outer corner, palm flat on the cover, fingers up and in along its back
     const e = ease(k.book), bq = book.getWorldQuaternion(qb), bd = (x, y, z, out) => out.set(x, y, z).applyQuaternion(bq);
     for (const [sd, S] of [[1, "R"], [-1, "L"]]) {
-      reach(S, vT.set(sd * 0.11, -0.09, 0).applyMatrix4(book.matrixWorld), csDir(sd, -1, 0.2, vPole), e);
+      reach(S, toStage(vT.set(sd * 0.11, -0.09, 0).applyMatrix4(book.matrixWorld)), csDir(sd, -1, 0.2, vPole), e);
       turnHand(S, handQuat(S, bd(-sd * 0.45, 1, 0, vF), bd(-sd * 0.3, 0, 1, vP), qH), e);
     }
   }
   if (k?.hug > 0 && op.buddy) {                        // his arms round the sloth on his lap (or on his chest)
-    const b = op.buddy.o, c = b.getWorldPosition(vAt).addScaledVector(vUp.set(0, 1, 0).applyQuaternion(b.getWorldQuaternion(tq)), 0.09 * (op.buddy.sc || 2)), side = csDir(1, 0, 0, vS), fr = csDir(0, 0, -1, vFr);
+    const b = op.buddy.o, c = toStage(b.getWorldPosition(vAt)).addScaledVector(vUp.set(0, 1, 0).applyQuaternion(b.getWorldQuaternion(tq)), 0.09 * (op.buddy.sc || 2)), side = csDir(1, 0, 0, vS), fr = csDir(0, 0, -1, vFr);
     reach("R", vT.copy(c).addScaledVector(side, 0.12).addScaledVector(fr, 0.05), csDir(1, -0.5, 0.4, vPole), k.hug);
     reach("L", vT.copy(c).addScaledVector(side, -0.12).addScaledVector(fr, 0.05), csDir(-1, -0.5, 0.4, vPole), k.hug);
   }
@@ -56,7 +55,7 @@ function poseHands(dt) {
     const breathe = Math.sin(uTime.value * 1.3) * 0.008;
     reach("R", cs(0.05, 1.0, -0.17 - breathe, vT), csDir(1, 0, -0.2, vPole), 1); reach("L", cs(-0.05, 1.02, -0.17 - breathe, vT), csDir(-1, 0, -0.2, vPole), 1);
     if (k.nap > 0 && op.buddy) {
-      const sd = csDir(1, 0, 0, vX).dot(BED.across) > 0 ? "R" : "L", sl = op.buddy.o.getWorldPosition(vAt), sc = op.buddy.sc || 2;
+      const sd = csDir(1, 0, 0, vX).dot(BED.across) > 0 ? "R" : "L", sl = toStage(op.buddy.o.getWorldPosition(vAt)), sc = op.buddy.sc || 2;
       reach(sd, sl.addScaledVector(BED.across, 0.06 * sc).addScaledVector(UP, 0.13 * sc), vPole.copy(UP).addScaledVector(BED.across, 0.5), k.nap);
     }
     B.chest.rotateX(breathe * 4);
@@ -71,7 +70,7 @@ function poseHands(dt) {
     const ph = (e.t % 4) / 4, sm = (a, b) => THREE.MathUtils.smoothstep(ph, a, b), up = e.spoon * (sm(0.3, 0.5) - sm(0.62, 0.82));
     // the spoon held overhand like a pencil, between thumb and index: its tip in the soup, then at his lips, the hollow kept level
     const tipDip = vTip.copy(at).addScaledVector(csDir(1, 0, 0, vX), 0.03).addScaledVector(UP, 0.045 - 0.02 * Math.sin(Math.min(1, ph / 0.3) * Math.PI));
-    const lips = B.head.getWorldPosition(vLips).addScaledVector(csDir(0, 0, -1, vX), 0.13).addScaledVector(csDir(1, 0, 0, vX), 0.01).addScaledVector(UP, -0.09);
+    const lips = toStage(B.head.getWorldPosition(vLips)).addScaledVector(csDir(0, 0, -1, vX), 0.13).addScaledVector(csDir(1, 0, 0, vX), 0.01).addScaledVector(UP, -0.09);
     const d = csDir(-0.5, -0.75, -0.45, vD).normalize().lerp(csDir(-0.7, 0.1, 0.7, vX).normalize(), up).normalize();   // grip to tip
     const q = handQuat("R", vF.copy(d).add(csDir(0, 0.6, -0.4, vX).multiplyScalar(1 - up)).addScaledVector(UP, 0.25 * up).normalize(),   // fingers over the bowl, the spoon angled down from them
        csDir(-0.4, -1, 0, vP).lerp(csDir(-0.3, -0.6, 0.6, vX), up), qR), thumb = vTh.copy(THUMB.R).applyQuaternion(q), fR = vFR.copy(UP).applyQuaternion(q);
@@ -100,7 +99,7 @@ function poseHands(dt) {
   // cooking: the pail hangs by its bail from his right hand (held out and tipped over the pot to pour); the long spoon goes
   // from his hand into the pot, stirring round; a vegetable sits in his right hand
   if (op.pail) {
-    const P = op.pail, hang = B.handR.getWorldPosition(vAt).add(vX.set(0, -0.34, 0).applyQuaternion(root.quaternion));
+    const P = op.pail, hang = toStage(B.handR.getWorldPosition(vAt)).add(vX.set(0, -0.34, 0).applyQuaternion(root.quaternion));
     pail.quaternion.copy(root.quaternion).multiply(qc.setFromAxisAngle(X, -1.25 * P.tilt));   // pouring: its mouth tipped toward the pot
     if (P.tilt > 0) {   // held out over the pot's near rim, his hand on the bail
       const pot = SOUP_POT.at, over = vO.copy(pot).add(vX.set(root.position.x - pot.x, 0, root.position.z - pot.z).setLength(0.24)).setY(pot.y + 0.12);
@@ -111,7 +110,7 @@ function poseHands(dt) {
   if (op.stir) {
     const S = op.stir, pot = SOUP_POT.at, a = S.t * 2.2, tip = vTip.copy(pot).add(vX.set(Math.cos(a) * 0.06, -0.02, Math.sin(a) * 0.06));
     reach("R", cs(0.1 + Math.cos(a) * 0.03, 1.2, -0.42 + Math.sin(a) * 0.025, vT), csDir(1, -0.6, 0.2, vPole), S.k);
-    const g = B.handR.getWorldPosition(vG), d = tip.sub(g); stick.position.copy(g); stick.scale.set(1, d.length() + 0.06, 1); stick.quaternion.setFromUnitVectors(UP, d.normalize());
+    const g = toStage(B.handR.getWorldPosition(vG)), d = tip.sub(g); stick.position.copy(g); stick.scale.set(1, d.length() + 0.06, 1); stick.quaternion.setFromUnitVectors(UP, d.normalize());
   }
   if (op.veg) palmAt("R", veg.position);
   // food you gave him (talk.js gift; Adriaen 2026-11-13: "they eat without hands"): his free hand comes out to take it, then

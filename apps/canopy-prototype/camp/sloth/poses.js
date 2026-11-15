@@ -20,9 +20,8 @@
 //   linePose(s, t, into)              hanging under the laundry line at fraction t from its end a (pose.at: the point on the line)
 //   postPose(spot, y, into)           upright on the spot's post (the hammock's or the line's) at height y
 import * as THREE from "three";
-import { heroWood, trunkR } from "../forest.js";
+import { HAMMOCK, HERO, heroWood, LAUNDRY, trunkR } from "../stage.js";
 import { V, yawTo } from "../util.js";
-import { HAMMOCK, HERO, LAUNDRY } from "../layout.js";
 
 const UP = V(0, 1, 0), m4 = new THREE.Matrix4(), LL = LAUNDRY, LL_L = LL.a.distanceTo(LL.b);
 const newPose = () => ({ p: V(), q: new THREE.Quaternion(), at: V(), dir: V() });

@@ -12,11 +12,9 @@
 // onto the rope or the line and along it, and the settle into the spot, growing or shrinking to its size there (spots.js
 // sizeIn: the spot's size times the sloth's own factor s.k).
 // The times to the next errand and the next nap draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
-import { jeepApi } from "../jeep.js";
-import { rng } from "../core.js";
+import { HAMMOCK, jeepApi, LAUNDRY, rng } from "../stage.js";
 const { R } = rng("slothDay");
 import { yawFrom } from "../util.js";
-import { HAMMOCK, LAUNDRY } from "../layout.js";
 import { HW, HW_POST, setTrip } from "./state.js";
 import { clipOf, play } from "./clips.js";
 import { UP, barkOf, linePose, postPose, ropeLen, ropePose, trunkAt, underAt, yawQ } from "./poses.js";

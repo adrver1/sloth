@@ -1,9 +1,10 @@
-// Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, the named seeded random streams (rng), every download
+// Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, every download
 // started at once (PRE, camp review P2) and the look's settings S (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { fetchBytes, initKtx, lightDir, loadLightMap } from "../bakedlight.js";
 import { SUN } from "./layout.js";
+import { pace, rng, uNight, uTime } from "./stage.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
 // camp.html?name=value. "saved" is the ⚙️ menu's choice, kept per viewer in localStorage under KEYS.
@@ -11,7 +12,7 @@ import { SUN } from "./layout.js";
 //   detail   low | medium | high           saved, else medium                core.js (D: counts, effects, resolution), main.js (DETAIL)
 //   lm       2k | 1k | 4k (4k: local only) saved, else 1k on phones, 2k     core.js (the light maps)
 //   jeep     expedition | none             expedition                        forest.js, terrain.js, jeep.js, campGround.js (JEEP)
-//   seed     a number                      7                                 core.js rng (every named stream), forest.js (its own start)
+//   seed     a number                      7                                 stage.js rng (every named stream), forest.js (its own start)
 //   lived    1 | 0                         1                                 core.js, campProps.js, chores.js, sloth/spots.js, operator/day.js and cook.js, debug.js (LIVED)
 //   op       1 | 0                         1                                 core.js (the operator's downloads), operator.js and operator/step.js (0 leaves him out)
 //   weather  clear | rain | changing       saved, else clear                 weather.js (checks it against its modes)
@@ -105,23 +106,8 @@ function wireSettings() {
   $("lm").onclick = () => { store.set(KEYS.lm, LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 }
 
-// seeded random, so every visit grows the same tree and hides sloths in the same spots. Each system draws from its own named
-// stream (rng("forest"), rng("sloths"), ...), seeded from ?seed and the name, so one system drawing more or less, or earlier,
-// never moves another's numbers. The same name always hands back the same stream, so the sloth modules share two:
-// "sloths" for where they are placed and "slothDay" for what they do once the camp runs.
-// start: the stream's own start instead of one mixed from ?seed and the name (forest.js keeps the start its layout was baked with)
-const streams = new Map();
-function rng(name, start) {
-  let st = streams.get(name);
-  if (st) return st;
-  let seed = OPT.seed | 0;
-  if (start !== undefined) seed = start | 0;
-  else for (let i = 0; i < name.length; i++) seed = Math.imul(seed ^ name.charCodeAt(i), 0x01000193);   // FNV-style mix of the name into the seed
-  const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };   // mulberry32
-  st = { rnd, R: (a, b) => a + rnd() * (b - a) };
-  streams.set(name, st);
-  return st;
-}
+// the named seeded streams (rng), the shader clock, the night and the pace are made in stage.js, the same for every level the
+// cast lives in (rng is seeded from ?seed there too); core.js hands them on to the camp's modules
 
 // ---------------------------------------------------------------- the look's settings (Mossy real)
 const S = { sky: ["#dfe9d2", "#a9c39a", "#5d7d58"], fog: [0x9fb592, 0.055], bark: [0x5b4636, 0x3a2c22], moss: 0x6f8f3a, mossAmt: 0.75,
@@ -170,11 +156,6 @@ const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 80);
 const hemi = new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]); scene.add(hemi);   // the sky light; daylight.js dims and tints it by the hour
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
-const uTime = { value: 0 };
-const uNight = { value: 0 };   // how far the night is in (0 day .. 1 rested; main.js sets it from the dusk): the baked night light, the ground, the operator's mood (R2-129)
-// the camp's pace: fast runs the sloths' day and the jeep seats that many times as fast (unset: 1). The move lab (lab.js) sets it,
-// and the tools through window.__campFast (debug.js)
-const pace = { fast: undefined };
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
 // a base64 model (or the .glb where the host serves binary files, fetchBytes): a download that fails (a 404, a server error)

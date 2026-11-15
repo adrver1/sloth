@@ -8,8 +8,7 @@
 //   fixStep(s, T, sd)      the fix phase, each frame
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { jeepApi } from "../jeep.js";
-import { scene } from "../core.js";
+import { jeepApi, scene, toStage } from "../stage.js";
 import { V } from "../util.js";
 import { release } from "../places.js";
 import { setTrip } from "./state.js";
@@ -39,7 +38,7 @@ function fixStep(s, T, sd) {
   else if (T.st === "reach") { if (s.act.time > 1.5) { T.st = "work"; T.t = 0; s.act.paused = true; } }
   else if (T.st === "work") {                      // the paw dips and turns at the engine, now and then a look at its work
     s.act.time = 1.85 + 0.28 * Math.sin(T.t * 3.2) * (0.6 + 0.4 * Math.sin(T.t * 0.7));
-    if (T.t > 0.3) { spanner.visible = true; pawOf(s, paw); spanner.position.copy(paw); spanner.quaternion.copy(s.arm[1].getWorldQuaternion(qPaw)); spanner.scale.setScalar(s.sc / 2.4); }
+    if (T.t > 0.3) { spanner.visible = true; spanner.position.copy(toStage(pawOf(s, paw))); spanner.quaternion.copy(s.arm[1].getWorldQuaternion(qPaw)); spanner.scale.setScalar(s.sc / 2.4); }
     if (Math.sin(T.t * 0.9) > 0.97 && !s.nod) s.nod = 0.8;
     if (T.t > 14) { spanner.visible = false; s.act.paused = false; T.st = "down"; T.t = 0; play(s, "idle", 1); }
   } else if (T.st === "down") {

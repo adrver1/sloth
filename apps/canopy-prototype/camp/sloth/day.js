@@ -13,11 +13,9 @@
 //                               nearest sloth that is awake at its own home and doing nothing else comes over to eat it
 //                               (none comes if all are busy or asleep)
 // What it does next, where it wanders and how long it sits draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
-import { jeepApi } from "../jeep.js";
-import { rng, scene } from "../core.js";
+import { jeepApi, RC, rng, scene } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, yawFrom } from "../util.js";
-import { RC } from "../layout.js";
 import { bedKey, claim, holder, hosted, join, logSeats, taken } from "../places.js";
 import { CRAWL, MAX_OUT, camp, guests, setTrip } from "./state.js";
 import { moveBack, moveInto, releaseHome } from "./spots.js";

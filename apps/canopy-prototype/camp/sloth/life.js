@@ -5,7 +5,7 @@
 //   slothsStep(dt)     each frame, for every sloth (main.js): its clip, slothLife, the squish of a boop and a nod
 // Blinks draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
 import * as THREE from "three";
-import { camera, rng } from "../core.js";
+import { camera, rng, toStage } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { LIVELY, SL, sloths } from "./state.js";
@@ -31,7 +31,7 @@ const va = V(), vb = V(), vc = V(), wa = V(), wf = V(), camDir = V();
 // Done on the bones after the clip, so it works whatever it is doing (hanging, sitting, driving), except asleep or on the move.
 const GAZE_S = 3, WAVE_S = 4.6;
 function slothLife(s, dt) {                            // after the clip: fur by distance, blinks, a look at you when you're close, a wave
-  s.head.getWorldPosition(va); const d = va.distanceTo(camera.position);
+  toStage(s.head.getWorldPosition(va)); const d = va.distanceTo(camera.position);
   furStep(s, d);
   if (!s.asleep) {
     s.blink -= dt;

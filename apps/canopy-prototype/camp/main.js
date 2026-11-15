@@ -4,12 +4,14 @@
 // them in order. Each system draws from its own named random stream (core.js rng), so moving a step does not move the
 // trees or the sloths; a step only has to come after the steps whose parts it uses, as the comments say.
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
+import "./campStage.js";   // hands the camp to the cast (stage.js) before the cast's modules are imported
 import { doneLoading, stepLight } from "../bakedlight.js";
 import { $, DETAIL, OPT, camera, renderer, scene, uNight, uTime, wireSettings } from "./core.js";
 import { buildSky, skyStep } from "./sky.js";
-import { buildForest } from "./forest.js";
+import { buildForest, heroWood } from "./forest.js";
 import { buildProps, fireStep, LANTERNS, motesStep, poolsStep } from "./campProps.js";
-import { buildJeep, jeepStep } from "./jeep.js";
+import { buildJeep, jeepApi, jeepStep } from "./jeep.js";
+import { setStage } from "./stage.js";
 import { buildSloths, buildSlothPlaces, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
 import { fxStep } from "./fx.js";
@@ -52,6 +54,7 @@ buildSky();                            // sky.js: the backdrop, the domes, the m
 buildForest();                         // forest.js: the big trees, the forest wall, the ribbons on the floor, leaves, ferns
 await buildProps();                    // campProps.js: lanterns, fire, the baked props, the lived-in props, the laundry
 await buildJeep();                     // jeep.js (?jeep=none: nothing)
+setStage({ LANTERNS, heroWood, jeepApi });   // stage.js: what the cast uses of the props, the big trees and the jeep, now they are made
 // the characters: the sloths use the big trees' branches, the props and the jeep
 await buildSloths();                   // sloths.js: the sloth model's download, the wild sloths, then the camp's seven in their spots
 // the lived-in clearing, set down on the finished props and sloths in this order: the deadwood and the glade first, then the
@@ -63,6 +66,7 @@ doneLoading();                         // bakedlight.js: frees the KTX2 workers 
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
 buildChores();                         // chores.js: your activities (adds "Set the bowl down" to the log seats' targets, which buildLinger makes below)
+setStage({ chores: acts });            // stage.js: the operator joins in with them
 buildSlothPlaces();                    // sloths.js: the food places at the table and the crate, clear of every blocker added above
 await buildOperator();                 // operator.js: waits for his downloads (?op=0: nothing)
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add

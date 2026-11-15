@@ -3,7 +3,7 @@
 // him, blinks, eyes shut in his sleep, a smile, and the Z's over his head (one sprite).
 // Exports buildSleepZ() (operator.js, after the hand props) and poseHead(dt) (step.js, each frame, after his hands).
 import * as THREE from "three";
-import { camera, rng } from "../core.js";
+import { camera, rng, toStage } from "../stage.js";
 const { R } = rng("operator.face");   // its own stream: blinks and fidgets follow frame timing, so they must not move his day's picks (review R2-122)
 import { V, wrapPi } from "../util.js";
 import { aimBone, gazeStep, makeZ, watched, zAt } from "../actor.js";
@@ -23,7 +23,7 @@ function poseHead(dt) {
   // when you're near.
   const talking = op.talk.t > 0 || op.talk.smile > 1.5;
   if (!op.sleeping && !op.lying && (camD < 4 && op.look > -0.3 || talking && camD < 9)) {
-    const hp = B.head.getWorldPosition(vHp), to = vTo.copy(camera.position).sub(hp), f = csDir(0, 0, -1, vF).setY(0).normalize();
+    const hp = toStage(B.head.getWorldPosition(vHp)), to = vTo.copy(camera.position).sub(hp), f = csDir(0, 0, -1, vF).setY(0).normalize();
     let a = Math.atan2(to.x, to.z) - Math.atan2(f.x, f.z); a = wrapPi(a);
     const ok = Math.abs(a) < 2.1;
     op.anim.look = ok ? Math.min(1, op.anim.look + dt * 2) : Math.max(0, op.anim.look - dt * 2);

@@ -2,7 +2,7 @@
 // T.op beside operator.js opApi). No camp module imports this file: the tool loads it by path, so the camp never carries
 // these. With ?op=0, or before operator.js has built him, opApi is null and the tool leaves them alone.
 // Exports opChecks: one member per hook, each said on its own line below.
-import { camera } from "../core.js";
+import { camera } from "../stage.js";
 import { trisIn } from "../util.js";
 import { opApi } from "../operator.js";
 import { clearSpot } from "./buddy.js";

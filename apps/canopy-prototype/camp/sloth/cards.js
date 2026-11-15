@@ -13,7 +13,7 @@
 //   quitGame(s)               its game ends (it was borrowed: lend.js); the other one goes home
 // The game's length, the pauses and where a card lands draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
 import * as THREE from "three";
-import { rng, scene } from "../core.js";
+import { rng, scene, toStage } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, canvasTex } from "../util.js";
 import { claim, release, taken } from "../places.js";
@@ -45,7 +45,7 @@ function cardsSit(s, T) {
 }
 function cardsStep(s, T, sd) {
   const g = game, other = g?.players.find((q) => q !== s);
-  lpawOf(s, lpaw); s.hand.position.copy(lpaw).y += 0.05 * s.sc / 2; s.hand.quaternion.copy(s.o.quaternion).multiply(q0.setFromAxisAngle(V(1, 0, 0), 0.35)); s.hand.scale.setScalar(s.sc / 2);   // held up before it, faces toward it
+  toStage(lpawOf(s, lpaw)); s.hand.position.copy(lpaw).y += 0.05 * s.sc / 2; s.hand.quaternion.copy(s.o.quaternion).multiply(q0.setFromAxisAngle(V(1, 0, 0), 0.35)); s.hand.scale.setScalar(s.sc / 2);   // held up before it, faces toward it
   if (!g || g.over) {                               // the game's over: down off the table and home
     if (s.dozing) { wakeUp(s); s.yawn = 1e-3; }
     if (s.once) return;

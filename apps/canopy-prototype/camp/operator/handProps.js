@@ -5,7 +5,7 @@
 // Nothing is built when this module loads: operator.js calls buildHandProps after the model.
 // Exports the seven props, buildHandProps(), hold(prop), drop(prop) and dropAll() (everything down, his hands' state reset).
 import * as THREE from "three";
-import { scene } from "../core.js";
+import { scene } from "../stage.js";
 import { V, canvasTex, lam } from "../util.js";
 import { makePail } from "../pail.js";
 import { op, reset } from "./state.js";

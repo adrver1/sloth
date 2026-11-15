@@ -7,10 +7,9 @@
 // palmAt(side, out, d) (the points at his lips and in front of a palm, also for handPose.js), tapCol,
 // saying() (the bubble's text) and chestOnScreen() (where his chest is on screen, for the checks: opChecks.tapAt).
 import * as THREE from "three";
-import { camera, rng, scene } from "../core.js";
+import { camera, chores, rng, scene, toStage } from "../stage.js";
 const { R } = rng("operator");
 import { V, timers } from "../util.js";
-import { acts as chores } from "../chores.js";   // your chores (activities.js): the food in your hand
 import { addTarget } from "../targets.js";
 import { EV, on } from "../events.js";
 import { fx } from "../fx.js";
@@ -49,9 +48,9 @@ function buildTalk() {
 const saying = () => say.textContent;
 function talk() { speak(line()); }
 // food you hand him (camp activities: a vegetable or a bowl of soup): it flies to his mouth, he munches, then thanks you
-const mouthAt = (out) => B.head.getWorldPosition(out).addScaledVector(csDir(0, 0, -1, vM), 0.12).add(LIFT);
+const mouthAt = (out) => toStage(B.head.getWorldPosition(out)).addScaledVector(csDir(0, 0, -1, vM), 0.12).add(LIFT);
 // d m out from the palm of hand S ("R" or "L"), along the way the fingers point: where a thing he holds sits
-const palmAt = (S, out, d = 0.07) => B["hand" + S].getWorldPosition(out).addScaledVector(vU.set(0, 1, 0).applyQuaternion(B["hand" + S].getWorldQuaternion(tq)), d);
+const palmAt = (S, out, d = 0.07) => toStage(B["hand" + S].getWorldPosition(out)).addScaledVector(vU.set(0, 1, 0).applyQuaternion(B["hand" + S].getWorldQuaternion(tq)), d);
 // where his chest is on screen, in CSS pixels [x, y] (the checks, opChecks.tapAt): worked out when asked, not every frame
 const chestOnScreen = () => { const v = B.chest.getWorldPosition(V()).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
 // one gift at a time: while the last one is flying to him or at his lips the menu offers none (a second one overwrote the

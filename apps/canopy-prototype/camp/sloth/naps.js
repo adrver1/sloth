@@ -16,7 +16,7 @@
 //   hammockStep(dt)          the hammock's swing each frame (main.js), nudged harder for a while after its napper is booped;
 //                            it goes on while the lab is paused
 // Every length of a nap draws from the sloths' day stream (core.js rng("slothDay")) as it happens.
-import { OPT, rng } from "../core.js";
+import { OPT, rng } from "../stage.js";
 const { R } = rng("slothDay");
 import { makeZ, zAt } from "../actor.js";
 import { spots } from "./state.js";
