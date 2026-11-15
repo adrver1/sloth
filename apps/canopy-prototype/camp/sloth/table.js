@@ -1,6 +1,7 @@
 // Canopy Camp sloths, the food places (Adriaen 2026-11-12: "have them pick up the food item and eat it; crawl on top of the
-// table or reach into the crate", no words or emojis): a fruit lies at each place, on the table top or on the things in the
-// crate. A new fruit is put out a while after one is eaten. The fruit are camp/food.js's (mango, apple, banana, fig, lime:
+// table or reach into the crate", no words or emojis): a fruit lies at each place, on the table top or on what fills the
+// crate (the tins, or the plates on them: found by a ray down, so it never floats, Adriaen 2026-11-15). A new fruit is
+// put out a while after one is eaten. The fruit are camp/food.js's (mango, apple, banana, fig, lime:
 // 20 to 35 triangles each, one shared material), the same ones you carry and give.
 //   buildTable()        measures where the paw is at the grab of the two eat clips (sloths.js, in its place in the build order)
 //   buildPlaces()       makes the places and puts a fruit at each, drawing from the sloths' day stream (sloths.js
@@ -53,11 +54,13 @@ function edgeOf(obj, box, c, u, minY) {             // box: obj's bounding box i
   }
   return 0;
 }
-const topAt = (obj, p) => { ray.set(tmp.set(p.x, 3, p.z), DOWN); ray.far = 4; return ray.intersectObject(obj, true)[0]?.point.y ?? 0; };
+const topAt = (objs, p) => { ray.set(tmp.set(p.x, 3, p.z), DOWN); ray.far = 4; return ray.intersectObjects(objs, true)[0]?.point.y ?? 0; };   // the highest of objs (a list) under p
 // the places, made once in the build order (main.js, after the glade, the tent's walls and the chores have added their
 // blockers, since a place's ground point must be free on the sloths' grid). They used to be made on the first frame.
 function buildPlaces() {
   POIS = [];
+  const inCrate = ["KitchenCrate", "KitchenThings"].map((n) => scene.getObjectByName(n)).filter(Boolean);   // the crate (its tins) and the pan, plates and jar on them
+  for (const o of inCrate) o.updateWorldMatrix(true, false);   // stood in place (campProps.js stand) but not drawn yet, so the rays see them where they are
   for (const [name, obj, c, minY, n] of [["table", scene.getObjectByName("Table"), TABLE.at, 0.5, 2], ["crate", scene.getObjectByName("KitchenCrate"), CRATE.at, 0.15, 2]]) {
     if (!obj) continue;
     const cand = [], box = new THREE.Box3().setFromObject(obj);
@@ -74,11 +77,11 @@ function buildPlaces() {
       const yaw = Math.atan2(q.u.x, q.u.z), clip = name === "table" ? "eat" : "eat_high", slot = { name, key: `${name}:${slots.length}`, p: q.g, u: q.u, yaw, clip, who: null, h: 0 };
       let at;
       if (name === "table") {                       // a sloth of scale 2 sits 16 cm in from the edge; the fruit where its paw lands
-        slot.h = topAt(obj, c.clone().addScaledVector(q.u, q.edge - 0.1));
+        slot.h = topAt([obj], c.clone().addScaledVector(q.u, q.edge - 0.1));
         at = c.clone().addScaledVector(q.u, q.edge - 0.16).add(GRAB.eat.clone().multiplyScalar(2).applyQuaternion(yawQ(yaw)));
-        at.y = topAt(obj, at);
-      } else {                                      // just inside the rim, on the things in the crate
-        at = c.clone().addScaledVector(q.u, q.edge - 0.09); at.y = 0.27;
+        at.y = topAt([obj], at);
+      } else {                                      // just inside the rim, lying on whatever is there: the tins that fill the crate, the plates
+        at = c.clone().addScaledVector(q.u, q.edge - 0.09); at.y = topAt(inCrate, at);
       }
       slot.food = { at, mesh: fruit(), back: 0 }; restOn(slot.food);
       slots.push(slot);
