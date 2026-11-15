@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "../terrain.js";
 import { D, S, scene } from "../core.js";
 import { V, lcg, sstep } from "../util.js";
-import { HERO, RC, pathLane } from "../layout.js";
+import { FAR, GLADE, GLADE_EXIT, GLADE_R, HERO, RC, gladeTurn, pathLane } from "../layout.js";
 import { R, rnd, trackDist, UP } from "./base.js";
 import { addSectors, cards, cardSet, clumpN, leafColour, leafGeo, leafM, perClump, scatterLeaves } from "./cards.js";
 
@@ -90,8 +90,14 @@ function heroTrees() {
   heroWood = new THREE.Mesh(merge(woodGeos), barkMat); scene.add(heroWood);
 }
 
-// The wall's trees, as { x, z, s, y0, top }: where each stands, its girth scale, the height its trunk is seated at, and its
-// trunk's top (0 for a tree left out on the track or the path), which the crown limbs grow from.
+// The wall's trees, as { x, z, s, y0, top, glade }: where each stands, its girth scale, the height its trunk is seated at, its
+// trunk's top (0 for a tree left out on the track or the path), which the crown limbs grow from, and glade (true for the
+// glade's own trees, last in the list).
+// The glade's trees (review R2-161, Adriaen's pick C): GLADE_TREES more trunks round the glade's outer half, so near 3D trees stand
+// between it and the backdrop. They draw from their own stream (GLADE_SEED; their leaves GLADE_SEED + 1, plants.js), come after
+// every forest tree, and stand clear of the glade's edge, its path, the karaoke road's wedge (layout.js GLADE_EXIT) and, with
+// their root mounds, the baked ground square (RC + 0.8 each way), so the forest stream, the bakes and the glade stay as they were.
+const GLADE_TREES = 25, GLADE_SEED = 1610;
 function forestWall() {
   // ---------------------------------------------------------------- the forest wall: many trunks (one draw) and a leafy roof that leaves the sky open over the clearing
   const wall = [];
@@ -100,6 +106,13 @@ function forestWall() {
     const a = R(0, 6.28), r = RC + 1.2 + Math.pow(rnd(), 1.4) * 15, x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (HERO.some(({ at: h }) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w.x - x, w.z - z) < 1.6)) continue;
     wall.push({ x, z, s: R(0.6, 1.4), y0: 0, top: 0 });
+  }
+  const Gs = lcg(GLADE_SEED), out = GLADE.clone().normalize();
+  for (let i = 0, n = 0; i < 600 && n < GLADE_TREES; i++) {
+    const a = Gs.R(0, 6.28), r = GLADE_R + 2.4 + Math.pow(Gs.rnd(), 1.2) * 7, x = GLADE.x + Math.cos(a) * r, z = GLADE.z + Math.sin(a) * r, t = gladeTurn(x, z);
+    if (Math.cos(a) * out.x + Math.sin(a) * out.z < -0.25 || Math.max(Math.abs(x), Math.abs(z)) < RC + 3.3 || Math.hypot(x, z) > FAR - 1.5 || (t > GLADE_EXIT[0] - 0.15 && t < GLADE_EXIT[1] + 0.15)) continue;
+    if (trackDist(x, z) < 2.3 || HERO.some(({ at: h }) => Math.hypot(h.x - x, h.z - z) < 3) || wall.some((w) => Math.hypot(w.x - x, w.z - z) < 1.7)) continue;
+    wall.push({ x, z, s: Gs.R(0.6, 1.3), y0: 0, top: 0, glade: true }); n++;
   }
   // each tree on its own root mound
   for (const { x, z, s } of wall) if (trackDist(x, z) > 2.2) addMound(x, z, 0.9 + 0.9 * s, 0.12 + 0.18 * s);
@@ -112,7 +125,7 @@ function forestWall() {
   };
   const im = new THREE.InstancedMesh(g, barkMat, wall.length), m = new THREE.Matrix4(), q = new THREE.Quaternion();
   wall.forEach((w, i) => {
-    const keep = trackDist(w.x, w.z) > 2.2 ? 1 : 0, ry = R(0, 6), sy = R(0.8, 1.1);
+    const draw = w.glade ? Gs.R : R, keep = trackDist(w.x, w.z) > 2.2 ? 1 : 0, ry = draw(0, 6), sy = draw(0.8, 1.1);
     w.y0 = seat(w.x, w.z, w.s);
     w.top = keep ? w.y0 + 20 * sy : 0;
     m.compose(V(w.x, w.y0, w.z), q.setFromAxisAngle(UP, ry), V(w.s * keep, sy * keep, w.s * keep));
@@ -165,20 +178,20 @@ function crowns(wall, clumps) {
         tops.push({ x: e.x, y: e.y + 0.3, z: e.z, r: L * 0.6 + 0.5, f: 0.3 });
       }
     };
-    for (const cl of clumps) {
+    const side = (cl) => {
       if (cl.tree) {                                                      // a forest tree's side clump: one limb up and out from the trunk
         const { x, z, s, top } = cl.tree;
-        if (!top) continue;
+        if (!top) return;
         const y0 = Math.min(cl.y - Q(1.5, 2.5), top - 1.5), p1 = V(cl.x, cl.y - cl.r * 0.25, cl.z);
         limb(V(x, y0, z).addScaledVector(p1.clone().setY(y0).sub(V(x, y0, z)).normalize(), 0.2 * s), p1, 0.2 * s, 0.07 * s, twigs + 1);
       } else if (cl.hero) {                                               // a big tree's crown clump: limbs from the top of the trunk
         const p1 = V(cl.x, cl.y - 0.4, cl.z), dir = p1.clone().setY(0).sub(V(cl.hero.at.x, 0, cl.hero.at.z)).normalize();
         limb(V(cl.hero.at.x, TOP - 3.2, cl.hero.at.z).addScaledVector(dir, 0.4), p1, 0.32, 0.1, twigs);
       }
-    }
+    };
     // the crown on top of each forest tree
-    for (const { x, z, s, top } of wall) {
-      if (!top) continue;
+    const crown = ({ x, z, s, top }) => {
+      if (!top) return;
       const n = Math.round(Q(3, 5)), a0 = Q(0, 6.28);
       for (let i = 0; i < n; i++) {
         const a = a0 + (i / n) * 6.28 + Q(-0.3, 0.3), out = Q(1.6, 3.2) * s, y0 = top * Q(0.78, 0.9);
@@ -187,7 +200,13 @@ function crowns(wall, clumps) {
         tops.push({ x: p1.x, y: p1.y + 0.3, z: p1.z, r: Q(1.2, 1.8) * s });
       }
       tops.push({ x, y: top + 0.4, z, r: 1.3 * s, cover: true });   // covers the cut top of the trunk (kept on every detail level)
-    }
+    };
+    // the glade's trees (forestWall) after all the rest, so the forest's crowns keep their draws from this stream
+    const glade = (o) => !!(o.glade || o.tree?.glade);
+    for (const cl of clumps) if (!glade(cl)) side(cl);
+    for (const w of wall) if (!glade(w)) crown(w);
+    for (const cl of clumps) if (glade(cl)) side(cl);
+    for (const w of wall) if (glade(w)) crown(w);
     scene.add(new THREE.Mesh(merge(geos), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
     const per = (cl) => Math.max(1, Math.round(perClump * (cl.f || 0.5) * 0.6));
     const lm = cardSet(), m = new THREE.Matrix4(), c = new THREE.Color(), n = V(), p = V(), sc = V();

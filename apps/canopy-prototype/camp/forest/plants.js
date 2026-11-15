@@ -11,10 +11,12 @@ import { addSectors, cards, cardSet, clumpN, leafColour, leafGeo, leafM, leafMat
 import { branchCurves, TOP } from "./trees.js";
 
 // The leaf clumps, as { x, y, z, r } plus tree (the wall tree it grows on) or hero (the layout.js HERO entry whose crown it is in):
-// two on each wall tree, along the big trees' branches, in the big trees' crowns, and a thick leafy edge at eye height.
+// two on each wall tree, along the big trees' branches, in the big trees' crowns, and a thick leafy edge at eye height. The glade's
+// trees (forest/trees.js forestWall, review R2-161) get theirs from their own stream, last, into the same draws.
+const GLADE_LEAF_SEED = 1611;
 function wallLeaves(wall) {
   const clumps = [];
-  for (const tree of wall) for (let k = 0; k < 2; k++) {
+  for (const tree of wall) if (!tree.glade) for (let k = 0; k < 2; k++) {
     const y = tree.y0 + 10 * tree.s + R(-1, 4), x = tree.x + R(-2, 2), z = tree.z + R(-2, 2);
     if (Math.hypot(x, z) > RC + 1.5) clumps.push({ x, y, z, r: 2.2 * tree.s, tree });
   }
@@ -34,22 +36,29 @@ function wallLeaves(wall) {
   }
   // up in the crowns (above 4 m) the leaves are packed closer (0.6) and bigger, so they overlap into a mass
   const tight = (cl) => cl.y > 4 ? 0.6 : 1;
+  const G = lcg(GLADE_LEAF_SEED), glade = [];
+  for (const tree of wall) if (tree.glade) for (let k = 0; k < 2; k++)
+    glade.push({ x: tree.x + G.R(-2, 2), y: tree.y0 + 10 * tree.s + G.R(-1, 4), z: tree.z + G.R(-2, 2), r: 2.2 * tree.s, tree });
   const leaves = cardSet(), clump = cardSet(), keep = cards(perClump), m = new THREE.Matrix4(), c = new THREE.Color(), n = V(), p = V(), sc = V();
   let i = 0, cut = false;
-  scatterLeaves(clumps, R, () => perClump, (cl) => { const t = tight(cl); return [-0.5 * (t < 1 ? 0.7 : 1), 0.8 * (t < 1 ? 0.7 : 1), t]; }, (cl, k, u, q, size) => {
+  const shape = (cl) => { const t = tight(cl); return [-0.5 * (t < 1 ? 0.7 : 1), 0.8 * (t < 1 ? 0.7 : 1), t]; };
+  const leaf = (cl, k, u, q, size) => {
     p.set(cl.x + u.x, cl.y + u.y, cl.z + u.z);
     // keep the track and the path open at eye height
     const s = p.y < 4.5 && Math.min(jeepDist(p.x, p.z), pathLane(p.x, p.z)) < 1.9 ? 0 : size / tight(cl) * Math.pow(D.leaves, -0.33);
     if (!s) cut = true;
     leafColour(c, k + i, p.y); i++;
     if (k < keep) clump.add(m.compose(p, q, sc.setScalar(s)), c, clumpN(u, n));
-  }, () => {
-    // a clump the path or track clipped goes as a whole: its last few leaves left alone looked like they floated (Adriaen 2026-11-14)
+  };
+  // a clump the path or track clipped goes as a whole: its last few leaves left alone looked like they floated (Adriaen 2026-11-14)
+  const end = () => {
     if (!cut) { leaves.mats.push(...clump.mats); leaves.cols.push(...clump.cols); leaves.nrm.push(...clump.nrm); }
     clump.mats.length = clump.cols.length = clump.nrm.length = 0; cut = false;
-  });
+  };
+  scatterLeaves(clumps, R, () => perClump, shape, leaf, end);
+  scatterLeaves(glade, G.R, () => perClump, shape, leaf, end);
   addSectors(leaves, leafGeo, leafM, { split: true });
-  return clumps;
+  return [...clumps, ...glade];
 }
 
 function verge() {

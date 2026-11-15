@@ -6,7 +6,7 @@
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
 import { doneLoading, stepLight } from "../bakedlight.js";
 import { $, DETAIL, OPT, camera, renderer, scene, uNight, uTime, wireSettings } from "./core.js";
-import { buildSky } from "./sky.js";
+import { buildSky, skyStep } from "./sky.js";
 import { buildForest } from "./forest.js";
 import { buildProps, fireStep, LANTERNS, motesStep, poolsStep } from "./campProps.js";
 import { buildJeep, jeepStep } from "./jeep.js";
@@ -157,6 +157,7 @@ renderer.setAnimationLoop((now) => {
   motesStep(dt);
   atmo.update(dt, uTime.value, dusk);
   audioStep(dt, dusk); radioStep(dt);
+  skyStep();                                               // sky.js: the backdrop and the domes over the camera, where the steps above left it
   renderer.render(scene, camera);
   perfStep(raw);                                           // the fps panel and the resolution safety net, above
 });

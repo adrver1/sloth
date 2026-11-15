@@ -16,7 +16,9 @@ import { V, lineDist, yawTo } from "./util.js";
 
 // ---------------------------------------------------------------- the clearing and the ground
 export const RC = 9;      // the clearing's radius: a round clearing with the camp in it; the forest wall starts past RC
-export const FAR = 30;    // the ground mesh's radius (terrain.js, the old forest-floor disc), the backdrop's and the sky dome's
+// FAR: the ground mesh's radius (terrain.js, the old forest-floor disc), the backdrop's and the sky domes' (which follow the camera,
+// sky.js skyStep). 40 m, so from the glade 18.5 m out the backdrop is still about 40 m away in the haze (review R2-161; it was 30)
+export const FAR = 40;
 export const SUN = V(-4, 10, 3);   // the sun light's position (core.js); ground.js renders its live shadows from it
 
 // the big tree at the clearing's edge, the bearing the camp is laid out by (tent, hammock, table and seats): HERO_ANGLE is
@@ -53,6 +55,11 @@ const gladeTree = { id: "glade", at: GLADE.clone().add(V(0.35, 0, 0.19)), flare:
 export const HERO = [campTree, gladeTree];
 export const GLADES = [{ id: "sloth", at: GLADE, r: GLADE_R, tree: gladeTree }];
 export const pathLane = (x, z) => { let d = 1e9; for (const p of PATHS) d = Math.min(d, lineDist(p.pts, x, z)); return d; };   // the paths themselves
+// gladeTurn(x, z): where (x, z) lies round the glade, as the angle from the direction back down the footpath (its last point),
+// in -pi..pi. The karaoke road leaves the glade between GLADE_EXIT's two turns, so nothing grows there (glade.js, forest/trees.js)
+const gladeIn = Math.atan2(sloPath.pts[sloPath.pts.length - 1].z - GLADE.z, sloPath.pts[sloPath.pts.length - 1].x - GLADE.x);
+export const gladeTurn = (x, z) => { const a = Math.atan2(z - GLADE.z, x - GLADE.x) - gladeIn; return Math.atan2(Math.sin(a), Math.cos(a)); };
+export const GLADE_EXIT = [-2.35, -1.75];
 export const pathDist = (x, z) => { let d = pathLane(x, z); for (const g of GLADES) d = Math.min(d, Math.max(0, Math.hypot(x - g.at.x, z - g.at.z) - g.r)); return d; };   // a path or a glade
 
 // ---------------------------------------------------------------- the jeep and its track

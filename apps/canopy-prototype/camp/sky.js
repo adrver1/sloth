@@ -1,8 +1,10 @@
 // Canopy Camp sky: the painted forest backdrop in the mist, the open sky dome with clouds, the night dome with stars, the moon, the forest floor.
-// daylight.js colours and fades them by the hour. buildSky() (main.js, first) makes them all.
+// daylight.js colours and fades them by the hour. buildSky() (main.js, first) makes them all. skyStep() (main.js, each frame, before
+// the render) keeps the backdrop and both domes centred on the camera, so the painted forest stays layout.js FAR (40 m) away
+// wherever you walk, the glade 18.5 m out included (review R2-161); the moon stays where daylight.js put it.
 // forestFloorTex: the forest floor's tile, which ground.js paints the floor beyond the clearing with.
 import * as THREE from "three";
-import { hex, rng, S, scene } from "./core.js";
+import { camera, hex, rng, S, scene } from "./core.js";
 const { R } = rng("sky");
 import { canvasTex, lcg, swap } from "./util.js";
 import { FAR } from "./layout.js";
@@ -142,4 +144,10 @@ function buildSky() {
   forestFloorTex.wrapS = forestFloorTex.wrapT = THREE.RepeatWrapping; forestFloorTex.repeat.set(10, 10);
 }
 
-export { buildSky, dome, forestFloorTex, moon, nightDome, sky, uSkyDusk, uSkyFog, uSkyHaze };
+// each frame: the backdrop and the two domes over the camera (three position copies, no new draws)
+function skyStep() {
+  if (!sky) return;
+  for (const o of [sky, dome, nightDome]) o.position.set(camera.position.x, o.position.y, camera.position.z);
+}
+
+export { buildSky, dome, forestFloorTex, moon, nightDome, sky, skyStep, uSkyDusk, uSkyFog, uSkyHaze };

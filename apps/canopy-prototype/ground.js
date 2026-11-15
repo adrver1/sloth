@@ -187,7 +187,7 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
 
   // ---------------------------------------------------------------- the floor: one disc in world coordinates, grass and dirt blended by the wear map
   // one ground (forest-ground note, 2026-11-12): rings round the fire, sparse in the level camp, dense over the bowl's rim and the
-  // banks of the glade path and the track, sparse again in the far forest; about 3,600 triangles, one draw, no seam with the forest
+  // banks of the glade path and the track, sparse again in the far forest; about 3,700 triangles, one draw, no seam with the forest
   // floor. Each vertex sits on the height; uv is the old disc's, so the grass tiles as before
   const geo = far ? ringGround() : new THREE.CircleGeometry(RR, 48).rotateX(-Math.PI / 2).translate(0, 0.012, 0);
   function ringGround() {
@@ -196,7 +196,8 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
     rings.push([7.0, 64]);
     for (let r = 7.6; r < 15.5; r += 0.7) rings.push([r, 80]);
     for (let r = 16.4; r < 25.5; r += 1.2) rings.push([r, 64]);
-    for (const r of [27.5, far]) rings.push([r, 48]);
+    for (let r = 27.5; r < far - 1; r += 4.25) rings.push([r, 48]);   // every 4.25 m out to the edge: 27.5, 31.75, 36 for a far of 40 (R2-161)
+    rings.push([far, 48]);
     const pos = [], uv = [], idx = [], start = [];
     for (const [r, n] of rings) { start.push(pos.length / 3);
       for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, x = Math.cos(a) * r, z = Math.sin(a) * r;

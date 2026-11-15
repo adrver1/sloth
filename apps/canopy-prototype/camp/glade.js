@@ -14,7 +14,7 @@
 import * as THREE from "three";
 import { D, S, scene, sun } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
-import { GLADE, GLADE_R, GLADES, RC, pathLane, sloPath } from "./layout.js";
+import { GLADE, GLADE_EXIT, GLADE_R, GLADES, RC, gladeTurn, pathLane, sloPath } from "./layout.js";
 import { addBlocker, rayMat } from "./campProps.js";
 import { cards, clumpN, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest.js";
 import { CLEAN_UV, barkTex, bracket, fallenLog, paint as paintBark } from "./deadwood.js";
@@ -184,11 +184,11 @@ function buildGlade() {
   // ---------------------------------------------------------------- bushes out on the flat forest floor round the glade, where the bare leaf
   // litter met the fog (Adriaen 2026-11-14: not round the tree, that was too crowded). Low leafy mounds of the forest's own leaf cards
   // (forest.js leafGeo, 2 tris each), one instanced draw. Kept off the camp's clearing, the footpath, and the wedge the karaoke road
-  // leaves the glade by (turns -1.75 to -2.35 in at()'s frame; the trip's route also clears itself through pathLane).
+  // leaves the glade by (layout.js GLADE_EXIT, turns round the glade from the path's end; the trip's route also clears itself through pathLane).
   {
     const B = [];
-    const off = (x, z) => { const a = Math.atan2(z - G.z, x - G.x) - Math.atan2(inDir.z, inDir.x), t = Math.atan2(Math.sin(a), Math.cos(a));
-      return (t > -2.35 && t < -1.75) || Math.hypot(x - G.x, z - G.z) < GLADE_R + 1.3 || Math.hypot(x, z) < RC + 1.5 || pathLane(x, z) < 2.2; };
+    const off = (x, z) => { const t = gladeTurn(x, z);
+      return (t > GLADE_EXIT[0] && t < GLADE_EXIT[1]) || Math.hypot(x - G.x, z - G.z) < GLADE_R + 1.3 || Math.hypot(x, z) < RC + 1.5 || pathLane(x, z) < 2.2; };
     // in clumps of two or three, as undergrowth grows, filling the flat floor out to where the fog takes over
     for (let tries = 0, groups = 0; tries < 800 && groups < Math.round(16 * Math.min(k, 1.2)); tries++) {
       const c = at(R(GLADE_R + 1.8, GLADE_R + 7.5), R(-Math.PI, Math.PI));
