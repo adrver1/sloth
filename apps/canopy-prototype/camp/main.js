@@ -17,7 +17,7 @@ import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
 import { buildDeadwood } from "./deadwood.js";
 import { buildGlade } from "./glade.js";
-import { buildGround, castSunShadows, groundLife } from "./campGround.js";
+import { buildGround, castSunShadows } from "./campGround.js";
 import { buildTentInside } from "./tentInside.js";
 import { atmo, buildAtmosphere } from "./campAir.js";
 import { acts, buildChores } from "./chores.js";
@@ -66,7 +66,7 @@ buildRadio();                          // radio.js: the radio on the snack table
 buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
 buildCar();                            // car.js: the key, the dash radio and the dash clock
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
-castSunShadows();                      // campGround.js: the live sun shadows, once every prop stands, only if the baked map fails to load
+castSunShadows();                      // campGround.js: the live sun shadows, once every prop stands, only without the baked map (it failed to load, or ?jeep=none)
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
@@ -98,7 +98,7 @@ renderer.setAnimationLoop(() => {
   acts.update(dt, uTime.value); aimStep(dt);               // the chores (after fireStep: a log on the fire boosts its light) and what lights up
   uNight.value = dusk; stepLight(fl, uTime.value);         // the baked night light: how far it is faded in, and its flicker (bakedlight.js)
   warmStep(fl, dusk);                                      // sloths.js: the sloths' night glow, from the lanterns and the fire
-  poolsStep(dusk, fl, groundLife.isNightBaked());
+  poolsStep(dusk, fl);
   LANTERNS.update(uTime.value, dusk);
   clockStep(dt, dusk);
   daylightStep(dt, wet);                                   // the mist banks and the palette

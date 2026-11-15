@@ -493,12 +493,13 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
     m.needsUpdate = true;
     return m;
   }
+  // nightLoad settles once the baked night map has loaded or failed (none asked: at once), so the camp paints its light pools only without one
   let nightBaked = false;
-  if (nightMap) loadLightMap(nightMap).then((t) => {
-    uGN.value = t; uGNon.value = 1; nightBaked = true; }).catch(() => {});
+  const nightLoad = nightMap ? loadLightMap(nightMap).then((t) => {
+    uGN.value = t; uGNon.value = 1; nightBaked = true; }).catch(() => {}) : Promise.resolve();
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: used.map(({ at: c, r }) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
-  // what campGround.js uses (floor, castShadows, shadowLoad, isBaked, isNightBaked, shadeOn), the layout for props/shadow/export_casters.cjs,
+  // what campGround.js uses (floor, castShadows, shadowLoad, nightLoad, isBaked, shadeOn), the layout for props/shadow/export_casters.cjs,
   // and the triangle and plant counts that tools/camp-probe.cjs prints (both through window.__ground, debug.js) (R2-128)
-  return { floor, castShadows: cast, shadowLoad, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
+  return { floor, castShadows: cast, shadowLoad, nightLoad, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }

@@ -4,7 +4,8 @@
 // at night) and motesStep (the drifting motes). Exports those, CAMP, the blockers (the list, read only:
 // addBlocker({ at, r, walk, wild, tag }) adds one, dropBlockers(tag) takes a tag's out again; see the block above them) and the props' parts
 // other modules use (FIRE_CARDS, fireLight, glowTex, LANTERNS, and WOODPILE, WOOD_TEX and rayMat, which stay null when their part is
-// not built: ?lived=0, no sunbeams), and buildProps() (main.js, once), which builds them all. The sloth model is in sloth/state.js and
+// not built: ?lived=0, no sunbeams), buildProps() (main.js, once), which builds them all, and buildPools() (campGround.js, only for a
+// ground with no baked night light). The sloth model is in sloth/state.js and
 // uNight in core.js (R2-129).
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -95,7 +96,7 @@ const lnight = (mat) => {
   });
 };
 // buildProps (main.js, once, after the forest): the lanterns, the fire's light, the sunbeams and motes, then (once their downloads are
-// in) the picked props, the lived-in props, the laundry line, the campfire and the night's light pools
+// in) the picked props, the lived-in props, the laundry line and the campfire
 async function buildProps() {
   // the lanterns (lanterns.js: a soft glow quad round each jar) and the fire (its flame cards and glowing embers, below): no real-time
   // shadows; one warm point light for the fire's glow
@@ -225,23 +226,25 @@ async function buildProps() {
       // export_casters.cjs reads rotation.y, so the tent side's wellies were placed for the bake turned the wrong way)
     }
   }
-  // light pools on the ground at night: one painted quad (2 triangles) under the fire and the lantern strings, faded in with the dusk;
-  // drawn only while the ground has no baked night light (poolsStep)
-  pools = (() => {
-    const pts = [[0, 0, 3.4, 0.9, "255,140,60"], ...LANTERNS.lights.map((p) => [p.x, p.z, 1.4, 0.4, "255,200,120"])];
-    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-    for (const [x, z, r] of pts) { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); z0 = Math.min(z0, z - r); z1 = Math.max(z1, z + r); }
-    const span = Math.max(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;   // the quad's side (not core.js S, the look)
-    const tex = canvasTex(256, 256, (g, w) => {
-      for (const [x, z, r, k, c] of pts) {
-        const u = (x - cx + span / 2) / span * w, v = (z - cz + span / 2) / span * w, gr = g.createRadialGradient(u, v, 0, u, v, r / span * w);
-        gr.addColorStop(0, `rgba(${c},${k})`); gr.addColorStop(0.45, `rgba(${c},${k * 0.4})`); gr.addColorStop(1, `rgba(${c},0)`);
-        g.globalCompositeOperation = "lighter"; g.fillStyle = gr; g.fillRect(0, 0, w, w);
-      }
-    });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(span, span).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
-    m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); return m;
-  })();
+}
+
+// light pools on the ground at night: one painted quad (2 triangles) under the fire and the lantern strings, faded in with the dusk.
+// Only for a ground with no baked night light: campGround.js calls this once, after the night map failed to load or with
+// ?jeep=none (which has none); with the night map in, the pools are never built (R2-217).
+function buildPools() {
+  const pts = [[0, 0, 3.4, 0.9, "255,140,60"], ...LANTERNS.lights.map((p) => [p.x, p.z, 1.4, 0.4, "255,200,120"])];
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const [x, z, r] of pts) { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); z0 = Math.min(z0, z - r); z1 = Math.max(z1, z + r); }
+  const span = Math.max(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;   // the quad's side (not core.js S, the look)
+  const tex = canvasTex(256, 256, (g, w) => {
+    for (const [x, z, r, k, c] of pts) {
+      const u = (x - cx + span / 2) / span * w, v = (z - cz + span / 2) / span * w, gr = g.createRadialGradient(u, v, 0, u, v, r / span * w);
+      gr.addColorStop(0, `rgba(${c},${k})`); gr.addColorStop(0.45, `rgba(${c},${k * 0.4})`); gr.addColorStop(1, `rgba(${c},0)`);
+      g.globalCompositeOperation = "lighter"; g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    }
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(span, span).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  m.position.set(cx, 0.03, cz); m.visible = false; scene.add(m); pools = m;
 }
 
 // ---------------------------------------------------------------- each frame (main.js calls these, in its order)
@@ -253,9 +256,9 @@ function fireStep(dusk) {
   fireLight.intensity = (D.fx ? 6 : 0) * fl * (0.3 + 2.2 * dusk);
   return fl;
 }
-// the light pools on the ground: faded in with dusk, flickering with the fire; not shown where the ground's night light is baked
-function poolsStep(dusk, fl, nightBaked) { pools.visible = dusk > 0 && !nightBaked; pools.material.opacity = dusk * (0.9 + 0.1 * fl); }
+// the light pools on the ground: faded in with dusk, flickering with the fire; nothing while they are not built (buildPools)
+function poolsStep(dusk, fl) { if (!pools) return; pools.visible = dusk > 0; pools.material.opacity = dusk * (0.9 + 0.1 * fl); }
 // the motes drift slowly round the clearing
 function motesStep(dt) { if (motes) motes.rotation.y += dt * 0.02; }
 
-export { addBlocker, buildProps, CAMP, dropBlockers, FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, glowTex, LANTERNS, motesStep, poolsStep, rayMat };
+export { addBlocker, buildPools, buildProps, CAMP, dropBlockers, FIRE_CARDS, WOODPILE, WOOD_TEX, blockers, fireLight, fireStep, glowTex, LANTERNS, motesStep, poolsStep, rayMat };

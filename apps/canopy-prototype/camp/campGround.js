@@ -5,11 +5,12 @@
 // with the jeep's cabin light on, the floor and every baked prop take that light's shadow.
 // Exports buildGround(mask): main.js calls it once, after the props, the sloths, the deadwood and the glade stand and before
 // the tent's walls join the blockers, since the worn dirt is painted round the blockers as they are then; it makes groundLife
-// (exported and returned); and castSunShadows(), which main.js calls once, when everything that stands in the clearing is built.
+// (exported and returned) and, when the ground has no baked night light, the painted light pools (campProps.js buildPools);
+// and castSunShadows(), which main.js calls once, when everything that stands in the clearing is built.
 import { createGround } from "../ground.js";
 import { D, JEEP, S, renderer, scene, uNight, uTime } from "./core.js";
 import { FLOOR_OVERLAYS, grassTex, track, trackDist } from "./forest.js";
-import { blockers } from "./campProps.js";
+import { blockers, buildPools } from "./campProps.js";
 import { FAR, RC, TENT } from "./layout.js";
 import { cabinLive } from "./jeep.js";
 import { gladePlants } from "./glade.js";   // filled by buildGlade before the ground is built: its plants go in the ground's one draw
@@ -21,9 +22,10 @@ let groundLife = null;
 function buildGround(baked) {
   groundLife = createGround({ baked, height: groundHeight, far: FAR, forestMap: forestFloorTex, scene, RC, blockers, grassMap: grassTex, S, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [], extra: gladePlants,
     bare: TENT.bare,   // no grass in the tent or through its planks
-    // the baked ground shadows (for a set with no bake, ground.js renders them live) and the night light baked with the
-    // props; only the jeep's set has a night bake, so ?jeep=none asks for none and lights the ground live (no 404s)
-    shadowMap: `models/camp_shadow_picked_${JEEP}.png`, nightMap: JEEP === "expedition" ? "models/camp_ground_night_picked_expedition.png" : null });
+    // the baked ground shadows and the night light baked with the props. Only the jeep's set is baked, so ?jeep=none (a debug
+    // view) asks for neither: its sun shadows are rendered live (castSunShadows) and its night light is the painted pools (R2-217)
+    ...(JEEP === "expedition" ? { shadowMap: "models/camp_shadow_picked_expedition.png", nightMap: "models/camp_ground_night_picked_expedition.png" } : {}) });
+  groundLife.nightLoad.then(() => { if (!groundLife.isNightBaked()) buildPools(); });   // the light pools stand in only where there is no night bake
   for (const m of FLOOR_OVERLAYS) groundLife.shadeOn(m.material);
   if (cabinLive) {   // the jeep's cabin light is live: the floor and every baked prop take its shadow
     cabinLive.receive(groundLife.floor); scene.traverse((m) => { if (m.isMesh && m.material?.lightMap) m.receiveShadow = true; }); renderer.shadowMap.needsUpdate = true;
@@ -31,8 +33,8 @@ function buildGround(baked) {
   return groundLife;
 }
 
-// sun shadows (ground.js castShadows): rendered live once, and only when the baked shadow map (shadowMap above) failed to
-// load; main.js calls this once every prop is built, and it waits for that download. Nothing runs per frame (R2-088: it used
+// sun shadows (ground.js castShadows): rendered live once, and only when there is no baked shadow map (shadowMap above failed
+// to load, or ?jeep=none asked for none); main.js calls this once every prop is built, and it waits for that download. Nothing runs per frame (R2-088: it used
 // to scan the scene every second for half a minute).
 function castSunShadows() { groundLife.shadowLoad.then(() => { if (!groundLife.isBaked()) groundLife.castShadows(renderer); }); }
 
