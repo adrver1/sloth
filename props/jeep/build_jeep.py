@@ -1,35 +1,35 @@
 """
 The adventure jeep for the Canopy Camp game (apps/canopy-prototype/camp.html): an original small boxy off-roader
-(short, upright, round headlights, spare wheel on the back door), parked in the clearing. The default style, and the only
-one the page loads, is expedition: olive paint, black flares, a roof rack with jerry cans, a snorkel, a winch and mud up
-the sills. The two other styles are archived (props/jeep/archive/, the GLBs only); their builders stay here, since they
-share body() with it:
-
-    toy         chunky and rounded like the storybook props: mint and cream, big soft wheels, a wicker roof basket
-    camper      a camping rig: sand paint, a rooftop tent folded open over the side with a ladder to the ground
+(short, upright, round headlights, spare wheel on the back door), parked in the clearing. This script builds the one the
+page loads, the expedition: olive paint, black flares, a roof rack with jerry cans, a snorkel, a winch and mud up the
+sills. The archived Toy and Camper styles, and the open wheels with their treads, are in props/jeep/archive/
+(build_jeep_styles.py, with the GLBs and a README; review R2-258); they share body(), finish() and the rest from here.
 
     .venv/bin/python props/jeep/build_jeep.py                                  # the expedition jeep and its far LOD
     .venv/bin/python props/jeep/build_jeep.py --preview front,detail           # and these Cycles preview stills (slow)
-    .venv/bin/python props/jeep/build_jeep.py --style toy                      # remake an archived style
     .venv/bin/python props/jeep/build_jeep.py --device gpu                     # stop instead of baking on the CPU when no GPU is on
 
-Each style is one GLB, props/jeep/jeep_<style>.glb, standing on z = 0 with its front toward -Y (three.js +Z): the body
+It writes props/jeep/jeep_expedition.glb, standing on z = 0 with its front toward -Y (three.js +Z): the body
 Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driver, +X, the camp side; left-hand drive,
 the name is kept from when it was the passenger door), DoorD (the other front door) and BackDoor (with the spare), each
 with its origin on its hinge so the page swings it about the vertical, and the Hood, hinged at the foot of the windscreen.
 Each of these four carries glTF extras that camp/jeep.js reads: "open", how far it swings open (radians), and "axis", the
 three.js axis it swings about (HINGES and HOOD_OPEN below; review R2-250). Plus empties SeatP (driver cushion top, at the
 wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back)
-and Boot (middle of the cargo deck). The expedition, the page's jeep, also writes its far LOD jeep_expedition_lod.glb,
-and the base64 copies the page loads, apps/canopy-prototype/models/jeep_expedition.txt and jeep_expedition_lod.txt.
+and Boot (middle of the cargo deck). It also writes the far LOD jeep_expedition_lod.glb, and the base64 copies the page
+loads, apps/canopy-prototype/models/jeep_expedition.txt and jeep_expedition_lod.txt.
 props/bake_all.py runs this (its "jeep" step) before the light bake whenever the GLB is older than this script or
 props/lib, because the light bake uses the GLB as a shadow caster.
 It is the same convention as props/camp/build_camp.py, with the shared helpers of props/lib: Cycles AO times base colour
-in one colour attribute (the jeep carries its own light), drawn with a plain Lambert material on the page. The GLBs
-carry quantized normals and colours (export_glb small=True, lib/quantize.py, review R2-109); the light bake imports the
-jeep as it is. The AO bake and the stills run on the device --device picks (lib.bake.pick_device, review R2-111).
+in one colour attribute (the jeep carries its own light, bake_jeep), drawn with a plain Lambert material on the page. The
+GLBs carry quantized normals and colours (export_glb small=True, lib/quantize.py, review R2-109); the light bake imports
+the jeep as it is. The AO bake and the stills run on the device --device picks (lib.bake.pick_device, review R2-111).
 Previews are opt-in (--preview, Cycles): props/jeep/preview_<style>_<view>.png for the views front, back,
 detail, open, door and wheel.
+
+Exports for the archive: body(M, wheel, ...), finish(b), mats(prefix, **colours), bake_jeep(objs, samples, device, muddy),
+preview(style, objs, samples, views, device), expedition(wheel), wheel_closed, lugs, nuts, lathe, slim_box, lift and the
+shared proportions.
 """
 import argparse
 import dataclasses
@@ -47,7 +47,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake, corner_values, pick_device  # noqa: E402
 from lib.export import export_glb, reset  # noqa: E402
 from lib.materials import mat  # noqa: E402
-from lib.mesh import apply_all, arc, ball, bisect, box, cyl, drop_enclosed, drop_faces, join, mesh_obj, outward, rod, torus  # noqa: E402
+from lib.mesh import apply_all, arc, bisect, box, cyl, drop_enclosed, drop_faces, join, mesh_obj, outward, rod, torus  # noqa: E402
 
 # Triangle budget (Adriaen, 2026-11-11: as few triangles as still look good, used where they show). So: no edge splitting
 # for the bake (bake(..., apply=False) below), one-segment bevels on boxes only where they are big enough for a bevel to read
@@ -65,8 +65,6 @@ def slim_box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
     return o
 
 
-STYLES = ("toy", "expedition", "camper")
-
 # shared proportions (metres): short, tall and narrow
 WB = 2.25            # wheelbase
 FRONT, REAR = -1.62, 1.62
@@ -75,7 +73,7 @@ SILL = 0.45          # bottom of the body
 BELT = 1.06          # beltline: hood top and window sills
 ROOF = 1.70
 AXLE_Y = (-WB / 2 - 0.03, WB / 2 - 0.03)   # front and rear axle
-WHEEL_R = 0.37       # wheel radius, also the axle height (the toy's wheels are bigger: body())
+WHEEL_R = 0.37       # wheel radius, also the axle height (body() R; the archived toy's are bigger)
 
 # ------------------------------------------------------------------ shapes the full jeep and its far LOD share
 # One copy each, so a body change reaches both and the jeep keeps its shape at the LOD switch (review R2-230).
@@ -84,7 +82,7 @@ CAB_PROFILE = [(-0.42, BELT - 0.01), (REAR - 0.01, BELT - 0.01), (REAR - 0.03, R
 CAB_W, CAB_TAPER = W - 0.04, 0.93          # the cabin's width at the beltline, and how much narrower it is at the roof
 GLASS_Z = (BELT + 0.06, ROOF - 0.07)       # bottom and top of the side and back windows
 GRILLE_Z, GRILLE_W = (0.7, 0.95), 0.82
-LAMP_X, LAMP_Z, LAMP_R = 0.6, 0.83, 0.115  # the headlights (the toy's are bigger: body())
+LAMP_X, LAMP_Z, LAMP_R = 0.6, 0.83, 0.115  # the headlights (body() lamp_r; the archived toy's are bigger)
 SNORKEL_PATH = [(0.85, -1.3, BELT - 0.12), (0.85, -0.62, BELT - 0.12), (0.8, -0.31, ROOF - 0.03)]   # along the wing, up the A pillar
 SNORKEL_SECS = [(0.07, 0.15), (0.07, 0.15), (0.075, 0.085)]
 SNORKEL_HEAD = dict(size=(0.14, 0.27, 0.1), at=(0.79, -0.37, ROOF + 0.03), rot=(-0.12, 0, 0))     # the wedge intake on top
@@ -298,26 +296,17 @@ def lathe(prof, n, at, axis_x, M, name="lathe", face=None):
     return o
 
 
-# the wheels (--wheel, --tyre): "closed", the whole wheel as one sealed lathe, or "open", the earlier separate tyre, rim, hub
-# and cap; the open wheel's tread: "at" staggered all-terrain blocks, "mt" chunky mud-terrain lugs over the shoulders,
-# "road" smooth with painted grooves. build() hands them to the style builders, which hand them to body() and wheel().
-WHEELS = dict(kind="closed", tyre="mt")
 # the tread blocks round a tyre: how many, their width and their offset from the centre line (times the tyre's width),
-# their length (times the spacing round the tyre) and their height (times the radius)
-TREAD = {"at": (16, 0.36, 0.18, 0.8, 0.05),   # staggered blocks, half the tread wide, alternating left and right of the centre
-         "mt": (12, 0.5, 0.12, 0.6, 0.07)}    # big lugs, nearly the full tread wide, alternating which shoulder they reach
-
-
-def wheel(x, y, R, Wt, M, axis_x=True, kind="closed", tyre="mt"):
-    """One wheel of radius R and width Wt at (x, y, 0), its axle along X (or along Y for the spare): kind and tyre as in
-    WHEELS."""
-    return wheel_closed(x, y, R, Wt, M, axis_x) if kind == "closed" else wheel_open(x, y, R, Wt, M, axis_x, tyre)
+# their length (times the spacing round the tyre) and their height (times the radius). The closed wheel has big lugs,
+# nearly the full tread wide, alternating which shoulder they reach; the archived open wheel's treads are in
+# archive/build_jeep_styles.py TREAD.
+TREAD_MT = (12, 0.5, 0.12, 0.6, 0.07)
 
 
 def lugs(x, y, R, Wt, core, m, axis_x, tread):
-    """The tread blocks (TREAD[tread]) round a tyre whose tread band has radius core, sunk into it so only the tops show,
+    """The tread blocks (tread: a tuple like TREAD_MT) round a tyre whose tread band has radius core, sunk into it so only the tops show,
     each a box with no bottom face (review R2-168)."""
-    nb, kw, ko, kl, kh = TREAD[tread]
+    nb, kw, ko, kl, kh = tread
     p = []
     for i in range(nb):
         a = (i + 0.5) / nb * 2 * math.pi
@@ -348,7 +337,7 @@ def nuts(x, y, along, ring, r, m, axis_x, side):
 
 
 def wheel_closed(x, y, R, Wt, M, axis_x=True):
-    """The whole wheel as one sealed surface of revolution, 14 segments round: from the axle on the inside, out over the
+    """One wheel of radius R and width Wt at (x, y, 0), its axle along X (or along Y for the spare): the whole wheel as one sealed surface of revolution, 14 segments round: from the axle on the inside, out over the
     sidewall, across the tread, down the outer sidewall, into the dished rim and back to the axle at the hub. No gaps to
     see through, no hidden caps. Then 12 low mud-terrain lugs and five hex nuts."""
     at, h, rr = (x, y, 0), Wt / 2, R * 0.6
@@ -361,35 +350,7 @@ def wheel_closed(x, y, R, Wt, M, axis_x=True):
     for pl in o.data.polygons:                        # smooth over the rubber only; the rim, hub and back stay crisp
         pl.use_smooth = o.data.materials[pl.material_index] in (M["tyre"], M["groove"])
     along = (x if axis_x else y) + side * (h * 0.78 + 0.003)
-    return [o, *lugs(x, y, R, Wt, core, M["tyre"], axis_x, "mt"), *nuts(x, y, along, rr * 0.28, rr * 0.075, M["trim"], axis_x, side)]
-
-
-def wheel_open(x, y, R, Wt, M, axis_x=True, tyre="mt"):
-    """A tyre with a rounded shoulder and tread (tyre: "at", "mt" or "road"), a dished steel rim with a hub, on an axle
-    along X (or along Y for the spare). The silhouette gets the segments; the tread pattern is low blocks or painted bands."""
-    at, h, rr = (x, y, 0), Wt / 2, R * 0.6
-    side = (math.copysign(1, x) if x else 1) if axis_x else 1          # the outer face: away from the car (+Y for the spare)
-    t, g = "tyre", "groove"
-    core = R * (0.95 if tyre != "road" else 1.0)
-    # the tyre's cross-section, inner bead to outer bead: bulging sidewalls, rounded shoulders, a flat tread band
-    if tyre == "road":
-        prof = [(rr, -h, t), (R * 0.86, -h - 0.012, t), (R * 0.97, -h * 0.9, t), (R, -h * 0.7, g), (R, -h * 0.58, t), (R, -h * 0.12, g),
-                (R, h * 0.12, t), (R, h * 0.58, g), (R, h * 0.7, t), (R * 0.97, h * 0.9, t), (R * 0.86, h + 0.012, t), (rr, h, t)]
-    else:
-        prof = [(rr, -h, t), (R * 0.84, -h - 0.014, t), (core * 0.97, -h * 0.9, t), (core, -h * 0.74, g), (core, h * 0.74, t),
-                (core * 0.97, h * 0.9, t), (R * 0.84, h + 0.014, t), (rr, h, t)]
-    prof = [(r, o * side, k) for r, o, k in prof]
-    p = [lathe(prof, 20 if tyre != "mt" else 16, at, axis_x, M, "tyre")]
-    if tyre in TREAD:
-        p += lugs(x, y, R, Wt, core, M[t], axis_x, tyre)
-    # the rim: a lip, a dished face and a raised centre, then a hub and five nuts; a flat cap closes the inner side
-    rim = [(rr, h * 1.02, "rim"), (rr * 0.88, h * 0.6, "rim"), (rr * 0.5, h * 0.6, "rim"), (rr * 0.42, h * 0.75, "hub")]
-    p.append(lathe([(r, o * side, k) for r, o, k in rim], 12, at, axis_x, M, "rim", face=(side, 0, 0) if axis_x else (0, side, 0)))
-    hub_at = (x + side * h * 0.75, y, 0) if axis_x else (x, y + side * h * 0.75, 0)
-    rot = (0, math.pi / 2, 0) if axis_x else (math.pi / 2, 0, 0)
-    p.append(cyl(rr * 0.42, 0.04, at=hub_at, rot=rot, m=M["hub"], verts=6))
-    p.append(cyl(rr * 0.9, 0.01, at=(x - side * h * 0.98, y, 0) if axis_x else (x, y - side * h * 0.98, 0), rot=rot, m=M["under"], verts=6))
-    return p + nuts(x, y, hub_at[0 if axis_x else 1] + side * 0.023, rr * 0.3, rr * 0.075, M["trim"], axis_x, side)
+    return [o, *lugs(x, y, R, Wt, core, M["tyre"], axis_x, TREAD_MT), *nuts(x, y, along, rr * 0.28, rr * 0.075, M["trim"], axis_x, side)]
 
 
 def lift(objs, z):
@@ -472,10 +433,11 @@ class Body:
     empties: list = dataclasses.field(default_factory=list)
 
 
-def body(M, style, wheels=WHEELS):
-    """The jeep every style shares (style "toy" makes the wheels and lamps bigger), with wheels as in WHEELS."""
-    toy = style == "toy"
-    R = 0.43 if toy else WHEEL_R
+def body(M, wheel=wheel_closed, R=WHEEL_R, soft=(0.05, 0.045), lamp_r=LAMP_R, bumper_bevel=0.025, tyre_w=0.25, flare_tube=0.045):
+    """The jeep every style shares. wheel(x, y, R, Wt, M, axis_x) makes one wheel (wheel_closed); the other numbers are
+    the expedition's, which the archived toy passes bigger (archive/build_jeep_styles.py TOY): R the wheel radius, soft
+    the roundings of the body and the cabin, lamp_r the headlights' radius, bumper_bevel, tyre_w the tyres' width and
+    flare_tube the thickness of the wheel flares."""
     zc = R                                                    # wheel centre height
     yr = AXLE_Y[1]
     p = []
@@ -485,11 +447,11 @@ def body(M, style, wheels=WHEELS):
     # lower body: hood and sides up to the beltline, with the wheel arches cut out
     lower = prism(LOWER_PROFILE, W, M["paint"])
     wheel_arches(lower, R, zc, 20)
-    soften(lower, 0.12 if toy else 0.05)
+    soften(lower, soft[0])
     # cabin: upright windscreen, flat roof, slightly narrower than the body
     top = M["paint2"]
     cab = prism(CAB_PROFILE, CAB_W, top, taper=CAB_TAPER)
-    soften(cab, 0.12 if toy else 0.045)
+    soften(cab, soft[1])
     # one hollow shell: the cabin is empty behind the windscreen (the bonnet stays solid), then the three doors are cut
     # out of it as their own pieces, each to swing on its hinge
     shell = unite(lower, cab)
@@ -596,12 +558,11 @@ def body(M, style, wheels=WHEELS):
     p.append(slim_box((GRILLE_W, 0.03, GRILLE_Z[1] - GRILLE_Z[0]), at=(0, FRONT - 0.005, sum(GRILLE_Z) / 2), m=M["grille"]))
     for k in range(3):                                   # three horizontal bars (its own face, no maker's grille)
         p.append(slim_box((0.78, 0.03, 0.035), at=(0, FRONT - 0.02, GRILLE_Z[0] + 0.06 + k * 0.065), m=M["bar"]))
-    hr = 0.15 if toy else LAMP_R
     for s in (-1, 1):
-        ring, lens = headlight(s * LAMP_X, FRONT - 0.03, LAMP_Z, hr, M)
+        ring, lens = headlight(s * LAMP_X, FRONT - 0.03, LAMP_Z, lamp_r, M)
         p += ring + lens                                 # the lenses are plain parts of the body (no headlights at night)
         p.append(slim_box((0.12, 0.03, 0.05), at=(s * 0.6, FRONT - 0.02, 0.62), m=M["amber"]))
-    front_bumper, back_bumper = bumpers(M, bevel=0.05 if toy else 0.025)
+    front_bumper, back_bumper = bumpers(M, bevel=bumper_bevel)
     p.append(front_bumper)
     p.append(slim_box((0.4, 0.02, 0.12), at=(0, FRONT - 0.165, SILL + 0.06), m=M["plate"]))
     # rear: bumper, tall taillights, the spare wheel on the door
@@ -616,7 +577,7 @@ def body(M, style, wheels=WHEELS):
     bd.append(slim_box((0.03, 0.12, 0.03), at=(0.55, REAR + 0.02, BELT - 0.12), rot=(0, 0, math.pi / 2), m=M["trim"]))
     sr = R * 0.98
     bd.append(cyl(0.06, 0.12, at=(0.06, REAR + 0.06, 0.98), rot=(math.pi / 2, 0, 0), m=M["trim"], verts=12))
-    bd += lift(wheel(0.06, REAR + 0.22, sr, 0.24, M, axis_x=False, **wheels), 0.98)
+    bd += lift(wheel(0.06, REAR + 0.22, sr, 0.24, M, axis_x=False), 0.98)
     cover = M.get("cover")
     if cover:
         bd.append(cyl(sr + 0.012, 0.25, at=(0.06, REAR + 0.22, 0.98), rot=(math.pi / 2, 0, 0), m=cover, verts=16))
@@ -624,8 +585,8 @@ def body(M, style, wheels=WHEELS):
     p.append(slim_box((W - 0.3, REAR - FRONT - 0.3, 0.2), at=(0, 0, SILL - 0.02), m=M["under"]))
     for y in AXLE_Y:
         for s in (-1, 1):
-            p += lift(wheel(s * (W / 2 - 0.1), y, R, 0.27 if toy else 0.25, M, **wheels), zc)
-            p.append(flare(s, y, zc, R, 0.06 if toy else 0.045, M["flare"], 20))
+            p += lift(wheel(s * (W / 2 - 0.1), y, R, tyre_w, M), zc)
+            p.append(flare(s, y, zc, R, flare_tube, M["flare"], 20))
     # side steps / sills
     for s in (-1, 1):
         p.append(slim_box((0.06, 0.95, 0.06), at=(s * (W / 2 - 0.01), 0.0, SILL + 0.02), m=M["bumper"], bevel=0.015))
@@ -669,7 +630,7 @@ def finish(b):
     return out, b.empties
 
 
-# ------------------------------------------------------------------ the three styles (each returns finish()'s objects and empties)
+# ------------------------------------------------------------------ the expedition (the archived toy and camper are in archive/build_jeep_styles.py)
 BASE = dict(seat=(0.3, 0.25, 0.21), inside=(0.17, 0.17, 0.18), glass=(0.11, 0.14, 0.17), trim=(0.1, 0.1, 0.1), grille=(0.05, 0.05, 0.06), lamp=(1.0, 0.96, 0.82),
             chrome=(0.78, 0.79, 0.8), amber=(0.98, 0.58, 0.12), red=(0.75, 0.08, 0.06), plate=(0.92, 0.9, 0.84), under=(0.1, 0.1, 0.1),
             tyre=(0.11, 0.11, 0.11), hub=(0.3, 0.3, 0.32))
@@ -681,39 +642,6 @@ def mats(prefix, **over):
     M = {k: mat(f"{prefix}_{k}", c) for k, c in {**BASE, **over}.items()}
     M["groove"] = mat(f"{prefix}_tyre_groove", tuple(c * 0.45 for c in M["tyre"]["base"]))
     return M
-
-
-def toy(wheels=WHEELS):
-    M = mats("toy", paint=(0.5, 0.8, 0.68), paint2=(0.97, 0.93, 0.82), bar=(0.97, 0.93, 0.82), bumper=(0.97, 0.93, 0.82), flare=(0.97, 0.93, 0.82),
-             rim=(0.97, 0.93, 0.82), cover=(0.97, 0.93, 0.82), wicker=(0.78, 0.6, 0.38), wicker2=(0.62, 0.45, 0.27), blanket=(0.95, 0.45, 0.5),
-             blanket2=(1, 0.88, 0.9), petal=(1, 0.55, 0.65), mid=(1, 0.84, 0.3), leaf=(0.36, 0.62, 0.3), tyre=(0.2, 0.18, 0.17))
-    b = body(M, "toy", wheels); p, G = b.parts, b.groups
-    # a wicker roof basket with a rolled picnic blanket and a little potted plant
-    z = ROOF + 0.05
-    for s in (-1, 1):
-        p.append(cyl(0.02, 0.08, at=(s * 0.55, -0.0, ROOF + 0.02), m=M["wicker2"], verts=6))
-        p.append(cyl(0.02, 0.08, at=(s * 0.55, 1.3, ROOF + 0.02), m=M["wicker2"], verts=6))
-    p.append(slim_box((1.3, 1.45, 0.03), at=(0, 0.66, z), m=M["wicker2"]))
-    for k in range(4):
-        h = z + 0.04 + k * 0.045
-        for s in (-1, 1):
-            p.append(rod((s * 0.65, -0.06, h), (s * 0.65, 1.38, h), 0.018, M["wicker" if k % 2 else "wicker2"], verts=6))
-            p.append(rod((-0.65, 0.66 + s * 0.72, h), (0.65, 0.66 + s * 0.72, h), 0.018, M["wicker2" if k % 2 else "wicker"], verts=6))
-    roll = cyl(0.16, 1.0, at=(0, 0.2, z + 0.17), rot=(0, math.pi / 2, 0), m=M["blanket"], verts=12)
-    p.append(roll)
-    for x in (-0.3, 0.0, 0.3):
-        p.append(cyl(0.163, 0.08, at=(x, 0.2, z + 0.17), rot=(0, math.pi / 2, 0), m=M["blanket2"], verts=12))
-    p.append(cyl(0.12, 0.18, at=(0.25, 0.95, z + 0.11), m=M["wicker"], verts=14, r2=0.15))
-    for k in range(5):
-        a = k / 5 * 2 * math.pi
-        p.append(ball(0.09, at=(0.25 + math.cos(a) * 0.07, 0.95 + math.sin(a) * 0.07, z + 0.26), scale=(1.4, 0.6, 0.35), m=M["leaf"], seg=10, rot=(0, -0.4, a)))
-    # a flower on the spare cover and a little one by each headlight
-    sy = REAR + 0.22 + 0.13
-    for k in range(5):
-        a = k / 5 * 2 * math.pi
-        G["BackDoor"].append(ball(0.07, at=(0.06 + math.cos(a) * 0.09, sy, 0.98 + math.sin(a) * 0.09), scale=(1, 0.3, 1), m=M["petal"], seg=10))
-    G["BackDoor"].append(ball(0.06, at=(0.06, sy + 0.01, 0.98), scale=(1, 0.4, 1), m=M["mid"], seg=10))
-    return finish(b)
 
 
 def jerry_can(x, y, z, m):
@@ -746,9 +674,10 @@ EXPEDITION_COLOURS = dict(paint=(0.36, 0.39, 0.25), paint2=(0.36, 0.39, 0.25), b
                           strap=(0.82, 0.5, 0.12), rope=(0.7, 0.62, 0.45))
 
 
-def expedition(wheels=WHEELS):
+def expedition(wheel=wheel_closed):
+    """The page's jeep: finish()'s objects and empties (wheel as body() takes it)."""
     M = mats("ex", **EXPEDITION_COLOURS)
-    b = body(M, "expedition", wheels); p, G = b.parts, b.groups
+    b = body(M, wheel); p, G = b.parts, b.groups
     # steel bumper with a winch (its drum would sit inside the box, so it is not modelled: review R2-168) and a pair of tow hooks
     p.append(winch(M, bevel=0.02))
     for s in (-1, 1):                    # each tow hook the part of a ring outside the bumper; both open ends go into the bumper
@@ -779,44 +708,6 @@ def expedition(wheels=WHEELS):
     # (blade clear above the bumper, beside the spare)
     G["BackDoor"].append(rod((0.52, REAR + 0.04, 0.88), (0.52, REAR + 0.04, 1.52), 0.016, M["crate"], verts=6))
     G["BackDoor"].append(slim_box((0.15, 0.02, 0.2), at=(0.52, REAR + 0.05, 0.8), m=M["rack"]))
-    return finish(b)
-
-
-def camper(wheels=WHEELS):
-    M = mats("ca", paint=(0.82, 0.74, 0.58), paint2=(0.95, 0.93, 0.88), bar=(0.95, 0.93, 0.88), bumper=(0.2, 0.2, 0.2), flare=(0.2, 0.2, 0.2),
-             rim=(0.95, 0.93, 0.88), cover=(0.25, 0.42, 0.38), canvas=(0.27, 0.45, 0.4), canvas2=(0.95, 0.66, 0.33), base=(0.18, 0.18, 0.18),
-             alu=(0.72, 0.73, 0.74), rope=(0.7, 0.62, 0.45))
-    b = body(M, "camper", wheels); p, G = b.parts, b.groups
-    # rooftop tent folded open over the right side: one shell on the roof, the lid as the floor out over the ladder
-    z = ROOF + 0.07
-    x0, x1 = -0.72, 2.0
-    for s in (-1, 1):
-        p.append(rod((s * 0.6, -0.05, ROOF), (s * 0.6, -0.05, z), 0.02, M["base"], verts=6))
-        p.append(rod((s * 0.6, 1.45, ROOF), (s * 0.6, 1.45, z), 0.02, M["base"], verts=6))
-    p.append(slim_box((x1 - x0, 1.75, 0.07), at=((x0 + x1) / 2, 0.7, z), m=M["base"], bevel=0.02))
-    # canvas: one tent over the shell and the fold-out, high over the roof hinge and sloping down to the far end,
-    # with an orange window each end and the door over the ladder
-    prof = [(x0, z), (x1, z), (x1, z + 0.58), (0.62, z + 0.9), (x0 + 0.1, z + 0.72), (x0, z + 0.42)]
-    tent = prism([(x, zz) for x, zz in prof], 1.7, M["canvas"])
-    tent.rotation_euler.z = -math.pi / 2                                # profile was drawn in Y: turn it to run across X
-    tent.location.y = 0.7
-    p.append(soften(tent, 0.06))
-    for y in (-0.16, 1.56):
-        p.append(panel((0.9, y, z + 0.18), (1.6, y, z + 0.18), (1.6, y, z + 0.55), (0.9, y, z + 0.66), M["canvas2"]))
-    p.append(cyl(0.06, 0.9, at=(x1 + 0.03, 0.7, z + 0.56), rot=(math.pi / 2, 0, 0), m=M["canvas2"], verts=12))   # rolled-up door
-    p.append(panel((x1 + 0.006, 0.3, z + 0.08), (x1 + 0.006, 1.1, z + 0.08), (x1 + 0.006, 1.1, z + 0.5), (x1 + 0.006, 0.3, z + 0.5), M["base"]))
-    for y in (-0.12, 1.52):                                             # poles holding the fold-out end up
-        p.append(rod((0.62, y, z + 0.92), (x1 - 0.02, y, z + 0.6), 0.014, M["alu"], verts=6))
-    # an aluminium ladder from the fold-out edge to the ground
-    yl = (0.45, 0.95)
-    xt, xb = x1 - 0.05, x1 + 0.55
-    for y in yl:
-        p.append(rod((xt, y, z), (xb, y, 0.0), 0.022, M["alu"], verts=6))
-    for k in range(1, 7):
-        t = k / 7
-        p.append(rod((xt + (xb - xt) * t, yl[0], z * (1 - t)), (xt + (xb - xt) * t, yl[1], z * (1 - t)), 0.016, M["alu"], verts=6))
-    # a coiled rope and a little pennant on the spare
-    p.append(torus(0.15, 0.03, at=(-0.45, 1.3, z + 0.12), m=M["rope"], major=12, minor=3))
     return finish(b)
 
 
@@ -964,53 +855,52 @@ def jeep_lod(M):
     return join(drop_enclosed(p), "JeepLOD")
 
 
-def build(style, samples, views=None, preview_samples=48, wheels=WHEELS, device="auto"):
-    """Build, bake and export one style (views: None for no previews, else the preview tags to render, all when empty;
-    wheels as in WHEELS; device: the Cycles device for the AO bake and the stills, lib.bake.pick_device)."""
-    reset()
-    objs, empties = {"toy": toy, "expedition": expedition, "camper": camper}[style](wheels)
+def bake_jeep(objs, samples, device="auto", muddy=False):
+    """Give a jeep's objects (finish()'s) their own AO light: applied, baked with the doors open so the cabin and the
+    inner door faces get daylight (so bake() must not apply the open rotation: apply=False), with mud up the sills when
+    muddy (mud_mask before the bake replaces the materials, mud after). archive/build_jeep_styles.py uses it too."""
     for o in objs.values():
         apply_all(o)
-    # bake with the doors open, so the cabin and the inner door faces get daylight (so bake() must not apply the open
-    # rotation: apply=False)
     doors(objs, True)
-    if style == "expedition":
+    if muddy:
         for o in objs.values():
             mud_mask(o)
     bake(list(objs.values()), samples, apply=False, device=device)
     doors(objs, False)
-    if style == "expedition":
+    if muddy:
         for o in objs.values():
             mud(o)
-    txt = os.path.join(MODELS, f"jeep_{style}.txt") if style == "expedition" else None   # the archived styles: props/jeep/archive
-    path = export_glb([*objs.values(), *empties], os.path.join(HERE, f"jeep_{style}.glb"), texcoords=False, txt=txt, extras=True,
-                      check=True if style == "expedition" else "warn", small=True)    # the toy and camper are archived: report only
-    print(f"{style} -> {path}")
+
+
+def build(samples, views=None, preview_samples=48, device="auto"):
+    """Build, bake and export the expedition and its far LOD, with their base64 copies for the page (views: None for no
+    previews, else the preview tags to render, all when empty; device: the Cycles device for the AO bake and the stills,
+    lib.bake.pick_device)."""
+    reset()
+    objs, empties = expedition()
+    bake_jeep(objs, samples, device, muddy=True)
+    path = export_glb([*objs.values(), *empties], os.path.join(HERE, "jeep_expedition.glb"), texcoords=False,
+                      txt=os.path.join(MODELS, "jeep_expedition.txt"), extras=True, check=True, small=True)
+    print(f"expedition -> {path}")
     for e in empties:
         print(f"  {e.name}: blender {tuple(round(v, 3) for v in e.location)}")
     if views is not None:
-        preview(style, objs, preview_samples, views, device)
-    if style == "expedition":                            # the far LOD, in its own scene and bake (it would shade the full jeep)
-        reset()
-        M = mats("ex", **EXPEDITION_COLOURS)
-        lod = jeep_lod(M); apply_all(lod)
-        mud_mask(lod); bake([lod], samples, apply=False, device=device); mud(lod)
-        lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False, small=True,
-                           txt=os.path.join(MODELS, "jeep_expedition_lod.txt"))
-        print(f"  JeepLOD -> {lpath}")
+        preview("expedition", objs, preview_samples, views, device)
+    reset()                                              # the far LOD, in its own scene and bake (it would shade the full jeep)
+    M = mats("ex", **EXPEDITION_COLOURS)
+    lod = jeep_lod(M); apply_all(lod)
+    mud_mask(lod); bake([lod], samples, apply=False, device=device); mud(lod)
+    lpath = export_glb([lod], os.path.join(HERE, "jeep_expedition_lod.glb"), texcoords=False, small=True,
+                       txt=os.path.join(MODELS, "jeep_expedition_lod.txt"))
+    print(f"  JeepLOD -> {lpath}")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--style", default="expedition", choices=[*STYLES, "all"])
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--preview-samples", type=int, default=48)
     ap.add_argument("--preview", nargs="?", const="", default=None, metavar="VIEWS",
                     help="also render Cycles preview stills: all of them, or only the comma-separated views given")
-    ap.add_argument("--wheel", default=WHEELS["kind"], choices=["closed", "open"])
-    ap.add_argument("--tyre", default=WHEELS["tyre"], choices=["at", "mt", "road"], help="the tread; only acts with --wheel open")
     ap.add_argument("--device", default="auto", help="Cycles device: auto (the fastest GPU, else the CPU), gpu (stop if none), cpu, or a backend such as optix")
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])   # under blender -b: the args after --
-    views = None if a.preview is None else [v for v in a.preview.split(",") if v]
-    for s in (STYLES if a.style == "all" else [a.style]):
-        build(s, a.samples, views, a.preview_samples, dict(kind=a.wheel, tyre=a.tyre), a.device)
+    build(a.samples, None if a.preview is None else [v for v in a.preview.split(",") if v], a.preview_samples, a.device)

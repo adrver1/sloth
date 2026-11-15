@@ -7,7 +7,11 @@ Adriaen kept the Expedition for the camp on 2026-11-12. The Toy and Camper style
   `?jeep=none` (retired by R2-217: the bake always places a jeep, so it could not be made again and had gone stale; `?jeep=none`
   now renders its sun shadows live and paints its night light pools).
 
-`props/jeep/build_jeep.py --style toy|camper` still builds both. The camp page loads models as base64 text, so to
+`build_jeep_styles.py` here holds their builders, and the earlier open wheels with their treads, moved out of
+`props/jeep/build_jeep.py` unchanged (review R2-258; the body they share with the Expedition is imported from it):
+`props/jeep/archive/build_jeep_styles.py --style toy|camper [--wheel open --tyre at|mt|road]` builds one into
+`props/jeep/jeep_<style>.glb`, and `--style expedition --wheel open` the Expedition on open wheels, into
+`props/jeep/jeep_expedition_open_<tyre>.glb` (see the script's docstring). The camp page loads models as base64 text, so to
 bring one back, write its text copy into the page's models folder with
 `base64 -w0 props/jeep/archive/jeep_toy.glb > apps/canopy-prototype/models/jeep_toy.txt`, let `OPT.jeep` in
 `apps/canopy-prototype/camp/core.js` accept its name (it takes only `expedition` or `none` now; the `JEEP` setting), and bake

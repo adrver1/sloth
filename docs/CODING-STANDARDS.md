@@ -116,9 +116,9 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 ## 14. Archives
 
-- Rule: retired asset variants are kept, not deleted: `props/camp/archive/` (the Storybook, Rustic and Jungle camp sets and the first picked GLB), `props/jeep/archive/` (the Toy and Camper jeeps), each with a README. An archive keeps the GLB only: its base64 `.txt` copy is made again with `base64 -w0` when it is needed (R2-221). Their builders may stay in the generator (`build_camp.py` keeps one function per prop). Keep the sloth styles `plush`, `baby` and `plush_real`, and the flat sticker set.
+- Rule: retired asset variants are kept, not deleted: `props/camp/archive/` (the Storybook, Rustic and Jungle camp sets and the first picked GLB), `props/jeep/archive/` (the Toy and Camper jeeps), each with a README. An archive keeps the GLB only: its base64 `.txt` copy is made again with `base64 -w0` when it is needed (R2-221). Their builders live next to them, in `props/camp/archive/build_camp_styles.py` and `props/jeep/archive/build_jeep_styles.py` (each with its command line), and import what they share with the live set from `build_camp.py` and `build_jeep.py`, which keep no branch, option or builder that only an archived style uses (R2-258). After moving a builder, check that the live and the archived builds make the same geometry as before. Keep the sloth styles `plush`, `baby` and `plush_real`, and the flat sticker set.
 - Rule: the page has no branches for retired options. When an option is archived, remove its code paths from the page; the asset stays in `archive/` and the code stays in git history.
-- Why: about 45 branches served the retired looks and prop sets (crosscut-17, world-04, gencamp-08).
+- Why: about 45 branches served the retired looks and prop sets (crosscut-17, world-04), and the archived styles' builders made up much of the live generators (gencamp-08).
 
 ## 15. How to check a change
 

@@ -6,9 +6,10 @@ in several different places", and bake the whole scene as one). Run it whenever 
     python props/bake_all.py --only light          # or: layout, jeep, ktx, ground
     set BLENDER=...\\blender.exe  and, on the desktop GPU, GPU_RUN=...\\render-jobs\\gpu_run.py
 
-  jeep    props/jeep/build_jeep.py --style <jeep>: the jeep GLB the light bake casts shadows with, its far LOD and their
-          models/*.txt copies (its own Cycles AO bake, a few seconds); stamped like the others, so it reruns only when
-          build_jeep.py or props/lib changed (review R2-228)
+  jeep    props/jeep/build_jeep.py: the jeep GLB the light bake casts shadows with, its far LOD and their models/*.txt
+          copies (its own Cycles AO bake, a few seconds); with --jeep toy or camper, props/jeep/archive/build_jeep_styles.py
+          --style <jeep> instead (the GLB only, review R2-258); stamped like the others, so it reruns only when its builder
+          or props/lib changed (review R2-228)
   light   props/camp/bake_camp_lightmap.py: ONE Blender scene (the ground disc, the picked set, the lived-in props and the
           jeep) under one set of lights, day (the page's sun + sky) and night (fire, lanterns, stove, moon) ->
             models/camp_lm_<2k|1k>.png          props: the four night lights, fire, stove, lanterns, moon (RGBA), on TEXCOORD_1
@@ -145,7 +146,8 @@ LIGHT_CMD = ["--size", str(a.size), "--samples", str(a.samples), "--ground", str
 KTX_CMD = ["--t2", "--encode", "uastc", "--uastc_quality", "2", "--uastc_rdo_l", "1.0", "--zcmp", "19",
            "--assign_oetf", "linear", "--assign_primaries", "none", "--genmipmap"]
 LAYOUT_JSON = os.path.join(ROOT, "props/shadow/layout_picked.json")
-JEEP_CMD = ["--style", a.jeep]
+JEEP_SCRIPT = os.path.join(ROOT, "props/jeep", "build_jeep.py" if a.jeep == "expedition" else "archive/build_jeep_styles.py")
+JEEP_CMD = [] if a.jeep == "expedition" else ["--style", a.jeep]     # the archived styles: build_jeep_styles.py (review R2-258)
 
 
 def jeep_outputs():
@@ -163,7 +165,8 @@ def inputs(step):
         files = tree("apps/canopy-prototype", skip=("models", "lmpreview")) + [os.path.join(ROOT, "props/shadow", f) for f in ("export_casters.cjs", "layout_pure.mjs")]
         return {**hashes(files), "cmd": [a.jeep], "three": three}
     if step == "jeep":
-        return {**hashes([os.path.join(ROOT, "props/jeep/build_jeep.py")] + tree("props/lib", exts=(".py",))), "cmd": JEEP_CMD,
+        scripts = [os.path.join(ROOT, "props/jeep/build_jeep.py")] + ([] if a.jeep == "expedition" else [JEEP_SCRIPT])
+        return {**hashes(scripts + tree("props/lib", exts=(".py",))), "cmd": JEEP_CMD,
                 "blender": tool_version(BLENDER)}
     if step == "light":
         files = tree("props/camp", "props/lib", exts=(".py",)) + tree("props/lived", exts=(".py", ".png", ".jpg", ".json"))
@@ -235,7 +238,7 @@ def step_layout():
 
 
 def step_jeep():
-    blender(os.path.join(ROOT, "props/jeep/build_jeep.py"), *JEEP_CMD)
+    blender(JEEP_SCRIPT, *JEEP_CMD)
 
 
 def step_light():

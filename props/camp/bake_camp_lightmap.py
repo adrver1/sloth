@@ -472,8 +472,10 @@ def add_occluders(layout, pl, jeep):
     jroot = bpy.data.objects.new("JeepRoot", None); bpy.context.collection.objects.link(jroot)     # the page's jeep group: every
     jroot.location = B(pl["jeep"][0], 0, pl["jeep"][1]); jroot.rotation_euler = (0, 0, pl["jeep"][2])   # node keeps its own place under it
     jeep_glb = os.path.join(ROOT, "props", "jeep", f"jeep_{jeep}.glb")
-    if stale(jeep_glb, builder_sources(os.path.join(ROOT, "props", "jeep", "build_jeep.py"))):
-        print(f"  WARNING: {os.path.basename(jeep_glb)} is older than build_jeep.py or props/lib, so its shadow may not match: run bake_all.py's jeep step")
+    srcs = builder_sources(os.path.join(ROOT, "props", "jeep", "build_jeep.py"))   # an archived style also has its own builder (R2-258)
+    srcs += [] if jeep == "expedition" else [os.path.join(ROOT, "props", "jeep", "archive", "build_jeep_styles.py")]
+    if stale(jeep_glb, srcs):
+        print(f"  WARNING: {os.path.basename(jeep_glb)} is older than its builder or props/lib, so its shadow may not match: run bake_all.py's jeep step")
     for o in import_glb(jeep_glb):
         if o.type == "MESH" and o.name.startswith("Glass"):
             o.hide_render = True                                                           # see-through on the page
