@@ -29,5 +29,11 @@
  },
  "encoding": "light / 4, gamma 2.2",
  "ground_open_day": 1.855,
- "ktx2": true
+ "ktx2": {
+  "camp_lm_1k": "6025073384f7b5a3",
+  "camp_lm_2k": "fc777ce9d7a35fab",
+  "camp_lm_sun_1k": "d18d6e7e3394a52d",
+  "camp_lm_sun_2k": "022aa84a96ccecd5",
+  "camp_ground_night_picked_expedition": "876cbaf70f0eb03a"
+ }
 }

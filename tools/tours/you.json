@@ -1,0 +1,42 @@
+[
+[
+2,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__campFast = 5; T.log.push(['ph', ph()]);"
+],
+[
+4,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); L.leave(S('Mango')); L.leave(S('Sunny')); T.log.push(['ph', ph()]);"
+],
+[
+20,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__sit(0); T.log.push(['ph', ph()]);"
+],
+[
+60,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__sit(1); T.log.push(['ph', ph()]);"
+],
+[
+100,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__sit(2); T.log.push(['ph', ph()]);"
+],
+[
+140,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.call(\"driver\", () => { const r = (T.jeep.sit ? (T.jeep.sit('driver'), T.jeep.seatedIn()) : 'no sit'); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; }); T.log.push(['ph', ph()]);"
+],
+[
+260,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); L.camp.filter((s) => L.GROUND.has(s.trip.phase) && s.trip.phase !== 'greet').forEach((s) => L.goHome(s)); T.log.push(['ph', ph()]);"
+],
+[
+420,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.call(\"stand\", () => { const r = (T.jeep.stand ? (T.jeep.stand(), T.jeep.seatedIn()) : 'no stand'); return r && r.name ? r.name : r === undefined ? null : typeof r === 'object' ? String(!!r) : r; }); T.log.push(['ph', ph()]);"
+],
+[
+440,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); T.me.pos.set(2.6, 0, 1.2); window.__stick(0.4, 1); T.log.push(['ph', ph()]);"
+],
+[
+520,
+"const T = window.__T, L = T.lab, life = T.life, S = (n) => L.camp.find((s) => s.name === n), M = T.mods['camp/sloths.js'], F = T.mods['camp/food.js'], W = M.sloths.filter((s) => s.wild), O = T.op, ph = () => L.camp.map((s) => s.name + ':' + s.trip.phase + (s.trip.st ? '/' + s.trip.st : '') + (s.dozing ? 'z' : '')).join(' '); window.__stick(0, 0); T.log.push(['ph', ph()]);"
+]
+]

@@ -1,0 +1,8 @@
+# Python packages for the generators and bakes in props/, characters/sloth_baby/ and stickers/renderer/ (review R2-026).
+# bpy is Blender as a Python module: 5.3.0 needs Python 3.13. In the cloud:
+#   NO_PROXY=localhost no_proxy=localhost python3.13 -m venv .venv && .venv/bin/pip install -r props/requirements.txt
+# The desktop bakes run in a Blender install instead (BLENDER=...\blender.exe, see props/bake_all.py); the scripts are kept
+# working in Blender 4.x and 5.x. The sticker scripts and props/ground/bake_ground.py need only numpy and pillow.
+bpy==5.3.0
+numpy==2.5.4
+pillow==13.0.0

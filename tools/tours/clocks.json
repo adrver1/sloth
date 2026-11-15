@@ -1,0 +1,98 @@
+[
+[
+5,
+"const T = window.__T, J = T.jeep, me = T.me; T.near('TentClock', 1.6);"
+],
+[
+8,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('TentClock');"
+],
+[
+10,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('TentClock');"
+],
+[
+12,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Morning');"
+],
+[
+50,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('TentClock');"
+],
+[
+52,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('TentClock');"
+],
+[
+54,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Let the day run');"
+],
+[
+120,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('TentClock');"
+],
+[
+122,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('TentClock');"
+],
+[
+124,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Stop the clock');"
+],
+[
+130,
+"const T = window.__T, J = T.jeep, me = T.me; T.near('Dial', 2.4);"
+],
+[
+133,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Dial');"
+],
+[
+135,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Dial');"
+],
+[
+137,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Golden hour');"
+],
+[
+175,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Dial');"
+],
+[
+177,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Dial');"
+],
+[
+179,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Night');"
+],
+[
+215,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Dial');"
+],
+[
+217,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Dial');"
+],
+[
+219,
+"const T = window.__T, J = T.jeep, me = T.me; T.choose('Midday');"
+],
+[
+240,
+"const T = window.__T, J = T.jeep, me = T.me; T.tap('Dial');"
+],
+[
+242,
+"const T = window.__T, J = T.jeep, me = T.me; T.tapAt(5, 5);"
+],
+[
+250,
+"const T = window.__T, J = T.jeep, me = T.me; T.near('Dial', 5);"
+],
+[
+253,
+"const T = window.__T, J = T.jeep, me = T.me; T.face('Dial'); T.tap('Dial');"
+]
+]

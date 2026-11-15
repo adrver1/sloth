@@ -1,0 +1,142 @@
+[
+[
+5,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near('Radio', 1.8); "
+],
+[
+8,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); "
+],
+[
+10,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap('Radio'); "
+],
+[
+12,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Turn the radio on\"); "
+],
+[
+14,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+16,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Next\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+20,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+22,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Next\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+26,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+28,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Quieter\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+32,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+34,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Quieter\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+38,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+40,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Quieter\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+44,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+46,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Quieter\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+50,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+52,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Louder\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+56,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+58,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Louder\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+62,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+64,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Next\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+68,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+70,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Next\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+74,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+76,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Turn it off\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+80,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face('Radio'); T.tap('Radio'); "
+],
+[
+82,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Turn the radio on\");T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+86,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.click('sound');T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+92,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.click('sound');T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+98,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.click('sound');T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+104,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.click('sound');T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+110,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.audio.play('boop'); T.audio.tune(); T.audio.volume(0.4);T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+116,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); me.pos.set(6, 0, 6);T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+],
+[
+140,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['radio', T.audio.state(), T.audio.station().id, document.getElementById('sound').textContent]); "
+]
+]

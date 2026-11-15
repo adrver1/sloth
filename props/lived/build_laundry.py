@@ -1,9 +1,12 @@
 """
 The laundry line for the Canopy Camp game (apps/canopy-prototype/camp.html), lived-in props batch 2 (2026-11-11).
 
-    LaundryPosts   two sticks pushed into the ground (baked AO, like the other props)
-    LaundryCloth   the line, a striped towel folded over it and three sloth-sized socks,
-                   all textured quads on one drawn atlas (laundry.png, alpha cut on the page); the pegs are painted in
+    LaundryPosts  32  two plain sticks pushed into the ground (baked, like the other props)
+    LaundryCloth  50  the line, a striped towel folded over it and three sloth-sized socks,
+                      all textured quads on one drawn atlas (laundry.png, alpha cut on the page); the pegs are painted in
+                      (triangles as of 2026-11-14; the export prints them)
+    LineA, LineB, Hang    empties: the line's tied ends and the sloth's gap (ANCHORS), so the page can check
+                      camp/layout.js LAUNDRY against the model (review R2-252)
 
 Triangles go where they show (Adriaen's rule, 2026-11-11): the line is two crossed strips, the towel is two quads (one
 each side of the line), each sock is one quad. A gap is left on the line at HANG_T for a sloth to hang from (the
@@ -11,9 +14,15 @@ sloth-life thread builds that sloth).
 
     .venv/bin/python props/lived/build_laundry.py
 
-One GLB (props/lived/laundry.glb), z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin.
-make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's laundry.glb
-and its models/laundry.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+One GLB, z up (three.js y up), the line along X from -L/2 to L/2, centred on the origin. The light bake writes
+props/lived/laundry.glb; a run on its own writes props/lived/laundry_preview.glb (git-ignored).
+make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
+drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
+How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
+make() in its own scene and gives the BAKED parts flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+(TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
+models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
+AO in the colour attribute, which the page never sees.
 """
 import os
 import sys
@@ -25,9 +34,9 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset  # noqa: E402
+from lib.export import export_glb, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, join, obj_from_bm, rod  # noqa: E402
+from lib.mesh import anchor, drop_ground_faces, join, obj_from_bm, rod  # noqa: E402
 
 L = 3.0            # post to post
 H = 1.62           # where the line is tied on the posts
@@ -120,10 +129,10 @@ def cloth(img):
     # the towel folded over the line: a quad on each side, the back one shorter so the fold shows
     q.append(hanging(0.1, 0.28, 0.5, (4, 0, 196, 252), y=-0.012, peg_above=0.025))
     q.append(hanging(0.1, 0.28, 0.36, (4, 0, 196, 160), y=0.012, peg_above=0.0))
-    # three socks past the sloth's gap
+    # three socks past the sloth's gap, 4 mm behind the line's upright strip (in its plane they z-fought with it, R2-151)
     for t, (u0, u1) in ((0.58, (200, 280)), (0.68, (280, 360)), (0.78, (360, 440))):
         w = 0.085 / L
-        q.append(hanging(t - w / 2, t + w / 2, 0.21, (u0, 0, u1, 206), peg_above=0.03))
+        q.append(hanging(t - w / 2, t + w / 2, 0.21, (u0, 0, u1, 206), y=-0.004, peg_above=0.03))
     return textured("LaundryCloth", q, img)
 
 
@@ -134,22 +143,31 @@ def posts():
         foot = Vector((s * (L / 2 + 0.06), 0, 0))
         top = Vector((s * L / 2, 0, H + 0.12))
         p.append(rod(foot, top, 0.03, M["pole"], verts=6))         # a plain stick; the line is tied round it
-    return join(p, "LaundryPosts")
+    return drop_ground_faces([join(p, "LaundryPosts")])[0]    # no cap down in the ground (review R2-154)
+
+
+ANCHORS = ("LineA", "LineB", "Hang")
+
+
+BAKED = ("LaundryPosts",)                 # the part that takes vertex colours; the cloth is textured
 
 
 def make():
-    """Make the laundry line in the current scene and return it as {name: object}: LaundryPosts (takes vertex colours)
-    and LaundryCloth (textured). No reset, no light, no export."""
+    """Make the laundry line in the current scene and return it as {name: object}: LaundryPosts (takes vertex colours),
+    LaundryCloth (textured, a thin card), both tagged to stand at the laundry line (lib.export.tag), and the ANCHORS:
+    empties at the line's two tied ends and at the gap kept for a hanging sloth, which the page checks camp/layout.js
+    LAUNDRY against (review R2-252). No reset, no light, no export."""
     img = os.path.join(HERE, "laundry.png")
     atlas(img)
-    po = posts()
-    apply_all(po)
-    return {"LaundryPosts": po, "LaundryCloth": cloth(img)}
+    po = posts()                               # joined, so its transforms are already applied
+    marks = [anchor("LineA", (line_x(0), 0, line_z(0))), anchor("LineB", (line_x(1), 0, line_z(1))),
+             anchor("Hang", (line_x(HANG_T), 0, line_z(HANG_T)))]
+    return {"LaundryPosts": tag(po, "laundry"), "LaundryCloth": tag(cloth(img), "laundry", thin=1), **{e.name: e for e in marks}}
 
 
 def build(colour=None, path=None):
     """Make the laundry line in a fresh scene, light the posts (colour(objs); by default their own AO bake, no face
-    splitting: plain faces shade fine at this size) and write it to path (default props/lived/laundry.glb)."""
+    splitting: plain faces shade fine at this size) and write it to path (default props/lived/laundry_preview.glb)."""
     reset()
     every = make()
     po, cl = every["LaundryPosts"], every["LaundryCloth"]
@@ -158,10 +176,10 @@ def build(colour=None, path=None):
     cl.hide_render = False
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
-    path = export_glb([po, cl], path or os.path.join(HERE, "laundry.glb"), image_format="AUTO")
-    print(f"hang point (local, three.js): x {line_x(HANG_T):.3f}, y {line_z(HANG_T):.3f}, z 0")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "laundry_preview.glb"), image_format="AUTO", extras=True)
     print(f"laundry -> {path}")
 
 
 if __name__ == "__main__":
     build()
+    print("(a preview with its own AO; the page's laundry.glb and models/laundry.txt come from props/bake_all.py)")

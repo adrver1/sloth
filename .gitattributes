@@ -1,0 +1,15 @@
+# Generated files that are one long line or binary (review R2-025): git grep prints "Binary file matches" for them, git diff and
+# PR views skip their contents, and GitHub folds them as generated. "binary" also stops line-ending changes on Windows.
+# Base64 page copies of models and KTX2 light maps (written by the builders, the bake and the packing steps, never by hand)
+apps/**/models/*.txt          binary linguist-generated
+stickers/renderer/models/*.txt binary linguist-generated
+# The clearing's layout from the live page (props/shadow/export_casters.cjs): text, but one 100 KB line
+props/shadow/layout_picked.json -diff linguist-generated
+# Models and textures
+*.glb                         binary linguist-generated
+*.ktx2                        binary linguist-generated
+# The npm lock file: kept, but not shown line by line
+package-lock.json             -diff linguist-generated
+# The review's findings.md: written by docs/reviews/code-review-2026-11-13/build.py from findings.json and status.json, never by
+# hand (review R2-108). Still readable on GitHub; its diff is hidden, so a status change shows in status.json only.
+docs/reviews/*/findings.md     -diff linguist-generated

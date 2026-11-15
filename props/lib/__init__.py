@@ -2,11 +2,17 @@
 The shared builder library for the props/ generators (build_camp.py, build_jeep.py, the lived builders and the light
 bake), so they stop importing helpers from, and patching, each other:
 
-    mesh.py       primitives and mesh helpers (box, cyl and rod with caps=, ball, torus, quad, rough_up, capless, join,
-                  obj_from_bm ...)
+    mesh.py       primitives and mesh helpers (box, cyl and rod with caps=, ball, torus, arc, quad, primitive, sweep and
+                  tube for tubes with only the caps asked for, rough_up, drop_enclosed, outward, bisect, join, obj_from_bm,
+                  mesh_obj ...)
     materials.py  mat (a flat base colour), image_material, baked_material (the one vertex-colour "Baked" material)
     bake.py       bake (Cycles AO into vertex colours, with explicit split and apply), flat_colours (no light), densify
-    export.py     reset, tris, report (the per-object triangle count every export prints) and export_glb
+    export.py     reset, tris, report (the per-object triangle count every export prints), export_glb and to_txt (the
+                  page's base64 copy of a GLB or KTX2; needs no Blender), stale and builder_sources, and tag (the light bake's
+                  and the page's tags on a prop, glTF extras)
+    quantize.py   quantize, the smaller vertex data (KHR_mesh_quantization) export_glb(small=True) writes for the page
+    audit.py      audit, the mesh check export_glb runs (hidden, back-only, flipped, degenerate and overlapping triangles
+                  per object), which stops a build on a fault not in its KNOWN list
 
 A script imports it by path, as the scripts import each other: sys.path.insert(0, <props>), then `from lib.mesh import ...`.
 """

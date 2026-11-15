@@ -31,12 +31,26 @@ def image_material(name, path, alpha=False, roughness=None):
     return m
 
 
-def baked_material(roughness=None):
-    """A new "Baked" material whose base colour is the "Col" colour attribute (the exporter writes it as COLOR_0)."""
+def baked_material(roughness=None, image=None):
+    """A new "Baked" material whose base colour is the "Col" colour attribute (the exporter writes it as COLOR_0). With
+    image (a bpy image), the base colour is that image on the first UV map ("UVMap") instead, which the exporter writes as
+    the base colour texture on TEXCOORD_0, while "Col" is still exported as COLOR_0 (export_glb exports it by name): the
+    page multiplies the two (the camp's painted atlas, build_camp.py paint_uvs)."""
     m = bpy.data.materials.new("Baked")
     m.use_nodes = True
     nt = m.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
+    if image is not None:
+        tx = nt.nodes.new("ShaderNodeTexImage")
+        tx.image = image
+        uvn = nt.nodes.new("ShaderNodeUVMap")
+        uvn.uv_map = "UVMap"
+        nt.links.new(uvn.outputs["UV"], tx.inputs["Vector"])
+        nt.links.new(tx.outputs["Color"], bsdf.inputs["Base Color"])
+        nt.links.new(tx.outputs["Alpha"], bsdf.inputs["Alpha"])
+        if roughness is not None:
+            bsdf.inputs["Roughness"].default_value = roughness
+        return m
     ca = nt.nodes.new("ShaderNodeVertexColor")
     ca.layer_name = "Col"
     nt.links.new(ca.outputs["Color"], bsdf.inputs["Base Color"])

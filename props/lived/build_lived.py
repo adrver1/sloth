@@ -1,21 +1,34 @@
 """
 Lived-in camp props for the Canopy Camp game (apps/canopy-prototype/camp.html): the small things that make the camp
-look used. Built in batches, so each can be checked before the next:
+look used. PROPS (above make()) lists them all, one row each with its builder, how it is lit and where the page stands it. Triangles as of
+2026-11-15 (build() prints them, with a breakdown per piece of the baked props):
 
-    batch 1   WoodStack   the stacked split logs by the fire as one textured block (renders of the detailed stack)
-              WoodPile    the rest of the pile: end posts, a chopping stump with a hatchet in it, chips and a few loose logs
-              SeatThings  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top
+    WoodStack      94  the stacked split logs by the fire as one textured block (renders of the detailed stack)
+    LooseLogs      48  three loose split logs by the pile (textured, on the stack's atlas)
+    SeatTop         2  the rustic seat's sawn top (textured; the page puts one on each of three seats)
+    MatRoll        24  the rolled sleeping mat by the tent (textured)
+    KitchenCrate   26  the kitchen crate, full of tins painted on one quad (textured)
+    WoodPile      178  the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
+    SeatThings    108  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
+    TentSide      147  the pair of wellies by the tent (baked)
+    KitchenThings 162  the pan (a 12-sided dish with a rim and a sloped inside), plates and honey jar on the tins (baked)
 
     .venv/bin/python props/lived/build_lived.py
     .venv/bin/python props/lived/build_lived.py --samples 64
 
-One GLB (props/lived/lived.glb), one object per prop, each at its own origin, standing on z = 0 with its front toward
--Y (three.js +Z). SeatThings shares the Seat's origin (props/camp/build_camp.py rustic(): log along X, flat top at
-z = 0.361), so the page places it with the same transform as the seat it sits on. Same baked light as the camp and the
-jeep: Cycles AO times base colour in one colour attribute, drawn with a plain Lambert material on the page.
+One GLB, one object per prop, each at its own origin, standing on z = 0 with its front toward -Y (three.js +Z). The
+light bake writes props/lived/lived.glb; a run on its own writes props/lived/lived_preview.glb (git-ignored).
+SeatThings shares the Seat's origin (props/camp/build_camp.py rustic_seat(): log along X, flat top at SEAT_TOP), so the
+page places it with the same transform as the seat it sits on. build() leaves the "baked" props one colour attribute
+and no UVs, and the page draws them with a plain Lambert material; the "textured" ones keep their UVs and image.
 Materials match the camp's rustic set, so the props sit with the picked camp.
-make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's lived.glb
-and its models/lived.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
+drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
+How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
+make() in its own scene and gives the BAKED parts flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+(TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
+models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
+AO in the colour attribute, which the page never sees.
 """
 import argparse
 import hashlib
@@ -23,7 +36,9 @@ import json
 import math
 import os
 import random
+import shutil
 import sys
+import tempfile
 
 import bpy
 import bmesh  # noqa: E402  (needs bpy loaded first)
@@ -31,13 +46,13 @@ from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, report, reset  # noqa: E402
+from lib.bake import bake, pick_device  # noqa: E402
+from lib.export import export_glb, report, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, capless, cyl, join, obj_from_bm, quad, rod, rough_up, torus  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "camp"))
+from build_camp import DOOR_PLANK as PLANK, SEAT_BOARD, SEAT_TOP  # noqa: E402  (the seat and the tent planks, review R2-252)
+from lib.mesh import apply_all, box, cyl, drop_faces, drop_ground_faces, join, mug, obj_from_bm, quad, rod, rough_up, sweep, tube  # noqa: E402
 
-rng = random.Random(11)
-SEAT_TOP = 0.361
 
 
 PARTS = []          # piece names; each face carries its piece's index in the "part" attribute, for the triangle breakdown
@@ -57,7 +72,7 @@ def materials():
     return {k: mat(f"lv_{k}", c) for k, c in dict(
         bark=(0.3, 0.21, 0.14), bark2=(0.24, 0.17, 0.11), wood=(0.68, 0.52, 0.36), endgrain=(0.78, 0.62, 0.42), chip=(0.82, 0.68, 0.48),
         handle=(0.62, 0.45, 0.28), steel=(0.32, 0.33, 0.35), edge=(0.7, 0.71, 0.72),
-        tin=(0.55, 0.56, 0.58), pan=(0.16, 0.16, 0.17), plate=(0.92, 0.92, 0.88), honey=(0.86, 0.56, 0.12), lid=(0.72, 0.2, 0.16),
+        pan=(0.16, 0.16, 0.17), panrim=(0.5, 0.5, 0.52), plate=(0.92, 0.92, 0.88), honey=(0.86, 0.56, 0.12), lid=(0.72, 0.2, 0.16),
         rubber=(0.2, 0.36, 0.2), coffee=(0.2, 0.11, 0.06), sole=(0.1, 0.09, 0.08), cuff=(0.14, 0.27, 0.15), mud=(0.3, 0.21, 0.13), inside=(0.08, 0.08, 0.07),
         enamel=(0.97, 0.96, 0.92), rim=(0.16, 0.24, 0.45), cover=(0.5, 0.16, 0.13), page=(0.93, 0.9, 0.8), ink=(0.55, 0.52, 0.46), ribbon=(0.85, 0.7, 0.2)).items()}
 
@@ -122,7 +137,9 @@ def hatchet(M, at, yaw, lean):
 
 def stack_logs(M):
     """The detailed log stack: split logs along Y (ends toward the fire and away), in rows that step in as they go up.
-    About 2,000 triangles, so the page never draws it: wood_stack() renders it to a texture on a simple block."""
+    About 2,000 triangles, so the page never draws it: wood_stack() renders it to a texture on a simple block. It draws
+    from its own seeded stream (review R2-256), so every call builds the same stack, whatever was built before it."""
+    rng = random.Random(11)
     p = []
     rows = [6, 5, 5, 4, 2]
     z = 0.0
@@ -142,37 +159,41 @@ def stack_logs(M):
 STACK_BOX = dict(x=(-0.56, 0.56), y=(-0.26, 0.26), z=(0.0, 0.64))     # the region the stack renders cover
 
 
-def _render_view(path, at, rot, w, h, px):
-    """An orthographic Cycles render of w x h metres (centred on at, camera rotation rot) at px pixels per metre,
-    lit only by a white sky, so it shades like the baked AO on the other props."""
-    sc = bpy.context.scene
+def _render_view(sc, path, at, rot, w, h, px):
+    """An orthographic Cycles render of scene sc (wood_stack's own scene, which holds only the logs, its camera and its
+    sun) of w x h metres (centred on at, camera rotation rot) at px pixels per metre."""
     cam = sc.camera
     cam.location, cam.rotation_euler = at, rot
     cam.data.type = "ORTHO"
     cam.data.ortho_scale = max(w, h)
     sc.render.resolution_x, sc.render.resolution_y = round(w * px), round(h * px)
     sc.render.filepath = path
-    bpy.ops.render.render(write_still=True)
+    bpy.ops.render.render(write_still=True, scene=sc.name)
 
 
 def wood_stack(M, samples):
     """The log stack as one block: its front outline extruded along the logs, painted with renders of the detailed
-    stack (end grain on the two ends, log sides on the left and right, log tops on top), so it costs about 100 triangles."""
+    stack (end grain on the two ends, log sides on the left and right, log tops on top), so it costs about 100 triangles.
+    The renders run in a scene of their own that holds only the logs, the camera and the sun: the light bake makes the
+    lived props in its camp scene (review R2-254), where the picked camp already stands round the origin, and a render
+    there drew a log seat into the end grain and the outline (2026-11-15 wood pile bug). The scene it is called in is
+    left as it was."""
     logs = stack_logs(M)
-    sc = bpy.context.scene
-    sc.render.engine = "CYCLES"
-    sc.cycles.device = "CPU"
+    sc = bpy.data.scenes.new("wood_stack_renders")
+    for o in logs:
+        sc.collection.objects.link(o)
+    pick_device(sc)                                  # the fastest GPU there is, else the CPU (review R2-111)
     sc.cycles.samples = samples
     sc.render.film_transparent = True
     sc.view_settings.view_transform = "Standard"
-    sc.world = sc.world or bpy.data.worlds.new("w")
+    sc.world = bpy.data.worlds.new("wood_stack_sky")
     sc.world.use_nodes = True
     sc.world.node_tree.nodes["Background"].inputs["Color"].default_value = (1, 1, 1, 1)
     sc.world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.55
     sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", "SUN"))
     sun.data.energy, sun.data.angle = 2.2, math.radians(25)
     sun.rotation_euler = (math.radians(50), math.radians(-25), math.radians(-30))   # from the front, above and to the left
-    bpy.context.collection.objects.link(sun)
+    sc.collection.objects.link(sun)
     for m in bpy.data.materials:                     # Cycles reads node colours, so copy each base colour in
         if "base" in m:
             m.use_nodes = True
@@ -191,62 +212,130 @@ def wood_stack(M, samples):
     nt.links.new(wave.outputs["Fac"], ramp.inputs["Fac"])
     nt.links.new(ramp.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
-    bpy.context.collection.objects.link(cam)
+    sc.collection.objects.link(cam)
     sc.camera = cam
     (X0, X1), (Y0, Y1), (Z0, Z1) = STACK_BOX["x"], STACK_BOX["y"], STACK_BOX["z"]
     W, D, H = X1 - X0, Y1 - Y0, Z1 - Z0
-    tmp = os.path.join(HERE, "_stack_%s.png")
     px = 900
     atlas_path = os.path.join(HERE, "wood_stack.jpg")
     # the three Cycles renders are most of this script's time (about 30 s of 36 s on a laptop CPU, every light bake), and
     # their inputs rarely change: wood_stack.json keeps a key of everything they depend on (the logs' vertices, the
-    # material colours, the samples and this function's own source) with the outline they gave, and while the key
-    # matches and wood_stack.jpg is there, the renders are skipped. The seeded logs are still built, so the random
-    # stream the rest of the props draw from is unchanged.
+    # material colours, the samples, the Blender version and the source from STACK_BOX to the end of _stack_block, which
+    # holds the camera boxes, the renders, the atlas and the block's UVs) with the outline they gave, and while the key
+    # matches and wood_stack.jpg is there, the renders are skipped. On a miss it prints which part changed. The logs are
+    # still built on a hit, for the key.
     stamp = os.path.join(HERE, "wood_stack.json")
-    key = _stack_key(logs, samples, px)
-    cached = None
-    if os.path.exists(stamp) and os.path.exists(atlas_path):
+    parts = _stack_key(logs, samples, px)
+    key = hashlib.sha1(json.dumps(parts, sort_keys=True).encode()).hexdigest()
+    cached, why = None, "no wood_stack.json"
+    if not os.path.exists(atlas_path):
+        why = "no wood_stack.jpg"
+    elif os.path.exists(stamp):
         with open(stamp) as f:
             j = json.load(f)
         if j.get("key") == key:
             cached = [tuple(p) for p in j["outline"]]
+        else:
+            old = j.get("parts", {})
+            why = ", ".join(k for k in parts if old.get(k) != parts[k]) + " changed" if old else "wood_stack.json is from an older key"
+    outline = cached
     if cached is None:
-        _render_view(tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
-        _render_view(tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
-        _render_view(tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
+        print(f"  wood stack: cache miss because {why}, rendering")
+        tmpdir = tempfile.mkdtemp(prefix="wood_stack_")        # the three renders, removed however the run ends
+        tmp = os.path.join(tmpdir, "%s.png")
+        try:
+            _render_view(sc, tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
+            _render_view(sc, tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
+            _render_view(sc, tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
+            outline = _stack_atlas(tmp, atlas_path, X0, W, Z0, H)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
     else:
         print("  wood stack: renders unchanged (wood_stack.json), reusing wood_stack.jpg")
+    bad = _stack_outline_check(sc, logs, outline, px)
+    if bad:                                          # something besides the logs is in the end render
+        sys.exit(f"wood stack: {bad}")
+    if cached is None:                               # stamped only once the outline is the logs' own
+        with open(stamp, "w") as f:
+            json.dump({"key": key, "parts": parts, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
+    world = sc.world
     for o in logs:
         bpy.data.objects.remove(o)
     bpy.data.objects.remove(cam)
     bpy.data.objects.remove(sun)
-    outline = cached if cached is not None else _stack_atlas(tmp, atlas_path, X0, W, Z0, H)
-    if cached is None:
-        with open(stamp, "w") as f:
-            json.dump({"key": key, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
-    o = _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
-    if cached is None:
-        for name in ("end", "side", "top"):
-            os.remove(tmp % name)
-    return o
+    bpy.data.scenes.remove(sc)
+    bpy.data.worlds.remove(world)
+    return _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
+
+
+def _stack_outline_check(sc, logs, outline, px):
+    """None when the outline from the end render is the logs' own, else what is wrong. It measures the logs' end-view
+    silhouette exactly, from their evaluated meshes in world space in scene sc: every triangle edge projected onto the
+    end plane (x, z), and each outline column's top taken as the highest point of any edge inside the 13 pixels the
+    outline scan (_stack_atlas) took that column's top from, one pixel wider on each side for the anti-aliased edge.
+    The outline may not start or end more than 2 cm past the logs, nor have a column higher than the logs there by
+    more than the scan's own 4 mm lift and 6 pixels (the scan reads every other row). It catches any other object
+    drawn into the end render beside or above the logs (the 2026-11-15 seat), not one hidden behind them, nor anything
+    that reaches only the side or top renders. (Rays from the front missed the logs' thin edges between their sample
+    points, so a clean render stopped the build, 2026-11-15.)"""
+    import numpy as np
+    sc.view_layers[0].update()
+    dg = sc.view_layers[0].depsgraph
+    segs = []
+    for o in logs:
+        ev = o.evaluated_get(dg)
+        me = ev.to_mesh()
+        me.calc_loop_triangles()
+        co = np.empty(len(me.vertices) * 3)
+        me.vertices.foreach_get("co", co)
+        tri = np.empty(len(me.loop_triangles) * 3, dtype=np.int64)
+        me.loop_triangles.foreach_get("vertices", tri)
+        ev.to_mesh_clear()
+        mw = np.array(ev.matrix_world)
+        w = co.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3]
+        t = w[tri.reshape(-1, 3)][:, :, [0, 2]]                       # each triangle on the end plane, as (x, z)
+        segs.append(np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]]))
+    seg = np.concatenate(segs)                                         # (n, 2 ends, x z)
+    lx0, lx1 = seg[:, :, 0].min(), seg[:, :, 0].max()
+    if outline[0][0] < lx0 - 0.02 or outline[-1][0] > lx1 + 0.02:
+        return f"the outline spans x {outline[0][0]:.3f} to {outline[-1][0]:.3f} but the logs {lx0:.3f} to {lx1:.3f} (tolerance 0.020 m)"
+    p = 1 / px                                                         # one pixel of the end render, in metres
+    tol = 0.004 + 6 * p
+    xa, za, xb, zb = seg[:, 0, 0], seg[:, 0, 1], seg[:, 1, 0], seg[:, 1, 1]
+    for x, z in outline[1:-1]:
+        lo, hi = x - 7 * p, x + 8 * p                                  # pixels cx-6 to cx+6, plus one each side
+        top = 0.0
+        for e in (lo, hi):                                             # where the edges cross the window's sides
+            c = (np.minimum(xa, xb) <= e) & (np.maximum(xa, xb) >= e) & (xa != xb)
+            if c.any():
+                top = max(top, (za[c] + (e - xa[c]) / (xb[c] - xa[c]) * (zb[c] - za[c])).max())
+        for vx, vz in ((xa, za), (xb, zb)):                            # and the edge ends inside it
+            c = (vx >= lo) & (vx <= hi)
+            if c.any():
+                top = max(top, vz[c].max())
+        if z > top + tol:
+            return (f"the outline column at x {x:.3f} (x {lo:.3f} to {hi:.3f}) is {z:.3f} m high but the logs' end silhouette "
+                    f"there only {top:.3f} m, more than the {tol:.3f} m tolerance")
+    return None
 
 
 def _stack_key(logs, samples, px):
-    """A key of everything the stack renders depend on (see wood_stack)."""
-    h = hashlib.sha1()
+    """What the stack renders depend on (see wood_stack), as {part: sha1}: "source" (this file from STACK_BOX to the end
+    of _stack_block), "logs" (their vertices, transforms and material colours), "settings" (samples and pixels per metre)
+    and "blender" (its version)."""
     src = open(os.path.join(HERE, "build_lived.py"), encoding="utf-8").read()
-    h.update(src[src.index("def _render_view"):src.index("def _stack_key")].encode())
-    h.update(f"{samples} {px}".encode())
+    logs_h = hashlib.sha1()
     for o in logs:
         me = o.data
         co = [0.0] * (len(me.vertices) * 3)
         me.vertices.foreach_get("co", co)
         mw = o.matrix_world
-        h.update(" ".join(f"{v:.5f}" for v in co).encode())
-        h.update(" ".join(f"{v:.5f}" for row in mw for v in row).encode())
-        h.update(" ".join(f"{m.name.split('.')[0]}:{tuple(round(c, 4) for c in m.get('base', ()))}" for m in me.materials if m).encode())
-    return h.hexdigest()
+        logs_h.update(" ".join(f"{v:.5f}" for v in co).encode())
+        logs_h.update(" ".join(f"{v:.5f}" for row in mw for v in row).encode())
+        logs_h.update(" ".join(f"{m.name.split('.')[0]}:{tuple(round(c, 4) for c in m.get('base', ()))}" for m in me.materials if m).encode())
+    sha = lambda t: hashlib.sha1(t.encode()).hexdigest()
+    return {"source": sha(src[src.index("STACK_BOX = "):src.index("def ring_top")]), "logs": logs_h.hexdigest(),
+            "settings": sha(f"{samples} {px}"), "blender": sha(bpy.app.version_string)}
 
 
 def _stack_atlas(tmp, atlas_path, X0, W, Z0, H):
@@ -268,12 +357,11 @@ def _stack_atlas(tmp, atlas_path, X0, W, Z0, H):
     atlas.paste(top.resize((640, 512), Image.LANCZOS), (384, 512))
     atlas.save(atlas_path, quality=82)
     # the outline: the top of the stack's silhouette across 22 columns (it has no overhangs, so a height field will do)
+    import numpy as np
     a = end_a.getchannel("A")
     iw, ih = a.size
-    cols = []
-    for x in range(iw):
-        ys = [y for y in range(0, ih, 2) if a.getpixel((x, y)) > 128]
-        cols.append(ih - min(ys) if ys else 0)
+    solid = np.asarray(a)[::2] > 128                     # every other row, as the scan always read it
+    cols = np.where(solid.any(axis=0), ih - 2 * solid.argmax(axis=0), 0).tolist()   # each column's top, from the bottom
     xs = [x for x in range(iw) if cols[x] > ih * 0.05]
     xl, xr = xs[0], xs[-1]
     outline = [(X0 + xl / iw * W, 0.0)]
@@ -344,21 +432,22 @@ def wood_pile(M):
     # two posts at the ends keep the stack from rolling
     for s in (-1, 1):
         a, b = (s * 0.52, 0, -0.02), (s * 0.54, 0.02, 0.55)
-        p.append(capless(rod(a, b, 0.035, M["bark2"], verts=5), a, b))
+        p.append(tube(a, b, 0.035, M["bark2"], sides=5))          # open at the buried foot
     k0 = mark(p, 0, "End posts")
     # the chopping stump beside it, with the hatchet left in
     sx, sy = 1.0, -0.15
-    stump = cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=8, r2=None, smooth=False)
-    p.append(capless(rough_up(stump, 0.01, 10), (sx, sy, 0), (sx, sy, 0.42), keep_end=False))
+    stump = cyl(0.22, 0.42, at=(sx, sy, 0.21), m=M["bark"], verts=8, smooth=False, caps=False)   # ring_top is its top
+    p.append(rough_up(stump, 0.01, 10))
     p.append(ring_top(0.215, (sx, sy, 0.421), 8, M))
     for k in range(4):                              # roots flaring into the ground
         t = k / 4 * 2 * math.pi + 0.4
         a = (sx + math.cos(t) * 0.17, sy + math.sin(t) * 0.17, 0.05)
         b = (sx + math.cos(t) * 0.27, sy + math.sin(t) * 0.27, -0.03)
-        p.append(capless(rod(a, b, 0.045, M["bark"], verts=4), a, b, keep_end=False))
+        p.append(tube(a, b, 0.045, M["bark"], sides=4, cap_b=False))   # both ends in the stump or the ground
     k0 = mark(p, k0, "Chopping stump")
     p.append(hatchet(M, (sx + 0.03, sy - 0.02, 0.505), yaw=-0.5, lean=0.85))   # the blade bitten in about 2 cm
     k0 = mark(p, k0, "Hatchet")
+    rng = random.Random(12)                         # the chips' own seeded stream (review R2-256)
     for k in range(10):                             # chips round the stump: one flat quad each
         t, d = rng.uniform(0, 2 * math.pi), rng.uniform(0.3, 0.6)
         cx, cy, w, h, yaw = sx + math.cos(t) * d, sy + math.sin(t) * d, rng.uniform(0.03, 0.06), rng.uniform(0.015, 0.03), rng.uniform(0, 3.14)
@@ -370,38 +459,107 @@ def wood_pile(M):
 
 # the loose logs lying about: (length, radius, x, y, yaw, end circle, side band), in WoodPile's own frame
 LOOSE = [(0.4, 0.085, 1.38, -0.43, 1.1, 0, 0), (0.44, 0.08, 0.2, -0.45, 0.3, 1, 1), (0.46, 0.065, -0.35, -0.42, -0.2, 2, 2)]
-# where they read the stack's atlas (wood_stack.jpg, 1024 px, y down): sawn ends with rings, and log sides
-ATLAS_ENDS = [(442, 92, 54), (568, 90, 56), (150, 457, 48)]          # circle centre and radius
-ATLAS_SIDES = [(545, 640), (740, 830), (835, 925)]                    # rows of one log side, x 20-355
+# They read the stack's atlas (wood_stack.jpg, 1024 px, y down) at spots stack_spots() finds in the stack itself: sawn
+# ends with rings, and log sides. The logs the player carries on the page read other spots of the same atlas, CARRIED: a
+# strip of the logs seen from above (x, y, width, height) and one round end (centre x, y and half-size), picked by eye.
+# stack_spots() writes both into wood_stack.json ("spots" and "carried"); the light bake puts "carried" on the WoodStack
+# object in lived.glb (glTF extras), and activities/parts.js paintLogs reads it there (review R2-243). Keep both on bark
+# and end grain, and check CARRIED by eye if the stack is ever built differently.
+CARRIED = {"side": [540, 555, 62, 455], "end": [440, 92, 60]}
 HEX = 6
 
 
-def loose_logs(logs=None, name="LooseLogs"):
+def stack_spots(M):
+    """Where the atlas shows whole log ends and log sides, found in the stack's geometry instead of measured by hand
+    (review R2-256): {"ends": [[x, y, r] x 3], "sides": [[x0, y0, x1, y1] x 3]} in atlas pixels, each list top to
+    bottom. The stack is built again from its own seeded stream (stack_logs) and rays go the way the renders in
+    wood_stack() look: from the front (-Y) for the ends, whose largest circles inside a sawn end are kept, and from the
+    right (+X) for the sides, whose tallest runs of one log's bark are kept, each inset a little. They are also written
+    into wood_stack.json as "spots", beside the renders' key and the carried logs' CARRIED spots (R2-243)."""
+    from mathutils.bvhtree import BVHTree
+    import numpy as np
+    logs = stack_logs(M)
+    V, F, owner = [], [], []
+    for i, o in enumerate(logs):
+        mw, base = o.matrix_world, len(V)
+        V += [mw @ v.co for v in o.data.vertices]
+        for pl in o.data.polygons:
+            F.append([base + k for k in pl.vertices]); owner.append(i)
+    for o in logs:
+        me = o.data
+        bpy.data.objects.remove(o); bpy.data.meshes.remove(me)
+    tree = BVHTree.FromPolygons(V, F)
+    (X0, X1), (Y0, Y1), (Z0, Z1) = STACK_BOX["x"], STACK_BOX["y"], STACK_BOX["z"]
+    W, D, H = X1 - X0, Y1 - Y0, Z1 - Z0
+
+    def hit(origin, d):
+        loc, nrm, idx, _ = tree.ray_cast(Vector(origin), Vector(d))
+        return (owner[idx], nrm) if loc is not None else (None, None)
+    step, ends = 2, {}                    # the end render fills the atlas's top half (1024 x 512)
+    for v in range(0, 512, step):
+        for u in range(0, 1024, step):
+            i, n = hit((X0 + (u + 0.5) / 1024 * W, -3, Z1 - (v + 0.5) / 512 * H), (0, 1, 0))
+            if i is not None and abs(n.y) > 0.9:
+                ends.setdefault(i, set()).add((u, v))
+    circles = []
+    for i, pts in ends.items():           # the largest circle inside each log's sawn end, in pixels
+        P = np.array(sorted(pts), float)
+        rim = np.array([p for p in sorted(pts) if any((p[0] + a, p[1] + b) not in pts for a, b in ((step, 0), (-step, 0), (0, step), (0, -step)))], float)
+        d = np.sqrt(((P[:, None] - rim[None]) ** 2).sum(-1)).min(1)
+        k = int(d.argmax())
+        circles.append((float(d[k]), int(P[k][0]), int(P[k][1])))
+    circles = sorted(sorted(circles, reverse=True)[:3], key=lambda c: (c[2], c[1]))
+    runs, cur = [], None                  # the side render: the atlas's bottom left (384 x 512 from y 512)
+    for v in range(512):
+        z = Z1 - (v + 0.5) / 512 * H
+        seen = {hit((3, Y0 + (u + 0.5) / 384 * D, z), (-1, 0, 0))[0] for u in (40, 190, 340)}
+        i = seen.pop() if len(seen) == 1 else None
+        if cur and cur[0] == i:
+            cur[2] = v
+        else:
+            if cur and cur[0] is not None:
+                runs.append(cur)
+            cur = [i, v, v]
+    if cur and cur[0] is not None:
+        runs.append(cur)
+    sides = []
+    for i, v0, v1 in sorted(sorted(runs, key=lambda r: r[1] - r[2])[:3], key=lambda r: r[1]):
+        z = Z1 - ((v0 + v1) / 2 + 0.5) / 512 * H
+        us = [u for u in range(384) if hit((3, Y0 + (u + 0.5) / 384 * D, z), (-1, 0, 0))[0] == i]
+        iu, iv = round(0.04 * (us[-1] - us[0])), round(0.04 * (v1 - v0))
+        sides.append([us[0] + iu, 512 + v0 + iv, us[-1] - iu, 512 + v1 - iv])
+    spots = {"ends": [[x, y, round(0.95 * r)] for r, x, y in circles], "sides": sides}
+    stamp = os.path.join(HERE, "wood_stack.json")
+    j = json.load(open(stamp)) if os.path.exists(stamp) else {}
+    if j.get("spots") != spots or j.get("carried") != CARRIED:
+        j["spots"], j["carried"] = spots, CARRIED
+        with open(stamp, "w") as f:
+            json.dump(j, f)
+    return spots
+
+
+def loose_logs(spots, logs=None, name="LooseLogs"):
     """The loose logs as plain hexagonal prisms (12 side + 8 end triangles each) on the stack's own texture, so they
-    look like logs taken off the stack. The page and the activities thread use the same atlas rectangles."""
+    look like logs taken off the stack, through spots (stack_spots: a sawn end and a log side each). The page's carried
+    logs use their own spots of the same atlas (CARRIED), not these."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     U = lambda x, y: (x / 1024, 1 - y / 1024)  # noqa: E731
     for L, r, x, y, yaw, e, sd in logs or LOOSE:
         c, sn = math.cos(yaw), math.sin(yaw)
-        P = lambda lx, ly, lz: Vector((x + lx * c - ly * sn, y + lx * sn + ly * c, lz))  # noqa: E731
-        ang = [math.radians(30 + 60 * k) for k in range(HEX)]       # a flat face down, so it rests on the ground
-        zc = r * math.cos(math.radians(30))
-        ends = [[bm.verts.new(P(s * L / 2, r * math.cos(a), zc + r * math.sin(a))) for a in ang] for s in (-1, 1)]
-        y0, y1 = ATLAS_SIDES[sd]
-        for k in range(HEX):
-            j = (k + 1) % HEX
-            f = bm.faces.new((ends[0][k], ends[1][k], ends[1][j], ends[0][j]))
+        zc = r * math.cos(math.radians(30))                         # a flat face down, so it rests on the ground
+        t = sweep(bm, [(x - c * L / 2, y - sn * L / 2, zc), (x + c * L / 2, y + sn * L / 2, zc)], [r, r], HEX, cap_a=True,
+                  twist=0.5, frame=((-sn, c, 0), (0, 0, 1)))
+        x0, y0, x1, y1 = spots["sides"][sd]
+        for k, f in enumerate(t["sides"][0]):
             va, vb = y0 + (y1 - y0) * k / HEX, y0 + (y1 - y0) * (k + 1) / HEX   # each face a slice across the band
-            for lp, (ux, vy) in zip(f.loops, ((20, va), (355, va), (355, vb), (20, vb))):
+            for lp, (ux, vy) in zip(f.loops, ((x0, va), (x0, vb), (x1, vb), (x1, va))):
                 lp[uv].uv = U(ux, vy)
-        ex, ey, er = ATLAS_ENDS[e]
-        for s, ring in ((-1, ends[0][::-1]), (1, ends[1])):
-            f = bm.faces.new(ring)
-            for lp, v in zip(f.loops, ring):
-                a = ang[ends[0 if s < 0 else 1].index(v)]
+        ex, ey, er = spots["ends"][e]
+        for s, ring, cap in ((-1, t["rings"][0], t["cap_a"]), (1, t["rings"][1], t["cap_b"])):
+            for lp in cap.loops:
+                a = t["angles"][ring.index(lp.vert)]
                 lp[uv].uv = U(ex + er * math.cos(a) * s, ey - er * math.sin(a))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
     o = obj_from_bm(bm, name)
     me = o.data
@@ -414,37 +572,6 @@ def page(w, d, side, M, lift):
     x1 = side * w
     q = [(0, -d / 2, lift), (x1, -d / 2, lift + 0.012), (x1, d / 2, lift + 0.012), (0, d / 2, lift)]
     return quad(q if side > 0 else q[::-1], M["page"])
-
-
-def mug(M, at):
-    """The enamel mug, trimmed (Adriaen 2026-11-12): an 8-sided body with no bottom, the blue rim painted as a band at
-    the top, coffee as one flat octagon, and a 6 x 3 handle loop (96 triangles instead of 244)."""
-    x0, y0, z0 = at
-    r, h, n = 0.042, 0.085, 8
-    bm = bmesh.new()
-    ring = lambda rr, zz: [bm.verts.new((x0 + rr * math.cos(2 * math.pi * (i + 0.5) / n), y0 + rr * math.sin(2 * math.pi * (i + 0.5) / n), z0 + zz)) for i in range(n)]  # noqa: E731
-    lo, band, hi = ring(r, 0), ring(r, h - 0.008), ring(r, h)
-    for i in range(n):
-        j = (i + 1) % n
-        bm.faces.new((lo[i], lo[j], band[j], band[i])).material_index = 0
-        bm.faces.new((band[i], band[j], hi[j], hi[i])).material_index = 1
-    cof = ring(r * 0.86, h - 0.004)
-    bm.faces.new(cof).material_index = 2                                 # the coffee, just under the rim
-    for i in range(n):                                                   # the rim: a ring from the outside down to the coffee
-        j = (i + 1) % n
-        bm.faces.new((hi[i], hi[j], cof[j], cof[i])).material_index = 1
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    for f in bm.faces:
-        if f.calc_center_median().z > z0 + h - 0.006 and f.normal.z < 0:
-            f.normal_flip()
-    o = obj_from_bm(bm, "mug")
-    me = o.data
-    for k in ("enamel", "rim", "coffee"):
-        me.materials.append(M[k])
-    hd = torus(0.026, 0.006, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=6, minor=3)
-    for pl in hd.data.polygons:
-        pl.use_smooth = False
-    return join([o, hd], "mug")
 
 
 def seat_things(M):
@@ -474,7 +601,7 @@ def seat_things(M):
 
 
 def seat_top_texture(path):
-    """The sawn top of the half-log seat (1.48 x 0.46 m): pale wood with grain running along the log (no knots,
+    """The sawn top of the half-log seat (the SEAT_BOARD quad): pale wood with grain running along the log (no knots,
     Adriaen), a drying crack, and the sawn edges a little darker and worn."""
     from PIL import Image, ImageDraw, ImageFilter
     r = random.Random(5)
@@ -507,7 +634,7 @@ def seat_top():
     """One textured quad laid on the seat's flat top (2 triangles); the page puts a copy on each of the three seats."""
     img = os.path.join(HERE, "seat_top.png")
     seat_top_texture(img)
-    hx, hy, z = 0.74, 0.23, SEAT_TOP + 0.0055                  # just over the top board (1.48 x 0.46, top face at 0.366)
+    hx, hy, z = SEAT_BOARD[0] / 2, SEAT_BOARD[1] / 2, SEAT_TOP + 0.002   # 2 mm over the log's flat top (the page adds a polygon offset)
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     f = bm.faces.new([bm.verts.new(c) for c in ((-hx, -hy, z), (hx, -hy, z), (hx, hy, z), (-hx, hy, z))])
@@ -519,8 +646,8 @@ def seat_top():
 
 
 # the tent side (props/camp/build_camp.py wall_tent, in the tent's own frame: x across, door toward -y, front wall at
-# y -0.95, loose planks before it with their tops at z 0.03). The doorway (|x| < 0.45) stays clear: you walk in there.
-PLANK = 0.03
+# y -0.95, loose planks before it with their tops at z PLANK, build_camp.DOOR_PLANK). The doorway (|x| < 0.45) stays clear:
+# you walk in there.
 # side outline of a welly (x toward the toe, z up): a heel block and an arch under the sole, a rounded toe, the
 # shaft flaring a little at the top
 BOOT = [(-0.09, 0), (-0.035, 0), (-0.03, 0.012), (0.045, 0.012), (0.05, 0), (0.15, 0), (0.185, 0.02), (0.195, 0.045),
@@ -528,7 +655,7 @@ BOOT = [(-0.09, 0), (-0.035, 0), (-0.03, 0.012), (0.045, 0.012), (0.05, 0), (0.1
 
 
 def boot(M, at, yaw, roll=0.0):
-    """A green welly: its side outline extruded (about 60 triangles), the foot a little wider than the shaft. Bands cut
+    """A green welly: its side outline extruded (88 triangles), the foot a little wider than the shaft. Bands cut
     across it: a dark sole, mud up to 7 cm, a darker cuff at the top; the shaft top dark inside."""
     bm = bmesh.new()
     a = [bm.verts.new((x, -0.045, z)) for x, z in BOOT]
@@ -553,31 +680,36 @@ def boot(M, at, yaw, roll=0.0):
         z = pl.center.z
         pl.material_index = 2 if pl.normal.z > 0.9 and z > 0.29 else 3 if z < 0.022 else 1 if z < 0.07 else 4 if z > 0.262 else 0
     o.rotation_euler = (roll, 0, yaw)
-    o.scale = (1.25, 1.25, 1.25)                                 # grown-up size next to the tent door
+    o.scale = (BOOT_SCALE,) * 3
     o.location = at
     return o
 
 
+BOOT_SCALE = 1.05     # a grown-up's welly, about 31 cm long (1.25 made them 37 cm, review R2-195)
+
+
 def tent_side(M):
-    """A pair of muddy wellies kicked off on the planks right of the door, one fallen over."""
-    p = [boot(M, (0.8, -1.15, PLANK), 1.75), boot(M, (1.08, -1.28, PLANK + 0.065), 2.1, roll=math.pi / 2)]
+    """A pair of muddy wellies kicked off on the planks right of the door, one fallen over (on its side, so its sole
+    shows). make() drops the standing boot's sole and arch, which face down onto the planks (drop_ground_faces)."""
+    side = 0.045 * 1.15 * BOOT_SCALE                             # half the foot's width: the fallen boot rests on its side
+    p = [boot(M, (0.8, -1.15, PLANK), 1.75), boot(M, (1.08, -1.28, PLANK + side), 2.1, roll=math.pi / 2)]
     mark(p, 0, "Wellies")
     return join(p, "TentSide")
 
 
-def mat_roll(path):
-    """A rolled foam sleeping mat lying on the planks left of the door: an 8-sided prism (28 triangles) with the
-    straps painted on its side and the rolled spiral painted on its ends (mat_roll.png)."""
+def mat_roll_texture(path):
+    """mat_roll.png, 128 x 64: the side (left half: foam ridges along the roll and two dark straps round it) and the end
+    (right half: the rolled layers as a spiral)."""
     from PIL import Image, ImageDraw
     k = 4
     im = Image.new("RGB", (128 * k, 64 * k), (64, 128, 176))
     d = ImageDraw.Draw(im)
-    for x in range(0, 64 * k, 6 * k):                         # the foam's ridges along the roll (left half: the side)
+    for x in range(0, 64 * k, 6 * k):                         # the foam's ridges along the roll
         d.line((x, 0, x, 64 * k), fill=(52, 110, 156), width=2 * k)
     for y in (12, 46):                                         # two straps round it
         d.rectangle((0, y * k, 64 * k, (y + 6) * k), fill=(48, 44, 40))
         d.rectangle((0, (y + 1) * k, 64 * k, (y + 2) * k), fill=(80, 74, 66))
-    d.rectangle((64 * k, 0, 128 * k, 64 * k), fill=(40, 90, 130))   # the end: the rolled layers as a spiral
+    d.rectangle((64 * k, 0, 128 * k, 64 * k), fill=(40, 90, 130))
     cx, cy = 96 * k, 32 * k
     pts = []
     for i in range(400):
@@ -586,23 +718,24 @@ def mat_roll(path):
         pts.append((cx + r * math.cos(t), cy + r * math.sin(t)))
     d.line(pts, fill=(92, 156, 204), width=3 * k)
     im.resize((128, 64), Image.LANCZOS).save(path)
+
+
+def mat_roll(path):
+    """A rolled foam sleeping mat lying on the planks left of the door: an 8-sided prism (28 triangles) with the
+    straps painted on its side and the rolled spiral painted on its ends (mat_roll_texture, written to path)."""
+    mat_roll_texture(path)
     L, r, sides = 0.6, 0.075, 8
-    x0, y0 = -0.95, -1.2
+    x0, y0, zc = -0.95, -1.2, PLANK + r * math.cos(math.pi / sides)
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
-    ang = [2 * math.pi * (i + 0.5) / sides for i in range(sides)]
-    ends = [[bm.verts.new((x0 + s * L / 2, y0 + r * math.cos(t), PLANK + r * math.cos(math.pi / sides) + r * math.sin(t))) for t in ang] for s in (-1, 1)]
-    for i in range(sides):
-        j = (i + 1) % sides
-        f = bm.faces.new((ends[0][i], ends[1][i], ends[1][j], ends[0][j]))
-        for lp, (u, v) in zip(f.loops, ((i / sides, 0), (i / sides, 1), ((i + 1) / sides, 1), ((i + 1) / sides, 0))):
-            lp[uv].uv = (u * 0.5, v)                           # the side half of the image, straps across v
-    for s, ring in ((-1, ends[0][::-1]), (1, ends[1])):
-        f = bm.faces.new(ring)
-        for lp in f.loops:
-            t = ang[(ends[0] if s < 0 else ends[1]).index(lp.vert)]
-            lp[uv].uv = (0.75 + 0.235 * math.cos(t) * s, 0.5 + 0.47 * math.sin(t))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    t = sweep(bm, [(x0 - L / 2, y0, zc), (x0 + L / 2, y0, zc)], [r, r], sides, cap_a=True, twist=0.5, frame=((0, 1, 0), (0, 0, 1)))
+    for i, f in enumerate(t["sides"][0]):                      # the side half of the image, straps across v
+        for lp, (u, v) in zip(f.loops, ((i / sides, 0), ((i + 1) / sides, 0), ((i + 1) / sides, 1), (i / sides, 1))):
+            lp[uv].uv = (u * 0.5, v)
+    for s, ring, cap in ((-1, t["rings"][0], t["cap_a"]), (1, t["rings"][1], t["cap_b"])):
+        for lp in cap.loops:
+            a = t["angles"][ring.index(lp.vert)]
+            lp[uv].uv = (0.75 + 0.235 * math.cos(a) * s, 0.5 + 0.47 * math.sin(a))
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
     o = obj_from_bm(bm, "MatRoll")
     o.data.materials.append(image_material("MatRoll", path))
@@ -611,39 +744,105 @@ def mat_roll(path):
 
 # the camp kitchen crate: an open wooden crate on the ground beside the snack table, on the side away from the fire
 CW, CD, CH, CT = 0.5, 0.34, 0.28, 0.018       # outer width, depth, height, wall thickness
+# the crate is full of tins (Adriaen 2026-11-15: "put a rectangle in it upon which you draw cans of food seen from the top"):
+# one flat textured quad at CANS_Z fills the inside, with the tins painted on it, and everything else rests on it
+CANS_Z = 0.2
+PAN_R0, PAN_R1, PAN_X = 0.085, 0.1, -0.1             # the pan's bottom and top radius, and where its middle lies
+CANS_PX = (256, 168)                          # the tins' rectangle in kitchen_crate.png (bottom right), the inside's aspect
+
+
+def paint_cans(im, box, k):
+    """Tins of food seen from the top, packed edge to edge into box (x0, y0, x1, y1, in pixels of im, which is drawn k times
+    larger than it is saved): a dark gap between them, a wide band of each one's label round its lid, then a cool silver
+    lid with a bright rolled rim, one pressed ring, a shine on the top left and a ring pull on most, so they read as metal
+    tins and not as sawn log ends (review of 2026-11-15). Warm storybook label colours; the same tins every run (seeded)."""
+    from PIL import Image, ImageDraw, ImageFilter
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    d = ImageDraw.Draw(im)
+    d.rectangle((x0 * k, y0 * k, x1 * k, y1 * k), fill=(58, 40, 26))            # the shadow between the tins
+    r = random.Random(11)
+    labels = [(204, 70, 50), (230, 170, 56), (80, 134, 92), (92, 120, 168), (176, 84, 120), (226, 110, 60)]
+    tins = []                                                                   # (cx, cy, radius) in saved pixels
+    rows, R0 = 3, h / (2 + 2 * math.sqrt(3))                                    # three rows packed like tins in a box (staggered by a radius)
+    for j in range(rows):
+        cy = R0 + j * math.sqrt(3) * R0
+        x = R0 * (0.05 if j % 2 else 1.0)
+        while x < w + R0:
+            rr = R0 * r.uniform(0.86, 1.0)
+            tins.append((x0 + x, y0 + cy + r.uniform(-2, 2), rr))
+            x += 2 * R0 * r.uniform(0.98, 1.04)
+    sh = Image.new("L", im.size, 0)                                             # a soft shadow under each tin, down and right
+    ds = ImageDraw.Draw(sh)
+    for cx, cy, rr in tins:
+        ds.ellipse(((cx - rr + 2) * k, (cy - rr + 3) * k, (cx + rr + 2) * k, (cy + rr + 3) * k), fill=150)
+    sh = sh.filter(ImageFilter.GaussianBlur(3 * k))
+    im.paste((30, 20, 12), mask=sh)
+    for cx, cy, rr in tins:
+        lab = r.choice(labels)
+        def disc(rad, col, dx=0.0, dy=0.0):
+            d.ellipse(((cx + dx - rad) * k, (cy + dy - rad) * k, (cx + dx + rad) * k, (cy + dy + rad) * k), fill=col)
+        def ring(rad, col, wid):
+            d.ellipse(((cx - rad) * k, (cy - rad) * k, (cx + rad) * k, (cy + rad) * k), outline=col, width=max(1, int(wid * k)))
+        disc(rr, tuple(int(v * 0.7) for v in lab))                               # the label, darker on its far side
+        disc(rr * 0.97, lab, -0.8, -0.8)
+        ring(rr * 0.86, (250, 236, 200), 0.9)                                    # a cream stripe printed on the label
+        f = r.uniform(0.94, 1.04)
+        silver = tuple(int(v * f) for v in (178, 182, 186))
+        disc(rr * 0.74, (96, 96, 100))                                           # the seam where lid meets label
+        disc(rr * 0.71, (226, 228, 230))                                         # the rolled rim, bright
+        disc(rr * 0.6, tuple(int(v * 0.82) for v in silver))                     # the lid sunk inside the rim
+        disc(rr * 0.57, silver, -0.5, -0.5)
+        ring(rr * 0.38, tuple(int(v * 0.86) for v in silver), 0.6)               # one fine pressed ring
+        d.arc(((cx - rr * 0.66) * k, (cy - rr * 0.66) * k, (cx + rr * 0.66) * k, (cy + rr * 0.66) * k), 190, 260, fill=(255, 255, 255), width=int(1.6 * k))   # shine on the rim, top left
+        d.arc(((cx - rr * 0.48) * k, (cy - rr * 0.48) * k, (cx + rr * 0.48) * k, (cy + rr * 0.48) * k), 200, 245, fill=(236, 238, 240), width=int(1.2 * k))
+        if r.random() < 0.75:                                                    # a ring pull on most: a tab from the middle out
+            a = r.uniform(0, 6.28)
+            ca, sa = math.cos(a), math.sin(a)
+            tab = [(cx + ca * rr * (0.22 + 0.2 * math.cos(t)) - sa * rr * 0.12 * math.sin(t), cy + sa * rr * (0.22 + 0.2 * math.cos(t)) + ca * rr * 0.12 * math.sin(t))
+                   for t in (i * math.pi / 8 for i in range(16))]
+            d.polygon([(px * k, py * k) for px, py in tab], outline=(104, 106, 112), width=int(1.5 * k))
+            disc(rr * 0.07, (112, 114, 120))                                     # its rivet in the middle
 
 
 def crate_texture(path):
-    """256 x 256: outer planks (left half), inside planks (top right), sawn rim (bottom right)."""
+    """512 x 512: outer planks (left half), inside planks (top right), the tins (bottom right, CANS_PX, paint_cans) and the
+    sawn rim (a strip under the tins). 512 and not 256 because the tins fill about 180 px of a phone screen up close and
+    their rims and ring pulls blur at 128; it costs about 28 KB more of JPEG in the lived GLB (44 KB against 16 KB)."""
     from PIL import Image, ImageDraw
-    k = 4
-    im = Image.new("RGB", (256 * k, 256 * k), (60, 42, 28))
+    k, S = 4, 2                                       # drawn at 4x, saved at 512 (the old 256 layout scaled by S)
+    im = Image.new("RGB", (512 * k, 512 * k), (60, 42, 28))
     d = ImageDraw.Draw(im)
     r = random.Random(3)
     def boards(x0, y0, x1, y1, n, base, dark):
+        x0, y0, x1, y1 = x0 * S, y0 * S, x1 * S, y1 * S
         h = (y1 - y0) / n
         for i in range(n):
             c = tuple(int(v * r.uniform(0.92, 1.06)) for v in base)
-            d.rectangle((x0 * k, (y0 + i * h + 2) * k, x1 * k, (y0 + (i + 1) * h - 2) * k), fill=c)
+            d.rectangle((x0 * k, (y0 + i * h + 2 * S) * k, x1 * k, (y0 + (i + 1) * h - 2 * S) * k), fill=c)
             for g in range(5):                                    # a few grain streaks along the board
-                yy = y0 + i * h + r.uniform(5, h - 5)
-                d.line((x0 * k, yy * k, x1 * k, (yy + r.uniform(-2, 2)) * k), fill=dark, width=k)
-            for nx in (x0 + 6, x1 - 6):                           # two nails at each end
-                d.ellipse(((nx - 1.6) * k, (y0 + i * h + h / 2 - 1.6) * k, (nx + 1.6) * k, (y0 + i * h + h / 2 + 1.6) * k), fill=(70, 66, 62))
+                yy = y0 + i * h + r.uniform(5 * S, h - 5 * S)
+                d.line((x0 * k, yy * k, x1 * k, (yy + r.uniform(-2, 2) * S) * k), fill=dark, width=S * k)
+            for nx in (x0 + 6 * S, x1 - 6 * S):                   # two nails at each end
+                d.ellipse(((nx - 1.6 * S) * k, (y0 + i * h + h / 2 - 1.6 * S) * k, (nx + 1.6 * S) * k, (y0 + i * h + h / 2 + 1.6 * S) * k), fill=(70, 66, 62))
     boards(0, 0, 128, 256, 3, (178, 136, 88), (150, 112, 70))
     # a stamped paw on the outside, faded
-    cx, cy = 64 * k, 128 * k
+    cx, cy, u = 64 * S * k, 128 * S * k, S * k
     stamp = (128, 84, 52)
-    d.ellipse((cx - 14 * k, cy - 4 * k, cx + 14 * k, cy + 18 * k), fill=stamp)
+    d.ellipse((cx - 14 * u, cy - 4 * u, cx + 14 * u, cy + 18 * u), fill=stamp)
     for dx, dy in ((-16, -14), (-6, -22), (6, -22), (16, -14)):
-        d.ellipse((cx + (dx - 5) * k, cy + (dy - 5) * k, cx + (dx + 5) * k, cy + (dy + 5) * k), fill=stamp)
+        d.ellipse((cx + (dx - 5) * u, cy + (dy - 5) * u, cx + (dx + 5) * u, cy + (dy + 5) * u), fill=stamp)
     boards(128, 0, 256, 128, 3, (140, 104, 66), (116, 84, 52))
-    d.rectangle((128 * k, 128 * k, 256 * k, 256 * k), fill=(204, 168, 120))
-    im.resize((256, 256), Image.LANCZOS).save(path)
+    d.rectangle((256 * k, 256 * k, 512 * k, 512 * k), fill=(204, 168, 120))       # the rim's sawn wood, under the tins
+    cans = Image.new("RGB", (CANS_PX[0] * k, CANS_PX[1] * k))
+    paint_cans(cans, (0, 0) + CANS_PX, k)
+    im.paste(cans, (256 * k, 256 * k))
+    im.resize((512, 512), Image.LANCZOS).save(path)
 
 
 def kitchen_crate():
-    """The crate as one textured open box: outer walls, inner walls, floor and rim (13 quads, 26 triangles)."""
+    """The crate as one textured open box: outer walls, inner walls down to the tins, the tins (one quad at CANS_Z, painted)
+    and the rim (13 quads, 26 triangles). Nothing under the tins is made: no one sees the floor."""
     img = os.path.join(HERE, "kitchen_crate.png")
     crate_texture(img)
     bm = bmesh.new()
@@ -652,74 +851,132 @@ def kitchen_crate():
         f = bm.faces.new([bm.verts.new(p) for p in pts])
         for lp, t in zip(f.loops, uvs):
             lp[uv].uv = t
-    X, Y, x, y, Z, z0 = CW / 2, CD / 2, CW / 2 - CT, CD / 2 - CT, CH, 0.02
+    X, Y, x, y, Z = CW / 2, CD / 2, CW / 2 - CT, CD / 2 - CT, CH
     # outer walls, counter-clockwise seen from outside: u along the wall (the boards run along it), v up
     for (a, b), w in ((((-X, -Y), (X, -Y)), CW), (((X, -Y), (X, Y)), CD), (((X, Y), (-X, Y)), CW), (((-X, Y), (-X, -Y)), CD)):
         u1 = 0.5 * w / CW
         q([(a[0], a[1], 0), (b[0], b[1], 0), (b[0], b[1], Z), (a[0], a[1], Z)], [(0, 0), (u1, 0), (u1, 1), (0, 1)])
-    # inner walls, facing in
+    # inner walls, facing in, from the tins up (v 0.5 to 1 is the wall's full height, so the boards keep their size)
+    v0 = 1 - 0.5 * (CH - CANS_Z) / CH
     for (a, b), w in ((((x, -y), (-x, -y)), CW), (((x, y), (x, -y)), CD), (((-x, y), (x, y)), CW), (((-x, -y), (-x, y)), CD)):
         u1 = 0.5 + 0.5 * w / CW
-        q([(a[0], a[1], z0), (b[0], b[1], z0), (b[0], b[1], Z), (a[0], a[1], Z)], [(0.5, 0.5), (u1, 0.5), (u1, 1), (0.5, 1)])
-    q([(-x, -y, z0), (x, -y, z0), (x, y, z0), (-x, y, z0)], [(0.5, 0.5), (1, 0.5), (1, 1), (0.5, 1)])      # floor
-    # rim: four flat strips on top of the walls
+        q([(a[0], a[1], CANS_Z), (b[0], b[1], CANS_Z), (b[0], b[1], Z), (a[0], a[1], Z)], [(0.5, v0), (u1, v0), (u1, 1), (0.5, 1)])
+    cu, cv = 0.5 + CANS_PX[0] / 512, 0.5 - CANS_PX[1] / 512                     # the tins' rectangle in the atlas
+    q([(-x, -y, CANS_Z), (x, -y, CANS_Z), (x, y, CANS_Z), (-x, y, CANS_Z)], [(0.5, cv), (cu, cv), (cu, 0.5), (0.5, 0.5)])   # the tins, front at the bottom
+    # rim: four flat strips on top of the walls, on the sawn wood under the tins
     for pts in (((-X, -Y), (X, -Y), (x, -y), (-x, -y)), ((X, -Y), (X, Y), (x, y), (x, -y)), ((X, Y), (-X, Y), (-x, y), (x, y)), ((-X, Y), (-X, -Y), (-x, -y), (-x, y))):
-        q([(p[0], p[1], Z) for p in pts], [(0.55, 0.05), (0.95, 0.05), (0.95, 0.45), (0.55, 0.45)])
+        q([(p[0], p[1], Z) for p in pts], [(0.55, 0.02), (0.95, 0.02), (0.95, 0.13), (0.55, 0.13)])
     bm.verts.ensure_lookup_table()
     o = obj_from_bm(bm, "KitchenCrate")
     o.data.materials.append(image_material("KitchenCrate", img))
     return o
 
 
+def dish(r0, r1, ri, h, fz, m, rim, n=12, lip=0.008):
+    """An open n-sided dish standing on z = 0: its outside wall from r0 at the bottom out to r1 at h, a flat rim band of
+    width lip on top in material rim (a lighter rolled edge, so the round outline shows from above), then an inside wall
+    sloping down and in to a floor of radius ri at fz, well inside the rim, so the inside reads as a bowl and not as one
+    flat patch (Adriaen 2026-11-15: "Very square flat pan bottom"). No bottom cap: it lies on something. 7n triangles."""
+    bm = bmesh.new()
+    ring_at = lambda r, z: [bm.verts.new((r * math.cos(2 * math.pi * i / n), r * math.sin(2 * math.pi * i / n), z)) for i in range(n)]  # noqa: E731
+    ob, ot, it, ib = ring_at(r0, 0), ring_at(r1, h), ring_at(r1 - lip, h), ring_at(ri, fz)
+    rims = []
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((ob[i], ob[j], ot[j], ot[i]))                 # outside, facing out
+        rims.append(bm.faces.new((ot[i], ot[j], it[j], it[i])))    # the rim band, facing up
+        bm.faces.new((it[i], it[j], ib[j], ib[i]))                 # inside wall, facing in and up
+    mid = bm.verts.new((0, 0, fz))
+    for i in range(n):                                             # the floor as a fan round its middle, so any shading
+        bm.faces.new((ib[i], ib[(i + 1) % n], mid))                # on it stays round (one n-gon split into slivers read square)
+    for f in rims:
+        f.material_index = 1
+    bm.normal_update()
+    o = obj_from_bm(bm, "dish")
+    o.data.materials.append(m)
+    o.data.materials.append(rim)
+    return o
+
+
+def top_only(o):
+    """o (an upright cylinder) without its bottom cap."""
+    return drop_faces(o, lambda n, c: n.z < -0.9)
+
+
 def kitchen_things(M):
-    """What's in and by the crate: a frying pan standing in it with its handle up, a stack of enamel plates, a honey
-    jar and a wooden spoon (plain low-sided shapes, baked AO like the other props)."""
+    """What's in the crate, on the tins (kitchen_crate CANS_Z): a frying pan propped on its handle with the handle out over
+    the left rim, a stack of enamel plates in front on the right and a honey jar behind them (plain low-sided shapes,
+    baked like the other props). The front middle and front left are bare tins, where the page lays the sloths' fruit
+    (camp/sloth/table.js, which finds the top of whatever is there). The wooden spoon is gone (Adriaen 2026-11-15)."""
     p = []
-    # the pan: a shallow 8-sided dish leaning against the back wall, handle sticking up out of the crate
-    pan = cyl(0.12, 0.035, at=(0, 0, 0), m=M["pan"], verts=8, r2=0.1, smooth=False)
-    handle = rod((0, 0.115, 0.01), (0, 0.3, 0.03), 0.012, M["pan"], verts=4)
+    # the pan: a shallow 12-sided dish with a lighter rim, an inside wall sloping in to a smaller floor and that floor a
+    # fan round its middle, so it reads as a round pan from above (reviews of 2026-11-15: a flat top read as a slab, then
+    # an 8-sided dish's floor read as a flat square), no bottom (it lies on the tins), a little smaller than before so
+    # more tins show. Its handle rests on the left rim, so the dish tilts 12 degrees with its far edge on the tins. Built with its
+    # bottom middle at the origin, handle along -X rising 24 degrees from the dish; tilted, its underside crosses the
+    # left wall's inner edge at 0.280 (the rim is at CH = 0.28) and clears the outer edge by 1 cm
+    pan = dish(PAN_R0, PAN_R1, 0.058, 0.03, 0.006, M["pan"], M["panrim"])
+    a = math.radians(24)
+    handle = rod((-PAN_R1, 0, 0.028), (-PAN_R1 - 0.2 * math.cos(a), 0, 0.028 + 0.2 * math.sin(a)), 0.012, M["pan"], verts=4)
     pj = join([pan, handle], "pan")
-    pj.rotation_euler = (math.radians(75), 0, 0)                  # stood on its rim, dish to the front, handle up and out
-    pj.location = (-0.08, 0.06, 0.14)
+    tilt = math.radians(12)
+    pj.rotation_euler = (0, tilt, 0)                                  # the handle side up
+    pj.location = (PAN_X, 0.02, CANS_Z + PAN_R0 * math.sin(tilt))     # the low edge on the tins
     p.append(pj)
     k0 = mark(p, 0, "Frying pan")
-    # plates stacked on the floor of the crate, front right
-    p.append(cyl(0.085, 0.04, at=(0.12, -0.04, 0.04), m=M["plate"], verts=8, smooth=False))
-    p.append(cyl(0.086, 0.004, at=(0.12, -0.04, 0.0615), m=M["rim"], verts=8, smooth=False))
+    # plates stacked on the tins, front right
+    # (no caps nobody sees, review R2-154: the stack is open at both ends, on the tins, and the rim and the jar's lid
+    # have only their top)
+    p.append(cyl(0.085, 0.04, at=(0.13, -0.045, CANS_Z + 0.02), m=M["plate"], verts=8, smooth=False, caps=False))
+    p.append(top_only(cyl(0.086, 0.004, at=(0.13, -0.045, CANS_Z + 0.0415), m=M["rim"], verts=8, smooth=False)))
     k0 = mark(p, k0, "Enamel plates")
-    # the honey jar in the back corner of the crate, and a wooden spoon resting across the rim
-    p.append(cyl(0.045, 0.1, at=(0.17, 0.095, 0.07), m=M["honey"], verts=6, smooth=False))
-    p.append(cyl(0.05, 0.022, at=(0.17, 0.095, 0.131), m=M["lid"], verts=6, smooth=False))
-    k0 = mark(p, k0, "Honey jar")
-    p.append(rod((-0.2, -0.17, CH + 0.008), (0.06, -0.15, CH + 0.03), 0.008, M["handle"], verts=4))
-    p.append(box((0.07, 0.045, 0.014), at=(0.1, -0.148, CH + 0.03), rot=(0, 0.15, 0.08), m=M["handle"]))
-    mark(p, k0, "Wooden spoon")
+    # the honey jar in the back right corner, its lid just over the rim
+    p.append(cyl(0.045, 0.1, at=(0.17, 0.095, CANS_Z + 0.05), m=M["honey"], verts=6, smooth=False, caps=False))
+    p.append(top_only(cyl(0.05, 0.022, at=(0.17, 0.095, CANS_Z + 0.111), m=M["lid"], verts=6, smooth=False)))
+    mark(p, k0, "Honey jar")
     return join(p, "KitchenThings")
 
 
-BAKED = ("WoodPile", "SeatThings", "TentSide", "KitchenThings")    # the props that take vertex colours; the rest are textured
+# Every lived prop, in build order (each builder that needs random numbers has its own seeded stream, review R2-256): (name, builder(M, samples),
+# how it is lit, where the page stands it, a note for the triangle report). "baked" props take vertex colours (their own
+# AO, or the light bake's flat colours) and lose their UVs; "textured" ones keep their UVs and image. Where: a key of
+# apps/canopy-prototype/camp/layout.js ANCHORS, or "seats" for every seat (lib.export.tag, review R2-249). A new prop is
+# one row here.
+PROPS = [
+    ("WoodStack", lambda M, s: wood_stack(M, max(s, 48)), "textured", "woodPile", None),
+    ("LooseLogs", lambda M, s: loose_logs(stack_spots(M)), "textured", "woodPile", None),
+    ("SeatTop", lambda M, s: seat_top(), "textured", "seats", "(x3 seats on the page)"),
+    ("MatRoll", lambda M, s: mat_roll(os.path.join(HERE, "mat_roll.png")), "textured", "tent", None),
+    ("KitchenCrate", lambda M, s: kitchen_crate(), "textured", "kitchen", None),
+    ("WoodPile", lambda M, s: wood_pile(M), "baked", "woodPile", None),
+    ("SeatThings", lambda M, s: seat_things(M), "baked", "seatThings", None),
+    ("TentSide", lambda M, s: tent_side(M), "baked", "tent", None),
+    ("KitchenThings", lambda M, s: kitchen_things(M), "baked", "kitchen", None),
+]
+BAKED = tuple(n for n, _, kind, _, _ in PROPS if kind == "baked")
+TEXTURED = tuple(n for n, _, kind, _, _ in PROPS if kind == "textured")
 
 
 def make(samples=32):
-    """Make the lived props in the current scene and return them as {name: object}, the BAKED ones first, each at its own
-    origin. No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
+    """Make the lived props (PROPS) in the current scene and return them as {name: object}, the BAKED ones first, each at
+    its own origin and tagged with where the page stands it (lib.export.tag: the wood pile, the middle seat, the tent's
+    door, the kitchen crate, or every seat). No reset, no light, no export. samples: the wood stack renders' samples (at
+    least 48)."""
     M = materials()
-    stack = wood_stack(M, max(samples, 48))
-    loose = loose_logs()
-    top = seat_top()
-    roll = mat_roll(os.path.join(HERE, "mat_roll.png"))
-    crate = kitchen_crate()
-    objs = {"WoodPile": wood_pile(M), "SeatThings": seat_things(M), "TentSide": tent_side(M), "KitchenThings": kitchen_things(M)}
-    for k, o in objs.items():
-        apply_all(o)
+    made = {name: fn(M, samples) for name, fn, _, _, _ in PROPS}
+    for k in BAKED:                           # the baked props are joined from parts (join() applied them): at the origin
+        o = made[k]
         o.location = (0, 0, 0)
         o.name = k
-    return {**objs, "WoodStack": stack, "LooseLogs": loose, "SeatTop": top, "MatRoll": roll, "KitchenCrate": crate}
+    drop_ground_faces(made.values())          # the bottoms standing on the ground (review R2-154)
+    for name, _, _, where, _ in PROPS:
+        tag(made[name], where)
+    return {k: made[k] for k in BAKED + TEXTURED}
 
 
 def build(samples=32, parts_out=None, colour=None, path=None):
     """Make the lived props in a fresh scene, light the BAKED ones (colour(objs); by default their own AO bake at samples)
-    and write them all to path (default props/lived/lived.glb)."""
+    and write them all to path (default props/lived/lived_preview.glb)."""
     reset()
     every = make(samples)
     objs = {k: every[k] for k in BAKED}
@@ -727,8 +984,8 @@ def build(samples=32, parts_out=None, colour=None, path=None):
     for o in objs.values():                   # baked props need no UVs; only the textured ones keep theirs
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived.glb"), image_format="JPEG", quiet=True)
-    report([every[k] for k in ("WoodStack", "LooseLogs", "KitchenCrate", "MatRoll", "SeatTop")], note={"SeatTop": "(x3 seats on the page)"})
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived_preview.glb"), image_format="JPEG", quiet=True, extras=True)
+    report([every[k] for k in TEXTURED], note={n: t for n, _, _, _, t in PROPS if t})
     for k, o in objs.items():
         report([o])
         part = o.data.attributes["part"]
@@ -751,7 +1008,7 @@ def build(samples=32, parts_out=None, colour=None, path=None):
                 bm.to_mesh(c.data); bm.free()
                 c.name = n
                 split.append(c)
-        export_glb(split, parts_out, texcoords=False)
+        export_glb(split, parts_out, texcoords=False, check=False)    # the same faces, audited above
     print(f"lived -> {path}")
 
 
@@ -761,3 +1018,4 @@ if __name__ == "__main__":
     ap.add_argument("--parts", help="also write each piece as its own object to this GLB, for a triangle breakdown")
     a = ap.parse_args()
     build(a.samples, a.parts)
+    print("(a preview with its own AO; the page's lived.glb and models/lived.txt come from props/bake_all.py)")

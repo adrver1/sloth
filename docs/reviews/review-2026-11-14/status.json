@@ -1,0 +1,2569 @@
+{
+ "reviewed": {
+  "branch": "claude/project-thread-n6c974",
+  "commit": "b538272f7b7308f65ab75404f8e29a6e5deb095c",
+  "date": "2026-11-14"
+ },
+ "as_of": "branch claude/project-thread-n6c974 at 7f8b34c, 2026-11-15: the GPU rebake (8dae856) and its KTX2 maps (d758416) are in, Adriaen's final check on his desktop GPU and its fixes, the operator in camp_cargo (desk-at-night #166/#167 and the pin move), and the run-time stand-ins for the old bake removed",
+ "statuses": {
+  "fixed": "done and visible on the page now (needs_rebake true: the page part is in, the baked maps catch up at the next rebake)",
+  "waiting_rebake": "done in a generator or the bake; it shows only after the GPU light (and jeep or ground) rebake",
+  "partly": "part done; the note or followup says what is left (REVIEW-STATE.md lists it)",
+  "already_fixed": "an earlier commit had fixed it; nothing changed in this round",
+  "blocked": "cannot go further without the rebake, Adriaen's go-ahead or access this round did not have",
+  "deferred": "Adriaen chose to leave it for now",
+  "pending_lead": "left to the lead session to do by hand",
+  "not_applicable": "no longer applies"
+ },
+ "fields": "status; note (one sentence); commits (on this repo's branch unless prefixed desk-at-night@); needs_rebake (the GPU rebake must run before the change is complete on the page); lane (the fix lane or step that did it); followup (what a review follow-up changed, when there was one)",
+ "counts": {
+  "fixed": 239,
+  "already_fixed": 5,
+  "partly": 11,
+  "deferred": 1,
+  "blocked": 2
+ },
+ "other_fixes": {
+  "7b37067": "props/lib/audit.py KNOWN gains jeep_expedition/GlassB back_only 2 and lowers Jeep overlaps 15 -> 6, so the rebake's jeep step no longer stops on the audit",
+  "5ca7672": "sky.js and daylight.js fade the backdrop's top into the dome rim at every hour and sink the domes 0.5 m, so no seam shows from the track's open end since R2-161",
+  "4ec6013": "layout.js gladeTurn uses wrapPi, and stale comments in core.js, ground.js, camp.html and CODING-STANDARDS are corrected"
+ },
+ "final_play_test": {
+  "date": "2026-11-15",
+  "what": "Adriaen's final check of the baked result on his desktop GPU (after the rebake 8dae856 and the KTX2 maps d758416): four items, then a review of their fixes",
+  "items": {
+   "wedge": {
+    "status": "fixed",
+    "note": "A black wedge (night) and a dark saw-tooth edge (day) at the campfire logs' feet: the ash ring and the level floor (R2-181) sat in the same plane. The Ring now draws with a decal polygon offset.",
+    "commits": [
+     "88b9676"
+    ],
+    "needs_rebake": false
+   },
+   "lab_camera": {
+    "status": "fixed",
+    "note": "In the move lab the follow camera sat inside the hammock's sling. It now rises over cloth and other solids (016201d); after the review it searches a few times a second instead of every frame, eases its height, comes down only after the lower view stays clear, and always tries the orbit's top.",
+    "commits": [
+     "016201d",
+     "e6e0108"
+    ],
+    "needs_rebake": false
+   },
+   "scenarios_tool": {
+    "status": "fixed",
+    "note": "camp-scenarios found no tap menu on main, which has no #tapmenu; it now finds it on both.",
+    "commits": [
+     "c779b63"
+    ],
+    "needs_rebake": false
+   },
+   "canopy_haze": {
+    "status": "fixed",
+    "note": "Fixed in 048edcf, Adriaen's pick \"both tweaks\" (2026-11-15): the backdrop and both sky domes stay at FAR (40 m) but are drawn FAR/30 times taller and higher, so they fill the same angles as at 30 m on main, so the painted trees look as they did on main, and by day the backdrop no longer fades into the sky at its top; the fade comes only with dusk, as on main. Same draws, triangles and programs.",
+    "commits": [
+     "048edcf"
+    ],
+    "needs_rebake": false
+   },
+   "operator_shadow": {
+    "status": "fixed",
+    "note": "Sibling of the wedge found in the review: the operator's blob shadow (groundHeight + 0.012) z-fought with the level floor in every flat zone; it now has the same decal offset. The rain ripples, 2 mm under the floor, now sit 4 mm over it with the offset too.",
+    "commits": [
+     "e7d1211"
+    ],
+    "needs_rebake": false
+   }
+  }
+ },
+ "findings": {
+  "R2-001": {
+   "status": "fixed",
+   "note": "The sloth's pose (titanic, curl, idle) now goes through a new slothLife.pose hook (sloth/hooks.js, which is clips.js play), so it becomes the sloth's s.act and giveBack cross-fades it out. stopAllAction is gone from buddy.js.",
+   "commits": [
+    "915974f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-002": {
+   "status": "already_fixed",
+   "note": "1a0e5b5 already fixed this before this run. input.js give() now sends a wild sloth the flower-style feed() and never calls eatGift, so the s.trip.phase read in gifts.js is only reached for camp sloths, which always have a trip.",
+   "commits": [],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-003": {
+   "status": "fixed",
+   "note": "jeep.js now sets PCFShadowMap, the type three 0.186 already switched to on the first shadow render.",
+   "commits": [
+    "9ad2d64"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-004": {
+   "status": "partly",
+   "note": "Added tools/check-imports.cjs, which links every camp module the way the browser does, with nothing run, and catches syntax errors, named imports with no matching export, missing plain models/ paths and stale KTX2 maps.",
+   "commits": [
+    "bc489af",
+    "5067e1d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene",
+   "followup": "I added a probe job to check.yml as the reviewer described; it needs check, has timeout-minutes 10 and continue-on-error, runs npm ci, installs Playwright Chromium and runs npm run probe, then uploads the screenshot."
+  },
+  "R2-005": {
+   "status": "fixed",
+   "note": "The light step now removes the old .ktx2.txt of every map it rewrites, and it writes camp_lights.json without the ktx2 flag. bake_all.py checks for toktx before any step runs when the ktx step is included.",
+   "commits": [
+    "3e91d8b",
+    "6d58f9f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-006": {
+   "status": "fixed",
+   "note": "watchFood now calls only a sloth that is awake at its own home and doing nothing else: not on a guest spot, not asleep, dozing, waking or mid-clip. errand() takes s.food at its start, so a bowl's place is never kept for a later errand.",
+   "commits": [
+    "96dcf56"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-007": {
+   "status": "fixed",
+   "note": "A new gift now ends the one being eaten: its food is removed, its eat-clip callback is dropped and the mouth card is hidden.",
+   "commits": [
+    "aac6fcd"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-008": {
+   "status": "fixed",
+   "note": "headPose.js now starts the smile and the sleep blink only when they change (new flags op.anim.smiling and op.anim.shut), using paused actions instead of timeScale 0.",
+   "commits": [
+    "6679122"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-009": {
+   "status": "fixed",
+   "note": "While a gift is flying or he is still munching, the menu leaves out 'Give the ...' and gift() returns early (new helper munching() in talk.js).",
+   "commits": [
+    "83483ad"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-010": {
+   "status": "fixed",
+   "note": "giveBack now defaults to clearSpot() and keeps the terrain height; the cuddle uses that default.",
+   "commits": [
+    "915974f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-011": {
+   "status": "already_fixed",
+   "note": "The chores call toast(text, sound) and chores.js plays audio.js cue(sound) directly, so a repeated 'Got a log' still knocks.",
+   "commits": [],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-012": {
+   "status": "fixed",
+   "note": "putDown now passes the yaw it already turned the sloth to into giveBack(at, yaw).",
+   "commits": [
+    "915974f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-013": {
+   "status": "fixed",
+   "note": "weather.wet now starts at 1 when the saved or ?weather= mode is rain, so the camp loads already grey and raining.",
+   "commits": [
+    "1c84730"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-014": {
+   "status": "fixed",
+   "note": "The sit now remembers whether it opened the door ('opened', set only when the door was not already open or opening).",
+   "commits": [
+    "3d1cf0c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-015": {
+   "status": "fixed",
+   "note": "canvasTex has a new read option that asks for a willReadFrequently 2D context.",
+   "commits": [
+    "09b3d84"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-016": {
+   "status": "fixed",
+   "note": "worn() now runs only inside WORN_BOX: the box round the lane from the path's end to the trodden spot, padded by 1.15 m, plus the path's last 12 points, padded by 0.8 m.",
+   "commits": [
+    "e250e98"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props",
+   "followup": "The karaoke trip's merge (6cb99d4) widened WORN_BOX to also take in the karaoke road round the glade tree (glade.js ROUTE, padded by 1.25 m), and worn() now also wears that road. A follow-up after the merge review split it into wornPath and wornRoad: every test that decides whether the glade's stream draws a number reads wornPath alone, as before the road, and wornRoad only hides what was drawn, so the glade's flowers, plants and bushes stay where they were."
+  },
+  "R2-017": {
+   "status": "fixed",
+   "note": "New zsStep in naps.js draws the three z's for every sleeper and for the hammock napper, replacing hammockStep's own copy.",
+   "commits": [
+    "f6cea84"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-018": {
+   "status": "fixed",
+   "note": "sprite() now keeps one canvas texture per size and text in a Map; each sprite still gets its own material, so each can fade on its own.",
+   "commits": [
+    "7444a37"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-019": {
+   "status": "fixed",
+   "note": "cs and csDir take an optional out vector. ik reach and handQuat, handPose, headPose, fidget, talk and walk now use module-level scratch vectors and quaternions, and the held sloth's arm bones are found once per hold. movers() fills a reused array of pairs; crowds report through add(position, radius), and sloths.js is updated to match. op.scr is removed: opApi.tapAt calls talk.js chestOnScreen() when asked.",
+   "commits": [
+    "50b1e89"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-020": {
+   "status": "fixed",
+   "note": "core.js PRE now starts groundSoil, groundShadow and groundNight at boot (the night map through loadLightMap, only for the expedition jeep). campGround.js buildGround() is now async and awaits them with the mask before it builds; main.js awaits it. ground.js takes textures or URLs (URLs remain as a fallback) and makes its three 1024x1024 live-shadow targets only on the first live cast, freeing them when a baked map arrives.",
+   "commits": [
+    "3a9e735"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-224": {
+   "status": "fixed",
+   "note": "Every bake pass now writes into one reused props-sized float image and one ground-sized image, removed at the end, and keeps only what it uses (the RGB mean, AO's first channel, or RGB for the thin cards' brighter side) as float32. save() removes each output image after saving it. bpy's Image.copy() turned out not to keep a generated image's pixels (tested), so each size is still filled at full size and scaled down, as before.",
+   "commits": [
+    "3e91d8b"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-225": {
+   "status": "fixed",
+   "note": "The Cycles preview stills are now opt-in: --preview renders all of them, or only the comma-separated views given, and a plain run writes only the GLBs.",
+   "commits": [
+    "a1da290"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-226": {
+   "status": "fixed",
+   "note": "props/lib/bake.py has a new pick_device(scene, choice); it picks OptiX, CUDA, Metal or HIP if one is there, otherwise the CPU, and prints which. bake_camp_lightmap.py calls it after its last reset() and takes --device auto|cpu|<backend>.",
+   "commits": [
+    "89ccdf9"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-021": {
+   "status": "fixed",
+   "note": "New props/lib/audit.py, run by export_glb before it writes; for each object it prints triangles, enclosed %, player-hidden %, back-only, flips, degenerate and same-facing overlaps.",
+   "commits": [
+    "d8729ba"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-227": {
+   "status": "fixed",
+   "note": "In lib/mesh.py, cyl, ball and box now build their mesh with one bmesh op each, through a new primitive() helper. join() applies all the parts' modifiers with one convert and does one transform_apply after the join. outward() and bisect() are now bmesh helpers in lib/mesh.py, used by the jeep's prism, panel, duct and upper_half and by build_camp's rustic_seat, so nothing switches to edit mode.",
+   "commits": [
+    "f8f8b48"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-022": {
+   "status": "fixed",
+   "note": "Added bake_camp_lightmap.py --preview: size 512, 8 samples and a 256 ground, on the CPU, written into apps/canopy-prototype/lmpreview/ (git ignores it).",
+   "commits": [
+    "3e91d8b",
+    "a62230c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-023": {
+   "status": "fixed",
+   "note": "handsBusy(), freeHand() and settled() now live in operator/state.js, each documented once. fidget.js, headPose.js and talk.js all use them.",
+   "commits": [
+    "42f2cc6"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-024": {
+   "status": "fixed",
+   "note": "CLAUDE.md now says camp-probe gives exact draws, triangles and programs but no frame times, and that frame times come from camp-gpu.cjs on a GPU machine.",
+   "commits": [
+    "bc489af",
+    "6a5f2a1"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-025": {
+   "status": "fixed",
+   "note": "It marks the base64 models and KTX2 .txt files in apps/**/models, stickers/renderer/models and props/**/archive, plus *.glb and *.ktx2, as binary and linguist-generated, and marks layout_picked.json and package-lock.json as -diff. git grep now prints 'Binary file matches' for these files.",
+   "commits": [
+    "aebba96"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-026": {
+   "status": "fixed",
+   "note": "package-lock.json is no longer gitignored and is committed; playwright is pinned to 1.63.0, whose Chromium 1243 is the build preinstalled in cloud sessions. npm run serve now uses the new tools/serve.cjs instead of npx http-server, the docs say npm ci, and props/requirements.txt pins bpy 5.3.0, numpy and pillow. export_casters now uses the shared CHROMIUM fallback, and CHROME still works.",
+   "commits": [
+    "27bbccf",
+    "6a5f2a1",
+    "1f3696a"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-228": {
+   "status": "fixed",
+   "note": "build_jeep.build() now writes models/jeep_expedition.txt and jeep_expedition_lod.txt through to_txt, and the script reads its arguments after -- when Blender runs it. bake_all.py has a jeep step before light that runs build_jeep.py --style <jeep> only when the GLB is missing or older than build_jeep.py or props/lib.",
+   "commits": [
+    "8413127"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-027": {
+   "status": "fixed",
+   "note": "Step 1: one tween in moves.js ({ p, q, lift, tip, sc }) now drives glide and move, and the jeep-sill clamber and the settle into a spot are now glides. postV(s) replaces the six typed copies of the post speed.",
+   "commits": [
+    "2c7bb96"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-028": {
+   "status": "fixed",
+   "note": "New spots.js moveInto(s, g) and moveBack(s) replace the three hand-written copies of the move into a guest spot (day.js twice, saved.js once) and the reverse. leave() and giveBack() now use naps.js wakeUp, and placeHome and giveBack use yawQ.",
+   "commits": [
+    "b59eb4e"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-029": {
+   "status": "fixed",
+   "note": "seatWatch is removed from the sloths' step. linger.js now claims the log you sit on: me.seat carries the log's index, and lingerStep claims or releases seatKey(i, i === 0) whenever me.seat changes, whoever changed it. campStep(dt) no longer takes a seat, and findSeats is gone.",
+   "commits": [
+    "45111d3"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-030": {
+   "status": "fixed",
+   "note": "state.js setTrip(s, phase, fields) now starts every phase on a fresh trip record that keeps only the yaw.",
+   "commits": [
+    "7738b5e"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-031": {
+   "status": "fixed",
+   "note": "There is a new camp/events.js (EV.act, EV.food, EV.cheer, plus on and emit, each documented in its header).",
+   "commits": [
+    "ae221c6"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-032": {
+   "status": "fixed",
+   "note": "The tap menu buttons (camp/input.js) and the Put it back pill (activities/carry.js) now share one .tap-pill class in camp.html.",
+   "commits": [
+    "1aac457"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-033": {
+   "status": "partly",
+   "note": "Mostly already fixed by e66242c: jeepApi, seatApi and carApi are each built in their own module, and nothing adds members to jeepApi. carApi is not dead: audio/watch.js imports it.",
+   "commits": [
+    "b3a3239"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-034": {
+   "status": "partly",
+   "note": "daylight.js (sm) and audio/watch.js now use util.js sstep(a, b, x) instead of THREE.MathUtils.smoothstep(x, a, b), which gives the same curve, and lab.js imports $ from core.js. player.js onTrack is kept on purpose. camp/operator/ (fidget, handPose, buddy, cook, talk) still uses THREE.MathUtils.smoothstep.",
+   "commits": [
+    "7ab54a2"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-035": {
+   "status": "fixed",
+   "note": "One ribbon(curve, {n, half, y, tex, alpha, tile, order}) now builds the footpath and the track's dirt and ruts.",
+   "commits": [
+    "990a62d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world",
+   "followup": "The karaoke trip's merge (6cb99d4) lets ribbon() take half as a function of t (0..1 along the curve) as well as a number, so the karaoke road's ribbon widens from the glade path's width to its own; the curve each path's ribbon follows is now built once in layout.js as path.ribbon."
+  },
+  "R2-036": {
+   "status": "fixed",
+   "note": "layout.js now has three lists; PATHS entries carry id, curve, pts, half, lane and lead.",
+   "commits": [
+    "bedb8ae"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props",
+   "followup": "The karaoke trip's merge (6cb99d4) added a second PATHS entry, tripPath (the karaoke road), and the optional fields covers, segs, fade, wide and cut to the PATHS schema; layout.js now also gives each entry its ribbon curve (path.ribbon), and pathLane includes the road."
+  },
+  "R2-037": {
+   "status": "fixed",
+   "note": "Added util.js swap(src, ...[anchor, text]), which replaces like the old chains but warns once on the console when an anchor is missing.",
+   "commits": [
+    "1f62b40",
+    "e5aa3ae"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props",
+   "followup": "The seven bare .replace() calls in patch() now go through it, with the warm-only anchors passed as optional pairs."
+  },
+  "R2-038": {
+   "status": "fixed",
+   "note": "Each blocker is now an object { at, r, walk, wild, tag } made by campProps.js addBlocker; dropBlockers(tag) replaces tentInside's splice.",
+   "commits": [
+    "63c6f4f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-039": {
+   "status": "fixed",
+   "note": "Added npm scripts for check, probe, probe:phone, gpu, gpu:phone, bake, bake:layout, bake:ktx, pack:sloth, pack:operator and stickers.",
+   "commits": [
+    "b82ae5d",
+    "6a5f2a1"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-229": {
+   "status": "fixed",
+   "note": "The light bake's steps are now functions under main(): read_layout, build_lived_sets, build_scene, unwrap, add_occluders, add_ground, Lights, bake_light, write_maps and export_models.",
+   "commits": [
+    "3e91d8b",
+    "375248a"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-230": {
+   "status": "fixed",
+   "note": "body(), expedition() and jeep_lod() now share one name for each common shape: LOWER_PROFILE, CAB_PROFILE with CAB_W and CAB_TAPER, windscreen() and windscreen_glass(), cabin_side_x(), wheel_arches(), flare(), bumpers(), winch() and snorkel() with SNORKEL_PATH, SNORKEL_SECS and SNORKEL_HEAD.",
+   "commits": [
+    "11ba622"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-231": {
+   "status": "fixed",
+   "note": "build_lived.py now has one PROPS table of (name, builder, baked or textured, report note), in build order so the seeded stream is drawn as before. make(), BAKED, TEXTURED, the UV stripping and the report all come from it, and the header lists every prop.",
+   "commits": [
+    "85a8290"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-040": {
+   "status": "fixed",
+   "note": "state.js PHASES lists every phase with its flags (lively, ground, lend, out), and LIVELY, GROUND, LENDABLE and OUT are made from it.",
+   "commits": [
+    "dc4eb0d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-041": {
+   "status": "fixed",
+   "note": "The wood-stack cache key now covers the source from STACK_BOX to the end of _stack_block, the logs, the render settings and bpy.app.version_string.",
+   "commits": [
+    "0ac45a9"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-042": {
+   "status": "fixed",
+   "note": "bake_all.py now serves the layout on a free 127.0.0.1 port, which it passes to the exporter as LAYOUT_PORT.",
+   "commits": [
+    "6d58f9f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-043": {
+   "status": "fixed",
+   "note": "The main fix was already on the branch (1a0e5b5): labButton.js returns early with ?campsloths=0, so no button and no ?lab load.",
+   "commits": [
+    "b486b90"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-044": {
+   "status": "fixed",
+   "note": "step.js and jeepSeat.js now read pace.fast ?? 1, so the lab's Pause and Step (0) really pause.",
+   "commits": [
+    "494e6e9"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-045": {
+   "status": "fixed",
+   "note": "errand() now tests the kept want instead of the s.wantFood it had just cleared, so the lab's Get food never turns into an engine fix.",
+   "commits": [
+    "b40f746"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-046": {
+   "status": "fixed",
+   "note": "places.js host(place, null) now deletes the entry, so hosted() is false after the operator unhosts and wander() no longer sends a sloth to a log he has left.",
+   "commits": [
+    "435e0cf"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-047": {
+   "status": "fixed",
+   "note": "wanderPoint() now measures distance on the ground plane against o.p, each sloth's world point, instead of o.o.position, which is local for sloths in the hammock, seat, jeep or tent.",
+   "commits": [
+    "b40f746"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-048": {
+   "status": "fixed",
+   "note": "Each camp sloth keeps its cast factor as s.k, and the spots are no longer changed. spots.js sizeIn(s, spot) = spot.scale * s.k is used by placeHome and settleIn.",
+   "commits": [
+    "bb79a72"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-049": {
+   "status": "fixed",
+   "note": "The pot now remembers when its last bowl emptied it (soup.refill); putting that bowl back fills the pot again with one bowl left, as long as no water has gone in since.",
+   "commits": [
+    "380056b"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-050": {
+   "status": "fixed",
+   "note": "Frame-time delays go through util.js timers(): the chores queue their EV.cheer emits and soup and talk use it, so these paths have no setTimeout left.",
+   "commits": [
+    "380056b",
+    "984da8c",
+    "e054d3a"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator",
+   "followup": "Soup sends the second word 0.7 s after the first, with a new skip field so it goes to the second-nearest sloth. cheer() runs at once with no setTimeout, EV.cheer no longer has delay or gap, and the events.js header is updated."
+  },
+  "R2-051": {
+   "status": "fixed",
+   "note": "With ?lived=0 there is no crate, so drink and cook are left out of his weighted picks.",
+   "commits": [
+    "568c1a5"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-052": {
+   "status": "fixed",
+   "note": "The Detail button now builds new URL(location.href), deletes 'detail' and calls location.replace, the same way the Light button handles ?lm=.",
+   "commits": [
+    "9600ec5"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-053": {
+   "status": "fixed",
+   "note": "?pos, ?yaw and ?pitch were already checked in 136323e, and an empty ?time= (or an empty stored value) now counts as missing, so the time falls back to the saved hour or 12 instead of midnight.",
+   "commits": [
+    "9600ec5"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-054": {
+   "status": "fixed",
+   "note": "When a second (or later) finger lands, lookStart clears every pending hold timer and marks each finger as pinching. lookEnd skips the tap for a pinching finger, so neither feed() nor tap() fires during or after a pinch.",
+   "commits": [
+    "9e3c21f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-055": {
+   "status": "fixed",
+   "note": "The keydown listener now ignores events whose target is inside an input, select or textarea, or is contentEditable. keyup and blur still clear keys as before.",
+   "commits": [
+    "9e3c21f",
+    "f413fb0"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot",
+   "followup": "Now a focused range slider or select keeps only the Arrow, Page, Home and End keys."
+  },
+  "R2-056": {
+   "status": "fixed",
+   "note": "context.js now remembers the saved values that ?sound=0 and ?station= replace for the visit. keep() writes saved(), which puts those values back, and any setting the viewer changes on the page (mute, the Sound button, the station) is their own again through own(key) and is stored as usual.",
+   "commits": [
+    "166c3e9"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-057": {
+   "status": "fixed",
+   "note": "The safety net in main.js (perfStep) ignores the first second; it takes the median frame interval of the next second as the target, capped at 1/30 s so a phone that is slow from the start still counts as slow.",
+   "commits": [
+    "a7f56e8"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-058": {
+   "status": "fixed",
+   "note": "In core.js, glb() now throws Error(url + ' ' + status) when the response is not ok.",
+   "commits": [
+    "9698dc8",
+    "104a3b1"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot",
+   "followup": "The inline load-error script in camp.html is now a block with a const loadFailed, so it no longer makes one; the behaviour is unchanged."
+  },
+  "R2-059": {
+   "status": "fixed",
+   "note": "The lab's path line now has one fixed buffer of 128 points with DynamicDrawUsage. drawPath() writes the points in place without making new vectors and calls setDrawRange(0, n).",
+   "commits": [
+    "9f491c2"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-060": {
+   "status": "fixed",
+   "note": "The bare setTimeout is replaced by a pending close { k, t: 0.7 } kept in jeepSeat.js.",
+   "commits": [
+    "3d1cf0c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-061": {
+   "status": "fixed",
+   "note": "shared/fur.js now reads each texture's pixels once and keeps them in a WeakMap keyed by the image, so each animal's fur mask uses its own texture. getImageData also runs once per image instead of once per geometry. npm run sync-shared rewrote the six copies, and check-shared passes.",
+   "commits": [
+    "720b2ec"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-062": {
+   "status": "fixed",
+   "note": "export_casters.cjs now uses launch, routeThree and watch from camp-page.cjs, and exits 1 without writing layout_picked.json if the page logged any error.",
+   "commits": [
+    "1f3696a"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-063": {
+   "status": "fixed",
+   "note": "After its quality loop, stk_post.py stops with SystemExit if a still sticker is 100 KB or more, and stk_anim_post.py does the same at 500 KB or more for animated stickers.",
+   "commits": [
+    "5e64e38"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-232": {
+   "status": "fixed",
+   "note": "export_casters.cjs now collects page errors; if any came in, it writes nothing and exits 1. bake_ground.py reads hammock, glade, tent and track with L[...] and keeps .get only for the optional entry.",
+   "commits": [
+    "3e91d8b",
+    "375248a"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-233": {
+   "status": "fixed",
+   "note": "The probe's program-name regex now has a single backslash; most camp materials have no name, so it falls back to the shader type (MeshLambertMaterial:hash and so on instead of ?:hash).",
+   "commits": [
+    "2997680"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-234": {
+   "status": "fixed",
+   "note": "build_camp.py --style now writes to props/camp/out/camp_<style>.glb, which is git-ignored.",
+   "commits": [
+    "f0fc2f9"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-235": {
+   "status": "fixed",
+   "note": "build_lived, build_fire and build_laundry run on their own now default to props/lived/<name>_preview.glb, which is git-ignored.",
+   "commits": [
+    "1928cca"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-064": {
+   "status": "fixed",
+   "note": "day.js lifeStop calls it.return(), which runs each script's finally: cook gives the pail back (new soupChore cook.returnPail) and clears cooking, join sets cd.join, and sleep puts him at the tent door.",
+   "commits": [
+    "668d719"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-065": {
+   "status": "fixed",
+   "note": "zStep now draws z's for any sloth that is dozing and asleep, including Hibi, so it gets them in the hammock and when it naps in the clearing. hammockStep now only swings the hammock, and the hammock's own z set (hammock.zz/zk) is gone.",
+   "commits": [
+    "27e68f5"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-066": {
+   "status": "fixed",
+   "note": "The fixed 1/60 was already gone, because R2-027 made the line slides pass their frame's sd.",
+   "commits": [
+    "85182b7"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-067": {
+   "status": "fixed",
+   "note": "leave() now always sets s.once = null, not only for gifts; the card-game mate search also leaves out sloths that are roused or have a stretch or bite still pending (q.roused, q.once).",
+   "commits": [
+    "0f4faaf"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-068": {
+   "status": "fixed",
+   "note": "The 'finished' listener is gone. op.anim.wave holds the time left, and poseHead counts it down.",
+   "commits": [
+    "875d15e"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-069": {
+   "status": "fixed",
+   "note": "The pail spot's take condition now also checks canister.pail.visible; when the pail is gone, its why line says \"He's fetching water already 💧\".",
+   "commits": [
+    "7b3b6f4"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-070": {
+   "status": "fixed",
+   "note": "main.js now applies ?pos, ?yaw and ?pitch before the build list. daylight.js places the moon along the way you face at the start (me.yaw) instead of from your position toward the fire, which also works with ?pos=0,0 and with ?yaw.",
+   "commits": [
+    "99649d3"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-071": {
+   "status": "fixed",
+   "note": "While a pointer is down on the time slider, showTime leaves the slider's value alone.",
+   "commits": [
+    "2232b59"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-072": {
+   "status": "fixed",
+   "note": "main.js starts document.fonts.load for '700 46px Fredoka' and '600 22px Fredoka' before the build.",
+   "commits": [
+    "e4f060d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-073": {
+   "status": "fixed",
+   "note": "loadLightMap now takes { ktx: false }, and core.js passes it for ?lm=4k, so the 4K PNGs load with no 404s (checked with the probe).",
+   "commits": [
+    "b82ae5d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-074": {
+   "status": "fixed",
+   "note": "shared/fur.js: the warm term is wrapped in if (uWarm > 0.0); A new opt-in lod option gives each shell mesh a second geometry with 2 layers at the same fur length (userData.furLod). camp sloth/life.js furStep shows every layer within 3 m, 2 layers from 3 to 8 m and none beyond, with a 0.3 m margin so it does not flicker at the edges.",
+   "commits": [
+    "7fedeab"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-075": {
+   "status": "fixed",
+   "note": "groundHeight now returns the dip straight away inside flatIn, which is RC - 0.8 or the inner edge of the nearest root mound.",
+   "commits": [
+    "72e797f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-076": {
+   "status": "fixed",
+   "note": "Each backdrop leaf cluster is now painted once per layer colour into a small sprite, 4 shapes each from their own stream (lcg 4243), and stamped scaled with drawImage.",
+   "commits": [
+    "9660eef"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-077": {
+   "status": "fixed",
+   "note": "daylight.js hides the day dome under a fully opaque night dome, and the moon's fade-in, once swallowed by a trailing comment, is code again.",
+   "commits": [
+    "f457a7f",
+    "194cf9d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world",
+   "followup": "A trailing comment had swallowed the moon's opacity statement, so the moon stayed at opacity 0. daylight.js now has one statement per line, with the comment on a line of its own, and the moon's opacity is code again."
+  },
+  "R2-078": {
+   "status": "fixed",
+   "note": "The canopy leaves are now split at 5 m, so the eye-height band and the canopy above are separate sectors.",
+   "commits": [
+    "9444c85"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-079": {
+   "status": "fixed",
+   "note": "The mist banks now use atmosphere.js's billboard pool, which is now exported.",
+   "commits": [
+    "9cdcb8e"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-080": {
+   "status": "fixed",
+   "note": "table.js has a new buildPlaces(). main.js calls it through sloths.js buildSlothPlaces right after buildChores, so after the glade, the tent walls and the chores have added their blockers.",
+   "commits": [
+    "f3ad287"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-081": {
+   "status": "fixed",
+   "note": "keep() now builds its change key from where each sloth sleeps and whether it is dozing, not from the seconds it has left.",
+   "commits": [
+    "023c3b6"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-082": {
+   "status": "fixed",
+   "note": "forest.js now exports heroWood (the big trees' wood mesh) and trunkR(y). trunkR is built from the same foot and top radii as the trunk's cylinder, so poses.js no longer keeps a copy of the formula.",
+   "commits": [
+    "20afb6c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-083": {
+   "status": "partly",
+   "note": "slothsStep now calls camera.getWorldDirection once per frame instead of once per sloth.",
+   "commits": [
+    "b472681"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-084": {
+   "status": "fixed",
+   "note": "Most of this was already done in R2-019 (50b1e89): the arms were cached on the first carried frame, but a lookup closure was still made every frame. buddy.js pickUp now finds both upper-arm bones once and stores them in op.carry.arms, so handPose only reads them.",
+   "commits": [
+    "c38e113"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-085": {
+   "status": "fixed",
+   "note": "In audio/watch.js, opLast and meLast are held vectors filled by copy; the sloths' and the operator's last state is updated field by field.",
+   "commits": [
+    "ff87a0f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-086": {
+   "status": "fixed",
+   "note": "In weather.js a respawned drop now writes its four values directly, and a light shower moves, uploads (addUpdateRange) and draws (setDrawRange) only its share of the streaks.",
+   "commits": [
+    "5fdf7cc"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-087": {
+   "status": "partly",
+   "note": "The radio's note sprites are hidden while the radio is off; at Detail Low, fireLight is still created (chores.js and fireStep write to it) but is not added to the scene, and detail is fixed until reload, so the light count never changes.",
+   "commits": [
+    "bef935b"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-088": {
+   "status": "fixed",
+   "note": "The per-frame shadowStep, with shadowTick and shadowN, is gone. campGround.js castSunShadows() runs once after the build.",
+   "commits": [
+    "74eb5cd",
+    "7656302"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-089": {
+   "status": "fixed",
+   "note": "player.js now reuses module scratch vectors for fwd, right, wish, the next position and onTrack's nearest point.",
+   "commits": [
+    "239fdf7"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-090": {
+   "status": "fixed",
+   "note": "input.js has setFov() and zoomTo(add), which holds the -20..+6 clamp; the wheel and a pinch only change the camera's fov, and resize() still sizes the canvas and then calls setFov.",
+   "commits": [
+    "0fbd660"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-091": {
+   "status": "fixed",
+   "note": "daylight.js sets rayMat.visible = opacity > 0.002, which covers the clearing's 7 shafts and the glade's beams at night and in rain. lanterns.js sets flames.visible and glows.visible to dusk > 0.001 and stops writing their point buffers by day.",
+   "commits": [
+    "95da605"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-092": {
+   "status": "fixed",
+   "note": "Only the three cabin doors (y-axis) count as moving for the cabin light and its shadow-map redraw, so the hood's swing no longer sets shadowMap.needsUpdate.",
+   "commits": [
+    "b75bb57"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-093": {
+   "status": "fixed",
+   "note": "jeep.js keeps doorList and cabinDoors once and loops without closures. lightStep returns early when no cabin door moved and the light has reached its target; cab now snaps to its target within 0.002, and a final shadow redraw is forced when it does. sloth/body.js fills the lantern positions and strengths once, at the first hang(). warmStep(fl, dusk) sets only the fire's strength and uWarm, and main.js no longer passes lanternGlow. lanterns.js update is a plain loop over a fixed array, with the sway unchanged. car.js resets the jeep's position once when the engine stops, then stops writing it every frame.",
+   "commits": [
+    "b75bb57",
+    "95da605",
+    "e553e76"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-094": {
+   "status": "fixed",
+   "note": "The floor's opaque_fragment line now reuses shd and computes the same value, while SHADE() stays for shadeOn.",
+   "commits": [
+    "d9f6e6d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-095": {
+   "status": "fixed",
+   "note": "The inside/bare/trackDist reject now runs before sample and nearThing. nearThing, flowerField and clump are plain loops with no map or spread. sample draws no random numbers, so the same plants come out in the same order: the instanced plants count is 1573 before and after.",
+   "commits": [
+    "d9f6e6d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-096": {
+   "status": "fixed",
+   "note": "The light-mapped props' hook in campProps.js lnight now replaces three's lights_fragment_maps include with nothing.",
+   "commits": [
+    "8083e19"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-097": {
+   "status": "fixed",
+   "note": "The trait cards, Figgy's leaf and the plain-coloured parts now share one 256x256 atlas and one material, and the parts on each bone are merged into one mesh.",
+   "commits": [
+    "ba41e87"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-098": {
+   "status": "fixed",
+   "note": "ground.js builds the glade's plants (extra) as a second InstancedMesh on the same material, with its own bounds and frustum culling on; the clearing's mesh is culled too.",
+   "commits": [
+    "51a6355"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-099": {
+   "status": "fixed",
+   "note": "These no longer allocate per frame: the camp step counts sloths that are out with a loop; walkStep checks other walkers through a heed() helper and uses scratch vectors; places.js has eachMover(visit), which the operator's walk uses (movers() stays for camp-scenarios); and the pose helpers write into a pose that each slide owns (newPose).",
+   "commits": [
+    "fb23c44"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-100": {
+   "status": "fixed",
+   "note": "addTargets(kind, items, make) now takes the owner's array and a make function, and allTargets refills one shared array.",
+   "commits": [
+    "a423d74",
+    "18cb2b8"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator",
+   "followup": "The karaoke trip's merge (6cb99d4) added an optional tap() to a target: a thing with one obvious use (trip.js's karaoke sign) runs it at once on a tap instead of opening the menu."
+  },
+  "R2-101": {
+   "status": "fixed",
+   "note": "atmosphere.js now exports pool(); the fire chore's sparks (one pool of 24 tinted 0xffb35a, renderOrder 5) and the soup's bubbles (one pool of 10, renderOrder 2) use it.",
+   "commits": [
+    "4a44108"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-102": {
+   "status": "fixed",
+   "note": "Before compileAsync, main.js shows every hidden non-light object, starts the compile, which builds its programs synchronously, and hides them again before awaiting.",
+   "commits": [
+    "7dc87ce"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-103": {
+   "status": "fixed",
+   "note": "Four merges, each now one draw: the 7 sunbeam quads (same R() order), the 2 string tubes, the 3 flame cards (phase is a vertex attribute aPh; chores.js scaling one mesh by (w, t, w) is the same as scaling each card), and the vertex-coloured WoodPile, TentSide, Tripod and LaundryPosts (as StaticProps).",
+   "commits": [
+    "2dc1f5f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-104": {
+   "status": "fixed",
+   "note": "New characters/sloth_baby/prune_rest.py drops translation and scale channels whose keys all equal the bone's rest pose, keeps every rotation channel, and repacks the binary. build_sloth_baby.py runs it on each export.",
+   "commits": [
+    "2c49c61",
+    "b92643e"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths",
+   "followup": "Files that use Draco, meshopt or GPU instancing are refused; pruning a copy of sloth.txt still gives 390 -> 142 channels."
+  },
+  "R2-105": {
+   "status": "fixed",
+   "note": "face.js adds a uvShut UV set to the shared body geometry once; each sloth's body gets its own clone of the shared material with an eyes hook chained by patchMaterial, so there is still one program, and eyes() sets a uniform.",
+   "commits": [
+    "ab49c7e",
+    "865a0c7"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths",
+   "followup": "The reviewer was right: the eye patch's program key fell back to the source text of fur.js's hook, which is the same for every fur variant. eyeKit now passes \"eyes|\" + base.customProgramCacheKey() as the id, so the key carries fur's own key (frag, pos, nrm, warm)."
+  },
+  "R2-106": {
+   "status": "fixed",
+   "note": "Each of the 3 log slots keeps one cloned material, made the first time a log goes in that slot (so it gets the wood texture parts.js sets later) and reset to full colour on each new log.",
+   "commits": [
+    "4a44108"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-107": {
+   "status": "fixed",
+   "note": "In deadwood.js the branch stub and the dead limb are open cones, and the stump drops its buried bottom cap (index cut at the cap's group).",
+   "commits": [
+    "2a8b345"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-108": {
+   "status": "fixed",
+   "note": "Added docs/reviews/*/findings.md as -diff linguist-generated to .gitattributes (the small step the finding recommends).",
+   "commits": [
+    "0d5ee89"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-109": {
+   "status": "fixed",
+   "note": "New props/lib/quantize.py rewrites a finished GLB with KHR_mesh_quantization: int8 normals, uint8 colours, uint16 UVs where they lie in 0..1, and no normals on unlit objects (the Embers, welded from 180 to 72 vertices). export_glb(small=True) runs it for the light bake's final exports and for the jeep and its LOD.",
+   "commits": [
+    "f20fc12",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-236": {
+   "status": "fixed",
+   "note": "picked() no longer builds the rustic lantern; BUDGET drops its entry, the bake no longer deletes it, the audit KNOWN entry camp_picked/Lantern is removed, and the docstrings now name the seat, table, hammock and tent.",
+   "commits": [
+    "0dec69a"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-237": {
+   "status": "fixed",
+   "note": "apply_all in props/lib/mesh.py now writes a plain object's transform into the mesh through the mesh API, and returns at once when there is nothing to apply.",
+   "commits": [
+    "ed93989"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-110": {
+   "status": "fixed",
+   "note": "The flies block and both hidden floor discs were already gone on this branch.",
+   "commits": [
+    "9444c85"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-111": {
+   "status": "fixed",
+   "note": "lib.bake.bake() now takes device= (default auto) and calls pick_device instead of forcing the CPU.",
+   "commits": [
+    "a9a52b1"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-112": {
+   "status": "fixed",
+   "note": "Edges are now hashed by their end positions, and exports outside --root are recorded by file name only.",
+   "commits": [
+    "e3225d2"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-113": {
+   "status": "fixed",
+   "note": "campProps.js now exports addBlocker, dropBlocker and blockersVersion, and every later change to the blockers goes through them (props, deadwood, jeep, glade, tentInside, chores). nav.js rebuilds its grid when the version changes, finds a point's cell without building an array, and makes no Vector3 per cell on a rebuild.",
+   "commits": [
+    "8bc6368"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-114": {
+   "status": "fixed",
+   "note": "burst() now makes one sprite: the n parameter and the spread branch are gone.",
+   "commits": [
+    "cee06b5",
+    "3b7db95"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-115": {
+   "status": "fixed",
+   "note": "Table and crate fruit now come from food.js (makeFood, or foodGeo when a mesh changes to another fruit), share its one material, and rest upright on their lowest point (new restHeight).",
+   "commits": [
+    "f55888b",
+    "dc6b85d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths",
+   "followup": "It used to record the shared fruit material's colour, which is the same for every place."
+  },
+  "R2-116": {
+   "status": "fixed",
+   "note": "names-prototype.html imports CAST from camp/cast.js instead of keeping its own copy, and its trait triangle counts match the camp's. shellFrom reads fur.js's furNormal when the body has fur and only averages normals itself without fur.",
+   "commits": [
+    "ba41e87"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-117": {
+   "status": "fixed",
+   "note": "Where the sloths are placed still comes from rng(\"sloths\"): the wild sloths' branch points and makeSloth's three draws, made in the same order as before, so the layout is unchanged.",
+   "commits": [
+    "6d31277"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-118": {
+   "status": "fixed",
+   "note": "wayIn.js no longer closes the jeep door with setTimeout; it sets a 1.5 s countdown that campStep's new doorShutStep decrements in sloth time, and the guest and home cases of atHome now share one tail. saved.js keep(dt) now counts frame time instead of reading performance.now().",
+   "commits": [
+    "d7afa86"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-119": {
+   "status": "fixed",
+   "note": "The sleep loop now uses a local dawn timer; he sleeps T s by day, and at night he sleeps until the light comes and gets up 8 s after it.",
+   "commits": [
+    "6058a9d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-120": {
+   "status": "fixed",
+   "note": "The thanks after a gift now goes through pickLine('thanks'), so its bag is saved right away. talk.js exports palmAt(side, out, d), and handPose.js uses it for the bowl (d 0.06) and the vegetable; the lips already used mouthAt.",
+   "commits": [
+    "8051686"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-121": {
+   "status": "fixed",
+   "note": "opApi is now { root, op, state, line } with his check hooks in operator/checks.js, and camp-scenarios' acts and car getters are code again.",
+   "commits": [
+    "eb82635",
+    "5d813ef"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator",
+   "followup": "Each getter now starts its own line, so T.acts and T.car work again, and 'scr' is gone from OPK."
+  },
+  "R2-122": {
+   "status": "fixed",
+   "note": "headPose.js (blinks) and fidget.js now draw from rng(\"operator.face\"). day, cook, buddy and talk keep rng(\"operator\"), so frame timing no longer moves his activity picks.",
+   "commits": [
+    "f0cbbde"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-123": {
+   "status": "fixed",
+   "note": "The camp.html header now describes the camp as it is and points to camp/main.js's build list for the order; the stale 'import list' note is corrected.",
+   "commits": [
+    "3d58f89"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-124": {
+   "status": "fixed",
+   "note": "export_casters.cjs now takes only [jeep] and always writes layout_picked.json, and bake_all.py's layout step calls it that way.",
+   "commits": [
+    "4dcc398"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-125": {
+   "status": "partly",
+   "note": "The header now names desk-at-night commit 47ee230 as the source (the file is the same at the engine/ pin 7197bbe) and lists what the camp changed: skinned meshes, the fur shells, no depth write on the outline, and the camp's colour.",
+   "commits": [
+    "9b2e648"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-126": {
+   "status": "fixed",
+   "note": "main.js no longer uses THREE.Clock and takes its frame time from the time stamp setAnimationLoop passes in.",
+   "commits": [
+    "9da9d8d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-127": {
+   "status": "fixed",
+   "note": "tools/camp-page.cjs now has openCamp(), plus launch() options for the real GPU, pixel ratio, user agent, headed mode and extra flags.",
+   "commits": [
+    "9f28c73",
+    "d271f7b"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot",
+   "followup": "The font stub is now its own step, stubFonts. openCamp runs it unless you pass fonts: true, which camp-gpu.cjs does. camp-replay.cjs and camp-scenarios.cjs call stubFonts after routeThree, so they keep working offline as before."
+  },
+  "R2-128": {
+   "status": "fixed",
+   "note": "tools/camp-probe.cjs now prints window.__ground.tris and .counts and window.__deadwood.tris, and debug.js lists the probe as their reader. createGround no longer returns plants, shade or casters; it keeps isBaked, which campGround.js uses, and a comment at its return lists each part's reader.",
+   "commits": [
+    "926690f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-129": {
+   "status": "fixed",
+   "note": "The sloth model now lives in sloth/state.js (SLOTH, setSloth). buildSloths is async and awaits PRE.sloth itself, main.js awaits it, and operator/buddy.js imports SLOTH from sloths.js. uNight moved to core.js beside uTime, and all six importers read it from there; I did not add a re-export from campProps.js because nothing outside the page imports it. rayMat, WOODPILE and WOOD_TEX start as null, one module-level put(root, name, x, z, yaw, y) replaces the two copies, and the pools' local S is now span.",
+   "commits": [
+    "5c4a508"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-130": {
+   "status": "fixed",
+   "note": "lanterns.js drops the unused colour parameters, the local c and the returned tie.",
+   "commits": [
+    "15345cb"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-131": {
+   "status": "fixed",
+   "note": "camp/canister.js is renamed (git mv) to camp/pail.js; its header now lists makePail and its importers.",
+   "commits": [
+    "3298571"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-132": {
+   "status": "fixed",
+   "note": "loadLightMap(png, { channel, anisotropy }) now sets flipY, the colour space, the channel and the anisotropy in one place, so core.js and ground.js no longer repeat them.",
+   "commits": [
+    "efc72aa"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-133": {
+   "status": "already_fixed",
+   "note": "bake_all.py already deleted each .ktx2 once its .ktx2.txt was written (os.remove(out), there since before b538272), so the finding's evidence was wrong.",
+   "commits": [
+    "66424ff"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-134": {
+   "status": "fixed",
+   "note": "CLAUDE.md line 3 now says docs/threads runs up to 2026-11-10, and that Canopy Camp's picks are in docs/reviews/, docs/plans/ and in the code comments that cite Adriaen.",
+   "commits": [
+    "c8653ee"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-135": {
+   "status": "fixed",
+   "note": "camp-page.cjs launch() now prints the WebGL renderer to stderr under CAMP_GPU=1 and warns when it is SwiftShader, llvmpipe or another software GL.",
+   "commits": [
+    "e75665b"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-136": {
+   "status": "fixed",
+   "note": "Fixed the comments that were still stale; in campGround.js and main.js the shadows no longer 're-cast while the props load'. input.js line 1 now says a tap opens a menu (hold to feed is still true, so it stays). spots.js no longer mentions the kettle, and its jeep note now describes the driver's seat at the wheel instead of the passenger-seat curl. table.js lost the note about the crate coming in late.",
+   "commits": [
+    "fff6d27"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-137": {
+   "status": "fixed",
+   "note": "The bake's outputs and light-map channels are now described once, above lnight in campProps.js, including the ground maps and camp_lights.json. bakedlight.js, bake_camp_lightmap.py and bake_all.py point to that table and no longer describe the old RGB plus AO and jeep-channel layout.",
+   "commits": [
+    "290bf55"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-138": {
+   "status": "fixed",
+   "note": "The ground.js and atmosphere.js headers are rewritten for today's modules: no camp.html, no '96 tris' (the counts come from createGround's tris, which the probe prints), and the misplaced lights comment is gone.",
+   "commits": [
+    "8f3a7d7"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-139": {
+   "status": "fixed",
+   "note": "The jeep.js header now says DoorP is the driver's door on the camp side (left-hand drive, seat SeatP), and that seat and sill belong to that door.",
+   "commits": [
+    "5543c72"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-238": {
+   "status": "partly",
+   "note": "lib/export.py now has to_txt(path, txt) and an export_glb(..., txt=) option, and it imports bpy only inside the functions that use Blender, so plain Python can call it.",
+   "commits": [
+    "e03de5b"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-239": {
+   "status": "fixed",
+   "note": "The bake no longer runs an inline collapse decimate; A new check_budget prints each budgeted prop's triangle count and calls sys.exit when one is over its budget (tested with a budget of 10). lean() stays only in build_camp.py's archive CLI.",
+   "commits": [
+    "7754fdf"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-240": {
+   "status": "fixed",
+   "note": "Removed the chunky parameter and its call-site arguments, wt, the returned R (body now returns p, G), BASE['seam'], the dr alias and every bevel= that box() ignored because the part is under 5 cm. build()'s return value went in the R2-225 commit. box() now has a docstring stating the 5 cm rule, and --help says --tyre only acts with --wheel open.",
+   "commits": [
+    "0aeb392"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-241": {
+   "status": "fixed",
+   "note": "Removed the always-zero hy from the kettle handle; wrote rock()'s two defaults into its body and gave it a docstring. drop_faces now calls test(normal, centre) and its four callers use two-argument lambdas.",
+   "commits": [
+    "4bbe29a",
+    "ed93989"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-242": {
+   "status": "fixed",
+   "note": "The headers of build_jeep.py and build_camp.py now describe how things work today.",
+   "commits": [
+    "51af52c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-243": {
+   "status": "fixed",
+   "note": "The carried logs' atlas spots are set once in build_lived.py CARRIED and reach the page only as a WoodStack glTF extra (campProps.js WOOD_SPOTS).",
+   "commits": [
+    "fd07b91",
+    "9f8f8f7",
+    "8dae856",
+    "7f8b34c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "The carried spots are now set once, as CARRIED in props/lived/build_lived.py. stack_spots() writes them into wood_stack.json as \"carried\" next to \"spots\", and the tracked json is updated. Verified on the real GPU after rebake 8dae856. The run-time stand-in for the old bake is gone (7f8b34c)."
+  },
+  "R2-244": {
+   "status": "fixed",
+   "note": "I deleted log(), curve_rod() and bail() from build_fire.py, and the rod and rough_up imports that only they used.",
+   "commits": [
+    "a43546e"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-245": {
+   "status": "fixed",
+   "note": "The stack renders now go into a tempfile.mkdtemp() folder, and a finally block removes it, so a failed run leaves no _stack_*.png in props/lived/.",
+   "commits": [
+    "3f2ca36",
+    "a24c4ee"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-246": {
+   "status": "fixed",
+   "note": "The headers of build_lived.py, build_fire.py and build_laundry.py now list every object with today's triangle count.",
+   "commits": [
+    "24c1f79"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-140": {
+   "status": "fixed",
+   "note": "bake_all.py now writes props/bake.lock.json; for each step it records input hashes (scripts, props/lib, layout JSON, jeep GLB, textures, command line, Blender/toktx/three versions, GPU_RUN script) and output hashes.",
+   "commits": [
+    "d530c73"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-141": {
+   "status": "fixed",
+   "note": "layout.js HAMMOCK gains pivot, knotX, endX, endY, sling and roof, which swing.js (JS and shader) and the sloths' rope climb now read; HAMMOCK_PIVOT is gone from swing.js. jeepApi gains engineFront and engineSeat for fix.js.",
+   "commits": [
+    "1aec29c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-142": {
+   "status": "fixed",
+   "note": "Most of this was already fixed: initAudio() is called from main.js's build list and importing audio.js builds nothing.",
+   "commits": [
+    "2c8ed0e"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-143": {
+   "status": "fixed",
+   "note": "core.js exports hemi, and daylight.js imports it instead of searching the scene. leafMat moved into forest.js, and the CODING-STANDARDS reference was updated.",
+   "commits": [
+    "70125f3",
+    "2ffbbc6"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot",
+   "followup": "I found a second regression myself, from moving the tap menu's look into camp.html. camp-scenarios.cjs looked for the menu by its inline transform and z-index, which no longer exist, so T.menu, T.menuPos and T.choose found nothing."
+  },
+  "R2-144": {
+   "status": "fixed",
+   "note": "The lab's moves are one ACTIONS table ({id,row,label,can,run}) that builds the buttons, runs them on click (only when can() is true) and greys them out.",
+   "commits": [
+    "85e2a65"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-145": {
+   "status": "fixed",
+   "note": "Wall trees are now {x, z, s, y0, top} objects; clumps are {x, y, z, r} and hold a reference to the tree or hero they grow on, so the float-compare wall.find is gone.",
+   "commits": [
+    "990a62d",
+    "194cf9d",
+    "95d1747",
+    "a45f548"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world",
+   "followup": "deadwood.js no longer names forest.js bake(); it now points to forest/trees.js paintBark(), where the function lives after the split. glade.js and sloth/poses.js now point to forest/trees.js heroTrees too. forest.js is split into camp/forest/ (see followups)."
+  },
+  "R2-247": {
+   "status": "fixed",
+   "note": "lib/mesh.py gains mesh_obj(), now used at every hand-written mesh site in both builders, and the lantern handle is a lib quad.",
+   "commits": [
+    "fde4937"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-248": {
+   "status": "fixed",
+   "note": "Wheel and tyre options are now a WHEELS dict passed from build() through the style builders and body(), instead of reassigned globals. body() returns a Body record (parts, groups, origins, empties), so PROP_AT and EMPTIES are gone.",
+   "commits": [
+    "fde4937"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-146": {
+   "status": "fixed",
+   "note": "build_fire.lathe() now takes flip=True, which reverses the faces after the spin.",
+   "commits": [
+    "24fe57f",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-147": {
+   "status": "fixed",
+   "note": "The bail is now wire(): a smooth three-sided tube (sweep) along the same seven points, radius 7 mm, with no caps because its ends sit in the lugs.",
+   "commits": [
+    "24fe57f",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-148": {
+   "status": "fixed",
+   "note": "New lib drop_enclosed(parts) removes, before each join, faces that lie wholly inside another closed part, tested by ray parity on 9 or more sample points per face.",
+   "commits": [
+    "22713f5",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "The rebake rebuilt the jeep with it: 5,347 triangles in 10 meshes (models/jeep_expedition.txt), 638 in the LOD. Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-249": {
+   "status": "fixed",
+   "note": "Builders now tag their objects through lib.export.tag: an anchor (a key of the new layout.js ANCHORS, or 'seats') and the flags thin, no_shadow, unlit and unbaked.",
+   "commits": [
+    "8766e63",
+    "8dae856",
+    "7f8b34c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856. The run-time stand-in for the old bake is gone (7f8b34c)."
+  },
+  "R2-250": {
+   "status": "fixed",
+   "note": "The generators now write the numbers as glTF extras (export_glb extras=True): door and hood open angle and axis from build_jeep.py; tent walls, doorway, stove, chimney and bed, plus the hammock knot and rope end, from build_camp.py.",
+   "commits": [
+    "1c7c901",
+    "8dae856",
+    "7f8b34c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "The rebaked models carry the extras, and 7f8b34c removed the stand-in numbers (jeep.js OLD, layout.js TENT and HAMMOCK sizes); fromModel now throws when one is missing. Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-251": {
+   "status": "fixed",
+   "note": "props/lib/mesh.py now has sweep(), which builds a tube into a bmesh along a list of points with its faces wound outward and only the caps asked for, and tube(), one straight tube as its own object. hex_log, tripod_legs, loose_logs, mat_roll and painted_bamboo all use sweep now, with the same vertices and UVs as before.",
+   "commits": [
+    "a24c4ee",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-252": {
+   "status": "fixed",
+   "note": "build_laundry.py now exports empties LineA, LineB and Hang, and build_fire.py exports Soup (scaled by SOUP_R), through a new lib/mesh.py anchor() helper.",
+   "commits": [
+    "dba14af",
+    "8dae856",
+    "7f8b34c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856. The run-time stand-in for the old bake is gone (7f8b34c)."
+  },
+  "R2-149": {
+   "status": "fixed",
+   "note": "Each receiver is now projected and packed on its own and fitted into a fixed rectangle in props/camp/atlas.json.",
+   "commits": [
+    "5b6128f",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-150": {
+   "status": "fixed",
+   "note": "In add_occluders, the fallen log's shadow caster now uses -yaw and stands at y + 0.75 r, matching deadwood.js (rotateY(-yaw), axis 0.75 r up).",
+   "commits": [
+    "013f356",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-151": {
+   "status": "fixed",
+   "note": "The three socks now hang 4 mm behind the line's vertical strip (y=-0.004) instead of in its plane.",
+   "commits": [
+    "929ec1b",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-152": {
+   "status": "fixed",
+   "note": "Each soup bit now sits 0.6 mm above the one before (SOUP.z + 0.002 + 0.0006*i).",
+   "commits": [
+    "929ec1b",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-153": {
+   "status": "fixed",
+   "note": "Each lining corner now moves 1.7 cm inward along the averaged normal of the canvas faces that meet there (mitred so every face plane moves the same amount), instead of being scaled toward the tent's centre.",
+   "commits": [
+    "f9501f9",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-154": {
+   "status": "fixed",
+   "note": "A new lib/mesh.py drop_ground_faces() deletes faces that point down (normal z < -0.7) with their centre within 5 cm of the ground, tested in world space.",
+   "commits": [
+    "3f7e3fc",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-155": {
+   "status": "fixed",
+   "note": "The placeholder UV0 for props with no texture is now made with do_init=False, so it is all zeros and splits no vertex.",
+   "commits": [
+    "304c259",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-156": {
+   "status": "fixed",
+   "note": "The headlight lenses are joined into Jeep, and the map and compass into Hood, so they still lift with it.",
+   "commits": [
+    "1071b15",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-157": {
+   "status": "fixed",
+   "note": "Fire, stove and lanterns are now baked in one pass as pure red, green and blue lamps and read back one channel each.",
+   "commits": [
+    "c872e09",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-158": {
+   "status": "fixed",
+   "note": "The props being baked that cast shadows are now baked through one joined copy (BakeReceivers), and their originals are hidden while it bakes.",
+   "commits": [
+    "c872e09",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-253": {
+   "status": "fixed",
+   "note": "lib/bake.py now builds the colours with numpy and writes Col with one foreach_set.",
+   "commits": [
+    "fe895a5"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep"
+  },
+  "R2-159": {
+   "status": "fixed",
+   "note": "build_camp.py makes the plate (FruitBowl, 22 tris) a child of Table, the bake keeps it with its parent, and activities/fruitBowl.js only looks it up.",
+   "commits": [
+    "ab907a9",
+    "8dae856",
+    "7f8b34c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator",
+   "followup": "The rebake put the FruitBowl in camp_picked_lm.txt, and 7f8b34c removed the run-time plate cutting and tomato filter. Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-160": {
+   "status": "fixed",
+   "note": "By day, the warm baked lights are added through a new dayWarm() curve.",
+   "commits": [
+    "0f41826"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-161": {
+   "status": "fixed",
+   "note": "Option C: the backdrop and sky domes follow the camera at FAR 40 m, the ground has two more rings and 25 instanced trees with leaf clumps stand round the glade's outer half; a follow-up fades the backdrop's top into the dome rim so no seam shows from the track's end.",
+   "commits": [
+    "501d19c",
+    "5ca7672",
+    "4ec6013"
+   ],
+   "needs_rebake": false,
+   "lane": "picks"
+  },
+  "R2-162": {
+   "status": "fixed",
+   "note": "The leaf cards are sorted near to far in each sector, each card is a larger 512 px sprig sheet so a clump needs only 40% as many cards (about 22,700 -> 9,600), and low detail drops the far spreading crowns, with the forest stream unchanged.",
+   "commits": [
+    "9444c85",
+    "2c9e39f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-163": {
+   "status": "fixed",
+   "note": "I took the fix's first recommendation: one dark underlay quad (fascia colour, 2 triangles) at z=0.005 under the whole tent floor, in build_camp.py wall_tent.",
+   "commits": [
+    "f9501f9",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-164": {
+   "status": "fixed",
+   "note": "terrain.js drops the third fbm octave (ground.js paints it as shading) and wall trunks sit at their lowest ground, so no trunk base floats; the regenerated height grid (-0.19 to +0.26 m in forest cells) reached the baked ground with the ground and light rebake 8dae856, which carried the new height grid.",
+   "commits": [
+    "4dde207",
+    "a3f5317",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world",
+   "followup": "R2-164 depended on the light and ground rebake, which ran for R2-184 too (8dae856). Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-165": {
+   "status": "fixed",
+   "note": "The cook now brings your bowl only while you are in camp (under RC - 1 from the fire) and within 8 m of him, and puts it in your hands only after he reached you.",
+   "commits": [
+    "18cd8a1"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-166": {
+   "status": "fixed",
+   "note": "Rule picked: if the slider sets an hour less than 3 hours (BACK_H) behind the hour shown, the sky eases back to it at the same 3 h/s.",
+   "commits": [
+    "c749a9f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot"
+  },
+  "R2-167": {
+   "status": "fixed",
+   "note": "ground.js now bakes the floor's noise fields once into one 256x256 RGBA DataTexture (256 KB of GPU memory) and reads it once per pixel.",
+   "commits": [
+    "b8ed8de"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-168": {
+   "status": "fixed",
+   "note": "Removed the winch drum, which sat inside the winch box, and the two axle rods, which sat inside the chassis and wheels.",
+   "commits": [
+    "535945a",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-169": {
+   "status": "fixed",
+   "note": "The seat drops its stump caps and its top board, and the stumps now end inside the log.",
+   "commits": [
+    "08c2010",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-170": {
+   "status": "fixed",
+   "note": "--size now defaults to 2048 and a props bake under 4096 deletes the stale 4K maps, so ?lm=4k falls back to the 2K maps; it took effect with 8dae856.",
+   "commits": [
+    "9dbd21a",
+    "1cef260",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "A props bake under 4096 now deletes camp_lm_4k.png, camp_lm_sun_4k.png and their .ktx2.txt copies, and ?lm=4k then falls back to the 2K maps through core.js lmLoad. bake_all.light_maps() stamps the 4K maps only with --size 4096, and map_sizes writes both _2k and _1k for any n under 2048. Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-171": {
+   "status": "fixed",
+   "note": "Each bake call now sets its own samples from PASS_SAMPLES, given at --samples 512 and scaled with it (at least 2), and prints what it used: AO 128, sun pair 96 (1.5 x 64, since two suns share the samples), ground day 512, night RGB 512 shared by three lights (it also covers the 1K ground in the same call), moon 64.",
+   "commits": [
+    "c872e09",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-172": {
+   "status": "fixed",
+   "note": "bake_camp_lightmap.py now has LM_WEIGHT, which scales each prop's light-map area by its weight squared before its atlas rectangle is sized.",
+   "commits": [
+    "1db29b1",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-173": {
+   "status": "fixed",
+   "note": "Option B: bakedlight.js lmNight shapes only the fire's baked channel with a (luminance / 0.4)^1.3 curve capped at 1.6, so the warm pool stays round the fire while the stove, lanterns and moon stay as baked (shader only).",
+   "commits": [
+    "b1ae5c3",
+    "9e326de"
+   ],
+   "needs_rebake": false,
+   "lane": "picks"
+  },
+  "R2-174": {
+   "status": "partly",
+   "note": "shared/fur.js has a tint option (off by default), and the flat ?fur=0 sloth keeps its whole-material day tint because the GLB has a single palette material.",
+   "commits": [
+    "cdece9d",
+    "84203b9"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths",
+   "followup": "With ?fur=0 the backup sloth had lost its day tint; the fix the reviewer suggested, tinting only the fur material by name, cannot work: the GLB has a single palette material, M_CharacterPalette."
+  },
+  "R2-175": {
+   "status": "fixed",
+   "note": "leafMat takes a clumpLit flag (a LEAF_N define) that uses a per-instance aLeafN normal on both faces.",
+   "commits": [
+    "fc8784f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-176": {
+   "status": "fixed",
+   "note": "The tomatoes are removed from rustic_table, so the plate is empty in the model.",
+   "commits": [
+    "e6cd9ee"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp"
+  },
+  "R2-177": {
+   "status": "fixed",
+   "note": "Option C: the hammock is a coarse 8x4 one-sided sling drawn from both sides, painted from props/camp/camp_paint.png, with one alpha card of painted strings per end (Hammock 84 + HammockPosts 32 tris); the atlas shipped in 8dae856.",
+   "commits": [
+    "00b0b08",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "picks",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-178": {
+   "status": "deferred",
+   "note": "Adriaen sees no difference, so the sloth stays as it is (picks, 2026-11-14).",
+   "commits": [],
+   "needs_rebake": false,
+   "lane": ""
+  },
+  "R2-254": {
+   "status": "fixed",
+   "note": "The bake no longer writes scratch GLBs and imports them again. build_scene resets once, makes the picked set, then runs each lived builder's make() into the same scene and removes anything else a builder leaves behind.",
+   "commits": [
+    "1db29b1",
+    "cc1b673",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Commit cc1b673 fixed it: build_scene saves the scene's Cycles device, film transparency and view transform right after the reset and puts them back once the lived builders have run. setup_render now prints the device and compute device type before the first bake, and adds a warning when a non-preview bake would run on the CPU. Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-255": {
+   "status": "fixed",
+   "note": "camp/layout.js now has WEAR: named entries {name, at, r, path, lived?, jeep?} for the table, seats, hammock posts, wood pile and chopping stump, kitchen crate, laundry posts and jeep. ground.js paints its live wear map from them; campGround.js filters them by ?lived and ?jeep.",
+   "commits": [
+    "a5a96d6",
+    "5102e26",
+    "06e78f6",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Each WEAR entry now has a set field (camp, seats, lived, laundry or jeep), and wearBlockers(set) in layout.js returns its blocker circles. campProps.js and jeep.js now build every one of those blockers from WEAR instead of retyping the radii and offsets, and campGround.js filters by set. Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-256": {
+   "status": "fixed",
+   "note": "Each builder now has its own random.Random: stack_logs (11), wood pile chips (12), fire logs (23), embers (24), soup bits (25).",
+   "commits": [
+    "da370ae",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "The rebake built lived.txt and fire.txt with these streams. Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-179": {
+   "status": "fixed",
+   "note": "core.js now builds the camera with an 80 m far plane, and main.js no longer sets camera.far = 80 after resize().",
+   "commits": [
+    "d8030c2"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-180": {
+   "status": "already_fixed",
+   "note": "leafMat in core.js already passes the sway as a uniform (uSway) with the same hook source for every material (9800b8e), so the ferns use their own 0.03.",
+   "commits": [],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-181": {
+   "status": "fixed",
+   "note": "terrain.js now keeps the camp's 3 cm swell at exactly 0 under each prop: the fire, seats, table, crate, wood pile, hammock and laundry posts, plus the tent floor rectangle (all from layout.js).",
+   "commits": [
+    "3f582e4",
+    "804c526",
+    "8dae856",
+    "88b9676",
+    "e7d1211"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props",
+   "followup": "Verified on the real GPU after rebake 8dae856. The level floor z-fought with what lay in its plane: the fire's ash ring (a black wedge at night, fixed in 88b9676), the operator's blob shadow and the rain ripples (e7d1211); each now draws with a decal polygon offset."
+  },
+  "R2-182": {
+   "status": "fixed",
+   "note": "The mouth card is lit like the face and takes the body's warm night glow through shared/fur.js warmShader, so an open mouth matches the face round it at night.",
+   "commits": [
+    "d70eabb",
+    "5e5a962"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths",
+   "followup": "The mouth card now gets the same warm glow as the body. shared/fur.js exports warmShader(sh, warm), and its own patch() uses it too. face.js buildFace(warm) adds the glow to the card, and body.js bodyWarm passes SLOTH_WARM only when the body itself has the glow (fur on and Lambert)."
+  },
+  "R2-183": {
+   "status": "partly",
+   "note": "Two parts of this were already done: the seven shafts were merged into one draw (R2-103) and are hidden at night and in rain (R2-091).",
+   "commits": [
+    "59d551f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-184": {
+   "status": "fixed",
+   "note": "The rim noise is now vnoise(x/r*1.6 + 11, z/r*1.6), a circle in noise space, so the seam on the -x axis is gone (the step went from 8.7 cm to 0).",
+   "commits": [
+    "7e5dc92",
+    "a3f5317",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-185": {
+   "status": "fixed",
+   "note": "He now picks eating only while chores.cook.stage is 'ready', and takes his bowl through cook.ladle(), so it counts as one of the pot's three bowls.",
+   "commits": [
+    "5778fee"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-186": {
+   "status": "fixed",
+   "note": "The running jeep's engine now stops 30 s after everyone (you and any sloth in a seat) has left it, as Adriaen picked, and carStep no longer rewrites the jeep's pose every frame while it is off (audible: nobody has heard it).",
+   "commits": [
+    "3467905",
+    "c62c346"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot",
+   "followup": "After 30 s it turns the engine off quietly, with no toast. wasIn is gone, and the headers of car.js and jeepSeat.js are updated."
+  },
+  "R2-187": {
+   "status": "fixed",
+   "note": "The layout step now exports where each lantern hangs (place.lanternHang) instead of the jar lights.",
+   "commits": [
+    "90d19d9"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-188": {
+   "status": "fixed",
+   "note": "The lantern flames and glows are now camera-facing quads in one instanced ShaderMaterial draw (fog, tone mapping and colour space included), replacing two Points draws.",
+   "commits": [
+    "90d19d9",
+    "2833291"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-189": {
+   "status": "fixed",
+   "note": "The wear painter now draws from its own lcg(seed + 1) stream; when the baked mask is there, the canvas only takes the mask and the painter is skipped.",
+   "commits": [
+    "9e8da2d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-190": {
+   "status": "fixed",
+   "note": "Each far-LOD wheel is now 8 sides of tread, the tyre's outer side and a rim fan, open on the inside: 40 triangles instead of 88.",
+   "commits": [
+    "7462c38",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-191": {
+   "status": "fixed",
+   "note": "The mirrors are plain boxes, the compass is 8-sided and the tow hooks are lib/mesh.py arc() pieces whose ends go into the bumper (Jeep 4447 tris).",
+   "commits": [
+    "ca5c2ed",
+    "703d43e",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-jeep",
+   "followup": "The arc now runs from 150 to 420 degrees in 5 segments, so both ends go into the bumper. Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-192": {
+   "status": "fixed",
+   "note": "The roots now have 2 radial segments (a smooth-shaded ridge) instead of 4.",
+   "commits": [
+    "8a67b32"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-193": {
+   "status": "fixed",
+   "note": "In bake_ground.py soil(), the ash is darker (0.5 instead of 0.63); the char threshold widens to 0.6-0.85 and gathers toward the fire stones and the inner ring.",
+   "commits": [
+    "b2e9090",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-194": {
+   "status": "fixed",
+   "note": "mug() moved from build_lived.py into props/lib/mesh.py as mug(M, at, n).",
+   "commits": [
+    "e6cd9ee",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-195": {
+   "status": "fixed",
+   "note": "BOOT_SCALE goes from 1.25 to 1.05, so the boots are about 31 cm long; the fallen boot's lift above the planks now follows the scale.",
+   "commits": [
+    "4644ffa",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-camp",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-196": {
+   "status": "fixed",
+   "note": "Did both options: A (jars 0.14 m tall and 0.055 m wide with a bigger tin lid and a taller candle, same triangle count, centre still at JAR_Y so the lights do not move) and B (12 fabric bunting flags per string, one double-sided triangle each, inside the strings' existing draw).",
+   "commits": [
+    "90d19d9"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-197": {
+   "status": "fixed",
+   "note": "shared/fur.js has a new smooth option that passes objectNormal = mix(objectNormal, furNormal, furMask) for the base material, so only the fur shades round and the mask, eyes and claws stay flat.",
+   "commits": [
+    "cdece9d"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-198": {
+   "status": "fixed",
+   "note": "The log seat keeps today's look and loses only wasted faces: its two stumps go from 14 to 10 sides (Seat 104 -> 88 in the builder; Seat 88 shipped in 8dae856).",
+   "commits": [
+    "93cff1a",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "picks",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-199": {
+   "status": "fixed",
+   "note": "Option B: the glade's log is deadwood.js fallenLog with three shelf brackets and the bench is a half log on two bark stumps, sharing the deadwood's material so no shader program is added (GladeProps 288 -> 346 tris).",
+   "commits": [
+    "957bfdd",
+    "7e0d6bb"
+   ],
+   "needs_rebake": false,
+   "lane": "picks"
+  },
+  "R2-200": {
+   "status": "fixed",
+   "note": "The three camp outfits are optional kit GLBs and the wrist hole is capped in desk-at-night (#166, #167, merged); since the engine pin move (b7814cb) the camp's operator wears camp_cargo (look B) with the tapered forearm (3db4ded).",
+   "commits": [
+    "desk-at-night@7b48028",
+    "desk-at-night@0bd647d",
+    "desk-at-night@1588a4e",
+    "desk-at-night@798b179",
+    "b7814cb",
+    "3db4ded",
+    "9fc86d3"
+   ],
+   "needs_rebake": false,
+   "lane": "desk-at-night"
+  },
+  "R2-201": {
+   "status": "fixed",
+   "note": "There is a new wallTrunk() in forest.js: one shared shape with 8 sides and rings at -0.25, 0.5, 1.5, 6.7, 13.3 and 20 m.",
+   "commits": [
+    "4dde207"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-202": {
+   "status": "fixed",
+   "note": "weather.js draws the streaks as one instanced draw of 3 cm camera-facing quads with a soft tail.",
+   "commits": [
+    "da79419"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-world"
+  },
+  "R2-203": {
+   "status": "fixed",
+   "note": "Option C: the tent canvas, seams, hem, patch and bed are painted from the shared atlas, the side walls are one column and four guy ropes run to pegs that the page blocks once the Tent node carries them (Tent 876 tris in the builder, 876 shipped).",
+   "commits": [
+    "00b0b08",
+    "ba41f51",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "picks",
+   "followup": "Verified on the real GPU after rebake 8dae856."
+  },
+  "R2-204": {
+   "status": "fixed",
+   "note": "I took the finding's 'drop it' option. heightGrid (terrain.js), __terrainGrid (debug.js) and the 'height' key in the export are removed. layout_picked.json goes from 115 KB to 8.5 KB, regenerated with bake_all.py --only layout.",
+   "commits": [
+    "aab96c1",
+    "5102e26"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-205": {
+   "status": "fixed",
+   "note": "napTrip now filters the guest spots to those no other camp sloth holds before it picks one, as Adriaen approved.",
+   "commits": [
+    "a007a8a"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-206": {
+   "status": "fixed",
+   "note": "?dev (core.js OPT) shows the fps pill and the Detail, Light and Move lab buttons, so players see only their own settings; the labui scenario now runs with ?dev.",
+   "commits": [
+    "96019c3",
+    "2ffbbc6"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-boot",
+   "followup": "I added \"query\": \"?dev\" to the labui entry in tools/tours/scenarios.json."
+  },
+  "R2-207": {
+   "status": "fixed",
+   "note": "Added apps/canopy-prototype/models/*_4k.png to .gitignore and untracked camp_lm_4k.png and camp_lm_sun_4k.png with git rm --cached.",
+   "commits": [
+    "66424ff"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-208": {
+   "status": "fixed",
+   "note": "pages.yml now deletes the 4K PNGs, index.html, nooks.html and names-prototype.html from the published copy, and writes a forwarding index.html in canopy-prototype/ like the root one.",
+   "commits": [
+    "2587bf4"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-209": {
+   "status": "fixed",
+   "note": "places.js logSeats() is the one table of log seats (middle, axis, sitting slots, bowl ends) that linger.js, operator/places.js, sloth/day.js and soupChore.js read, and targets.js addOption puts 'Set the bowl down' on the log's own target.",
+   "commits": [
+    "59b88e1",
+    "fdd0439"
+   ],
+   "needs_rebake": false,
+   "lane": "integ"
+  },
+  "R2-210": {
+   "status": "fixed",
+   "note": "Removed the dead shader path for the jeep's baked lights; in ground.js: uGJ, uGDP, uGDD, uGDB, the gj/gd/door-patch code and the plants' vGJ read.",
+   "commits": [
+    "ab84797"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-211": {
+   "status": "already_fixed",
+   "note": "LOOK, PROPS and CABIN were already removed in 52a8b5f, and no branch for them is left in camp/.",
+   "commits": [
+    "52a8b5f"
+   ],
+   "needs_rebake": false,
+   "lane": "integ"
+  },
+  "R2-257": {
+   "status": "partly",
+   "note": "New props/shadow/layout_pure.mjs builds the whole layout except the deadwood in node, from layout.js and lanterns.js (which now exports lanternLights), with no browser.",
+   "commits": [
+    "b8a8baf",
+    "5102e26"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-gen-bake"
+  },
+  "R2-258": {
+   "status": "fixed",
+   "note": "The archived camp and jeep styles' builders moved to props/camp/archive/build_camp_styles.py and props/jeep/archive/build_jeep_styles.py, and all eleven live and archived builds make the same geometry as before.",
+   "commits": [
+    "c314ef4",
+    "c36f734",
+    "8422fe0",
+    "612d1b0"
+   ],
+   "needs_rebake": false,
+   "lane": "integ"
+  },
+  "R2-212": {
+   "status": "fixed",
+   "note": "camp/actor.js is the one character layer (crossFade, turnYaw, stepAlong, ahead, ringPoint, aimBone, watched/gazeStep, makeZ/zAt, bite) for the sloths and the operator, each keeping its own state machine and constants.",
+   "commits": [
+    "afe9420",
+    "59ce258",
+    "612d1b0"
+   ],
+   "needs_rebake": false,
+   "lane": "integ",
+   "followup": "After the karaoke trip's merge (6cb99d4), actor.js gained kitLook(obj), the kit characters' crisp-texture flat Lambert look, used by operator/model.js buildModel and trip.js person() instead of two copies."
+  },
+  "R2-213": {
+   "status": "fixed",
+   "note": "I remade operator_anims.txt with desk-at-night's pack_chars.mjs from bearded_operator_survival.glb at the pinned engine commit, without hug, play, play_knees, phone, phone_down and step_down.",
+   "commits": [
+    "842826b"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-operator"
+  },
+  "R2-214": {
+   "status": "blocked",
+   "note": "Pages serves binary files and the binary load path works; the rebake has run (8dae856), so committing .glb and .ktx2 as the source and making the base64 copies at publish time waits only for Adriaen's go-ahead.",
+   "commits": [
+    "c3bfdf4",
+    "8dae856"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene",
+   "followup": "The rest waits only for Adriaen's go-ahead: commit .glb/.ktx2 as the source, generate the base64 copies at publish time, flip the default meta and clean up .gitattributes/.gitignore."
+  },
+  "R2-215": {
+   "status": "partly",
+   "note": "isFree and walkTo are dropped from labApi. pois stays, because tools/camp-scenarios.cjs reads it, and the header now says so. ?slothmat=old is kept, because the finding leaves retiring it to Adriaen and tools/tours/scenarios.json still uses it.",
+   "commits": [
+    "39cbf6f"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-sloths"
+  },
+  "R2-216": {
+   "status": "fixed",
+   "note": "The CABIN switch was already gone; removed cargo, cargoSlots, lights, local() and boot from jeep.js (nothing read them), and unwrapped the old live-cabin block.",
+   "commits": [
+    "ab84797"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-217": {
+   "status": "fixed",
+   "note": "The night-map 404s had already been fixed on the branch; I took option (a) and kept ?jeep=none as a debug view, because two tour scenarios use it.",
+   "commits": [
+    "fa8d81c"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-props"
+  },
+  "R2-218": {
+   "status": "fixed",
+   "note": "Done 2026-11-15 with Adriaen's go-ahead, after PR #33 merged: all 33 remote branches fully merged into main were deleted (each checked as an ancestor of origin/main first). Left: main, claude/project-thread-n6c974 and the unmerged claude/project-thread-ns6tgy.",
+   "commits": [],
+   "needs_rebake": false,
+   "lane": ""
+  },
+  "R2-219": {
+   "status": "blocked",
+   "note": "The activities plan is in docs/plans/canopy-camp-activities.md, but the one-line pointers in the /mnt/project-files copies are not written, because the lane could not edit project files.",
+   "commits": [
+    "075cf65"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene",
+   "followup": "This lane may write only in the fx-hygiene worktree, so I did not edit /mnt/project-files."
+  },
+  "R2-220": {
+   "status": "fixed",
+   "note": "The forest look, nooks and names prototype pages moved to apps/canopy-prototype/prototypes/, with their fur.js and models/sloth.txt paths changed to ../.",
+   "commits": [
+    "5bc61bd"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-221": {
+   "status": "fixed",
+   "note": "Removed the six archive base64 .txt files (each was checked to be exactly the base64 of the GLB next to it, 7.9 MB in all) and the two jeep casters_picked GLBs, which nothing reads now. props/camp/archive has a new README, and both READMEs give the base64 -w0 line that makes the text copy again.",
+   "commits": [
+    "48ea40a"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-222": {
+   "status": "fixed",
+   "note": "apps/playtime-tools moved to tools/playtime. shot.cjs now opens /apps/playtime/index.html and launches through camp-page.cjs launch/routeThree, so it can fall back to another browser; a test run saved a correct Playtime screenshot.",
+   "commits": [
+    "b814f81"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  },
+  "R2-223": {
+   "status": "fixed",
+   "note": "sync-shared.cjs has a new SAME group, so check-shared keeps the five other pages' models/sloth.txt and the two ponytail.txt copies byte-for-byte equal.",
+   "commits": [
+    "548a113"
+   ],
+   "needs_rebake": false,
+   "lane": "fx-hygiene"
+  }
+ }
+}

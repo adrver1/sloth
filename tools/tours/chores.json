@@ -1,0 +1,546 @@
+[
+[
+5,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('woodpile'), 1.8); "
+],
+[
+8,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('woodpile')); "
+],
+[
+10,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('woodpile')); "
+],
+[
+12,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Take a log\"); "
+],
+[
+14,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('woodpile')); "
+],
+[
+16,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose('Put the log back'); "
+],
+[
+18,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('woodpile')); "
+],
+[
+20,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose('Take a log');T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+22,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fire'), 1.6); "
+],
+[
+25,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fire')); "
+],
+[
+27,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire')); "
+],
+[
+29,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Put the log on the fire\"); "
+],
+[
+31,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('canister'), 1.6); "
+],
+[
+34,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('canister')); "
+],
+[
+36,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('canister')); "
+],
+[
+38,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Take the pail\"); "
+],
+[
+40,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); dispatchEvent(new KeyboardEvent('keydown', { key: 'q', code: 'KeyQ', bubbles: true })); T.log.push(['key q']);T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+42,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('canister')); "
+],
+[
+44,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose('Take the pail'); "
+],
+[
+46,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('crate'), 1.5); "
+],
+[
+49,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('crate')); "
+],
+[
+51,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('crate')); "
+],
+[
+53,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Take a\"); "
+],
+[
+55,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fire'), 1.6); "
+],
+[
+58,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fire')); "
+],
+[
+60,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire')); "
+],
+[
+62,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Pour\"); "
+],
+[
+64,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('crate'), 1.5); "
+],
+[
+67,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('crate')); "
+],
+[
+69,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('crate')); "
+],
+[
+71,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Take a\"); "
+],
+[
+73,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fire'), 1.6); "
+],
+[
+76,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fire')); "
+],
+[
+78,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire')); "
+],
+[
+80,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Add the\"); "
+],
+[
+82,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('crate'), 1.5); "
+],
+[
+85,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('crate')); "
+],
+[
+87,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('crate')); "
+],
+[
+89,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Take a\"); "
+],
+[
+91,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fire'), 1.6); "
+],
+[
+94,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fire')); "
+],
+[
+96,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire')); "
+],
+[
+98,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Add the\"); "
+],
+[
+100,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire'));T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+102,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+104,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fruitbowl'), 1.6); "
+],
+[
+107,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fruitbowl')); "
+],
+[
+109,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fruitbowl')); "
+],
+[
+111,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Take a\"); "
+],
+[
+113,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); document.getElementById('putBack').click(); T.log.push(['putBack click']);T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+115,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fruitbowl')); "
+],
+[
+117,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose('Take a'); "
+],
+[
+119,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(camp[0].box, 2.0); "
+],
+[
+122,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(camp[0].box); "
+],
+[
+124,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(camp[0].box); "
+],
+[
+126,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Give the\"); "
+],
+[
+142,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(camp[0].box); "
+],
+[
+143,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(camp[0].box); "
+],
+[
+145,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose('Boop'); "
+],
+[
+150,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(camp[0].box); "
+],
+[
+152,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose('Feed');T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+158,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); { const [x, y] = T.screen(camp[0].box); T.hold = [x, y]; document.getElementById('c').dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: y, pointerId: 11, pointerType: 'touch', isPrimary: true, bubbles: true })); T.log.push(['hold down', Math.round(x), Math.round(y)]); } "
+],
+[
+170,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); { const [x, y] = T.hold; document.getElementById('c').dispatchEvent(new PointerEvent('pointerup', { clientX: x, clientY: y, pointerId: 11, pointerType: 'touch', isPrimary: true, bubbles: true })); T.log.push(['hold up', T.menu()]); } "
+],
+[
+174,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fruitbowl'), 1.6); "
+],
+[
+177,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fruitbowl')); "
+],
+[
+179,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fruitbowl')); "
+],
+[
+181,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Take a\"); "
+],
+[
+183,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.wild = S.filter((q) => q.wild && q.o.visible).sort((a, b) => a.p.length() - b.p.length())[0]; T.near(T.wild.box, 3.0); T.log.push(['wild', T.wild.p.toArray()]); "
+],
+[
+186,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(T.wild.box); "
+],
+[
+188,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(T.wild.box); "
+],
+[
+190,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose('Give the');T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+213,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(O.tapCol, 2.2); "
+],
+[
+216,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); "
+],
+[
+218,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(O.tapCol); "
+],
+[
+220,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Talk\"); "
+],
+[
+252,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('crate'), 1.5); "
+],
+[
+255,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('crate')); "
+],
+[
+257,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('crate')); "
+],
+[
+259,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Take a\"); "
+],
+[
+261,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(O.tapCol, 2.2); "
+],
+[
+264,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); "
+],
+[
+266,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(O.tapCol); "
+],
+[
+268,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Give the\"); "
+],
+[
+290,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+310,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+330,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+350,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+370,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+390,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+410,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+430,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+450,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+470,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+480,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fire'), 1.6); "
+],
+[
+483,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fire')); "
+],
+[
+485,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire')); "
+],
+[
+487,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Fill a bowl\"); "
+],
+[
+489,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('seat1'), 2.0); "
+],
+[
+492,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('seat1')); "
+],
+[
+494,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('seat1')); "
+],
+[
+496,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Set the bowl\"); "
+],
+[
+504,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fire'), 1.6); "
+],
+[
+507,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fire')); "
+],
+[
+509,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire')); "
+],
+[
+511,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Fill a bowl\"); "
+],
+[
+513,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(O.tapCol, 2.2); "
+],
+[
+516,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(O.tapCol); "
+],
+[
+518,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(O.tapCol); "
+],
+[
+520,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Give the\"); "
+],
+[
+552,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fire'), 1.6); "
+],
+[
+555,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fire')); "
+],
+[
+557,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire')); "
+],
+[
+559,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Fill a bowl\"); "
+],
+[
+561,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire'));T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+564,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true }));T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+567,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('fire'), 1.6); "
+],
+[
+570,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('fire')); "
+],
+[
+572,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('fire')); "
+],
+[
+574,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Fill a bowl\"); "
+],
+[
+576,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('seat2'), 2.0); "
+],
+[
+579,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('seat2')); "
+],
+[
+581,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('seat2')); "
+],
+[
+583,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Set the bowl\"); "
+],
+[
+585,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.near(th('seat2'), 2.0); "
+],
+[
+588,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.face(th('seat2')); "
+],
+[
+590,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('seat2')); "
+],
+[
+592,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.choose(\"Set the bowl\"); "
+],
+[
+594,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); me.pos.set(-6, 0, 5); T.face(th('woodpile')); "
+],
+[
+597,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(th('woodpile'));T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+600,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.tap(camp[0].box);T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+604,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+624,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+644,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+664,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+684,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+],
+[
+704,
+"const T = window.__T, me = T.me, A = T.acts, O = T.op, J = T.jeep, S = T.mods['camp/sloths.js'].sloths; const th = (n) => A.things.find((t) => t.name === n).box; const camp = S.filter((s) => !s.wild); T.log.push(['st', A.held, A.soup.stage, A.soup.veg, A.soup.bowls, A.burning.length, document.getElementById('toast').textContent, O ? O.state() : null]); "
+]
+]

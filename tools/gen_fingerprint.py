@@ -3,7 +3,7 @@ Generator fingerprint: runs one props/ builder or bake script headless in bpy an
 made, so a refactor of the generators can be checked to change nothing (same fingerprint before and after).
 
     .venv/bin/python tools/gen_fingerprint.py --out fp.json -- props/lived/build_fire.py
-    .venv/bin/python tools/gen_fingerprint.py --out fp.json --stop-at-bake -- props/camp/bake_camp_lightmap.py --size 4096
+    .venv/bin/python tools/gen_fingerprint.py --out fp.json --stable --stop-at-bake --no-render -- props/camp/bake_camp_lightmap.py --size 2048
     .venv/bin/python tools/gen_fingerprint.py --compare a.json b.json
 
 Run it on a scratch copy of the repo (it runs the script where it lies, and the script writes its outputs next to
@@ -14,6 +14,10 @@ the world and the render and bake settings. It also records the sha256 of every 
 --stable makes the run reproducible where Blender numbers vertices by memory address (see stabilise); use it on both
 sides of a comparison. --stop-at-bake stops the run at its first bpy.ops.object.bake call and records the scene as it stands then (for
 bake_camp_lightmap.py: the unwrapped scene with its lights, stand-in materials and settings, before any Cycles work).
+--no-render skips every bpy.ops.render.render call (the wood-stack texture on a cache miss, the jeep's preview stills),
+so a fingerprint run does no Cycles work at all; a script that needs the rendered image afterwards may then fail.
+Edges are hashed by their end positions and exports outside --root by file name only, so two runs of the same code
+compare as "identical".
 Values are stored as hashes per field, with triangle counts in clear, so --compare names the fields that moved.
 """
 import argparse
@@ -73,10 +77,11 @@ def mesh_fp(me):
     co = np.empty(len(me.vertices) * 3, np.float64)
     me.vertices.foreach_get("co", co)
     co = np.round(co, 6).reshape(-1, 3)
+    cl = [tuple(v) for v in co.tolist()]
     d = {"verts": len(me.vertices), "faces": len(me.polygons), "tris": sum(len(p.vertices) - 2 for p in me.polygons),
          "co": _h(co.tolist()),
          "polys": _h([(tuple(p.vertices), p.material_index, p.use_smooth) for p in me.polygons]),
-         "edges": _h([tuple(e.vertices) for e in me.edges]),
+         "edges": _h(sorted(tuple(sorted(cl[i] for i in e.vertices)) for e in me.edges)),  # by end positions, not index
          "uv": {}, "colour": {}, "attr": {}, "materials": [m.name if m else None for m in me.materials]}
     corner = [[] for _ in range(len(me.loops))]          # every value each face corner carries, for "canon" below
     for uv in me.uv_layers:
@@ -181,7 +186,7 @@ class Stop(Exception):
 
 def stabilise():
     """--stable: bmesh.ops.remove_doubles numbers what it keeps by memory address, so the same build can come out
-    renumbered from one run to the next (the fire's pot does). For a fingerprint run only, sort what it leaves by
+    renumbered from one run to the next (the fire's pot did until build_fire.py's lathe sorted it; other code may). For a fingerprint run only, sort what it leaves by
     position, so two runs of the same code compare exactly. Both runs of a comparison must use it."""
     import bmesh
     real = bmesh.ops.remove_doubles
@@ -196,13 +201,20 @@ def stabilise():
     bmesh.ops.remove_doubles = remove_doubles
 
 
-def run(script, args, out, root, stop_at_bake, stable=False):
+def _export_path(fp, root):
+    """An export inside the repo is recorded relative to it; one outside (a script's random tempfile folder) by its
+    file name only, so two runs of the same code record the same path."""
+    fp = os.path.abspath(fp)
+    return os.path.relpath(fp, root) if fp.startswith(root + os.sep) else "<outside>/" + os.path.basename(fp)
+
+
+def run(script, args, out, root, stop_at_bake, stable=False, no_render=False):
     import bpy
     if stable:
         stabilise()
     before = files_sha(root)
     record = {"exports": [], "script": os.path.relpath(script, root), "args": args}
-    real_export, real_object = bpy.ops.export_scene, bpy.ops.object
+    real_export, real_object, real_render = bpy.ops.export_scene, bpy.ops.object, bpy.ops.render
 
     class Export:
         def __getattr__(self, k):
@@ -211,7 +223,7 @@ def run(script, args, out, root, stop_at_bake, stable=False):
         def gltf(self, **kw):
             fp = scene_fp()
             res = real_export.gltf(**kw)
-            record["exports"].append({"path": os.path.relpath(kw["filepath"], root), "kw": {k: v for k, v in kw.items() if k != "filepath"}, "scene": fp})
+            record["exports"].append({"path": _export_path(kw["filepath"], root), "kw": {k: v for k, v in kw.items() if k != "filepath"}, "scene": fp})
             return res
 
     class Obj:
@@ -224,7 +236,17 @@ def run(script, args, out, root, stop_at_bake, stable=False):
                 raise Stop()
             return real_object.bake(**kw)
 
-    bpy.ops.export_scene, bpy.ops.object = Export(), Obj()
+    class Render:
+        def __getattr__(self, k):
+            return getattr(real_render, k)
+
+        def render(self, *a, **kw):
+            if no_render:
+                record.setdefault("renders_skipped", []).append({k: v for k, v in kw.items()})
+                return {"CANCELLED"}
+            return real_render.render(*a, **kw)
+
+    bpy.ops.export_scene, bpy.ops.object, bpy.ops.render = Export(), Obj(), Render()
     sys.argv = [script] + args
     try:
         runpy.run_path(script, run_name="__main__")
@@ -233,7 +255,7 @@ def run(script, args, out, root, stop_at_bake, stable=False):
     except SystemExit as e:
         record["exit"] = e.code
     finally:
-        bpy.ops.export_scene, bpy.ops.object = real_export, real_object
+        bpy.ops.export_scene, bpy.ops.object, bpy.ops.render = real_export, real_object, real_render
     record["final"] = scene_fp()
     after = files_sha(root)
     record["files"] = {k: v[1] for k, v in after.items() if k not in before or before[k][1] != v[1]}
@@ -278,10 +300,11 @@ if __name__ == "__main__":
     ap.add_argument("--root", default=".")
     ap.add_argument("--stop-at-bake", action="store_true")
     ap.add_argument("--stable", action="store_true", help="renumber what remove_doubles leaves (see stabilise)")
+    ap.add_argument("--no-render", action="store_true", help="skip every bpy.ops.render.render call (no Cycles on the CPU)")
     ap.add_argument("--compare", nargs=2)
     ap.add_argument("--ignore", action="append", default=[], help="with --compare: skip differences whose path contains this")
     a = ap.parse_args(argv)
     if a.compare:
         sys.exit(0 if compare(*a.compare, ignore=a.ignore) else 1)
     root = os.path.abspath(a.root)
-    run(os.path.join(root, rest[0]), rest[1:], a.out, root, a.stop_at_bake, a.stable)
+    run(os.path.join(root, rest[0]), rest[1:], a.out, root, a.stop_at_bake, a.stable, a.no_render)

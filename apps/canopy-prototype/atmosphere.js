@@ -1,8 +1,11 @@
-// Cozy camp atmosphere for camp.html: cheap particle effects round the fire, kept out of camp.html so the sibling threads' edits there don't collide.
-// Batch 1: smoke curling up from the fire, sparks that pop more often as you walk close, and steam off the soup pot.
-// Later: thin smoke from the tent stove's chimney, curling out from under its rain cap.
-// Batch 2: butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
+// The camp's atmosphere: cheap particle effects round the fire (camp/campAir.js builds it). Smoke curling up from the fire,
+// sparks that pop more often as you walk close, steam off the soup pot, and thin smoke from the tent stove's chimney, curling
+// out from under its rain cap.
+// Butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
 // Each effect is one instanced draw of camera-facing quads (no point sprites, so phone GPUs' point-size caps don't matter) with a fixed pool, scaled by the detail level.
+// Exports createAtmosphere({ scene, camera, fx, fire, pot, chimneys, sloths, roam }) -> { update(dt, time, dusk), debug } (main.js calls update)
+// (camp/campAir.js), and pool(scene, n, map, blending, order), the billboard pool itself, which daylight.js also uses for the dawn
+// mist banks (review R2-079). An effect that cannot be seen is not drawn: the butterflies at night, the fireflies by day (review R2-086).
 import * as THREE from "three";
 import { canvasTex, rand } from "./camp/util.js";
 
@@ -16,34 +19,38 @@ const puffTex = () => canvasTex(64, 64, (g, s) => {
 }, { aniso: 1 });
 const sparkTex = () => canvasTex(32, 32, (g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, "rgba(255,255,230,1)"); gr.addColorStop(0.35, "rgba(255,190,90,.8)"); gr.addColorStop(1, "rgba(255,120,40,0)"); g.fillStyle = gr; g.fillRect(0, 0, s, s); }, { aniso: 1 });
 
-// a pool of n billboard quads in one draw; each live particle has position, size, alpha and spin
-function pool(scene, n, map, blending, order) {
+// a pool of n billboard quads in one draw; each live particle has position (x, y, z), size, alpha and spin, and may have
+// stretch, its height over its width (1 when it is not set). Returns { mesh, mat, live, n, add(p), flush() }. Exported
+// for the chores' sparks and the soup's bubbles too (activities/fireChore.js, soupChore.js). An empty pool is hidden, so
+// it costs no draw.
+export function pool(scene, n, map, blending, order) {
   const geo = new THREE.InstancedBufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
   geo.setIndex([0, 1, 2, 0, 2, 3]);
-  const at = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3), sa = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);   // xyz | size, alpha, spin
+  const at = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3), sa = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4);   // xyz | size, alpha, spin, stretch
   at.setUsage(THREE.DynamicDrawUsage); sa.setUsage(THREE.DynamicDrawUsage);
   geo.setAttribute("iAt", at); geo.setAttribute("iSA", sa); geo.instanceCount = 0;
   const mat = new THREE.ShaderMaterial({
     uniforms: { map: { value: map }, tint: { value: new THREE.Color(1, 1, 1) } },
-    vertexShader: `attribute vec3 iAt; attribute vec3 iSA; varying vec2 vUv; varying float vA;
+    vertexShader: `attribute vec3 iAt; attribute vec4 iSA; varying vec2 vUv; varying float vA;
       void main() { vUv = uv; vA = iSA.y; float c = cos(iSA.z), s = sin(iSA.z);
-        vec4 mv = modelViewMatrix * vec4(iAt, 1.0); mv.xy += mat2(c, s, -s, c) * position.xy * iSA.x; gl_Position = projectionMatrix * mv; }`,
+        vec4 mv = modelViewMatrix * vec4(iAt, 1.0); mv.xy += mat2(c, s, -s, c) * (position.xy * vec2(1.0, iSA.w)) * iSA.x; gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `uniform sampler2D map; uniform vec3 tint; varying vec2 vUv; varying float vA;
       void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(t.rgb * tint, t.a * vA); if (gl_FragColor.a < 0.004) discard;
         #include <colorspace_fragment>
       }`,
     transparent: true, depthWrite: false, blending,
   });
-  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = order; scene.add(mesh);
+  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = order; mesh.visible = false; scene.add(mesh);
   const live = [];
   return {
-    mat, live, n,
+    mat, mesh, live, n,
     add(p) { if (live.length < n) live.push(p); },
     flush() {                                          // write the live particles into the instance buffers
-      for (let i = 0; i < live.length; i++) { const p = live[i]; at.setXYZ(i, p.x, p.y, p.z); sa.setXYZ(i, p.size, p.alpha, p.spin); }
-      geo.instanceCount = live.length; at.needsUpdate = sa.needsUpdate = true;
+      if (!live.length && !geo.instanceCount) return;   // empty and already so: nothing to upload
+      for (let i = 0; i < live.length; i++) { const p = live[i]; at.setXYZ(i, p.x, p.y, p.z); sa.setXYZW(i, p.size, p.alpha, p.spin, p.stretch ?? 1); }
+      geo.instanceCount = live.length; mesh.visible = live.length > 0; at.needsUpdate = sa.needsUpdate = true;
     },
   };
 }
@@ -61,8 +68,31 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
   let tChim = 0;
   const DAY_SMOKE = new THREE.Color(0xd6d2cb), DUSK_SMOKE = new THREE.Color(0x4a4652);
   let tSmoke = 0, tSteam = 0, tSpark = 0, wind = 0;
+  let dt = 0, time = 0, fade = 1;   // this frame's values, set by update() and read by the movers below
 
-  function update(dt, time, dusk) {
+  // move and fade: one mover per pool, made once (not a new closure each frame); age() runs it over the live particles
+  const age = (P, f) => { for (let i = P.live.length - 1; i >= 0; i--) { const p = P.live[i]; p.t += dt; if (p.t >= p.life) { P.live[i] = P.live[P.live.length - 1]; P.live.pop(); continue; } f(p, p.t / p.life); } P.flush(); };
+  const moveSmoke = (p, e) => {
+    p.x += (p.vx + wind * e + Math.sin(time * 0.7 + p.ph) * 0.04) * dt; p.z += (p.vz + Math.cos(time * 0.6 + p.ph) * 0.04) * dt; p.y += p.vy * (1 - 0.4 * e) * dt;
+    p.spin += p.spinV * dt; p.size = p.s0 + (p.s1 - p.s0) * Math.sqrt(e); p.alpha = p.a * Math.min(1, e * 6) * (1 - e) * (1 - e) * 1.6 * fade;
+  };
+  const moveSpark = (p, e) => {
+    p.vy -= 0.9 * dt; p.vx *= 1 - dt * 1.5; p.vz *= 1 - dt * 1.5;
+    p.x += (p.vx + Math.sin(time * 9 + p.ph) * 0.25 + wind) * dt; p.z += (p.vz + Math.cos(time * 8 + p.ph) * 0.25) * dt; p.y += p.vy * dt;
+    p.size = p.s0 * (1 - 0.5 * e); p.alpha = (1 - e) * (0.75 + 0.25 * Math.sin(time * 30 + p.ph));   // a little flicker
+  };
+  const moveChim = (p, e) => {
+    p.vx *= 1 - dt * 1.5; p.vz *= 1 - dt * 1.5;
+    p.x += (p.vx + wind * 1.4 * e + Math.sin(time * 0.8 + p.ph) * 0.03) * dt; p.z += (p.vz + Math.cos(time * 0.7 + p.ph) * 0.03) * dt; p.y += p.vy * (1 - 0.3 * e) * dt;
+    p.spin += p.spinV * dt; p.size = p.s0 + (p.s1 - p.s0) * Math.sqrt(e); p.alpha = p.a * Math.min(1, e * 5) * (1 - e) * (1 - e) * 1.6 * fade;
+  };
+  const moveSteam = (p, e) => {
+    p.vx *= 1 - dt * 2; p.vy += 0.25 * dt; p.x += (p.vx + wind * 0.5) * dt; p.z += p.vz * dt; p.y += p.vy * dt;
+    p.spin += p.spinV * dt; p.size = p.s0 + (p.s1 - p.s0) * e; p.alpha = p.a * Math.min(1, e * 8) * (1 - e);
+  };
+
+  function update(dt_, time_, dusk) {
+    dt = dt_; time = time_;
     wind = Math.sin(time * 0.13) * 0.12 + Math.sin(time * 0.31) * 0.06;    // a slow breeze that leans the smoke
 
     // smoke: a puff every 1/3 s at medium, rising, widening, fading in then out over about 7 s
@@ -104,27 +134,10 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
       }
     }
 
-    // move and fade
-    const fade = 1 - 0.35 * dusk;   // thinner smoke at dusk, so it doesn't read as a pale fog against the dark
-    const age = (P, f) => { for (let i = P.live.length - 1; i >= 0; i--) { const p = P.live[i]; p.t += dt; if (p.t >= p.life) { P.live[i] = P.live[P.live.length - 1]; P.live.pop(); continue; } f(p, p.t / p.life); } P.flush(); };
-    age(smoke, (p, e) => {
-      p.x += (p.vx + wind * e + Math.sin(time * 0.7 + p.ph) * 0.04) * dt; p.z += (p.vz + Math.cos(time * 0.6 + p.ph) * 0.04) * dt; p.y += p.vy * (1 - 0.4 * e) * dt;
-      p.spin += p.spinV * dt; p.size = p.s0 + (p.s1 - p.s0) * Math.sqrt(e); p.alpha = p.a * Math.min(1, e * 6) * (1 - e) * (1 - e) * 1.6 * fade;
-    });
-    age(sparks, (p, e) => {
-      p.vy -= 0.9 * dt; p.vx *= 1 - dt * 1.5; p.vz *= 1 - dt * 1.5;
-      p.x += (p.vx + Math.sin(time * 9 + p.ph) * 0.25 + wind) * dt; p.z += (p.vz + Math.cos(time * 8 + p.ph) * 0.25) * dt; p.y += p.vy * dt;
-      p.size = p.s0 * (1 - 0.5 * e); p.alpha = (1 - e) * (0.75 + 0.25 * Math.sin(time * 30 + p.ph));   // a little flicker
-    });
-    if (chim) age(chim, (p, e) => {
-      p.vx *= 1 - dt * 1.5; p.vz *= 1 - dt * 1.5;
-      p.x += (p.vx + wind * 1.4 * e + Math.sin(time * 0.8 + p.ph) * 0.03) * dt; p.z += (p.vz + Math.cos(time * 0.7 + p.ph) * 0.03) * dt; p.y += p.vy * (1 - 0.3 * e) * dt;
-      p.spin += p.spinV * dt; p.size = p.s0 + (p.s1 - p.s0) * Math.sqrt(e); p.alpha = p.a * Math.min(1, e * 5) * (1 - e) * (1 - e) * 1.6 * fade;
-    });
-    if (steam) age(steam, (p, e) => {
-      p.vx *= 1 - dt * 2; p.vy += 0.25 * dt; p.x += (p.vx + wind * 0.5) * dt; p.z += p.vz * dt; p.y += p.vy * dt;
-      p.spin += p.spinV * dt; p.size = p.s0 + (p.s1 - p.s0) * e; p.alpha = p.a * Math.min(1, e * 8) * (1 - e);
-    });
+    fade = 1 - 0.35 * dusk;   // thinner smoke at dusk, so it doesn't read as a pale fog against the dark
+    age(smoke, moveSmoke); age(sparks, moveSpark);
+    if (chim) age(chim, moveChim);
+    if (steam) age(steam, moveSteam);
 
     // at dusk the smoke goes grey-blue and the sparks read brighter against the dark
     smoke.mat.uniforms.tint.value.copy(DAY_SMOKE).lerp(DUSK_SMOKE, dusk);
@@ -136,7 +149,9 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
   }
   const flutter = butterflies(scene, Math.round(8 * k), sloths, roam);
   const flies = fireflies(scene, Math.round(70 * k), roam);
-  return { update, flutter, stats: () => ({ smoke: smoke.live.length, chimney: chim ? chim.live.length : 0, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter.landed() }) };
+  // debug: for screenshots and checks by hand in the console (the butterflies' list and land(i, k), the live particle counts); nothing
+  // in the repo reads them (R2-128)
+  return { update, debug: { butterflies: flutter, stats: () => ({ smoke: smoke.live.length, chimney: chim ? chim.live.length : 0, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter.landed() }) } };
 }
 
 // ---------------------------------------------------------------- butterflies: two wing quads each, hinged on the body and flapped in the shader; all in one draw
@@ -207,6 +222,7 @@ function butterflies(scene, n, sloths, roam) {
   }
   function update(dt, time, dusk) {
     const show = 1 - Math.min(1, dusk * 2);
+    mesh.visible = show > 0; if (!mesh.visible) return;   // folded away at night: not drawn, and they wait where they are
     for (let i = 0; i < n; i++) {
       const b = bs[i]; b.t += dt; b.next -= dt;
       if (b.state === "fly") {
@@ -241,7 +257,7 @@ function butterflies(scene, n, sloths, roam) {
     P.needsUpdate = W.needsUpdate = true;
     mat.uniforms.light.value = 1 - 0.5 * dusk;
   }
-  return { update, list: bs, sloths, landed: () => bs.filter((b) => b.state === "sit").length,
+  return { update, list: bs, landed: () => bs.filter((b) => b.state === "sit").length,
     land: (i, k = 0) => { const b = bs[i]; b.sloth = sloths[k]; b.state = "go"; nosePos(b.sloth, b.to); b.p.copy(b.to).add(new THREE.Vector3(0.3, 0.2, 0)); } };   // for screenshots
 }
 
@@ -254,7 +270,7 @@ function fireflies(scene, n, roam) {
     P.live.push({ hx: Math.cos(a) * r, hy: rand(0.3, i % 4 ? 2.2 : 5), hz: Math.sin(a) * r, x: 0, y: 0, z: 0, ph: rand(0, 6.28), per: rand(2.5, 5.5), f: rand(0.3, 0.7), size: 0, alpha: 0, spin: 0 });
   }
   function update(dt, time, dusk) {
-    if (dusk <= 0) { if (P.live[0].alpha) { P.live.forEach((p) => (p.alpha = 0)); P.flush(); } return; }
+    P.mesh.visible = dusk > 0; if (!P.mesh.visible) return;   // by day: not drawn at all
     for (const p of P.live) {
       p.x = p.hx + Math.sin(time * 0.31 * p.f + p.ph) * 0.8 + Math.sin(time * 0.9 * p.f + p.ph * 2) * 0.25;
       p.z = p.hz + Math.cos(time * 0.27 * p.f + p.ph) * 0.8 + Math.cos(time * 0.8 * p.f + p.ph * 3) * 0.25;

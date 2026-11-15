@@ -5,8 +5,15 @@ __pycache__/
 stickers/renderer/raw/
 stickers/renderer/anim_raw/
 stickers/renderer/out/
-stickers/renderer/out_flat/
 stickers/renderer/anim_out/
+# stk_post.py's contact sheet of the stills
+stickers/renderer/sheet.jpg
 props/jeep/preview_*.png
 shots/
-package-lock.json
+props/lived/*_preview.glb
+props/camp/out/
+apps/canopy-prototype/lmpreview/
+# The 4K light maps stay on the desktop that bakes them (?lm=4k works there); they are too big to commit or publish (review R2-207)
+apps/canopy-prototype/models/*_4k.png
+# toktx's binary output: bake_all.py deletes it once the base64 .ktx2.txt is written, and a bake stopped in between leaves it (R2-133)
+apps/canopy-prototype/models/*.ktx2

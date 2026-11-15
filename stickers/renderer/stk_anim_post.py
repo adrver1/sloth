@@ -94,6 +94,8 @@ def main():
             if os.path.getsize(p) < 480_000 or q <= 30:
                 break
             q -= 10
+        if os.path.getsize(p) >= 500_000:   # the lowest quality was not enough: stop, as crop() does, rather than ship it
+            raise SystemExit(f"{n}: {os.path.getsize(p) / 1000:.0f} KB at quality {q}, over WhatsApp's 500 KB for an animated sticker")
         print(n, len(frames), "frames", f"{os.path.getsize(p) / 1024:.0f} KB", "q", q)
 
 

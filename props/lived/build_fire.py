@@ -9,12 +9,28 @@ Adriaen picked from three fires and three kettles (the others are in git history
 
     .venv/bin/python props/lived/build_fire.py
 
-One GLB (props/lived/fire.glb) with objects Ring, Tripod, Fire, Embers, Pot and Chain, each at the fire's origin, z up
-(three.js y up). Embers are drawn unlit on the page so they glow; the flames are animated cards made on the page. Same
-baked light as the other props (AO times base colour in a colour attribute), except the chain, which only carries its
-texture. The soup's middle, where the page puffs steam, is SOUP (three.js (0, y, 0)).
-make() only creates the objects in the current scene; build() resets, makes, lights and exports. The page's fire.glb
-and its models/fire.txt come from the light bake (props/bake_all.py), which runs build() with flat colours.
+One GLB, every object at the fire's origin, z up (three.js y up). Triangles as of 2026-11-14 (the export prints them):
+
+    Ring       139  the stones and the ash bed (baked)
+    Tripod      36  the rope lashing where the legs cross (baked)
+    Fire       286  the teepee logs and kindling (baked)
+    Embers      60  the glowing lumps in the ash (baked; drawn unlit on the page so they glow)
+    Pot        242  the pot, the soup and its bits, the feet, the lugs and the bail (baked)
+    Chain       36  one textured quad per link (chain_link.png, alpha cut on the page)
+    TripodLegs  66  the three bamboo legs (textured, bamboo.png)
+    Soup         -  an empty at the soup's surface, scaled by its radius (see below)
+
+The light bake writes props/lived/fire.glb; a run on its own writes props/lived/fire_preview.glb (git-ignored). The
+flames are animated cards made on the page. build() leaves the BAKED parts one colour attribute and no UVs; the
+textured ones keep their UVs and image. The soup's middle, where the page puffs steam, is SOUP, and the GLB carries it as
+the empty Soup, scaled by the soup's radius SOUP_R (review R2-252; the page checks camp/layout.js SOUP_POT against it).
+make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
+drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
+How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
+make() in its own scene and gives the BAKED parts flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+(TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
+models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
+AO in the colour attribute, which the page never sees.
 """
 import math
 import os
@@ -28,32 +44,29 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset  # noqa: E402
+from lib.export import export_glb, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, box, cyl, join, obj_from_bm, rod, rough_up, torus, with_material  # noqa: E402
+from lib.mesh import anchor, apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
 
-rng = random.Random(23)
-LIFT = 0.3                             # the pot hangs this much higher than the old kettle, clear of the flames
+LIFT = 0.3                             # how far the pot's base sits above 0.45 m, clear of the flames
 POT_Z = 0.45 + LIFT                    # the pot's base
 SOUP = Vector((0.0, 0.0, POT_Z + 0.135))   # the soup's surface, middle
+SOUP_R = 0.147                         # the pot's inside wall where it meets the soup
 TOP = Vector((0.0, 0.0, 1.75))         # where the tripod legs meet (tall, so the pot hangs on a long chain)
 
 
 def materials():
     return {k: mat(f"fi_{k}", c) for k, c in dict(
         stone=(0.36, 0.35, 0.33), stone2=(0.28, 0.27, 0.26), soot=(0.12, 0.1, 0.09), ash=(0.42, 0.4, 0.37), char=(0.07, 0.055, 0.045),
-        bark=(0.3, 0.21, 0.14), wood=(0.66, 0.5, 0.34), ember=(0.95, 0.28, 0.04), ember2=(1.0, 0.5, 0.08),
-        bamboo=(0.72, 0.68, 0.36), node=(0.52, 0.48, 0.24), rope=(0.7, 0.6, 0.4),
-        iron=(0.13, 0.13, 0.14), iron2=(0.22, 0.22, 0.23), copper=(0.62, 0.36, 0.2), tin=(0.46, 0.47, 0.48), tin2=(0.34, 0.35, 0.36),
+        bark=(0.3, 0.21, 0.14), ember=(0.95, 0.28, 0.04), ember2=(1.0, 0.5, 0.08), rope=(0.7, 0.6, 0.4), iron=(0.13, 0.13, 0.14),
         soup=(0.78, 0.3, 0.1), soup2=(0.86, 0.42, 0.14), carrot=(0.95, 0.5, 0.1), pea=(0.4, 0.62, 0.18),
         potato=(0.88, 0.8, 0.55), herb=(0.25, 0.45, 0.12)).items()}
 
 
-def stone(r, at, scale, m, sr=None):
+def stone(r, at, scale, m, sr):
     """A low-poly fire stone in 16 triangles (camp review 2026-11-12): six lumpy points round its middle, a flat-ish top of
     three and one point underneath, each pushed about by its own random; smooth shaded, so it reads as a worn pebble and
-    not a crystal (the flat-shaded 12-triangle bipyramid looked like quartz)."""
-    sr = sr or rng
+    not a crystal (the flat-shaded 12-triangle bipyramid looked like quartz). sr: the ring's seeded stream."""
     bm = bmesh.new()
     for i in range(6):
         t = (i + sr.uniform(-0.25, 0.25)) / 6 * 2 * math.pi
@@ -70,16 +83,6 @@ def stone(r, at, scale, m, sr=None):
     o.scale = scale
     o.location = at
     return with_material(o, m)
-
-
-def log(a, b, r, M, burnt=0.35, verts=7):
-    """A log from a to b: bark, with the last `burnt` of its length (toward b) charred, and pale sawn ends."""
-    a, b = Vector(a), Vector(b)
-    k = a.lerp(b, 1 - burnt)
-    parts = [rough_up(rod(a, k, r, M["bark"], verts=verts), 0.004, 14)]
-    if burnt:
-        parts.append(rod(k, b, r * 0.86, M["char"], verts=verts))
-    return parts
 
 
 def ring(M):
@@ -130,7 +133,7 @@ def ring(M):
 
 def tripod(M):
     """The rope lashing where the three legs cross (baked like the rest); the legs themselves are tripod_legs()."""
-    return join([torus(0.05, 0.022, at=(0, 0, TOP.z - 0.06), m=M["rope"], major=8, minor=3)], "Tripod")
+    return join([torus(0.05, 0.022, at=(0, 0, TOP.z - 0.06), m=M["rope"], major=6, minor=3)], "Tripod")   # 6 round: it is small (R2-154)
 
 
 def bamboo_texture(path):
@@ -162,19 +165,13 @@ def tripod_legs():
     for i in range(3):
         a = i / 3 * 2 * math.pi + 0.3
         foot = Vector((math.cos(a) * 0.85, math.sin(a) * 0.85, 0))
-        d = (TOP - foot).normalized()
-        top = TOP + d * 0.16                                       # the tops poke out past the crossing
+        top = TOP + (TOP - foot).normalized() * 0.16               # the tops poke out past the crossing
         L = (top - foot).length
-        x = d.cross(Vector((0, 0, 1))).normalized()
-        y = d.cross(x)
-        ring = lambda c: [c + (x * math.cos(k / n * 2 * math.pi) + y * math.sin(k / n * 2 * math.pi)) * r for k in range(n + 1)]
-        lo, hi = [bm.verts.new(v) for v in ring(foot)], [bm.verts.new(v) for v in ring(top)]
-        for k in range(n):
-            f = bm.faces.new((lo[k], lo[k + 1], hi[k + 1], hi[k]))
+        t = sweep(bm, [foot, top], [r, r], n)
+        for k, f in enumerate(t["sides"][0]):
             for lp, u in zip(f.loops, ((k / n, 0), ((k + 1) / n, 0), ((k + 1) / n, L / 0.5), (k / n, L / 0.5))):
                 lp[uv].uv = u
-        cap = bm.faces.new(hi[:n])
-        for lp in cap.loops:
+        for lp in t["cap_b"].loops:
             lp[uv].uv = (0.5, 0.01)                                # the node colour
     o = obj_from_bm(bm, "TripodLegs")
     o.data.materials.append(image_material("TripodLegs", img))
@@ -182,6 +179,8 @@ def tripod_legs():
 
 
 def embers(n, spread, M, z=0.04):
+    """n glowing lumps scattered in the ash within spread of the middle, from their own seeded stream (review R2-256)."""
+    rng = random.Random(24)
     p = []
     for i in range(n):
         a, d = rng.uniform(0, 2 * math.pi), spread * math.sqrt(rng.uniform(0, 1))
@@ -193,86 +192,67 @@ def embers(n, spread, M, z=0.04):
     return p
 
 
-def hex_log(a, b, r, M, burnt=0.45, sides=6):
+def hex_log(a, b, r, M, twist, burnt=0.45, sides=6):
     """A low-poly fire log from a (in the ash) to b: one six-sided tube with a single extra ring where the bark turns to
-    char, a cap on the burnt end and none on the buried end. 4 x sides + (sides - 2) triangles."""
+    char, a cap on the burnt end and none on the buried end, its sides turned by twist (0..1 of a side). 4 x sides +
+    (sides - 2) triangles."""
     a, b = Vector(a), Vector(b)
-    d = (b - a).normalized()
-    x = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.99 else Vector((1, 0, 0))).normalized()
-    y = d.cross(x)
-    k = a.lerp(b, 1 - burnt)
-    tw = rng.uniform(0, 1)
-    rings = [[c + (x * math.cos((j + tw) / sides * 2 * math.pi) + y * math.sin((j + tw) / sides * 2 * math.pi)) * rr for j in range(sides)]
-             for c, rr in ((a, r), (k, r), (b, r * 0.85))]
-    verts = [v for ring in rings for v in ring]
-    faces, mats = [], []
-    for i, m in ((0, 0), (1, 1)):
-        for j in range(sides):
-            faces.append((i * sides + j, i * sides + (j + 1) % sides, (i + 1) * sides + (j + 1) % sides, (i + 1) * sides + j)); mats.append(m)
-    faces.append(tuple(2 * sides + j for j in range(sides))); mats.append(1)
-    me = bpy.data.meshes.new("log")
-    me.from_pydata([tuple(v) for v in verts], [], faces)
-    o = bpy.data.objects.new("log", me)
-    bpy.context.collection.objects.link(o)
-    me.materials.append(M["bark"])
-    me.materials.append(M["char"])
-    for poly, mi in zip(me.polygons, mats):
-        poly.material_index = mi
+    bm = bmesh.new()
+    t = sweep(bm, [a, a.lerp(b, 1 - burnt), b], [r, r, r * 0.85], sides, twist=twist)
+    for f in t["sides"][1] + [t["cap_b"]]:                         # the burnt end
+        f.material_index = 1
+    o = obj_from_bm(bm, "log")
+    o.data.materials.append(M["bark"])
+    o.data.materials.append(M["char"])
     return [o]
 
 
 def fire(M):
     """The teepee: seven split logs leaning together, kindling between them, embers in the ash. Hexagonal logs and
-    four-sided kindling sticks (Adriaen: they need not be round)."""
+    four-sided kindling sticks (Adriaen: they need not be round). The logs and sticks draw from their own seeded
+    stream, the embers from theirs (review R2-256)."""
+    rng = random.Random(23)
     p = []
     for i in range(7):
         a = i / 7 * 2 * math.pi + rng.uniform(-0.15, 0.15)
         r0 = rng.uniform(0.3, 0.38)
-        p += hex_log((math.cos(a) * r0, math.sin(a) * r0, 0.02), (math.cos(a + 0.25) * 0.05, math.sin(a + 0.25) * 0.05, rng.uniform(0.5, 0.58)),
-                     rng.uniform(0.035, 0.045), M, burnt=0.45)
+        top = (math.cos(a + 0.25) * 0.05, math.sin(a + 0.25) * 0.05, rng.uniform(0.5, 0.58))
+        r = rng.uniform(0.035, 0.045)
+        p += hex_log((math.cos(a) * r0, math.sin(a) * r0, 0.02), top, r, M, rng.uniform(0, 1), burnt=0.45)
     for i in range(5):                                             # kindling sticks between them
         a = i / 5 * 2 * math.pi + 0.5
-        p += hex_log((math.cos(a) * 0.22, math.sin(a) * 0.22, 0.03), (0, 0, 0.38), 0.016, M, burnt=0.5, sides=4)
+        p += hex_log((math.cos(a) * 0.22, math.sin(a) * 0.22, 0.03), (0, 0, 0.38), 0.016, M, rng.uniform(0, 1), burnt=0.5, sides=4)
     em = embers(12, 0.22, M)
     return join(p, "Fire"), join(em, "Embers")
 
 
-def lathe(profile, segs, m, z0=0.0):
-    """Spin a (radius, z) profile round the z axis into a closed-ish body."""
+def lathe(profile, segs, m, z0=0.0, flip=False):
+    """Spin a (radius, z) profile round the z axis into a body. spin() faces each band by the profile's direction times
+    the turn, so a profile running outward and up (the pot's outside) comes out facing in; flip=True reverses every face
+    (review R2-146). The soup disc, whose one band runs outward at the top, already faces up and needs no flip."""
     bm = bmesh.new()
     vs = [bm.verts.new((r, 0, z0 + z)) for r, z in profile]
     es = [bm.edges.new((vs[i], vs[i + 1])) for i in range(len(vs) - 1)]
     bmesh.ops.spin(bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1), angle=2 * math.pi, steps=segs, use_duplicate=False)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
+    # remove_doubles numbers what it keeps by memory address, so sort it by position: the same pot every run, and so the
+    # same light-map UVs (the bake's atlas, review R2-149)
+    pos = lambda v: tuple(round(c, 6) for c in v.co)  # noqa: E731
+    for seq, key in ((bm.verts, pos), (bm.edges, lambda e: sorted(map(pos, e.verts))), (bm.faces, lambda f: sorted(map(pos, f.verts)))):
+        rank = {x: i for i, x in enumerate(sorted(seq, key=key))}
+        seq.sort(key=lambda x: rank[x])
+    if flip:
+        bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
     o = obj_from_bm(bm, "lathe")
     return with_material(o, m)
 
 
-def curve_rod(pts, r0, r1, m, verts=8):
-    """A tapering tube along a few points (a spout)."""
-    parts = []
-    for i in range(len(pts) - 1):
-        t = i / (len(pts) - 1)
-        parts.append(rod(pts[i], pts[i + 1], r0 + (r1 - r0) * t, m, verts=verts))
-    return parts
-
-
-def bail(half_w, z_pivot, rise, m, r=0.005):
-    """A wire bail: an arch from one side lug (y = -half_w) over the top to the other, peaking `rise` above the lugs."""
-    pts = [Vector((0, -half_w * math.cos(t), z_pivot + rise * math.sin(t))) for t in [k / 10 * math.pi for k in range(11)]]
-    return [rod(pts[i], pts[i + 1], r, m, verts=4) for i in range(10)], pts[5]
-
-
-def ribbon_arch(pts, w, m):
-    """A thin wire as two crossed flat strips along the points (4 triangles a segment), instead of a round rod."""
+def wire(pts, r, m):
+    """A thin round wire along the points: a three-sided tube with no caps (its ends sit in the lugs), smooth shaded so it
+    reads round, seen from every side (6 triangles a segment; review R2-147 replaced two one-sided crossed strips)."""
     bm = bmesh.new()
-    for off in (Vector((w, 0, 0)), None):
-        for i in range(len(pts) - 1):
-            a, b = pts[i], pts[i + 1]
-            o = off if off is not None else (b - a).cross(Vector((1, 0, 0))).normalized() * w
-            bm.faces.new([bm.verts.new(v) for v in (a - o, b - o, b + o, a + o)])
-    o = obj_from_bm(bm, "wire")
-    return with_material(o, m, smooth=False)
+    sweep(bm, pts, [r] * len(pts), 3, cap_b=False)
+    return with_material(obj_from_bm(bm, "wire"), m)
 
 
 def flat(n, r, at, m, sx=1.0, yaw=0.0):
@@ -291,29 +271,30 @@ def flat(n, r, at, m, sx=1.0, yaw=0.0):
 
 
 def pot(M):
-    """The open iron pot, trimmed (camp review 2026-11-12, about 230 triangles): a 10-sided lathe with a rolled rim and
-    the inside wall only down to the soup, the soup with flat bits on it, three feet, two lugs and a wire bail of
-    crossed strips. Returns the pot and the top of the bail (where the chain hooks on)."""
+    """The open iron pot, trimmed (camp review 2026-11-12; 242 triangles since R2-154): a 10-sided lathe with a rolled rim and
+    the inside wall only down to the soup, the soup with flat bits on it, three feet, two lugs and a round wire bail. Returns the pot and the top of the bail (where the chain hooks on)."""
     sz = SOUP.z - POT_Z
     prof = [(0.0, 0.0), (0.1, 0.0), (0.155, 0.05), (0.163, 0.13), (0.168, 0.158),   # outside up to the rim
-            (0.152, 0.158), (0.147, sz - 0.004)]                                   # over the lip, down to the soup
-    p = [lathe(prof, 10, M["iron"], z0=POT_Z)]
+            (0.152, 0.158), (SOUP_R, sz - 0.004)]                                  # over the lip, down to the soup
+    p = [lathe(prof, 10, M["iron"], z0=POT_Z, flip=True)]
     p.append(lathe([(0.0, sz), (0.148, sz - 0.004)], 10, M["soup"], z0=POT_Z))
+    rng = random.Random(25)                                        # the soup bits' own seeded stream (review R2-256)
     for i in range(9):                                             # bits in the soup: carrot coins, potato, peas, herbs
         a, d = rng.uniform(0, 2 * math.pi), 0.11 * math.sqrt(rng.uniform(0.05, 1))
-        at = (math.cos(a) * d, math.sin(a) * d, SOUP.z + 0.002)
+        at = (math.cos(a) * d, math.sin(a) * d, SOUP.z + 0.002 + 0.0006 * i)   # each a step higher: overlapping bits z-fought (R2-152)
         kind = ("carrot", "potato", "pea", "carrot", "potato", "herb", "pea", "carrot", "herb")[i]
         n, r, sx = {"carrot": (6, 0.018, 1), "potato": (4, 0.015, 1.2), "pea": (4, 0.009, 1), "herb": (4, 0.012, 2.2)}[kind]
         p.append(flat(n, r, at, M[kind], sx, rng.uniform(0, 3)))
     for k in range(4):                                             # a few lighter swirls on the surface
         a = k / 4 * 2 * math.pi + 0.4
         p.append(flat(4, 0.022, (math.cos(a) * 0.07, math.sin(a) * 0.07, SOUP.z + 0.001), M["soup2"], 1.6, a + 1.2))
-    for k in range(3):                                             # three stubby feet
+    for k in range(3):                                             # three stubby feet, no top cap (inside the pot, R2-154)
         a = k / 3 * 2 * math.pi
-        p.append(cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, POT_Z), m=M["iron"], verts=4))
+        foot = cyl(0.015, 0.03, at=(math.cos(a) * 0.08, math.sin(a) * 0.08, POT_Z), m=M["iron"], verts=4)
+        p.append(drop_faces(foot, lambda n, c: n.z > 0.9))
     pivot = POT_Z + 0.15
     pts = [Vector((0, -0.175 * math.cos(t), pivot + 0.17 * math.sin(t))) for t in [k / 6 * math.pi for k in range(7)]]
-    p.append(ribbon_arch(pts, 0.006, M["iron"]))
+    p.append(wire(pts, 0.007, M["iron"]))
     peak = pts[3]
     for s in (-1, 1):                                              # the lugs the bail turns in
         p.append(box((0.03, 0.02, 0.03), at=(0, s * 0.168, pivot), m=M["iron"]))
@@ -364,23 +345,28 @@ BAKED = ("Ring", "Tripod", "Fire", "Embers", "Pot")       # the parts that take 
 
 def make():
     """Make the fire set in the current scene and return it as {name: object}, the BAKED parts first, all at the fire's
-    origin. No reset, no light, no export."""
+    origin and tagged to stand there (lib.export.tag): the flames cast no shadow (they light from inside the teepee), the
+    embers are drawn unlit and the chain is a thin card. No reset, no light, no export."""
     M = materials()
     ring_o, trip = ring(M), tripod(M)
     fire_o, emb = fire(M)
     pot_o, peak = pot(M)
     objs = [ring_o, trip, fire_o, emb, pot_o]
-    for o in objs:
-        apply_all(o)
+    for o in objs:                             # each is joined from parts (join() applied them): at the fire's origin
         o.location = (0, 0, 0)
     ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
-    return {o.name: o for o in objs + [ch, tripod_legs()]}
+    every = objs + [ch, tripod_legs()]
+    drop_ground_faces(every)                  # the bottoms lying on the ground (review R2-154)
+    every = {o.name: tag(o, "fire") for o in every}
+    tag(every["Fire"], no_shadow=1); tag(every["Embers"], unlit=1); tag(every["Chain"], thin=1)
+    every["Soup"] = anchor("Soup", SOUP, SOUP_R)   # the soup's surface, scaled by its radius: the page checks SOUP_POT against it (R2-252)
+    return every
 
 
 def build(samples=32, colour=None, path=None):
     """Make the fire set in a fresh scene, light the BAKED parts (colour(objs); by default their own AO bake at samples,
     no face splitting: the fire and pot are small enough that the plain faces shade fine) and write it all to path
-    (default props/lived/fire.glb)."""
+    (default props/lived/fire_preview.glb)."""
     reset()
     every = make()
     objs = [every[k] for k in BAKED]
@@ -393,10 +379,10 @@ def build(samples=32, colour=None, path=None):
     for o in objs:
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire.glb"), image_format="AUTO")
-    print(f"soup surface (three.js): (0, {SOUP.z:.3f}, 0)")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire_preview.glb"), image_format="AUTO", extras=True)
     print(f"fire -> {path}")
 
 
 if __name__ == "__main__":
     build()
+    print("(a preview with its own AO; the page's fire.glb and models/fire.txt come from props/bake_all.py)")
