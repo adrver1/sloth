@@ -732,7 +732,7 @@ const nearSh = SPECIES.map((n, i) => shadowOnly(TREES[n], nearMat, NEAR_MAX[i]))
 const wedgeMid = (k) => ((k + 0.5) / WEDGES) * 2 * Math.PI;
 function cullWedges() {   // a wedge shows when it overlaps the view's width, with a margin for having walked since the trees were placed
   if (!placedAt) return; const fwd = Math.atan2(-Math.cos(me.yaw), -Math.sin(me.yaw)), hf = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect), reach = hf + Math.PI / WEDGES + 0.4 + 0.5 * Math.abs(me.pitch), down = me.pitch < -0.9;
-  for (let k = 0; k < WEDGES; k++) { const d = Math.abs(((wedgeMid(k) - fwd + 3 * Math.PI) % (2 * Math.PI)) - Math.PI), v = down || d < reach; cards[k].visible = v; for (const B of near) B[k].visible = v; }
+  for (let k = 0; k < WEDGES; k++) { const d = Math.abs(((wedgeMid(k) - fwd + 3 * Math.PI) % (2 * Math.PI)) - Math.PI), v = down || d < reach; cards[k].visible = v && cards[k].count > 0; for (const B of near) B[k].visible = v && B[k].count > 0; }   // an empty bucket is not drawn at all
 }
 const tiles = new Map();
 // which style grows here: birches low down by the lake and at thin forest edges, pines and dead snags on high, dry ground
@@ -797,7 +797,7 @@ function placeThings(px, pz) {
     for (const [d2, x, y, z, s, turn, w] of B) { q.setFromAxisAngle(up, turn); m4.compose(v3.set(x, y, z), q, sc.set(s * w, s, s * w)); const b = d2 < CLOSE_R * CLOSE_R ? WEDGES : wedgeOf(x - px, z - pz);
       near[sp][b].setMatrixAt(cnt[b]++, m4); if (d2 < SHADOW_FULL ** 2) nearSh[sp].setMatrixAt(k++, m4); else if (d2 < 45 * 45 || (d2 < SHADOW_R * SHADOW_R && (x - px) * sunDir.x + (z - pz) * sunDir.z > -6)) nearShX[sp].setMatrixAt(kx++, m4); }   // beyond 45 m only the sun side can shade the map
     near[sp].forEach((m, b) => { m.count = cnt[b]; }); nearSh[sp].userData.k = k; nearShX[sp].userData.k = kx; nearSh[sp].instanceMatrix.needsUpdate = nearShX[sp].instanceMatrix.needsUpdate = true; nn[sp] = nearN[sp] = B.length; });
-  cards.forEach((m, k) => { m.count = cn[k]; m.userData.sp.needsUpdate = true; }); rocks.count = nr; logs.count = nl; saplings.count = ns; bushes.count = nb;
+  cards.forEach((m, k) => { m.count = cn[k]; m.userData.sp.needsUpdate = true; }); rocks.count = nr; logs.count = nl; saplings.count = ns; bushes.count = nb; for (const B of near) B[WEDGES].visible = B[WEDGES].count > 0; cullWedges();
   for (const m of ALL) m.instanceMatrix.needsUpdate = true;
   if (!lookSet) { lookSet = true; farForestLook(seen); }
 }
@@ -843,6 +843,33 @@ const tinTex = canvasTex(128, 128, (g, w, h) => { const r = mulberry(4);   // co
   for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '170,90,45' : '60,50,48'},${0.25 + 0.35 * r()})`; g.fillRect(r() * w, r() * h * 0.5, 2 + r() * 6, h * (0.3 + 0.7 * r())); } }, true);
 tinTex.repeat.set(5, 1);
 const lam = (o) => hazed(new THREE.MeshLambertMaterial(o));
+// Fewer draw calls (Adriaen 2026-11-15: "how can we get 150 draws down?"): once a prop group is built, its still meshes are
+// merged into one mesh per look. Plain-coloured materials become one material with the colours moved into vertex colours;
+// textured or glowing ones keep their own material and merge only with meshes that share it. Instanced, multi-material and
+// skipped meshes stay as they are.
+function bakeStatic(root, skip = () => false) {
+  root.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), buckets = new Map(), rel = new THREE.Matrix4(), c = new THREE.Color();
+  root.traverse((o) => { if (!o.isMesh || o.isInstancedMesh || Array.isArray(o.material) || !o.visible || skip(o)) return;
+    const m = o.material, own = !!(m.map || m.emissiveMap || m.emissive?.getHex() || !(m.isMeshLambertMaterial || m.isMeshBasicMaterial) || !m.colorWrite);
+    const key = [own ? (m.emissive?.getHex() ? m.uuid : [m.type, m.map?.uuid, m.color.getHex(), m.vertexColors, m.colorWrite].join()) : m.type,   // glowing materials change at night, so only meshes sharing one merge
+      m.side, m.transparent, m.opacity, m.alphaTest, m.depthWrite, m.customProgramCacheKey(), o.castShadow, o.receiveShadow, o.renderOrder].join('|');
+    let g = o.geometry.clone().applyMatrix4(rel.multiplyMatrices(inv, o.matrixWorld)); if (g.index) g = g.toNonIndexed(); if (!g.attributes.normal) g.computeVertexNormals();
+    const keep = ['position', 'normal', ...(own && m.map ? ['uv'] : []), ...(own && m.vertexColors ? ['color'] : [])];
+    if (!own) { const n = g.attributes.position.count, C = new Float32Array(n * 3), vc = m.vertexColors && g.attributes.color; c.copy(m.color);
+      for (let i = 0; i < n; i++) { C[i * 3] = c.r * (vc ? vc.getX(i) : 1); C[i * 3 + 1] = c.g * (vc ? vc.getY(i) : 1); C[i * 3 + 2] = c.b * (vc ? vc.getZ(i) : 1); }
+      g.setAttribute('color', new THREE.BufferAttribute(C, 3)); keep.push('color'); }
+    if (keep.includes('uv') && !g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    for (const a of Object.keys(g.attributes)) { if (!keep.includes(a)) { g.deleteAttribute(a); continue; }   // plain floats, colour as RGB, so every mesh merges
+      const A = g.attributes[a], k = a === 'color' ? 3 : A.itemSize, F = new Float32Array(A.count * k); for (let i = 0; i < A.count; i++) for (let e = 0; e < k; e++) F[i * k + e] = A.getComponent(i, e);
+      g.setAttribute(a, new THREE.BufferAttribute(F, k)); }
+    if (!buckets.has(key)) buckets.set(key, { o, own, geos: [], gone: [] }); const b = buckets.get(key); b.geos.push(g); b.gone.push(o); });
+  let n = 0;
+  for (const b of buckets.values()) { if (b.geos.length < 2 && b.own) continue;
+    let mat = b.o.material; if (!b.own) { const m0 = mat; mat = m0.clone(); mat.onBeforeCompile = m0.onBeforeCompile; mat.customProgramCacheKey = m0.customProgramCacheKey; mat.color.set(0xffffff); mat.vertexColors = true; }
+    const mesh = new THREE.Mesh(mergeGeometries(b.geos), mat); mesh.castShadow = b.o.castShadow; mesh.receiveShadow = b.o.receiveShadow; mesh.renderOrder = b.o.renderOrder; root.add(mesh);
+    for (const o of b.gone) o.removeFromParent(); n += b.gone.length - 1; }
+  return n;   // draws saved
+}
 const M = { log: lam({ map: logTex }), stone: lam({ map: stoneTex }), roof: lam({ map: tinTex }), snow: lam({ color: '#f3f7fc' }), wood: lam({ color: '#5a5048' }) };
 const part = (geo, mat, x, y, z, parent = cabin) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
 { // walls: four log planes and the two gable triangles, one draw, 10 triangles
@@ -880,6 +907,7 @@ part(new THREE.BoxGeometry(0.18, 0.28, 0.18), lampMat, 1.05, YB + 2.45, -D / 2 -
 const porchLight = new THREE.PointLight('#ffb760', 0, 22, 1.6); porchLight.position.set(1.05, YB + 2.3, -D / 2 - 0.6); cabin.add(porchLight);
 const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6); inside.position.set(0, YB + 1.8, D / 2 + 1.4); cabin.add(inside);   // the glow from the back windows on the snow
 { let n = 0; cabin.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); TRIS.push(['Cabin, porch, woodpile', n]); }
+bakeStatic(cabin);
 
 // ---------------------------------------------------------------- places to walk to: the fire lookout, the fishing hut, the trail poles
 const placeTris = (g) => { let n = 0; g.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); return n; };
@@ -907,7 +935,7 @@ const hut = new THREE.Group(); hut.position.set(HUT.x, HUT.y, HUT.z); hut.rotati
   const dr = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 1.7), doorMat); dr.position.set(0.55, 0.85, 1.11); hut.add(dr);
   part(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 5, 1, true), M.roof, 0.8, 3.0, -0.4, hut);
 }
-TRIS.push(['Fire lookout', placeTris(tower)], ['Fishing hut', placeTris(hut)]);
+TRIS.push(['Fire lookout', placeTris(tower)], ['Fishing hut', placeTris(hut)]); bakeStatic(tower); bakeStatic(hut);
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
@@ -929,7 +957,7 @@ const flames = [];
             : hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest }), mute, 'mute');
           o.castShadow = !flame; o.receiveShadow = true; tris += tris0(o.geometry); if (node.name === 'Fire') flames.push(o); });
         campGroup.add(node); }
-      TRIS.push([`Scout camp: ${file}`, tris]); tris = 0;
+      TRIS.push([`Scout camp: ${file}`, tris]); tris = 0; bakeStatic(campGroup, (o) => flames.includes(o) || o.parent?.name === 'Embers' || o.name === 'Embers');
     });
   }).catch((e) => console.warn('camp props', e));
 }
@@ -943,7 +971,7 @@ const jarMat = new THREE.MeshLambertMaterial({ color: '#ffd9a0', emissive: '#ffb
   const rope = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.012, 4), ropeMat); lanterns.add(rope);
   const jarGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.16, 7);
   for (let i = 1; i < 8; i++) { const p = pts[i * 2]; const j = new THREE.Mesh(jarGeo, jarMat); j.position.set(p.x, p.y - 0.14, p.z); lanterns.add(j); }
-  TRIS.push(['Lantern string, pole and 7 jars', tris0(rope.geometry) + tris0(pole.geometry) + 7 * tris0(jarGeo)]); }
+  TRIS.push(['Lantern string, pole and 7 jars', tris0(rope.geometry) + tris0(pole.geometry) + 7 * tris0(jarGeo)]); bakeStatic(lanterns); }
 // a scout flag on a pole: a green pennant that sways in the wind
 const flag = (() => { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, TOP, CAMP.z + 2.5); scene.add(g);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 5, 6), ropeMat); pole.position.y = 2.5; pole.castShadow = true; g.add(pole);
@@ -967,7 +995,7 @@ const flag = (() => { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, 
   for (const sd of [-1, 1]) { const a = add(arm, stickM, sd * 0.34, 1.25, 0, 0, 0, -sd * 1.05); add(twig, stickM, sd * 0.85, 1.6, 0, 0, 0, -sd * 0.4); a.rotation.y = sd * 0.25; }
   add(new THREE.TorusGeometry(0.27, 0.06, 4, 10).rotateX(Math.PI / 2), scarfM, 0, 1.44, 0); add(new THREE.BoxGeometry(0.11, 0.34, 0.03), scarfM, 0.14, 1.28, 0.33, 0.15, 0, 0.12);
   add(new THREE.SphereGeometry(0.22, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), hatM, 0, 1.86, 0, -0.12, 0, 0.1); add(new THREE.TorusGeometry(0.21, 0.04, 4, 10).rotateX(Math.PI / 2), snowM, 0, 1.87, 0, -0.12, 0, 0.1); add(new THREE.IcosahedronGeometry(0.06, 0), snowM, 0.02, 2.09, -0.02);
-  TRIS.push(['Snowman', n]); }
+  TRIS.push(['Snowman', n]); bakeStatic(g); }
 // ---------------------------------------------------------------- the level's edges, the road in, the jeep, mud round the camp
 // The level is the summit, the road and the lookout trail. What stops you is what you see: a split-rail fence along the cliff
 // and round the open side, a line of snowy boulders against the mountain behind, the road ending in the tunnel mouth.
@@ -1049,7 +1077,7 @@ const bridge = new THREE.Group(); scene.add(bridge);
   for (const sd of [-1, 1]) for (const hh of [0.55, 1.08]) put(snowTopBox(L, 0.12, 0.12), fenceMat, 0.5, sd * 2.9, y + hh);
   const pierG = snowTopBox(1.4, 1, 4.6, '#7d7a75').translate(0, -0.5, 0); let piers = 0;
   for (let k = 0.18; k < 0.95; k += 0.2) { const [x, z] = along(k), gh = height(x, z); if (y - gh > 3) { put(pierG, fenceMat, k, 0, y - 0.7, 1, y - 0.7 - gh + 2, 1); piers++; } }
-  TRIS.push([`Bridge (${L.toFixed(0)} m: deck, ${(n + 1) * 2} posts, 4 rails, ${piers} piers)`, placeTris(bridge)]);
+  TRIS.push([`Bridge (${L.toFixed(0)} m: deck, ${(n + 1) * 2} posts, 4 rails, ${piers} piers)`, placeTris(bridge)]); bakeStatic(bridge);
 }
 { // the tunnel mouth, painted: a concrete portal in the rock with darkness inside and icicles on the lip
   const tex = canvasTex(512, 384, (g, w, h) => { const r = mulberry(17);
@@ -1071,6 +1099,7 @@ const bridge = new THREE.Group(); scene.add(bridge);
     new GLTFLoader().parse(bin.buffer, '', (gl) => { let n = 0;
       gl.scene.traverse((o) => { if (!o.isMesh) return; const m0 = o.material; o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : m0.color, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, opacity: m0.opacity, alphaTest: m0.alphaTest }), mute, 'mute');
         o.castShadow = false; o.receiveShadow = true; n += tris0(o.geometry); });
+      bakeStatic(gl.scene);
       // its shadow comes from seven boxes (84 triangles) round body, cab, load and wheels, not its 6k triangles; drawn depth-only, never seen
       const box = (x0, y0, z0, x1, y1, z1) => new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
       const sh = new THREE.Mesh(mergeGeometries([box(-0.88, 0.45, -1.75, 0.88, 1.15, 1.95), box(-0.8, 1.15, -1.65, 0.8, 1.65, 0.4), box(-0.6, 1.65, -1.4, 0.6, 2.1, 0.2), ...[[-1, -1.15], [1, -1.15], [-1, 1.25], [1, 1.25]].map(([sx, z]) => box(sx * 0.9 - 0.12, 0, z - 0.33, sx * 0.9 + 0.12, 0.6, z + 0.33))]), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -1192,11 +1221,20 @@ TRIS.push(['Map and compass (on the hood and in your hands, 2 + 48 each)', 100])
   const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })));
   mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
 }
-const fireSmoke = Array.from({ length: 10 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, depthWrite: false, fog: false })); s.userData.t = i / 10; scene.add(s); return s; });
 
 // chimney smoke: a few soft sprites rising and drifting with the wind
 const puff = canvasTex(64, 64, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(235,238,242,.75)'); gr.addColorStop(1, 'rgba(235,238,242,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
-const smoke = Array.from({ length: 14 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, transparent: true, depthWrite: false, fog: false })); s.userData.t = i / 14; scene.add(s); return s; });
+// each plume is one draw: n camera-facing quads, one instance per puff with its own place, size and opacity (was a sprite each)
+function plume(n) { const g = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1)); g.instanceCount = n;
+  const P = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4), A = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
+  P.setUsage(THREE.DynamicDrawUsage); A.setUsage(THREE.DynamicDrawUsage); g.setAttribute('puff', P); g.setAttribute('alpha', A);
+  const mat = new THREE.ShaderMaterial({ uniforms: { map: { value: puff }, uBright: { value: 1 } }, transparent: true, depthWrite: false,
+    vertexShader: 'attribute vec4 puff; attribute float alpha; varying vec2 vUv; varying float vA; void main() { vUv = uv; vA = alpha; vec4 mv = viewMatrix * vec4(puff.xyz, 1.0); mv.xy += position.xy * puff.w; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform sampler2D map; uniform float uBright; varying vec2 vUv; varying float vA; void main() { vec4 c = texture2D(map, vUv); gl_FragColor = vec4(c.rgb * uBright, c.a * vA);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' });
+  const mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false; scene.add(mesh);
+  return { n, P, A, mat, t: Array.from({ length: n }, (_, i) => i / n), set(i, p, size, a) { P.setXYZW(i, p.x, p.y, p.z, size); A.setX(i, a); }, done() { P.needsUpdate = A.needsUpdate = true; } };
+}
+const fireSmoke = plume(10), smoke = plume(14), tmpV = new THREE.Vector3();
 const chimneyTop = new THREE.Vector3(3.4, TOP + YT + 4.3, 1.7);
 
 // falling snow round the camera, for the storm
@@ -1367,7 +1405,7 @@ const backdrop = (() => {
   const panels = [...Array(8)].map((_, k) => { const rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, depthBuffer: true });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * RD * OV * Math.tan(Math.PI / 8), 2 * RD * Math.tan(THREE.MathUtils.degToRad(VF / 2))), new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, depthWrite: false, fog: false, toneMapped: false }));
     m.material.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <colorspace_fragment>', ''); };   // the texture already holds screen colours
-    m.renderOrder = -4; m.frustumCulled = false; scene.add(m); return { rt, m, yaw: (k * Math.PI) / 4 }; });
+    m.renderOrder = -4; scene.add(m); return { rt, m, yaw: (k * Math.PI) / 4 }; });
   let at = null, key = '', next = 8, pend = null;
   const stateKey = () => [+$('hour').value, hazeOn ? 1 : 0, ...Object.values(W_NOW).map((v) => v.toFixed(2))].join();
   function paint(P, c) {
@@ -1430,12 +1468,12 @@ function frame() {
   const fl = 0.8 + 0.2 * Math.sin(now * 13) * Math.sin(now * 7.3 + 1);
   fireLight.intensity = (5 + 8 * night) * fl; for (const f of flames) f.scale.set(1, 0.85 + 0.25 * fl, 1);
   flag.rotation.y = -Math.atan2(wind.z, wind.x) + Math.sin(now * 3.1) * 0.25; flag.scale.y = 1 - 0.1 * Math.abs(Math.sin(now * 5));
-  for (const s of fireSmoke) { const u = s.userData; if (!s.material.map) s.material.map = puff; u.t = (u.t + dt * 0.12) % 1; const t = u.t;
-    s.position.set(CAMP.x, TOP + 1.2, CAMP.z).addScaledVector(wind, t * 3).add(v3.set(Math.sin(t * 7 + u.t) * 0.2, t * 6, 0)); s.scale.setScalar(0.4 + t * 1.8);
-    s.material.opacity = 0.35 * Math.sin(Math.PI * t) * (1 - 0.7 * storm); s.material.color.setScalar(0.4 + 0.6 * bright); }
-  for (const s of smoke) { const u = s.userData; u.t = (u.t + dt * 0.09) % 1; const t = u.t;
-    s.position.copy(chimneyTop).addScaledVector(wind, t * 9).add(v3.set(Math.sin(t * 9 + u.t) * 0.3, t * 9, 0)); s.scale.setScalar(0.6 + t * 2.6);
-    s.material.opacity = 0.55 * Math.sin(Math.PI * t) * (1 - 0.7 * storm); s.material.color.setScalar(0.35 + 0.65 * bright); }
+  for (let i = 0; i < fireSmoke.n; i++) { const t = (fireSmoke.t[i] = (fireSmoke.t[i] + dt * 0.12) % 1);
+    fireSmoke.set(i, tmpV.set(CAMP.x, TOP + 1.2, CAMP.z).addScaledVector(wind, t * 3).add(v3.set(Math.sin(t * 8) * 0.2, t * 6, 0)), 0.4 + t * 1.8, 0.35 * Math.sin(Math.PI * t) * (1 - 0.7 * storm)); }
+  fireSmoke.mat.uniforms.uBright.value = 0.4 + 0.6 * bright; fireSmoke.done();
+  for (let i = 0; i < smoke.n; i++) { const t = (smoke.t[i] = (smoke.t[i] + dt * 0.09) % 1);
+    smoke.set(i, tmpV.copy(chimneyTop).addScaledVector(wind, t * 9).add(v3.set(Math.sin(t * 10) * 0.3, t * 9, 0)), 0.6 + t * 2.6, 0.55 * Math.sin(Math.PI * t) * (1 - 0.7 * storm)); }
+  smoke.mat.uniforms.uBright.value = 0.35 + 0.65 * bright; smoke.done();
   flakes.material.opacity = 0.9 * storm; flakes.visible = storm > 0.01;
   if (flakes.visible) { const p = snowGeo.attributes.position.array, c = camera.position;
     for (let i = 0; i < SNOW_N; i++) { let x = p[i * 3] + (wind.x + Math.sin(now + i) * 0.5) * dt, y = p[i * 3 + 1] - 1.8 * dt, z = p[i * 3 + 2] + wind.z * dt;
