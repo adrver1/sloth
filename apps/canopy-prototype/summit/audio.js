@@ -4,7 +4,7 @@
 // the summit's own beds instead of the jungle's:
 //   wind      brown noise through a low-pass, in gusts, stronger in the snowstorm, with a thin whistle over the lookout's height
 //   the fire  a soft roar and crackles at the fire ring, louder as you come near
-//   snow      no steps of your own (Adriaen 2026-11-15: "remove the loud footsteps"); his steps still crunch where he walks
+//   no footsteps, yours or his (Adriaen 2026-11-15: "remove the loud footsteps", then "remove both footsteps, her and his")
 //   by day a raven calls far off now and then; at night the camp's owl
 // The radio is the camp's own (camp/radio.js, Adriaen 2026-11-15: "use the one from the original camp"), on the porch bench beside
 // Mango: it lights up, its menu turns it on, changes the station, quieter, louder, off, and the music comes from it, loudest on
@@ -46,10 +46,6 @@ function raven() {
   const a = R(0, 6.28), pos = tmp.set(me.x + Math.cos(a) * 40, me.y + 15, me.z + Math.sin(a) * 40).clone(), out = spot(pos, 8, bus.nature), t = ac.currentTime, n = 2 + (Math.random() < 0.5);
   for (let i = 0; i < n; i++) { const t0 = t + i * 0.42, g = gain(out, 0); env(g, t0, 0.02, 0.07, 0.22, 0.05); const o = osc('sawtooth', R(310, 350), t0, 0.32, filt('bandpass', 1300, 3, g)); o.frequency.linearRampToValueAtTime(260, t0 + 0.3); }
 }
-function crunch(soft, pos) {   // someone else's step, heard where it is (his, life.js)
-  const t = ac.currentTime, g = gain(pos ? spot(pos, 1) : bus.sfx, 0); env(g, t, 0.01, soft ? 0.05 : 0.08, 0.13);
-  noise(t, 0.16, filt('bandpass', R(900, 1400), 0.9, g)); const h = gain(g, 0.5); noise(t + 0.015, 0.1, filt('highpass', R(3000, 4500), 0.7, h));
-}
 
 const btnText = () => `Sound: ${set.muted ? 'Off' : set.music ? 'All' : 'Nature only'}`;
 function showBtn() { if (btn) btn.textContent = btnText(); }
@@ -66,10 +62,9 @@ export function buildAudio() {
   buildRadio({ scene, audio, place: (r) => { r.position.copy(RADIO).setY(RADIO.y + RADIO_SIZE.H / 2); r.rotation.y = 0.25 + Math.PI; r.castShadow = true; } });   // its front to the porch
   TRIS.push(['Porch radio', 22]);
 }
-const OWN = { crunch: (pos) => crunch(true, pos) };   // the summit's own sounds a cue can name, before the camp's SFX
-export function cue(name, pos, ...more) { if (ac?.state === 'running' && !set.muted) (OWN[name] ?? SFX[name])?.(pos, ...more); }
+export function cue(name, pos, ...more) { if (ac?.state === 'running' && !set.muted) SFX[name]?.(pos, ...more); }   // one of the camp's sounds (SFX) by name
 
-// each frame after the light: the ear, the beds by the wind, the storm and the hour, the fire's crackles, the calls, your steps
+// each frame after the light: the ear, the beds by the wind, the storm and the hour, the fire's crackles, the calls
 export function audioStep(dt) {
   radioStep(dt);   // the dial lamp, the needle and the notes
   if (!ac || ac.state !== 'running') return;

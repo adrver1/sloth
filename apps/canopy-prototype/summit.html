@@ -57,11 +57,7 @@ td:last-child { text-align: right; color: var(--ink); }
 #knob { position: absolute; left: 38px; top: 38px; width: 44px; height: 44px; border-radius: 50%; background: rgba(238, 243, 250, 0.55); }
 #stick, #stats, #hint { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--glass-solid); }   /* a blur over the moving 3D view is redone every frame */
 .touch #stick { display: block; }
-#carry { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(64px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 3; }
-.touch #carry { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); }
 .pill { font: 600 15px var(--ui); color: var(--ink); padding: 9px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
-#bearing { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(56px + env(safe-area-inset-bottom, 0px)); padding: 6px 12px; font: 600 15px var(--ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.touch #bearing { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 
 .touch #hint { display: none; }
 @media (max-width: 560px) { #hud { width: calc(100% - 32px); } #stats { top: calc(64px + env(safe-area-inset-top, 0px)); } }
@@ -102,8 +98,6 @@ td:last-child { text-align: right; color: var(--ink); }
   </details>
 </section>
 <div id="stick" class="panel" aria-label="Walk"><div id="knob"></div></div>
-<div id="carry"></div>
-<div id="bearing" class="panel" hidden></div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module" src="summit/main.js"></script>

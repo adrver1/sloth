@@ -67,14 +67,12 @@ export function lifeStep(dt) {
   hear(dt);
 }
 
-// his sounds, as the camp's audio/watch.js hears them there: his steps in the snow, his words, a sip, a page, a snore (summit/audio.js cue,
+// his sounds, as the camp's audio/watch.js hears them there: his words (no steps: Adriaen 2026-11-15, "remove both footsteps"), a sip, a page, a snore (summit/audio.js cue,
 // a no-op until the sound has started; the cloud sessions that wrote this heard none of it)
-const was = { line: '', clip: '' }, at = new THREE.Vector3(), last = new THREE.Vector3();
-let stepD = 0, seen = false, tq = 0, pageT = 0, snoreT = 0;
+const was = { line: '', clip: '' }, at = new THREE.Vector3();
+let tq = 0, pageT = 0, snoreT = 0;
 function hear(dt) {
   const p = opApi.root.position;
-  if (seen) { const d = Math.hypot(p.x - last.x, p.z - last.z); if (d < 0.5 && (stepD += d) > 0.64) { stepD = 0; cue('crunch', at.copy(p).add(CAST_O).setY(at.y + 0.05)); } }
-  last.copy(p); seen = true;
   if ((tq -= dt) > 0) return; tq = 0.1;
   const st = opApi.state(), line = opApi.line?.() || '', head = () => at.copy(p).add(CAST_O).setY(p.y + CAST_O.y + 1.6).clone();
   if (line && line !== was.line) cue('babble', head(), line.split(/\s+/).length, st.lying || st.sleeping);
