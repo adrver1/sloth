@@ -107,6 +107,21 @@ const $ = (id) => document.getElementById(id);
 const isPhone = matchMedia('(max-width: 700px), (pointer: coarse)').matches;
 const TRIS = [];
 
+// ---------------------------------------------------------------- erosion
+// The land within 1.3 km is reshaped by an offline landscape-evolution run (tools/lem.cjs: uplift, river incision, creep,
+// scree), stored as the change in height on two grids (models/erosion-world.txt, erosion-near.txt) and added to hBase() below. ?ero=off shows the old land.
+// Two grids: the world, 12.8 km at 25 m, and the play area, 2.56 km at 5 m; each fades out over the outer 15 % of its square.
+const ERO = await (async () => { const v = new URLSearchParams(location.search).get('ero') || 'on'; if (v === 'off') return null;
+  const load = async (f) => { const [h, b64] = (await (await fetch(`models/${f}.txt`)).text()).split('\n'), m = JSON.parse(h), bin = Uint8Array.from(atob(b64.trim()), (c) => c.charCodeAt(0)); m.d = new Int16Array(bin.buffer); return m; };
+  try { return await Promise.all([load('erosion-world'), load('erosion-near')]); } catch (e) { console.warn('no erosion', e); return null; } })();
+function eroGrid(G, x, z) { const { N, DX, X0, Z0, scale, d } = G, u = (x - X0) / DX, v = (z - Z0) / DX; if (!(u >= 0 && v >= 0 && u < N - 1 && v < N - 1)) return [0, 0];
+  const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, k = j * N + i, e = Math.min(1, Math.min(u, v, N - 1 - u, N - 1 - v) / (N * 0.15));
+  return [scale * ((d[k] * (1 - fu) + d[k + 1] * fu) * (1 - fv) + (d[k + N] * (1 - fu) + d[k + N + 1] * fu) * fv), e * e * (3 - 2 * e)]; }
+// BARE: the grown land alone, with nothing man-made and none of the level's carving (Adriaen 2026-11-15: get a good, realistic
+// foundation first, then add the cabin, road, bridge and boardwalk back). ?bare=0 shows the level on it.
+const BARE = !!ERO && new URLSearchParams(location.search).get('bare') !== '0';
+function eroAt(x, z) { const [w, wf] = eroGrid(ERO[0], x, z), [n, nf] = eroGrid(ERO[1], x, z); return w * wf + (n - w * wf) * nf; }   // the near grid already includes the world's change
+
 // ---------------------------------------------------------------- random and noise
 function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const rnd = mulberry(20261114), R = (a, b) => a + rnd() * (b - a);
@@ -127,13 +142,12 @@ const KNOLLS = [[112, 8, 14], [92, -9, 10], [56, -8, 8]];   // low hills round t
 const BIG = { x: 60, z: -700, rx: 560, rz: 330 };   // the big lake filling the valley below the cliff
 // the level's walls: a tall mountain right behind the camp, and a steep one to the west that the road tunnels into
 const NORTH_M = { x: -120, z: 300, sx: 200, sz: 170, h: 900 }, WEST_M = { x: -470, z: 10, sx: 180, sz: 280, h: 620 };
-function hBase(x, z) {
+// hLand: the land's own shape (what erosion works on); hBase adds the erosion and the level's hand-placed hills on top
+function hLand(x, z) {
   const r = Math.hypot(x, z), e = Math.hypot(x / 1.25, z);
   let h = 700 / (1 + (e / 520) ** 1.7);   // round only near the top, then concave, so every slope below is in view
   h += (fbm(x / 1500, z / 1500, 5) - 0.45) * 420;
   h += (fbm(x / 240, z / 240, 3) - 0.5) * 36 * Math.min(1, r / 400);
-  h += 160 * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 115 ** 2);   // broad enough for stairs to zigzag up it
-  for (const [kx, kz, ka] of KNOLLS) h += ka * Math.exp(-((x - kx) ** 2 + (z - kz) ** 2) / 24 ** 2);   // the watch hill, close by, a little higher than the summit
   // the two walls are real mountains: a smooth mass broken up by ridges and gullies (ridged noise), steep but never sheer
   h += NORTH_M.h * Math.exp(-(((x - NORTH_M.x) / NORTH_M.sx) ** 2 + ((z - NORTH_M.z) / NORTH_M.sz) ** 2)) * (0.6 + 0.7 * ridged(x / 260 + 3, z / 260 + 1, 4));
   { const d = Math.hypot((x - WEST_M.x) / WEST_M.sx, (z - WEST_M.z) / WEST_M.sz); h += WEST_M.h * sstep(1.55, 0.35, d) * (0.55 + 0.75 * ridged(x / 220 - 5, z / 220 + 2, 4)); }
@@ -141,9 +155,18 @@ function hBase(x, z) {
   h += sstep(1900, 3600, r) * (ridged(x / 1500 + 7, z / 1500 - 3, 5) * 1500 + 250) + sstep(3600, 6000, r) * 500;
   return h;
 }
+const landAt = (x, z) => hLand(x, z) + (typeof ERO !== 'undefined' && ERO ? eroAt(x, z) : 0);
+// the watch hill is raised to about 20 m above the summit (more where the land round it is higher), whatever the land under it does
+const HILL_A = typeof BARE !== 'undefined' && BARE ? 0 : typeof ERO !== 'undefined' && ERO ? Math.max(20, Math.min(200, landAt(0, 0) + 20 - landAt(HILL_P.x, HILL_P.z))) : 160;
+function hBase(x, z) {
+  let h = landAt(x, z);
+  h += HILL_A * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 115 ** 2);   // the watch hill, broad enough for stairs to zigzag up it
+  if (typeof BARE === 'undefined' || !BARE) for (const [kx, kz, ka] of KNOLLS) h += ka * Math.exp(-((x - kx) ** 2 + (z - kz) ** 2) / 24 ** 2);   // low knolls round the clearing
+  return h;
+}
 const TOP = hBase(0, 0) + 2;
 let LAKE = 0;   // the lowest valley floors freeze into flat lakes; set from the height spread
-{ const hs = []; for (let i = 0; i < 4000; i++) { const a = R(0, 6.283), r = R(1500, 7000); hs.push(hBase(Math.cos(a) * r, Math.sin(a) * r)); } hs.sort((a, b) => a - b); LAKE = hs[Math.floor(hs.length * 0.07)]; }
+{ const hs = []; for (let i = 0; i < 4000; i++) { const a = R(0, 6.283), r = R(1500, 7000); hs.push(hBase(Math.cos(a) * r, Math.sin(a) * r)); } hs.sort((a, b) => a - b); LAKE = hs[Math.floor(hs.length * (ERO ? 0.01 : 0.07))]; }   // eroded valleys drain, so only the very lowest floors are lakes
 const LAKE_H = hBase(LAKE_P.x, LAKE_P.z) - 30;
 // nearest point of a polyline [[x, z, s], ...]: distance d, distance along s, segment index i
 function polyNear(P, x, z) { let best = { d: 1e9, s: 0, i: 0 }; for (let i = 0; i < P.length - 1; i++) { const [ax, az, as] = P[i], [bx, bz, bs] = P[i + 1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, k = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)), d = Math.hypot(x - ax - dx * k, z - az - dz * k); if (d < best.d) best = { d, s: as + (bs - as) * k, i }; } return best; }
@@ -166,6 +189,7 @@ const roadNear = (x, z) => (x > -8 || x < ROAD.portal.x - 20 || z > 22 || z < -3
 // the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks down over the valleys
 let BW_CUT = null, BW_CORNERS = [];   // set once the boardwalk is laid: the ground is dug down along it, so the stairs sit in a cutting where the hill is steeper than they are
 function height(x, z) {
+  if (BARE) { const h = Math.max(LAKE, hBase(x, z)); return h + ((fbm(x / 38, z / 38, 3) - 0.5) * 3.2 + (vnoise(x / 7, z / 7) - 0.5) * 0.7) * sstep(LAKE + 1, LAKE + 4, h); }   // the land, frozen lakes in its lowest hollows, snow drifts
   const r = Math.hypot(x, z); let h = Math.max(LAKE, hBase(x, z));
   const dl = Math.hypot(x - LAKE_P.x, z - LAKE_P.z); if (dl < LAKE_P.r + 500) h = Math.min(h, LAKE_H + Math.max(0, dl - LAKE_P.r) * 0.3 + Math.max(0, dl - LAKE_P.r - 250) ** 2 * 0.012);   // the bowl steepens outward, so it meets the hills without a step
   if (dl > LAKE_P.r + 4) h += ((fbm(x / 38, z / 38, 3) - 0.5) * 3.2 + (vnoise(x / 7, z / 7) - 0.5) * 0.7) * sstep(LAKE + 1, LAKE + 4, h);   // snow drifts and hummocks underfoot
@@ -227,6 +251,7 @@ function edgeR(a) { const cx = Math.cos(a), cz = Math.sin(a); if (PLAT_R * cz >=
   for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (m * cz < lip(m * cx) + 0.9) hi = m; else lo = m; } return lo; }
 const trailHalf = (s) => Math.min(20, 2.5 + s * 0.35);
 function walkable(x, z) {
+  if (BARE) return true;
   if (Math.hypot(x, z) < edgeR(Math.atan2(z, x)) - 0.4) return true;
   const rd = roadNear(x, z); if (rd && rd.d < 2.4 && x > ROAD.portal.x + 1.2) return true;
   if (polyNear(BW, x, z).d < 0.85) return true;   // on the boardwalk, between its rails
@@ -787,7 +812,7 @@ horizonTex.wrapS = THREE.RepeatWrapping; horizonTex.repeat.x = 2;
 const horMat = hazed(new THREE.MeshBasicMaterial({ map: horizonTex, transparent: true, depthWrite: false, side: THREE.BackSide }));
 horMat.defines = { HAZE_MUL: '0.55' };
 const horizon = new THREE.Mesh(new THREE.CylinderGeometry(HOR_R, HOR_R, HOR_HI - HOR_LO, 64, 1, true), horMat);
-horizon.position.y = (HOR_HI + HOR_LO) / 2; horizon.frustumCulled = false; horizon.renderOrder = -5; scene.add(horizon);
+horizon.position.y = (HOR_HI + HOR_LO) / 2; horizon.frustumCulled = false; horizon.renderOrder = -5; scene.add(horizon); const MADE_FROM = scene.children.length;   // everything added from here to the snow is man-made (hidden when BARE)
 // the horizon texture is painted with its own transparent sky; a transparent object drawn after the opaque terrain only shows where nothing nearer is
 TRIS.push(['Painted horizon ring', tris(horizon.geometry)]);
 
@@ -1170,6 +1195,7 @@ const chimneyTop = new THREE.Vector3(3.4, TOP + YT + 4.3, 1.7);
 // falling snow round the camera, for the storm
 const SNOW_N = isPhone ? 2200 : 4000, snowPos = new Float32Array(SNOW_N * 3);
 for (let i = 0; i < SNOW_N; i++) snowPos.set([R(-40, 40), R(-20, 30), R(-40, 40)], i * 3);
+if (BARE) scene.children.slice(MADE_FROM).forEach((o) => { if (!o.isCamera) o.visible = false; });
 const snowGeo = new THREE.BufferGeometry(); snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
 const flakes = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.09, transparent: true, opacity: 0, depthWrite: false, fog: false }));
 flakes.frustumCulled = false; scene.add(flakes);
@@ -1210,6 +1236,14 @@ const W_NOW = { ...WEATHER.clear }; let wTarget = WEATHER.clear, hazeOn = true;
 const me = { x: 0, z: -D / 2 - 1.6, y: TOP + YB + 1.65, yaw: 0, pitch: -0.12, run: false };
 const faceTo = (x, z, t) => Math.atan2(-(t.x - x), -(t.z - z));   // the yaw that looks from (x, z) at t
 const PLACES = { porch: [0, -D / 2 - 1.6, 0], tower: [HT.x - 6, HT.z - 6, { x: 0, z: 0 }], camp: [CAMP.x + 1.2, CAMP.z - 5.2, { x: CAMP.x - 0.4, z: CAMP.z + 2 }] };
+if (BARE) {   // on the bare land: the highest point near the old summit, a high point on the ridge north-east, and the big lake's shore
+  const top = (cx, cz, R, st) => { let b = [cx, cz, -1e9]; for (let i = -R; i <= R; i += st) for (let j = -R; j <= R; j += st) { const h = height(cx + i, cz + j); if (h > b[2]) b = [cx + i, cz + j, h]; } return b; };
+  const S1 = top(0, 0, 400, 8), S2 = top(HILL_P.x, HILL_P.z, 260, 8);
+  let shore = [BIG.x, BIG.z + BIG.rz * 1.2]; for (let k = 0; k <= 60; k++) { const z = BIG.z + BIG.rz * (1.2 - k * 0.02); if (height(BIG.x, z) <= LAKE + 0.5) { shore = [BIG.x, z + 25]; break; } }
+  PLACES.porch = [S1[0], S1[1], { x: BIG.x, z: BIG.z }]; PLACES.tower = [S2[0], S2[1], { x: S1[0], z: S1[1] }]; PLACES.camp = [shore[0], shore[1], { x: BIG.x, z: BIG.z }];
+  document.querySelectorAll('#jump button').forEach((b) => { b.textContent = { porch: 'Summit', tower: 'Ridge', camp: 'Lake shore' }[b.dataset.p]; });
+  me.x = S1[0]; me.z = S1[1]; me.y = S1[2] + 1.65; me.yaw = faceTo(S1[0], S1[1], { x: BIG.x, z: BIG.z });
+}
 const keys = new Set(), stick = { x: 0, y: 0 }, touch = matchMedia('(pointer: coarse)').matches;
 if (touch) document.body.classList.add('touch');
 addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; keys.add(e.code); }); addEventListener('keyup', (e) => keys.delete(e.code)); addEventListener('blur', () => keys.clear());
@@ -1227,7 +1261,7 @@ cv.addEventListener('pointerup', () => { look = null; }); cv.addEventListener('p
   const end = () => { id = null; stick.x = stick.y = 0; knob.style.transform = ''; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); }
 $('run').onclick = () => { me.run = !me.run; $('run').setAttribute('aria-pressed', String(me.run)); };
 // standing on the cabin's floor and porch; walls, the hut and the lookout's legs push you out
-function groundAt(x, z) { if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
+function groundAt(x, z) { if (BARE) return height(x, z); if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
   if (BW_CUT && x > BW_CUT[0] && x < BW_CUT[1] && z > BW_CUT[2] && z < BW_CUT[3]) { const b = polyNear(BW, x, z); if (b.d < 1.3) return Math.max(g, bwY(b) + 0.06); } return g; }   // on the bridge or the boardwalk you walk on its boards   // on the bridge you walk on its deck
 function pushOut(x, z, cx, cz, hx, hz, turn) {   // out of a box (half sizes hx, hz, turned by `turn`)
   const c = Math.cos(turn), s = Math.sin(turn), lx = (x - cx) * c - (z - cz) * s, lz = (x - cx) * s + (z - cz) * c;
@@ -1251,10 +1285,9 @@ function walk(dt) {
   f -= stick.y; s += stick.x; const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
   const speed = (me.run || keys.has('ShiftLeft') || keys.has('ShiftRight') ? 12 : 3.2) * dt, sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
   let x = me.x + (-sy * f + cy * s) * speed, z = me.z + (-cy * f - sy * s) * speed;
-  [x, z] = pushOut(x, z, 0, 0, W / 2 + 0.35, D / 2 + 0.35, 0);
-  [x, z] = pushOut(x, z, HUT.x, HUT.z, 1.6, 1.4, -hut.rotation.y);
+  if (!BARE) { [x, z] = pushOut(x, z, 0, 0, W / 2 + 0.35, D / 2 + 0.35, 0); [x, z] = pushOut(x, z, HUT.x, HUT.z, 1.6, 1.4, -hut.rotation.y); }
   [x, z] = treePush(x, z);
-  [x, z] = pushOut(x, z, JEEP.x, JEEP.z, 2.0, 1.0, 0);   // the jeep lies along x
+  if (!BARE) [x, z] = pushOut(x, z, JEEP.x, JEEP.z, 2.0, 1.0, 0);   // the jeep lies along x
   if (!walkable(x, z)) { if (walkable(x, me.z)) z = me.z; else if (walkable(me.x, z)) x = me.x; else { x = me.x; z = me.z; } }
   me.x = x; me.z = z;
   const gy = groundAt(x, z) + 1.65 + (me.hover || 0); me.y += (gy - me.y) * Math.min(1, dt * 12);   // hover: a debug lift for overview shots
@@ -1321,10 +1354,11 @@ addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; cam
 // shown on a flat panel 3 km out, square to its camera, so from where it was painted it looks exactly like the land. It is
 // painted again, one panel a frame, when you have walked 20 m or climbed 8 m, or the time, weather or haze change.
 const backdrop = (() => {
-  const W = isPhone ? 512 : 768, VF = 60, A = Math.tan(Math.PI / 8) / Math.tan(THREE.MathUtils.degToRad(VF / 2)), H = Math.round(W / A), RD = 3000;
+  const W = isPhone ? 512 : 768, VF = 60, OV = 1.03, A = (OV * Math.tan(Math.PI / 8)) / Math.tan(THREE.MathUtils.degToRad(VF / 2)),   // OV: each panel 3 % wider, so neighbours overlap and no sky shows through the seam
+    H = Math.round(W / A), RD = 3000;
   const cam = new THREE.PerspectiveCamera(VF, A, 1, 40000); cam.layers.set(2);
   const panels = [...Array(8)].map((_, k) => { const rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, depthBuffer: true });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * RD * Math.tan(Math.PI / 8), 2 * RD * Math.tan(THREE.MathUtils.degToRad(VF / 2))), new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, depthWrite: false, fog: false, toneMapped: false }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * RD * OV * Math.tan(Math.PI / 8), 2 * RD * Math.tan(THREE.MathUtils.degToRad(VF / 2))), new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, depthWrite: false, fog: false, toneMapped: false }));
     m.material.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <colorspace_fragment>', ''); };   // the texture already holds screen colours
     m.renderOrder = -4; m.frustumCulled = false; scene.add(m); return { rt, m, yaw: (k * Math.PI) / 4 }; });
   let at = null, key = '', next = 8, pend = null;
@@ -1401,8 +1435,8 @@ function frame() {
       if (y < -20) y += 50; if (x > 40) x -= 80; if (x < -40) x += 80; if (z > 40) z -= 80; if (z < -40) z += 80; p.set([x, y, z], i * 3); }
     snowGeo.attributes.position.needsUpdate = true; flakes.position.set(c.x, c.y, c.z); }
   sky.position.copy(camera.position); horizon.position.x = camera.position.x; horizon.position.z = camera.position.z; horizon.position.y = (HOR_HI + HOR_LO) / 2 + (camera.position.y - TOP);
-  carry.step(dt, bright);
-  if (JEEP.lod) { const f = Math.hypot(me.x - JEEP.x, me.z - JEEP.z) > 110; JEEP.lod[0].visible = !f; JEEP.lod[1].visible = f; }
+  if (!BARE) carry.step(dt, bright);
+  if (JEEP.lod && !BARE) { const f = Math.hypot(me.x - JEEP.x, me.z - JEEP.z) > 110; JEEP.lod[0].visible = !f; JEEP.lod[1].visible = f; }
   const shNow = renderer.shadowMap.needsUpdate, tr = performance.now();
   renderer.render(scene, camera); const mainInfo = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
   if (prof.on) prof.mark(shNow ? 'render+shadow' : 'render', tr);
