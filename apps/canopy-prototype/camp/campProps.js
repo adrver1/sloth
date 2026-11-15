@@ -238,11 +238,16 @@ async function buildProps() {
   // the embers are unlit so they glow. (The first fire, rough rocks and split logs under a kettle, is archived with the rustic set.)
   {
     const F = await PRE.fire, fm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true })), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
+    // the ring's ash bed lies 12 mm up (build_fire.py ring()), exactly where the ground mesh is under the fire since the floor is kept
+    // level under the props (terrain.js FLAT, R2-181; ground.js lifts the floor 12 mm). The two fought for the same depth and the
+    // ground, black under the ash in its night bake, showed through as black wedges and a saw-tooth edge round the logs' feet.
+    // The ring is drawn pulled a little toward the eye, like a decal on the ground, so it always wins the tie (no rebake).
+    const ringMat = lnight(new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }));
     fireLight.position.y = 0.4;                                    // inside the fire, below the pot (it hangs higher than the old kettle)
     for (const o of F.scene.children) { const n = o.name;
       o.traverse((m) => { if (!m.isMesh) return;
         m.material = n === "Embers" ? glow : n === "Chain" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }))
-          : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : fm; });   // the legs: one tube each, nodes in the texture
+          : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : n === "Ring" ? ringMat : fm; });   // the legs: one tube each, nodes in the texture
     }
     checkAnchors(F.scene, [["Soup", SOUP_POT.at, SOUP_POT.r]], "fire.glb", ANCHORS.fire);
     stand(F.scene);   // the ring, tripod, fire, embers, pot and chain, at the fire
