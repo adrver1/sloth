@@ -7,7 +7,8 @@
 // of going on to the summit, for checks.
 // Exports buildDrive() (main.js, once the jeep and the input are built), driveStep(dt) (main.js, each frame after the player
 // has moved: the shot takes the camera), and driveApi { away(), home(), shot() } for car.js (and checks, which import this module).
-// Adds no triangles: the jeep itself drives. The letterbox and fade are two page elements.
+// The jeep itself drives, with everyone in it (riders.js: him at the wheel, you, and the seven sloths, clones only while a shot
+// plays). The letterbox and fade are two page elements.
 import { OPT, camera } from "./core.js";
 import { V, wheelsOf, yawTo } from "./util.js";
 import { JEEP_TRACK } from "./layout.js";
@@ -15,6 +16,7 @@ import { groundHeight } from "./terrain.js";
 import { me } from "./player.js";
 import { resize } from "./input.js";
 import { jeepApi } from "./jeep.js";
+import { boardRiders } from "./riders.js";
 
 const SUMMIT = "summit.html";
 const CSS = `
@@ -29,7 +31,7 @@ body.drive-cut .stick, body.drive-cut .bar, body.drive-cut .hud, body.drive-cut 
 const curve = JEEP_TRACK.curve, LEN = curve.getLength();
 const DUR = 5;   // seconds a shot lasts
 const S0 = 0.3 * LEN, S1 = 0.85 * LEN;   // the jeep's stretch: from just out of the clearing to where the track bends out of sight into the trees (the world ends at FAR)
-let shot = null, fade = null, skip = null, NEAR0 = 0.1, parked = null, spin = null;
+let shot = null, fade = null, skip = null, NEAR0 = 0.1, parked = null, spin = null, boarding = false;
 
 // a point on the track s metres from the clearing (past its end it carries on straight), with the way it runs
 function trackAt(s) {
@@ -40,9 +42,10 @@ function trackAt(s) {
 // the jeep's speed picks up as it leaves (away) and slows as it arrives (home): s from the time into the shot
 const along = (t, home) => { const k = Math.min(1, t / DUR); return home ? S1 + (S0 - S1) * (1 - (1 - k) ** 2) : S0 + (S1 - S0) * k * k; };
 
-function start(home) {
-  if (shot || !jeepApi) return;
+async function start(home) {
+  if (shot || boarding || !jeepApi) return;
   const j = jeepApi.node;
+  boarding = true; const riders = await boardRiders(j).catch((e) => { console.warn("riders", e); return null; }); boarding = false;   // everyone gets in first
   parked = { p: j.position.clone(), q: j.quaternion.clone() };
   for (const w of ["P", "D", "B"]) jeepApi.close(w);
   // the camera stands on the track where it leaves the clearing, high enough to see over the verge bushes, and turns to follow the jeep as
@@ -50,8 +53,9 @@ function start(home) {
   // (1.5 m) clips the verge leaves by the lens.
   const cam = trackAt(0.12 * LEN).p.add(V(0, 3.4, 0));
   spin ??= wheelsOf(j);
-  shot = { t: 0, home, cam, left: false, s: along(0, home) };
+  shot = { t: 0, home, cam, left: false, s: along(0, home), riders };
   document.body.classList.add("drive-cut"); skip.hidden = false;
+  if (home) fade.classList.remove("on");   // the page opened dark; its transition fades up on the jeep coming home
 }
 function step(dt) {
   const c = shot; c.t += dt;
@@ -59,6 +63,7 @@ function step(dt) {
   j.position.copy(f.p); j.rotation.set(0, Math.atan2(f.d.x, f.d.z) + (c.home ? Math.PI : 0), 0);   // the jeep's +Z is its front
   j.position.y += Math.abs(Math.sin(c.t * 9)) * 0.015;   // the bumps of the track
   spin((c.home ? -1 : 1) * (s - c.s)); c.s = s;   // the wheels turn with the way driven (home it faces back down the track)
+  c.riders?.step(dt);
   if (jeepApi.lod) { jeepApi.lod.position.copy(j.position); jeepApi.lod.rotation.copy(j.rotation); }
   const upright = innerWidth / innerHeight < 0.8;
   camera.position.copy(c.cam); camera.near = 1.5; camera.fov = upright ? 62 : 40; camera.updateProjectionMatrix();
@@ -69,6 +74,7 @@ function step(dt) {
 function end() {
   const c = shot; c.left = true;
   if (!c.home && !OPT.drivestay) { location.href = SUMMIT + "?back=" + encodeURIComponent(location.href.split("#")[0].replace(/[?&]from=summit\b/, "")); return; }
+  c.riders?.remove();   // everyone is back in the camp
   const j = jeepApi.node; j.position.copy(parked.p); j.quaternion.copy(parked.q);
   if (jeepApi.lod) { jeepApi.lod.position.copy(parked.p); jeepApi.lod.quaternion.copy(parked.q); }
   if (c.home) {   // you climb out by the driver's door, looking toward the fire
@@ -90,7 +96,7 @@ function buildDrive() {
   skip.addEventListener("pointerdown", (e) => { e.stopPropagation(); if (shot && !shot.left) { shot.t = Math.max(shot.t, DUR - 0.8); } });
   if (OPT.from === "summit") {   // home from the summit: start dark, and play the jeep's arrival on the first frame
     history.replaceState(null, "", location.href.replace(/([?&])from=summit&?/, "$1").replace(/[?&]$/, ""));
-    fade.style.transition = "none"; fade.classList.add("on"); requestAnimationFrame(() => { fade.style.transition = ""; fade.classList.remove("on"); });
+    fade.style.transition = "none"; fade.classList.add("on"); requestAnimationFrame(() => { fade.style.transition = ""; });   // start() fades up once everyone is in
     homeDue = true;
   }
 }

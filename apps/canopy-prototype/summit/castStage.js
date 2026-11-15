@@ -50,7 +50,7 @@ export const PLACES = {
 export const BASKET = st(-5.0, YB, -(D / 2 + 0.55));   // the sloths' fruit basket on the porch, by the steps (slothHomes.js)
 
 // ---------------------------------------------------------------- what the cast walks round
-const blockers = [];
+export const blockers = [];   // also the player's, in the world's frame (player.js)
 const block = (at, r, walk = null) => blockers.push({ at, r, walk, wild: false, tag: null });
 block(V(0, 0, 0), 0.9, { r: 0.75 });                                                    // the fire, as in the camp
 block(TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), 1.9);               // the whole tent, as in the camp before its walls

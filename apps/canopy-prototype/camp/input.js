@@ -1,25 +1,42 @@
-// Canopy Camp input: keys, the phone stick, drag to look, pinch to zoom, a tap that opens a menu (on a sloth: boop, feed or
-// give), a hold on a sloth that feeds it, and resize; and the things you can use: which one lights up (highlight.js) and the pill menu a tap on it opens.
-// The things themselves are tap targets (targets.js), added by the modules that own them; input.js adds the sloths.
-// Exports initInput() (main.js, once), aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) (debug.js), resize() (main.js)
-// and warmHighlight() (main.js, once, before the shaders are compiled).
+// Canopy Camp and Summit Cabin input (both levels use it: Adriaen 2026-11-15, "the controls are not behaving the same in both
+// levels"): keys, the phone stick, drag to look, pinch to zoom, a tap that opens a menu (on a sloth: boop, feed or give), a hold
+// on a sloth that feeds it, and resize; and the things you can use: which one lights up (highlight.js) and the pill menu a tap
+// on it opens. The things themselves are tap targets (targets.js), added by the modules that own them; input.js adds the sloths.
+// The level hands over its page with initInput({ renderer, scene, camera, canvas, stick, help, touch, carry, eat, missed }): its
+// renderer, scene and camera (the world's: picking, the highlight and the menu's place), the canvas and the phone stick's
+// element (a box whose first child is the knob), the help line (or null), ?touch, and what you carry: carry.food() (what you
+// hold, { name, emoji }, or null) and carry.give() (hands it over: { mesh, from, emoji } or null); camp/chores.js acts for
+// the camp, the summit's basket fruit for the summit; eat(sloth, mesh, from) has a camp sloth eat it (sloth/hooks.js
+// slothLife.eatGift, true once it does). missed(x, y, hit) (optional) answers a tap that hit nothing in reach (the camp:
+// a chore that isn't ready says why). The cast's positions are in the stage's frame (stage.js toStage), which input.js turns
+// into the world's for the camera; in the camp the two are the same.
+// Exports initInput(level) (main.js, once), aimStep(dt) (main.js, each frame), boop(sloth), feed(sloth) (debug.js), resize()
+// (main.js) and warmHighlight() (main.js, once, before the shaders are compiled).
 import * as THREE from "three";
-import { $, camera, OPT, renderer, rng, scene, uTime } from "./core.js";
-const { R } = rng("fx");
-import { keys, pickAt, ray, stickV, toast } from "./hud.js";
+import { rng, scene as stageScene, toStage, toWorld, uTime, camera as stageCamera } from "./stage.js";
+import { keys, pickAt, stickV, toast } from "./hud.js";
 import { V } from "./util.js";
-import { hit, sloths } from "./sloths.js";
+import { hit, sloths } from "./sloth/state.js";
 import { burst, fx, sprite } from "./fx.js";
-import { slothLife } from "./sloth/hooks.js";
 import { me } from "./player.js";
-import { acts } from "./chores.js";
 import { EV, emit } from "./events.js";
 import { createHighlight } from "./highlight.js";
 import { addTargets, allTargets, targetOf, tick } from "./targets.js";
 
+let L = null;   // the level's page (initInput)
+// the look of what input.js and hud.js put on the page, in both levels: the pills of a tap's menu (.tap-pill, also car.js's
+// and trip.js's in the camp), the menu over the thing, and the toast (hud.js)
+const CSS = `
+.tap-pill { font: 600 16px var(--display, system-ui); color: #4a3426; background: rgb(255 248 238 / .94); border: 0; border-radius: 999px; padding: 9px 16px; box-shadow: 0 3px 0 rgb(138 90 59 / .25); cursor: pointer; white-space: nowrap; }
+#tapmenu { position: fixed; left: 0; top: 0; display: none; flex-direction: column; gap: 6px; transform: translate(-50%, -100%); z-index: 3; }
+#toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none; z-index: 6;
+  font: 700 34px var(--display, system-ui); color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
+#toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+`;
+let fxR = null;   // the boop words' stream (stage.js rng "fx"), taken the first time
 // ---------------------------------------------------------------- input
 let coarse = false, stick = null, stickId = null, glow = null, menu = null;   // set by initInput
-function hideHelp() { setTimeout(() => ($("q").style.opacity = 0), 3000); }
+function hideHelp() { if (L.help) setTimeout(() => (L.help.style.opacity = 0), 3000); }
 function stickMove(e) {
   const r = stick.getBoundingClientRect(), v = new THREE.Vector2(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2).divideScalar(r.width / 2);
   if (v.length() > 1) v.normalize(); stickV.copy(v); stick.firstElementChild.style.transform = `translate(${v.x * 37}px, ${v.y * 37}px)`;
@@ -50,19 +67,19 @@ const lookEnd = (e) => {
 };
 const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
 const told = (kind, s) => emit(EV.act, { kind, by: "you", name: s.name });   // the operator may remark on it (events.js)
-function boop(s) { told("boop", s); s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1.6, 64); }
+function boop(s) { told("boop", s); s.squish = 1; s.nod = 0.6; fxR ??= rng("fx").R; burst(s.p.clone().add(V(0, 0.25, 0)), BOOP[Math.floor(fxR(0, BOOP.length))], 1.6, 64); L?.onBoop?.(s); }
 // feeding (Adriaen 2026-11-12: every camp sloth is already your friend, so no friend counter or "new friend"; and eating
 // shows no words or emojis): a flower flies from you to its mouth, it nods and munches it (slothLife's mouth)
 function feed(s, emoji = "🌺") {
   told("feed", s);
-  const f = sprite(emoji, 96); f.position.copy(camera.position).add(V(0.15, -0.35, -0.6).applyQuaternion(camera.quaternion)); scene.add(f);
-  fx.push({ s: f, fly: { from: f.position.clone(), to: s.head.getWorldPosition(V()) }, t: 0, life: 0.9, done() { s.nod = 2.4; s.munch = 2.6; } });
+  const cam = L.camera, f = sprite(emoji, 96); f.position.copy(cam.position).add(V(0.15, -0.35, -0.6).applyQuaternion(cam.quaternion)); toStage(f.position); stageScene.add(f);
+  fx.push({ s: f, fly: { from: f.position.clone(), to: toStage(s.head.getWorldPosition(V())) }, t: 0, life: 0.9, done() { s.nod = 2.4; s.munch = 2.6; } });
 }
 
 // giving it what you carry (a vegetable, a fruit or a bowl of soup): the modelled food (camp/food.js) leaves your hand and
 // a camp sloth eats it, with its eat clip when it is sitting up (sloth/hooks.js slothLife.eatGift); a wild sloth, which has
 // no day for the eating to pause, gets it the way it gets a flower (it threw on a wild sloth: play-test 2026-11-14)
-function give(s) { const f = acts.give(); if (!f) return; if (slothLife && !s.wild) { told("feed", s); slothLife.eatGift(s, f.make(), f.from); } else feed(s, f.emoji); }
+function give(s) { const f = L.carry.give(); if (!f) return; if (!s.wild && L.eat?.(s, f.mesh, f.from)) told("feed", s); else feed(s, f.emoji); }
 
 // ---------------------------------------------------------------- what you can use lights up (camp/highlight.js, as in desk-at-night's free mode)
 // With a mouse, the thing under the pointer; otherwise (and always on a phone) the usable thing nearest the middle of the view,
@@ -84,10 +101,10 @@ function aimStep(dt) {
   if (menuFor) best = menuFor.ready() ? menuFor : (closeMenu(), null);
   else if (hover) { best = looks.size ? lit : targetAt(hover.x, hover.y); if (best?.quiet) best = null; }   // a mouse: what it is over (kept while dragging)
   else {
-    camera.getWorldDirection(fwd); let bestA = AIM;
+    const cam = L.camera; cam.getWorldDirection(fwd); let bestA = AIM;
     for (const t of allTargets()) {
       if (t.quiet || !t.ready()) continue;
-      const S = t.at(to); to.sub(camera.position); const d = to.length();
+      const S = t.at(to); toWorld(to).sub(cam.position); const d = to.length();
       const ang = fwd.angleTo(to) - Math.asin(Math.min(1, S.radius / d));
       if (ang < bestA) { bestA = ang; best = t; }
     }
@@ -104,7 +121,7 @@ function openMenu(t) {
 }
 function closeMenu() { menuFor = null; menu.style.display = "none"; }
 function placeMenu() {
-  const S = menuFor.at(to); to.y += S.radius * 0.8; to.project(camera);
+  const S = menuFor.at(to); to.y += S.radius * 0.8; toWorld(to).project(L.camera);
   if (to.z > 1) { closeMenu(); return; }   // behind you
   const x = THREE.MathUtils.clamp((to.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = THREE.MathUtils.clamp((1 - to.y) / 2 * innerHeight - 8, Math.max(130, menu.offsetHeight + 60), innerHeight - 40);   // a tall menu (the clock's) stays on screen
   menu.style.left = x + "px"; menu.style.top = y + "px";
@@ -113,45 +130,48 @@ function tap(x, y) {
   if (menuFor) { closeMenu(); return; }                  // a tap anywhere else closes the menu
   const t = targetAt(x, y);
   if (t && !t.quiet) { openMenu(t); return; }
-  if (lit && coarse) { lit.at(to); to.project(camera);   // a finger: a tap near the lit thing opens its menu, before a sloth sitting behind it
+  if (lit && coarse) { lit.at(to); toWorld(to).project(L.camera);   // a finger: a tap near the lit thing opens its menu, before a sloth sitting behind it
     if (Math.hypot((to.x + 1) / 2 * innerWidth - x, (1 - to.y) / 2 * innerHeight - y) < 0.22 * Math.min(innerWidth, innerHeight)) { openMenu(lit); return; } }
   if (t) { openMenu(t); return; }
-  const h = pickAt(x, y, hit), a = acts.pick(ray);       // out of reach, or a chore that isn't ready: say why
-  if (a && (!h || a.distance < h.distance)) { acts.tap(a); return; }
+  const h = pickAt(x, y, hit);                          // out of reach, or (the camp) a chore that isn't ready: say why
+  if (L.missed?.(x, y, h)) return;
   if (h || pickAt(x, y, allTargets().flatMap((t) => t.picks))) toast("Get a bit closer");
 }
 
 // zooming only changes the field of view (a tall phone screen sees wider); resize() also sizes the canvas
-function setFov() { camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
+function setFov() { const camera = L.camera; camera.fov = (camera.aspect < 0.8 ? 70 : 58) + fovAdd; camera.updateProjectionMatrix(); }
 function zoomTo(add) { fovAdd = THREE.MathUtils.clamp(add, -20, 6); setFov(); }   // -20 (zoomed in) .. +6 degrees
-function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; setFov(); }
+function resize() { L.renderer.setSize(innerWidth, innerHeight, false); L.camera.aspect = innerWidth / innerHeight; setFov(); }
 
 // ---------------------------------------------------------------- initInput (main.js, once the sloths and the chores are built)
 // the listeners, the highlight, the pill menu and the sloths' tap targets
-function initInput() {
-  coarse = matchMedia("(pointer: coarse)").matches || OPT.touch;   // ?touch: the phone stick on a desktop too
-  stick = $("stick");
+function initInput(level) {
+  L = level; const cv = L.canvas;
+  document.head.append(Object.assign(document.createElement("style"), { textContent: CSS }));
+  if (!document.getElementById("toast")) document.body.append(Object.assign(document.createElement("div"), { id: "toast" }));
+  coarse = matchMedia("(pointer: coarse)").matches || L.touch;   // ?touch: the phone stick on a desktop too
+  stick = L.stick;
   stick.hidden = !coarse;
   document.body.classList.toggle("touch", coarse);   // the hint moves up above the stick
-  if (!coarse) $("q").innerHTML = "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
+  if (L.help) L.help.innerHTML = coarse ? "Stick to walk · drag to look<br>Tap a sloth, or anything that lights up, to see what you can do" : "WASD or arrows to walk · drag to look<br>Click a sloth, or anything that lights up, to see what you can do";
   // the keys the player walks by (player.js reads them); the split into modules had dropped these listeners
   // (not while a slider, a select or a text field has the focus: its arrows are its own, review R2-055)
   addEventListener("keydown", (e) => { const t = e.target; if ((t.matches?.("input[type=range], select") && /^(Arrow|Page|Home|End)/.test(e.code)) || t.closest?.("textarea, input:not([type=range])") || t.isContentEditable) return; keys.add(e.code); hideHelp(); }); addEventListener("keyup", (e) => keys.delete(e.code)); addEventListener("blur", () => keys.clear());
   stick.addEventListener("pointerdown", (e) => { e.stopPropagation(); stickId = e.pointerId; try { stick.setPointerCapture(e.pointerId); } catch {} /* a pointer that is no longer down (or a made-up one) cannot be captured */ stickMove(e); hideHelp(); });
   stick.addEventListener("pointermove", (e) => { if (e.pointerId === stickId) stickMove(e); });
   stick.addEventListener("pointerup", stickEnd); stick.addEventListener("pointercancel", stickEnd);
-  $("c").addEventListener("pointerdown", lookStart);
-  $("c").addEventListener("pointermove", lookMove);
-  $("c").addEventListener("pointerup", lookEnd); $("c").addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
+  cv.addEventListener("pointerdown", lookStart);
+  cv.addEventListener("pointermove", lookMove);
+  cv.addEventListener("pointerup", lookEnd); cv.addEventListener("pointercancel", (e) => { const L = looks.get(e.pointerId); if (L) clearTimeout(L.holdT); looks.delete(e.pointerId); });
   addEventListener("wheel", (e) => { zoomTo(fovAdd + e.deltaY * 0.02); }, { passive: true });
-  glow = createHighlight(scene, renderer, { width: coarse ? 3.5 : 3 });
-  $("c").addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") hover = { x: e.clientX, y: e.clientY }; });
-  $("c").addEventListener("pointerleave", () => (hover = null));
+  glow = createHighlight(L.scene, L.renderer, { width: coarse ? 3.5 : 3 });
+  cv.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") hover = { x: e.clientX, y: e.clientY }; });
+  cv.addEventListener("pointerleave", () => (hover = null));
   // every thing that can light up is a target (targets.js), added by the module that owns it; the sloths are added here, since
   // their menu is what you do to them (boop, feed, give)
   const SLOTH_REACH = 7;
   addTargets("sloths", () => sloths, (s) => ({ look: null, quiet: true, picks: [s.box], at: (v) => sph.set(v.copy(s.box.position), 0.42),
-    ready: () => s.o.visible && camera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = acts.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } }));
+    ready: () => s.o.visible && stageCamera.position.distanceTo(s.box.position) < SLOTH_REACH, options: () => { const f = L.carry.food(); return [...(f ? [[`Give the ${f.name} ${f.emoji}`, () => give(s)]] : []), ["Boop 👉", () => boop(s)], ["Feed 🌺", () => feed(s)]]; } }));
   // the menu: a few pill buttons over the thing, following it while it is open (its look is camp.html's #tapmenu rules)
   menu = document.createElement("div"); menu.id = "tapmenu";
   document.body.append(menu);

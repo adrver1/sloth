@@ -3,6 +3,7 @@
 // player.js), touch, and sunDir (set by main.js each frame).
 import * as THREE from 'three';
 import { $, D, TOP, TRIS, YB, isPhone } from './land.js';
+import { me } from '../camp/player.js';
 
 // ---------------------------------------------------------------- renderer, scene, camera
 export const renderer = new THREE.WebGLRenderer({ antialias: !isPhone, powerPreference: 'high-performance' });
@@ -85,8 +86,10 @@ export const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), new TH
 sky.frustumCulled = false;
 
 
-// you: where your eyes are and which way you look (player.js moves it), and the sun's direction (daylight.js sets it)
-export const me = { x: 0, z: -D / 2 - 1.6, y: TOP + YB + 1.65, yaw: 0, pitch: -0.12 };
+// you: the camp's own player (camp/player.js me, shared by both levels: Adriaen 2026-11-15), started on the porch facing out;
+// me.x, me.z are where you stand and me.y your eye's height, as the summit's modules read them. And the sun's direction (daylight.js sets it)
+export { me };
+me.pos.set(0, TOP + YB, -D / 2 - 1.6); me.yaw = 0; me.pitch = -0.12; me.y = TOP + YB + 1.55;
 export const touch = matchMedia('(pointer: coarse)').matches;
 export const sunDir = new THREE.Vector3();
 

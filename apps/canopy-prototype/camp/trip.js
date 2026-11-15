@@ -16,8 +16,6 @@
 // trunks are the wall's instanced trunk (no new draw) and its bushes one more leaf draw (forest/plants.js trailVerge).
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { b64bytes } from "../bakedlight.js";
 import { furify } from "../fur.js";
 import { OPT, PRE, camera, scene } from "./core.js";
 import { V, canvasTex, lam, polyDist, timers, trisIn } from "./util.js";
@@ -34,6 +32,7 @@ import { opApi } from "./operator.js";
 import { kitLook } from "./actor.js";
 import { reach } from "./operator/ik.js";
 import { roadForest } from "./forest.js";
+import { herModel } from "./riders.js";
 
 const KARAOKE = "karaoke/index.html?from=camp";
 const curve = tripPath.cut.curve, LEN = curve.getLength(), CUT_PTS = tripPath.cut.pts;
@@ -89,9 +88,6 @@ function riders() {
   const pick = (free.length ? free : camp).slice().sort(() => Math.random() - 0.5).slice(0, free.length ? 3 : 2);
   return pick.map((s) => s.name);
 }
-let her = null;
-const herModel = () => her ??= fetch("karaoke/models/her.txt").then((r) => { if (!r.ok) throw new Error(`karaoke/models/her.txt ${r.status}`); return r.text(); })
-  .then((txt) => new Promise((ok, err) => new GLTFLoader().parse(b64bytes(txt.trim()).buffer, "", ok, err)));
 let asked = null, cooled = true, cut = null;
 function ask() {
   if (cut || !card.hidden) return;

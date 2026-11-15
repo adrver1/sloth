@@ -1,24 +1,27 @@
-// Summit Cabin walking, first person: keyboard, stick, drag to look, Jump to; the settings panel's handlers (time, weather,
-// haze, wireframe), the Speed and Walk tests (prof), and showTris for the triangle table; the tests, jumps, table and fps line show with ?debug=1. walk(dt) each frame.
+// Summit Cabin walking: the camp's own player and input (camp/player.js, camp/input.js; Adriaen 2026-11-15, the same controls
+// in both levels: keys or the stick to walk, drag to look, pinch to zoom, tap what lights up, hold a sloth to feed it), with the
+// summit's ground and where you may walk handed over (setPlayer): the snow and the porch deck (land.js groundAt), the fence
+// and the cliff (walkable), the trees, the cabin, the jeep and the cast's blockers (castStage.js: the fire, the tent, the seats,
+// the porch's edges, so you come up its steps). Also Jump to, the settings panel's handlers (time, weather, haze, wireframe), the
+// Speed and Walk tests (prof), and showTris for the triangle table; the tests, jumps, table and fps line show with ?debug=1.
+// walk(dt) each frame (the camp's step and the aim of what lights up).
 import { stats } from './debug.js';
 import * as THREE from 'three';
 import { $, BARE, BIG, D, HILL_P, HT, JEEP, LAKE, OPT, TRIS, W, groundAt, height, walkable } from './land.js';
 import { camera, me, renderer, scene, touch, tris } from './core.js';
+import { keys, stickV } from '../camp/hud.js';
+import { setPlayer, step } from '../camp/player.js';
+import { aimStep, initInput, resize } from '../camp/input.js';
+import { CAST_O, blockers as castBlockers } from './castStage.js';
+import { lifeHooks } from './life.js';
 import { levels, terrainMats } from './terrain.js';
 import { SPECIES, SUMMIT_TREES, TCELL, TILE, TREES, bushGeo, bushes, cards, logGeo, logs, nearN, rocks, saplings, tile } from './forest.js';
 import { CAMP } from './scoutCamp.js';
 import { SKY, WEATHER } from './daylight.js';
 
 // ---------------------------------------------------------------- walking
-// First person. Keyboard: WASD or arrows. Phone: the stick to walk, drag anywhere else to look. No running, as in the camp (Adriaen 2026-11-15).
 const faceTo = (x, z, t) => Math.atan2(-(t.x - x), -(t.z - z));   // the yaw that looks from (x, z) at t
 const PLACES = { porch: [0, -D / 2 - 1.6, 0], tower: [HT.x - 6, HT.z - 6, { x: 0, z: 0 }], camp: [CAMP.x + 1.2, CAMP.z - 5.2, { x: CAMP.x - 0.4, z: CAMP.z + 2 }] };
-const keys = new Set(), stick = { x: 0, y: 0 };
-const cv = renderer.domElement;
-let look = null;
-// drags are gathered here and turned into camera turns once per frame, eased over ~3 frames (walk()): touch events come at
-// their own pace, not the screen's, so applying them as they arrive made turning judder even at 60 fps
-const lookPend = { x: 0, y: 0 };
 function pushOut(x, z, cx, cz, hx, hz, turn) {   // out of a box (half sizes hx, hz, turned by `turn`)
   const c = Math.cos(turn), s = Math.sin(turn), lx = (x - cx) * c - (z - cz) * s, lz = (x - cx) * s + (z - cz) * c;
   if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) return [x, z];
@@ -33,24 +36,20 @@ function treePush(x, z) {
   for (let i = 0; i < SUMMIT_TREES.length; i += 7) push(SUMMIT_TREES[i], SUMMIT_TREES[i + 2], 0.35 + SUMMIT_TREES[i + 3] * 0.09);
   return [x, z];
 }
-export function walk(dt) {
-  { const k = 1 - Math.exp(-dt * 30), tx = lookPend.x * k, ty = lookPend.y * k; lookPend.x -= tx; lookPend.y -= ty; me.yaw -= tx; me.pitch = Math.max(-1.35, Math.min(1.2, me.pitch - ty)); }
-  let f = 0, s = 0;
-  if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
-  if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1; if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
-  f -= stick.y; s += stick.x; const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
-  const speed = 3.2 * dt, sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
-  let x = me.x + (-sy * f + cy * s) * speed, z = me.z + (-cy * f - sy * s) * speed;
-  if (!BARE) { [x, z] = pushOut(x, z, 0, 0, W / 2 + 0.35, D / 2 + 0.35, 0); }
+// where you may walk (the shared player's bounds): p is where this step would take you, me.pos where you stand
+function bounds(p) {
+  let x = p.x, z = p.z;
+  if (!BARE) [x, z] = pushOut(x, z, 0, 0, W / 2 + 0.35, D / 2 + 0.35, 0);   // the cabin
   [x, z] = treePush(x, z);
   if (!BARE) [x, z] = pushOut(x, z, JEEP.x, JEEP.z, 2.0, 1.0, 0);   // the jeep lies along x
   if (!walkable(x, z)) { if (walkable(x, me.z)) z = me.z; else if (walkable(me.x, z)) x = me.x; else { x = me.x; z = me.z; } }
-  me.x = x; me.z = z;
-  const gy = groundAt(x, z) + 1.65 + (me.hover || 0); me.y += (gy - me.y) * Math.min(1, dt * 12);   // hover: a debug lift for overview shots
-  camera.position.set(me.x, me.y, me.z); camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
+  p.x = x; p.z = z;
 }
+// the cast's blockers are in the camp's frame (castStage.js); the player walks in the world's
+const walkBlockers = BARE ? [] : castBlockers.map((b) => ({ ...b, at: b.at.clone().add(new THREE.Vector3(CAST_O.x, 0, CAST_O.z)) }));
+export function walk(dt) { step(dt); aimStep(dt); }
 export const press = (group, attr, val) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === val)));
-export const jump = (p) => { const [x, z, t] = PLACES[p]; me.x = x; me.z = z; me.yaw = t ? faceTo(x, z, t) : 0; me.pitch = p === 'tower' ? -0.18 : -0.08; me.y = groundAt(x, z) + 1.65; };
+export const jump = (p) => { const [x, z, t] = PLACES[p]; me.x = x; me.z = z; me.yaw = t ? faceTo(x, z, t) : 0; me.pitch = p === 'tower' ? -0.18 : -0.08; };
 // Speed test: times frames on this device with one part of the scene switched off at a time, so we can see where the time goes
 export let testing = false;
 // prof: while a walk test runs, the frame records how long (ms of script) each kind of work took
@@ -71,19 +70,12 @@ export function buildPlayer() {
     document.querySelectorAll('#jump button').forEach((b) => { b.textContent = { porch: 'Summit', tower: 'Ridge', camp: 'Lake shore' }[b.dataset.p]; });
     me.x = S1[0]; me.z = S1[1]; me.y = S1[2] + 1.65; me.yaw = faceTo(S1[0], S1[1], { x: BIG.x, z: BIG.z });
   }
-  if (touch) document.body.classList.add('touch');
-  addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; keys.add(e.code); });
-  addEventListener('keyup', (e) => keys.delete(e.code));
-  addEventListener('blur', () => keys.clear());
-  cv.addEventListener('pointerdown', (e) => { look = { id: e.pointerId, x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener('pointermove', (e) => { if (!look || e.pointerId !== look.id) return; lookPend.x += (e.clientX - look.x) * 0.0045; lookPend.y += (e.clientY - look.y) * 0.0045; look.x = e.clientX; look.y = e.clientY; });
-  cv.addEventListener('pointerup', () => { look = null; });
-  cv.addEventListener('pointercancel', () => { look = null; });
-  { const el = $('stick'), knob = $('knob'); let id = null;
-    let r = null; const set = (e) => { const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), l = Math.hypot(dx, dy), k = Math.min(1, l / 50) / (l || 1); stick.x = dx * k; stick.y = dy * k; knob.style.transform = `translate3d(${stick.x * 38}px, ${stick.y * 38}px, 0)`; };
-    el.addEventListener('pointerdown', (e) => { id = e.pointerId; el.setPointerCapture(id); r = el.getBoundingClientRect(); set(e); });   // the stick's box is measured once per touch, not on every move
-    el.addEventListener('pointermove', (e) => { if (e.pointerId === id) set(e); });
-    const end = () => { id = null; stick.x = stick.y = 0; knob.style.transform = ''; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); }
+  setPlayer({ camera, groundAt: (x, z) => groundAt(x, z) + (me.hover || 0), bounds, blockers: walkBlockers });   // hover: a debug lift for overview shots
+  // the camp's input: what you carry is a fruit from the porch basket (slothLife.js), eaten by the camp's own eating
+  initInput({ renderer, scene, camera, canvas: renderer.domElement, stick: $('stick'), help: $('hint'), touch: OPT.touch,
+    carry: { food: () => lifeHooks.held?.() ?? null, give: () => lifeHooks.give?.() ?? null }, eat: (s, mesh, from) => !!lifeHooks.eat && (lifeHooks.eat(s, mesh, from), true),
+    onBoop: (s) => lifeHooks.booped?.(s) });
+  resize();
   $('jump').onclick = (e) => { const p = e.target.dataset?.p; if (p) jump(p); };
   $('walkBtn').onclick = async () => {
     if (testing) return; testing = true; const out = $('speed'); out.hidden = false; $('menu').open = false;
@@ -123,5 +115,5 @@ export function buildPlayer() {
   $('weather').onclick = (e) => { const w = e.target.dataset?.w; if (!w) return; SKY.target = WEATHER[w]; press($('weather'), 'w', w); };
   $('hazeOn').onchange = (e) => { SKY.haze = e.target.checked; };
   $('wire').onchange = (e) => { for (const m of terrainMats) m.wireframe = e.target.checked; };
-  addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); resize(); });   // the canvas's style here, then the camp's camera and zoom (input.js)
 }

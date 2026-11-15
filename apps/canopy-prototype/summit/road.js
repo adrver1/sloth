@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BW, BW_CORNERS, HT, JEEP, PLAT_R, ROAD, ROAD_Y, TOP, TOWER, TRIS, bwY, edgeR, groundAt, height, mulberry, polyNear, trailHalf } from './land.js';
-import { camera, canvasTex, hazed, scene, tris } from './core.js';
+import { camera, canvasTex, hazed, renderer, scene, tris } from './core.js';
+import { rigJeep } from '../camp/jeepRig.js';
 import { tmpC } from './terrain.js';
 import { m4, q, rockGeo, rocks, sc, up, v3 } from './forest.js';
 import { fetchBytes } from '../bakedlight.js';
@@ -119,15 +120,19 @@ export function buildRoad() {
         gl.scene.traverse((o) => { if (!o.isMesh) return; if (o.name.startsWith('Glass')) { o.material = glass; o.renderOrder = 2; o.castShadow = false; n += tris0(o.geometry); return; } const m0 = o.material; o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : m0.color, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, opacity: m0.opacity, alphaTest: m0.alphaTest }), mute, 'mute');
           o.castShadow = false; o.receiveShadow = true; n += tris0(o.geometry); });
         dropHoodMap(gl.scene);   // the summit's own map lies there instead (map.js)
-        const turns = (o) => { for (let q = o; q; q = q.parent) if (q.userData.roll) return true; return false; };   // the road wheels turn (drive.js): not merged
-        bakeStatic(gl.scene, turns);
+        // not merged: the road wheels (they turn, drive.js), the doors and the hood (they swing, camp/jeepRig.js) and the cabin lamp's lens (it lights)
+        const moves = (o) => { for (let q = o; q && q !== gl.scene; q = q.parent) if (q.userData.roll || q.userData.open !== undefined || q.name === 'CabinLight') return true; return false; };
+        bakeStatic(gl.scene, moves);
         // its shadow comes from seven boxes (84 triangles) round body, cab, load and wheels, not its 6k triangles; drawn depth-only, never seen
         const box = (x0, y0, z0, x1, y1, z1) => new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
         const sh = new THREE.Mesh(mergeGeometries([box(-0.88, 0.45, -1.75, 0.88, 1.15, 1.95), box(-0.8, 1.15, -1.65, 0.8, 1.65, 0.4), box(-0.6, 1.65, -1.4, 0.6, 2.1, 0.2), ...[[-1, -1.15], [1, -1.15], [-1, 1.25], [1, 1.25]].map(([sx, z]) => box(sx * 0.9 - 0.12, 0, z - 0.33, sx * 0.9 + 0.12, 0.6, z + 0.33))]), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
         sh.castShadow = true; gl.scene.add(sh);
         const far = new THREE.Mesh(sh.geometry, hazed(new THREE.MeshLambertMaterial({ color: '#56603f' }))); far.visible = false; g.add(far); JEEP.lod = [gl.scene, far];   // the same boxes, painted, stand in beyond 110 m
         TRIS.push(['Jeep shadow boxes, and the jeep beyond 110 m', 84]);
-        g.add(gl.scene); carry.setHood(g); TRIS.push(['Jeep (Expedition)', n]); }); }).catch((e) => console.warn('jeep', e));
+        g.add(gl.scene); carry.setHood(g); TRIS.push(['Jeep (Expedition)', n]);
+        // its doors, hood and cabin lamp work as the camp's (camp/jeepRig.js; no cabin spot light here: one more light would
+        // recompile every material in this big scene); main.js steps it and seats you in it (camp/jeepSeat.js)
+        JEEP.rig = rigJeep(gl.scene, { camera, renderer, spot: false }); }); }).catch((e) => console.warn('jeep', e));
   }
 
   { // mud: wheel ruts from the road to the jeep, and the paths worn between jeep, porch, camp, woodpile and the trail head

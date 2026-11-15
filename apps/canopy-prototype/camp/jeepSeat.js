@@ -12,22 +12,21 @@
 // Its own API, seatApi (null with ?jeep=none): sit(side) / stand() / seatedIn() ("driver" | "passenger" | null, only once
 // you have settled) / seatBusy(side) (the name of a sloth sitting there, or null), for car.js and checks. The jeep's doors, boot
 // and hood are tap targets (targets.js), added here: open or close, and Get in / Get out on the front doors.
-// Exports buildJeepSeats() (main.js, once), jeepSeatStep (main.js, each frame) and seatApi.
+// Both levels seat you this way (Adriaen 2026-11-15: the summit's jeep too): the page hands over its rigged jeep (jeepRig.js api).
+// Exports buildJeepSeats(jeepApi) (the page's main.js, once), jeepSeatStep (main.js, each frame) and seatApi.
 // The claims go through camp/places.js; core.js pace is the checks' speed-up.
 import * as THREE from "three";
-import { camera, pace, uTime } from "./core.js";
+import { camera, pace, toStage, uTime } from "./stage.js";
 import { V, ease, wrapPi, yawFrom, yawTo } from "./util.js";
-import { jeepApi } from "./jeep.js";
 import { addTargets, frameAt } from "./targets.js";
-import { me } from "./player.js";
-import { OUT, sloths } from "./sloths.js";
+import { feetAt, me } from "./player.js";
+import { OUT, sloths } from "./sloth/state.js";
 import { claim, release } from "./places.js";
-import { groundHeight } from "./terrain.js";
 import { toast } from "./hud.js";
 
 let jeepSeatStep = () => {}, seatApi = null;
-function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
-  const J = jeepApi, jeep = J?.node;   // null with ?jeep=none
+function buildJeepSeats(J) {   // the page's main.js, once the jeep (jeepRig.js api) and the sloths are in
+  const jeep = J?.node;   // null with ?jeep=none
   if (!jeep) return;
   const S0 = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
   const EYE_UP = 0.55, STAND = 1.55, WALK = 1.7;   // STAND and WALK are player.js EYE and SPEED: keep in step
@@ -39,7 +38,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   }
   const W = (v) => jeep.localToWorld(v.clone());
   const fwdYaw = () => { const f = V(0, 0, 1).transformDirection(jeep.matrixWorld); return yawTo(f); };
-  const eyeWorld = () => jeep.position.y + S0.y + EYE_UP;
+  const eyeWorld = () => jeep.localToWorld(eyeAt.set(0, S0.y + EYE_UP, 0)).y, eyeAt = V();   // the world height: the summit's jeep is a child of its group
 
   // a sloth in (or getting into or out of) the driver's seat: the jeep sloth at home, a guest napping there, one at the door
   const slothIn = (side) => side === "driver"
@@ -84,7 +83,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   const seatedIn = () => cur?.phase === "sat" ? cur.side : null;
   function setStand(pos) { seat.pos.copy(pos); me.pos.copy(pos); seat.drop = 0; }
   function setIn(k, yaw0, yaw1) {                     // k 0 at the door, 1 on the seat: duck in under the roof, turn to face ahead
-    const s = cur.s, e = ease(k), p = W(s.door.clone().lerp(s.seat, e)).setY(0), g = groundHeight(p.x, p.z);
+    const s = cur.s, e = ease(k), p = W(s.door.clone().lerp(s.seat, e)).setY(0), g = feetAt(p.x, p.z);
     const h = THREE.MathUtils.lerp(g + STAND, eyeWorld(), e) - 0.16 * Math.sin(Math.PI * Math.min(1, k * 1.3));   // the duck under the door frame
     seat.pos.copy(p); me.pos.copy(p); seat.drop = g + STAND - h;
     me.yaw = yaw0 + wrapPi(yaw1 - yaw0) * ease(Math.min(1, k * 1.15)); seat.yaw = yaw1;
@@ -142,7 +141,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   const box3 = new THREE.Box3(), to = new THREE.Vector3(), none = [];
   addTargets("doors", () => J.doors ?? none, (d) => {
     const picks = [], sph = new THREE.Sphere(); d.o.traverse((m) => m.isMesh && picks.push(m));
-    const at = frameAt((v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; });   // once a frame: it swings and the jeep may drive
+    const at = frameAt((v) => { box3.setFromObject(d.o).getBoundingSphere(sph); toStage(sph.center); v.copy(sph.center); return sph; });   // once a frame: it swings and the jeep may drive; in the stage's frame, as every target
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
       options: () => [...doorOptions(d), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], () => { if (shut?.k === d.k) shut = null; d.toggle(); }]] };
   });

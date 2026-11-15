@@ -6,10 +6,13 @@
 // Exports buildDrive() (main.js, once the jeep's group exists), driveStep(dt) (main.js, each frame right after walk: the shot
 // takes the camera, and holds you where the camera is so the ground and trees round it are the near ones), and driveApi
 // { away(), home(), shot() } for checks, which import this module.
-// Adds no triangles: the parked jeep itself drives. The letterbox, fade, skip layer and pill are page elements.
+// The parked jeep itself drives, with everyone in it: camp/riders.js, the same as the camp's drive (him at the wheel, you, and
+// the seven sloths in their winter gear; clones only while a shot plays). Arriving, the shot waits (dark) until the cast is
+// built, at most 10 s. The letterbox, fade, skip layer and pill are page elements.
 import { $, BARE, JEEP, OPT, ROAD, ROAD_Y, TOP, groundAt } from './land.js';
 import { camera, me } from './core.js';
 import { wheelsOf } from '../camp/util.js';
+import { lifeHooks } from './life.js';
 
 const CSS = `
 .drive-bar { position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .6s ease; z-index: 20; pointer-events: none; }
@@ -22,7 +25,7 @@ body.drive-cut #hud, body.drive-cut #hint, body.drive-cut #stats, body.drive-cut
 `;
 const DUR = 6;   // seconds a shot lasts
 const P = ROAD.portal.s;
-let shot = null, fade = null, skip = null, pill = null, homeDue = false, spin = null;
+let shot = null, fade = null, skip = null, pill = null, homeDue = false, spin = null, boarding = false, waited = 0;
 
 // the road s metres from the summit (it ends in the tunnel at P): where, its height, and the way toward the tunnel
 function roadAt(s) {
@@ -33,19 +36,24 @@ function roadAt(s) {
 // arriving, the jeep comes out of the tunnel fast and slows down the bridge; leaving, it speeds up toward the tunnel
 const along = (t, out) => { const k = Math.min(1, t / DUR); return out ? P + 8 - 78 * (1 - (1 - k) ** 2) : P - 95 + 97 * k * k; };
 
-function start(out) {   // out: arriving from the camp (the jeep comes OUT of the tunnel)
-  if (shot || !JEEP.node) return;
+async function start(out) {   // out: arriving from the camp (the jeep comes OUT of the tunnel)
+  if (shot || boarding || !JEEP.node) return;
+  boarding = true;   // everyone gets in first (imported here, not statically: the cast's modules load after castStage.js, life.js)
+  const riders = await import('../camp/riders.js').then((m) => m.boardRiders(JEEP.node)).catch((e) => { console.warn('riders', e); return null; }); boarding = false;
   // the camera hangs over the gorge beside the bridge (on the side away from the cliff), 6 m out and 2.5 m up, where the
   // arriving jeep passes it as it slows, or the leaving one as it speeds up, and turns to follow the jeep
+  for (const w of ['P', 'D', 'B']) JEEP.rig?.api.close(w);   // shut, as the camp's drive does
   const r = roadAt(out ? P - 62 : P - 50), cam = { x: r.x + r.dz * 6, y: r.y + 2.5, z: r.z - r.dx * 6 };
   spin ??= wheelsOf(JEEP.node);
-  shot = { t: 0, out, cam, left: false, s: along(0, out) };
+  shot = { t: 0, out, cam, left: false, s: along(0, out), riders };
   document.body.classList.add('drive-cut'); skip.hidden = false;
+  if (out) fade.classList.remove('on');   // the page opened dark; its transition fades up on the jeep coming out of the tunnel
 }
 function step(dt) {
   const c = shot; c.t += dt;
   const g = JEEP.node, s = along(c.t, c.out), r = roadAt(s), dir = c.out ? -1 : 1;   // arriving it faces away from the tunnel
   spin(dir * (s - c.s)); c.s = s;   // the wheels turn with the way driven
+  c.riders?.step(dt);
   g.position.set(r.x, r.y + Math.abs(Math.sin(c.t * 9)) * 0.012, r.z); g.rotation.set(0, Math.atan2(r.dx * dir, r.dz * dir), 0);   // the jeep's +Z is its front
   me.x = c.cam.x; me.z = c.cam.z; me.y = c.cam.y;   // the near ground and trees follow the camera
   const upright = innerWidth / innerHeight < 0.8;
@@ -62,6 +70,7 @@ function end() {
   const sx = Math.sin(JEEP.turn), cx = Math.cos(JEEP.turn), lx = 1.9, lz = 0.4;
   me.x = JEEP.x + lx * cx + lz * sx; me.z = JEEP.z - lx * sx + lz * cx; me.y = groundAt(me.x, me.z) + 1.65;
   me.yaw = Math.atan2(me.x, me.z + 10); me.pitch = -0.08;
+  c.riders?.remove();   // everyone is out at the summit
   camera.fov = 60; camera.updateProjectionMatrix();
   shot = null; document.body.classList.remove('drive-cut'); skip.hidden = true;
   fade.classList.remove('on');   // its transition fades the view back in
@@ -78,14 +87,14 @@ export function buildDrive() {
   pill.onclick = (e) => { e.stopPropagation(); start(false); }; $('carry').append(pill);
   if (OPT.from) {   // come from the camp: start dark, and play the jeep's arrival on the first frame
     history.replaceState(null, '', location.href.replace(/([?&])back=[^&#]*&?/, '$1').replace(/[?&]$/, ''));
-    fade.style.transition = 'none'; fade.classList.add('on'); requestAnimationFrame(() => { fade.style.transition = ''; fade.classList.remove('on'); });
+    fade.style.transition = 'none'; fade.classList.add('on'); requestAnimationFrame(() => { fade.style.transition = ''; });   // start() fades up once everyone is in
     homeDue = true;
   }
 }
 // each frame, right after walk(): a shot takes the camera; otherwise the pill shows while you stand by the parked jeep
 export function driveStep(dt) {
   if (!fade) return false;
-  if (homeDue && JEEP.node) { homeDue = false; start(true); }
+  if (homeDue && JEEP.node && ((lifeHooks.op && lifeHooks.sloths) || (waited += dt) > 10)) { homeDue = false; start(true); }
   if (shot) { step(dt); return true; }
   pill.hidden = Math.hypot(me.x - JEEP.x, me.z - JEEP.z) > 5;
   return false;

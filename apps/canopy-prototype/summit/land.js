@@ -25,7 +25,7 @@ export const TRIS = [];
 //   ?sound=0   start muted, ?station=ID start on that station (for that visit only, as in the camp)  audio.js
 const Q = new URLSearchParams(location.search);
 const sameSite = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-export const OPT = { ero: Q.get('ero') !== 'off', bare: Q.get('bare') === '1', from: Q.has('back'), back: Q.has('back') && sameSite(Q.get('back')) ? Q.get('back') : 'camp.html', drivestay: Q.has('drivestay') };
+export const OPT = { ero: Q.get('ero') !== 'off', bare: Q.get('bare') === '1', from: Q.has('back'), back: Q.has('back') && sameSite(Q.get('back')) ? Q.get('back') : 'camp.html', drivestay: Q.has('drivestay'), touch: Q.has('touch') };
 // the camp's saved settings, shared with it (camp/core.js KEYS and store): the hour, the day cycle and the sound carry over both ways
 export const KEYS = { time: 'canopy-time', cycle: 'canopy-cycle', audio: 'canopy-audio' };
 export const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };

@@ -2,7 +2,7 @@
 // step in a fixed order, renders, repaints the backdrop and keeps the fps line and the pixel ratio.
 // The tool hooks (window.__) are set by debug.js.
 import * as THREE from 'three';
-import { $, BARE, BIG_H, BW, CL, CL_Y, HT, HUT, LAKE, ROAD, TOP, TOWER, TRIS, hBase, height, walkable } from './land.js';
+import { $, BARE, BIG_H, BW, CL, CL_Y, HT, HUT, JEEP, LAKE, ROAD, TOP, TOWER, TRIS, hBase, height, walkable } from './land.js';
 import { adaptPixelRatio, buildCore, camera, me, renderer, scene, sky, tris } from './core.js';
 import { buildTerrain, cullTerrain, levels, uCardR, uTreeCol, uTreeK, updateLevel, updateTerrain } from './terrain.js';
 import { CARDS, SPECIES, TREES, buildForest, cards, cullWedges, logGeo, logs, near, nearN, placeThings, placedAt, rocks, saplings } from './forest.js';
@@ -42,10 +42,20 @@ if (BARE) scene.children.slice(MADE_FROM).forEach((o) => { if (!o.isCamera) o.vi
 
 // ---------------------------------------------------------------- each frame
 const clock = new THREE.Timer(); let frames = 0, acc = 0;
+// the jeep's working parts once road.js has rigged it; its seats module is imported then (it pulls in the cast's places, which
+// must load after castStage.js: life.js)
+let seats = null;
+function jeepStep(dt) {
+  if (!JEEP.rig) return;
+  JEEP.rig.step(dt);
+  if (!seats) { seats = 'loading'; import('../camp/jeepSeat.js').then((m) => { m.buildJeepSeats(JEEP.rig.api); seats = m; }).catch((e) => console.warn('jeep seats', e)); }
+  else if (seats !== 'loading') seats.jeepSeatStep(dt);
+}
 const dist = (p) => Math.hypot(p.x - me.x, p.z - me.z), metres = (d) => (d < 1000 ? `${Math.round(d / 10) * 10} m` : `${(d / 1000).toFixed(1)} km`);
 function frame() {
   clock.update(); const dt = Math.min(clock.getDelta(), 0.05), now = clock.getElapsed();
-  walk(dt);   // you move first, so the ground, the trees and the shadow spot follow this frame's position
+  jeepStep(dt);   // the jeep's doors and lamp, and its seats (the camp's: camp/jeepRig.js, camp/jeepSeat.js), before you move as in the camp
+  walk(dt);   // you move first (camp/player.js), so the ground, the trees and the shadow spot follow this frame's position
   driveStep(dt);   // a drive shot takes the camera, and moves you to it so the near ground and trees are round it
   const pf = prof.on ? performance.now() : 0;
   updateTerrain(me.x, me.z); cullTerrain(); cullWedges();
