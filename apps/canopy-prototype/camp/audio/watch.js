@@ -3,6 +3,8 @@
 // the operator's steps, speech, cooking, reading and snores; the jeep's doors and engine; your own steps), so the other
 // modules need no sound calls. It reads the chores (chores.js acts), the operator (operator.js opApi) and the car
 // (car.js carApi) once main.js has built them.
+// It runs every frame, so it allocates nothing on a quiet frame: the last positions are copied into vectors held here, and
+// a sound's position is made only when the sound plays (review R2-085).
 import * as THREE from "three";
 import { SOUP_POT } from "../layout.js";
 import { acts } from "../chores.js";   // the pot's stage (null until main.js has built the chores)
@@ -13,60 +15,63 @@ import { me } from "../player.js";
 import { opApi } from "../operator.js";   // his sounds (null with ?op=0, or until main.js has built him)
 import { sloths } from "../sloths.js";
 import { weather } from "../weather.js";
-import { rand as R } from "../util.js";   // a number between a and b from Math.random
+import { rand as R, sstep } from "../util.js";   // R: a number between a and b from Math.random
 import { ac, BROWN, env, filt, gain, noise, osc, spot } from "./context.js";
 import { night, rain, SFX, underTent, wind } from "./sfx.js";
 import { musicObj, musicPan, musicTick } from "./music.js";
 
-const tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
+const tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3(), hd = new THREE.Vector3();
 
 // ---------------------------------------------------------------- watching the camp: who did what since the last frame
 const was = new WeakMap(), opWas = { line: "", clip: "", kind: "", door: [] };
-let potStage = null, stirT = 0, nextBird = 3, nextFrog = 5, nextOwl = 30, crackleT = 0, bubbleT = 0, dripT = 0, gustT = 0, gust = 0.5, opT = 0, opStepD = 0, meStepD = 0, opLast = null, meLast = null, sleepT = 4, opClinkT = 3, opPageT = 6, opSnoreT = 2;
+let potStage = null, stirT = 0, nextBird = 3, nextFrog = 5, nextOwl = 30, crackleT = 0, bubbleT = 0, dripT = 0, gustT = 0, gust = 0.5, opT = 0, opStepD = 0, meStepD = 0, sleepT = 4, opClinkT = 3, opPageT = 6, opSnoreT = 2;
+const opLast = new THREE.Vector3(), meLast = new THREE.Vector3(); let opSeen = false, meSeen = false;   // where he and you were last frame
+const RATE = { empty: 0, water: 0.6, cooking: 6, ready: 2 };   // the pot's bubbles a second, by its stage
 const potAt = () => new THREE.Vector3(SOUP_POT.at.x, SOUP_POT.at.y, SOUP_POT.at.z);
 const slothAt = (s) => s.o.getWorldPosition(new THREE.Vector3()).setY(s.o.getWorldPosition(tmp).y + 0.25);
 function watchSloths(dt) {
   for (const s of sloths) {
-    const w = was.get(s) || { squish: 0, munch: 0, yawn: 0, wave: 0, gift: null, phase: null };
+    let w = was.get(s); if (!w) was.set(s, (w = { squish: 0, munch: 0, yawn: 0, wave: 0, gift: null, phase: null }));
     if (s.squish > w.squish + 0.5) SFX.boop(slothAt(s));
     if ((s.munch || 0) > w.munch + 0.5) SFX.munch(slothAt(s), s.munch);
     if (s.gift && !w.gift) setTimeout(() => ac && SFX.munch(slothAt(s), 2.4), 600);
     if (s.yawn && !w.yawn) SFX.yawn(slothAt(s), R(0.95, 1.1));
     if (s.wave && !w.wave) SFX.squeak(slothAt(s), 1.15);
     const ph = s.trip?.phase ?? null; if (ph === "greet" && w.phase !== "greet" && Math.random() < 0.7) { const p = slothAt(s); SFX.squeak(p, 0.95); setTimeout(() => ac && SFX.squeak(p, 1.1), 260); }
-    Object.assign(w, { squish: s.squish || 0, munch: s.munch || 0, yawn: s.yawn || 0, wave: s.wave || 0, gift: s.gift || null, phase: ph }); was.set(s, w);
+    w.squish = s.squish || 0; w.munch = s.munch || 0; w.yawn = s.yawn || 0; w.wave = s.wave || 0; w.gift = s.gift || null; w.phase = ph;
   }
   // the nearest sleeping sloth breathes slowly, if you are close enough to hear it
   if ((sleepT -= dt) < 0) { sleepT = R(3.2, 4.2); let best = null, bd = 4; for (const s of sloths) if (s.asleep) { const d = s.o.getWorldPosition(tmp).distanceTo(camera.position); if (d < bd) { bd = d; best = s; } } if (best) SFX.breath(slothAt(best)); }
 }
 function watchOperator(dt) {
   const O = opApi; if (!O) return;
-  const p = O.root.position, head = tmp.copy(p).setY(p.y + 1.6).clone();
-  if (opLast) { const d = Math.hypot(p.x - opLast.x, p.z - opLast.z); if (d < 0.5) { opStepD += d; if (opStepD > 0.64) { opStepD = 0; SFX.step(p.clone().setY(0.05)); } } }
-  opLast = p.clone();
+  const p = O.root.position;
+  if (opSeen) { const d = Math.hypot(p.x - opLast.x, p.z - opLast.z); if (d < 0.5) { opStepD += d; if (opStepD > 0.64) { opStepD = 0; SFX.step(p.clone().setY(0.05)); } } }
+  opLast.copy(p); opSeen = true;
   // cooking (op.stir, op.veg in operator/state.js): the stirring stick knocks the pot, vegetables plop in
-  const o = O.op || {}, pot = potAt();
-  if (o.stir && (stirT -= dt) < 0) { stirT = R(0.6, 1.1); SFX.knock(pot); SFX.bubble(); }
-  if (opWas.veg && !o.veg) SFX.plop(pot);
-  opWas.veg = !!o.veg;
+  const o = O.op;
+  if (o?.stir && (stirT -= dt) < 0) { stirT = R(0.6, 1.1); SFX.knock(potAt()); SFX.bubble(); }
+  if (opWas.veg && !o?.veg) SFX.plop(potAt());
+  opWas.veg = !!o?.veg;
   if ((opT -= dt) > 0) return; opT = 0.1;
-  const st = O.state(), line = O.line?.() || "";
-  if (line && line !== opWas.line) SFX.babble(head, line.split(/\s+/).length, st.lying || st.sleeping);
+  const st = O.state(), line = O.line?.() || "", head = hd.copy(p).setY(p.y + 1.6);   // ten times a second; each sound gets its own copy
+  if (line && line !== opWas.line) SFX.babble(head.clone(), line.split(/\s+/).length, st.lying || st.sleeping);
   if (st.clip === "sip" && opWas.clip !== "sip") SFX.slurp(head.clone().setY(head.y - 0.15));
   if (st.clip?.startsWith("play") && Math.random() < 0.08) SFX.squeak(head.clone().setY(head.y + 0.3), 1.2);
   if (st.seated && (st.kind === "eat" || st.kind === "cook") && (opClinkT -= 0.1) < 0) { opClinkT = R(2, 4); SFX.clink(head.clone().setY(head.y - 0.5)); }
-  if (st.kind === "cook" && !st.seated && (opClinkT -= 0.1) < 0) { opClinkT = R(1.2, 2.5); SFX.clink(new THREE.Vector3(SOUP_POT.at.x, SOUP_POT.at.y, SOUP_POT.at.z)); }
+  if (st.kind === "cook" && !st.seated && (opClinkT -= 0.1) < 0) { opClinkT = R(1.2, 2.5); SFX.clink(potAt()); }
   if (st.seated && st.kind === "read" && (opPageT -= 0.1) < 0) { opPageT = R(8, 15); SFX.page(head.clone().setY(head.y - 0.5)); }
   if (st.sleeping && (opSnoreT -= 0.1) < 0) { opSnoreT = R(3.6, 4.4); SFX.breath(head.clone().setY(p.y + 0.6), true); }
-  Object.assign(opWas, { line, clip: st.clip || "", kind: st.kind });
+  opWas.line = line; opWas.clip = st.clip || ""; opWas.kind = st.kind;
 }
 function watchJeep() {
   const J = jeepApi; if (!J?.doors) return;
-  J.doors.forEach((d, i) => { const o = d.open; if (opWas.door[i] !== undefined && o !== opWas.door[i]) SFX.door(d.o.getWorldPosition(new THREE.Vector3()), o); opWas.door[i] = o; });
+  for (let i = 0; i < J.doors.length; i++) { const d = J.doors[i], o = d.open; if (opWas.door[i] !== undefined && o !== opWas.door[i]) SFX.door(d.o.getWorldPosition(new THREE.Vector3()), o); opWas.door[i] = o; }
   // the engine (car.js: off → crank → run): a click of the key and the starter cranking, the engine catching with a rev,
   // a steady idle while it runs, and a few last chugs as it dies when you turn it off
-  const st = carApi?.engine() ?? "off", was = opWas.engine ?? "off", at = J.node.getWorldPosition(new THREE.Vector3()).setY(0.7);
+  const st = carApi?.engine() ?? "off", was = opWas.engine ?? "off";
   if (st !== was) {
+    const at = J.node.getWorldPosition(new THREE.Vector3()).setY(0.7);
     if (st === "crank") ENGINE.crank(at);
     if (st === "run") { ENGINE.idle(at, true); }
     if (st === "off" && was !== "off") ENGINE.stop(at);
@@ -117,11 +122,11 @@ function audioStep(dt, dusk = 0) {
   const under = wet > 0.05 && underTent(me.pos);
   rain.drips.gain.setTargetAtTime(under ? 0.2 : 1, t, 0.3); rain.roof.gain.setTargetAtTime(under ? 1 : 0, t, 0.3);
   if (wet > 0.05 && (dripT -= dt) < 0) { dripT = R(0.02, 0.12) / wet; SFX.drip(false); if (under) { SFX.drip(true); if (Math.random() < 0.6) SFX.drip(true); } }
-  night.g.gain.setTargetAtTime(THREE.MathUtils.smoothstep(dusk, 0.4, 0.9) * (1 - 0.6 * wet), t, 1.5);
+  night.g.gain.setTargetAtTime(sstep(0.4, 0.9, dusk) * (1 - 0.6 * wet), t, 1.5);
   if ((crackleT -= dt) < 0) { crackleT = R(0.03, 0.35); SFX.crackle(Math.random() < 0.04); }
   // the pot (activities.js soup, read through acts.cook): quiet when empty, a faint simmer of water, a lively bubble while
   // it cooks, a gentle one when it's soup; water pouring in (yours or his) when it fills. Without that, a gentle simmer.
-  const stage = acts?.cook?.stage ?? "ready", rate = { empty: 0, water: 0.6, cooking: 6, ready: 2 }[stage] ?? 2;
+  const stage = acts?.cook?.stage ?? "ready", rate = RATE[stage] ?? 2;
   if (potStage === "empty" && stage === "water") SFX.pour(potAt());
   if (potStage === "water" && stage === "cooking") SFX.plop(potAt());
   potStage = stage;
@@ -131,8 +136,8 @@ function audioStep(dt, dusk = 0) {
   if ((nextOwl -= dt) < 0) { nextOwl = R(25, 60); if (dusk > 0.8) SFX.owl(); }
   // life
   watchSloths(dt); watchOperator(dt); watchJeep();
-  if (meLast) { const d = Math.hypot(me.pos.x - meLast.x, me.pos.z - meLast.z); if (d < 0.5 && !me.seat) { meStepD += d; if (meStepD > 0.78) { meStepD = 0; SFX.step(null, true); } } }
-  meLast = me.pos.clone();
+  if (meSeen) { const d = Math.hypot(me.pos.x - meLast.x, me.pos.z - meLast.z); if (d < 0.5 && !me.seat) { meStepD += d; if (meStepD > 0.78) { meStepD = 0; SFX.step(null, true); } } }
+  meLast.copy(me.pos); meSeen = true;
   musicTick();
 }
 

@@ -4,7 +4,9 @@
 //     gentle tremble); "Drive somewhere" is the placeholder for fast travel to other levels; "Turn the engine off"
 //   the radio in the middle of the dash: the same menu as the radio on the snack table (radio.js); the music then plays from it
 //   the dash clock: the same menu as the camp's other clocks (clock.js)
-// "Get out" on the door, or walking off with the stick or the keys, puts you back outside the door you came in by.
+// "Get out" on the door, or walking off with the stick or the keys, puts you back outside the door you came in by. The
+// engine stops by itself 30 s after everyone (you and the sloths) has left the front seats (review R2-186: it used to idle
+// on forever after you had walked away), quietly, since nobody is there to read a toast.
 // Built here and painted on canvas, nothing added to the baked jeep: key 4, ignition ring 6, radio face 2, clock 10 + hands 4 =
 // 26 triangles. The jeep's own nodes (build_jeep.py): SeatP is the driver's cushion top, WheelHub the steering wheel's middle;
 // the dash's face toward the driver is at local z 0.14, from y 0.93 to 1.13. Left to right as you sit: the wheel (x 0.36),
@@ -64,7 +66,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   const gTex = canvasTex(256, 96, (g) => { g.fillStyle = "#000"; g.fillRect(0, 0, 256, 96); g.fillStyle = "#ffb347"; g.fillRect(52, 22, 152, 52); }, { srgb: false, aniso: 1 });   // the display's glow, as plain numbers
   let shown = "";
   function drawRadio() {
-    const st = audio.station(), on = radioPlaying() && radioSource() === carRadio, k = (on ? st.id : "off");
+    const st = audio.stations[audio.stationIndex()], on = radioPlaying() && radioSource() === carRadio, k = (on ? st.id : "off");   // each frame: no objects made
     if (k === shown) return; shown = k;
     const c = rc.getContext("2d"); c.fillStyle = "#9a9a9a"; c.fillRect(0, 0, 256, 96); c.fillStyle = "#2b2b2b"; c.fillRect(4, 4, 248, 88);
     c.fillStyle = on ? "#3a2a12" : "#1a1a1a"; c.fillRect(52, 22, 152, 52);
@@ -85,19 +87,25 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   onDash(clock, -0.05, 1.065, -0.1, 0.055); clock.name = "CarClock";
   addClock({ obj: clock, hands: [hh, mh], lume, glow: 0.8, ready: inCar, name: "car" });
 
-  // ---------------------------------------------------------------- per frame: the key, the shake, walking off, the radio display
+  // ---------------------------------------------------------------- per frame: the key, the shake, getting out, the radio display
   const base = jeep.position.clone();
-  let t = 0;
-  carStep = (dt) => {
+  let t = 0, away = 0, still = true;   // away: seconds the running jeep has stood empty; still: the engine is off, the key back
+  carStep = (dt) => {                   // and the jeep at rest, so nothing to move
     t += dt;
+    if (engine !== "off" && !inCar() && !seatApi?.seatBusy("driver") && !seatApi?.seatBusy("passenger")) {
+      if ((away += dt) > 30) { engine = "off"; away = 0; }   // audio/watch.js hears the state turn off and plays the stop
+    } else away = 0;
     if (engine === "crank") { crank += dt; if (crank > 1.1) { engine = "run"; toast("Brrrm! The engine is running 🚙"); } }
-    const want = engine === "off" ? 0 : engine === "crank" ? KEY_CRANK : KEY_RUN;
-    keyA += (want - keyA) * Math.min(1, dt * (engine === "crank" ? 14 : 8)); key.rotation.z = keyA;
-    // the shake (Adriaen 2026-11-13: it shook too much): a soft shudder while cranking, a barely-there tremble at idle.
-    // Slower waves than before, so at 30-60 fps it reads as a tremble rather than a jitter.
-    const amp = engine === "crank" ? 0.005 * Math.min(1, crank * 3) : engine === "run" ? 0.0009 : 0;
-    jeep.position.set(base.x, base.y + amp * Math.sin(t * 23) * (0.7 + 0.3 * Math.sin(t * 3.1)), base.z + amp * 0.4 * Math.sin(t * 17));
-    jeep.rotation.z = amp * 0.4 * Math.sin(t * 19);
+    if (engine !== "off" || Math.abs(keyA) > 1e-3) {
+      still = false;
+      const want = engine === "off" ? 0 : engine === "crank" ? KEY_CRANK : KEY_RUN;
+      keyA += (want - keyA) * Math.min(1, dt * (engine === "crank" ? 14 : 8)); key.rotation.z = keyA;
+      // the shake (Adriaen 2026-11-13: it shook too much): a soft shudder while cranking, a barely-there tremble at idle.
+      // Slower waves than before, so at 30-60 fps it reads as a tremble rather than a jitter.
+      const amp = engine === "crank" ? 0.005 * Math.min(1, crank * 3) : engine === "run" ? 0.0009 : 0;
+      jeep.position.set(base.x, base.y + amp * Math.sin(t * 23) * (0.7 + 0.3 * Math.sin(t * 3.1)), base.z + amp * 0.4 * Math.sin(t * 17));
+      jeep.rotation.z = amp * 0.4 * Math.sin(t * 19);
+    } else if (!still) { keyA = 0; key.rotation.z = 0; jeep.position.copy(base); jeep.rotation.z = 0; still = true; }
     drawRadio(); rMat.emissiveIntensity = shown === "off" ? 0 : 0.8;
   };
   // engine(): "off" | "crank" | "run", which audio.js hears

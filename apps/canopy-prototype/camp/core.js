@@ -1,5 +1,5 @@
 // Canopy Camp core: URL options, detail level, the renderer, scene, camera and lights, the named seeded random streams (rng), every download
-// started at once (PRE, camp review P2) and the look's leaf material (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
+// started at once (PRE, camp review P2) and the look's settings S (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { fetchBytes, initKtx, lightDir, loadLightMap } from "../bakedlight.js";
@@ -22,7 +22,9 @@ import { SUN } from "./layout.js";
 //   pitch    radians                       0.08 (player.js)                  main.js
 //   campsloths 1 | 0                       1                                 sloths.js, sloth/step.js, sloth/naps.js, labButton.js (0: only the two wild sloths, no camp sloths)
 //   slothmat lambert | old                 lambert                           sloth/body.js (old: the sloth GLB's own physical material)
-//   lab      (present)                     absent                            labButton.js (opens the move lab, lab.js, at the start)
+//   lab      (present)                     absent                            labButton.js (opens the move lab, lab.js, at the start, and shows its button)
+//   dev      (present)                     absent                            core.js wireSettings, main.js, labButton.js (shows the fps pill and the
+//                                                                            ⚙️ menu's Detail, Light and Move lab buttons; hidden from players)
 //   touch    present or not                on a phone (a coarse pointer)     input.js (the phone stick and its hint, on a desktop too)
 //   sound    0                             saved, else on                    audio/context.js (0 starts muted)
 //   station  drift | campfire | kalimba | lullaby   saved, else drift        audio/context.js (checks it against its stations)
@@ -56,7 +58,7 @@ const OPT = {
   lived: qs.get("lived") !== "0",
   op: qs.get("op") !== "0",
   weather: qs.get("weather"),
-  time: (() => { const h = Number(qs.get("time") ?? store.get(KEYS.time) ?? 12); return h >= 0 && h < 24 ? h : 12; })(),
+  time: (() => { const v = qs.get("time") || store.get(KEYS.time), h = v ? Number(v) : 12; return h >= 0 && h < 24 ? h : 12; })(),   // an empty ?time= counts as missing
   cycle: qs.has("cycle") ? qs.get("cycle") !== "0" : store.get(KEYS.cycle) === "on",
   pos: (() => { const p = (qs.get("pos") || "").split(",").map(parseFloat); return p.length === 2 && p.every(Number.isFinite) ? p : null; })(),   // the start view: null (or a value that isn't a number) keeps player.js's own
   yaw: num(qs.get("yaw")),
@@ -64,6 +66,7 @@ const OPT = {
   campsloths: qs.get("campsloths") !== "0",
   slothmat: qs.get("slothmat") === "old" ? "old" : "lambert",
   lab: qs.has("lab"),
+  dev: qs.has("dev"),
   touch: qs.has("touch"),
   sound: qs.get("sound") !== "0",
   station: qs.get("station"),
@@ -83,11 +86,13 @@ const LMSET = OPT.lm;
 const LMDIR = OPT.lmdir;
 lightDir(LMDIR);
 // the ⚙️ menu's own buttons: main.js calls wireSettings() once. One ⚙️ button opens the detail and light-map choices (the old
-// row took a quarter of a phone screen); Detail and Light each step to the next choice, keep it and reload.
+// row took a quarter of a phone screen); Detail and Light each step to the next choice, keep it and reload without their URL option (which would win over the kept choice).
+// Detail, Light and the fps pill are for developers: shown only with ?dev (review R2-206).
 function wireSettings() {
+  $("detail").hidden = $("lm").hidden = $("perf").hidden = !OPT.dev;
   $("menu").onclick = () => { const o = $("opts"); o.hidden = !o.hidden; $("menu").setAttribute("aria-expanded", String(!o.hidden)); };
   $("detail").textContent = "Detail: " + DETAIL[0].toUpperCase() + DETAIL.slice(1);
-  $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); location.reload(); };
+  $("detail").onclick = () => { store.set(KEYS.detail, LEVELS[(LEVELS.indexOf(DETAIL) + 1) % 3]); const u = new URL(location.href); u.searchParams.delete("detail"); location.replace(u); };
   $("lm").textContent = "Light: " + LMNAME[LMSET];
   $("lm").onclick = () => { store.set(KEYS.lm, LMS[(LMS.indexOf(LMSET) + 1) % LMS.length]); const u = new URL(location.href); u.searchParams.delete("lm"); location.replace(u); };
 }
@@ -118,12 +123,13 @@ const renderer = new THREE.WebGLRenderer({ canvas: $("c"), antialias: D.aa, powe
 renderer.setPixelRatio(Math.min(devicePixelRatio, D.pr));   // main.js lowers it if the frame rate drops
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 // ---------------------------------------------------------------- downloads, all started at once (camp review P2, 2026-11-12)
-// Every model, the light maps and the ground mask start loading here, while the forest below is grown, instead of one after
+// Every model, the light maps and the ground's baked maps start loading here, while the forest below is grown, instead of one after
 // another further down. Each section awaits its own entry in PRE (null when it isn't shown). The loading card counts them.
 const LIVED = OPT.lived;   // ?lived=0 hides the lived-in props to compare
 let loadN = 0, loadDone = 0;
 const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
 initKtx(renderer);
+const tex = (url) => new THREE.TextureLoader().loadAsync(url).catch(() => null);
 // the 4K maps (?lm=4k, local only) have no KTX2 copy (bake_all.py converts the 2K and 1K maps), so they go straight to the PNG
 const lmLoad = async (n) => { const t = await loadLightMap(`${LMDIR}${n}_${LMSET}.png`, { ktx: LMSET !== "4k" }).catch(() => loadLightMap(`${LMDIR}${n}_2k.png`));
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
@@ -138,40 +144,32 @@ const PRE = {
   fire: pre(glb(`${LMDIR}fire.txt`)),
   jeep: JEEP !== "none" ? pre(glb(`models/jeep_${JEEP}.txt`)) : null,
   jeepLod: JEEP === "expedition" ? pre(glb("models/jeep_expedition_lod.txt").catch(() => null)) : null,
-  groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: "models/camp_ground_picked.jpg" }); im.onerror = () => ok(null); im.src = "models/camp_ground_picked_mask.png"; })),
+  // the ground (campGround.js): the baked wear mask, soil, shadows and night light, each null when it is missing
+  groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = "models/camp_ground_picked_mask.png"; })),
+  groundSoil: pre(tex("models/camp_ground_picked.jpg")),
+  // the baked shadows and night light come from LMDIR with the props' light (models/, or a preview bake's folder)
+  groundShadow: pre(tex(`${LMDIR}camp_shadow_picked_${JEEP}.png`)),
+  groundNight: JEEP === "expedition" ? pre(loadLightMap(`${LMDIR}camp_ground_night_picked_expedition.png`).catch(() => null)) : null,   // only the jeep's set has a night bake
 };
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(S.fog[0], S.fog[1]);
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 60);
-scene.add(new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
+// the field of view is input.js setFov's (58 degrees, 70 on a tall phone screen, set again on every resize); things beyond 80 m are not drawn
+const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 80);
+const hemi = new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]); scene.add(hemi);   // the sky light; daylight.js dims and tints it by the hour
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
 const uTime = { value: 0 };
 // the camp's pace: fast runs the sloths' day and the jeep seats that many times as fast (unset: 1). The move lab (lab.js) sets it,
 // and the tools through window.__campFast (debug.js)
 const pace = { fast: undefined };
-const leafMat = (opts, sway) => {
-  const m = new THREE.MeshLambertMaterial(opts);
-  // The sway is a uniform, not a number in the shader text: the hook's source is the same for every sway, so three gives
-  // every leaf material one program, and each material keeps its own amount (review props-12).
-  const uSway = { value: sway };
-  if (sway) m.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime; sh.uniforms.uSway = uSway;
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;\nuniform float uSway;")
-      .replace("#include <begin_vertex>", `#include <begin_vertex>
-        #ifdef USE_INSTANCING
-        vec3 ip = instanceMatrix[3].xyz;
-        float w = sin(uTime * 1.4 + ip.x * 1.7 + ip.z * 1.3) + 0.5 * sin(uTime * 2.3 + ip.y * 2.1);
-        transformed += vec3(1.0, 0.4, 0.6) * (w * uSway) * (0.5 + position.y);
-        #endif`);
-  };
-  return m;
-};
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
-async function glb(url) {   // url: the model's base64 .txt; fetchBytes takes the .glb instead where the host serves binary files
+// a base64 model (or the .glb where the host serves binary files, fetchBytes): a download that fails (a 404, a server error)
+// throws an error naming the file, so camp.html's loading card says it did not load instead of the parser failing on an
+// error page (review R2-058)
+async function glb(url) {
   const bin = await fetchBytes(url);
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, D, DETAIL, JEEP, KEYS, LIVED, LMDIR, OPT, PRE, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime, wireSettings };
+export { $, D, DETAIL, JEEP, KEYS, LIVED, LMDIR, OPT, PRE, S, camera, hemi, hex, renderer, rng, scene, pace, store, sun, uTime, wireSettings };

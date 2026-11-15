@@ -75,26 +75,27 @@ function buildRadio() {
 }
 
 // the menu, shared with the jeep's radio (car.js): using a radio moves the music to it
-const playing = () => { const s = audio.state(); return s.music && !s.muted; };
+const playing = () => audio.playing();
 const say = () => { const s = audio.station(); toast(`${s.emoji} ${s.name}`); };
 function radioOptions(src) {
   audio.start();
   const use = (fn) => () => { audio.musicFrom(src); source = src; fn(); };
   if (!playing()) return [["Turn the radio on 📻", use(() => { audio.muted(false); audio.music(true); say(); })]];
-  const v = audio.musicVolume(), nx = audio.stations[(audio.stations.findIndex((s) => s.id === audio.station().id) + 1) % audio.stations.length];
+  const v = audio.musicVolume(), nx = audio.stations[(audio.stationIndex() + 1) % audio.stations.length];
   return [[`Next: ${nx.name} ${nx.emoji}`, use(() => { audio.next(); say(); })],
     ...(v > 0.12 ? [["Quieter 🔉", use(() => { audio.musicVolume(v - 0.15); toast("Quieter 🔉"); })]] : []),
     ...(v < 0.98 ? [["Louder 🔊", use(() => { audio.musicVolume(v + 0.15); toast("Louder 🔊"); })]] : []),
     ["Turn it off 📴", () => { audio.music(false); toast("Radio off"); }]];
 }
 
-// the dial lamp, the needle and the notes follow the radio's state
+// the dial lamp, the needle and the notes follow the radio's state; each frame, so it makes no objects (review R2-085)
 let lamp = 0, nx = 0, t = 0;
 function step(dt) {
-  t += dt; const on = playing() && audio.state().started && source === radio, i = audio.stations.findIndex((s) => s.id === audio.station().id);
+  t += dt; const on = source === radio && audio.playing() && audio.running(), i = audio.stationIndex();
   lamp += ((on ? 1 : 0) - lamp) * Math.min(1, dt * 4); face.emissiveIntensity = 0.7 * lamp;
   const x = DIAL.x0 + (DIAL.x1 - DIAL.x0) * (i / (audio.stations.length - 1)); nx += (x - nx) * Math.min(1, dt * 5); needle.position.x = nx;
-  notes.forEach((s, k) => { const f = (t * 0.45 + k * 0.5) % 1; s.position.set(-0.05 + k * 0.08 + Math.sin((f + k) * 6) * 0.02, H / 2 + 0.03 + f * 0.25, 0.02); s.material.opacity = lamp * Math.sin(f * Math.PI) * (0.6 + 0.4 * (audio.musicVolume() > 0.3)); });
+  const loud = 0.6 + 0.4 * (audio.musicVolume() > 0.3);
+  for (let k = 0; k < notes.length; k++) { const s = notes[k], f = (t * 0.45 + k * 0.5) % 1; s.position.set(-0.05 + k * 0.08 + Math.sin((f + k) * 6) * 0.02, H / 2 + 0.03 + f * 0.25, 0.02); s.material.opacity = lamp * Math.sin(f * Math.PI) * loud; }
   radio.scale.y = 1 + lamp * 0.012 * Math.max(0, Math.sin(t * 9));   // a tiny bob to the music
 }
 const radioSource = () => source;

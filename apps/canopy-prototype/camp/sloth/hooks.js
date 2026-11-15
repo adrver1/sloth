@@ -7,7 +7,7 @@
 //   addHooks()          makes both (sloths.js, once the camp sloths are built); they stay undefined with ?campsloths=0
 import { holder } from "../places.js";
 import { GROUND, camp, guests } from "./state.js";
-import { clipOf, homeClip, play, playOnce } from "./clips.js";
+import { clipNames, clipOf, homeClip, play, playOnce } from "./clips.js";
 import { findPath, isFree, walkTo } from "./walk.js";
 import { doze } from "./naps.js";
 import { pois } from "./table.js";
@@ -20,7 +20,7 @@ let labApi, slothLife;   // undefined with ?campsloths=0
 function addHooks() {
   slothLife = { path: findPath, lend, giveBack, sloths: camp, eatGift };
   // the move lab (camp.html?lab, camp/lab.js): drives these to show each move on its own
-  labApi = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, walkTo, clipOf, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
+  labApi = { camp, GROUND, leave: (s) => { s.wantFood = true; leave(s); }, goHome, wander, walkTo, clipOf, clipNames, pois, isFree, smore: (s) => { s.smoreT = 0; }, wave: (s) => { s.wave = 1e-3; s.waveCD = 15; },
     fix: (s) => { if (s.spot.car && s.trip.phase === "home") { s.fixNext = true; leave(s); } },
     nap: (s) => { if (!s.dozing) doze(s); },
     guests: () => guests.map((g) => g.key),

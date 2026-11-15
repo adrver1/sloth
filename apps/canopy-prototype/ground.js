@@ -73,8 +73,10 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
   // the sun's direction, and straight down for a fainter contact darkening under each thing. Nothing per frame; call it again when props are added.
   const SM = 1024;   // the sun: layout.js SUN, as core.js lights the scene
   const rtOpt = { type: THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, depthBuffer: false };
-  const silRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt), tmpRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt), outRT = new THREE.WebGLRenderTarget(SM, SM, rtOpt);
-  const shade = outRT.texture;
+  // the three 1024 x 1024 targets (about 12 MB) are made on the first live cast and freed once the baked map is in,
+  // so a camp whose baked map came with the call never makes them
+  let silRT = null, tmpRT = null, outRT = null;
+  const freeTargets = () => { for (const t of [silRT, tmpRT, outRT]) t?.dispose(); silRT = tmpRT = outRT = null; };
   const uDir = { value: new THREE.Vector3() }, uK = { value: 0 };
   const silMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthTest: false, depthWrite: false, fog: false,
     blending: THREE.CustomBlending, blendEquation: THREE.MaxEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor });
@@ -117,6 +119,7 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
     return out;
   }
   function castShadows(renderer) {
+    if (!silRT) [silRT, tmpRT, outRT] = [0, 1, 2].map(() => new THREE.WebGLRenderTarget(SM, SM, rtOpt));
     const list = casters(), was = renderer.getRenderTarget(), bg = scene.background, ov = scene.overrideMaterial, ac = renderer.autoClear, cl = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha();
     for (const o of list) o.layers.enable(SHADOW_LAYER);
     scene.background = null; scene.overrideMaterial = silMat; renderer.autoClear = false; renderer.setClearColor(0x000000, 1);
@@ -129,6 +132,7 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
     blurMat.uniforms.uT.value = silRT.texture; blurMat.uniforms.uD.value.set(px, 0); renderer.setRenderTarget(tmpRT); renderer.render(qScene, cam0);
     blurMat.uniforms.uT.value = tmpRT.texture; blurMat.uniforms.uD.value.set(0, px); renderer.setRenderTarget(outRT); renderer.render(qScene, cam0);
     renderer.setRenderTarget(was); renderer.autoClear = ac; renderer.setClearColor(cl, ca);
+    uShade.value = outRT.texture;
     return list.length;
   }
   const cam0 = new THREE.Camera();
@@ -204,7 +208,8 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
   let bakedMask = null, bakedSoil = null;
   if (baked) {
     bakedMask = new THREE.CanvasTexture(baked.mask); bakedMask.flipY = false; bakedMask.colorSpace = THREE.NoColorSpace;
-    bakedSoil = new THREE.TextureLoader().load(baked.soil); bakedSoil.flipY = false; bakedSoil.anisotropy = 4;   // sRGB, decoded in the shader like the dirt tile
+    bakedSoil = baked.soil.isTexture ? baked.soil : new THREE.TextureLoader().load(baked.soil);   // a texture already loaded (camp/core.js PRE), or its URL
+    bakedSoil.flipY = false; bakedSoil.anisotropy = 4;   // sRGB, decoded in the shader like the dirt tile
   }
   // the baked night light on the ground (props/camp/bake_camp_lightmap.py: fire, lanterns, stove and moon, with the props' and the
   // jeep's shadows), one channel per light, coloured and mixed as on the props (bakedlight.js), the warm ones a little by day too; uGNon = 0 until it loads
@@ -295,7 +300,8 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
   const floor = new THREE.Mesh(geo, mat); scene.add(floor);
   // the contact shadows: the floor darkens itself by the shadow map (review P8: it was a see-through disc blended over the whole
   // floor every frame); the track and path ribbons on top take the same darkening through shadeOn()
-  const uShade = { value: shade }, uShadeK = { value: 1 };
+  const NONE = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); NONE.needsUpdate = true;   // black: no shadow, no light
+  const uShade = { value: NONE }, uShadeK = { value: 1 };
 
   // ---------------------------------------------------------------- plant atlas (4 x 2 cells of 128): tuft, tall grass, wildflowers, clover;
   // then the clearing-edge accents (review B6): heliconia with red bracts, a bromeliad, a dark fern for framing, ground orchids
@@ -452,8 +458,10 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
   // the baked map (props/shadow/bake_ground_shadow.py, Cycles: soft sun + sky occlusion) wins; the live render above is the fallback
   // for prop sets and jeeps that have no bake yet
   let shadowBaked = false;
-  if (shadowMap) new THREE.TextureLoader().load(shadowMap, (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1;
-    shadowBaked = true; uShade.value = t; uShadeK.value = 0.85; }, undefined, () => {});
+  // shadowMap: the texture already loaded (camp/core.js PRE, so no live cast ever runs), or its URL
+  const useShadow = (t) => { t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 1; shadowBaked = true; uShade.value = t; uShadeK.value = 0.85; freeTargets(); };
+  if (shadowMap?.isTexture) useShadow(shadowMap);
+  else if (shadowMap) new THREE.TextureLoader().load(shadowMap, useShadow, undefined, () => {});
   // the same darkening for a material drawn on the floor (the track and path ribbons): its world x, z looks up the shadow map
   function shadeOn(m) {
     patchMaterial(m, "shade", (sh) => {
@@ -466,12 +474,13 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
     return m;
   }
   let nightBaked = false;
-  if (nightMap) loadLightMap(nightMap).then((t) => { t.anisotropy = 4;
-    uGN.value = t; uGNon.value = 1; nightBaked = true; }).catch(() => {});
-  uGJ.value = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); uGJ.value.needsUpdate = true;   // no jeep light until its map loads
+  const useNight = (t) => { t.anisotropy = 4; uGN.value = t; uGNon.value = 1; nightBaked = true; };   // nightMap: a texture already loaded (camp/core.js PRE), or its URL
+  if (nightMap?.isTexture) useNight(nightMap);
+  else if (nightMap) loadLightMap(nightMap).then(useNight).catch(() => {});
+  uGJ.value = NONE;   // no jeep light until its map loads
   for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings
   }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, wear: wearAt.map(({ name, at, r, path }) => ({ name, x: at.x, z: at.z, r, path })), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
-  return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
+  return { floor, plants: im, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }

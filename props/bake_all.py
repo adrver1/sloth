@@ -29,10 +29,10 @@ in several different places", and bake the whole scene as one). Run it whenever 
   layout  props/shadow/export_casters.cjs: the clearing's layout (the worn spots, the jeep's track, the path, the deadwood,
           and the "place" block: where the page stands each baked prop and light, which the light bake reads instead of
           keeping its own copy). All but the deadwood comes from props/shadow/layout_pure.mjs in node (review R2-257); the
-          exporter boots the page for the deadwood and checks the page agrees. The page is served by this script on a free local port that it
-          hands the exporter as LAYOUT_PORT (it stops if its server dies or never answers, review R2-042) ->
-          props/shadow/layout_picked.json (needs `npm ci`, and CHROMIUM=<a Chrome> when the repo's playwright has no browser); it stops the bake if the page gave
-          an incomplete layout or disagrees with layout_pure.mjs
+          exporter boots the page for the deadwood and checks the page agrees. The exporter serves the repo itself, on a free
+          port, through tools/camp-page.cjs openCamp -> props/shadow/layout_picked.json (needs `npm ci`, and CHROMIUM=<a
+          Chrome> when the repo's playwright has no browser of its own); it stops the bake if the page gave an incomplete
+          layout or disagrees with layout_pure.mjs
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
 
 Stamps (review R2-140): after each step, props/bake.lock.json records the hash of every input the step read (its scripts,
@@ -49,7 +49,7 @@ props/lived (scripts and textures), layout_picked.json, the jeep GLB, its comman
 version and GPU_RUN's script. props/camp/atlas.json is one of the light step's outputs.
 --objects Name,... hands the light step bake_camp_lightmap.py's --objects: only those props are baked again.
 """
-import argparse, glob, hashlib, json, os, shutil, socket, subprocess, sys, time, urllib.request
+import argparse, glob, hashlib, json, os, shutil, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "props"))
@@ -83,11 +83,6 @@ def run(cmd, **kw):
     print(">", " ".join(os.path.relpath(c, ROOT) if os.path.isabs(c) and c.startswith(ROOT) else c for c in cmd), flush=True)
     subprocess.run(cmd, cwd=ROOT, check=True, **kw)
     print(f"  done in {time.time() - t:.0f} s", flush=True)
-
-
-def free_port():
-    with socket.socket() as k:
-        k.bind(("127.0.0.1", 0)); return k.getsockname()[1]
 
 
 # ------------------------------------------------------------------ stamps (props/bake.lock.json)
@@ -164,7 +159,7 @@ def inputs(step):
     if step == "layout":
         three = json.load(open(os.path.join(ROOT, "node_modules/three/package.json"))).get("version") if os.path.exists(os.path.join(ROOT, "node_modules/three/package.json")) else None
         files = tree("apps/canopy-prototype", skip=("models", "lmpreview")) + [os.path.join(ROOT, "props/shadow", f) for f in ("export_casters.cjs", "layout_pure.mjs")]
-        return {**hashes(files), "cmd": ["picked", a.jeep], "three": three}
+        return {**hashes(files), "cmd": [a.jeep], "three": three}
     if step == "jeep":
         return {**hashes([os.path.join(ROOT, "props/jeep/build_jeep.py")] + tree("props/lib", exts=(".py",))), "cmd": JEEP_CMD,
                 "blender": tool_version(BLENDER)}
@@ -234,21 +229,7 @@ def stamp(step, before):
 
 # ------------------------------------------------------------------ the steps
 def step_layout():
-    port = free_port()                                       # never one another server or bake already holds
-    srv = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    try:
-        for _ in range(50):
-            if srv.poll() is not None:
-                sys.exit(f"the layout server on port {port} stopped at once (exit {srv.returncode})")
-            try:
-                urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=1); break
-            except OSError:
-                time.sleep(0.2)
-        else:
-            sys.exit(f"the layout server on port {port} did not answer in 10 s")
-        run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), "picked", a.jeep], env={**os.environ, "LAYOUT_PORT": str(port)})
-    finally:
-        srv.terminate()
+    run(["node", os.path.join(ROOT, "props/shadow/export_casters.cjs"), a.jeep])   # it serves the repo itself, on a free port
 
 
 def step_jeep():

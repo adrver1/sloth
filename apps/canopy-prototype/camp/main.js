@@ -4,7 +4,6 @@
 // them in order. Each system draws from its own named random stream (core.js rng), so moving a step does not move the
 // trees or the sloths; a step only has to come after the steps whose parts it uses, as the comments say.
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
-import * as THREE from "three";
 import { stepLight } from "../bakedlight.js";
 import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime, wireSettings } from "./core.js";
 import { buildSky } from "./sky.js";
@@ -22,7 +21,7 @@ import { buildTentInside } from "./tentInside.js";
 import { atmo, buildAtmosphere } from "./campAir.js";
 import { acts, buildChores } from "./chores.js";
 import { buildOperator, opStep } from "./operator.js";
-import { aimStep, initInput, resize } from "./input.js";
+import { aimStep, initInput, resize, warmHighlight } from "./input.js";
 import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
 import { dayStep, wireTimeMenu } from "./daytime.js";
@@ -33,6 +32,16 @@ import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
 import { createDaylight, daylightStep, light, setLight } from "./daylight.js";
 import { ready, stats } from "./debug.js";
+
+// the start view first (?pos=, ?yaw=, ?pitch=, core.js OPT), so the build sees where you stand: daylight.js puts the moon in
+// front of it (review R2-070)
+if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }
+if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
+
+// the two Fredoka weights the canvas faces paint with (clock.js, car.js, radio.js, fx.js): canvas text neither waits for nor
+// starts a web font, so start them now and wait for them, at most 1.5 s, before the clocks are painted (review R2-072)
+const fonts = Promise.race([Promise.all(["700 46px Fredoka", "600 22px Fredoka"].map((f) => document.fonts?.load(f))).catch(() => {}),
+  new Promise((ok) => setTimeout(ok, 1500))]);
 
 // ================================================================ the build, in order (every download started at once in core.js PRE)
 // the world: the sky, then the forest (its root mounds shape the ground's height, which everything after stands on), then the
@@ -47,7 +56,7 @@ buildSloths();                         // sloths.js: the wild sloths, then the c
 // ground, painted round the blockers as they stand then; the tent's walls join the blockers only after that
 buildDeadwood();                       // deadwood.js
 buildGlade();                          // glade.js: its plants go into the ground's draw
-buildGround(await PRE.groundMask);     // campGround.js: waits for the ground mask's download
+await buildGround();                   // campGround.js: waits for the ground's baked maps
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
 buildChores();                         // chores.js: your activities
@@ -60,6 +69,7 @@ initAudio();                           // audio.js: the first-tap listeners, the
 buildWeather();                        // weather.js: the ⚙️ Weather button and the rain streaks
 buildLinger();                         // linger.js: the log seats light up
 wireTimeMenu();                        // daytime.js: the ⚙️ menu's time slider and Day cycle button
+await fonts;                           // the clock and radio faces below are painted once, so in the camp's own font
 buildClocks();                         // clock.js: the tent's alarm clock and the dial on the hammock post
 buildRadio();                          // radio.js: the radio on the snack table
 buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
@@ -67,17 +77,58 @@ buildCar();                            // car.js: the key, the dash radio and th
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
 
 // ================================================================ loop, with an fps panel and a resolution safety net
-let pr = renderer.getPixelRatio();   // the resolution, lowered by the safety net in the loop
 addEventListener("resize", resize); resize();
-camera.far = 80;
-if (OPT.pos) { const [x, z] = OPT.pos; me.pos.set(x, 0, z); }   // ?pos=, ?yaw=, ?pitch=: the start view (core.js OPT)
-if (OPT.yaw !== null) me.yaw = OPT.yaw; if (OPT.pitch !== null) me.pitch = OPT.pitch;
-const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
-// compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card
-await renderer.compileAsync(scene, camera).catch(() => {});
+
+// the fps panel and the resolution safety net (review R2-057). It judges frame time against the display's own rate, so a
+// 30 Hz screen is not counted as slow: after a second of grace (the first frames upload textures)
+// it takes the median frame interval of the next second as the target (at most 1/30 s, so a phone that is slow from the
+// start still counts as slow). Then, once a second: two seconds in a row slower than 1.4 times the target lower the
+// resolution by 0.25 (down to 1); a run of good seconds raises it by 0.25 again, up to the Detail level's own (D.pr). The run
+// is 10 s, doubled each time it has to lower again, so it does not see-saw. A second with a frame over 1.5 s (a hidden tab) is not judged.
+// The fps pill (only with ?dev) shows the resolution it uses now (for example 1.75×); debug.js's stats are filled either way.
+const PR_MAX = renderer.getPixelRatio();
+const net = { pr: PR_MAX, t: 0, ivs: [], target: 0, slow: 0, good: 0, wait: 10, downs: 0, pause: false };
+let frames = 0, acc = 0;
+const setPr = (pr) => { net.pr = pr; renderer.setPixelRatio(pr); resize(); };
+function perfStep(raw) {
+  frames++; acc += raw; net.t += raw;
+  if (raw > 1.5) net.pause = true;   // a pause (a hidden tab): this second is not judged
+  if (!net.target && net.t > 1) {
+    net.ivs.push(raw);
+    if (net.t > 2) { net.ivs.sort((a, b) => a - b); net.target = Math.min(net.ivs[net.ivs.length >> 1], 1 / 30); net.ivs = null; }
+  }
+  if (acc < 1) return;
+  const fps = frames / acc, avg = acc / frames, i = renderer.info.render;
+  if (net.target && !net.pause) {
+    if (avg > 1.4 * net.target) {
+      net.good = 0;
+      if (++net.slow >= 2 && net.pr > 1) { setPr(Math.max(1, net.pr - 0.25)); net.slow = 0; net.wait = Math.min(160, 10 * 2 ** net.downs++); }
+    } else {
+      net.slow = 0;
+      if (avg < 1.2 * net.target && net.pr < PR_MAX && ++net.good >= net.wait) { setPr(Math.min(PR_MAX, net.pr + 0.25)); net.good = 0; }
+    }
+  }
+  Object.assign(stats, { fps: Math.round(fps), calls: i.calls, tris: i.triangles, pr: net.pr, detail: DETAIL });
+  if (OPT.dev) $("perf").innerHTML = `${Math.round(fps)} fps · ${+net.pr.toFixed(2)}×<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
+  frames = 0; acc = 0; net.pause = false;
+}
+// compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card.
+// three compiles only what is visible, so everything hidden now (the night dome and the moon, the mist, the rain, the pools,
+// the jeep's far model, the highlight's hulls, things the sloths hold) is shown for the call and hidden again after. Lights
+// are left as they are: the shaders are built for the lights that are on (review R2-102)
+warmHighlight();                                           // input.js: the highlight's hulls, hidden, so they compile too
+{
+  // compileAsync builds the programs before it returns (its promise only waits for the driver), so they are hidden again
+  // before any other code can run
+  const hidden = []; scene.traverse((o) => { if (!o.visible && !o.isLight) { hidden.push(o); o.visible = true; } });
+  const compiled = renderer.compileAsync(scene, camera);
+  for (const o of hidden) o.visible = false;
+  await compiled.catch(() => {});
+}
 $("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
-renderer.setAnimationLoop(() => {
-  const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
+let last = 0;   // the time stamp of the last frame, in ms, from the one the loop is handed (THREE.Clock is deprecated: R2-126)
+renderer.setAnimationLoop((now) => {
+  const raw = last ? (now - last) / 1000 : 0, dt = Math.min(raw, 0.05); last = now; uTime.value += dt;
   jeepSeatStep(dt); lingerStep(dt); step(dt);
   slothsStep(dt);                                          // sloths.js: every sloth's clip, its life on top of it, the squish of a boop and its nod
   campStep(dt, me.seat);                                   // sloths.js: the camp sloths' day; no one sits on the seat you are on
@@ -105,14 +156,6 @@ renderer.setAnimationLoop(() => {
   audioStep(dt, dusk); radioStep(dt);
   shadowStep();                                            // campGround.js: the sun shadows, re-cast while the props load
   renderer.render(scene, camera);
-  frames++; acc += raw;
-  if (acc >= 1) {
-    const fps = frames / acc, i = renderer.info.render;
-    slow = fps < 45 ? slow + 1 : 0;
-    if (slow >= 2 && pr > 1) { pr = Math.max(1, pr - 0.25); renderer.setPixelRatio(pr); resize(); slow = 0; }
-    Object.assign(stats, { fps: Math.round(fps), calls: i.calls, tris: i.triangles, pr, detail: DETAIL });
-    $("perf").innerHTML = `${Math.round(fps)} fps<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
-    frames = 0; acc = 0;
-  }
+  perfStep(raw);                                           // the fps panel and the resolution safety net, above
 });
 ready();   // debug.js: window.__ready, which the tools wait for

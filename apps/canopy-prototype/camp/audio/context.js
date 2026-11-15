@@ -2,6 +2,8 @@
 // context with its three buses into a gentle compressor, the small node helpers every sound is built from (spot, env, osc,
 // noise, filt, gain), and starting it all: on the first tap (start, unlock: iOS needs a real tap and a silent sample), the
 // Tap for sound pill (makeHint, showHint) and waking it after a tab switch (wake). Nothing is made on import.
+// The settings: set (this visit's values), loadSettings(), saved() (the JSON to store: the URL's one-visit overrides left out)
+// and own(key) (the viewer changed key, so it is stored from now on).
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): LEVEL and the bus gains are the knobs.
 import * as THREE from "three";
 import { KEYS, OPT, store } from "../core.js";
@@ -13,14 +15,22 @@ const LEVEL = { master: 0.9, nature: 0.75, sfx: 0.85, music: 0.8 };   // the mix
 const STATIONS = [{ id: "drift", name: "Slow drift", emoji: "🌫️" }, { id: "campfire", name: "Campfire guitar", emoji: "🎸" }, { id: "kalimba", name: "Kalimba drift", emoji: "🎶" }, { id: "lullaby", name: "Music-box lullaby", emoji: "🌙" }];
 // the settings: these defaults until initAudio() reads the viewer's saved ones and the URL (?sound=0, ?station=)
 const set = { volume: 0.8, muted: false, music: true, musicVolume: 0.5, station: "drift" };
+// the saved values that ?sound=0 and ?station= replace for this visit only: saved() writes these back instead, so a check
+// link does not leave later visits muted (review R2-056). A setting the viewer changes on the page is theirs again (own).
+const urlOnly = {};
 function loadSettings() {
   Object.assign(set, (() => { try { return JSON.parse(store.get(KEYS.audio) || "{}"); } catch { return {}; } })());
   if (!(set.v >= 2)) { set.station = "drift"; set.v = 2; }   // Slow drift became the default station (Adriaen 2026-11-13)
-  if (!OPT.sound) set.muted = true;
-  if (STATIONS.some((s) => s.id === OPT.station)) set.station = OPT.station;
+  if (!OPT.sound) { urlOnly.muted = set.muted; set.muted = true; }
+  if (STATIONS.some((s) => s.id === OPT.station)) { urlOnly.station = set.station; set.station = OPT.station; }
 }
+const own = (key) => { delete urlOnly[key]; };
+const saved = () => JSON.stringify({ ...set, ...urlOnly });
 
 let ac = null, master, comp, bus = {}, NOISE, BROWN, CRICKET;
+// started: the first tap has started the sound (and the music clock). kick: the next tap must resume the context again
+// (after a tab switch or a phone suspending it, see wake). hint: the Tap for sound pill, once makeHint has made it.
+let started = false, kick = false, hint = null;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 // ---------------------------------------------------------------- the graph: three buses into a gentle compressor
@@ -94,13 +104,11 @@ function start() {
   return true;
 }
 // the "Tap for sound" pill (made by makeHint, which initAudio calls): shown if the sound still hasn't started after a tap
-let hint = null, started = false;
 const HINT_CSS = "position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:4;display:none;font:600 15px var(--display);color:var(--ink);background:rgb(255 248 238 / .94);border:0;border-radius:999px;padding:9px 16px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";
 function showHint() { if (hint) hint.style.display = ac && !set.muted && ac.state !== "running" ? "block" : "none"; }
 // switching tabs or apps (Adriaen 2026-11-14: the sound didn't come back): pause while hidden, and on the way back try to
 // resume at once. Phones often refuse that without a tap (iOS can also leave the context "running" but silent), so the next
 // tap anywhere wakes it again inside the tap, and the Tap for sound pill shows if it is still off.
-let kick = false;
 function wake() { if (!ac || !started || set.muted || document.hidden) return; kick = true; ac.resume().catch(() => {}); setTimeout(showHint, 700); }
 
 // a small pill if the sound still hasn't started after a tap (some phones and in-app browsers): tapping it starts it for sure
@@ -111,4 +119,4 @@ function makeHint() {
   document.body.append(hint);
 }
 
-export { ac, applyGain, BROWN, bus, comp, CRICKET, env, filt, gain, loadSettings, makeHint, noise, osc, pick, set, showHint, spot, start, STATIONS, wake };
+export { ac, applyGain, BROWN, bus, comp, CRICKET, env, filt, gain, loadSettings, makeHint, noise, osc, own, pick, saved, set, showHint, spot, start, STATIONS, wake };

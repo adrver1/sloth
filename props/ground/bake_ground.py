@@ -3,7 +3,7 @@ Canopy Camp's ground, baked offline (Adriaen 2026-11-12: the live-painted dirt "
 re-bake when something major moves). Replaces ground.js's soft canvas blobs with a worn camp floor built from fractal noise
 at several scales, so dirt edges break up into trampled patches the way real camp ground does.
 
-    node props/shadow/export_casters.cjs picked            # also writes props/shadow/layout_picked.json from the live page
+    node props/shadow/export_casters.cjs                   # also writes props/shadow/layout_picked.json from the live page
     python3 props/ground/bake_ground.py --props picked     # numpy + Pillow, about 20 s
 
 Reads the layout ("wear", the named things people use, camp/layout.js WEAR; the jeep's track, the path to the glade, the

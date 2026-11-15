@@ -16,19 +16,19 @@ const EYE = 1.55, SPEED = 1.7, BODY = 0.25;   // BODY: how far you keep from thi
 // down; step() adds drop, how far the eye is lowered on that seat
 const me = { vel: V(), pos: d0.clone().multiplyScalar(-4.4).addScaledVector(t0, -0.6), yaw: 0, pitch: 0.08, walkT: 0, lastDrag: -9, seat: null, sitK: 0 };
 me.yaw = yawTo(d0);       // face the fire and the big tree behind it
-const look = V();
+const look = V(), fwd = V(), right = V(), wish = V(), next = V(), near = V();   // scratch vectors, reused every frame
 // the first stretch of the jeep's track is walkable: past the clearing edge you stay within WALK_W of its centre line,
 // up to WALK_R from the middle, where it fades into the forest
 const WALK_R = RC + 8, WALK_W = 0.9, walkPts = track ? track.pts.filter((q) => Math.hypot(q.x, q.z) < WALK_R) : [];
 // (util.js polyDist finds the same point, but takes the distance before rounding the point, so its last bits differ; this one stays)
 function onTrack(p) {                                  // the nearest point on the walkable stretch, and how far p is from it
-  let best = null, bd = 1e9;
+  let found = false, bd = 1e9;
   for (let i = 1; i < walkPts.length; i++) {
     const a = walkPts[i - 1], b = walkPts[i], dx = b.x - a.x, dz = b.z - a.z, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz)));
     const x = a.x + dx * t, z = a.z + dz * t, d = Math.hypot(p.x - x, p.z - z);
-    if (d < bd) { bd = d; best = V(x, 0, z); }
+    if (d < bd) { bd = d; near.set(x, 0, z); found = true; }
   }
-  return [best, bd];
+  return [found ? near : null, bd];   // the point is the shared scratch vector near: use it before the next call
 }
 function collide(p) {
   const r = Math.hypot(p.x, p.z), lim = RC - 0.7;
@@ -57,17 +57,17 @@ function collide(p) {
 }
 function step(dt) {
   let moving = false;
-  const fwd = V(-Math.sin(me.yaw), 0, -Math.cos(me.yaw));
+  fwd.set(-Math.sin(me.yaw), 0, -Math.cos(me.yaw));
   // walk with the stick (phone) or WASD / arrows (computer), like desk-at-night's free mode
-  const right = V(-fwd.z, 0, fwd.x);
+  right.set(-fwd.z, 0, fwd.x);
   const ax = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) + stickV.x;
   const az = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) - stickV.y;
-  const wish = fwd.clone().multiplyScalar(az).addScaledVector(right, ax); if (wish.lengthSq() > 1) wish.normalize();
+  wish.copy(fwd).multiplyScalar(az).addScaledVector(right, ax); if (wish.lengthSq() > 1) wish.normalize();
   if (me.seat && wish.lengthSq() > 0.01) { if (me.seat.leave) me.seat.leave(); else me.seat = null; }   // walking stands you up (a seat with .leave, the jeep's, gets you out its own way)
   me.sitK += Math.sign((me.seat ? 1 : 0) - me.sitK) * Math.min(Math.abs((me.seat ? 1 : 0) - me.sitK), dt * 1.6);
   if (me.seat) { me.vel.set(0, 0, 0); me.pos.lerp(me.seat.pos, 1 - Math.exp(-4 * dt)); }
   else me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
-  if (!me.seat && me.vel.length() > 0.05) { moving = true; const p = me.pos.clone().addScaledVector(me.vel, dt); collide(p); me.pos.copy(p); }
+  if (!me.seat && me.vel.length() > 0.05) { moving = true; next.copy(me.pos).addScaledVector(me.vel, dt); collide(next); me.pos.copy(next); }
   if (moving) me.walkT += dt;
   const feet = me.pos; feet.y = groundHeight(feet.x, feet.z);   // level in the camp and on the paths; the rim rises a little at the edge
   const bob = moving ? Math.sin(me.walkT * 7) * 0.03 : 0;

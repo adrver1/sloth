@@ -40,7 +40,7 @@ Each app is a static page. Its models sit next to it as base64 `.txt` files (Can
 | Sloths | `sloths.js` (the way in), `cast.js` (the seven names), `sloth/` (one job per module: body, clips, face, spots, the ways in and out, day, naps, eating, cards, step...) |
 | Operator | `operator.js` (the way in), `operator/` (model, state, places, walk, day, cook, buddy, talk, the poses after the clip) |
 | You | `player.js`, `input.js` (keys, stick, look, taps, the menus), `highlight.js`, `nav.js`, `audio.js` (all sound, made in WebAudio: the way in, with `audio/` holding the context, the sounds, the music and the camp watchers) |
-| Tools and lab | `debug.js` (every `window.__` name the headless tools use, with who reads it; set by `ready()` once the camp is built), `lab.js` and `labButton.js` (the move lab, `?lab`) |
+| Tools and lab | `debug.js` (every `window.__` name the headless tools use, with who reads it; set by `ready()` once the camp is built), `lab.js` and `labButton.js` (the move lab, `?lab`; its button, the fps pill and the Detail and Light buttons show only with `?dev`) |
 
 The throwaway pages the camp grew from (the forest look, the nooks, the seven names side by side) are in `apps/canopy-prototype/prototypes/`; the deploy leaves them out.
 

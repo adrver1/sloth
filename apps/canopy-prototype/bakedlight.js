@@ -43,6 +43,7 @@ const BINARY = document.querySelector('meta[name="camp-models"]')?.content === "
 export async function fetchBytes(txt) {
   const r = await fetch(BINARY ? txt.replace(/(\.ktx2)?\.txt$/, (m, k) => k || ".glb") : txt);
   if (!r.ok) throw new Error(`${r.status} ${r.url}`);
+  if (!r.ok) throw new Error(`${txt} ${r.status}`);   // a failed download names its file (review R2-058)
   return BINARY ? new Uint8Array(await r.arrayBuffer()) : b64bytes((await r.text()).trim());
 }
 // loadLightMap(png, { ktx }): the map as a texture, from its .ktx2.txt when there is one, else the .png. ktx: false skips the
