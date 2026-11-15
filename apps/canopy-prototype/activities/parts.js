@@ -32,9 +32,8 @@ export const bubbleTex = tex(32, 32, (g) => { g.strokeStyle = "rgba(255,244,225,
 // top half and the logs seen from above bottom right: the sides take one log's strip (x0, y0, width, height; mirrored
 // round, so no seam) and the caps one round end (centre x, y and half-size). They are set once, in props/lived/build_lived.py
 // CARRIED, and the light bake puts them on the WoodStack in lived.glb (camp/campProps.js WOOD_SPOTS, review R2-243).
-// CARRIED here is the same pair, for a lived.glb baked before that; drop it once the light bake has run.
-const CARRIED = { side: [540, 555, 62, 455], end: [440, 92, 60] };
-export function paintLogs(woodTex, spots = CARRIED) {
+export function paintLogs(woodTex, spots) {
+  if (!spots) { console.error("lived.txt's WoodStack has no carried spots; rebuild it (props/bake_all.py)"); return; }
   const px = (x, y) => [x / 1024, woodTex.flipY ? 1 - y / 1024 : y / 1024], uv = logGeo.attributes.uv, side = (6 + 1) * 2;
   const [sx, sy, sw, sh] = spots.side, [ex, ey, eh] = spots.end;
   for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i);

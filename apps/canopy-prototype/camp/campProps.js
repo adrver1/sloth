@@ -57,14 +57,15 @@ const FIRE_CARDS = [];   // the fire's flame cards (the activities flare them)
 // The anchors the builders put in the GLBs (review R2-252): laundry.glb's LineA, LineB and Hang (build_laundry.py) and fire.glb's
 // Soup, scaled by the soup's radius (build_fire.py). layout.js keeps LAUNDRY and SOUP_POT as plain values, since the sloths read
 // them at import, so this checks each value against its anchor once the model is placed, and logs a console error when they differ
-// by more than 5 mm (the probe and the play-tests list those). A GLB baked before R2-252 has no anchors, and nothing is checked.
+// by more than 5 mm (the probe and the play-tests list those), or when the anchor is missing.
 // The anchors stay in the loaded GLB's scene (stand moves only the tagged props out of it), so each is placed in the set's
 // frame here, frame = the set's layout.js ANCHORS entry ({ at, yaw }).
 // want: [[anchor name, the layout.js point, the radius or undefined], ...]
 const UP = new THREE.Vector3(0, 1, 0);
 function checkAnchors(root, want, file, frame) {
   for (const [name, at, r] of want) {
-    const n = root.getObjectByName(name); if (!n) continue;
+    const n = root.getObjectByName(name);
+    if (!n) { console.error(`${file} has no ${name} anchor; rebuild it (props/bake_all.py)`); continue; }
     const p = n.getWorldPosition(V()).applyAxisAngle(UP, frame.yaw).add(frame.at), s = n.getWorldScale(V()).x;
     if (p.distanceTo(at) > 0.005 || (r !== undefined && Math.abs(s - r) > 0.005))
       console.error(`layout.js disagrees with ${file}'s ${name} anchor: (${p.toArray().map((v) => v.toFixed(3))}${r !== undefined ? `, r ${s.toFixed(3)}` : ""}); update layout.js`);
@@ -114,7 +115,7 @@ const lnight = (mat) => {
   });
 };
 // painted: the tent's and the hammock's material, their painted atlas (props/camp/paint_camp.py camp_paint.png, on UV0) over
-// their vertex colours (reviews R2-177 and R2-203); a camp set baked before them has no atlas and keeps lamL. Tags from
+// their vertex colours (reviews R2-177 and R2-203). Tags from
 // build_camp.py: double_sided (the hammock's one-sided sling and end cards, lit from below as from above), cutout (the cards' painted strings: alpha
 // to coverage, so their edges stay soft with MSAA, and alpha scaled up with the mip level, so far off a 4 px string does not
 // fade below the test and vanish). One material per kind, shared by the meshes that need it. The tent is never cut out: its
@@ -139,22 +140,12 @@ function painted(m) {
   return PAINTED.get(key);
 }
 // stand: moves every node of a loaded props GLB into the scene where its anchor tag says (userData.anchor, a key of layout.js
-// ANCHORS, written by the bake from props/lib/export.py tag, review R2-249), or onto the log seats ("seats": userData.seat,
-// or one copy on each seat). Nodes with no anchor are left out.
-// GLBs baked before R2-249 carry no tags, so until the next light bake rewrites them their nodes' anchors come from
-// their names here; delete UNTAGGED once models/ holds GLBs with tags.
-const UNTAGGED = { Seat: "seats", SeatTop: "seats", Tent: "tent", Hammock: "hammock", HammockPosts: "hammock", Table: "table", WoodPile: "woodPile", WoodStack: "woodPile",
-  LooseLogs: "woodPile", SeatThings: "seatThings", TentSide: "tent", MatRoll: "tent", KitchenCrate: "kitchen", KitchenThings: "kitchen",
-  LaundryPosts: "laundry", LaundryCloth: "laundry", Ring: "fire", Tripod: "fire", TripodLegs: "fire", Fire: "fire", Embers: "fire", Pot: "fire", Chain: "fire" };
+// ANCHORS, written by the bake from props/lib/export.py tag, review R2-249), or onto its log seat ("seats": layout.js
+// SEATS[userData.seat]). Nodes with no anchor are left out.
 function stand(root) {
   for (const o of [...root.children]) {
-    const k = o.userData.anchor ?? UNTAGGED[o.name.replace(/_\d+$/, "")];
-    if (k === "seats") {
-      const i = o.userData.seat ?? o.name.match(/_(\d+)$/)?.[1];
-      (i == null ? SEATS : [SEATS[+i]]).forEach(({ at, yaw }, j) => { const c = j ? o.clone() : o; c.position.set(at.x, 0, at.z); c.rotation.set(0, yaw, 0); scene.add(c); });
-    } else if (ANCHORS[k]) {
-      const { at, yaw } = ANCHORS[k]; o.position.set(at.x, 0, at.z); o.rotation.set(0, yaw, 0); scene.add(o);
-    }
+    const k = o.userData.anchor, A = k === "seats" ? SEATS[o.userData.seat] : ANCHORS[k];
+    if (A) { o.position.set(A.at.x, 0, A.at.z); o.rotation.set(0, A.yaw, 0); scene.add(o); }
   }
 }
 // buildProps (main.js, once, after the forest): the lanterns, the fire's light, the sunbeams and motes, then (once their downloads are
@@ -207,7 +198,7 @@ async function buildProps() {
     fromModel(P.scene.getObjectByName("Tent")?.userData, P.scene.getObjectByName("Hammock")?.userData);   // the tent's and hammock's sizes (layout.js)
     const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
     P.scene.traverse((m) => { if (m.isMesh) m.material = m.userData.paint_image && m.material.map ? painted(m) : m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : lamL; });   // the hammock posts are textured (bamboo.png, review R2-169)
-    stand(P.scene);   // the seats (each copy on its own, Seat_0-2, since each is lit where it stands), the tent, the hammock with its posts (a GLB baked before R2-169 has them in the Hammock) and the table
+    stand(P.scene);   // the seats (Seat_0-2, each lit where it stands), the tent, the hammock with its posts and the table
   }
   // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
   // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first.

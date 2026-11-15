@@ -136,11 +136,11 @@ export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 // bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there, and the sloths nap there: sloth/spots.js
 // buildGuests, sloth/wayOut.js bedOut). In a group at the tent turned by its yaw (the sloths' tent frame), that is (bx, 0, -by).
 // floor: see bare below.
-// These sizes are build_camp.py's: fromModel (below) puts in the ones the Tent node carries, and the numbers here stand in for them.
+// These sizes are build_camp.py's: fromModel (below) copies them from the Tent node once the camp set has loaded.
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
   const t = tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
-  return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49], pegs: [],   // chimney: the pipe's mouth [bx, by, height]; pegs: the guy ropes' pegs [bx, by] (none on a set baked before R2-203)
+  return { at: t, yaw: yawTo(t),   // fromModel adds W, yf, yb, DW, stove, chimney (the pipe's mouth [bx, by, height]), bed and pegs (the guy ropes' pegs [bx, by])
     toLocal: (x, z) => { const dx = x - t.x, dz = z - t.z; return [dx * fx + dz * fz, dx * fz - dz * fx]; },
     fromLocal: (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz),
     // in toLocal's terms: the floor rectangle (a from a0 to a1, |b| below b) is kept level (terrain.js) and has no grass in the tent or
@@ -155,20 +155,22 @@ export const TENT = (() => {
 // meets the sling's end (+-endX, endY below the knots); sling, the height of the sling's bed; roof, the band of y over
 // which the swing fades out, so the posts and the leaves on top stay put. swing.js bends the sling in its vertex shader
 // with these, and the sloths climb the rope along them (sloth/poses.js, review R2-141).
-// pivot, knotX, endX and endY are build_camp.py's ROPE and post spacing: fromModel puts in the ones the Hammock node carries
-// (its knot and rope_end), and the numbers here stand in for them, like the tent's sizes.
+// pivot, knotX, endX and endY are build_camp.py's ROPE and post spacing: fromModel copies them from the Hammock node's knot and
+// rope_end, like the tent's sizes.
 const hA = d0.clone().multiplyScalar(-1.5).addScaledVector(t0, -4.6), hB = hA.clone().addScaledVector(d0, -2.6).addScaledVector(t0, -1.2);
 export const HAMMOCK = { a: hA, b: hB, mid: hA.clone().add(hB).multiplyScalar(0.5), yaw: (() => { const hd = hB.clone().sub(hA); return -Math.atan2(hd.z, hd.x); })(),
-  pivot: 1.75, knotX: 1.43, endX: 1.03, endY: -0.40, sling: 0.72, roof: [1.8, 1.95] };
+  sling: 0.72, roof: [1.8, 1.95] };
 // fromModel(tent, hammock): the camp set's Tent and Hammock nodes carry build_camp.py's sizes as glTF extras (their userData;
-// review R2-250), and this copies them over the numbers in TENT and HAMMOCK. The Hammock node's knot and rope_end are the -x
-// post's rope in the model's Blender frame [x along the span, y across, z up]. campProps.js buildProps calls it as soon as the
-// set has loaded, before any module reads them. The numbers above only stand in for a camp set baked before the extras
-// existed; drop them, and this fallback, after the next light bake.
+// review R2-250), and this copies them into TENT and HAMMOCK. The Hammock node's knot and rope_end are the -x post's rope in
+// the model's Blender frame [x along the span, y across, z up]. campProps.js buildProps calls it as soon as the set has
+// loaded, before any module reads them. It throws when a size is missing: the tent and the hammock cannot work without them.
+const TENT_SIZES = ["W", "yf", "yb", "DW", "stove", "chimney", "bed", "pegs"];
 export function fromModel(tent = {}, hammock = {}) {
-  for (const k of ["W", "yf", "yb", "DW", "stove", "chimney", "bed", "pegs"]) if (tent[k] !== undefined) TENT[k] = tent[k];
+  const miss = [...TENT_SIZES.filter((k) => tent[k] === undefined), ...["knot", "rope_end"].filter((k) => !hammock[k])];
+  if (miss.length) throw new Error(`camp_picked_lm.txt's Tent or Hammock lacks ${miss.join(", ")}; rebuild it (props/bake_all.py)`);
+  for (const k of TENT_SIZES) TENT[k] = tent[k];
   const { knot: k, rope_end: e } = hammock;
-  if (k && e) Object.assign(HAMMOCK, { pivot: k[2], knotX: -k[0], endX: -e[0], endY: e[2] - k[2] });
+  Object.assign(HAMMOCK, { pivot: k[2], knotX: -k[0], endX: -e[0], endY: e[2] - k[2] });
 }
 export const TABLE = { at: d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.2), yaw: 0.6 };   // the snack table
 // the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame (l0) and the hammock's

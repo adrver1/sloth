@@ -43,11 +43,11 @@ async function buildJeep() {
   for (const b of wearBlockers("jeep")) addBlocker(b);   // two circles along the jeep (layout.js WEAR)
   // the doors and the hood (Adriaen 2026-11-12, hinged at the windscreen): how far each swings (rad) and about which axis come
   // from the node's glTF extras, "open" and "axis", which build_jeep.py writes from its HINGES and HOOD_OPEN (review R2-250).
-  // OLD stands in for a jeep GLB built before the extras; drop it once the jeep is rebuilt and baked again.
-  const OLD = { DoorP: [-1.2, "y"], DoorD: [1.2, "y"], BackDoor: [1.75, "y"], Hood: [-1.15, "x"] }, doors = {};
+  const doors = {};
   for (const [k, n] of Object.entries({ P: "DoorP", D: "DoorD", B: "BackDoor", H: "Hood" })) {
     const o = jeep.getObjectByName(n); if (!o) continue;
-    const { open = OLD[n][0], axis = OLD[n][1] } = o.userData;
+    const { open, axis } = o.userData;
+    if (open === undefined || !axis) { console.error(`the jeep's ${n} has no open/axis extras; rebuild it (props/jeep/build_jeep.py)`); continue; }
     doors[k] = { o, open, axis, cur: 0, want: 0 };
   }
   const world = (n) => jeep.getObjectByName(n)?.getWorldPosition(V()) ?? at.clone();

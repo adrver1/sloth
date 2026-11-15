@@ -90,10 +90,10 @@ export function createActivities({ scene, camera, me, places: { woodPile, fire, 
   // sloth or the operator (Adriaen 2026-11-13: veg from the crate, fruit from the fruit bowl)
   const tableObj = scene.getObjectByName("Table");
   const fruitBowl = tableObj && splitBowl(tableObj);
-  if (tableObj) {
-    tableObj.updateMatrixWorld(true);
-    const bowlAt = fruitBowl ? fruitBowl.localToWorld(fruitBowl.geometry.boundingBox.getCenter(V())) : tableObj.localToWorld(V(-0.2, 0.72, 0.05));   // the plate's middle
-    thing({ name: "fruitbowl", at: bowlAt, r: 0.28, look: [fruitBowl ?? tableObj], ...source("fruit", () => { const [n, e] = carry.takeNext("fruit"); toast(`Got ${an(n)} ${n} ${e}`.trim(), "knock"); }),
+  if (fruitBowl) {
+    fruitBowl.updateMatrixWorld(true);
+    const bowlAt = fruitBowl.localToWorld(fruitBowl.geometry.boundingBox.getCenter(V()));   // the plate's middle
+    thing({ name: "fruitbowl", at: bowlAt, r: 0.28, look: [fruitBowl], ...source("fruit", () => { const [n, e] = carry.takeNext("fruit"); toast(`Got ${an(n)} ${n} ${e}`.trim(), "knock"); }),
       label: () => { const [n, e] = held() === "fruit" ? carry.now("fruit") : carry.next("fruit"); return (held() === "fruit" ? `Put the ${n} back ${e}` : `Take ${an(n)} ${n} ${e}`).trim(); } });
   }
   // the log seats: somewhere to set a bowl down (an option on the seat's own tap target, linger.js, beside sitting down)
