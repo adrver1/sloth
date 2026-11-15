@@ -1,4 +1,4 @@
-// Summit Cabin walking, first person: keyboard, stick, drag to look, Run, Jump to; the settings panel's handlers (time, weather,
+// Summit Cabin walking, first person: keyboard, stick, drag to look, Jump to; the settings panel's handlers (time, weather,
 // haze, wireframe), the Speed and Walk tests (prof), and showTris for the triangle table; the tests, jumps, table and fps line show with ?debug=1. walk(dt) each frame.
 import { stats } from './debug.js';
 import * as THREE from 'three';
@@ -10,7 +10,7 @@ import { CAMP } from './scoutCamp.js';
 import { SKY, WEATHER } from './daylight.js';
 
 // ---------------------------------------------------------------- walking
-// First person. Keyboard: WASD or arrows, Shift to run. Phone: the stick to walk, the Run button, drag anywhere else to look.
+// First person. Keyboard: WASD or arrows. Phone: the stick to walk, drag anywhere else to look. No running, as in the camp (Adriaen 2026-11-15).
 const faceTo = (x, z, t) => Math.atan2(-(t.x - x), -(t.z - z));   // the yaw that looks from (x, z) at t
 const PLACES = { porch: [0, -D / 2 - 1.6, 0], tower: [HT.x - 6, HT.z - 6, { x: 0, z: 0 }], camp: [CAMP.x + 1.2, CAMP.z - 5.2, { x: CAMP.x - 0.4, z: CAMP.z + 2 }] };
 const keys = new Set(), stick = { x: 0, y: 0 };
@@ -39,7 +39,7 @@ export function walk(dt) {
   if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
   if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1; if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
   f -= stick.y; s += stick.x; const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; }
-  const speed = (me.run || keys.has('ShiftLeft') || keys.has('ShiftRight') ? 12 : 3.2) * dt, sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
+  const speed = 3.2 * dt, sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
   let x = me.x + (-sy * f + cy * s) * speed, z = me.z + (-cy * f - sy * s) * speed;
   if (!BARE) { [x, z] = pushOut(x, z, 0, 0, W / 2 + 0.35, D / 2 + 0.35, 0); }
   [x, z] = treePush(x, z);
@@ -84,16 +84,15 @@ export function buildPlayer() {
     el.addEventListener('pointerdown', (e) => { id = e.pointerId; el.setPointerCapture(id); r = el.getBoundingClientRect(); set(e); });   // the stick's box is measured once per touch, not on every move
     el.addEventListener('pointermove', (e) => { if (e.pointerId === id) set(e); });
     const end = () => { id = null; stick.x = stick.y = 0; knob.style.transform = ''; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); }
-  $('run').onclick = () => { me.run = !me.run; $('run').setAttribute('aria-pressed', String(me.run)); };
   $('jump').onclick = (e) => { const p = e.target.dataset?.p; if (p) jump(p); };
   $('walkBtn').onclick = async () => {
     if (testing) return; testing = true; const out = $('speed'); out.hidden = false; $('menu').open = false;
     jump('camp'); await new Promise((r) => setTimeout(r, 1500));
-    const dts = []; prof.t = {}; prof.on = true; keys.add('KeyW'); keys.add('ShiftLeft');
+    const dts = []; prof.t = {}; prof.on = true; keys.add('KeyW');
     await new Promise((done) => { let last = 0; const t0 = performance.now(); const f = (t) => { if (last) dts.push(t - last); last = t; me.yaw += 0.5 / 60; if (t - t0 < 12000) requestAnimationFrame(f); else done(); }; requestAnimationFrame(f); });
-    keys.delete('KeyW'); keys.delete('ShiftLeft'); prof.on = false;
+    keys.delete('KeyW'); prof.on = false;
     const sorted = [...dts].sort((a, b) => a - b), avg = dts.reduce((a, b) => a + b, 0) / dts.length, q = (p) => sorted[Math.floor(p * (sorted.length - 1))];
-    out.textContent = `Walk test (running in a circle, 12 s, ratio ${renderer.getPixelRatio()})\nframes ${dts.length}: avg ${avg.toFixed(1)} ms (${(1000 / avg).toFixed(0)} fps), 95% ${q(0.95).toFixed(1)}, worst ${sorted[sorted.length - 1].toFixed(1)}\nslow frames: ${dts.filter((d) => d > 20).length} over 20 ms, ${dts.filter((d) => d > 34).length} over 34 ms\nscript per kind (times, avg, worst ms):\n` +
+    out.textContent = `Walk test (walking in a circle, 12 s, ratio ${renderer.getPixelRatio()})\nframes ${dts.length}: avg ${avg.toFixed(1)} ms (${(1000 / avg).toFixed(0)} fps), 95% ${q(0.95).toFixed(1)}, worst ${sorted[sorted.length - 1].toFixed(1)}\nslow frames: ${dts.filter((d) => d > 20).length} over 20 ms, ${dts.filter((d) => d > 34).length} over 34 ms\nscript per kind (times, avg, worst ms):\n` +
       Object.entries(prof.t).map(([k, e]) => `${k.padEnd(14)}${String(e.n).padStart(4)} ${(e.sum / e.n).toFixed(1).padStart(6)} ${e.max.toFixed(1).padStart(6)}`).join('\n');
     $('menu').open = true; testing = false;
   };

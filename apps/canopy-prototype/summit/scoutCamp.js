@@ -17,6 +17,22 @@ import { ANCHORS, SEATS, fromModel } from '../camp/layout.js';
 export let flag;
 export const mute = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, 0.6) * vec3(0.9, 0.92, 0.95);'); };   // the cozy camp's colours, toned down
 export const CAMP = { x: 0.5, z: 11.5, turn: 0 }, campGroup = new THREE.Group();
+// The chopping stump (lived.glb WoodPile, its stump at local (1.0, 0, 0.15): props/lived/build_lived.py wood_pile) stands by
+// the cabin's woodpile, not by the fire (Adriaen 2026-11-15): 0.8 m past the pile's camp-side end (cabin.js: x -(W/2 + 0.55),
+// z -1.3 to 2.1), against the west wall. WoodPile's end posts hold the camp's stack, which the summit has not got, so they
+// go; its loose logs (LooseLogs, the same frame) lie on along the wall. CHOP: the stump in the camp's frame, and its radius
+// with the roots, for castStage.js's blockers; turned a quarter so the pile's local -X (its logs) runs along the wall away from the pile.
+const CHOP_YAW = Math.PI / 2;
+export const CHOP = { at: new THREE.Vector3(-(W / 2 + 0.75) - CAMP.x, 0, 2.9 - CAMP.z), r: 0.4 };
+const CHOP_NODE = CHOP.at.clone().sub(new THREE.Vector3(1.0, 0, 0.15).applyAxisAngle(new THREE.Vector3(0, 1, 0), CHOP_YAW));
+const POST = (x, y) => y > 0.04 && Math.abs(x) < 0.66;   // a WoodPile triangle's centre on an end post (at x ±0.53, up to 0.55 m); the stump starts at x 0.73
+function dropPosts(node) {
+  node.traverse((o) => { if (!o.isMesh || !o.geometry.index) return;
+    const p = o.geometry.attributes.position, idx = o.geometry.index, keep = [];
+    for (let t = 0; t < idx.count; t += 3) { const a = idx.getX(t), b = idx.getX(t + 1), c = idx.getX(t + 2);
+      if (!POST((p.getX(a) + p.getX(b) + p.getX(c)) / 3, (p.getY(a) + p.getY(b) + p.getY(c)) / 3)) keep.push(a, b, c); }
+    o.geometry.setIndex(keep); });
+}
 // the camp's cast (castStage.js, life.js) measures some props by name: the log seats and their tops, the things on a seat, the
 // tent, the table and the kitchen crate (places.js, operator/places.js, sloth/spots.js, sloth/table.js). bakeStatic merges the props into a few draws and takes them away, so
 // each of those keeps an invisible stand-in under its name (no draw: never drawn, only measured and ray-tested), and the drawn
@@ -45,6 +61,7 @@ export function buildScoutCamp() {
         for (const node of [...gl.scene.children]) { if (keep && !keep.includes(node.name)) continue;
           { const k = node.userData.anchor, A = k === 'seats' ? SEATS[node.userData.seat] : ANCHORS[k];   // stood where its anchor says, as the camp's campProps.js stand does
             if (A) { node.position.set(A.at.x, 0, A.at.z); node.rotation.set(0, A.yaw, 0); } }
+          if (node.name === 'WoodPile' || node.name === 'LooseLogs') { node.position.copy(CHOP_NODE); node.rotation.set(0, CHOP_YAW, 0); if (node.name === 'WoodPile') dropPosts(node); }
           node.traverse((o) => { if (!o.isMesh) return;
             const m0 = o.material, flame = node.name === 'Fire' || node.name === 'Embers';
             o.material = flame ? new THREE.MeshBasicMaterial({ color: node.name === 'Fire' ? '#ffb15a' : '#ff6a2a', vertexColors: !!o.geometry.attributes.color, transparent: node.name === 'Fire', opacity: 0.9, depthWrite: node.name !== 'Fire' })

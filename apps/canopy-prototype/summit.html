@@ -44,7 +44,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 3px; border-radius: 9px; background: rgba(255,255,255,0.06); }
 .seg button { font: 600 14px var(--ui); color: var(--ink-dim); background: transparent; border: 0; border-radius: 7px; padding: 7px 4px; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: rgba(255, 194, 122, 0.18); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255, 194, 122, 0.5); }
-.seg button:focus-visible, summary:focus-visible, input:focus-visible, #run:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tricks { font-size: 14px; color: var(--ink-dim); }
 .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 8px; }
 .checks label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
@@ -55,10 +55,8 @@ td:last-child { text-align: right; color: var(--ink); }
 #hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 6px 12px; font-size: 13px; color: var(--ink-dim); white-space: nowrap; }
 #stick { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%; touch-action: none; display: none; }
 #knob { position: absolute; left: 38px; top: 38px; width: 44px; height: 44px; border-radius: 50%; background: rgba(238, 243, 250, 0.55); }
-#run { position: fixed; right: max(24px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; border-radius: 50%; font: 700 15px var(--ui); color: var(--ink); cursor: pointer; display: none; }
-#stick, #run, #stats, #hint { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--glass-solid); }   /* a blur over the moving 3D view is redone every frame */
-#run[aria-pressed="true"] { background: rgba(255, 194, 122, 0.35); box-shadow: inset 0 0 0 2px var(--accent); }
-.touch #stick, .touch #run { display: block; }
+#stick, #stats, #hint { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--glass-solid); }   /* a blur over the moving 3D view is redone every frame */
+.touch #stick { display: block; }
 #carry { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(64px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 3; }
 .touch #carry { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); }
 .pill { font: 600 15px var(--ui); color: var(--ink); padding: 9px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
@@ -73,7 +71,7 @@ td:last-child { text-align: right; color: var(--ink); }
 <body>
 
 <div id="stage"></div>
-<div id="hint" class="panel">WASD or arrows to walk · Shift to run · drag to look</div>
+<div id="hint" class="panel">WASD or arrows to walk · drag to look</div>
 <div id="stats" class="panel" hidden>…</div>
 <section id="hud" class="panel" aria-label="Scene controls">
   <details id="menu">
@@ -104,7 +102,6 @@ td:last-child { text-align: right; color: var(--ink); }
   </details>
 </section>
 <div id="stick" class="panel" aria-label="Walk"><div id="knob"></div></div>
-<button id="run" class="panel" aria-pressed="false">Run</button>
 <div id="carry"></div>
 <div id="bearing" class="panel" hidden></div>
 

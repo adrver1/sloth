@@ -19,8 +19,8 @@
 import * as THREE from 'three';
 import { D, TOP, W, YB, height } from './land.js';
 import { camera, me } from './core.js';
-import { CAMP, campGroup } from './scoutCamp.js';
-import { A0, CRATE, HAMMOCK, LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT, wearBlockers } from '../camp/layout.js';
+import { CAMP, CHOP, campGroup } from './scoutCamp.js';
+import { A0, CRATE, HAMMOCK, LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT, WOOD_PILE, wearBlockers } from '../camp/layout.js';
 import { setStage } from '../camp/stage.js';
 import { yawTo } from '../camp/util.js';
 
@@ -54,7 +54,8 @@ const blockers = [];
 const block = (at, r, walk = null) => blockers.push({ at, r, walk, wild: false, tag: null });
 block(V(0, 0, 0), 0.9, { r: 0.75 });                                                    // the fire, as in the camp
 block(TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), 1.9);               // the whole tent, as in the camp before its walls
-for (const b of [...wearBlockers('camp'), ...wearBlockers('lived')]) block(b.at, b.r);   // the seats, the table, the woodpile, the crate
+for (const b of [...wearBlockers('camp'), ...wearBlockers('lived')]) if (!b.at.equals(WOOD_PILE.at)) block(b.at, b.r);   // the seats, the table, the crate
+block(CHOP.at, CHOP.r);                                                                    // the chopping stump, by the cabin's woodpile (scoutCamp.js)
 block(PLACES.snowman.at, 0.55);
 block(st(CAMP.x - 5.2, 0, CAMP.z + 3.4), 0.15);                                          // the lantern string's pole
 block(st(CAMP.x + 5.5, 0, CAMP.z + 2.5), 0.15);                                          // the flag's pole

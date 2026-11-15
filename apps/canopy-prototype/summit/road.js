@@ -118,6 +118,7 @@ export function buildRoad() {
         const glass = hazed(new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false }), null, 'glass');   // see-through, a little tinted, as camp/jeep.js does
         gl.scene.traverse((o) => { if (!o.isMesh) return; if (o.name.startsWith('Glass')) { o.material = glass; o.renderOrder = 2; o.castShadow = false; n += tris0(o.geometry); return; } const m0 = o.material; o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : m0.color, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, opacity: m0.opacity, alphaTest: m0.alphaTest }), mute, 'mute');
           o.castShadow = false; o.receiveShadow = true; n += tris0(o.geometry); });
+        dropHoodMap(gl.scene);   // the summit's own map lies there instead (map.js)
         const turns = (o) => { for (let q = o; q; q = q.parent) if (q.userData.roll) return true; return false; };   // the road wheels turn (drive.js): not merged
         bakeStatic(gl.scene, turns);
         // its shadow comes from seven boxes (84 triangles) round body, cab, load and wheels, not its 6k triangles; drawn depth-only, never seen
@@ -134,13 +135,26 @@ export function buildRoad() {
       const path = (pts, wid, col, a) => { g.lineCap = g.lineJoin = 'round'; for (let pass = 0; pass < 3; pass++) { g.strokeStyle = col; g.globalAlpha = a * (pass === 0 ? 0.35 : pass === 1 ? 0.55 : 0.9); g.lineWidth = wid * k * (pass === 0 ? 1.8 : pass === 1 ? 1.3 : 0.8);
         g.beginPath(); pts.forEach((p, i) => { const [x, y] = at(p); const j = pass && wid > 0.6 ? (r() - 0.5) * 4 : 0; i ? g.lineTo(x + j, y + j) : g.moveTo(x, y); }); g.stroke(); } g.globalAlpha = 1; };
       const ruts = (pts) => { for (const o of [-0.8, 0.8]) path(pts.map(([x, z], i) => { const n = pts[Math.min(i + 1, pts.length - 1)], m = pts[Math.max(i - 1, 0)], dx = n[0] - m[0], dz = n[1] - m[1], l = Math.hypot(dx, dz) || 1; return [x - (dz / l) * o, z + (dx / l) * o]; }), 0.32, '#5e4d40', 0.55); };
-      path([[-22, 2.6], [-17, 2.4], [-13, 1.6], [-9, 1.4]], 2.8, '#8a7a6a', 0.55); ruts([[-24, 2.7], [-20, 2.6], [-17, 2.2], [-14.5, 1.6], [-13, 1.3]]);
+      path([[-17.4, 2.45], [-13, 1.6], [-9, 1.4]], 2.8, '#8a7a6a', 0.55); ruts([[-17.4, 2.45], [-14.5, 1.6], [-13, 1.3]]);   // from where the road's ribbon ends (x -17), not over it: drawn twice it read as a doubled road (Adriaen 2026-11-15)
       const foot = (pts) => { path(pts, 1.3, '#a99b8c', 0.45); path(pts, 0.6, '#7a6a5c', 0.5); };
       foot([[-9.5, -0.5], [-8.2, -4.5], [-5, -7], [-1.5, -7.4]]); foot([[3, -7.3], [7.4, -5.6], [7.6, 0], [6.8, 5.5], [3.5, 7.4]]);
       foot([[2.5, 8.2], [7.5, 11], [11, 11.5], [15.5, 15.5], [19, 19.5]]); foot([[-8, 2.6], [-6, 6.5], [-2.2, 8.4]]); foot([[-9.5, 2.8], [-8.6, 2.2]]); });   // no loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
     const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })));
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
   }
+}
+// The camp's painted map and compass on the jeep's bonnet (props/jeep/build_jeep.py hood_map, joined into the Hood mesh)
+// come off at the summit, where the summit's own map and compass lie in their place (map.js; Adriaen 2026-11-15). Its
+// triangles are the ones lying wholly inside the sheet (MAP_AT: centre x -0.2, z 0.98, turned 0.1, 1.0 by 0.74 m) and above
+// the bonnet's top (bonnet_z: 1.06 at z 0.42, falling 0.05 m over 1.14 m toward the front); the bonnet itself stays.
+function dropHoodMap(root) {
+  const hood = root.getObjectByName('Hood'); if (!hood?.isMesh || !hood.geometry.index) return;
+  root.updateMatrixWorld(true);
+  const g = hood.geometry, p = g.attributes.position, idx = g.index, v = new THREE.Vector3(), keep = [], a = 0.1;
+  const onMap = (i) => { v.fromBufferAttribute(p, i).applyMatrix4(hood.matrixWorld); const dx = v.x + 0.2, dz = v.z - 0.98;
+    return Math.abs(dx * Math.cos(a) - dz * Math.sin(a)) < 0.53 && Math.abs(dx * Math.sin(a) + dz * Math.cos(a)) < 0.4 && v.y > 1.06 - (0.05 * (v.z - 0.42)) / 1.14 + 0.002; };
+  for (let t = 0; t < idx.count; t += 3) { const [i, j, k] = [idx.getX(t), idx.getX(t + 1), idx.getX(t + 2)]; if (!(onMap(i) && onMap(j) && onMap(k))) keep.push(i, j, k); }
+  g.setIndex(keep);
 }
 // each frame: the jeep shows as its boxes beyond 110 m from the camera (wherever it is: drive.js drives it)
 export function roadStep() {

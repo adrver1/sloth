@@ -86,7 +86,7 @@ sky.frustumCulled = false;
 
 
 // you: where your eyes are and which way you look (player.js moves it), and the sun's direction (daylight.js sets it)
-export const me = { x: 0, z: -D / 2 - 1.6, y: TOP + YB + 1.65, yaw: 0, pitch: -0.12, run: false };
+export const me = { x: 0, z: -D / 2 - 1.6, y: TOP + YB + 1.65, yaw: 0, pitch: -0.12 };
 export const touch = matchMedia('(pointer: coarse)').matches;
 export const sunDir = new THREE.Vector3();
 
