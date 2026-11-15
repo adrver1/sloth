@@ -4,7 +4,7 @@
 // the summit's own beds instead of the jungle's:
 //   wind      brown noise through a low-pass, in gusts, stronger in the snowstorm, with a thin whistle over the lookout's height
 //   the fire  a soft roar and crackles at the fire ring, louder as you come near
-//   snow      your footsteps crunch (a step every 0.7 m, softer and quicker when you run)
+//   snow      your footsteps crunch (a step every 0.7 m)
 //   by day a raven calls far off now and then; at night the camp's owl
 // The radio: a small wooden radio on the porch bench, beside Mango (a box, 12 triangles, its dial painted). Tap it: on, the next
 // station (with a burst of static), and off after the last. The music comes from it (music.js musicFrom), loudest on the porch.
@@ -117,6 +117,6 @@ export function audioStep(dt) {
   if ((crackT -= dt) < 0) { crackT = R(0.05, 0.4); crackle(Math.random() < 0.08); }
   if ((callT -= dt) < 0) { callT = R(18, 40); if (storm < 0.5) LIGHT.night > 0.6 ? SFX.owl() : raven(); }
   // your steps in the snow
-  if (last) { const d = Math.hypot(me.x - last.x, me.z - last.z); if (d < 2) { stepD += d; if (stepD > (me.run ? 0.95 : 0.7)) { stepD = 0; crunch(me.run); } } }
+  if (last) { const d = Math.hypot(me.x - last.x, me.z - last.z); if (d < 2) { stepD += d; if (stepD > 0.7) { stepD = 0; crunch(false); } } }
   last = last || {}; last.x = me.x; last.z = me.z;
 }
