@@ -70,6 +70,8 @@ td:last-child { text-align: right; color: var(--ink); }
       <div class="seg" id="jump" role="group" aria-label="Jump to a place">
         <button data-p="porch" aria-pressed="false">Porch</button><button data-p="camp" aria-pressed="false">Camp</button><button data-p="tower" aria-pressed="false">Lookout</button>
       </div>
+      <button id="speedBtn" class="pill" style="justify-self:start">⏱ Speed test (20 s, stand still)</button>
+      <pre id="speed" hidden style="margin:0;font:12px ui-monospace,monospace;white-space:pre-wrap;user-select:text"></pre>
       <div class="tricks">
         <span class="lbl">How it's done</span>
         <div class="checks">
@@ -236,11 +238,11 @@ function forestAt(x, z, h, s) {
 }
 
 // ---------------------------------------------------------------- renderer, scene, camera
-const renderer = new THREE.WebGLRenderer({ antialias: !isPhone, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, isPhone ? 1.5 : 2));
+const renderer = new THREE.WebGLRenderer({ antialias: !isPhone, powerPreference: 'high-performance' });
+let pr = Math.min(devicePixelRatio, isPhone ? 1.5 : 2), slow = 0; renderer.setPixelRatio(pr);   // frame() lowers it if the frame rate drops, like the camp
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;   // redrawn only when needed (frame())
 $('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xffffff, 1, 2);   // switches the fog chunk on; the chunk itself is ours (below)
@@ -253,29 +255,36 @@ const U = {
   uHaze: { value: 0.7e-4 }, uMist: { value: 0 }, uMistTop: { value: 130 }, uMistCol: { value: new THREE.Color() },
   uFogDen: { value: 0 }, uFogCol: { value: new THREE.Color() },
 };
-THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\nvarying vec3 vFogW;\n#endif';
+// The haze, mist and fog colours depend only on the view direction, so they are worked out (and turned into screen sRGB) per
+// vertex; only how much of each to mix in is worked out per pixel. (They were per pixel, three sRGB conversions each.)
+THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG
+varying vec3 vFogW, vHazeO, vMistO, vFogO;
+uniform vec3 uHor, uSkyLo, uSunCol, uSunDir, uMistCol, uFogCol;
+vec3 fogOETF(vec3 c) { c = max(c, 0.0); return mix(c * 12.92, pow(c, vec3(0.41666)) * 1.055 - 0.055, step(vec3(0.0031308), c)); }
+#endif`;
 THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
   vec4 fogW = vec4(transformed, 1.0);
   #ifdef USE_INSTANCING
     fogW = instanceMatrix * fogW;
   #endif
   vFogW = (modelMatrix * fogW).xyz;
+  { float fs = max(dot(normalize(vFogW - cameraPosition), uSunDir), 0.0), f2 = fs * fs, f4 = f2 * f2;
+    vHazeO = fogOETF(mix(uSkyLo, uHor, 0.35 + 0.65 * f2) + uSunCol * (f4 * 0.5));   // a warm glow toward the sun, like the camp's sunlit mist
+    vMistO = fogOETF(uMistCol + uSunCol * (f4 * 0.25)); vFogO = fogOETF(uFogCol); }
 #endif`;
 THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
-varying vec3 vFogW;
-uniform vec3 uHor, uSkyLo, uSunCol, uSunDir, uMistCol, uFogCol; uniform float uHaze, uMist, uMistTop, uFogDen;
+varying vec3 vFogW, vHazeO, vMistO, vFogO;
+uniform float uHaze, uMist, uMistTop, uFogDen;
 #ifndef HAZE_MUL
 #define HAZE_MUL 1.0
 #endif
 float hfog(float c, float b, float h0, vec3 ro, vec3 rd, float t) { float k = rd.y * b; float e = abs(k) < 1e-6 ? t : (1.0 - exp(-t * k)) / k; return c * exp(-(ro.y - h0) * b) * e; }
 #endif`;
 THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
-  vec3 fv = vFogW - cameraPosition; float ft = length(fv); vec3 frd = fv / ft; float fs = max(dot(frd, uSunDir), 0.0);
-  vec3 hazeC = mix(uSkyLo, uHor, 0.35 + 0.65 * pow(fs, 2.0)) + uSunCol * (pow(fs, 4.0) * 0.5);   // a warm glow toward the sun, like the camp's sunlit mist
-  gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(hazeC, 1.0)).rgb, 1.0 - exp(-hfog(uHaze, 1.0 / 1600.0, 0.0, cameraPosition, frd, ft) * HAZE_MUL));
-  vec3 mistC = uMistCol + uSunCol * (pow(fs, 4.0) * 0.25);
-  gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(mistC, 1.0)).rgb, 1.0 - exp(-hfog(uMist, 1.0 / 45.0, uMistTop, cameraPosition, frd, ft)));
-  gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(uFogCol, 1.0)).rgb, 1.0 - exp(-uFogDen * ft));
+  vec3 fv = vFogW - cameraPosition; float ft = length(fv); vec3 frd = fv / ft;
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, vHazeO, 1.0 - exp(-hfog(uHaze, 1.0 / 1600.0, 0.0, cameraPosition, frd, ft) * HAZE_MUL));
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, vMistO, 1.0 - exp(-hfog(uMist, 1.0 / 45.0, uMistTop, cameraPosition, frd, ft)));
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, vFogO, 1.0 - exp(-uFogDen * ft));
 #endif`;
 function hazed(mat, extra, key = '') { mat.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U); extra?.(sh); }; if (extra) mat.customProgramCacheKey = () => extra.toString() + key; return mat; }   // key: tells apart materials whose extra differs only in captured values
 
@@ -955,9 +964,9 @@ function railLine(ps, label) {
   for (const [cx, cz] of BW_CORNERS) { const b = polyNear(BW, cx, cz), P = BW[Math.max(b.i - 4, 0)], Q = BW[Math.min(b.i + 4, BW.length - 1)]; put(cx, bwY(b) - 0.06, cz, 2.3, 0.12, 2.3, -Math.atan2((P[1] + Q[1]) / 2 - cz, (P[0] + Q[0]) / 2 - cx)); }   // a square landing at each turn
   for (let i = 0; i < BW.length; i += 6) { const [x, z, , y] = BW[i], P2 = BW[Math.min(i + 1, BW.length - 1)], P1 = BW[Math.max(i - 1, 0)], dx = P2[0] - P1[0], dz = P2[1] - P1[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
     for (const sd of [-1, 1]) { const px = x + nx * 1.0 * sd, pz = z + nz * 1.0 * sd, g = height(px, pz); put(px, (y + 1.05 + g) / 2, pz, 0.12, y + 1.05 - g + 0.3, 0.12); } }   // posts from the ground up through the rail
-  const geo = snowTopBox(1, 1, 1), wMat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true }), (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <logdepthbuf_fragment>', '#include <logdepthbuf_fragment>\n gl_FragDepth -= 0.0012;'); }, 'boardwalk');
+  const geo = snowTopBox(1, 1, 1), wMat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true }), (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n gl_Position = projectionMatrix * vec4(mvPosition.xyz * 0.975, 1.0);'); }, 'boardwalk');
   const cells = new Map(); for (const m of M4) { const k = Math.floor(m.elements[12] / 40) + ',' + Math.floor(m.elements[14] / 40); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(m); }
-  for (const list of cells.values()) { const walk = new THREE.InstancedMesh(geo, wMat, list.length); list.forEach((m, i) => walk.setMatrixAt(i, m)); walk.computeBoundingSphere(); walk.castShadow = walk.receiveShadow = true; scene.add(walk); }   // 40 m pieces, so the parts out of view (and out of the shadow map) are skipped   // its depth is pulled ~1.3 % forward: far terrain is coarser than the cutting
+  for (const list of cells.values()) { const walk = new THREE.InstancedMesh(geo, wMat, list.length); list.forEach((m, i) => walk.setMatrixAt(i, m)); walk.computeBoundingSphere(); walk.castShadow = walk.receiveShadow = true; scene.add(walk); }   // 40 m pieces, so the parts out of view (and out of the shadow map) are skipped   // drawn 2.5 % nearer the eye (same spot on screen): far terrain is coarser than the cutting
   TRIS.push([`Boardwalk and stairs (${BW[BW.length - 1][2].toFixed(0)} m, climbs ${(BW[BW.length - 1][3] - TOP).toFixed(0)} m; ${M4.length} boards × 12)`, tris(geo, M4.length)]);
 }
 { // boulders: a wall of them behind the camp where the mountain begins, and a few along the lookout trail and round its hill
@@ -1011,7 +1020,7 @@ const bridge = new THREE.Group(); scene.add(bridge);
     g.beginPath(); g.moveTo(w * 0.29, h); g.lineTo(w * 0.29, h * 0.5); g.ellipse(w / 2, h * 0.5, w * 0.21, h * 0.17, 0, Math.PI, 0); g.lineTo(w * 0.71, h); g.fill();
     g.fillStyle = '#e8eef4'; for (let i = 0; i < 18; i++) { const x = w * (0.3 + 0.4 * r()); g.beginPath(); g.moveTo(x - 4, h * 0.36); g.lineTo(x + 4, h * 0.36); g.lineTo(x, h * (0.4 + 0.08 * r())); g.fill(); }
     g.fillStyle = '#f4f4f2'; g.fillRect(w * 0.2, h * 0.22, w * 0.6, h * 0.04); });
-  const mouth = new THREE.Mesh(new THREE.PlaneGeometry(22, 16.5).rotateY(Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5 }), (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <logdepthbuf_fragment>', '#include <logdepthbuf_fragment>\n gl_FragDepth -= 0.0035;'); }, 'mouth'));   // its rock is coarse far away; the painted mouth must still show
+  const mouth = new THREE.Mesh(new THREE.PlaneGeometry(22, 16.5).rotateY(Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5 }), (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n gl_Position = projectionMatrix * vec4(mvPosition.xyz * 0.93, 1.0);'); }, 'mouth'));   // its rock is coarse far away; the painted mouth must still show
   mouth.position.set(ROAD.portal.x + 0.3, ROAD.y - 0.7 + 16.5 * 0.5, ROAD.portal.z); mouth.receiveShadow = true; scene.add(mouth);
   TRIS.push(['Tunnel mouth (painted)', 2]);
 }
@@ -1241,6 +1250,32 @@ function walk(dt) {
 const press = (group, attr, val) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === val)));
 const jump = (p) => { const [x, z, t] = PLACES[p]; me.x = x; me.z = z; me.yaw = t ? faceTo(x, z, t) : 0; me.pitch = p === 'tower' ? -0.18 : -0.08; me.y = groundAt(x, z) + 1.65; };
 $('jump').onclick = (e) => { const p = e.target.dataset?.p; if (p) jump(p); };
+// Speed test: times frames on this device with one part of the scene switched off at a time, so we can see where the time goes
+let testing = false;
+$('speedBtn').onclick = async () => {
+  if (testing) return; testing = true; const out = $('speed'); out.hidden = false;
+  const gl = renderer.getContext(), dbg = gl.getExtension('WEBGL_debug_renderer_info'), gpu = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '?';
+  const time = (ms) => new Promise((done) => { let n = 0, t0 = 0; const f = (t) => { if (!t0) t0 = t; else n++; if (t - t0 < ms) requestAnimationFrame(f); else done(n ? (t - t0) / n : 0); }; requestAnimationFrame(f); });
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const hideAll = (test) => { const l = []; scene.traverse((m) => { if ((m.isMesh || m.isPoints) && m.visible && test(m)) { m.visible = false; l.push(m); } }); return () => l.forEach((m) => (m.visible = true)); };
+  const terr = (m) => levels.some((l) => l.parts.some((p) => p.userData.mesh === m));
+  const pts = []; scene.traverse((l) => { if (l.isPointLight) pts.push(l); });
+  const plain = new THREE.MeshLambertMaterial({ color: '#c8c8c8' });
+  const steps = [
+    ['As it is', () => () => {}],
+    ['Half resolution', () => { const k = renderer.getPixelRatio(); renderer.setPixelRatio(k / 2); return () => renderer.setPixelRatio(k); }],
+    ['No trees, rocks, logs', () => hideAll((m) => m.isInstancedMesh && !terr(m))],
+    ['No ground', () => hideAll(terr)],
+    ['No lamp and fire lights', () => { pts.forEach((l) => (l.visible = false)); return () => pts.forEach((l) => (l.visible = true)); }],
+    ['Plain grey materials', () => { scene.overrideMaterial = plain; return () => { scene.overrideMaterial = null; }; }],
+    ['Nothing drawn', () => hideAll(() => true)],
+  ];
+  const rows = [], head = `${renderer.domElement.width}×${renderer.domElement.height} px, ratio ${renderer.getPixelRatio()}, ${window.__stats?.calls} draws, ${(window.__stats?.tris / 1000).toFixed(0)}k tris`; let base = 0;
+  for (const [name, set] of steps) { out.textContent = `Testing: ${name}…\n` + rows.join('\n'); const undo = set(); await wait(900); const ms = await time(2200); undo(); await wait(300);
+    if (!base) base = ms; rows.push(`${name.padEnd(23)}${ms.toFixed(1).padStart(6)} ms${base !== ms ? ` ${ms < base ? '−' : '+'}${Math.abs(base - ms).toFixed(1)}` : ` ${(1000 / ms).toFixed(0)} fps`}`); }
+  out.textContent = `${gpu}\n${head}\n` + rows.join('\n');
+  testing = false;
+};
 $('weather').onclick = (e) => { const w = e.target.dataset?.w; if (!w) return; wTarget = WEATHER[w]; press($('weather'), 'w', w); };
 $('hazeOn').onchange = (e) => { hazeOn = e.target.checked; };
 $('wire').onchange = (e) => { for (const m of terrainMats) m.wireframe = e.target.checked; };
@@ -1287,7 +1322,7 @@ const backdrop = (() => {
 })();
 const sunDir = new THREE.Vector3(), clock = new THREE.Timer(), wind = new THREE.Vector3(); let frames = 0, acc = 0;
 const fogGrey = new THREE.Color('#b9c4d2'), white = new THREE.Color('#ffffff');
-const shadowAt = new THREE.Object3D(); scene.add(shadowAt); sun.target = shadowAt;
+const shadowAt = new THREE.Object3D(); scene.add(shadowAt); sun.target = shadowAt; let lastShKey = '', shadowAge = 0;
 const dist = (p) => Math.hypot(p.x - me.x, p.z - me.z), metres = (d) => (d < 1000 ? `${Math.round(d / 10) * 10} m` : `${(d / 1000).toFixed(1)} km`);
 function frame() {
   clock.update(); const dt = Math.min(clock.getDelta(), 0.05), now = clock.getElapsed();
@@ -1308,7 +1343,11 @@ function frame() {
   U.uFogDen.value = W_NOW.fog; U.uFogCol.value.copy(P.hor).lerp(fogGrey, 0.55).multiplyScalar(0.3 + 0.6 * bright);
   sky.material.uniforms.uZen.value.copy(P.zen); sky.material.uniforms.uNight.value = 1 - sstep(-10, -3, el); sky.material.uniforms.uMoonDir.value.copy(moonDir); sky.material.uniforms.uFog.value = 0.92 * storm;
   hemi.color.copy(P.hs); hemi.groundColor.copy(P.hg); hemi.intensity = P.hemi * (1 - 0.3 * storm);
-  shadowAt.position.set(me.x, me.y - 1.65, me.z);
+  // the sun's shadow map is redrawn only when its 4 m grid spot or the light changes, after new trees are placed, and
+  // twice a second for the flag: standing still or turning round costs no shadow pass at all
+  shadowAt.position.set(Math.round(me.x / 4) * 4, Math.round((me.y - 1.65) / 2) * 2, Math.round(me.z / 4) * 4);
+  const shKey = `${shadowAt.position.x},${shadowAt.position.y},${shadowAt.position.z},${sunDir.x.toFixed(3)},${sunDir.y.toFixed(3)},${el > -3},${placedAt?.x}`;
+  shadowAge += dt; if (shKey !== lastShKey || shadowAge > 0.5) { renderer.shadowMap.needsUpdate = true; lastShKey = shKey; shadowAge = 0; }
   if (el > -3) { sun.color.copy(P.sun); sun.intensity = P.light * (1 - 0.85 * storm); sun.position.copy(shadowAt.position).addScaledVector(sunDir, 250); }
   else { sun.color.set('#9fb4e6'); sun.intensity = 0.75 * (1 - 0.8 * storm); sun.position.copy(shadowAt.position).addScaledVector(moonDir, 250); }
   horMat.color.copy(P.hs).multiplyScalar(0.35 * P.hemi).add(tmpC.copy(P.sun).multiplyScalar(0.25 * P.light));
@@ -1339,8 +1378,9 @@ function frame() {
   backdrop.step();   // after the frame, so the shadow map it reads already exists
   frames++; acc += dt;
   if (acc > 0.5) { const i = mainInfo;   // the frame itself, not the backdrop's repaint
+    slow = frames / acc < 45 && !testing ? slow + 1 : 0; if (slow >= 4 && pr > 1) { pr = Math.max(1, pr - 0.25); renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); slow = 0; }
     $('stats').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lake hut ${metres(dist(HUT))} · Lookout ${metres(dist(TOWER))}`;
-    frames = 0; acc = 0; window.__stats = { calls: i.calls, tris: i.triangles }; if ($('menu').open) showTris(); }
+    window.__stats = { calls: i.calls, tris: i.triangles, fps: Math.round(frames / acc), pr }; frames = 0; acc = 0; if ($('menu').open) showTris(); }
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
