@@ -2,9 +2,12 @@
 // slims each GLB (quantized vertices, resampled clips), then each result goes base64 into apps/canopy-prototype/models/.
 //   node tools/pack-chars.cjs sloth      characters/sloth_baby/sloth_baby.glb (the live plush_real style, with its own clips)
 //                                        -> models/sloth.txt                                     (npm run pack:sloth)
-//   node tools/pack-chars.cjs operator   engine/characters/bearded_operator/bearded_operator.glb (mesh, no clips) -> models/operator.txt,
-//                                        and the OPERATOR_CLIPS of bearded_operator_survival.glb (the same rig, with the play
-//                                        clips) -> models/operator_anims.txt                     (npm run pack:operator)
+//   node tools/pack-chars.cjs operator   engine/characters/bearded_operator/bearded_operator_<OPERATOR_OUTFIT>.glb (mesh, no
+//                                        clips) -> models/operator.txt, and the OPERATOR_CLIPS of bearded_operator_survival.glb
+//                                        (the same rig, with the play clips) -> models/operator_anims.txt (npm run pack:operator)
+// OPERATOR_OUTFIT is the look he wears in the camp: camp_cargo, the olive field shirt with two flap pockets and sand cargo
+// trousers (R2-200 look B, Adriaen's pick). desk-at-night builds the other outfits too (office, camp_khaki, camp_vest, ppe,
+// ppe_deck, survival; build_bearded_operator.py --outfit): change the constant and repack to switch.
 // Rebuild the GLB first: the sloth with python characters/sloth_baby/build_sloth_baby.py, the operator in desk-at-night (then
 // move the engine/ pin). pack_chars.mjs needs desk-at-night's packages: run npm ci once in engine/web. PACK_CHARS=<path to
 // pack_chars.mjs> uses another desk-at-night checkout's copy. The kit is only read from engine/, never copied here.
@@ -12,6 +15,9 @@ const path = require('path'), fs = require('fs'), os = require('os'), { spawnSyn
 const ROOT = path.resolve(__dirname, '..'), MODELS = path.join(ROOT, 'apps/canopy-prototype/models');
 const PACK = path.resolve(process.env.PACK_CHARS || path.join(ROOT, 'engine/web/scripts/pack_chars.mjs'));
 const OP = path.join(ROOT, 'engine/characters/bearded_operator');
+// the outfit the camp's operator wears (see the header); 'office' is the plain bearded_operator.glb
+const OPERATOR_OUTFIT = 'camp_cargo';
+const OPERATOR_GLB = OPERATOR_OUTFIT === 'office' ? 'bearded_operator.glb' : `bearded_operator_${OPERATOR_OUTFIT}.glb`;
 // the clips the camp plays on the operator (camp/operator/), kept in operator_anims.txt; add a clip here when the camp plays a new one.
 // Only those are packed (review R2-213: hug, play, play_knees, phone, phone_down and step_down were 40% of the keyframes and
 // never played)
@@ -40,7 +46,7 @@ try {
   if (what === 'sloth') {
     toTxt(path.join(pack(['--own'], path.join(ROOT, 'characters/sloth_baby/sloth_baby.glb')), 'sloth_baby.glb'), 'sloth.txt');
   } else {
-    toTxt(path.join(pack([], path.join(OP, 'bearded_operator.glb')), 'bearded_operator.glb'), 'operator.txt');
+    toTxt(path.join(pack([], path.join(OP, OPERATOR_GLB)), OPERATOR_GLB), 'operator.txt');
     toTxt(path.join(pack(['--clips', OPERATOR_CLIPS.join(',')], path.join(OP, 'bearded_operator_survival.glb')), 'anims.glb'), 'operator_anims.txt');
   }
 } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
