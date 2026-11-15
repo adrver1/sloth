@@ -5,7 +5,8 @@
 //              carries it in both arms back to the fire and drops it on
 //   porch      round the cabin to the porch bench, sits looking out over the valley a while (a sloth that comes sits on his lap)
 //   snowman    over to the snowman, pats its middle, has a look at it
-// The camp's soup and cooking are not here (no pot of soup at the summit). Weights: more fire and sleep at night, the porch
+// He cooks the camp's soup here too and eats a bowl of it (Adriaen 2026-11-15: "bring over as much as possible"; the pot,
+// the pail and the crate are the chores', camp/chores.js, as in the camp). Weights: more fire and sleep at night, the porch
 // by day.
 // Exports OP_DAY_SUMMIT ({ weights(night), DO }); life.js hands it to the stage.
 import * as THREE from 'three';
@@ -80,7 +81,7 @@ const DO = {
     op.look = 0; op.happy = false;
   },
 };
-// what comes next, by weight (the camp's own day.js WEIGHTS shape); no soup, no cooking here
-const weights = (night) => night ? { sleep: 6, warm: 2, firewood: 1, drink: 1, read: 0.3, stroll: 0.3, play: 0.3, porch: 0.2 }
-  : { firewood: 1.2, porch: 1.2, snowman: 0.7, drink: 1.2, read: 1.2, warm: 0.6, stroll: 0.8, sleep: 0.4, play: 1.2 };
+// what comes next, by weight (the camp's own day.js WEIGHTS shape, its cook and eat as there)
+const weights = (night) => night ? { sleep: 6, warm: 2, firewood: 1, drink: 1, read: 0.3, stroll: 0.3, play: 0.3, porch: 0.2, eat: 0.5, cook: 0.3 }
+  : { firewood: 1.2, porch: 1.2, snowman: 0.7, drink: 1.2, read: 1.2, warm: 0.6, stroll: 0.8, sleep: 0.4, play: 1.2, eat: 1.2, cook: 1.0 };
 export const OP_DAY_SUMMIT = { weights, DO };

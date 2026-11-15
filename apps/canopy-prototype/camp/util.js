@@ -56,6 +56,10 @@ export function canvasTex(w, h, draw, { srgb = true, aniso = 4, read = false } =
   const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; return t;
 }
 
+// the warm round glow (the lanterns' halos, the motes, the fire chore's sparks), one texture for the page, made when first asked for
+let glow = null;
+export const glowTex = () => (glow ??= canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }));
+
 // the nearest point on each segment, kept when it is closer than the best so far
 export function polyDist(pts, x, z) {
   let best = 1e9, bx = 0, bz = 0;

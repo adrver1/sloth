@@ -20,10 +20,10 @@ import { EV, emit } from "./camp/events.js";
 const NEAR = 2.5;                          // tap range
 
 // camp: the scene, the camera and you (me); places { woodPile: { at, built }, fire, pot: { at, r }, table:
-// { at, yaw }, crate (or null), seats (the log seats: activities/soupChore.js says what each holds) }; looks (what lights up for a thing, by name); the wood texture with the carried logs' spots
+// { at, yaw }, crate (or null), fruit (where fruit comes from, { at, r, look }, or null for the table's plate), seats (the log seats: activities/soupChore.js says what each holds) }; looks (what lights up for a thing, by name); the wood texture with the carried logs' spots
 // in it (woodSpots, from lived.glb, or undefined) and the glow texture; and what the camp
 // does for the chores: burst (a word in the air: the pot's splash and plop), toast(text, sound) (the message, and the sound that goes with it, if any), addBlocker and boostFire (the logs make the camp's fire bigger)
-export function createActivities({ scene, camera, me, places: { woodPile, fire, pot, table, crate, seats: logSeats }, looks, woodTex, woodSpots, glowTex, burst, toast, addBlocker, boostFire }) {
+export function createActivities({ scene, camera, me, places: { woodPile, fire, pot, table, crate, fruit, seats: logSeats }, looks, woodTex, woodSpots, glowTex, burst, toast, addBlocker, boostFire }) {
   if (!camera.parent) scene.add(camera);   // so things held in your hand (children of the camera) are drawn
   if (woodTex) paintLogs(woodTex, woodSpots);
   const pile = createWoodPile({ scene, woodPile, addBlocker });
@@ -84,16 +84,17 @@ export function createActivities({ scene, camera, me, places: { woodPile, fire, 
     label: () => held() === "water" ? "Put the pail back 💧" : "Take the pail of water 💧",
     why: () => held() ? full : soup.stage !== "empty" ? "Water's in already" : !pail.visible ? "He's fetching water already 💧" : null });
   // the kitchen crate: one vegetable at a time, a different one each time
-  if (crate) thing({ name: "crate", at: crate, r: 0.4, look: looks.crate ?? null, ...source("veg", () => { const [n, e] = carry.takeNext("veg"); toast(`Got a ${n} ${e}`, "knock"); }),
-    label: () => { const [n, e] = held() === "veg" ? carry.now("veg") : carry.next("veg"); return held() === "veg" ? `Put the ${n} back ${e}` : `Take a ${n} ${e}`; } });
+  if (crate) thing({ name: "crate", at: crate, r: 0.4, look: looks.crate ?? null, ...source("veg", () => { const [n, e] = carry.takeNext("veg"); toast(`Got ${an(n)} ${n} ${e}`, "knock"); }),
+    label: () => { const [n, e] = held() === "veg" ? carry.now("veg") : carry.next("veg"); return held() === "veg" ? `Put the ${n} back ${e}` : `Take ${an(n)} ${n} ${e}`; } });   // an onion
   // the fruit plate on the snack table (the Table's FruitBowl child, activities/fruitBowl.js): one fruit at a time to give to a
   // sloth or the operator (Adriaen 2026-11-13: veg from the crate, fruit from the fruit bowl)
-  const tableObj = scene.getObjectByName("Table");
+  // A level may hand its own fruit place instead (fruit: { at, r, look }: the summit's porch basket)
+  const tableObj = !fruit && scene.getObjectByName("Table");
   const fruitBowl = tableObj && splitBowl(tableObj);
-  if (fruitBowl) {
-    fruitBowl.updateMatrixWorld(true);
-    const bowlAt = fruitBowl.localToWorld(fruitBowl.geometry.boundingBox.getCenter(V()));   // the plate's middle
-    thing({ name: "fruitbowl", at: bowlAt, r: 0.28, look: [fruitBowl], ...source("fruit", () => { const [n, e] = carry.takeNext("fruit"); toast(`Got ${an(n)} ${n} ${e}`.trim(), "knock"); }),
+  if (fruitBowl) fruitBowl.updateMatrixWorld(true);
+  const fruitAt = fruit ? { at: fruit.at, r: fruit.r, look: fruit.look } : fruitBowl && { at: fruitBowl.localToWorld(fruitBowl.geometry.boundingBox.getCenter(V())), r: 0.28, look: [fruitBowl] };   // the plate's middle
+  if (fruitAt) {
+    thing({ name: "fruitbowl", ...fruitAt, ...source("fruit", () => { const [n, e] = carry.takeNext("fruit"); toast(`Got ${an(n)} ${n} ${e}`.trim(), "knock"); }),
       label: () => { const [n, e] = held() === "fruit" ? carry.now("fruit") : carry.next("fruit"); return (held() === "fruit" ? `Put the ${n} back ${e}` : `Take ${an(n)} ${n} ${e}`).trim(); } });
   }
   // the log seats: somewhere to set a bowl down (an option on the seat's own tap target, linger.js, beside sitting down)

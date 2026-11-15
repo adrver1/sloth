@@ -1,0 +1,29 @@
+/* Canopy Camp's HUD, in every level (Adriaen 2026-11-15: "It shouldn't be an entirely different game, just a different place
+   to relax and play with the sloths"): camp.html and summit.html link it. The fps pill top right (#perf), the ⚙️ button and its
+   menu under it (.bar, #menu, #opts: the time slider, the level's buttons), the walk stick bottom left on a phone (.stick: camp/
+   input.js shows it) and the hint (#q, which input.js fades). The pills of a tap's menu, the toast and the Put it back pill are
+   camp/input.js's. The colours and the font come from here too; a page may add its own on top (its background, its loading card). */
+:root { --cream: #fff8ee; --ink: #4a3426; --soft: #8a6a55; --pink: #ff7fa8; --leaf: #6dbb5a;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif; }
+.hud { position: fixed; left: 0; right: 0; top: 0; display: flex; justify-content: flex-end; align-items: flex-start; gap: 8px; pointer-events: none;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+#perf { background: rgb(255 248 238 / .9); box-shadow: 0 3px 0 rgb(138 90 59 / .18); font-variant-numeric: tabular-nums;
+  font-size: 12px; font-weight: 500; padding: 5px 10px; color: var(--soft); text-align: right; line-height: 1.25; border-radius: 14px; }
+.bar { position: fixed; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top, 0px)); display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
+.bar button { pointer-events: auto; font: 600 13px var(--display); color: var(--ink); background: #ffe9a8; border: 0; border-radius: 999px;
+  padding: 6px 11px; box-shadow: 0 2px 0 rgb(138 90 59 / .2); cursor: pointer; }
+.stick { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%;
+  background: rgb(255 248 238 / .18); border: 2px solid rgb(255 248 238 / .55); touch-action: none; }
+.stick i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgb(255 248 238 / .85); box-shadow: 0 3px 0 rgb(138 90 59 / .25); }
+.stick i::after { content: "🐾"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 20px; opacity: .7; }
+.bar .menu { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.bar .menu[hidden] { display: none; }
+.bar .time { pointer-events: auto; display: flex; align-items: center; gap: 8px; font: 600 13px var(--display); background: rgb(255 248 238 / .85); border-radius: 999px; padding: 4px 12px; box-shadow: 0 2px 0 rgb(138 90 59 / .2); }
+.bar .time input { width: 150px; accent-color: var(--pink); }
+.bar .time span { min-width: 3em; font-variant-numeric: tabular-nums; }
+/* the hint sits low on the left (above the stick on a phone), clear of the fire in the middle of the view */
+#q { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); max-width: min(330px, calc(100% - 32px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transition: opacity 1s; text-align: left; font-size: 13px; line-height: 1.35; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .55); pointer-events: none; }
+body.touch #q { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+.bar button[aria-pressed="true"] { background: #ffd27a; box-shadow: inset 0 0 0 2px rgb(138 90 59 / .35); }
+.bar .row { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }

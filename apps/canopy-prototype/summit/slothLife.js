@@ -5,11 +5,11 @@
 // to the ones it meets, s'mores on Sunny's log. They start at their spots on every visit (nothing of them is saved here, L5).
 // On top of the camp's look: each wears its knitted hat and scarf (winter.js), and breathes little frosty puffs in the cold
 // (one instanced draw for all of them, fx.js plume).
-// What you do (L4) is the camp's own (camp/input.js, the same menus, boop, feed and hold to feed as in the camp): here the
-// porch basket (it lights up) gives you a fruit to hold, which a sloth's menu then offers to give (it eats it with its eat
-// clip when it sits up, camp/sloth/gifts.js); and keep looking at one for about 3 s and it waves slowly (camp/sloth/life.js).
+// What you do (L4) is the camp's own (camp/input.js, the same menus, boop, feed and hold to feed as in the camp; the chores,
+// camp/chores.js, life.js): the porch basket (it lights up) gives you a fruit to hold, which a sloth's menu then offers to give
+// (it eats it with its eat clip when it sits up, camp/sloth/gifts.js); and keep looking at one for about 3 s and it waves slowly.
 // Exports buildSlothLife(gltf) (life.js, once the sloth model is in, before he starts), slothStep(dt, now) (life.js, each
-// frame once the stand-ins are synced) and hands { held(), handOver(), eat(s, mesh, from), booped(s) } (life.js lifeHooks, for
+// frame once the stand-ins are synced) and hands { eat(s, mesh, from) } (life.js lifeHooks, for
 // camp/input.js). Imported by life.js only after castStage.js (it pulls in the cast).
 // Triangles: a sloth 826 + fur shells (3) + its trait + winter gear 96; the basket 24, the sheepskin 2, the porch steps 36.
 import * as THREE from 'three';
@@ -21,21 +21,18 @@ import { campStep } from '../camp/sloth/step.js';
 import { warmStep } from '../camp/sloth/body.js';
 import { buildPlaces } from '../camp/sloth/table.js';
 import { eatGift } from '../camp/sloth/gifts.js';
-import { addTarget } from '../camp/targets.js';
 import { fxStep } from '../camp/fx.js';
-import { FRUIT, makeFood } from '../camp/food.js';
-import { camera, setStage, toStage, toWorld } from '../camp/stage.js';
+import { camera, setStage, toWorld } from '../camp/stage.js';
 import { FOOD, HOMES, made } from './slothHomes.js';
 import { TRIS } from './land.js';
 import { scene } from './core.js';
 import { winterGear } from './winter.js';
 import { plume } from './fx.js';
 import { LIGHT } from './daylight.js';
-import { cue } from './audio.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
-let breath = null, held = null;
-const tmp = V(), fwd = V(), puffAt = V(), up = V(0, 1, 0), q = new THREE.Quaternion(), sph = new THREE.Sphere();
+let breath = null;
+const tmp = V(), fwd = V(), puffAt = V(), up = V(0, 1, 0), q = new THREE.Quaternion();
 
 export function buildSlothLife(gltf) {
   setStage({ HOMES, FOOD });
@@ -45,23 +42,12 @@ export function buildSlothLife(gltf) {
   breath = plume(camp.length * 2); breath.mat.uniforms.uBright.value = 1; scene.add(breath.mesh);
   let n = 0; for (const s of camp) s.o.traverse((m) => { if (m.isMesh && m.visible) n += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
   TRIS.push([`Sloths (${camp.length}, fur and winter gear ${gear} each)`, n], ['Sheepskin (painted)', 2], ['Fruit basket', 24], ['Porch steps (one draw)', 36], ['Frosty breath (one draw)', camp.length * 4]);
-  const { basket } = made();
-  if (basket) addTarget('basket', () => ({ look: basket.children, picks: basket.children, at: (v) => sph.set(v.copy(basket.position), 0.3),
-    ready: () => !held && camera.position.distanceTo(basket.position) < 3.5, options: () => [['Take a fruit 🧺', take]] }));
 }
 
-// ---------------------------------------------------------------- what you do (the rest is camp/input.js)
-// a fruit from the basket, held low in front of you (on the stand-in camera, which follows yours) until you give it
-function take() {
-  const [kind, emoji] = FRUIT[Math.floor(Math.random() * FRUIT.length)], mesh = makeFood(kind);
-  mesh.position.set(0.14, -0.2, -0.45); mesh.scale.copy(mesh.userData.base); camera.add(mesh);
-  held = { kind, name: kind, emoji: emoji || '', mesh };
-}
+// what you do is the camp's own (camp/input.js and camp/chores.js: the porch basket is where your fruit comes from, life.js)
+export const basket = () => made().basket;   // the porch basket, where your fruit comes from (life.js hands it to the chores)
 export const hands = {
-  held: () => held && { name: held.name, emoji: held.emoji },
-  handOver() { if (!held) return null; const { mesh, emoji } = held; held = null; const from = toStage(mesh.getWorldPosition(V())); camera.remove(mesh); return { mesh, from, emoji }; },
   eat: (s, mesh, from) => eatGift(s, mesh, from),
-  booped: (s) => cue('boop', s.head.getWorldPosition(V())),
 };
 
 // ---------------------------------------------------------------- each frame

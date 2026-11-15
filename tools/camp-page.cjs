@@ -37,7 +37,7 @@ const NM = path.resolve(__dirname, '..', 'node_modules');
 const { chromium } = require(path.join(NM, 'playwright'));
 const THREE_VER = (fs.readFileSync(path.resolve(__dirname, '../apps/canopy-prototype/camp.html'), 'utf8').match(/three@(\d+\.\d+\.\d+)\//) || [])[1];
 if (!THREE_VER) { console.error('camp.html: no three@<version> in its import map'); process.exit(2); }
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.txt': 'text/plain',
+const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.txt': 'text/plain',
   '.ktx2': 'image/ktx2', '.glb': 'model/gltf-binary', '.wasm': 'application/wasm', '.mp3': 'audio/mpeg' };
 
 function serve(root, port, transform) {

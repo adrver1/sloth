@@ -17,7 +17,7 @@ import { buildPlayer, jump, press, prof, showTris, testing, walk } from './playe
 import { backdrop, buildBackdrop } from './backdrop.js';
 import { ready, stats } from './debug.js';
 import { buildDrive, driveApi, driveStep } from './drive.js';
-import { buildLife, lifeHooks, lifeStep } from './life.js';
+import { buildLife, lifeHooks, lifeStep, seatStep } from './life.js';
 import { buildDaytime, daytimeApi, daytimeStep } from './daytime.js';
 import { audio, audioStep, buildAudio } from './audio.js';
 import { clockStep } from '../camp/clock.js';
@@ -60,6 +60,7 @@ const dist = (p) => Math.hypot(p.x - me.x, p.z - me.z), metres = (d) => (d < 100
 function frame() {
   clock.update(); const dt = Math.min(clock.getDelta(), 0.05), now = clock.getElapsed();
   jeepStep(dt);   // the jeep's doors and lamp, and its seats (the camp's: camp/jeepRig.js, camp/jeepSeat.js), before you move as in the camp
+  seatStep(dt);   // your log seat by the fire (camp/linger.js), as in the camp
   walk(dt);   // you move first (camp/player.js), so the ground, the trees and the shadow spot follow this frame's position
   driveStep(dt);   // a drive shot takes the camera, and moves you to it so the near ground and trees are round it
   const pf = prof.on ? performance.now() : 0;
@@ -83,8 +84,8 @@ function frame() {
   frames++; acc += dt;
   if (acc > 0.5) { const i = mainInfo;   // the frame itself, not the backdrop's repaint
     adaptPixelRatio(frames / acc, now > 5 && !testing);
-    $('stats').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lookout ${metres(dist(TOWER))}`;
-    Object.assign(stats, { calls: i.calls, tris: i.triangles, fps: Math.round(frames / acc), pr: renderer.getPixelRatio() }); frames = 0; acc = 0; if ($('menu').open) showTris(); }
+    $('perf').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lookout ${metres(dist(TOWER))}`;
+    Object.assign(stats, { calls: i.calls, tris: i.triangles, fps: Math.round(frames / acc), pr: renderer.getPixelRatio() }); frames = 0; acc = 0; if (!$('opts').hidden) showTris(); }
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);

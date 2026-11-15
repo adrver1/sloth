@@ -10,7 +10,8 @@ import { keys, stickV, view } from "./hud.js";
 import { V } from "./util.js";
 
 // ================================================================ the player: first person
-const EYE = 1.55, SPEED = 1.7, BODY = 0.25;   // BODY: how far you keep from things (was 0.3)
+const EYE = 1.55, BODY = 0.25;
+const pace = { speed: 1.7, stride: 4 };   // m/s: a stroll, and a long walk's pace; the debug sliders change them (speedSliders)   // BODY: how far you keep from things (was 0.3)
 // vel: walking speed; walkT: seconds walked (the head bob); lastDrag: when you last looked round yourself, on the camp's clock;
 // seat: { pos, yaw, and for the jeep's drop, pitch, leave } while you sit (linger.js, jeepSeat.js); sitK eases 0..1 as you sit
 // down; step() adds drop, how far the eye is lowered on that seat
@@ -48,7 +49,11 @@ function step(dt) {
   if (me.seat && wish.lengthSq() > 0.01) { if (me.seat.leave) me.seat.leave(); else me.seat = null; }   // walking stands you up (a seat with .leave, the jeep's, gets you out its own way)
   me.sitK += Math.sign((me.seat ? 1 : 0) - me.sitK) * Math.min(Math.abs((me.seat ? 1 : 0) - me.sitK), dt * 1.6);
   if (me.seat) { me.vel.set(0, 0, 0); me.pos.lerp(me.seat.pos, 1 - Math.exp(-4 * dt)); }
-  else me.vel.lerp(wish.multiplyScalar(SPEED), 1 - Math.exp(-10 * dt));
+  // a long walk speeds up (Adriaen 2026-11-15, the summit's lookout was too far at a stroll): after 2.5 s of walking you ease
+  // up from a stroll (pace.speed) to a long walk's pace (pace.stride) over 3 s; stopping or sitting starts you at a stroll again. No run button (Adriaen 2026-11-15)
+  me.strideT = !me.seat && wish.lengthSq() > 0.25 ? (me.strideT || 0) + dt : 0;
+  const k = Math.min(1, Math.max(0, (me.strideT - 2.5) / 3));
+  if (!me.seat) me.vel.lerp(wish.multiplyScalar(pace.speed + (pace.stride - pace.speed) * k * k * (3 - 2 * k)), 1 - Math.exp(-10 * dt));
   if (!me.seat && me.vel.length() > 0.05) { moving = true; next.copy(me.pos).addScaledVector(me.vel, dt); collide(next); me.pos.copy(next); }
   if (moving) me.walkT += dt;
   const feet = me.pos; feet.y = level.groundAt(feet.x, feet.z);   // the level's ground: the camp's clearing and paths, the summit's snow and porch deck
@@ -62,4 +67,15 @@ function step(dt) {
   camera.lookAt(look); me.eye = camera.position.y;
 }
 
-export { feetAt, me, setPlayer, step };
+// the debug tools' walking speed sliders (Adriaen 2026-11-15: "walking speed access as a slider in debug mode"), in the
+// level's debug menu, with ?dev or ?debug in either level (camp core.js, summit/player.js); styled by camp/hud.css .time
+function speedSliders(into) {
+  for (const [k, label, max] of [["speed", "🚶 Stroll", 6], ["stride", "🥾 Long walk", 12]]) {
+    const row = document.createElement("label"), inp = document.createElement("input"), out = document.createElement("span");
+    row.className = "time"; inp.type = "range"; inp.min = "0.5"; inp.max = String(max); inp.step = "0.1"; inp.value = String(pace[k]); inp.setAttribute("aria-label", label);
+    const show = () => { out.textContent = `${pace[k].toFixed(1)} m/s`; }; show();
+    inp.oninput = () => { pace[k] = +inp.value; show(); };
+    row.append(label + " ", inp, out); into.append(row);
+  }
+}
+export { feetAt, me, pace, setPlayer, speedSliders, step };

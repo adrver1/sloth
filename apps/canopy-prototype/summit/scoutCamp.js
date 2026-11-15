@@ -36,12 +36,14 @@ function dropPosts(node) {
 }
 // the camp's cast (castStage.js, life.js) measures some props by name: the log seats and their tops, the things on a seat, the
 // tent, the table and the kitchen crate (places.js, operator/places.js, sloth/spots.js, sloth/table.js). bakeStatic merges the props into a few draws and takes them away, so
-// each of those keeps an invisible stand-in under its name (no draw: never drawn, only measured and ray-tested), and the drawn
+// each of those keeps an invisible stand-in under its name (no draw: never drawn, only measured, ray-tested and lit up by
+// camp/highlight.js, userData.standIn), and the drawn
 // one is renamed. campReady resolves once all three GLBs are in.
-const MEASURED = ['Seat_0', 'Seat_1', 'Seat_2', 'SeatTop_0', 'SeatTop_1', 'SeatTop_2', 'SeatThings', 'Tent', 'Table', 'KitchenCrate', 'KitchenThings'];
+const MEASURED = ['Seat_0', 'Seat_1', 'Seat_2', 'SeatTop_0', 'SeatTop_1', 'SeatTop_2', 'SeatThings', 'Tent', 'Table', 'KitchenCrate', 'KitchenThings', 'LooseLogs', 'Ring', 'Pot'];   // the last three light up for the chores (camp/chores.js)
 let campLoaded = null;
 export const campReady = new Promise((ok) => { campLoaded = ok; });
 export const fireLight = new THREE.PointLight('#ff9a48', 0, 14, 1.5);
+export const lanternLights = [];   // where each jar lantern hangs, in the world: the sloths take a warm glow from them at night (castStage.js LANTERNS, camp/sloth/body.js)
 export const flames = [];   // the flame cards (camp/fire.js dressFire)
 export function tris0(g) { return (g.index ? g.index.count : g.attributes.position.count) / 3; }
 // a string of jar lanterns from the cabin's back corner to a pole by the tent, sagging between
@@ -69,7 +71,7 @@ export function buildScoutCamp() {
             const m0 = o.material, glow = node.name === 'Embers';
             if (file !== 'fire') o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest }), mute, 'mute');
             o.castShadow = !glow; o.receiveShadow = true; tris += tris0(o.geometry); });
-          if (MEASURED.includes(node.name)) { const m = node.clone(true); m.traverse((o) => { o.visible = false; }); node.name += '_look'; campGroup.add(m); }
+          if (MEASURED.includes(node.name)) { const m = node.clone(true); m.traverse((o) => { o.visible = false; o.userData.standIn = true; }); node.name += '_look'; campGroup.add(m); }
           campGroup.add(node); }
         TRIS.push([`Scout camp: ${file}`, tris]); tris = 0; bakeStatic(campGroup, (o) => flames.includes(o) || o.parent?.name === 'Embers' || o.name === 'Embers');   // the flames (their shader moves them) and the glowing embers stay apart
         if (++loaded === 3) campLoaded();
@@ -82,7 +84,7 @@ export function buildScoutCamp() {
     for (let i = 0; i <= 16; i++) { const t = i / 16; pts.push(new THREE.Vector3().lerpVectors(A, B, t).add(v3.set(0, -0.9 * 4 * t * (1 - t), 0))); }
     const rope = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.012, 4), ropeMat); lanterns.add(rope);
     const jarGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.16, 7);
-    for (let i = 1; i < 8; i++) { const p = pts[i * 2]; const j = new THREE.Mesh(jarGeo, jarMat); j.position.set(p.x, p.y - 0.14, p.z); lanterns.add(j); }
+    for (let i = 1; i < 8; i++) { const p = pts[i * 2]; const j = new THREE.Mesh(jarGeo, jarMat); j.position.set(p.x, p.y - 0.14, p.z); lanterns.add(j); lanternLights.push(j.position.clone()); }
     TRIS.push(['Lantern string, pole and 7 jars', tris0(rope.geometry) + tris0(pole.geometry) + 7 * tris0(jarGeo)]); bakeStatic(lanterns); }
   // a scout flag on a pole: a green pennant that sways in the wind
   flag = (() => { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, TOP, CAMP.z + 2.5); scene.add(g);

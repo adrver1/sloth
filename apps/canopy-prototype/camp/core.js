@@ -24,7 +24,7 @@ import { pace, rng, uNight, uTime } from "./stage.js";
 //   campsloths 1 | 0                       1                                 sloths.js, sloth/step.js, sloth/naps.js, labButton.js (0: only the two wild sloths, no camp sloths)
 //   slothmat lambert | old                 lambert                           sloth/body.js (old: the sloth GLB's own physical material)
 //   lab      (present)                     absent                            labButton.js (opens the move lab, lab.js, at the start, and shows its button)
-//   dev      (present)                     absent                            core.js wireSettings, main.js, labButton.js (shows the fps pill and the
+//   dev      ?dev or ?debug (one option)   absent                            core.js wireSettings, main.js, labButton.js (shows the fps pill and the
 //                                                                            ⚙️ menu's Detail, Light and Move lab buttons; hidden from players)
 //   touch    present or not                on a phone (a coarse pointer)     input.js (the phone stick and its hint, on a desktop too)
 //   sound    0                             saved, else on                    audio/context.js (0 starts muted)
@@ -72,7 +72,7 @@ const OPT = {
   campsloths: qs.get("campsloths") !== "0",
   slothmat: qs.get("slothmat") === "old" ? "old" : "lambert",
   lab: qs.has("lab"),
-  dev: qs.has("dev"),
+  dev: qs.has("dev") || (qs.has("debug") && qs.get("debug") !== "0"),   // ?dev and ?debug are one option, in both levels (Adriaen 2026-11-15; summit/land.js)
   touch: qs.has("touch"),
   sound: qs.get("sound") !== "0",
   station: qs.get("station"),

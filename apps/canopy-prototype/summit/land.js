@@ -20,7 +20,7 @@ export const TRIS = [];
 //   ?drivestay the way home ends here instead of loading the camp, for checks                         drive.js
 //   ?time=H    the hour (0..24); otherwise the camp's saved hour, or 15.5                         daytime.js
 //   ?cycle=1|0 the day cycle on or off; otherwise the camp's saved choice                             daytime.js
-//   ?debug=1   the fps line and the prototype's jumps, tests and triangle table in the ⚙️ menu     player.js
+//   ?dev or ?debug   (one option, the same in the camp: Adriaen 2026-11-15) the fps line and the prototype's jumps, tests and triangle table in the ⚙️ menu     player.js
 //   ?lm=0      the cabin and lookout without their baked light maps (the bake's exporter uses it)   lightmap.js
 //   ?sound=0   start muted, ?station=ID start on that station (for that visit only, as in the camp)  audio.js
 const Q = new URLSearchParams(location.search);
@@ -31,7 +31,7 @@ export const KEYS = { time: 'canopy-time', cycle: 'canopy-cycle', audio: 'canopy
 export const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 { const v = Q.get('time') || store.get(KEYS.time), h = v ? Number(v) : 15.5;   // ?time= and ?cycle= as in the camp, for that visit
   OPT.time = h >= 0 && h < 24 ? h : 15.5; OPT.cycle = Q.has('cycle') ? Q.get('cycle') !== '0' : store.get(KEYS.cycle) === 'on'; }
-OPT.sound = Q.get('sound') !== '0'; OPT.station = Q.get('station'); OPT.debug = Q.get('debug') === '1'; OPT.lm = Q.get('lm') !== '0';
+OPT.sound = Q.get('sound') !== '0'; OPT.station = Q.get('station'); OPT.debug = Q.has('dev') || (Q.has('debug') && Q.get('debug') !== '0'); OPT.lm = Q.get('lm') !== '0';
 const ERO = await (async () => { if (!OPT.ero) return null;
   const load = async (f) => { const r = await fetch(`models/${f}.json`); if (!r.ok) throw new Error(`${f} ${r.status}`); const m = await r.json(); m.d = new Int16Array(b64bytes(m.d).buffer); return m; };   // d: the height change, int16 times scale, base64
   try { return await Promise.all([load('summit-erosion-world'), load('summit-erosion-near')]); } catch (e) { console.warn('no erosion', e); return null; } })();

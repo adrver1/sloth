@@ -1,6 +1,6 @@
 // Canopy Camp sound, watching the camp: audioStep(dt, dusk), each frame, moves the ear to the camera, sets the beds for the
-// weather and the hour, and hears what the camp did since the last frame (a sloth squished, munching, yawning or waving;
-// the operator's steps, speech, cooking, reading and snores; the jeep's doors and engine; your own steps), so the other
+// weather and the hour, and hears what the camp did since the last frame (the sloths and the operator: castSounds.js; the
+// pot; the jeep's doors and engine: jeepSound.js; your own steps), so the other
 // modules need no sound calls. It reads the chores (chores.js acts), the operator (operator.js opApi) and the car
 // (car.js carApi) once main.js has built them.
 // It runs every frame, so it allocates nothing on a quiet frame: the last positions are copied into vectors held here, and
@@ -16,55 +16,19 @@ import { opApi } from "../operator.js";   // his sounds (null with ?op=0, or unt
 import { sloths } from "../sloths.js";
 import { weather } from "../weather.js";
 import { rand as R, sstep } from "../util.js";   // R: a number between a and b from Math.random
-import { ac, gain } from "./context.js";
+import { ac } from "./context.js";
 import { night, rain, SFX, underTent, wind } from "./sfx.js";
 import { hearJeep } from "./jeepSound.js";
+import { hearCast } from "./castSounds.js";
 import { musicObj, musicPan, musicTick } from "./music.js";
 
-const tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3(), hd = new THREE.Vector3();
+const tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
 
 // ---------------------------------------------------------------- watching the camp: who did what since the last frame
-const was = new WeakMap(), opWas = { line: "", clip: "", kind: "" };
-let potStage = null, stirT = 0, nextBird = 3, nextFrog = 5, nextOwl = 30, crackleT = 0, bubbleT = 0, dripT = 0, gustT = 0, gust = 0.5, opT = 0, opStepD = 0, meStepD = 0, sleepT = 4, opClinkT = 3, opPageT = 6, opSnoreT = 2;
-const opLast = new THREE.Vector3(), meLast = new THREE.Vector3(); let opSeen = false, meSeen = false;   // where he and you were last frame
+let potStage = null, nextBird = 3, nextFrog = 5, nextOwl = 30, crackleT = 0, bubbleT = 0, dripT = 0, gustT = 0, gust = 0.5, meStepD = 0;
+const meLast = new THREE.Vector3(); let meSeen = false;   // where you were last frame
 const RATE = { empty: 0, water: 0.6, cooking: 6, ready: 2 };   // the pot's bubbles a second, by its stage
 const potAt = () => new THREE.Vector3(SOUP_POT.at.x, SOUP_POT.at.y, SOUP_POT.at.z);
-const slothAt = (s) => s.o.getWorldPosition(new THREE.Vector3()).setY(s.o.getWorldPosition(tmp).y + 0.25);
-function watchSloths(dt) {
-  for (const s of sloths) {
-    let w = was.get(s); if (!w) was.set(s, (w = { squish: 0, munch: 0, yawn: 0, wave: 0, gift: null, phase: null }));
-    if (s.squish > w.squish + 0.5) SFX.boop(slothAt(s));
-    if ((s.munch || 0) > w.munch + 0.5) SFX.munch(slothAt(s), s.munch);
-    if (s.gift && !w.gift) setTimeout(() => ac && SFX.munch(slothAt(s), 2.4), 600);
-    if (s.yawn && !w.yawn) SFX.yawn(slothAt(s), R(0.95, 1.1));
-    if (s.wave && !w.wave) SFX.squeak(slothAt(s), 1.15);
-    const ph = s.trip?.phase ?? null; if (ph === "greet" && w.phase !== "greet" && Math.random() < 0.7) { const p = slothAt(s); SFX.squeak(p, 0.95); setTimeout(() => ac && SFX.squeak(p, 1.1), 260); }
-    w.squish = s.squish || 0; w.munch = s.munch || 0; w.yawn = s.yawn || 0; w.wave = s.wave || 0; w.gift = s.gift || null; w.phase = ph;
-  }
-  // the nearest sleeping sloth breathes slowly, if you are close enough to hear it
-  if ((sleepT -= dt) < 0) { sleepT = R(3.2, 4.2); let best = null, bd = 4; for (const s of sloths) if (s.asleep) { const d = s.o.getWorldPosition(tmp).distanceTo(camera.position); if (d < bd) { bd = d; best = s; } } if (best) SFX.breath(slothAt(best)); }
-}
-function watchOperator(dt) {
-  const O = opApi; if (!O) return;
-  const p = O.root.position;
-  if (opSeen) { const d = Math.hypot(p.x - opLast.x, p.z - opLast.z); if (d < 0.5) { opStepD += d; if (opStepD > 0.64) { opStepD = 0; SFX.step(p.clone().setY(0.05)); } } }
-  opLast.copy(p); opSeen = true;
-  // cooking (op.stir, op.veg in operator/state.js): the stirring stick knocks the pot, vegetables plop in
-  const o = O.op;
-  if (o?.stir && (stirT -= dt) < 0) { stirT = R(0.6, 1.1); SFX.knock(potAt()); SFX.bubble(); }
-  if (opWas.veg && !o?.veg) SFX.plop(potAt());
-  opWas.veg = !!o?.veg;
-  if ((opT -= dt) > 0) return; opT = 0.1;
-  const st = O.state(), line = O.line?.() || "", head = hd.copy(p).setY(p.y + 1.6);   // ten times a second; each sound gets its own copy
-  if (line && line !== opWas.line) SFX.babble(head.clone(), line.split(/\s+/).length, st.lying || st.sleeping);
-  if (st.clip === "sip" && opWas.clip !== "sip") SFX.slurp(head.clone().setY(head.y - 0.15));
-  if (st.clip?.startsWith("play") && Math.random() < 0.08) SFX.squeak(head.clone().setY(head.y + 0.3), 1.2);
-  if (st.seated && (st.kind === "eat" || st.kind === "cook") && (opClinkT -= 0.1) < 0) { opClinkT = R(2, 4); SFX.clink(head.clone().setY(head.y - 0.5)); }
-  if (st.kind === "cook" && !st.seated && (opClinkT -= 0.1) < 0) { opClinkT = R(1.2, 2.5); SFX.clink(potAt()); }
-  if (st.seated && st.kind === "read" && (opPageT -= 0.1) < 0) { opPageT = R(8, 15); SFX.page(head.clone().setY(head.y - 0.5)); }
-  if (st.sleeping && (opSnoreT -= 0.1) < 0) { opSnoreT = R(3.6, 4.4); SFX.breath(head.clone().setY(p.y + 0.6), true); }
-  opWas.line = line; opWas.clip = st.clip || ""; opWas.kind = st.kind;
-}
 function audioStep(dt, dusk = 0) {
   if (!ac || ac.state !== "running") return;
   const t = ac.currentTime, wet = weather.wet, day = 1 - dusk;
@@ -93,7 +57,7 @@ function audioStep(dt, dusk = 0) {
   if ((nextFrog -= dt) < 0) { nextFrog = R(2, 7); if (dusk > 0.6 || wet > 0.5) SFX.frog(); }
   if ((nextOwl -= dt) < 0) { nextOwl = R(25, 60); if (dusk > 0.8) SFX.owl(); }
   // life
-  watchSloths(dt); watchOperator(dt); hearJeep(jeepApi, carApi?.engine());   // jeepSound.js, shared with the summit
+  hearCast(dt, { sloths, op: opApi, ear: camera, steps: true }); hearJeep(jeepApi, carApi?.engine());   // castSounds.js and jeepSound.js, shared with the summit
   if (meSeen) { const d = Math.hypot(me.pos.x - meLast.x, me.pos.z - meLast.z); if (d < 0.5 && !me.seat) { meStepD += d; if (meStepD > 0.78) { meStepD = 0; SFX.step(null, true); } } }
   meLast.copy(me.pos); meSeen = true;
   musicTick();
