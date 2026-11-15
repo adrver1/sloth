@@ -179,8 +179,8 @@ function buildGlade() {
       const c = at(r, turn).addScaledVector(sd, 10), q = tilt.clone().multiply(new THREE.Quaternion().setFromAxisAngle(up, R(0, 3.14)));
       gs.push(new THREE.PlaneGeometry(w, 22).applyQuaternion(q).translate(c.x, c.y, c.z));
     }
-    const at_ = { position: [], uv: [] }; for (const g of gs) for (const a in at_) at_[a].push(...g.toNonIndexed().attributes[a].array);
-    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(at_.position, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(at_.uv, 2));
+    const at_ = { position: [], normal: [], uv: [] }; for (const g of gs) for (const a in at_) at_[a].push(...g.toNonIndexed().attributes[a].array);   // the normals: rayMat's edge-on fade (campProps.js)
+    const geo = new THREE.BufferGeometry(); for (const a in at_) geo.setAttribute(a, new THREE.Float32BufferAttribute(at_[a], a === "uv" ? 2 : 3));
     const beams = new THREE.Mesh(geo, rayMat); beams.name = "GladeBeams"; scene.add(beams);
     triCount.beams = tris(geo);
   }

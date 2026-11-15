@@ -111,6 +111,15 @@ async function buildProps() {
       const v = g.createLinearGradient(0, 0, 0, h); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(0.2, "rgba(0,0,0,1)"); v.addColorStop(1, "rgba(0,0,0,0)"); g.globalCompositeOperation = "destination-in"; g.fillStyle = v; g.fillRect(0, 0, w, h); });
     rayMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: S.rays, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
       forceSinglePass: true });   // one pass: three.js draws a see-through two-sided material twice (backs, then fronts) and re-keys its shader each time; a flat additive quad looks the same in one
+    // a shaft seen edge-on (or from below, looking up the shaft) fades out instead of showing as a hard bright line across the
+    // sky gap (R2-183): each fragment is faded by how squarely the camera sees its plane, |N . view|. The geometry's normals
+    // carry each quad's plane, the clearing's and the glade's alike (glade.js)
+    patchMaterial(rayMat, "edgeFade", (sh) => {
+      sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nvarying vec3 vRayN, vRayP;"],
+        ["#include <project_vertex>", "#include <project_vertex>\nvRayN = normalMatrix * normal; vRayP = mvPosition.xyz;"]);
+      sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nvarying vec3 vRayN, vRayP;"],
+        ["#include <opaque_fragment>", "diffuseColor.a *= smoothstep(0.06, 0.35, abs(dot(normalize(vRayN), normalize(vRayP))));\n#include <opaque_fragment>"]);
+    });
     // the shafts slant down from the sun's side, all at the same angle like real morning light through a gap in the canopy (review B6).
     // All seven in one geometry, one draw (R2-103); additive with no depth write, so their order does not matter
     const sd = sun.position.clone().normalize(), up = new THREE.Vector3(0, 1, 0), tilt = new THREE.Quaternion().setFromUnitVectors(up, sd), one = new THREE.Vector3(1, 1, 1), shafts = [];
