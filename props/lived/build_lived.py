@@ -252,7 +252,7 @@ def wood_stack(M, samples):
             shutil.rmtree(tmpdir, ignore_errors=True)
     else:
         print("  wood stack: renders unchanged (wood_stack.json), reusing wood_stack.jpg")
-    bad = _stack_outline_check(logs, outline, px)
+    bad = _stack_outline_check(sc, logs, outline, px)
     if bad:                                          # something besides the logs is in the end render
         sys.exit(f"wood stack: {bad}")
     if cached is None:                               # stamped only once the outline is the logs' own
@@ -268,33 +268,54 @@ def wood_stack(M, samples):
     return _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
 
 
-def _stack_outline_check(logs, outline, px):
-    """None when the outline from the end render is the logs' own, else what is wrong. The logs' silhouette is found
-    again by rays from the front (-Y), the way the end camera looks, and the outline may not start or end more than
-    2 cm past the logs, nor have a column more than 2 cm above the logs' top over the same 12-pixel window. It catches
-    any other object drawn into the end render beside or above the logs (the 2026-11-15 seat), not one hidden behind
-    them, nor anything that reaches only the side or top renders."""
-    from mathutils.bvhtree import BVHTree
-    V, F = [], []
+def _stack_outline_check(sc, logs, outline, px):
+    """None when the outline from the end render is the logs' own, else what is wrong. It measures the logs' end-view
+    silhouette exactly, from their evaluated meshes in world space in scene sc: every triangle edge projected onto the
+    end plane (x, z), and each outline column's top taken as the highest point of any edge inside the 13 pixels the
+    outline scan (_stack_atlas) took that column's top from, one pixel wider on each side for the anti-aliased edge.
+    The outline may not start or end more than 2 cm past the logs, nor have a column higher than the logs there by
+    more than the scan's own 4 mm lift and 6 pixels (the scan reads every other row). It catches any other object
+    drawn into the end render beside or above the logs (the 2026-11-15 seat), not one hidden behind them, nor anything
+    that reaches only the side or top renders. (Rays from the front missed the logs' thin edges between their sample
+    points, so a clean render stopped the build, 2026-11-15.)"""
+    import numpy as np
+    sc.view_layers[0].update()
+    dg = sc.view_layers[0].depsgraph
+    segs = []
     for o in logs:
-        mw, base = o.matrix_world, len(V)
-        V += [mw @ v.co for v in o.data.vertices]
-        F += [[base + k for k in pl.vertices] for pl in o.data.polygons]
-    tree = BVHTree.FromPolygons(V, F)
-    lx = [v.x for v in V]
-    if outline[0][0] < min(lx) - 0.02 or outline[-1][0] > max(lx) + 0.02:
-        return f"the outline spans x {outline[0][0]:.3f} to {outline[-1][0]:.3f} but the logs {min(lx):.3f} to {max(lx):.3f}"
-    Z1, half = STACK_BOX["z"][1], 6 / px
+        ev = o.evaluated_get(dg)
+        me = ev.to_mesh()
+        me.calc_loop_triangles()
+        co = np.empty(len(me.vertices) * 3)
+        me.vertices.foreach_get("co", co)
+        tri = np.empty(len(me.loop_triangles) * 3, dtype=np.int64)
+        me.loop_triangles.foreach_get("vertices", tri)
+        ev.to_mesh_clear()
+        mw = np.array(ev.matrix_world)
+        w = co.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3]
+        t = w[tri.reshape(-1, 3)][:, :, [0, 2]]                       # each triangle on the end plane, as (x, z)
+        segs.append(np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]]))
+    seg = np.concatenate(segs)                                         # (n, 2 ends, x z)
+    lx0, lx1 = seg[:, :, 0].min(), seg[:, :, 0].max()
+    if outline[0][0] < lx0 - 0.02 or outline[-1][0] > lx1 + 0.02:
+        return f"the outline spans x {outline[0][0]:.3f} to {outline[-1][0]:.3f} but the logs {lx0:.3f} to {lx1:.3f} (tolerance 0.020 m)"
+    p = 1 / px                                                         # one pixel of the end render, in metres
+    tol = 0.004 + 6 * p
+    xa, za, xb, zb = seg[:, 0, 0], seg[:, 0, 1], seg[:, 1, 0], seg[:, 1, 1]
     for x, z in outline[1:-1]:
+        lo, hi = x - 7 * p, x + 8 * p                                  # pixels cx-6 to cx+6, plus one each side
         top = 0.0
-        for k in range(7):                           # the window the outline scan takes its column's top from
-            cx = x - half + 2 * half * k / 6
-            for i in range(round(Z1 / 0.002), round(top / 0.002), -1):   # down from the top in 2 mm steps
-                if tree.ray_cast(Vector((cx, -3, i * 0.002)), Vector((0, 1, 0)))[0] is not None:
-                    top = i * 0.002
-                    break
-        if z > top + 0.004 + 0.02:
-            return f"the outline is {z:.3f} m high at x {x:.3f} but the logs only {top:.3f} m"
+        for e in (lo, hi):                                             # where the edges cross the window's sides
+            c = (np.minimum(xa, xb) <= e) & (np.maximum(xa, xb) >= e) & (xa != xb)
+            if c.any():
+                top = max(top, (za[c] + (e - xa[c]) / (xb[c] - xa[c]) * (zb[c] - za[c])).max())
+        for vx, vz in ((xa, za), (xb, zb)):                            # and the edge ends inside it
+            c = (vx >= lo) & (vx <= hi)
+            if c.any():
+                top = max(top, vz[c].max())
+        if z > top + tol:
+            return (f"the outline column at x {x:.3f} (x {lo:.3f} to {hi:.3f}) is {z:.3f} m high but the logs' end silhouette "
+                    f"there only {top:.3f} m, more than the {tol:.3f} m tolerance")
     return None
 
 
