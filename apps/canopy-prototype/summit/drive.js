@@ -9,6 +9,7 @@
 // Adds no triangles: the parked jeep itself drives. The letterbox, fade, skip layer and pill are page elements.
 import { $, BARE, JEEP, OPT, ROAD, ROAD_Y, TOP, groundAt } from './land.js';
 import { camera, me } from './core.js';
+import { wheelsOf } from '../camp/util.js';
 
 const CSS = `
 .drive-bar { position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .6s ease; z-index: 20; pointer-events: none; }
@@ -21,7 +22,7 @@ body.drive-cut #hud, body.drive-cut #hint, body.drive-cut #stats, body.drive-cut
 `;
 const DUR = 6;   // seconds a shot lasts
 const P = ROAD.portal.s;
-let shot = null, fade = null, skip = null, pill = null, homeDue = false;
+let shot = null, fade = null, skip = null, pill = null, homeDue = false, spin = null;
 
 // the road s metres from the summit (it ends in the tunnel at P): where, its height, and the way toward the tunnel
 function roadAt(s) {
@@ -37,12 +38,14 @@ function start(out) {   // out: arriving from the camp (the jeep comes OUT of th
   // the camera hangs over the gorge beside the bridge (on the side away from the cliff), 6 m out and 2.5 m up, where the
   // arriving jeep passes it as it slows, or the leaving one as it speeds up, and turns to follow the jeep
   const r = roadAt(out ? P - 62 : P - 50), cam = { x: r.x + r.dz * 6, y: r.y + 2.5, z: r.z - r.dx * 6 };
-  shot = { t: 0, out, cam, left: false };
+  spin ??= wheelsOf(JEEP.node);
+  shot = { t: 0, out, cam, left: false, s: along(0, out) };
   document.body.classList.add('drive-cut'); skip.hidden = false;
 }
 function step(dt) {
   const c = shot; c.t += dt;
-  const g = JEEP.node, r = roadAt(along(c.t, c.out)), dir = c.out ? -1 : 1;   // arriving it faces away from the tunnel
+  const g = JEEP.node, s = along(c.t, c.out), r = roadAt(s), dir = c.out ? -1 : 1;   // arriving it faces away from the tunnel
+  spin(dir * (s - c.s)); c.s = s;   // the wheels turn with the way driven
   g.position.set(r.x, r.y + Math.abs(Math.sin(c.t * 9)) * 0.012, r.z); g.rotation.set(0, Math.atan2(r.dx * dir, r.dz * dir), 0);   // the jeep's +Z is its front
   me.x = c.cam.x; me.z = c.cam.z; me.y = c.cam.y;   // the near ground and trees follow the camera
   const upright = innerWidth / innerHeight < 0.8;

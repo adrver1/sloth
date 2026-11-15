@@ -118,7 +118,8 @@ export function buildRoad() {
         const glass = hazed(new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false }), null, 'glass');   // see-through, a little tinted, as camp/jeep.js does
         gl.scene.traverse((o) => { if (!o.isMesh) return; if (o.name.startsWith('Glass')) { o.material = glass; o.renderOrder = 2; o.castShadow = false; n += tris0(o.geometry); return; } const m0 = o.material; o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : m0.color, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, opacity: m0.opacity, alphaTest: m0.alphaTest }), mute, 'mute');
           o.castShadow = false; o.receiveShadow = true; n += tris0(o.geometry); });
-        bakeStatic(gl.scene);
+        const turns = (o) => { for (let q = o; q; q = q.parent) if (q.userData.roll) return true; return false; };   // the road wheels turn (drive.js): not merged
+        bakeStatic(gl.scene, turns);
         // its shadow comes from seven boxes (84 triangles) round body, cab, load and wheels, not its 6k triangles; drawn depth-only, never seen
         const box = (x0, y0, z0, x1, y1, z1) => new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
         const sh = new THREE.Mesh(mergeGeometries([box(-0.88, 0.45, -1.75, 0.88, 1.15, 1.95), box(-0.8, 1.15, -1.65, 0.8, 1.65, 0.4), box(-0.6, 1.65, -1.4, 0.6, 2.1, 0.2), ...[[-1, -1.15], [1, -1.15], [-1, 1.25], [1, 1.25]].map(([sx, z]) => box(sx * 0.9 - 0.12, 0, z - 0.33, sx * 0.9 + 0.12, 0.6, z + 0.33))]), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));

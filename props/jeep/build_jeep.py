@@ -14,7 +14,9 @@ Jeep (hollow, with seats, dashboard and a cargo deck), and the doors DoorP (driv
 the name is kept from when it was the passenger door), DoorD (the other front door) and BackDoor (with the spare), each
 with its origin on its hinge so the page swings it about the vertical, and the Hood, hinged at the foot of the windscreen.
 Each of these four carries glTF extras that camp/jeep.js reads: "open", how far it swings open (radians), and "axis", the
-three.js axis it swings about (HINGES and HOOD_OPEN below; review R2-250). Plus empties SeatP (driver cushion top, at the
+three.js axis it swings about (HINGES and HOOD_OPEN below; review R2-250). The four road wheels are nodes of their own,
+Tyre_FL, Tyre_FR, Tyre_RL and Tyre_RR, each with its origin on its axle and the extra "roll" (its radius), which the drives
+turn (camp/util.js wheelsOf; Adriaen 2026-11-15). Plus empties SeatP (driver cushion top, at the
 wheel), DoorSill (bottom of that door opening), WheelHub (steering wheel centre; the wheel faces the driver, up and back)
 and Boot (middle of the cargo deck). It also writes the far LOD jeep_expedition_lod.glb, and the base64 copies the page
 loads, apps/canopy-prototype/models/jeep_expedition.txt and jeep_expedition_lod.txt.
@@ -583,9 +585,13 @@ def body(M, wheel=wheel_closed, R=WHEEL_R, soft=(0.05, 0.045), lamp_r=LAMP_R, bu
         bd.append(cyl(sr + 0.012, 0.25, at=(0.06, REAR + 0.22, 0.98), rot=(math.pi / 2, 0, 0), m=cover, verts=16))
     # the chassis (it hides the axles, so they are not modelled: review R2-168) and the four wheels with black flares over them
     p.append(slim_box((W - 0.3, REAR - FRONT - 0.3, 0.2), at=(0, 0, SILL - 0.02), m=M["under"]))
-    for y in AXLE_Y:
+    # each road wheel is its own node (Tyre_FL, Tyre_FR, Tyre_RL, Tyre_RR: front/rear, left/right as you sit), its origin on
+    # its axle, so the page can turn it while the jeep drives (Adriaen 2026-11-15); finish() gives it the extra "roll", its radius
+    for y, fr in zip(AXLE_Y, "FR"):
         for s in (-1, 1):
-            p += lift(wheel(s * (W / 2 - 0.1), y, R, tyre_w, M), zc)
+            name = f"Tyre_{fr}{'L' if s > 0 else 'R'}"
+            G[name] = lift(wheel(s * (W / 2 - 0.1), y, R, tyre_w, M), zc)
+            b.origins[name] = (s * (W / 2 - 0.1), y, zc)
             p.append(flare(s, y, zc, R, flare_tube, M["flare"], 20))
     # side steps / sills
     for s in (-1, 1):
@@ -614,6 +620,8 @@ def finish(b):
             o["open"], o["axis"] = HOOD_OPEN, "x"
         elif name in b.origins:
             bpy.context.scene.cursor.location = b.origins[name]
+            if name.startswith("Tyre_"):
+                o["roll"] = round(b.origins[name][2], 4)               # its radius (the axle's height): the page turns it by distance / roll
         else:
             (hx, hy), o["open"] = HINGES[name]
             o["axis"] = "y"

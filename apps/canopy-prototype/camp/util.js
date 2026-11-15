@@ -97,6 +97,12 @@ export function timers() {
 }
 
 export const lam = (color, opts) => new THREE.MeshLambertMaterial({ color, ...opts });
+// a jeep's road wheels (props/jeep/build_jeep.py's Tyre_FL, _FR, _RL, _RR, each with its radius in the glTF extra "roll"):
+// spin = wheelsOf(jeep), then spin(d) turns them all for d metres driven forward (+Z, its front). camp/drive.js and summit/drive.js
+export function wheelsOf(root) {
+  const w = [];   // found on first use with any, so a spin made before the model is in still works once it is
+  return (d) => { if (!w.length) root.traverse((o) => { if (o.userData.roll) w.push(o); }); for (const o of w) o.rotation.x += d / o.userData.roll; };
+}
 
 // a hook's part of the program key: patchMaterial's own wrappers carry their key (their source is the same generic wrapper)
 const hookKey = (f) => (f ? (f.programKey ? f.programKey() : f.toString()) : "");

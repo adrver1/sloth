@@ -9,7 +9,7 @@
 // has moved: the shot takes the camera), and driveApi { away(), home(), shot() } for car.js (and checks, which import this module).
 // Adds no triangles: the jeep itself drives. The letterbox and fade are two page elements.
 import { OPT, camera } from "./core.js";
-import { V, yawTo } from "./util.js";
+import { V, wheelsOf, yawTo } from "./util.js";
 import { JEEP_TRACK } from "./layout.js";
 import { groundHeight } from "./terrain.js";
 import { me } from "./player.js";
@@ -29,7 +29,7 @@ body.drive-cut .stick, body.drive-cut .bar, body.drive-cut .hud, body.drive-cut 
 const curve = JEEP_TRACK.curve, LEN = curve.getLength();
 const DUR = 5;   // seconds a shot lasts
 const S0 = 0.3 * LEN, S1 = 0.85 * LEN;   // the jeep's stretch: from just out of the clearing to where the track bends out of sight into the trees (the world ends at FAR)
-let shot = null, fade = null, skip = null, NEAR0 = 0.1, parked = null;
+let shot = null, fade = null, skip = null, NEAR0 = 0.1, parked = null, spin = null;
 
 // a point on the track s metres from the clearing (past its end it carries on straight), with the way it runs
 function trackAt(s) {
@@ -49,7 +49,8 @@ function start(home) {
   // it drives off up the track and round the bend into the trees (home: as it comes down toward you and stops). The near plane
   // (1.5 m) clips the verge leaves by the lens.
   const cam = trackAt(0.12 * LEN).p.add(V(0, 3.4, 0));
-  shot = { t: 0, home, cam, left: false };
+  spin ??= wheelsOf(j);
+  shot = { t: 0, home, cam, left: false, s: along(0, home) };
   document.body.classList.add("drive-cut"); skip.hidden = false;
 }
 function step(dt) {
@@ -57,6 +58,7 @@ function step(dt) {
   const j = jeepApi.node, s = along(c.t, c.home), f = trackAt(s);
   j.position.copy(f.p); j.rotation.set(0, Math.atan2(f.d.x, f.d.z) + (c.home ? Math.PI : 0), 0);   // the jeep's +Z is its front
   j.position.y += Math.abs(Math.sin(c.t * 9)) * 0.015;   // the bumps of the track
+  spin((c.home ? -1 : 1) * (s - c.s)); c.s = s;   // the wheels turn with the way driven (home it faces back down the track)
   if (jeepApi.lod) { jeepApi.lod.position.copy(j.position); jeepApi.lod.rotation.copy(j.rotation); }
   const upright = innerWidth / innerHeight < 0.8;
   camera.position.copy(c.cam); camera.near = 1.5; camera.fov = upright ? 62 : 40; camera.updateProjectionMatrix();
