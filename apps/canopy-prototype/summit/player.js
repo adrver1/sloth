@@ -1,8 +1,8 @@
 // Summit Cabin walking, first person: keyboard, stick, drag to look, Run, Jump to; the settings panel's handlers (time, weather,
-// haze, wireframe), the Speed and Walk tests (prof), and showTris for the triangle table. walk(dt) each frame.
+// haze, wireframe), the Speed and Walk tests (prof), and showTris for the triangle table; the tests, jumps, table and fps line show with ?debug=1. walk(dt) each frame.
 import { stats } from './debug.js';
 import * as THREE from 'three';
-import { $, BARE, BIG, D, HILL_P, HT, JEEP, LAKE, TRIS, W, groundAt, height, walkable } from './land.js';
+import { $, BARE, BIG, D, HILL_P, HT, JEEP, LAKE, OPT, TRIS, W, groundAt, height, walkable } from './land.js';
 import { camera, me, renderer, scene, touch, tris } from './core.js';
 import { levels, terrainMats } from './terrain.js';
 import { SPECIES, SUMMIT_TREES, TCELL, TILE, TREES, bushGeo, bushes, cards, logGeo, logs, nearN, rocks, saplings, tile } from './forest.js';
@@ -62,6 +62,7 @@ export function showTris() {
 }
 
 export function buildPlayer() {
+  if (OPT.debug) { $('dev').hidden = false; $('stats').hidden = false; }   // the prototype's tools, for checks (Adriaen 2026-11-15 Q16: they go from the game)
   if (BARE) {   // on the bare land: the highest point near the old summit, a high point on the ridge north-east, and the big lake's shore
     const top = (cx, cz, R, st) => { let b = [cx, cz, -1e9]; for (let i = -R; i <= R; i += st) for (let j = -R; j <= R; j += st) { const h = height(cx + i, cz + j); if (h > b[2]) b = [cx + i, cz + j, h]; } return b; };
     const S1 = top(0, 0, 400, 8), S2 = top(HILL_P.x, HILL_P.z, 260, 8);

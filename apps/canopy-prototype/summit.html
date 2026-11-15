@@ -73,7 +73,7 @@ td:last-child { text-align: right; color: var(--ink); }
 
 <div id="stage"></div>
 <div id="hint" class="panel">WASD or arrows to walk · Shift to run · drag to look</div>
-<div id="stats" class="panel">…</div>
+<div id="stats" class="panel" hidden>…</div>
 <section id="hud" class="panel" aria-label="Scene controls">
   <details id="menu">
     <summary>Summit Cabin <small>Settings</small></summary>
@@ -82,20 +82,22 @@ td:last-child { text-align: right; color: var(--ink); }
       <div class="seg" id="weather" role="group" aria-label="Weather">
         <button data-w="clear" aria-pressed="true">Clear</button><button data-w="valley" aria-pressed="false">Valley fog</button><button data-w="storm" aria-pressed="false">Snowstorm</button>
       </div>
-      <span class="lbl">Jump to</span>
-      <div class="seg" id="jump" role="group" aria-label="Jump to a place">
-        <button data-p="porch" aria-pressed="false">Porch</button><button data-p="camp" aria-pressed="false">Camp</button><button data-p="tower" aria-pressed="false">Lookout</button>
-      </div>
       <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button id="sound" class="pill">Sound: All</button></div>
-      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button id="speedBtn" class="pill">⏱ Speed test (20 s, stand still)</button><button id="walkBtn" class="pill">🏃 Walk test (12 s)</button></div>
-      <pre id="speed" hidden style="margin:0;font:12px ui-monospace,monospace;white-space:pre-wrap;user-select:text"></pre>
-      <div class="tricks">
-        <span class="lbl">How it's done</span>
-        <div class="checks">
-          <label><input id="hazeOn" type="checkbox" checked> Distance haze</label>
-          <label><input id="wire" type="checkbox"> Terrain wireframe</label>
+      <div id="dev" hidden>   <!-- ?debug=1: the prototype's jumps, tests and triangle table (Adriaen 2026-11-15 Q16: they go from the game) -->
+        <span class="lbl">Jump to</span>
+        <div class="seg" id="jump" role="group" aria-label="Jump to a place">
+          <button data-p="porch" aria-pressed="false">Porch</button><button data-p="camp" aria-pressed="false">Camp</button><button data-p="tower" aria-pressed="false">Lookout</button>
         </div>
-        <table id="tris"></table>
+        <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button id="speedBtn" class="pill">⏱ Speed test (20 s, stand still)</button><button id="walkBtn" class="pill">🏃 Walk test (12 s)</button></div>
+        <pre id="speed" hidden style="margin:0;font:12px ui-monospace,monospace;white-space:pre-wrap;user-select:text"></pre>
+        <div class="tricks">
+          <span class="lbl">How it's done</span>
+          <div class="checks">
+            <label><input id="hazeOn" type="checkbox" checked> Distance haze</label>
+            <label><input id="wire" type="checkbox"> Terrain wireframe</label>
+          </div>
+          <table id="tris"></table>
+        </div>
       </div>
     </div>
   </details>
