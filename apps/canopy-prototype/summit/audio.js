@@ -25,7 +25,7 @@ import { mus, musicFrom, musicObj, musicPan } from '../camp/audio/music.js';
 
 const R = (a, b) => a + Math.random() * (b - a);
 const FIRE = new THREE.Vector3(CAMP.x, TOP + 0.4, CAMP.z);
-const RADIO = new THREE.Vector3(-3.35, TOP + YB + 0.45 + 0.085, -(D / 2 + 0.4));
+const RADIO = new THREE.Vector3(-1.95, TOP + YB + 0.45 + 0.085, -(D / 2 + 0.4));
 const beds = {}, tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
 let radio = null, btn = null, gust = 0.5, gustT = 0, crackT = 0, callT = 8, stepD = 0, last = null;
 const keep = () => { store.set(KEYS.audio, saved()); showBtn(); };
@@ -42,8 +42,8 @@ function raven() {
   const a = R(0, 6.28), pos = tmp.set(me.x + Math.cos(a) * 40, me.y + 15, me.z + Math.sin(a) * 40).clone(), out = spot(pos, 8, bus.nature), t = ac.currentTime, n = 2 + (Math.random() < 0.5);
   for (let i = 0; i < n; i++) { const t0 = t + i * 0.42, g = gain(out, 0); env(g, t0, 0.02, 0.07, 0.22, 0.05); const o = osc('sawtooth', R(310, 350), t0, 0.32, filt('bandpass', 1300, 3, g)); o.frequency.linearRampToValueAtTime(260, t0 + 0.3); }
 }
-function crunch(soft) {
-  const t = ac.currentTime, g = gain(bus.sfx, 0); env(g, t, 0.01, soft ? 0.05 : 0.08, 0.13);
+function crunch(soft, pos = null) {   // pos: someone else's step, heard where it is (his, life.js)
+  const t = ac.currentTime, g = gain(pos ? spot(pos, 1) : bus.sfx, 0); env(g, t, 0.01, soft ? 0.05 : 0.08, 0.13);
   noise(t, 0.16, filt('bandpass', R(900, 1400), 0.9, g)); const h = gain(g, 0.5); noise(t + 0.015, 0.1, filt('highpass', R(3000, 4500), 0.7, h));
 }
 
@@ -98,7 +98,8 @@ export function buildAudio() {
   showBtn();
   buildRadio(); musicFrom(radio);
 }
-export function cue(name, pos) { if (ac?.state === 'running' && !set.muted) SFX[name]?.(pos); }
+const OWN = { crunch: (pos) => crunch(true, pos) };   // the summit's own sounds a cue can name, before the camp's SFX
+export function cue(name, pos, ...more) { if (ac?.state === 'running' && !set.muted) (OWN[name] ?? SFX[name])?.(pos, ...more); }
 
 // each frame after the light: the ear, the beds by the wind, the storm and the hour, the fire's crackles, the calls, your steps
 export function audioStep(dt) {

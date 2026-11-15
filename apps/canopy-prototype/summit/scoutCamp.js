@@ -16,6 +16,13 @@ import { bakeStatic } from './cabin.js';
 export let flag;
 export const mute = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, 0.6) * vec3(0.9, 0.92, 0.95);'); };   // the cozy camp's colours, toned down
 export const CAMP = { x: 0.5, z: 11.5, turn: 0 }, campGroup = new THREE.Group();
+// the camp's cast (castStage.js, life.js) measures some props by name: the log seats and their tops, the things on a seat, the
+// tent (places.js, operator/places.js, sloth/spots.js). bakeStatic merges the props into a few draws and takes them away, so
+// each of those keeps an invisible stand-in under its name (no draw: never drawn, only measured and ray-tested), and the drawn
+// one is renamed. campReady resolves once all three GLBs are in.
+const MEASURED = ['Seat_0', 'Seat_1', 'Seat_2', 'SeatTop_0', 'SeatTop_1', 'SeatTop_2', 'SeatThings', 'Tent'];
+let campLoaded = null;
+export const campReady = new Promise((ok) => { campLoaded = ok; });
 export const fireLight = new THREE.PointLight('#ff9a48', 0, 14, 1.5);
 export const flames = [];
 export function tris0(g) { return (g.index ? g.index.count : g.attributes.position.count) / 3; }
@@ -30,7 +37,7 @@ export function buildScoutCamp() {
   fireLight.position.set(0, 0.9, 0);
   campGroup.add(fireLight);
   { const KEEP = { fire: null, camp_picked_lm: ['Seat_0', 'Seat_1', 'Seat_2', 'Table', 'Tent'], lived: ['KitchenCrate', 'KitchenThings', 'LooseLogs', 'MatRoll', 'SeatThings', 'SeatTop_0', 'SeatTop_1', 'SeatTop_2', 'TentSide', 'WoodPile'] };
-    const loader = new GLTFLoader(); let tris = 0;
+    const loader = new GLTFLoader(); let tris = 0, loaded = 0;
     for (const [file, keep] of Object.entries(KEEP)) fetchBytes(`models/${file}.txt`).then((bin) => {
       loader.parse(bin.buffer, '', (gl) => {
         for (const node of [...gl.scene.children]) { if (keep && !keep.includes(node.name)) continue;
@@ -39,8 +46,10 @@ export function buildScoutCamp() {
             o.material = flame ? new THREE.MeshBasicMaterial({ color: node.name === 'Fire' ? '#ffb15a' : '#ff6a2a', vertexColors: !!o.geometry.attributes.color, transparent: node.name === 'Fire', opacity: 0.9, depthWrite: node.name !== 'Fire' })
               : hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest }), mute, 'mute');
             o.castShadow = !flame; o.receiveShadow = true; tris += tris0(o.geometry); if (node.name === 'Fire') flames.push(o); });
+          if (MEASURED.includes(node.name)) { const m = node.clone(true); m.traverse((o) => { o.visible = false; }); node.name += '_look'; campGroup.add(m); }
           campGroup.add(node); }
         TRIS.push([`Scout camp: ${file}`, tris]); tris = 0; bakeStatic(campGroup, (o) => flames.includes(o) || o.parent?.name === 'Embers' || o.name === 'Embers');
+        if (++loaded === 3) campLoaded();
       });
     }).catch((e) => console.warn('camp props', e));
   }
