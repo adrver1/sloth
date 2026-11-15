@@ -108,8 +108,8 @@ const isPhone = matchMedia('(max-width: 700px), (pointer: coarse)').matches;
 const TRIS = [];
 
 // ---------------------------------------------------------------- erosion
-// The land within 1.3 km is reshaped by an offline landscape-evolution run (tools/lem.cjs: uplift, river incision, creep,
-// scree), stored as the change in height on two grids (models/erosion-world.txt, erosion-near.txt) and added to hBase() below. ?ero=off shows the old land.
+// The land within 1.3 km is reshaped by an offline landscape-evolution run (tools/lem.cjs: river incision, creep and
+// scree), stored as the change in height on two grids (models/erosion-world.txt, erosion-near.txt) and added to hBase() below. ?ero=off shows the old land, ?bare=1 the land alone.
 // Two grids: the world, 12.8 km at 25 m, and the play area, 2.56 km at 5 m; each fades out over the outer 15 % of its square.
 const ERO = await (async () => { const v = new URLSearchParams(location.search).get('ero') || 'on'; if (v === 'off') return null;
   const load = async (f) => { const [h, b64] = (await (await fetch(`models/${f}.txt`)).text()).split('\n'), m = JSON.parse(h), bin = Uint8Array.from(atob(b64.trim()), (c) => c.charCodeAt(0)); m.d = new Int16Array(bin.buffer); return m; };
@@ -118,9 +118,12 @@ function eroGrid(G, x, z) { const { N, DX, X0, Z0, scale, d } = G, u = (x - X0) 
   const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, k = j * N + i, e = Math.min(1, Math.min(u, v, N - 1 - u, N - 1 - v) / (N * 0.15));
   return [scale * ((d[k] * (1 - fu) + d[k + 1] * fu) * (1 - fv) + (d[k + N] * (1 - fu) + d[k + N + 1] * fu) * fv), e * e * (3 - 2 * e)]; }
 // BARE: the grown land alone, with nothing man-made and none of the level's carving (Adriaen 2026-11-15: get a good, realistic
-// foundation first, then add the cabin, road, bridge and boardwalk back). ?bare=0 shows the level on it.
-const BARE = !!ERO && new URLSearchParams(location.search).get('bare') !== '0';
-function eroAt(x, z) { const [w, wf] = eroGrid(ERO[0], x, z), [n, nf] = eroGrid(ERO[1], x, z); return w * wf + (n - w * wf) * nf; }   // the near grid already includes the world's change
+// foundation first, then add the cabin, road, bridge and boardwalk back). Now opt-in with ?bare=1.
+const BARE = !!ERO && new URLSearchParams(location.search).get('bare') === '1';
+// The play core (the summit, the clearing, the boardwalk and the watch hill: a capsule from the cabin to the hill) keeps the
+// old land exactly, so the level fits as it was; erosion fades in from 150 m round it to full strength at 320 m.
+function eroKeep(x, z) { const bx = 215, bz = 100, k = Math.max(0, Math.min(1, (x * bx + z * bz) / (bx * bx + bz * bz))), d = Math.hypot(x - bx * k, z - bz * k), t = Math.min(1, Math.max(0, (d - 150) / 170)); return t * t * (3 - 2 * t); }
+function eroAt(x, z) { const [w, wf] = eroGrid(ERO[0], x, z), [n, nf] = eroGrid(ERO[1], x, z); return (w * wf + (n - w * wf) * nf) * eroKeep(x, z); }   // the near grid already includes the world's change
 
 // ---------------------------------------------------------------- random and noise
 function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -157,7 +160,7 @@ function hLand(x, z) {
 }
 const landAt = (x, z) => hLand(x, z) + (typeof ERO !== 'undefined' && ERO ? eroAt(x, z) : 0);
 // the watch hill is raised to about 20 m above the summit (more where the land round it is higher), whatever the land under it does
-const HILL_A = typeof BARE !== 'undefined' && BARE ? 0 : typeof ERO !== 'undefined' && ERO ? Math.max(20, Math.min(200, landAt(0, 0) + 20 - landAt(HILL_P.x, HILL_P.z))) : 160;
+const HILL_A = typeof BARE !== 'undefined' && BARE ? 0 : 160;
 function hBase(x, z) {
   let h = landAt(x, z);
   h += HILL_A * Math.exp(-((x - HILL_P.x) ** 2 + (z - HILL_P.z) ** 2) / 115 ** 2);   // the watch hill, broad enough for stairs to zigzag up it
@@ -166,7 +169,7 @@ function hBase(x, z) {
 }
 const TOP = hBase(0, 0) + 2;
 let LAKE = 0;   // the lowest valley floors freeze into flat lakes; set from the height spread
-{ const hs = []; for (let i = 0; i < 4000; i++) { const a = R(0, 6.283), r = R(1500, 7000); hs.push(hBase(Math.cos(a) * r, Math.sin(a) * r)); } hs.sort((a, b) => a - b); LAKE = hs[Math.floor(hs.length * (ERO ? 0.01 : 0.07))]; }   // eroded valleys drain, so only the very lowest floors are lakes
+{ const hs = []; for (let i = 0; i < 4000; i++) { const a = R(0, 6.283), r = R(1500, 7000); hs.push(hBase(Math.cos(a) * r, Math.sin(a) * r)); } hs.sort((a, b) => a - b); LAKE = hs[Math.floor(hs.length * (BARE ? 0.01 : 0.07))]; }
 const LAKE_H = hBase(LAKE_P.x, LAKE_P.z) - 30;
 // nearest point of a polyline [[x, z, s], ...]: distance d, distance along s, segment index i
 function polyNear(P, x, z) { let best = { d: 1e9, s: 0, i: 0 }; for (let i = 0; i < P.length - 1; i++) { const [ax, az, as] = P[i], [bx, bz, bs] = P[i + 1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, k = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)), d = Math.hypot(x - ax - dx * k, z - az - dz * k); if (d < best.d) best = { d, s: as + (bs - as) * k, i }; } return best; }
