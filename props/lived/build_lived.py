@@ -1,6 +1,6 @@
 """
 Lived-in camp props for the Canopy Camp game (apps/canopy-prototype/camp.html): the small things that make the camp
-look used. PROPS (above make()) lists them all, one row each with its builder and how it is lit. Triangles as of
+look used. PROPS (above make()) lists them all, one row each with its builder, how it is lit and where the page stands it. Triangles as of
 2026-11-14 (build() prints them, with a breakdown per piece of the baked props):
 
     WoodStack      94  the stacked split logs by the fire as one textured block (renders of the detailed stack)
@@ -9,7 +9,7 @@ look used. PROPS (above make()) lists them all, one row each with its builder an
     MatRoll        24  the rolled sleeping mat by the tent (textured)
     KitchenCrate   26  the kitchen crate (textured)
     WoodPile      178  the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
-    SeatThings    120  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
+    SeatThings    108  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
     TentSide      147  the pair of wellies by the tent (baked)
     KitchenThings 130  the pan, plates, honey jar and spoon on the crate (baked)
 
@@ -25,7 +25,7 @@ Materials match the camp's rustic set, so the props sit with the picked camp.
 make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
 drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
 How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
-build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+make() in its own scene and gives the BAKED parts flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
 (TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
 models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
 AO in the colour attribute, which the page never sees.
@@ -47,7 +47,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake, pick_device  # noqa: E402
-from lib.export import export_glb, report, reset  # noqa: E402
+from lib.export import export_glb, report, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "camp"))
 from build_camp import DOOR_PLANK as PLANK, SEAT_BOARD, SEAT_TOP  # noqa: E402  (the seat and the tent planks, review R2-252)
@@ -775,34 +775,39 @@ def kitchen_things(M):
 
 
 # Every lived prop, in build order (each builder that needs random numbers has its own seeded stream, review R2-256): (name, builder(M, samples),
-# how it is lit, a note for the triangle report). "baked" props take vertex colours (their own AO, or the light bake's
-# flat colours) and lose their UVs; "textured" ones keep their UVs and image. A new prop is one row here; the page
-# (campProps.js) and the light bake (bake_camp_lightmap.py PLACE) still place it by name.
+# how it is lit, where the page stands it, a note for the triangle report). "baked" props take vertex colours (their own
+# AO, or the light bake's flat colours) and lose their UVs; "textured" ones keep their UVs and image. Where: a key of
+# apps/canopy-prototype/camp/layout.js ANCHORS, or "seats" for every seat (lib.export.tag, review R2-249). A new prop is
+# one row here.
 PROPS = [
-    ("WoodStack", lambda M, s: wood_stack(M, max(s, 48)), "textured", None),
-    ("LooseLogs", lambda M, s: loose_logs(stack_spots(M)), "textured", None),
-    ("SeatTop", lambda M, s: seat_top(), "textured", "(x3 seats on the page)"),
-    ("MatRoll", lambda M, s: mat_roll(os.path.join(HERE, "mat_roll.png")), "textured", None),
-    ("KitchenCrate", lambda M, s: kitchen_crate(), "textured", None),
-    ("WoodPile", lambda M, s: wood_pile(M), "baked", None),
-    ("SeatThings", lambda M, s: seat_things(M), "baked", None),
-    ("TentSide", lambda M, s: tent_side(M), "baked", None),
-    ("KitchenThings", lambda M, s: kitchen_things(M), "baked", None),
+    ("WoodStack", lambda M, s: wood_stack(M, max(s, 48)), "textured", "woodPile", None),
+    ("LooseLogs", lambda M, s: loose_logs(stack_spots(M)), "textured", "woodPile", None),
+    ("SeatTop", lambda M, s: seat_top(), "textured", "seats", "(x3 seats on the page)"),
+    ("MatRoll", lambda M, s: mat_roll(os.path.join(HERE, "mat_roll.png")), "textured", "tent", None),
+    ("KitchenCrate", lambda M, s: kitchen_crate(), "textured", "kitchen", None),
+    ("WoodPile", lambda M, s: wood_pile(M), "baked", "woodPile", None),
+    ("SeatThings", lambda M, s: seat_things(M), "baked", "seatThings", None),
+    ("TentSide", lambda M, s: tent_side(M), "baked", "tent", None),
+    ("KitchenThings", lambda M, s: kitchen_things(M), "baked", "kitchen", None),
 ]
-BAKED = tuple(n for n, _, kind, _ in PROPS if kind == "baked")
-TEXTURED = tuple(n for n, _, kind, _ in PROPS if kind == "textured")
+BAKED = tuple(n for n, _, kind, _, _ in PROPS if kind == "baked")
+TEXTURED = tuple(n for n, _, kind, _, _ in PROPS if kind == "textured")
 
 
 def make(samples=32):
     """Make the lived props (PROPS) in the current scene and return them as {name: object}, the BAKED ones first, each at
-    its own origin. No reset, no light, no export. samples: the wood stack renders' samples (at least 48)."""
+    its own origin and tagged with where the page stands it (lib.export.tag: the wood pile, the middle seat, the tent's
+    door, the kitchen crate, or every seat). No reset, no light, no export. samples: the wood stack renders' samples (at
+    least 48)."""
     M = materials()
-    made = {name: fn(M, samples) for name, fn, _, _ in PROPS}
+    made = {name: fn(M, samples) for name, fn, _, _, _ in PROPS}
     for k in BAKED:                           # the baked props are joined from parts (join() applied them): at the origin
         o = made[k]
         o.location = (0, 0, 0)
         o.name = k
     drop_ground_faces(made.values())          # the bottoms standing on the ground (review R2-154)
+    for name, _, _, where, _ in PROPS:
+        tag(made[name], where)
     return {k: made[k] for k in BAKED + TEXTURED}
 
 
@@ -816,8 +821,8 @@ def build(samples=32, parts_out=None, colour=None, path=None):
     for o in objs.values():                   # baked props need no UVs; only the textured ones keep theirs
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived_preview.glb"), image_format="JPEG", quiet=True)
-    report([every[k] for k in TEXTURED], note={n: t for n, _, _, t in PROPS if t})
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "lived_preview.glb"), image_format="JPEG", quiet=True, extras=True)
+    report([every[k] for k in TEXTURED], note={n: t for n, _, _, _, t in PROPS if t})
     for k, o in objs.items():
         report([o])
         part = o.data.attributes["part"]

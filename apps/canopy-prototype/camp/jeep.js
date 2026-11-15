@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { GAIN } from "../bakedlight.js";
 import { JEEP, PRE, camera, renderer, scene } from "./core.js";
 import { V, canvasTex, ease } from "./util.js";
-import { JEEP_AT, JEEP_TAN } from "./layout.js";
+import { JEEP_AT, JEEP_TAN, wearBlockers } from "./layout.js";
 import { blockers } from "./campProps.js";
 
 // ---------------------------------------------------------------- the adventure jeep (props/jeep/build_jeep.py), parked at the clearing edge
@@ -33,7 +33,7 @@ async function buildJeep() {
   if (far) { far.traverse((m) => { if (m.isMesh) m.material = jm; }); far.visible = false; scene.add(far); }
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
   if (far) { far.position.copy(jeep.position); far.rotation.copy(jeep.rotation); }
-  for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
+  blockers.push(...wearBlockers("jeep"));   // two circles along the jeep (layout.js WEAR)
   // the doors and the hood (Adriaen 2026-11-12, hinged at the windscreen): how far each swings (rad) and about which axis come
   // from the node's glTF extras, "open" and "axis", which build_jeep.py writes from its HINGES and HOOD_OPEN (review R2-250).
   // OLD stands in for a jeep GLB built before the extras; drop it once the jeep is rebuilt and baked again.

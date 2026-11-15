@@ -1,15 +1,16 @@
 // Canopy Camp layout: where everything in the camp stands, in one place (camp review C1: world-12, props-06, crosscut-10,
 // operator-12, world-16). Only numbers, vectors and pure functions: no scene, no DOM, no random numbers (what is placed at random, the forest wall, the
 // ferns, the deadwood, stays where it is drawn), so any module can import it at any point. The one exception is fromModel,
-// which copies the tent's and hammock's sizes in from their models once campProps.js has loaded them (review R2-250). Units are metres; y is up, the fire is at the origin.
-// The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
-// the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
-// props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Two values are
+// which copies the tent's and hammock's sizes in from their models once campProps.js has loaded them (review R2-250). Units
+// are metres; y is up, the fire is at the origin. node can import it (and lanterns.js): props/shadow/layout_pure.mjs works out the bakes' layout from it with no browser
+// (the tent, the hammock, the track, the glade path, WEAR and a "place" block, where each baked prop and light stands;
+// review R2-257), props/shadow/export_casters.cjs adds the deadwood from the page and writes it all to
+// props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block (its "anchors"
+// are ANCHORS, at the end of this file). Two values are
 // typed again there: the sun's direction (the bake stops if the two differ) and the lantern drop, lanterns.js JAR_Y, with no
 // check (review props-07). LAUNDRY and SOUP_POT restate build_laundry.py and build_fire.py; campProps.js checks them against
 // the anchors in those GLBs (review R2-252). SEAT_R and JEEP_OUT are exported for checks; no module
 // imports them. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
-// campProps.js's CAMP (tentAt, hA, hB, tb) and the laundry line are window.__camp and window.__laundry for the bake (debug.js).
 import * as THREE from "three";
 import { V, polyDist, yawTo } from "./util.js";
 
@@ -107,3 +108,33 @@ export const LAUNDRY = (() => {
     hang: mid.clone().addScaledVector(dir, -L / 2 + L * t).setY(1.62 - 0.13 * 4 * t * (1 - t)), dir,
     mid, yaw, posts: [mid.clone().addScaledVector(dir, -L / 2), mid.clone().addScaledVector(dir, L / 2)] };
 })();
+
+// ---------------------------------------------------------------- where each baked prop stands, by its anchor
+// Each baked prop's builder tags it with one of these keys (custom property "anchor", three.js userData; props/lib/export.py
+// tag, review R2-249), or with "seats" for one copy on every log seat (SEATS; userData.seat is which). campProps.js stands
+// every lived and picked node from its anchor in one loop, and export_casters.cjs hands these to the light bake in the place
+// block's "anchors". A new prop needs only its tag; a new place, a key here.
+export const ANCHORS = { tent: TENT, hammock: { at: HAMMOCK.mid, yaw: HAMMOCK.yaw }, table: TABLE, woodPile: WOOD_PILE,
+  seatThings: SEATS[1], kitchen: CRATE, laundry: { at: LAUNDRY.mid, yaw: LAUNDRY.yaw }, fire: { at: V(0, 0, 0), yaw: 0 } };   // seatThings: the middle seat
+
+// ---------------------------------------------------------------- the worn ground round the things people use (review R2-255)
+// One named entry per thing: { name, at, r, path, set }. r is its footprint, and also its collision radius: campProps.js
+// and jeep.js put their blockers down from these entries (wearBlockers), so the wear and the collision cannot drift apart.
+// path: a footpath runs to it from the fire. set: which part of the camp it belongs to, "camp" (always there), "seats"
+// (SEATS order), "lived" and "laundry" (only with the lived-in props, ?lived=1) or "jeep" (only with a jeep). ground.js
+// paints its live wear map from these (campGround.js filters them), and export_casters.cjs hands
+// them to props/ground/bake_ground.py as "wear", which gives each entry its own random stream keyed by its name, so adding
+// a thing re-rolls only its own patch and path. The hammock's posts have no path: the bake wears a patch along the
+// hammock itself. The deadwood is wild and gets no worn ground.
+export const WEAR = [
+  { name: "table", at: TABLE.at, r: 0.75, path: true, set: "camp" },
+  ...SEATS.map((s, i) => ({ name: `seat${i}`, at: s.at, r: 0.75, path: false, set: "seats" })),   // inside the trampled ring round the fire
+  { name: "hammockA", at: HAMMOCK.a, r: 0.3, path: false, set: "camp" }, { name: "hammockB", at: HAMMOCK.b, r: 0.3, path: false, set: "camp" },
+  { name: "woodPile", at: WOOD_PILE.at, r: 0.55, path: true, set: "lived" },
+  { name: "choppingStump", at: WOOD_PILE.at.clone().addScaledVector(WOOD_PILE.side, 1.0), r: 0.35, path: true, set: "lived" },
+  { name: "kitchen", at: CRATE.at, r: 0.35, path: true, set: "lived" },
+  ...LAUNDRY.posts.map((p, i) => ({ name: `laundry${i}`, at: p, r: 0.25, path: true, set: "laundry" })),
+  ...[-0.95, 0.95].map((k, i) => ({ name: `jeep${i}`, at: JEEP_AT.clone().addScaledVector(JEEP_TAN, k), r: 1.05, path: true, set: "jeep" })),
+];
+// the blockers ([centre, radius], campProps.js) of one WEAR set, in WEAR's order
+export const wearBlockers = (set) => WEAR.filter((w) => w.set === set).map((w) => [w.at, w.r]);

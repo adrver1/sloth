@@ -3,65 +3,119 @@ All the camp props' light in one place (Adriaen 2026-11-12: "We don't want to ge
 different places"): the picked camp set and the lived-in props (wood pile, seat things, tent side, mat roll, kitchen
 crate, the fire set and the laundry line) are baked together, in one scene, into one shared light map.
 
-    blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --samples 512
-    # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 4096
-    # --device auto (the default) bakes on the fastest GPU there is, else the CPU, and prints which; --device cpu forces the CPU, --device gpu stops when there is no GPU
+    blender -b --python props/camp/bake_camp_lightmap.py -- --size 2048 --samples 512
+    # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 2048
+    # no GPU: a small, low-sample check of the light on the CPU, written to apps/canopy-prototype/lmpreview/ (git ignores
+    # it) and seen on the page as camp.html?lmdir=lmpreview; it never touches models/ or the props' GLBs
+    blender -b --python props/camp/bake_camp_lightmap.py -- --preview
+    # one prop changed (review R2-149): bake only it (and any neighbour whose light it changes) into its own rectangle
+    blender -b --python props/camp/bake_camp_lightmap.py -- --size 2048 --objects Pot,Ring
+    # --device auto (the default) bakes on the fastest GPU there is, else the CPU, and prints which; --device cpu forces the
+    # CPU, --device gpu stops when there is no GPU (lib.bake.pick_device, review R2-111); --preview always bakes on the CPU
 
-1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
-   (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
-2. Builds the picked set (build_camp.py, BUDGET decimate, no densify; flat colours except build_camp.TEXTURED, the
-   hammock posts, which keep their bamboo image), imports the scratch GLBs, and stands everything where
-   camp.html puts it (picked() makes no fire and no lantern: the lived fire set and the page's lanterns.js draw those,
-   so neither is baked). The mesh audit
-   (props/lib/audit.py) reports on the lived props in step 1 and the picked set here, and never stops the bake.
-3. Adds the jeep (an occluder: props/jeep/jeep_<jeep>.glb, with a warning when it is older than build_jeep.py or
-   props/lib) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
-   one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
-   lanterns, the tent stove and a dim blue moon. Every prop gets a second UV map (TEXCOORD_1; TEXCOORD_0 stays the
-   texture's, or a dummy) packed into one atlas. Written:
-     camp_lm_<k>.png      RGB  night light / 4, sRGB-encoded; the page tones it as 1 - exp(-6.4 x surface colour x light),
-                               unlit, at night
-                          A    sky occlusion (distance 0.6); the page scales the sky light by 0.32 + 0.68 x AO by day
-     camp_lm_sun_<k>.png  where the sun reaches each prop (direct sun over the same with no shadows); the page scales its
-                          live sun by it, so the props shade each other and the jeep shades them
+Options: --size (props map, a power of two, default 2048, the largest map the page ships (review R2-170); 512 with
+--preview), --samples (512, the scale of each pass's own samples in PASS_SAMPLES; 8 with --preview), --ground (ground maps,
+1024; 256 with --preview), --angle and --margin (the light-map unwrap), --jeep, --unwrap-only (stop after the atlas, no
+bake), --repack (new atlas rectangles for every prop), --objects Name,... (bake only these props into their rectangles,
+keep every other pixel of the props maps, and bake the ground maps whole; it stops if the atlas must be packed again,
+if any other prop's UVs changed since the last bake, or if a map is missing), --preview (the sizes above, on the CPU, into --out), --out DIR (write every output into DIR instead of models/ and
+props/; with --preview it defaults to apps/canopy-prototype/lmpreview). The preview's time is an estimate, not measured:
+under a minute on a laptop CPU (1/16 of the texels of the full bake and 1/64 of its samples).
+
+1. read_layout: where the page stands each prop and light, from the "place" block the layout step
+   (props/shadow/layout_pure.mjs, through export_casters.cjs) writes into props/shadow/layout_picked.json; it stops at once if that block is missing.
+2. build_scene: one scene (review R2-254): builds the picked set (build_camp.py, no densify; it stops if a prop is over
+   build_camp.BUDGET; picked() makes no fire and no lantern: the lived fire set and the page's lanterns.js draw those),
+   runs the make() of props/lived/build_lived.py, build_fire.py and build_laundry.py into it
+   (make_lived_sets: each builder's BAKED props with flat colours, lib.bake.flat_colours, so their vertex colours are
+   plain base colours with no AO of their own; the picked set too, except build_camp.TEXTURED, the hammock posts,
+   which keep their bamboo image), runs the mesh audit (props/lib/audit.py; it reports here and never stops the bake),
+   keeps the laundry's and the fire's ANCHORS empties at their set's origin for the page (review R2-252), triangulates every prop as its GLB will be, and stands every object
+   where camp.html puts it, from its tags (lib.export.tag, glTF extras, review
+   R2-249): "anchor" names an entry of the place block's "anchors" (layout.js ANCHORS on the page) or "seats" (one copy
+   per log seat, Name_0-2); thin, no_shadow and unlit (the embers, not light-mapped) cast no shadow; unbaked objects (the
+   picked jar lantern) are left out. A new prop needs only its tag in its builder's make(), and a new place an entry in
+   layout.js ANCHORS.
+3. unwrap gives every prop a second UV map (TEXCOORD_1; TEXCOORD_0 stays the texture's, or an all-zero dummy): each prop is projected
+   and packed on its own into its own rectangle of the atlas, kept in props/camp/atlas.json (see ATLAS), so changing one
+   prop leaves every other prop's UVs and its part of the maps as they were (review R2-149). A run into models/ writes
+   atlas.json with each prop's UV hash, which --objects checks. A prop's rectangle is sized by its surface times its
+   LM_WEIGHT squared (review R2-172): the tent's big smooth canvas gets 0.6 of the common texel density, the small props
+   seen up close by the fire and on the seats 1.5.
+4. add_occluders and add_ground: the jeep and the deadwood (occluders only) and the real ground disc, so the WHOLE scene is
+   baked as one (Adriaen 2026-11-12). Lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky;
+   night = the four CHANNELS: the fire, 8 jar lanterns, the tent stove and a dim blue moon.
+5. bake_light: seven Cycles calls (review R2-157, R2-158). Every stand-in is neutral grey, so light keeps its three
+   colour channels apart, bounces included: the fire, the stove and the lanterns are baked in one pass as pure red,
+   green and blue lamps, and the sun's two passes in one as a red sun with shadows and a green one without. The props
+   that cast shadows are baked through one joined copy, the ground in the same call. Each pass has its own samples
+   (PASS_SAMPLES, review R2-171). Then write_maps writes:
+     camp_lm_<k>.png      RGBA one light per channel (fire, stove, lanterns, moon), light / 4, gamma 2.2; the page
+                               colours and mixes them (bakedlight.js) and tones the sum as
+                               1 - exp(-6.4 x surface colour x light), unlit, at night
+     camp_lm_sun_<k>.png  R    where the sun reaches each prop (direct sun over the same with no shadows); the page scales
+                               its live sun by it, so the props shade each other and the jeep shades them
+                          G    sky occlusion (distance 0.6); the page scales the sky light by 0.32 + 0.68 x AO by day
      camp_shadow_picked_<jeep>.png        the ground's day shadow, 1 - light / open ground (as ground.js always read it)
      camp_ground_night_picked_<jeep>.png  the ground's night light / 4 (sRGB), with every prop's shadow in it
-   Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
-   Thin double-sided cards (laundry, chain) take the brighter of their two sides.
-   COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
-4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
-   the page places them as before; SeatTop as SeatTop_0-2, one per seat; the laundry's and the fire's ANCHORS empties
-   kept as built, review R2-252; the WoodStack carries the carried logs' atlas spots from props/lived/wood_stack.json
-   as a glTF extra, review R2-243) with their models/*.txt copies, and
-   apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png. The GLBs carry quantized normals, colours and UVs
-   (KHR_mesh_quantization, lib/quantize.py), and the unlit Embers no normals (review R2-109).
-Where each prop and light stands comes from the page itself: the "place" block the layout step (export_casters.cjs)
-writes into props/shadow/layout_picked.json.
-A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
+     camp_lights.json     the channel order, their colours, the encoding and the open ground's day light; no "ktx2" key:
+                          every map this step writes has its old .ktx2.txt removed, so the page loads the new PNG until
+                          props/bake_all.py's ktx step encodes them again and sets the flag (review R2-005)
+   <k> is 2k and 1k (with --size 4096 also 4k, which the page loads only with ?lm=4k); each smaller size is a box filter
+   of the baked one in linear light, encoded after. A map smaller than 2K (a preview, or --size 1024) is written as both
+   _1k and _2k, the names the page asks for. A bake under 4096 removes the old _4k maps, which no longer fit the UVs
+   (?lm=4k then loads the 2K maps). Ground images: row 0 = page z -9.8, column 0 = x -9.8 (ground.js, flipY false).
+   Thin double-sided cards (tagged thin: the laundry, the chain) take the brighter of their two sides.
+   COLOR_0 alpha 0 marks faces that glow at night (materials with the "glow" property: lantern glass, the stove's fire).
+6. export_models writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own
+   origin, so the page places them from their tags; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt
+   copies (all into --out instead, when given). Every node carries its tags as glTF extras (three.js userData); the
+   WoodStack also carries the carried logs' atlas spots from props/lived/wood_stack.json (review R2-243). The GLBs carry
+   quantized normals, colours and UVs (KHR_mesh_quantization, lib/quantize.py), and the unlit props no normals (R2-109).
+A three.js point (x, y, z) is Blender (x, -z, y); a yaw set as rotation.y on the page is the same angle about Blender's z
+(the fallen log, which deadwood.js turns with rotateY(-yaw), takes -yaw).
+The run's memory: one props-sized and one ground-sized float image are made once and reused by every bake pass, and each
+pass keeps only what is used (its channels, the RGB mean, or AO's first channel) as float32 (review R2-224).
 """
-import argparse, atexit, json, math, os, shutil, sys, tempfile, time
+import argparse, hashlib, json, math, os, sys, time
 import bpy
 import numpy as np
 from mathutils import Vector
+from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 LIVED = os.path.join(ROOT, "props", "lived")
 MODELS = os.path.join(ROOT, "apps", "canopy-prototype", "models")
-argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
-ap = argparse.ArgumentParser()
-ap.add_argument("--size", type=int, default=4096)
-ap.add_argument("--samples", type=int, default=512)
-ap.add_argument("--angle", type=float, default=60)
-ap.add_argument("--margin", type=float, default=6)    # texels between islands at --size
-ap.add_argument("--unwrap-only", action="store_true")
-ap.add_argument("--ground", type=int, default=1024, help="ground map size")
-ap.add_argument("--jeep", default="expedition")
-ap.add_argument("--device", default="auto", help="Cycles device: auto (the fastest GPU, else the CPU), gpu (stop if none), cpu, or a backend such as optix")
-a = ap.parse_args(argv)
-T0 = time.time()
-GLOW = ("ru_glass", "wt_glow")
-THIN = ("LaundryCloth", "Chain")
+PREVIEW_OUT = os.path.join(ROOT, "apps", "canopy-prototype", "lmpreview")   # camp.html?lmdir=lmpreview; in .gitignore
+# the night lights, in the order of the maps' channels (R, G, B, A) and of camp_lights.json "channels", with the colour the
+# page gives each (bakedlight.js reads it from camp_lights.json). The jeep has no baked lights (headlights dropped; the
+# cabin light is live on the page, Adriaen 2026-11-12).
+CHANNELS = ("fire", "stove", "lanterns", "moon")
+# baked together in one pass, one colour channel each (red, green, blue); the moon is baked alone in white, since its
+# pass also has the dim night sky (review R2-157)
+NIGHT_RGB = ("fire", "stove", "lanterns")
+TINT = {"fire": (1, 0, 0), "stove": (0, 1, 0), "lanterns": (0, 0, 1), "moon": (1, 1, 1)}
+# Cycles samples per bake call at --samples 512 (scaled with --samples, at least 2), from the noise measured in the
+# committed maps (review R2-171): the sun's visibility is mostly 0 or 1 and its open pass has nothing to shade it, the
+# moon is below 8-bit noise, AO is smooth. The night pass shares its samples among its three lights (about 1.5 x one
+# light's 256 at 2048). The ground's night map is baked in that same call, so it too now shares 512 samples among three
+# lights, where each light had 512 of its own before. The ground's day light is a 1K map alone.
+PASS_SAMPLES = {"AO": 128, "SUN": 96, "GROUND_DAY": 512, "NIGHT": 512, "MOON": 64}
+COLOUR = {"fire": (1.0, 0.50, 0.20), "stove": (1.0, 0.55, 0.15), "lanterns": (1.0, 0.72, 0.38), "moon": (0.55, 0.65, 1.0)}
+# toward the sun, the page's (-4, 10, 3) in Blender axes: kept here because the page's normalised copy differs from this
+# one in the last float bit (6e-8), and the bake must stay as it was; read_layout stops if the two ever disagree
+SUN_DIR = Vector((-4, -3, 10)).normalized()
+# the lanterns sway, so the page draws them and they are not baked; their lights are. The page's light is 0.125 m below
+# each lantern's hang point (lanterns.js JAR_Y), the bake's 0.12 m: 5 mm higher (review props-07), kept so the bake
+# stays as it was
+PAGE_LANTERN_DROP, LANTERN_DROP = 0.125, 0.12
+RR = 9.8                                                  # the ground disc's half width (ground.js)
+# light-map texels per metre for each prop, relative to the rest (review R2-172): the tent (its canvas, lining and plank
+# floor) was half the atlas at one density for every surface, so its smooth walls get less, and the small props seen
+# up close by the fire and on the seats, where the firelight is sharpest, get more. A seat copy (Name_0-2) takes its
+# name's weight. Changing a weight packs the atlas again (unwrap).
+LM_WEIGHT = {"Tent": 0.6, "Pot": 1.5, "Ring": 1.5, "Fire": 1.5, "SeatThings": 1.5, "SeatTop": 1.5, "KitchenThings": 1.5}
 
 os.environ.setdefault("PROPS_AUDIT", "warn")       # the mesh audit (lib/audit.py) reports here but never stops the bake
 sys.path.insert(0, HERE); sys.path.insert(0, LIVED); sys.path.insert(0, os.path.join(ROOT, "props"))
@@ -69,76 +123,87 @@ import build_camp  # noqa: E402
 import build_fire  # noqa: E402
 import build_laundry  # noqa: E402
 import build_lived  # noqa: E402
-from lib.bake import flat_colours, pick_device  # noqa: E402
 from lib.audit import audit  # noqa: E402
+from lib.bake import flat_colours, pick_device  # noqa: E402
 from lib.export import builder_sources, export_glb, reset, stale, tris  # noqa: E402
+from lib.mesh import triangulate  # noqa: E402
 ANCHORS = build_laundry.ANCHORS + ("Soup",)    # the empties the lived sets carry for the page (review R2-252)
 
 
-# where the page stands each prop and light (step 2 uses it): checked before the minutes of building in step 1
-LAYOUT = json.load(open(os.path.join(ROOT, "props", "shadow", "layout_picked.json")))
-PL = LAYOUT.get("place") or sys.exit("layout_picked.json has no place block: run props/bake_all.py --only layout first")
+def parse_args():
+    argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--size", type=int, help="props light map size, a power of two (2048; 512 with --preview)")
+    ap.add_argument("--samples", type=int, help="Cycles samples at which PASS_SAMPLES is given (512; 8 with --preview)")
+    ap.add_argument("--angle", type=float, default=60)
+    ap.add_argument("--margin", type=float, default=6)    # texels between islands at --size
+    ap.add_argument("--unwrap-only", action="store_true")
+    ap.add_argument("--repack", action="store_true", help="give every prop a new atlas rectangle (all of the maps change)")
+    ap.add_argument("--objects", help="Name,Name,...: bake only these props into their rectangles and keep the rest of the "
+                    "props maps (the ground maps are baked whole); every other prop's UVs must be as atlas.json recorded")
+    ap.add_argument("--ground", type=int, help="ground map size (1024; 256 with --preview)")
+    ap.add_argument("--jeep", default="expedition")
+    ap.add_argument("--preview", action="store_true", help="small and fast on the CPU, into --out (never models/)")
+    ap.add_argument("--out", help="write every output here instead of models/ and props/")
+    ap.add_argument("--device", default="auto", help="Cycles device: auto (the fastest GPU, else the CPU), gpu (stop if none), cpu, or a backend such as optix")
+    a = ap.parse_args(argv)
+    small = a.preview
+    a.size = a.size or (512 if small else 2048)
+    if a.size & (a.size - 1):
+        sys.exit(f"--size {a.size} is not a power of two: the smaller maps are box filters of it")
+    a.samples = a.samples or (8 if small else 512)
+    a.ground = a.ground or (256 if small else 1024)
+    a.out = a.out or (PREVIEW_OUT if small else None)
+    if a.out:
+        os.makedirs(a.out, exist_ok=True)
+    return a
+
+
+def read_layout():
+    """layout_picked.json and its "place" block; checked before the minutes of building in build_scene."""
+    layout = json.load(open(os.path.join(ROOT, "props", "shadow", "layout_picked.json")))
+    pl = layout.get("place") or sys.exit("layout_picked.json has no place block: run props/bake_all.py --only layout first")
+    if "anchors" not in pl:
+        sys.exit("layout_picked.json's place block has no anchors (it is older than review R2-249): run props/bake_all.py --only layout")
+    if (SUN_DIR - B(*pl["sun"])).length > 1e-6:
+        sys.exit(f"the page's sun {pl['sun']} is not the bake's {tuple(SUN_DIR)}: update SUN_DIR")
+    print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points (the page: {PAGE_LANTERN_DROP} m)")
+    return layout, pl
 
 
 def flat(objs):
-    """The props' own colours for this bake: plain base colours into Col (alpha 0 where it glows), no light of their own."""
-    flat_colours(objs, GLOW)
+    """The props' own colours for this bake: plain base colours into Col (alpha 0 where a material has the "glow"
+    property), no light of their own."""
+    flat_colours(objs)
 
 
-# ---- 1. the lived builders, with flat colours, each in its own fresh scene and written to a scratch GLB that step 2
-# imports. The round trip stays on purpose: the glTF export triangulates every face and splits vertices at hard edges
-# and UV seams (WoodPile: 90 faces and 161 vertices as built, 178 triangles and 225 vertices as imported), and the
-# light-map unwrap below (smart_project, then one pack for all objects) works on those faces, so building the props
-# straight into this scene would give every object a different atlas. The scratch folder keeps a failed or
-# --unwrap-only run from leaving half-made props/lived/*.glb behind; step 4 writes those.
-SCRATCH = tempfile.mkdtemp(prefix="camp_lived_")
-atexit.register(shutil.rmtree, SCRATCH, True)      # gone however the run ends (ignore_errors=True)
-build_lived.build(32, colour=flat, path=os.path.join(SCRATCH, "lived.glb"))
-print("  built build_lived (flat colours)")
-build_fire.build(colour=flat, path=os.path.join(SCRATCH, "fire.glb"))
-print("  built build_fire (flat colours)")
-build_laundry.build(colour=flat, path=os.path.join(SCRATCH, "laundry.glb"))
-print("  built build_laundry (flat colours)")
+LIVED_SETS = (("lived", build_lived, lambda: build_lived.make(32)), ("fire", build_fire, build_fire.make),
+              ("laundry", build_laundry, build_laundry.make))     # set name (its GLB), builder, make()
+
+
+def make_lived_sets():
+    """The lived builders' make(), straight into this scene (review R2-254: no scratch GLBs, no import fix-ups). Anything
+    a builder leaves behind besides its props (a render camera or lamp) is removed, so it cannot light the bake. Each
+    builder's BAKED props get flat colours and lose their UV layers, as its own build() does; the textured ones keep
+    theirs. Returns {set name: [objects]}."""
+    sets = {}
+    for sname, mod, make in LIVED_SETS:
+        before = set(bpy.data.objects)
+        every = make()
+        for o in set(bpy.data.objects) - before - set(every.values()):
+            bpy.data.objects.remove(o)
+        baked = [every[k] for k in mod.BAKED]
+        flat(baked)
+        for o in baked:
+            while o.data.uv_layers:
+                o.data.uv_layers.remove(o.data.uv_layers[0])
+        sets[sname] = list(every.values())
+        print(f"  made {mod.__name__} (flat colours): {', '.join(every)}")
+    return sets
 
 
 def B(x, y, z):            # three.js -> Blender
     return Vector((x, -z, y))
-
-
-# ---- 2. layout: where the page stands each prop and light, [x, z, yaw] in three.js metres, as the layout step read it from
-# the live page (props/shadow/export_casters.cjs -> layout_picked.json "place", read at the top; props/bake_all.py runs
-# that step first)
-seat_at = [tuple(v) for v in PL["seats"]]
-TENT, HAMMOCK, TABLE, JEEP = (tuple(PL[k]) for k in ("tent", "hammock", "table", "jeep"))
-# the lanterns sway, so the page draws them and they are not baked; their lights are. The page's light is 0.125 m below
-# each lantern's hang point (lanterns.js JAR_Y), the bake's 0.12 m: 5 mm higher (review props-07), kept so the bake
-# stays as it was
-PAGE_LANTERN_DROP, LANTERN_DROP = 0.125, 0.12
-lanterns = [(x, y + PAGE_LANTERN_DROP, z) for x, y, z in PL["lanternLights"]]        # where each lantern hangs
-# toward the sun, the page's (-4, 10, 3): kept here because the page's normalised copy differs from this one in the
-# last float bit (6e-8), and the bake must stay as it was; it stops if the two ever disagree
-sd = Vector((-4, -3, 10)).normalized()
-if (sd - B(*PL["sun"])).length > 1e-6:
-    sys.exit(f"the page's sun {PL['sun']} is not the bake's {tuple(sd)}: update sd")
-print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points (the page: {PAGE_LANTERN_DROP} m)")
-PLACE = {
-    "lived": {"WoodPile": PL["woodPile"], "WoodStack": PL["woodPile"], "LooseLogs": PL["woodPile"], "SeatThings": PL["seatThings"],
-              "TentSide": PL["tentSide"], "MatRoll": PL["tentSide"], "KitchenCrate": PL["kitchen"], "KitchenThings": PL["kitchen"]},
-    "fire": {n: (0, 0, 0) for n in ("Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain")},
-    "laundry": {"LaundryPosts": PL["laundry"], "LaundryCloth": PL["laundry"]},
-}
-
-reset()
-objs = build_camp.picked()
-for name, o in objs.items():
-    o.location = (0, 0, 0)                            # each is joined from parts (join() applied them)
-    n = build_camp.BUDGET["picked"].get(name); t = tris(o)
-    if n and t > n:
-        bpy.context.view_layer.objects.active = o
-        d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
-        bpy.ops.object.modifier_apply(modifier=d.name)
-flat([o for n, o in objs.items() if n not in build_camp.TEXTURED])   # the textured posts keep their image (review R2-169)
-audit(list(objs.values()), label="camp_picked")      # the picked set's mesh audit, before the minutes of baking
 
 
 def place(src, name, x, z, yaw, y=0.0, copy=True):
@@ -149,294 +214,652 @@ def place(src, name, x, z, yaw, y=0.0, copy=True):
     return o
 
 
-picked = []
-for i, (x, z, yaw) in enumerate(seat_at):
-    picked.append(place(objs["Seat"], f"Seat_{i}", x, z, yaw))
-picked.append(place(objs["Tent"], "Tent", *TENT, copy=False))
-picked.append(place(objs["Hammock"], "Hammock", *HAMMOCK, copy=False))
-picked.append(place(objs["HammockPosts"], "HammockPosts", *HAMMOCK, copy=False))   # in the hammock's own frame
-picked.append(place(objs["Table"], "Table", *TABLE, copy=False))
-bpy.data.objects.remove(objs["Seat"])
-
-
 def import_glb(path):
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
     return [o for o in bpy.data.objects if o not in before]
 
 
-sets, anchors, top = {}, {}, None
-for sname, table in PLACE.items():
-    new = import_glb(os.path.join(SCRATCH, f"{sname}.glb"))
-    for o in new:
-        if o.parent:
-            mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
-    meshes, anchors[sname] = [], []
-    for o in new:
-        if o.type == "EMPTY" and o.name.split(".")[0] in ANCHORS:    # points the page reads (review R2-252): left at the
-            o.name = o.name.split(".")[0]; anchors[sname].append(o); continue   # set's origin, not lit, written back in step 4
-        if o.type != "MESH":
-            bpy.data.objects.remove(o); continue
-        key = o.name.split(".")[0]; o.name = key
-        if key == "SeatTop":                     # one per seat, below
-            top = o; continue
-        x, z, yaw = table[key]
-        place(o, key, x, z, yaw, copy=False)
-        if key in THIN or key in ("Fire", "Embers"):
-            o.visible_shadow = False             # cards don't shade each other; the flames light from inside the teepee
-        me = o.data
-        if me.color_attributes and "Col" not in [c.name for c in me.color_attributes]:
-            me.color_attributes[0].name = "Col"
-        meshes.append(o)
-    sets[sname] = meshes
-lived = sets["lived"]
-for i, (x, z, yaw) in enumerate(seat_at):
-    lived.append(place(top, f"SeatTop_{i}", x, z, yaw, copy=i < 2))
-receivers = picked + [o for s in sets.values() for o in s if o.name != "Embers"]
-counts = {o.name: tris(o) for o in picked + [o for s in sets.values() for o in s]}
+def check_budget(objs):
+    """build_camp.BUDGET is a guard, not a decimate (review R2-239): it prints each budgeted prop's triangles and stops the
+    bake when one is over, so added detail is looked at and trimmed by hand instead of being collapsed without a word."""
+    over = []
+    for name, n in build_camp.BUDGET["picked"].items():
+        t = tris(objs[name])
+        print(f"  budget {name}: {t} triangles (at most {n})")
+        if t > n:
+            over.append(f"{name} {t} > {n}")
+    if over:
+        sys.exit("over the triangle budget in build_camp.BUDGET: " + ", ".join(over) + "; trim the prop or raise its budget")
 
-# ---- 3a. the atlas: TEXCOORD_0 stays (texture UVs, or a dummy), LM is TEXCOORD_1, packed jointly
-for o in receivers:
-    uvl = o.data.uv_layers
-    while len(uvl) > 1:
-        uvl.remove(uvl[1])
-    if not len(uvl):
-        uvl.new(name="UV0")
-    uvl.active = uvl.new(name="LM")
-bpy.ops.object.select_all(action="DESELECT")
-for o in receivers:
-    o.select_set(True)
-bpy.context.view_layer.objects.active = receivers[0]
-bpy.ops.object.mode_set(mode="EDIT")
-bpy.ops.mesh.select_all(action="SELECT")
-bpy.ops.uv.smart_project(angle_limit=math.radians(a.angle), island_margin=0.0, area_weight=0.0, scale_to_bounds=False)
-bpy.ops.uv.select_all(action="SELECT")
-bpy.ops.uv.average_islands_scale()
-bpy.ops.uv.pack_islands(rotate=True, shape_method="CONCAVE", margin_method="ADD", margin=a.margin / a.size)
-bpy.ops.object.mode_set(mode="OBJECT")
-area = 0.0
-for o in receivers:
+
+def stand(o, pl):
+    """Stands o where the page does, from its tags (lib.export.tag, review R2-249): its "anchor" is a key of
+    pl["anchors"] (layout.js ANCHORS on the page), or "seats" for one copy on every log seat, numbered Name_i with a
+    "seat" tag. thin, no_shadow and unlit objects cast no shadow. Returns the objects that now stand in the scene."""
+    k = o.get("anchor")
+    if k is None:
+        sys.exit(f"{o.name} has no anchor tag: tag it in its builder's make() (lib.export.tag)")
+    if k != "seats" and k not in pl["anchors"]:
+        sys.exit(f"{o.name}'s anchor {k!r} is not in layout_picked.json: add it to layout.js ANCHORS, then run props/bake_all.py --only layout")
+    if o.get("thin") or o.get("no_shadow") or o.get("unlit"):
+        o.visible_shadow = False             # cards don't shade each other; the flames light from inside the teepee
+    if k != "seats":
+        return [place(o, o.name, *pl["anchors"][k], copy=False)]
+    name, n = o.name, len(pl["seats"])
+    out = [place(o, f"{name}_{i}", x, z, yaw, copy=i < n - 1) for i, (x, z, yaw) in enumerate(pl["seats"])]
+    for i, c in enumerate(out):
+        c["seat"] = i
+    return out
+
+
+def build_scene(pl):
+    """The picked set and the lived sets in one scene, triangulated as their GLBs will be (so the light-map unwrap, the
+    bake and the page all see the same triangles), each prop where the page stands it ([x, z, yaw] in three.js metres,
+    from pl and each object's tags). Returns (picked, sets {set name: meshes}, anchors {set name: empties}, receivers, counts
+    {name: triangles}).
+    The builders' make() run in this scene, and their own renders and AO bakes set its device to the CPU (and the stack's
+    render its film and view transform). The scene's settings from just after the reset are put back once they are done,
+    so the GPU that GPU_RUN's load handler chose after the reset is the one the bake runs on (review R2-254)."""
+    reset()
+    sc = bpy.context.scene
+    keep = (sc.cycles.device, sc.render.film_transparent, sc.view_settings.view_transform)
+    objs = build_camp.picked()
+    for o in objs.values():
+        o.location = (0, 0, 0)                        # each is joined from parts (join() applied them)
+    check_budget(objs)
+    flat([o for n, o in objs.items() if n not in build_camp.TEXTURED])   # the textured posts keep their image (review R2-169)
+    audit(list(objs.values()), label="camp_picked")      # the picked set's mesh audit, before the minutes of baking
+    picked = []
+    for o in objs.values():
+        if o.get("unbaked"):
+            bpy.data.objects.remove(o)
+        else:
+            triangulate(o)
+            picked += stand(o, pl)
+
+    sets, anchors = {}, {}
+    for sname, made in make_lived_sets().items():
+        meshes, anchors[sname] = [], []
+        for o in made:
+            if o.type == "EMPTY" and o.name in ANCHORS:   # points the page reads (review R2-252): left at the set's origin,
+                anchors[sname].append(o); continue        # not lit, written back with the set
+            if o.type != "MESH" or o.parent or o.modifiers or "." in o.name:
+                sys.exit(f"{o.name} from {sname}'s make() is not a plain, unparented mesh with its own name: the bake places it as one")
+            triangulate(o)
+            meshes += stand(o, pl)
+        audit([o for o in made if o.type == "MESH"], label=sname)
+        sets[sname] = meshes
+    sc.cycles.device, sc.render.film_transparent, sc.view_settings.view_transform = keep
+    receivers = [o for o in picked + [o for s in sets.values() for o in s] if not o.get("unlit")]
+    counts = {o.name: tris(o) for o in picked + [o for s in sets.values() for o in s]}
+    return picked, sets, anchors, receivers, counts
+
+
+# ------------------------------------------------------------------ the atlas: one fixed rectangle per prop (review R2-149)
+# Each receiver packs its islands alone and is fitted into its own rectangle of the light map, kept in atlas.json, so a
+# change to one prop leaves every other prop's light-map UVs (and its part of the maps) as they were. The atlas is packed
+# again (new rectangles for all) only when a prop no longer fits its rectangle, a new prop comes in, or --repack asks.
+ATLAS = os.path.join(HERE, "atlas.json")
+GRID = 1024       # rectangle edges on a 1/1024 grid: whole pixels in every map size from 1K up (4 px at 4K)
+SLACK = 1.1       # a new rectangle has room for its prop to grow by a tenth before the atlas must be packed again
+
+
+def load_atlas():
+    try:
+        return json.load(open(ATLAS))
+    except (OSError, ValueError):
+        return {}
+
+
+def uv_box(o):
+    """The LM layer's island area and bounding box (u0, v0, u1, v1)."""
     uv = o.data.uv_layers["LM"].data
+    area, us, vs = 0.0, [], []
     for poly in o.data.polygons:
         q = [uv[li].uv for li in poly.loop_indices]
         area += abs(sum(q[i].x * q[(i + 1) % len(q)].y - q[(i + 1) % len(q)].x * q[i].y for i in range(len(q)))) / 2
-print(f"  atlas: {len(receivers)} objects, {area * 100:.0f}% of the image covered")
-if a.unwrap_only:
-    sys.exit(0)
-
-# ---- 3b. the rest of the scene: the jeep (an occluder only) and the real ground disc (a receiver, mapped straight onto
-# the page's floor: image row 0 = page z -RR, column 0 = x -RR, as ground.js looks it up with flipY false)
-jeep = []
-jroot = bpy.data.objects.new("JeepRoot", None); bpy.context.collection.objects.link(jroot)     # the page's jeep group: every
-jroot.location = B(JEEP[0], 0, JEEP[1]); jroot.rotation_euler = (0, 0, JEEP[2])              # node keeps its own place under it
-jeep_glb = os.path.join(ROOT, "props", "jeep", f"jeep_{a.jeep}.glb")
-if stale(jeep_glb, builder_sources(os.path.join(ROOT, "props", "jeep", "build_jeep.py"))):
-    print(f"  WARNING: {os.path.basename(jeep_glb)} is older than build_jeep.py or props/lib, so its shadow may not match: run bake_all.py's jeep step")
-jall = import_glb(jeep_glb)
-for o in jall:
-    if o.type == "MESH" and o.name.startswith("Glass"):
-        o.hide_render = True                                                           # see-through on the page
-    if not o.parent:
-        o.parent = jroot
-    if o.type == "MESH":
-        jeep.append(o)
-# the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
-# saved it; plain cylinders are enough for their shadows
-for d in LAYOUT.get("deadwood", []):
-    if d["name"] == "FallenLog":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], d.get("y", 0) + d["r"], d["z"]), rotation=(0, math.pi / 2, 0))
-        o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, d["yaw"])   # lie along x, then yaw
-    elif d["name"] == "Stump":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=9, radius=d["r"], depth=d["h"], location=B(d["x"], d.get("y", 0) + d["h"] / 2, d["z"]))
-    elif d["name"] == "DeadTrunk":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=7, radius=0.27, depth=d["H"], location=B(d["x"], d.get("y", 0) + d["H"] / 2, d["z"]))
-    else:
-        continue
-    bpy.context.object.name = d["name"]; jeep.append(bpy.context.object)   # with the jeep: an occluder, removed before export
-RR = 9.8
-bpy.ops.mesh.primitive_plane_add(size=2 * RR, location=(0, 0, 0))
-ground = bpy.context.object; ground.name = "Ground"
-guv = ground.data.uv_layers.active.data
-for poly in ground.data.polygons:
-    for li in poly.loop_indices:
-        co = ground.data.vertices[ground.data.loops[li].vertex_index].co
-        guv[li].uv = (co.x / (2 * RR) + 0.5, co.y / (2 * RR) + 0.5)
-print(f"  scene: {len(receivers)} props, {len(jeep)} jeep parts, ground {2 * RR} m square")
-
-# ---- 3c. lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) and a white sky; night = four lights, each baked
-# on its own in white (its share of light, bounces included), so the page can colour, flicker, dim and mix them live
-LIGHTS = {                                                       # name: colour (the page applies it), objects
-    "fire": [(1.0, 0.50, 0.20), []], "stove": [(1.0, 0.55, 0.15), []], "lanterns": [(1.0, 0.72, 0.38), []], "moon": [(0.55, 0.65, 1.0), []],
-    }                                      # the jeep: no baked lights (headlights dropped; the cabin light is live on the page, Adriaen 2026-11-12)
-day_l = []
-def point(group, name, at, watts, r):
-    L = bpy.data.lights.new(name, "POINT"); L.color = (1, 1, 1); L.energy = watts; L.shadow_soft_size = r
-    o = bpy.data.objects.new(name, L); o.location = at; bpy.context.collection.objects.link(o); LIGHTS[group][1].append(o)
-point("fire", "FireLight", B(0, 0.55, 0), 260, 0.25)
-for i, p in enumerate(lanterns):
-    point("lanterns", f"LanternLight_{i}", B(p[0], p[1] - LANTERN_DROP, p[2]), 50, 0.05)
-tent = next(o for o in picked if o.name == "Tent")
-bpy.context.view_layer.update()
-point("stove", "StoveLight", tent.matrix_world @ (Vector(build_camp.STOVE) + Vector((-0.35, 0, -0.1))), 22, 0.12)
-moon = bpy.data.lights.new("Moon", "SUN"); moon.color = (1, 1, 1); moon.energy = 0.12; moon.angle = math.radians(2)
-mo = bpy.data.objects.new("Moon", moon); mo.rotation_euler = (math.radians(40), 0, math.radians(-120))
-bpy.context.collection.objects.link(mo); LIGHTS["moon"][1].append(mo)
-bpy.context.view_layer.update()
-sun = bpy.data.lights.new("Sun", "SUN"); sun.energy = 3.0; sun.angle = math.radians(4)
-so = bpy.data.objects.new("Sun", sun); so.rotation_euler = (-sd).to_track_quat("-Z", "Y").to_euler()
-bpy.context.collection.objects.link(so); day_l.append(so)
-sc = bpy.context.scene
-w = bpy.data.worlds.new("sky"); w.use_nodes = True; sc.world = w
-bgn = w.node_tree.nodes["Background"]
-sc.world.light_settings.distance = 0.6
-# after the last reset(): the factory reset also resets the preferences that choose the GPU (review R2-226)
-pick_device(sc, a.device); sc.cycles.samples = a.samples; sc.cycles.use_adaptive_sampling = False
-sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 3
-bk = sc.render.bake
-bk.target = "IMAGE_TEXTURES"; bk.margin = 8; bk.use_clear = True
-bk.use_pass_direct = True; bk.use_pass_indirect = True; bk.use_pass_color = False
+        us += [p.x for p in q]; vs += [p.y for p in q]
+    return area, (min(us), min(vs), max(us), max(vs))
 
 
-def only(group):
-    """Light the scene with one group: "day" (sun + white sky), or one of LIGHTS (the moon's group also has the night sky)."""
-    for o in day_l: o.hide_render = group != "day"
-    for g, (_, objs) in LIGHTS.items():
-        for o in objs: o.hide_render = g != group
-    bgn.inputs["Color"].default_value = (1, 1, 1, 1)
-    bgn.inputs["Strength"].default_value = 1.0 if group == "day" else 0.02 if group == "moon" else 0.0
+def uv_hash(o):
+    """A short hash of o's light-map UVs, each face corner as (position, UV), sorted: a prop whose hash moved needs its
+    part of the maps baked again. Sorted, so a mesh that only comes out numbered differently (the pot: remove_doubles
+    numbers what it keeps by memory address) keeps its hash."""
+    me = o.data
+    uv = np.empty(len(me.loops) * 2, np.float64); me.uv_layers["LM"].data.foreach_get("uv", uv)
+    co = np.empty(len(me.vertices) * 3, np.float64); me.vertices.foreach_get("co", co)
+    vi = np.empty(len(me.loops), np.int64); me.loops.foreach_get("vertex_index", vi)
+    rows = np.round(np.hstack([co.reshape(-1, 3)[vi], uv.reshape(-1, 2)]), 5)
+    return hashlib.sha1(rows[np.lexsort(rows.T[::-1])].tobytes()).hexdigest()[:16]
 
 
-# ---- 3d. bake through plain stand-ins (grey for props and jeep, one for the thin cards, white for the ground)
+def edit_alone(o, op):
+    """Runs op() in edit mode with o alone selected and every face and UV selected."""
+    bpy.ops.object.select_all(action="DESELECT")
+    o.select_set(True); bpy.context.view_layer.objects.active = o
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT"); bpy.ops.uv.select_all(action="SELECT")
+    op()
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def pack_alone(o, angle, margin, shape="AABB"):
+    """Projects o's light-map UVs afresh (smart_project at angle degrees, islands scaled alike) and packs them alone into
+    the unit square with margin (UV units of that square) round each island. Starting from a fresh projection every time
+    makes the result depend only on o's mesh and the margin, not on earlier packs (a pack turns islands, and the next
+    pack starts from them). Returns (fill, bbox): the share of the bounding box the islands cover, and the box.
+    Measuring packs islands by their boxes, which is instant; the final pack is concave, which takes up to a few seconds
+    a prop (KitchenCrate 4.5 s) and fills more."""
+    edit_alone(o, lambda: (bpy.ops.uv.smart_project(angle_limit=math.radians(angle), island_margin=0.0, area_weight=0.0, scale_to_bounds=False),
+                           bpy.ops.uv.average_islands_scale(),
+                           bpy.ops.uv.pack_islands(rotate=True, shape_method=shape, margin_method="ADD", margin=margin)))
+    area, box = uv_box(o)
+    return area / max((box[2] - box[0]) * (box[3] - box[1]), 1e-9), box
+
+
+def skyline(sizes):
+    """Packs {name: (w, h)} (whole GRID cells) into the GRID x GRID square, tallest first, each at its lowest spot (then
+    leftmost), turned a quarter where that sits lower. Returns {name: (x, y, w, h)}, or None when they do not fit."""
+    top, out, xs = np.zeros(GRID, np.int32), {}, {0}
+    for n in sorted(sizes, key=lambda n: (-max(sizes[n]), -min(sizes[n]), n)):
+        best = None
+        for w, h in sorted({sizes[n], sizes[n][::-1]}):
+            for x in sorted(c for c in xs | {GRID - w} if 0 <= c <= GRID - w):   # the left and right ends of the skyline's steps
+                y = int(top[x:x + w].max())
+                if y + h <= GRID and (best is None or (y, x) < best[:2]):
+                    best = (y, x, w, h)
+        if best is None:
+            return None
+        y, x, w, h = best
+        top[x:x + w] = y + h
+        xs |= {x, x + w}
+        out[n] = (x, y, w, h)
+    return out
+
+
+def allocate(need, aspect):
+    """New rectangles for every prop: area k x need (times SLACK), the aspect of its own packing, on the GRID, packed
+    into the unit square (skyline) with the largest k that fits. Returns (k, {name: [u0, v0, u1, v1]})."""
+    def pack(k):
+        sizes = {}
+        for n in need:
+            ar = k * SLACK * need[n]
+            sizes[n] = (max(math.ceil(math.sqrt(ar * aspect[n]) * GRID), 1), max(math.ceil(math.sqrt(ar / aspect[n]) * GRID), 1))
+        return skyline(sizes)
+    lo, hi = 0.0, 1.0 / sum(need.values())
+    while pack(hi):
+        lo, hi = hi, hi * 2
+    for _ in range(20):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if pack(mid) else (lo, mid)
+    return lo, {n: [x / GRID, y / GRID, (x + w) / GRID, (y + h) / GRID] for n, (x, y, w, h) in pack(lo).items()}
+
+
+def unwrap(receivers, a):
+    """The light-map UVs: TEXCOORD_0 stays (texture UVs, or an all-zero dummy), LM is TEXCOORD_1. Each prop is projected and packed
+    on its own and fitted into its rectangle from atlas.json (or new ones, see ATLAS). Returns the atlas as this run
+    used it ({"k": rectangle area per weighted m2 of a prop's surface over how well it packs, "rects": {name: [u0, v0, u1,
+    v1]}, "weights": LM_WEIGHT as packed})
+    and whether it was packed again. The rectangles do not depend on --size; the margins inside them do."""
+    for o in receivers:
+        uvl = o.data.uv_layers
+        while len(uvl) > 1:
+            uvl.remove(uvl[1])
+        if not len(uvl):                                 # a dummy TEXCOORD_0 (nothing reads it), all zeros so it splits no
+            uvl.new(name="UV0", do_init=False)           # vertex; the default per-face unit square split 961 (review R2-155)
+        uvl.active = uvl.new(name="LM")
+    old = load_atlas()
+    rects, k = dict(old.get("rects", {})), old.get("k")
+    inset = a.margin / 2 / a.size                                                # half the island margin at each rectangle's edge
+    weight = lambda n: LM_WEIGHT.get(n, LM_WEIGHT.get(n.split("_")[0], 1.0))      # SeatTop_1 takes SeatTop's
+    area = {o.name: weight(o.name) ** 2 * sum(p.area for p in o.data.polygons) for o in receivers}   # weighted m2 (review R2-172)
+
+    def margin(o, r):
+        """The island margin for o packed alone, so that it is a.margin texels once o is scaled into rectangle r."""
+        rw, rh = r[2] - r[0] - 2 * inset, r[3] - r[1] - 2 * inset
+        _, box = pack_alone(o, a.angle, 0.01)
+        bw, bh = box[2] - box[0], box[3] - box[1]
+        s = max(min(rw / bw, rh / bh), min(rw / bh, rh / bw))                    # the scale it will get, either way round
+        return min(a.margin / a.size / max(s, 1e-9), 0.05)                       # capped, so a tiny rectangle's islands keep some room
+
+    def measure(margins):
+        """{name: rectangle area each prop needs per unit of k}, {name: its packing's aspect}, packed with margins."""
+        need, aspect = {}, {}
+        for o in receivers:
+            fill, box = pack_alone(o, a.angle, margins.get(o.name, 0.01))
+            need[o.name] = area[o.name] / fill                                   # m2 of surface over how well it packs
+            aspect[o.name] = (box[2] - box[0]) / max(box[3] - box[1], 1e-9)
+        return need, aspect
+
+    for n in set(rects) - set(area):
+        del rects[n]                                                             # a prop that is gone leaves its space free
+    need, _ = measure({o.name: margin(o, rects[o.name]) for o in receivers if o.name in rects})
+    why = (["the texel weights (LM_WEIGHT) changed"] if rects and old.get("weights") != LM_WEIGHT else []) + \
+          [f"{n} is new" for n in need if n not in rects] + \
+          [f"{n} outgrew its rectangle" for n in need if n in rects and k and k * need[n] > (rects[n][2] - rects[n][0]) * (rects[n][3] - rects[n][1])]
+    repacked = bool(a.repack or why or not k)
+    if repacked:
+        print("  atlas packed again: " + ("; ".join(why[:6]) if why else "--repack" if a.repack else "no atlas.json yet"))
+        need, aspect = measure({})
+        k, rects = allocate(need, aspect)                                       # a first guess sets each prop's scale,
+        need, aspect = measure({o.name: margin(o, rects[o.name]) for o in receivers})
+        k, rects = allocate(need, aspect)                                       # and so its margins in texels
+    for o in receivers:
+        u0, v0, u1, v1 = rects[o.name]
+        rw, rh = u1 - u0 - 2 * inset, v1 - v0 - 2 * inset
+        _, box = pack_alone(o, a.angle, margin(o, rects[o.name]), "CONCAVE")
+        if (rw - rh) * ((box[2] - box[0]) - (box[3] - box[1])) < 0:             # the rectangle lies the other way: turn the islands
+            for d in o.data.uv_layers["LM"].data:
+                d.uv = (d.uv.y, -d.uv.x)
+            _, box = uv_box(o)
+        s = min(rw / (box[2] - box[0]), rh / (box[3] - box[1]))
+        for d in o.data.uv_layers["LM"].data:
+            d.uv = (u0 + inset + (d.uv.x - box[0]) * s, v0 + inset + (d.uv.y - box[1]) * s)
+    used = sum(uv_box(o)[0] for o in receivers)
+    print(f"  atlas: {len(receivers)} objects in their own rectangles, {used * 100:.0f}% of the image covered")
+    return {"k": k, "rects": rects, "weights": LM_WEIGHT}, repacked
+
+
+def add_occluders(layout, pl, jeep):
+    """The jeep (its parts stand under a root at the page's jeep group) and the deadwood at the clearing edge
+    (camp/deadwood.js, seeded, as export_casters.cjs saved it; plain cylinders are enough for their shadows). They cast
+    shadows only and are removed before export. Returns their mesh objects."""
+    occluders = []
+    jroot = bpy.data.objects.new("JeepRoot", None); bpy.context.collection.objects.link(jroot)     # the page's jeep group: every
+    jroot.location = B(pl["jeep"][0], 0, pl["jeep"][1]); jroot.rotation_euler = (0, 0, pl["jeep"][2])   # node keeps its own place under it
+    jeep_glb = os.path.join(ROOT, "props", "jeep", f"jeep_{jeep}.glb")
+    if stale(jeep_glb, builder_sources(os.path.join(ROOT, "props", "jeep", "build_jeep.py"))):
+        print(f"  WARNING: {os.path.basename(jeep_glb)} is older than build_jeep.py or props/lib, so its shadow may not match: run bake_all.py's jeep step")
+    for o in import_glb(jeep_glb):
+        if o.type == "MESH" and o.name.startswith("Glass"):
+            o.hide_render = True                                                           # see-through on the page
+        if not o.parent:
+            o.parent = jroot
+        if o.type == "MESH":
+            occluders.append(o)
+    for d in layout["deadwood"]:
+        y = d.get("y", 0)                                    # seated on the terrain by the layout step
+        if d["name"] == "FallenLog":                         # deadwood.js: along x, rotateY(-yaw), its axis 0.75 r above y
+            bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=d["r"], depth=d["L"], location=B(d["x"], y + 0.75 * d["r"], d["z"]))
+            o = bpy.context.object; o.rotation_mode = "YXZ"; o.rotation_euler = (0, math.pi / 2, -d["yaw"])   # lie along x, then yaw (review R2-150)
+        elif d["name"] == "Stump":
+            bpy.ops.mesh.primitive_cylinder_add(vertices=9, radius=d["r"], depth=d["h"], location=B(d["x"], y + d["h"] / 2, d["z"]))
+        elif d["name"] == "DeadTrunk":
+            bpy.ops.mesh.primitive_cylinder_add(vertices=7, radius=0.27, depth=d["H"], location=B(d["x"], y + d["H"] / 2, d["z"]))
+        else:
+            sys.exit(f"layout_picked.json has deadwood named {d['name']!r}, which the bake has no shape for: add it to add_occluders")
+        bpy.context.object.name = d["name"]; occluders.append(bpy.context.object)
+    return occluders
+
+
+def add_ground():
+    """The real ground disc (a receiver), mapped straight onto the page's floor: image row 0 = page z -RR, column 0 = x -RR,
+    as ground.js looks it up with flipY false. It is flat on purpose (review R2-204): the page's floor dips at most 3 cm in
+    the camp, and the bowl's rim (from 8.2 m out, 0.2 to 0.5 m high) moves a shadow falling on it by at most about 0.25 m
+    under the page's sun, while a sloped bake ground would also bake the slope's own shading into the shadow map, which
+    the page already shades live."""
+    bpy.ops.mesh.primitive_plane_add(size=2 * RR, location=(0, 0, 0))
+    ground = bpy.context.object; ground.name = "Ground"
+    guv = ground.data.uv_layers.active.data
+    for poly in ground.data.polygons:
+        for li in poly.loop_indices:
+            co = ground.data.vertices[ground.data.loops[li].vertex_index].co
+            guv[li].uv = (co.x / (2 * RR) + 0.5, co.y / (2 * RR) + 0.5)
+    return ground
+
+
+class Lights:
+    """Day = the page's sun (4 degrees wide) and a white sky; night = the CHANNELS, each a group of lights (its share of
+    light, bounces included), so the page can colour, flicker, dim and mix them live. A second sun, sun_open, points the
+    same way and casts no shadow, for the sun pass's open channel. only(mode) lights the scene for one pass."""
+
+    def __init__(self, pl, tent):
+        self.groups = {g: [] for g in CHANNELS}
+        self.point("fire", "FireLight", B(0, 0.55, 0), 260, 0.25)
+        for i, (x, y, z) in enumerate(pl["lanternLights"]):          # y + PAGE_LANTERN_DROP: where each lantern hangs
+            self.point("lanterns", f"LanternLight_{i}", B(x, y + PAGE_LANTERN_DROP - LANTERN_DROP, z), 50, 0.05)
+        bpy.context.view_layer.update()
+        self.point("stove", "StoveLight", tent.matrix_world @ (Vector(build_camp.STOVE) + Vector((-0.35, 0, -0.1))), 22, 0.12)
+        moon = bpy.data.lights.new("Moon", "SUN"); moon.color = TINT["moon"]; moon.energy = 0.12; moon.angle = math.radians(2)
+        mo = bpy.data.objects.new("Moon", moon); mo.rotation_euler = (math.radians(40), 0, math.radians(-120))
+        bpy.context.collection.objects.link(mo); self.groups["moon"].append(mo)
+        bpy.context.view_layer.update()
+        self.sun, self.sun_open = (self.add_sun(n) for n in ("Sun", "SunOpen"))
+        self.sun_open.data.color = (0, 1, 0)
+        self.sun_open.data.use_shadow = False                       # Blender 4 and 5 (Cycles reads it)
+        if hasattr(getattr(self.sun_open.data, "cycles", None), "cast_shadow"):
+            self.sun_open.data.cycles.cast_shadow = False           # older Cycles
+        w = bpy.data.worlds.new("sky"); w.use_nodes = True; bpy.context.scene.world = w
+        w.light_settings.distance = 0.6
+        self.sky = w.node_tree.nodes["Background"]
+        self.sky.inputs["Color"].default_value = (1, 1, 1, 1)
+
+    def add_sun(self, name):
+        sun = bpy.data.lights.new(name, "SUN"); sun.energy = 3.0; sun.angle = math.radians(4)
+        so = bpy.data.objects.new(name, sun); so.rotation_euler = (-SUN_DIR).to_track_quat("-Z", "Y").to_euler()
+        bpy.context.collection.objects.link(so)
+        return so
+
+    def point(self, group, name, at, watts, r):
+        L = bpy.data.lights.new(name, "POINT"); L.color = TINT[group]; L.energy = watts; L.shadow_soft_size = r
+        o = bpy.data.objects.new(name, L); o.location = at; bpy.context.collection.objects.link(o); self.groups[group].append(o)
+
+    def only(self, mode):
+        """mode "day": the white sun and the sky (AO, the ground's day light); "sun": the red sun with shadows and the
+        green one without, no sky; "night": the fire, the stove and the lanterns in red, green and blue, no sky; "moon":
+        the moon and the dim night sky."""
+        lit = {"day": [self.sun], "sun": [self.sun, self.sun_open], "moon": self.groups["moon"],
+               "night": [o for g in NIGHT_RGB for o in self.groups[g]]}[mode]
+        for o in [self.sun, self.sun_open] + [o for objs in self.groups.values() for o in objs]:
+            o.hide_render = o not in lit
+        self.sun.data.color = (1, 0, 0) if mode == "sun" else (1, 1, 1)
+        self.sky.inputs["Strength"].default_value = {"day": 1.0, "moon": 0.02}.get(mode, 0.0)
+
+
+def setup_render(a):
+    sc = bpy.context.scene
+    sc.render.engine = "CYCLES"; sc.cycles.use_adaptive_sampling = False
+    sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 3
+    # after the last reset(): the factory reset also resets the preferences that choose the GPU (review R2-226)
+    pick_device(sc, "cpu" if a.preview else a.device)
+    cp = bpy.context.preferences.addons.get("cycles")
+    kind = cp.preferences.compute_device_type if cp else "?"
+    print(f"  Cycles device: {sc.cycles.device} (compute device type {kind}){'' if sc.cycles.device == 'GPU' or a.preview else '; this bake runs on the CPU'}", flush=True)
+    # the bake's edge fill: half the island gap (--margin texels), so each island fills its half of the gap and never
+    # reaches a neighbour's texels; at 2048 that is 3 texels, which fills the whole gap in the 1K map (review R2-170)
+    bk = sc.render.bake
+    bk.target = "IMAGE_TEXTURES"; bk.margin = max(1, math.ceil(a.margin / 2)); bk.use_clear = True
+    bk.use_pass_direct = True; bk.use_pass_indirect = True; bk.use_pass_color = False
+    return bk
+
+
 def grey(name, c=0.5):
+    """A plain stand-in material with an active image node the bake writes into."""
     m = bpy.data.materials.new(name); m.use_nodes = True
     m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (c, c, c, 1)
     m.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 1.0
     n = m.node_tree.nodes.new("ShaderNodeTexImage"); m.node_tree.nodes.active = n
     return m, n
-g_all, n_all = grey("bake_grey"); g_thin, n_thin = grey("bake_grey_thin"); g_gnd, n_gnd = grey("bake_ground", 1.0)
-ground.data.materials.append(g_gnd)
-keep = {}
-for o in receivers:
-    keep[o.name] = list(o.data.materials)
-    if not o.data.materials:
-        o.data.materials.append(None)
-    for i in range(len(o.data.materials)):
-        o.data.materials[i] = g_thin if o.name in THIN else g_all
-for o in jeep:
-    if not o.data.materials:
-        o.data.materials.append(None)
-    for i in range(len(o.data.materials)):
-        o.data.materials[i] = g_all
 
 
-def bake(kind, objs, img):
+class Target:
+    """One float image that every bake pass of one size writes into (use_clear empties it first), and its pixel buffer."""
+
+    def __init__(self, name, size, nodes):
+        self.img = bpy.data.images.new(name, size, size, alpha=False, float_buffer=True)
+        for n in nodes:
+            n.image = self.img
+        self.buf = np.empty(size * size * 4, np.float32)
+
+    def read(self, keep="mean"):
+        """What the last bake wrote into this image: "mean" (the RGB mean), "r" (the first channel) or "rgb", as float32
+        rows (row 0 = the image's bottom, as Blender stores it)."""
+        self.img.pixels.foreach_get(self.buf)
+        px = self.buf.reshape(self.img.size[1], self.img.size[0], 4)
+        return {"mean": lambda: px[..., :3].mean(-1), "r": lambda: px[..., 0].copy(), "rgb": lambda: px[..., :3].copy()}[keep]()
+
+    def remove(self):
+        bpy.data.images.remove(self.img)
+
+
+def bake(kind, objs, label, a, pass_name):
+    """One Cycles bake call of kind for objs, each into its material's image, at the pass's samples (PASS_SAMPLES)."""
+    sc = bpy.context.scene
+    sc.cycles.samples = max(2, round(PASS_SAMPLES[pass_name] * a.samples / 512))
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
     bpy.context.view_layer.objects.active = objs[0]
-    t = time.time(); bpy.ops.object.bake(type=kind); print(f"  {kind} -> {img.name}: {time.time() - t:.0f} s")
-    px = np.empty(img.size[0] * img.size[1] * 4, np.float32); img.pixels.foreach_get(px)
-    return px.reshape(img.size[1], img.size[0], 4)
+    t = time.time(); bpy.ops.object.bake(type=kind)
+    print(f"  {kind} -> {label}: {len(objs)} objects, {sc.cycles.samples} samples, {time.time() - t:.0f} s")
 
 
-def props_img(tag):
-    img = bpy.data.images.new(tag, a.size, a.size, alpha=False, float_buffer=True)
-    n_all.image = n_thin.image = img
-    return img
+def join_copy(objs, name):
+    """One object joined from copies of objs (their meshes as they stand, in their bake materials), with the light-map
+    UVs active, so a pass bakes them as one object instead of one Cycles session each (review R2-158)."""
+    copies = []
+    for o in objs:
+        c = o.copy(); c.data = o.data.copy(); bpy.context.collection.objects.link(c); copies.append(c)
+    bpy.ops.object.select_all(action="DESELECT")
+    for c in copies:
+        c.select_set(True)
+    bpy.context.view_layer.objects.active = copies[0]
+    bpy.ops.object.join()
+    j = bpy.context.view_layer.objects.active; j.name = name
+    j.data.uv_layers.active = j.data.uv_layers["LM"]
+    return j
 
 
-def ground_img(tag):
-    img = bpy.data.images.new(tag, a.ground, a.ground, alpha=False, float_buffer=True)
-    n_gnd.image = img
-    return img
+def bake_light(a, receivers, occluders, ground, lights, only=None):
+    """Every bake pass, through plain stand-ins (grey for props and occluders, one for the thin cards, white for the
+    ground); the props get their own materials back afterwards. only: the names of the props to bake (--objects); the
+    rest still cast their shadows and light. The props being baked that cast shadows are baked through one joined copy
+    (the originals are hidden meanwhile); the thin cards and the props that cast no shadow stay apart, since a joined
+    object has one visible_shadow and the cards' backs are baked alone. Returns a dict of float32 maps: ao, sun_direct,
+    sun_open, ground_day, and lit / ground_lit {channel: map}."""
+    bk = setup_render(a)
+    g_all, n_all = grey("bake_grey"); g_thin, n_thin = grey("bake_grey_thin"); g_gnd, n_gnd = grey("bake_ground", 1.0)
+    ground.data.materials.append(g_gnd)
+    keep = {}
+    for o in receivers:
+        keep[o.name] = list(o.data.materials)
+        if not o.data.materials:
+            o.data.materials.append(None)
+        for i in range(len(o.data.materials)):
+            o.data.materials[i] = g_thin if o.get("thin") else g_all
+    for o in occluders:
+        if not o.data.materials:
+            o.data.materials.append(None)
+        for i in range(len(o.data.materials)):
+            o.data.materials[i] = g_all
+    props = Target("LM_BAKE", a.size, (n_all, n_thin))
+    gnd = Target("GROUND_BAKE", a.ground, (n_gnd,))
+    bakes = [o for o in receivers if only is None or o.name in only]
+    thin = [o for o in bakes if o.get("thin")]
+    solo = [o for o in bakes if o.get("thin") or not o.visible_shadow]
+    merged = [o for o in bakes if o not in solo]
+    hidden = {o.name: o.hide_render for o in merged}
+    joined = join_copy(merged, "BakeReceivers") if merged else None
+    for o in merged:
+        o.hide_render = True
+    objs = ([joined] if joined else []) + solo
+    print(f"  bake: {len(merged)} props joined into one object, {len(solo)} apart ({', '.join(o.name for o in solo) or 'none'})")
+    out = {"lit": {}, "ground_lit": {}}
 
-
-thin = [o for o in receivers if o.name in THIN]
-only("day")
-ao = bake("AO", receivers, props_img("AO"))                                 # sky occlusion on the props
-bgn.inputs["Strength"].default_value = 0.0; bk.use_pass_indirect = False     # where the sun reaches each prop: its direct
-sundirect = bake("DIFFUSE", receivers, props_img("SUN"))                    # light, over the same with nothing casting shadows
-casts = {o.name: o.visible_shadow for o in receivers + jeep}
-for o in receivers + jeep: o.visible_shadow = False
-sunopen = bake("DIFFUSE", receivers, props_img("SUN_OPEN"))
-for o in receivers + jeep: o.visible_shadow = casts[o.name]
-bk.use_pass_indirect = True; bgn.inputs["Strength"].default_value = 1.0
-gday = bake("DIFFUSE", [ground], ground_img("GROUND_DAY"))                  # sun + sky on the ground
-lit, glit = {}, {}                                                          # each light's share, props and ground (grey: white light)
-for g in LIGHTS:
-    only(g)
-    px = bake("DIFFUSE", receivers, props_img(g.upper()))
-    if thin:                                                                # the back of each card; keep the brighter side
-        n_thin.image = bpy.data.images.new(g.upper() + "_BACK", a.size, a.size, alpha=False, float_buffer=True)
-        for o in thin: o.data.flip_normals()
-        px = np.maximum(px, bake("DIFFUSE", thin, n_thin.image))
-        for o in thin: o.data.flip_normals()
-    lit[g] = px[..., :3].mean(-1)
-    glit[g] = bake("DIFFUSE", [ground], ground_img("GROUND_" + g.upper()))[..., :3].mean(-1)
-for o in receivers:
-    for i, m in enumerate(keep[o.name]):
-        o.data.materials[i] = m
-    if not keep[o.name]:
-        o.data.materials.clear()
-for o in jeep:
-    bpy.data.objects.remove(o)
-bpy.data.objects.remove(ground)
+    lights.only("day")
+    bake("AO", objs, "AO", a, "AO")
+    out["ao"] = props.read("r")                                                # sky occlusion on the props
+    lights.only("sun"); bk.use_pass_indirect = False                           # where the sun reaches each prop: its direct
+    bake("DIFFUSE", objs, "SUN (R) and SUN_OPEN (G)", a, "SUN")                # light, over the same with no shadows
+    px = props.read("rgb")
+    out["sun_direct"], out["sun_open"] = px[..., 0].copy(), px[..., 1].copy()
+    del px
+    lit = out["sun_open"] > 0.02                                               # a whole bake has shade on a quarter of it
+    if only is None and lit.any() and (out["sun_direct"][lit] < 0.5 * out["sun_open"][lit]).mean() < 0.01:
+        sys.exit("the sun pass found almost no shadow on the props: this Blender's Cycles ignores Light.use_shadow on "
+                 "SunOpen, so bake the open sun in its own pass with every object's visible_shadow off")
+    lights.only("day"); bk.use_pass_indirect = True
+    bake("DIFFUSE", [ground], "GROUND_DAY", a, "GROUND_DAY")                   # sun + sky on the ground
+    out["ground_day"] = gnd.read()
+    for mode, chans in (("night", NIGHT_RGB), ("moon", ("moon",))):          # each light's share, props and ground (grey)
+        lights.only(mode)
+        bake("DIFFUSE", objs + [ground], mode.upper(), a, mode.upper())
+        px, gp = props.read("rgb"), gnd.read("rgb")
+        if thin:                                                               # the back of each card; keep the brighter side
+            for o in thin: o.data.flip_normals()
+            bake("DIFFUSE", thin, mode.upper() + "_BACK", a, mode.upper())
+            px = np.maximum(px, props.read("rgb"))
+            for o in thin: o.data.flip_normals()
+        for i, g in enumerate(chans):                                          # night: R, G, B; the moon is white: the mean
+            out["lit"][g] = px[..., i].copy() if len(chans) > 1 else px.mean(-1)
+            out["ground_lit"][g] = gp[..., i].copy() if len(chans) > 1 else gp.mean(-1)
+        del px, gp
+    props.remove(); gnd.remove()
+    if joined:
+        me = joined.data; bpy.data.objects.remove(joined); bpy.data.meshes.remove(me)
+    for o in merged:
+        o.hide_render = hidden[o.name]
+    for o in receivers:
+        for i, m in enumerate(keep[o.name]):
+            o.data.materials[i] = m
+        if not keep[o.name]:
+            o.data.materials.clear()
+    return out
 
 
 def enc(x):                                                                 # light / 4, gamma 2.2: precision in the dark
     return np.power(np.clip(x / 4, 0, 1), 1 / 2.2)
 
 
-def save(px, name):
+def map_sizes(n):
+    """(file label, pixel size) for a props map baked at n: n and each of 2k and 1k below it. A map under 2K (a preview,
+    or --size 1024) goes out at its own size under both names the page asks for, so neither name keeps an older bake."""
+    if n < 2048:
+        return [("2k", n), ("1k", n)]
+    return [(f"{s // 1024}k", s) for s in sorted({n, 2048, 1024}, reverse=True) if s <= n]
+
+
+def drop_4k(out):
+    """A props bake under 4096 writes no 4K maps, and the old ones no longer fit the new light-map UVs, so they are removed
+    (with their KTX2 copies); ?lm=4k then falls back to the 2K maps (core.js lmLoad, review R2-170)."""
+    for name in ("camp_lm", "camp_lm_sun"):
+        for f in (os.path.join(out, f"{name}_4k.png"), os.path.join(out, f"{name}_4k.ktx2.txt")):
+            if os.path.exists(f):
+                os.remove(f); print(f"  removed the old {os.path.basename(f)}: it was baked with other light-map UVs")
+
+
+def drop_ktx(png):
+    """A rewritten map's old KTX2 copy is out of date: remove it, so the page loads the new PNG (review R2-005)."""
+    k = png[:-4] + ".ktx2.txt"
+    if os.path.exists(k):
+        os.remove(k); print(f"  removed the old {os.path.basename(k)}")
+
+
+def save(px, name, out, encode, only=None):
+    """The props map px (n x n x 4 float32 light, row 0 = the image's bottom, as Blender bakes it) at each of
+    map_sizes(n), as 8-bit PNG: each smaller size is a box filter of px in linear light, then encode() turns light into
+    0..1 (review R2-170). only: the atlas rectangles baked this run (--objects); every other pixel is kept from the map
+    already there."""
     n = px.shape[0]
-    for size in sorted({a.size, 2048, 1024}, reverse=True):
-        if size > n:
-            continue
-        img = bpy.data.images.new(f"{name}_{size}", n, n, alpha=True)
-        img.colorspace_settings.name = "Non-Color"; img.alpha_mode = "STRAIGHT"
-        img.pixels.foreach_set(px.ravel())
-        if size != n:
-            img.scale(size, size)
-        f = os.path.join(MODELS, f"{name}_{size // 1024}k.png"); img.filepath_raw = f; img.file_format = "PNG"
-        img.save()
+    for label, size in map_sizes(n):
+        f = os.path.join(out, f"{name}_{label}.png")
+        k = n // size
+        d = px if k == 1 else px.reshape(size, k, size, k, -1).mean((1, 3))
+        new = (np.clip(encode(d), 0, 1)[::-1] * 255 + 0.5).astype(np.uint8)          # rows from the top for the PNG
+        if only is not None:
+            old = np.array(Image.open(f).convert("RGBA"))
+            for u0, v0, u1, v1 in only:                                           # v = 1 is row 0
+                r0, r1, c0, c1 = (round((1 - v1) * size), round((1 - v0) * size), round(u0 * size), round(u1 * size))
+                old[r0:r1, c0:c1] = new[r0:r1, c0:c1]
+            new = old
+        Image.fromarray(np.ascontiguousarray(new), "RGBA").save(f, optimize=True); drop_ktx(f)
         print(f"  {os.path.basename(f)}: {os.path.getsize(f) // 1024} KB")
 
 
-G = list(LIGHTS)[:4]                                                        # channel order: fire, stove, lanterns, moon
-# props map 1: one channel per light; map 2: R = where the sun reaches, G = sky occlusion
-save(np.stack([enc(lit[g]) for g in G], -1).astype(np.float32), "camp_lm")
-so_ = sunopen[..., :3].mean(-1); sd_ = sundirect[..., :3].mean(-1)
-sv = np.where(so_ > 0.02, np.clip(sd_ / np.maximum(so_, 1e-6), 0, 1), 1.0)   # surfaces facing away: the page's N . L hides them anyway
-print(f"  sun: mean visibility {sv[so_ > 0.02].mean():.2f}")
-save(np.stack([sv, np.clip(ao[..., 0], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun")   # B, A: free (were the jeep's lights)
-# ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
-from PIL import Image
-gd = gday[..., :3].mean(-1); open_ = np.percentile(gd, 99.5)
-shadow = np.clip(1 - gd / open_, 0, 1)[::-1]
-Image.fromarray((shadow * 255 + 0.5).astype(np.uint8), "L").save(os.path.join(MODELS, f"camp_shadow_picked_{a.jeep}.png"), optimize=True)
-gn = (np.stack([enc(glit[g]) for g in G], -1)[::-1] * 255 + 0.5).astype(np.uint8)
-Image.fromarray(np.ascontiguousarray(gn), "RGBA").save(os.path.join(MODELS, f"camp_ground_night_picked_{a.jeep}.png"), optimize=True)
-json.dump({"channels": G, "colour": {g: LIGHTS[g][0] for g in LIGHTS}, "encoding": "light / 4, gamma 2.2",
-           "ground_open_day": round(float(open_), 4)}, open(os.path.join(MODELS, "camp_lights.json"), "w"), indent=1)
-print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}; " + ", ".join(f"{g} max {glit[g].max():.2f}" for g in G))
-
-# ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
-def export(objs, path, txt, image_format="AUTO", extras=False):
-    export_glb(objs, path, image_format=image_format, check=False, small=True, unlit=("Embers",), extras=extras,
-               txt=os.path.join(MODELS, txt))   # audited in steps 1 and 2;
-    # small: quantized normals, colours and UVs, and no normals on the unlit embers (review R2-109)
+def write_maps(m, out, jeep, only=None):
+    """The props' two maps, the ground's two maps and camp_lights.json, into out. only: the atlas rectangles baked this
+    run (--objects); the props maps keep every other pixel."""
+    # props map 1: one channel per light; map 2: R = where the sun reaches, G = sky occlusion
+    save(np.stack([m["lit"][g] for g in CHANNELS], -1).astype(np.float32), "camp_lm", out, enc, only)
+    sun_open, sun_direct = m["sun_open"], m["sun_direct"]
+    sv = np.where(sun_open > 0.02, np.clip(sun_direct / np.maximum(sun_open, 1e-6), 0, 1), 1.0)   # surfaces facing away: the page's N . L hides them anyway
+    print(f"  sun: mean visibility {sv[sun_open > 0.02].mean():.2f}" if (sun_open > 0.02).any() else "  sun: no prop faces the sun")
+    save(np.stack([sv, np.clip(m["ao"], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun", out, lambda x: x, only)   # B, A: free (were the jeep's lights)
+    # ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
+    open_ = np.percentile(m["ground_day"], 99.5)
+    shadow = np.clip(1 - m["ground_day"] / open_, 0, 1)[::-1]
+    f = os.path.join(out, f"camp_shadow_picked_{jeep}.png")
+    Image.fromarray((shadow * 255 + 0.5).astype(np.uint8), "L").save(f, optimize=True); drop_ktx(f)
+    gn = (np.stack([enc(m["ground_lit"][g]) for g in CHANNELS], -1)[::-1] * 255 + 0.5).astype(np.uint8)
+    f = os.path.join(out, f"camp_ground_night_picked_{jeep}.png")
+    Image.fromarray(np.ascontiguousarray(gn), "RGBA").save(f, optimize=True); drop_ktx(f)
+    json.dump({"channels": list(CHANNELS), "colour": COLOUR, "encoding": "light / 4, gamma 2.2",
+               "ground_open_day": round(float(open_), 4)}, open(os.path.join(out, "camp_lights.json"), "w"), indent=1)
+    print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}; "
+          + ", ".join(f"{g} max {m['ground_lit'][g].max():.2f}" for g in CHANNELS))
 
 
-export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt", extras=True)   # the Tent's and Hammock's sizes (build_camp.py)
-# the carried logs' spots in the wood stack's atlas ride on the WoodStack as a glTF extra, so the page reads them with the
-# atlas they belong to (activities/parts.js paintLogs, review R2-243); build_lived.py stack_spots writes them
-with open(os.path.join(LIVED, "wood_stack.json")) as f:
-    CARRIED = json.load(f)["carried"]
-for sname, meshes in sets.items():
-    for o in meshes:
-        o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)
-        if o.name == "WoodStack":
-            o["carried"] = CARRIED
-    export(meshes + anchors[sname], os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO",
-           extras=sname == "lived")
-print(f"camp light: {len(counts)} objects, {sum(counts.values())} triangles, {time.time() - T0:.0f} s")
+def export_models(picked, sets, anchors, out):
+    """The picked set at its camp positions, the lived sets each object back at its own origin with their anchor empties;
+    the GLBs into props/ (or out) and their base64 .txt copies into models/ (or out). Every node carries its tags as glTF
+    extras (the Tent's and Hammock's sizes too, build_camp.py); the GLBs are quantized, with no normals on unlit props."""
+    def export(objs, path, txt, image_format="AUTO"):
+        if out:
+            path = os.path.join(out, os.path.basename(path))
+        export_glb(objs, path, image_format=image_format, extras=True, check=False, small=True,   # audited in build_scene
+                   unlit=tuple(o.name for o in objs if o.get("unlit")), txt=os.path.join(out or MODELS, txt))
+
+    export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
+    # the carried logs' spots in the wood stack's atlas ride on the WoodStack as a glTF extra, so the page reads them with the
+    # atlas they belong to (activities/parts.js paintLogs, review R2-243); build_lived.py stack_spots writes them
+    with open(os.path.join(LIVED, "wood_stack.json")) as f:
+        carried = json.load(f)["carried"]
+    for sname, meshes in sets.items():
+        for o in meshes:
+            o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)
+            if o.name == "WoodStack":
+                o["carried"] = carried
+        export(meshes + anchors[sname], os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
+
+
+def check_objects(a, receivers, atlas, repacked):
+    """--objects: the set of props to bake, after checking that the rest of the maps still fit the scene: the atlas was
+    not packed again, the maps are there at every size, and every other prop's UVs are as the last bake recorded."""
+    if not a.objects:
+        return None
+    only = {n.strip() for n in a.objects.split(",") if n.strip()}
+    names = {o.name for o in receivers}
+    if only - names:
+        sys.exit(f"--objects names props the bake does not light: {', '.join(sorted(only - names))} (the props: {', '.join(sorted(names))})")
+    if repacked:
+        sys.exit("--objects: the atlas had to be packed again, so every prop's part of the maps moves: run the whole bake")
+    out = a.out or MODELS
+    gone = [f"{nm}_{lb}.png" for nm in ("camp_lm", "camp_lm_sun") for lb, _ in map_sizes(a.size) if not os.path.exists(os.path.join(out, f"{nm}_{lb}.png"))]
+    if gone:
+        sys.exit(f"--objects keeps the maps already in {out}, and these are missing: {', '.join(gone)}: run the whole bake")
+    rec = load_atlas().get("uv", {})
+    moved = sorted(o.name for o in receivers if o.name not in only and rec.get(o.name) != uv_hash(o))
+    if moved:
+        sys.exit(f"--objects: these props' UVs changed since the last bake, so bake them too (or the whole scene): {','.join(moved)}")
+    print(f"  baking only {', '.join(sorted(only))} into their rectangles; the rest of the props maps stays as it is")
+    return only
+
+
+def main():
+    t0 = time.time()
+    a = parse_args()
+    layout, pl = read_layout()
+    picked, sets, anchors, receivers, counts = build_scene(pl)
+    atlas, repacked = unwrap(receivers, a)
+    if a.unwrap_only:
+        sys.exit(0)
+    only = check_objects(a, receivers, atlas, repacked)
+    occluders = add_occluders(layout, pl, a.jeep)
+    ground = add_ground()
+    print(f"  scene: {len(receivers)} props, {len(occluders)} occluders (jeep parts and deadwood), ground {2 * RR} m square")
+    lights = Lights(pl, next(o for o in picked if o.name == "Tent"))
+    maps = bake_light(a, receivers, occluders, ground, lights, only)
+    for o in occluders:
+        bpy.data.objects.remove(o)
+    bpy.data.objects.remove(ground)
+    write_maps(maps, a.out or MODELS, a.jeep, None if only is None else [atlas["rects"][n] for n in sorted(only)])
+    if a.size < 4096:
+        drop_4k(a.out or MODELS)
+    del maps
+    export_models(picked, sets, anchors, a.out)
+    if not a.out:                                    # the atlas and the UVs the committed maps were baked with
+        atlas["uv"] = {o.name: uv_hash(o) for o in receivers}
+        json.dump(atlas, open(ATLAS, "w"), indent=1, sort_keys=True)
+    if not a.out:
+        print("  the light maps' KTX2 copies are gone until props/bake_all.py --only ktx encodes them again")
+    elif os.path.abspath(a.out).startswith(os.path.abspath(os.path.join(ROOT, "apps", "canopy-prototype")) + os.sep):
+        print(f"  see it on camp.html?lmdir={os.path.relpath(a.out, os.path.join(ROOT, 'apps', 'canopy-prototype'))}")
+    print(f"camp light: {len(counts)} objects, {sum(counts.values())} triangles, {time.time() - t0:.0f} s")
+
+
+# Blender runs the script with --python as __main__; the GPU wrapper (gpu_run.py, outside the repo) may run it another
+# way, so the stages run unless the file was imported as a module to test one of them.
+if __name__ != "bake_camp_lightmap":
+    main()

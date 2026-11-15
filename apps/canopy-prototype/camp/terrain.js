@@ -6,11 +6,11 @@
 //   groundHeight(x, z)  metres above y = 0
 //   jeepDist(x, z)      distance to the jeep's track, or 1e9 with ?jeep=none (no track)
 //   addMound(x, z, r, h) a round root mound (forest.js puts one under each forest tree)
-//   heightGrid(n)       an n x n grid over 2 * FAR metres, rows +z, for the GPU bake (props/shadow/export_casters.cjs)
+//   vnoise(x, z)        the integer-lattice value noise, 0..1 (ground.js has the same in GLSL)
 // It imports core.js only for the ?jeep option (JEEP); core.js is always evaluated first anyway (main.js imports it before
 // forest.js), so this changes no load order, but it does tie the height function to the page's boot module.
 import { JEEP } from "./core.js";
-import { FAR, HERO, JEEP_TRACK, RC, pathDist } from "./layout.js";
+import { HERO, JEEP_TRACK, RC, pathDist } from "./layout.js";
 import { lineDist, sstep } from "./util.js";
 
 const mounds = [];                                    // [x, z, radius, height, outX, outZ]: out = 0,0 for a round mound
@@ -43,10 +43,5 @@ export function groundHeight(x, z) {
   // ground-mesh cell, then a bank about 3 m wide
   const open = Math.min(sstep(3.0, 6.0, pathDist(x, z)), sstep(3.4, 6.4, jeepDist(x, z)));   // level a full mesh cell past the ribbons and the glade's grass disc, so the bank never slopes up through them
   return dip + (bowl + humm + mound) * open;
-}
-export function heightGrid(n = 128) {
-  const out = new Array(n * n);
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) out[j * n + i] = +groundHeight(((i + 0.5) / n * 2 - 1) * FAR, ((j + 0.5) / n * 2 - 1) * FAR).toFixed(3);
-  return { n, far: FAR, rows: "+z", data: out };
 }
 export { vnoise };

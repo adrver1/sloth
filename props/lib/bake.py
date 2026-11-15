@@ -5,8 +5,9 @@ Vertex-colour light for the props/ generators, both into the "Col" colour attrib
                                                    Cycles ambient occlusion (with a ground plane) times each face's base
                                                    colour, for props that carry their own light (the archived camp
                                                    styles, the jeep, a builder run on its own), on pick_device(device)
-    flat_colours(objs, glow=())                    the plain base colours, no light, for props the light bake lights
-                                                   (props/camp/bake_camp_lightmap.py); alpha 0 marks glowing faces
+    flat_colours(objs)                             the plain base colours, no light, for props the light bake lights
+                                                   (props/camp/bake_camp_lightmap.py); alpha 0 marks the faces of
+                                                   materials with the "glow" property (lantern glass, the stove's fire)
     pick_device(scene, choice="auto")              puts Cycles on the fastest GPU backend there is (OptiX, CUDA, Metal,
                                                    HIP), else the CPU, prints which, and returns "GPU" or "CPU"; "gpu"
                                                    or a backend name stops the script when there is no such GPU, "cpu"
@@ -119,14 +120,14 @@ def ao_times_base(me):
     me.materials.append(baked_material(roughness=0.9))
 
 
-def flat_colours(objs, glow=()):
-    """Plain base colours into "Col" (alpha 0 on faces whose material name is in glow), one "Baked" material each."""
+def flat_colours(objs):
+    """Plain base colours into "Col" (alpha 0 on faces whose material has the "glow" property), one "Baked" material each."""
     for o in objs:
         me = o.data
         for c in list(me.color_attributes):
             me.color_attributes.remove(me.color_attributes[c.name])
         col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        slots = [(*(m["base"] if m and "base" in m else (0.5, 0.5, 0.5)), 0.0 if m and m.name.split(".")[0] in glow else 1.0)
+        slots = [(*(m["base"] if m and "base" in m else (0.5, 0.5, 0.5)), 0.0 if m and m.get("glow") else 1.0)
                  for m in me.materials] or [(0.5, 0.5, 0.5, 1.0)]                # no material: grey
         per_face = np.array(slots, np.float32)[_face_materials(me) if me.materials else np.zeros(len(me.polygons), np.int64)]
         col.data.foreach_set("color", corner_values(me, per_face).ravel())

@@ -2,7 +2,7 @@
 // started at once (PRE, camp review P2) and the look's leaf material (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { b64bytes, initKtx, loadLightMap } from "../bakedlight.js";
+import { b64bytes, initKtx, lightDir, loadLightMap } from "../bakedlight.js";
 import { SUN } from "./layout.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
@@ -26,6 +26,9 @@ import { SUN } from "./layout.js";
 //   touch    present or not                on a phone (a coarse pointer)     input.js (the phone stick and its hint, on a desktop too)
 //   sound    0                             saved, else on                    audio/context.js (0 starts muted)
 //   station  drift | campfire | kalimba | lullaby   saved, else drift        audio/context.js (checks it against its stations)
+//   lmdir    a folder in the app, e.g.     models                            core.js (LMDIR: the light maps, camp_lights.json and the four light-mapped
+//            lmpreview (letters, digits,                                     models), campGround.js (the ground's baked shadow and night maps): a preview
+//            - and _, / between parts)                                       bake, props/camp/bake_camp_lightmap.py --preview; anything else keeps models
 //   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
 const qs = new URLSearchParams(location.search);
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };   // a number, or null when it is missing or not a number
@@ -64,6 +67,7 @@ const OPT = {
   touch: qs.has("touch"),
   sound: qs.get("sound") !== "0",
   station: qs.get("station"),
+  lmdir: /^[\w-]+(\/[\w-]+)*\/?$/.test(qs.get("lmdir") || "") ? qs.get("lmdir").replace(/\/?$/, "/") : "models/",   // no dots, no host: only the app's own folders
 };
 const DETAIL = OPT.detail;
 const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: false },
@@ -75,6 +79,9 @@ const D = { low: { leaves: 0.55, ferns: 0.5, fx: 0, shells: 2, pr: 1.25, aa: fal
 const JEEP = OPT.jeep;
 // the picked props' baked light: a 2K or 1K light map (?lm=4k also works locally; 4k is too big to publish)
 const LMSET = OPT.lm;
+// where the baked light and the models baked with it come from: models/, or a preview bake's folder (?lmdir=)
+const LMDIR = OPT.lmdir;
+lightDir(LMDIR);
 // the ⚙️ menu's own buttons: main.js calls wireSettings() once. One ⚙️ button opens the detail and light-map choices (the old
 // row took a quarter of a phone screen); Detail and Light each step to the next choice, keep it and reload.
 function wireSettings() {
@@ -117,17 +124,17 @@ const LIVED = OPT.lived;   // ?lived=0 hides the lived-in props to compare
 let loadN = 0, loadDone = 0;
 const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
 initKtx(renderer);
-const lmLoad = async (n) => { const t = await loadLightMap(`models/${n}_${LMSET}.png`).catch(() => loadLightMap(`models/${n}_2k.png`));
+const lmLoad = async (n) => { const t = await loadLightMap(`${LMDIR}${n}_${LMSET}.png`).catch(() => loadLightMap(`${LMDIR}${n}_2k.png`));
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
 const PRE = {
   sloth: pre(glb("models/sloth.txt")),
   operator: OPT.op ? pre(glb("models/operator.txt")) : null,                 // the bearded operator (camp/operator.js)
   operatorAnims: OPT.op ? pre(glb("models/operator_anims.txt")) : null,
   lm: pre(Promise.all([lmLoad("camp_lm"), lmLoad("camp_lm_sun")])),
-  props: pre(glb("models/camp_picked_lm.txt")),
-  lived: LIVED ? pre(glb("models/lived.txt")) : null,
-  laundry: LIVED ? pre(glb("models/laundry.txt")) : null,
-  fire: pre(glb("models/fire.txt")),
+  props: pre(glb(`${LMDIR}camp_picked_lm.txt`)),
+  lived: LIVED ? pre(glb(`${LMDIR}lived.txt`)) : null,
+  laundry: LIVED ? pre(glb(`${LMDIR}laundry.txt`)) : null,
+  fire: pre(glb(`${LMDIR}fire.txt`)),
   jeep: JEEP !== "none" ? pre(glb(`models/jeep_${JEEP}.txt`)) : null,
   jeepLod: JEEP === "expedition" ? pre(glb("models/jeep_expedition_lod.txt").catch(() => null)) : null,
   groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok({ mask: im, soil: "models/camp_ground_picked.jpg" }); im.onerror = () => ok(null); im.src = "models/camp_ground_picked_mask.png"; })),
@@ -166,4 +173,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, D, DETAIL, JEEP, KEYS, LIVED, OPT, PRE, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime, wireSettings };
+export { $, D, DETAIL, JEEP, KEYS, LIVED, LMDIR, OPT, PRE, S, camera, hex, leafMat, renderer, rng, scene, pace, store, sun, uTime, wireSettings };

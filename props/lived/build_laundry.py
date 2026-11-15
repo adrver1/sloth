@@ -19,7 +19,7 @@ props/lived/laundry.glb; a run on its own writes props/lived/laundry_preview.glb
 make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
 drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
 How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
-build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+make() in its own scene and gives the BAKED parts flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
 (TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
 models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
 AO in the colour attribute, which the page never sees.
@@ -34,7 +34,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset  # noqa: E402
+from lib.export import export_glb, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import anchor, drop_ground_faces, join, obj_from_bm, rod  # noqa: E402
 
@@ -149,16 +149,20 @@ def posts():
 ANCHORS = ("LineA", "LineB", "Hang")
 
 
+BAKED = ("LaundryPosts",)                 # the part that takes vertex colours; the cloth is textured
+
+
 def make():
     """Make the laundry line in the current scene and return it as {name: object}: LaundryPosts (takes vertex colours),
-    LaundryCloth (textured) and the ANCHORS: empties at the line's two tied ends and at the gap kept for a hanging sloth,
-    which the page checks camp/layout.js LAUNDRY against (review R2-252). No reset, no light, no export."""
+    LaundryCloth (textured, a thin card), both tagged to stand at the laundry line (lib.export.tag), and the ANCHORS:
+    empties at the line's two tied ends and at the gap kept for a hanging sloth, which the page checks camp/layout.js
+    LAUNDRY against (review R2-252). No reset, no light, no export."""
     img = os.path.join(HERE, "laundry.png")
     atlas(img)
     po = posts()                               # joined, so its transforms are already applied
     marks = [anchor("LineA", (line_x(0), 0, line_z(0))), anchor("LineB", (line_x(1), 0, line_z(1))),
              anchor("Hang", (line_x(HANG_T), 0, line_z(HANG_T)))]
-    return {"LaundryPosts": po, "LaundryCloth": cloth(img), **{e.name: e for e in marks}}
+    return {"LaundryPosts": tag(po, "laundry"), "LaundryCloth": tag(cloth(img), "laundry", thin=1), **{e.name: e for e in marks}}
 
 
 def build(colour=None, path=None):
@@ -172,7 +176,7 @@ def build(colour=None, path=None):
     cl.hide_render = False
     while po.data.uv_layers:
         po.data.uv_layers.remove(po.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "laundry_preview.glb"), image_format="AUTO")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "laundry_preview.glb"), image_format="AUTO", extras=True)
     print(f"laundry -> {path}")
 
 

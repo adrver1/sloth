@@ -5,8 +5,12 @@
 // candle burns and a soft glow sprite shows round each. They sway slowly. Page-lit (no light map: they move), drawn in
 // five draws for all eight: tin and cords, glass, candles, flames, glows.
 // The light bake (props/camp/bake_camp_lightmap.py) reads where each lantern's light is from the "place" block that
-// props/shadow/export_casters.cjs writes from this page; only the drop below the hang point is still a copy there (the bake's
-// 0.12 m against JAR_Y's 0.125 m, review props-07).
+// props/shadow/layout_pure.mjs works out with lanternLayout and lanternLights (no browser, review R2-257); only the drop
+// below the hang point is still a copy there (the bake's 0.12 m against JAR_Y's 0.125 m, review props-07).
+// Exports lanternLayout(ties) (the strings' points, the hang points and the tie on the tree; pure),
+// lanternLights(layout) (where each lantern's light is: its hang point lowered by JAR_Y; pure) and
+// createLanterns({ scene, layout, glowTex }) (the eight lanterns, with .lights and .update(t, dusk)).
+// Importing it builds nothing, so node can import it too.
 import * as THREE from "three";
 import { V, canvasTex, tris } from "./util.js";
 
@@ -24,6 +28,9 @@ export function lanternLayout({ l0, post, tree }) {
   }
   return { strings, hang, tie };
 }
+
+// where each lantern's light is: its jar, JAR_Y below the hang point
+export function lanternLights(layout) { return layout.hang.map((p) => p.clone().setY(p.y + JAR_Y)); }
 
 // a 6-sided prism (or one cap only, h = 0) as plain triangles: the sides, and fans of sides - 2 triangles for the caps asked for
 function prism(r0, r1, h, y, sides, caps, color) {
@@ -79,7 +86,7 @@ export function createLanterns({ scene, layout, glowTex }) {
   const flames = pts(0.06, 0xffd27a), glows = pts(0.9, 0xffb867);
 
   const piv = new THREE.Object3D(), m4 = new THREE.Matrix4(), flameAt = V(0, JAR_Y + 0.01, 0), glowAt = V(0, JAR_Y, 0), tmp = V(0, 0, 0);
-  const lights = layout.hang.map((p) => p.clone().setY(p.y + JAR_Y));   // where each lantern's light is (for the ground pools)
+  const lights = lanternLights(layout);   // where each lantern's light is (for the ground pools)
   return {
     lights,
     update(t, dusk) {

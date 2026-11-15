@@ -6,13 +6,23 @@
 // so the page colours them, flickers the fire and the stove on their own, switches the jeep's lights (the jeep code sets
 // GAIN.cabin and GAIN.doors, 0..1), dims or brightens any of them live, and adds the warm ones a little by day (they
 // show in the shade; the sun drowns them in the open).
+// Exports: lightDir(dir) (where camp_lights.json is), initKtx(renderer), b64bytes(txt), loadLightMap(png), LIGHT and GAIN
+// (the uniforms and gains), LIGHT_GLSL, LIGHT_MIX(...), liveChunk(chunk), bindLight(shader), stepLight(fl, t).
 import * as THREE from "three";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 
 // the light maps ship as KTX2 (UASTC + zstd, props/bake_all.py --only ktx): about half the download of the PNGs and a quarter
 // of the GPU memory; a map with no .ktx2 next to it (or a browser that can't take it) falls back to its .png
-let ktx = null;
-const META = fetch("models/camp_lights.json").then((r) => r.json()).catch(() => ({}));
+let ktx = null, META = null;
+// lightDir(dir): the folder that holds camp_lights.json (default "models/"; camp.html?lmdir= points it at a preview bake,
+// props/camp/bake_camp_lightmap.py --preview). Call it before the first loadLightMap; the file is read once, on first use.
+let DIR = "models/";
+export function lightDir(dir) { DIR = dir; }
+const meta = () => (META ??= fetch(DIR + "camp_lights.json").then((r) => r.json()).then((j) => {
+  [...j.channels, ...(j.jeep_channels || [])].forEach((g, i) => j.colour[g] && LIGHT.uLCol.value[i].set(...j.colour[g]));
+  if (j.door_patch) LIGHT.uGP.value.set(j.door_patch.x0, j.door_patch.z0, j.door_patch.size);
+  return j;
+}).catch(() => ({})));
 export function initKtx(renderer) {
   ktx = new KTX2Loader().setTranscoderPath("https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/libs/basis/").detectSupport(renderer);
 }
@@ -26,7 +36,8 @@ export function b64bytes(txt) {
 export async function loadLightMap(png) {
   let t = null;
   // artifacts don't serve .ktx2, so the maps ship base64 in .ktx2.txt files like the models (still well under the PNGs)
-  if (ktx && (await META).ktx2) t = await fetch(png.replace(/\.png$/, ".ktx2.txt")).then((r) => (r.ok ? r.text() : Promise.reject()))
+  const m = await meta();   // also gives LIGHT the bake's colours, once
+  if (ktx && m.ktx2) t = await fetch(png.replace(/\.png$/, ".ktx2.txt")).then((r) => (r.ok ? r.text() : Promise.reject()))
     .then((b64) => new Promise((ok, no) => ktx.parse(b64bytes(b64.trim()).buffer, ok, no))).catch(() => null);   // only once the bake wrote them
   t ??= await new THREE.TextureLoader().loadAsync(png);
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;   // data, decoded in the shaders
@@ -42,7 +53,6 @@ export const LIGHT = {
   uLDay: { value: 0.5 },                               // how much of the warm camp lights shows by day
 };
 export const GAIN = { fire: 1, stove: 1, lanterns: 1, moon: 1, day: 0.5, headlights: 0, cabin: 0, cabinBoost: 3, doors: { P: 0, D: 0, B: 0 } };   // doors: how far each is open, 0..1
-META.then((j) => [...j.channels, ...(j.jeep_channels || [])].forEach((g, i) => j.colour[g] && LIGHT.uLCol.value[i].set(...j.colour[g])) || (j.door_patch && LIGHT.uGP.value.set(j.door_patch.x0, j.door_patch.z0, j.door_patch.size))).catch(() => {});
 
 // GLSL: decode texels, the camp's night light, its warm lights alone, the jeep's lights, and the hue-keeping tone
 export const LIGHT_GLSL = `

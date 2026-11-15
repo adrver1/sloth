@@ -12,3 +12,4 @@ shots/
 package-lock.json
 props/lived/*_preview.glb
 props/camp/out/
+apps/canopy-prototype/lmpreview/

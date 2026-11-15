@@ -1,5 +1,6 @@
 // Canopy Camp props: the camp's blockers (the layout itself is layout.js), the picked props with their baked light map (lnight), the lived-in props,
 // the laundry line, the campfire and soup pot. Models come from props/ (Blender); their light is baked by props/bake_all.py.
+// Every baked node stands where its anchor tag says (stand, layout.js ANCHORS, review R2-249).
 // main.js calls its three step functions each frame: fireStep (the fire's flicker), poolsStep (the light pools on the ground
 // at night) and motesStep (the drifting motes). Exports those, CAMP, SLOTH (the sloth model), blockers and the props' parts
 // other modules use (FIRE_CARDS, WOODPILE, WOOD_TEX and WOOD_SPOTS (the carried logs' spots in its atlas), fireLight, glowTex, lanternGlow, LANTERNS, rayMat, uNight), and buildProps()
@@ -10,7 +11,7 @@ import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, rng, S, scene, sun, uTime } from "./core.js";
 const { R } = rng("props");
 import { V, canvasTex, patchMaterial } from "./util.js";
-import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE, fromModel } from "./layout.js";
+import { ANCHORS, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE, fromModel, wearBlockers } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
@@ -25,19 +26,23 @@ const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
 // blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking
 // (.walk, player.js): the fire ring stops you at its stones, and each log seat is a thin capsule along the log, so there is
 // a ring to walk round the fire between them (Adriaen 2026-11-13: the old circles walled the fire in)
-const blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Object.assign([TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), 1.9], { tent: true }), [TABLE.at, 0.75], [HAMMOCK.a, 0.3], [HAMMOCK.b, 0.3], ...HERO.map((h) => [h, 1.4])];
-for (const { angle: a, at: c } of SEATS) { const t = V(-Math.sin(a), 0, Math.cos(a));
-  blockers.push(Object.assign([c, 0.75], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
+// (the table, hammock posts, seats, lived props, laundry posts and jeep take their circles from layout.js WEAR, wearBlockers)
+const blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Object.assign([TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), 1.9], { tent: true }), ...wearBlockers("camp"), ...HERO.map((h) => [h, 1.4])];
+wearBlockers("seats").forEach(([c, r], i) => { const a = SEATS[i].angle, t = V(-Math.sin(a), 0, Math.cos(a));
+  blockers.push(Object.assign([c, r], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); });   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
 const FIRE_CARDS = [];   // the fire's flame cards (the activities flare them)
 // The anchors the builders put in the GLBs (review R2-252): laundry.glb's LineA, LineB and Hang (build_laundry.py) and fire.glb's
 // Soup, scaled by the soup's radius (build_fire.py). layout.js keeps LAUNDRY and SOUP_POT as plain values, since the sloths read
 // them at import, so this checks each value against its anchor once the model is placed, and logs a console error when they differ
 // by more than 5 mm (the probe and the play-tests list those). A GLB baked before R2-252 has no anchors, and nothing is checked.
+// The anchors stay in the loaded GLB's scene (stand moves only the tagged props out of it), so each is placed in the set's
+// frame here, frame = the set's layout.js ANCHORS entry ({ at, yaw }).
 // want: [[anchor name, the layout.js point, the radius or undefined], ...]
-function checkAnchors(root, want, file) {
+const UP = new THREE.Vector3(0, 1, 0);
+function checkAnchors(root, want, file, frame) {
   for (const [name, at, r] of want) {
     const n = root.getObjectByName(name); if (!n) continue;
-    const p = n.getWorldPosition(V()), s = n.getWorldScale(V()).x;
+    const p = n.getWorldPosition(V()).applyAxisAngle(UP, frame.yaw).add(frame.at), s = n.getWorldScale(V()).x;
     if (p.distanceTo(at) > 0.005 || (r !== undefined && Math.abs(s - r) > 0.005))
       console.error(`layout.js disagrees with ${file}'s ${name} anchor: (${p.toArray().map((v) => v.toFixed(3))}${r !== undefined ? `, r ${s.toFixed(3)}` : ""}); update layout.js`);
   }
@@ -78,6 +83,25 @@ const lnight = (mat) => {
 #include <opaque_fragment>`);
   });
 };
+// stand: moves every node of a loaded props GLB into the scene where its anchor tag says (userData.anchor, a key of layout.js
+// ANCHORS, written by the bake from props/lib/export.py tag, review R2-249), or onto the log seats ("seats": userData.seat,
+// or one copy on each seat). Nodes with no anchor are left out.
+// GLBs baked before R2-249 carry no tags, so until the next light bake rewrites them their nodes' anchors come from
+// their names here; delete UNTAGGED once models/ holds GLBs with tags.
+const UNTAGGED = { Seat: "seats", SeatTop: "seats", Tent: "tent", Hammock: "hammock", HammockPosts: "hammock", Table: "table", WoodPile: "woodPile", WoodStack: "woodPile",
+  LooseLogs: "woodPile", SeatThings: "seatThings", TentSide: "tent", MatRoll: "tent", KitchenCrate: "kitchen", KitchenThings: "kitchen",
+  LaundryPosts: "laundry", LaundryCloth: "laundry", Ring: "fire", Tripod: "fire", TripodLegs: "fire", Fire: "fire", Embers: "fire", Pot: "fire", Chain: "fire" };
+function stand(root) {
+  for (const o of [...root.children]) {
+    const k = o.userData.anchor ?? UNTAGGED[o.name.replace(/_\d+$/, "")];
+    if (k === "seats") {
+      const i = o.userData.seat ?? o.name.match(/_(\d+)$/)?.[1];
+      (i == null ? SEATS : [SEATS[+i]]).forEach(({ at, yaw }, j) => { const c = j ? o.clone() : o; c.position.set(at.x, 0, at.z); c.rotation.set(0, yaw, 0); scene.add(c); });
+    } else if (ANCHORS[k]) {
+      const { at, yaw } = ANCHORS[k]; o.position.set(at.x, 0, at.z); o.rotation.set(0, yaw, 0); scene.add(o);
+    }
+  }
+}
 // buildProps (main.js, once, after the forest): the lanterns, the fire's light, the sunbeams and motes, then (once their downloads are
 // in) the picked props, the lived-in props, the laundry line, the campfire and the night's light pools
 async function buildProps() {
@@ -115,12 +139,7 @@ async function buildProps() {
     fromModel(P.scene.getObjectByName("Tent")?.userData, P.scene.getObjectByName("Hammock")?.userData);   // the tent's and hammock's sizes (layout.js)
     const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
     P.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : lamL; });   // the hammock posts are textured (bamboo.png, review R2-169)
-    // the picked set holds each copy on its own (Seat_0, Seat_1 ...), since each is lit where it stands
-    const put = (n, x, z, yaw, y = 0, i = 0) => { const s = P.scene.getObjectByName(`${n}_${i}`) ?? P.scene.getObjectByName(n); if (!s) return null; const o = s.clone(); o.position.set(x, y, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
-    SEATS.forEach(({ at, yaw }, i) => put("Seat", at.x, at.z, yaw, 0, i));
-    put("Tent", TENT.at.x, TENT.at.z, TENT.yaw);
-    put("Hammock", HAMMOCK.mid.x, HAMMOCK.mid.z, HAMMOCK.yaw); put("HammockPosts", HAMMOCK.mid.x, HAMMOCK.mid.z, HAMMOCK.yaw);   // the posts: a GLB baked before R2-169 has them in the Hammock
-    put("Table", TABLE.at.x, TABLE.at.z, TABLE.yaw);
+    stand(P.scene);   // the seats (each copy on its own, Seat_0-2, since each is lit where it stands), the tent, the hammock with its posts (a GLB baked before R2-169 has them in the Hammock) and the table
   }
   // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
   // chopping stump on the jeep side of the fire, and a mug and an open book left on the seat you see first. Shown with the
@@ -128,16 +147,12 @@ async function buildProps() {
   if (LIVED) {
     const L = await PRE.lived, lm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
     L.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, ...(m.name.startsWith("SeatTop") && { polygonOffset: true, polygonOffsetFactor: -2, color: SAWN }) })) : lm; });   // the stack, loose logs and seat tops are textured
-    const put = (n, x, z, yaw) => { const o = L.scene.getObjectByName(n).clone(); o.position.set(x, 0, z); o.rotation.set(0, yaw, 0); scene.add(o); return o; };
-    const { at: wp, yaw: wy, side } = WOOD_PILE;
-    put("WoodPile", wp.x, wp.z, wy); put("WoodStack", wp.x, wp.z, wy); put("LooseLogs", wp.x, wp.z, wy); WOODPILE = wp;   // the activities take logs from here
-    const stack = L.scene.getObjectByName("WoodStack");   // and paint them like the stack, at the atlas spots the bake put on it (R2-243)
-    stack.traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; WOOD_SPOTS ??= m.userData.carried; });
-    blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35]);
-    put("SeatThings", SEATS[1].at.x, SEATS[1].at.z, SEATS[1].yaw);   // the middle seat
-    { const t = TENT.at; put("TentSide", t.x, t.z, TENT.yaw); put("MatRoll", t.x, t.z, TENT.yaw); }   // wellies and the rolled mat on the planks by the door (tent frame)
-    { const { at: k, yaw: ky } = CRATE; put("KitchenCrate", k.x, k.z, ky); put("KitchenThings", k.x, k.z, ky); blockers.push([k, 0.35]); }   // the kitchen crate beside the snack table, its front to the fire
-    SEATS.forEach(({ at, yaw }, i) => put(L.scene.getObjectByName(`SeatTop_${i}`) ? `SeatTop_${i}` : "SeatTop", at.x, at.z, yaw));   // the sawn top on each seat
+    L.scene.getObjectByName("WoodStack").traverse((m) => { if (m.material?.map) WOOD_TEX = m.material.map; WOOD_SPOTS ??= m.userData.carried; });   // the activities paint their logs like the stack, at the atlas spots the bake put on it (R2-243)
+    // the wood pile, the mug and book on the middle seat, the wellies and rolled mat by the tent door, the kitchen crate
+    // beside the snack table (its front to the fire) and the sawn top on each seat
+    stand(L.scene);
+    WOODPILE = WOOD_PILE.at;   // the activities take logs from here
+    blockers.push(...wearBlockers("lived"));   // the wood pile, its chopping stump and the kitchen crate
   }
   // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two plain sticks east of the fire,
   // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads; the build prints the triangles).
@@ -145,9 +160,9 @@ async function buildProps() {
   if (LIVED) {
     const LD = await PRE.laundry;
     LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
-    const o = LD.scene; o.position.copy(LAUNDRY.mid); o.rotation.y = LAUNDRY.yaw; scene.add(o);
-    checkAnchors(o, [["LineA", LAUNDRY.a], ["LineB", LAUNDRY.b], ["Hang", LAUNDRY.hang]], "laundry.glb");
-    blockers.push([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
+    checkAnchors(LD.scene, [["LineA", LAUNDRY.a], ["LineB", LAUNDRY.b], ["Hang", LAUNDRY.hang]], "laundry.glb", ANCHORS.laundry);
+    stand(LD.scene);
+    blockers.push(...wearBlockers("laundry"));   // the two posts
   }
   // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
   // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one
@@ -156,14 +171,13 @@ async function buildProps() {
   {
     const F = await PRE.fire, fm = lnight(new THREE.MeshLambertMaterial({ vertexColors: true })), glow = new THREE.MeshBasicMaterial({ vertexColors: true });
     fireLight.position.y = 0.4;                                    // inside the fire, below the pot (it hangs higher than the old kettle)
-    for (const n of ["Ring", "Tripod", "TripodLegs", "Fire", "Embers", "Pot", "Chain"]) {
-      const o = F.scene.getObjectByName(n); if (!o) continue;
+    for (const o of F.scene.children) { const n = o.name;
       o.traverse((m) => { if (!m.isMesh) return;
         m.material = n === "Embers" ? glow : n === "Chain" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }))
           : n === "TripodLegs" ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : fm; });   // the legs: one tube each, nodes in the texture
-      scene.add(o);
     }
-    checkAnchors(F.scene, [["Soup", SOUP_POT.at, SOUP_POT.r]], "fire.glb");   // the fire set stands at the origin
+    checkAnchors(F.scene, [["Soup", SOUP_POT.at, SOUP_POT.r]], "fire.glb", ANCHORS.fire);
+    stand(F.scene);   // the ring, tripod, fire, embers, pot and chain, at the fire
     const H = 0.8, flameMat = (ph) => new THREE.ShaderMaterial({
       uniforms: { uTime, uPh: { value: ph } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
       vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",

@@ -27,7 +27,7 @@ the empty Soup, scaled by the soup's radius SOUP_R (review R2-252; the page chec
 make() only creates the objects in the current scene, without the faces that point down onto the ground (lib/mesh.py
 drop_ground_faces, review R2-154); build() resets, makes, lights and exports.
 How the page lights them: the light bake (props/bake_all.py, its light step props/camp/bake_camp_lightmap.py) runs
-build() with flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
+make() in its own scene and gives the BAKED parts flat colours, so the baked parts carry only their base colour, then gives every prop a second UV map
 (TEXCOORD_1) into the shared camp light map the page multiplies them by, and writes the page's GLB and its
 models/*.txt. A stand-alone run of this script is a preview only: build() then gives the baked parts their own Cycles
 AO in the colour attribute, which the page never sees.
@@ -44,7 +44,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset  # noqa: E402
+from lib.export import export_glb, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import anchor, apply_all, box, cyl, drop_faces, drop_ground_faces, join, obj_from_bm, sweep, torus, with_material  # noqa: E402
 
@@ -235,6 +235,12 @@ def lathe(profile, segs, m, z0=0.0, flip=False):
     es = [bm.edges.new((vs[i], vs[i + 1])) for i in range(len(vs) - 1)]
     bmesh.ops.spin(bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1), angle=2 * math.pi, steps=segs, use_duplicate=False)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
+    # remove_doubles numbers what it keeps by memory address, so sort it by position: the same pot every run, and so the
+    # same light-map UVs (the bake's atlas, review R2-149)
+    pos = lambda v: tuple(round(c, 6) for c in v.co)  # noqa: E731
+    for seq, key in ((bm.verts, pos), (bm.edges, lambda e: sorted(map(pos, e.verts))), (bm.faces, lambda f: sorted(map(pos, f.verts)))):
+        rank = {x: i for i, x in enumerate(sorted(seq, key=key))}
+        seq.sort(key=lambda x: rank[x])
     if flip:
         bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
     o = obj_from_bm(bm, "lathe")
@@ -339,7 +345,8 @@ BAKED = ("Ring", "Tripod", "Fire", "Embers", "Pot")       # the parts that take 
 
 def make():
     """Make the fire set in the current scene and return it as {name: object}, the BAKED parts first, all at the fire's
-    origin. No reset, no light, no export."""
+    origin and tagged to stand there (lib.export.tag): the flames cast no shadow (they light from inside the teepee), the
+    embers are drawn unlit and the chain is a thin card. No reset, no light, no export."""
     M = materials()
     ring_o, trip = ring(M), tripod(M)
     fire_o, emb = fire(M)
@@ -350,8 +357,10 @@ def make():
     ch = chain(peak + Vector((0, 0, 0.006)), TOP - Vector((0, 0, 0.03)))   # up into the lashed crossing of the legs
     every = objs + [ch, tripod_legs()]
     drop_ground_faces(every)                  # the bottoms lying on the ground (review R2-154)
-    every.append(anchor("Soup", SOUP, SOUP_R))   # the soup's surface, scaled by its radius: the page checks SOUP_POT against it (R2-252)
-    return {o.name: o for o in every}
+    every = {o.name: tag(o, "fire") for o in every}
+    tag(every["Fire"], no_shadow=1); tag(every["Embers"], unlit=1); tag(every["Chain"], thin=1)
+    every["Soup"] = anchor("Soup", SOUP, SOUP_R)   # the soup's surface, scaled by its radius: the page checks SOUP_POT against it (R2-252)
+    return every
 
 
 def build(samples=32, colour=None, path=None):
@@ -370,7 +379,7 @@ def build(samples=32, colour=None, path=None):
     for o in objs:
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
-    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire_preview.glb"), image_format="AUTO")
+    path = export_glb(list(every.values()), path or os.path.join(HERE, "fire_preview.glb"), image_format="AUTO", extras=True)
     print(f"fire -> {path}")
 
 

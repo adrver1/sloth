@@ -10,6 +10,15 @@ With small=True it also quantizes the vertex data of a GLB the page loads (lib/q
                txt=None)
     to_txt(path, txt)                             the page's base64 copy of a file (artifacts serve no .glb or .ktx2)
     stale(path, sources), builder_sources(script) whether a builder's output is missing or older than its code
+    tag(o, anchor, **flags)                       the light bake's and the page's tags on a baked prop, as custom
+                                                  properties (glTF extras, three.js userData) (review R2-249). anchor: a
+                                                  key of the page's layout.js ANCHORS (where the page stands the prop, read
+                                                  by the bake from layout_picked.json place.anchors), or "seats" (one copy
+                                                  on every log seat; the bake numbers them Name_i with a "seat" tag).
+                                                  flags: thin=1 (a double-sided card: casts no shadow, takes the brighter
+                                                  of its two sides), no_shadow=1 (lit but casts nothing), unlit=1 (drawn
+                                                  unlit on the page: not light-mapped, casts nothing), unbaked=1 (made, but
+                                                  left out of the bake and the page's GLBs)
 
 bpy is imported inside the functions that use it, so to_txt and stale also work from plain Python (props/bake_all.py).
 """
@@ -51,6 +60,15 @@ def builder_sources(script):
 def stale(path, sources):
     """True when the file at path is missing or older (by modification time) than any of sources."""
     return not os.path.exists(path) or os.path.getmtime(path) < max(os.path.getmtime(f) for f in sources)
+
+
+def tag(o, anchor=None, **flags):
+    """Set the bake's tags on o (see the header) and return o."""
+    if anchor is not None:
+        o["anchor"] = anchor
+    for k, v in flags.items():
+        o[k] = v
+    return o
 
 
 def export_glb(objs, path, texcoords=True, image_format=None, quiet=False, check=True, small=False, unlit=(), extras=False, txt=None):

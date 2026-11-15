@@ -37,7 +37,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset, to_txt  # noqa: E402
+from lib.export import export_glb, reset, tag, to_txt  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, ball, bevel, bisect, box, cyl, drop_faces, drop_ground_faces, join, mesh_obj, mug, obj_from_bm, quad, rod, rough_up, sweep, torus, with_material  # noqa: E402
 
@@ -225,12 +225,14 @@ def storybook():
 
 
 def rustic_mats():
-    """The rustic materials, by short name."""
-    return {k: mat(f"ru_{k}", c) for k, c in dict(
+    """The rustic materials, by short name. The jar's glass has the "glow" property: it glows at night (lib.bake.flat_colours)."""
+    M = {k: mat(f"ru_{k}", c) for k, c in dict(
         rock=(0.45, 0.44, 0.42), rock2=(0.36, 0.35, 0.33), bark=(0.3, 0.21, 0.14), wood=(0.68, 0.52, 0.36), char=(0.08, 0.06, 0.05),
         ember=(0.7, 0.2, 0.05), canvas=(0.48, 0.5, 0.32), canvas2=(0.38, 0.4, 0.25), rope=(0.7, 0.62, 0.45), peg=(0.55, 0.42, 0.28),
         sling=(0.32, 0.38, 0.26), glass=(0.92, 0.78, 0.45), tin=(0.55, 0.56, 0.58), white=(0.9, 0.88, 0.82), red=(0.65, 0.15, 0.12),
         enamel=(0.97, 0.96, 0.92), rim=(0.16, 0.24, 0.45), coffee=(0.2, 0.11, 0.06)).items()}   # the mug's, as build_lived.py's
+    M["glass"]["glow"] = 1
+    return M
 
 
 def rustic_fire(M):
@@ -333,7 +335,7 @@ def rustic_hammock(M):
 
 
 def rustic_lantern(M):
-    """The jar lantern (archived rustic style; the page draws its own), trimmed (camp review 2026-11-12, 34 triangles): a 6-sided glass jar, a 6-sided tin lid,
+    """The jar lantern (archived rustic style; the page draws its own), trimmed (camp review 2026-11-12, 42 triangles): a 6-sided glass jar, a 6-sided tin lid,
     the wire handle as one flat quad."""
     p = [cyl(0.065, 0.16, at=(0, 0, -0.14), m=M["glass"], verts=6, smooth=False),
          cyl(0.072, 0.03, at=(0, 0, -0.05), m=M["tin"], verts=6, r2=0.05, smooth=False)]
@@ -344,7 +346,7 @@ def rustic_lantern(M):
 
 
 def rustic_table(M):
-    """The snack table (picked), trimmed (camp review 2026-11-12, about 180 triangles): two 8-sided stumps with no caps
+    """The snack table (picked), trimmed (camp review 2026-11-12, 166 triangles): two 8-sided stumps with no caps
     (the top hides theirs), four plain plank boxes, a 6-sided enamel mug like the seat's (lib/mesh.py mug, review R2-194)
     and an empty white plate: the page lays the fruit you can take on it (activities/fruitBowl.js, review R2-176)."""
     p = []
@@ -386,6 +388,7 @@ def wall_tent():
         fascia=(0.36, 0.26, 0.17), pipe=(0.22, 0.22, 0.24), glow=(0.45, 0.16, 0.06), stone=(0.45, 0.44, 0.42),
         ticking=(0.84, 0.82, 0.76), blanket=(0.62, 0.2, 0.15), pillow=(0.94, 0.93, 0.9),
         iron=(0.15, 0.15, 0.16), brass=(0.72, 0.56, 0.26), tin=(0.55, 0.56, 0.58)).items()}
+    M["glow"]["glow"] = 1                       # the stove's fire window glows at night (lib.bake.flat_colours)
     W, D, E, H, Y0, Z0 = 1.4, 1.225, 1.3, 2.7, 0.275, 0.0    # half width, half depth, wall height, ridge, body offset, floor (the back stays
     # in front of the low branches of the hero tree behind it, where the sloths hang)
     DW, DH = 0.45, 1.95                                       # doorway half width and height
@@ -689,7 +692,8 @@ def picked():
     The fire is props/lived/build_fire.py (the rustic one is archived, camp review 2026-11-12). Only these props are
     made, in the order the light bake's atlas has always seen them (seat, table, hammock, tent, then the posts). The jar lanterns are
     drawn by the page (lanterns.js), so the set has no lantern mesh (review R2-236). The tent, hammock and table lose the
-    faces that point down onto the ground (lib/mesh.py drop_ground_faces, review R2-154)."""
+    faces that point down onto the ground (lib/mesh.py drop_ground_faces, review R2-154). Each is tagged with where the page stands it (lib.export.tag, review R2-249): the
+    posts stand in the hammock's frame."""
     rng.seed(7)
     R, J = rustic_mats(), jungle_mats()
     seat, table = rustic_seat(R), rustic_table(R)
@@ -699,11 +703,12 @@ def picked():
     drop_ground_faces([tent, hammock, table])   # the bottoms standing on the ground (review R2-154; the seat has none, R2-169)
     h = HAMMOCK_SPAN / 2                        # the posts in the hammock's frame; the page and the bake place both alike
     posts = textured_posts("HammockPosts", [(-h, 0, 0), (h, 0, 0)], 2.4, 0.055)
-    return {"Seat": seat, "Tent": tent, "Hammock": hammock, "Table": table, "HammockPosts": posts}
+    return {"Seat": tag(seat, "seats"), "Tent": tag(tent, "tent"), "Hammock": tag(hammock, "hammock"), "Table": tag(table, "table"),
+            "HammockPosts": tag(posts, "hammock")}
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): the light bake
-# (bake_camp_lightmap.py) collapse-decimates each object down to its budget before baking, which keeps the silhouette
+# (bake_camp_lightmap.py check_budget) stops when a prop is over its budget, so added detail is trimmed by hand
 BUDGET = {"picked": {"Table": 1400, "Seat": 500}}
 
 

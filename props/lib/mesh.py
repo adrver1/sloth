@@ -1,7 +1,7 @@
 """
 Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, arc, quad), tubes (sweep, tube),
 shaping (bevel, rough_up, drop_faces, drop_ground_faces, drop_enclosed, outward, bisect), object plumbing (apply_all, join,
-obj_from_bm, mesh_obj, select_only), anchor (a named empty the page reads a point from) and mug (the enamel mug on the
+obj_from_bm, mesh_obj, select_only, triangulate), anchor (a named empty the page reads a point from) and mug (the enamel mug on the
 seat and the snack table). Z up, metres; every helper that makes an object links it into the current scene's collection and returns it.
 
     sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None)
@@ -414,6 +414,18 @@ def apply_all(o):
     """Apply o's modifiers, rotation and scale (o becomes the only selected, active object). Cheap when there is nothing
     to apply, so calling it on an object that join() already applied costs nothing (review R2-237)."""
     _apply(o, False)
+
+
+def triangulate(o):
+    """Splits o's faces into triangles in place (quads and ngons the beauty way), keeping each face's material, smooth
+    flag and corner data (UVs, colours). The glTF exporter would split them its own way (Blender's loop triangles), so
+    a mesh that is triangulated here first is exported with exactly these triangles."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 3], quad_method="BEAUTY", ngon_method="BEAUTY")
+    bm.to_mesh(o.data)
+    bm.free()
+    o.data.update()
 
 
 def join(objs, name):

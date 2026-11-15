@@ -1,7 +1,7 @@
 // Wild, lived-in camp ground for camp.html: worn dirt where the camp is used, and grass tufts, tall grass, wildflowers and clover on cards.
 // Kept out of camp.html (which only calls createGround once) so the sibling threads' edits there don't collide.
 // Floor: one disc (96 tris) that replaces the old flat clearing. A painted "wear map" over the clearing says where it is dirt (fire ring,
-// seats, tent door, table, wood pile, jeep, the paths between them, worked out from camp.html's collision circles), where the grass
+// seats, tent door, table, wood pile, jeep, the paths between them, from the named wear entries, camp/layout.js WEAR), where the grass
 // is lush or dry, and where it is ash or mud; tiling grass and dirt textures give the close-up detail. The edge is ragged, not a circle.
 // Plants: crossed-quad cards (4 tris each) from one painted atlas, all in one instanced draw, swaying in the vertex shader.
 // They grow thick at the forest edge and against the props, thin out in the open, and never on the worn dirt.
@@ -23,7 +23,9 @@ const NOISE_GLSL = `
 `;
 const macroTint = (m, c) => c.multiply(new THREE.Color(1.1 + (0.8 - 1.1) * m, 1.02 + (0.97 - 1.02) * m, 0.74 + (0.95 - 0.74) * m));
 
-export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null, extra = [] }) {
+export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap, S, fx, uTime, night = { value: 0 }, trackDist = () => 1e9, trackPts = [], bare = () => false, shadowMap = null, nightMap = null, baked = null, seed = 77, height = () => 0, far = 0, forestMap = null, noise = null, extra = [] }) {
+  // wearAt: the things people use, layout.js WEAR entries ({ name, at, r, path }): each gets worn dirt, and a path when it asks
+  // for one (review R2-255); blockers only keep the plants off things and hug them round their feet
   // extra: more plants as [x, z, atlas cell, size], placed by the caller (camp/glade.js: the sloth tree's glade, outside the clearing)
   // height (camp/terrain.js groundHeight): the floor, the plants and the roots follow it; far > 0 makes the floor one mesh out to far metres,
   // the forest floor included (forestMap is its tile, 6 m across), instead of the flat clearing disc
@@ -33,7 +35,6 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
 
   // things in the camp (not the big trees at the edge), from the collision circles
   const spots = blockers.filter(([c, r]) => Math.hypot(c.x, c.z) < RC - 1 && r < 1.6 && Math.hypot(c.x, c.z) > 0.01);
-  const used = spots.filter((b) => !b.wild);   // what people use gets worn dirt and a path; the deadwood (wild) only gets plants round it (Adriaen 2026-11-12)
   const entry = trackPts.find((p) => Math.hypot(p.x, p.z) > RC - 0.6);        // where the jeep's track meets the clearing
 
   // ---------------------------------------------------------------- wear map: R dirt, G lushness (0.5 neutral), B ash / wet mud
@@ -48,12 +49,12 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
     g.globalCompositeOperation = "lighter";
     const dirt = (x, z, r, a) => blob(x, z, r, `rgba(255,0,0,${a})`);
     dirt(0, 0, 3.3, 0.8); dirt(0, 0, 2.2, 0.7);                                  // round the fire and the seats
-    for (const [c, r] of used) dirt(c.x, c.z, r + R(0.6, 0.9), 0.75);            // in front of and round each thing you use
+    for (const { at: c, r } of wearAt) dirt(c.x, c.z, r + R(0.6, 0.9), 0.75);            // in front of and round each thing you use
     const path = (a, b, w) => {                                                     // a worn footpath: a wobbly line, soft edges
       const n = Math.max(6, Math.round(a.distanceTo(b) / 0.4)), side = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize(), bend = R(-0.5, 0.5);
       for (let k = 0; k <= n; k++) { const t = k / n, p = a.clone().lerp(b, t).addScaledVector(side, Math.sin(t * Math.PI) * bend + R(-0.06, 0.06)); dirt(p.x, p.z, w * R(0.85, 1.15), 0.32); }
     };
-    for (const [c, r] of used) { const d = c.clone().setY(0), L = d.length(); if (L > 2.2) path(d.clone().multiplyScalar(2.4 / L), d.clone().multiplyScalar((L - r * 0.7) / L), 0.55); }
+    for (const { at: c, r, path: p } of wearAt) { const d = c.clone().setY(0), L = d.length(); if (p) path(d.clone().multiplyScalar(2.4 / L), d.clone().multiplyScalar((L - r * 0.7) / L), 0.55); }
     if (entry) path(new THREE.Vector3(entry.x, 0, entry.z).multiplyScalar(2.6 / Math.hypot(entry.x, entry.z)), new THREE.Vector3(entry.x, 0, entry.z), 0.6);   // to the track
     // break it up: grass islands in the dirt, ragged edges
     g.globalCompositeOperation = "source-over";
@@ -61,7 +62,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
     // ash right round the fire, wet mud by the table, the jeep and the track
     g.globalCompositeOperation = "lighter";
     blob(0, 0, 1.25, "rgba(0,0,255,.75)");
-    for (const [c, r] of used) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
+    for (const { at: c, r } of wearAt) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
   }, { srgb: false });
   if (baked) { const g = wear.image.getContext("2d"); g.globalCompositeOperation = "copy"; g.drawImage(baked.mask, 0, 0, M, M); wear.needsUpdate = true; }   // the baked wear map (props/ground/bake_ground.py) for the plants' lookups
@@ -471,6 +472,6 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings
   }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
-  const layout = { RR, RC, spots: used.map(([c, r]) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
+  const layout = { RR, RC, wear: wearAt.map(({ name, at, r, path }) => ({ name, x: at.x, z: at.z, r, path })), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
   return { floor, plants: im, shade, castShadows: cast, casters, isBaked: () => shadowBaked, isNightBaked: () => nightBaked, shadeOn, layout, tris: { floor: tris(geo), plants: pick.length * 4 }, counts: { tufts: counts[0], tall: counts[1], flowers: counts[2], clover: counts[3], heliconia: counts[4], bromeliad: counts[5], fern: counts[6], orchid: counts[7] } };
 }
