@@ -34,7 +34,7 @@ function buildCar() {   // main.js, once the jeep, its seats, the radio and the 
   const seatL = jeep.worldToLocal(jeep.getObjectByName("SeatP").getWorldPosition(V()));   // the driver's cushion top, jeep space
   // its front toward the driver (-z); a tilted part (its top leaning back) comes forward by as much as its lower edge would sink
   // into the dash, so none of it hides behind the dash face (Adriaen 2026-11-13: the clock's bottom half was cut off)
-  const onDash = (o, x, y, tilt = 0, half = 0) => { o.position.set(x, y, DASH_Z - half * Math.abs(Math.sin(tilt))); o.rotation.set(tilt, Math.PI, 0); jeep.add(o); return o; };
+  const onDash = (o, x, y, tilt = 0, half = 0) => { o.position.set(x, y, DASH_Z - half * Math.abs(Math.sin(tilt))); o.rotation.set(tilt, Math.PI, 0); jeep.add(o); jeepApi.inside?.push(o); return o; };   // hidden with the jeep's parts (jeepRig.js)
 
   // ---------------------------------------------------------------- in the jeep: getting in and out is jeepSeat.js (seatApi.sit / stand / seatedIn)
   const inCar = () => !!seatApi?.seatedIn();

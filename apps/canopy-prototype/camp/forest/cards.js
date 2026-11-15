@@ -61,6 +61,14 @@ function withLeafN(geo, nrm) {
   g.setAttribute("aLeafN", new THREE.InstancedBufferAttribute(nrm instanceof Float32Array ? nrm : new Float32Array(nrm), 3));
   return g;
 }
+// The leaf cards' pool: every set drawn with leafGeo and leafM (the wall leaves, the crowns, both verges) joins it (poolLeaves)
+// and goes out as one set of sectors at the end of the forest (addLeafPool), so the sets share their wedges' draws instead of
+// each drawing its own (Adriaen 2026-11-15: "gotta get those draws down").
+const pool = cardSet();
+function poolLeaves(set) {
+  for (const k of ["mats", "cols", "nrm"]) { const a = pool[k], b = set[k]; for (let i = 0; i < b.length; i++) a.push(b[i]); }
+}
+const addLeafPool = () => addSectors(pool, leafGeo, leafM, { split: true });
 function addSectors(set, geo, mat, { wedges = 8, split = false } = {}) {
   const M = set.mats, groups = new Map();
   for (let i = 0, n = set.cols.length / 3; i < n; i++) {
@@ -138,4 +146,4 @@ function leafCard() {
   }
 }
 
-export { leafMat, addSectors, cards, cardSet, clumpN, leafCard, leafColour, leafGeo, leafM, perClump, scatterLeaves, withLeafN };
+export { leafMat, addSectors, cards, cardSet, clumpN, leafCard, leafColour, leafGeo, leafM, perClump, scatterLeaves, withLeafN, poolLeaves, addLeafPool };

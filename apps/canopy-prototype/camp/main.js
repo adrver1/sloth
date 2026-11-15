@@ -30,7 +30,7 @@ import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
 import { dayStep, wireTimeMenu } from "./daytime.js";
 import { buildClocks, clockStep } from "./clock.js";
-import { audioStep, initAudio } from "./audio.js";
+import { audio, audioStep, initAudio } from "./audio.js";
 import { buildRadio, radioStep } from "./radio.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
@@ -84,7 +84,7 @@ buildLinger();                         // linger.js: the log seats light up
 wireTimeMenu();                        // daytime.js: the ⚙️ menu's time slider and Day cycle button
 await fonts;                           // the clock and radio faces below are painted once, so in the camp's own font
 buildClocks();                         // clock.js: the tent's alarm clock and the dial on the hammock post
-buildRadio();                          // radio.js: the radio on the snack table
+buildRadio({ scene, audio });          // radio.js: the radio on the snack table
 buildJeepSeats(jeepApi);                      // jeepSeat.js: the jeep's doors and seats
 buildCar();                            // car.js: the key, the dash radio and the dash clock
 buildDrive();                          // drive.js: the drive to the summit's page bits; back from the summit, the jeep's arrival plays on the first frame (needs the jeep and the input)

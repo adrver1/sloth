@@ -8,7 +8,7 @@ import { D, hex, S } from "../core.js";
 import { V, canvasTex, lcg, polyDist } from "../util.js";
 import { GLADE, GLADE_R, HERO, RC, cutSight, pathLane, tripPath } from "../layout.js";
 import { R, rnd, track, trackDist } from "./base.js";
-import { addSectors, cards, cardSet, clumpN, leafColour, leafGeo, leafM, leafMat, perClump, scatterLeaves } from "./cards.js";
+import { addSectors, cards, cardSet, clumpN, leafColour, leafGeo, leafMat, perClump, poolLeaves, scatterLeaves } from "./cards.js";
 import { branchCurves, TOP } from "./trees.js";
 
 // The leaf clumps, as { x, y, z, r } plus tree (the wall tree it grows on) or hero (the layout.js HERO entry whose crown it is in):
@@ -58,7 +58,7 @@ function wallLeaves(wall) {
   };
   scatterLeaves(clumps, R, () => perClump, shape, leaf, end);
   scatterLeaves(glade, G.R, () => perClump, shape, leaf, end);
-  addSectors(leaves, leafGeo, leafM, { split: true });
+  poolLeaves(leaves);
   return [...clumps, ...glade];
 }
 
@@ -81,7 +81,7 @@ function verge() {
       leafColour(c, k + i, p.y); i++;
       if (k < keep && trackDist(p.x, p.z) >= 1.6) vm.add(m.compose(p, q, sc.setScalar(size * Math.pow(D.leaves, -0.33))), c, clumpN(u, n));
     });
-    addSectors(vm, leafGeo, leafM);
+    poolLeaves(vm);
   }
 }
 
@@ -110,7 +110,7 @@ function trailVerge() {
     leafColour(c, k + i, p.y); i++;
     if (k < keep && trackDist(p.x, p.z) >= 1.7 && !cutSight(p.x, p.z, 0.3)) vm.add(m.compose(p, q, sc.setScalar(size * Math.pow(D.leaves, -0.33))), c, clumpN(u, n));
   });
-  addSectors(vm, leafGeo, leafM);
+  poolLeaves(vm);
   const per = leafGeo.index ? leafGeo.index.count / 3 : leafGeo.attributes.position.count / 3;
   return { clumps: vc.length, tris: (vm.mats.length / 16) * per };
 }
@@ -135,7 +135,7 @@ function ferns() {
     const set = cardSet(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
     spots.forEach(([x, z], i) => { const s = R(0.7, 1.5) * (trackDist(x, z) < 1.25 || cutSight(x, z, 0.5) ? 0 : 1), ry = R(0, 6.28); if (!s) return;   // none in the karaoke cut scene's view
       m.compose(V(x, groundHeight(x, z) - 0.03, z), q.setFromAxisAngle(V(0, 1, 0), ry), V(s, s, s)); set.add(m, c.setHex(S.leaf[i % 4]).multiplyScalar(0.75)); });
-    addSectors(set, g, mat);
+    addSectors(set, g, mat, { wedges: 1 });   // one draw: 1,000-odd triangles in all, too few to be worth culling in wedges
   }
 }
 

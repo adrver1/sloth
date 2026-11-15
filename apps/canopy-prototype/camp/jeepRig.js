@@ -10,13 +10,33 @@
 //              sloth/fix.js) are world positions where the jeep stands now
 // far: the far look's own scene object (the camp's JeepLOD) or null; spot: false leaves out the cabin's shadowed spot light
 // (the summit: one more light would recompile every material in its big scene), keeping the lens and its glow.
+// Draw calls (Adriaen 2026-11-15, "gotta get those draws down"): the jeep is some 14 meshes (body, four tyres, three doors, the
+// hood, the lamp, four panes) so they can move. While it stands shut, you are not beside it and it is not driving, one merged
+// copy per material draws instead (whole: the paint, the glass), 2 draws in place of 14; the parts come back as you walk up
+// (NEAR), when a door or the hood moves, and while the jeep moves (the drives roll its tyres). The dash (car.js, api.inside)
+// is hidden with the parts: through the windows from 6 m it is a few pixels.
 import * as THREE from "three";
 import { V, canvasTex, ease } from "./util.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 export function rigJeep(jeep, { camera, renderer, far = null, spot = true }) {
   jeep.updateMatrixWorld(true);
   const jeepMeshes = []; jeep.traverse((m) => { if (m.isMesh) jeepMeshes.push(m); });
   let isFar = false;
+  // the merged copy, one mesh per material, in the jeep's own frame with every door shut (as the GLB comes); none if a
+  // material's meshes do not share their attributes (then the parts always draw)
+  const whole = new THREE.Group(); whole.name = "JeepWhole";
+  { const inv = jeep.matrixWorld.clone().invert(), byMat = new Map();
+    for (const m of jeepMeshes) { if (!byMat.has(m.material)) byMat.set(m.material, []); byMat.get(m.material).push(m); }
+    for (const [mat, ms] of byMat) {
+      const g = mergeGeometries(ms.map((m) => m.geometry.clone().applyMatrix4(inv.clone().multiply(m.matrixWorld))));
+      if (!g) { whole.clear(); break; }
+      const w = new THREE.Mesh(g, mat); w.renderOrder = ms[0].renderOrder; w.castShadow = ms[0].castShadow; w.receiveShadow = ms[0].receiveShadow;
+      w.raycast = () => {};   // taps and the door targets use the parts
+      whole.add(w);
+    } }
+  whole.visible = false; jeep.add(whole);
+  const NEAR = 6, at = V(), last = jeep.getWorldPosition(V()); let moving = 0, live = true;   // last: where it stood last frame (parked now)
   // the doors and the hood (Adriaen 2026-11-12, hinged at the windscreen): how far each swings (rad) and about which axis come
   // from the node's glTF extras, "open" and "axis", which build_jeep.py writes from its HINGES and HOOD_OPEN (review R2-250).
   const doors = {};
@@ -79,14 +99,23 @@ export function rigJeep(jeep, { camera, renderer, far = null, spot = true }) {
       if (d.cur !== 0) shut = false;
     }
     lightStep(dt, moved);
+    jeep.getWorldPosition(at); if (at.distanceToSquared(last) > 1e-8) { moving = 0.5; last.copy(at); } else moving -= dt;
+    const d = camera.position.distanceTo(at);
     if (far) {
-      const d = camera.position.distanceTo(jeep.position);
       const want = shut && d > (isFar ? 11.5 : 12.5);   // a little hysteresis so it doesn't flicker at the edge
-      if (want !== isFar) { isFar = want; far.visible = want; for (const m of jeepMeshes) m.visible = !want; }
+      if (want !== isFar) { isFar = want; far.visible = want; }
     }
+    let rest = true; for (const k of doorList) if (k.cur !== 0 || k.want !== 0) { rest = false; break; }
+    const wantLive = !whole.children.length || !rest || moving > 0 || d < (live ? NEAR + 0.5 : NEAR);
+    const showParts = wantLive && !isFar, showWhole = !wantLive && !isFar;
+    if (showParts !== jeepMeshes[0]?.visible) for (const m of jeepMeshes) m.visible = showParts;
+    for (const o of api.inside) o.visible = showParts;
+    whole.visible = showWhole; live = wantLive;
   };
   const api = {
-    node: jeep, lod: far,   // lod: the far look, its own scene object (drive.js moves it with the jeep)
+    // lod: the far look, its own scene object (drive.js moves it with the jeep); inside: things in the cab (car.js's dash)
+    // that draw only with the parts
+    node: jeep, lod: far, inside: [],
     doors: Object.entries(doors).map(([k, d]) => ({ k, o: d.o, toggle: () => (d.want = d.want ? 0 : d.open), get open() { return d.want !== 0; } })),   // for the highlight and its menu (jeepSeat.js, targets.js)
     open: (w = "B") => { const d = doors[w]; if (d) d.want = d.open; }, close: (w = "B") => { const d = doors[w]; if (d) d.want = 0; },
     isOpen: (w = "B") => !!doors[w] && Math.abs(doors[w].cur) > Math.abs(doors[w].open) * 0.8,
