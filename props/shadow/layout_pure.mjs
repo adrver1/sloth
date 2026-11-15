@@ -6,7 +6,8 @@
 //   entry, track  where the jeep's track meets the clearing ([x, z], as ground.js finds it) and the track's points
 //   glade, tent, hammock   the glade path's points (sloPath.pts), the tent's place, the hammock's two posts
 //   place         where the page stands each baked prop and light: seats ([x, z, yaw] each), anchors (layout.js
-//                 ANCHORS), lanternLights ([x, y, z] each), jeep ([x, z, yaw]) and sun (the unit vector toward it)
+//                 ANCHORS), lanternHang (where each lantern hangs, [x, y, z]; the bake's lights), lanternLights (the page's
+//                 jar centres, [x, y, z]; checked against the page), jeep ([x, z, yaw]) and sun (the unit vector toward it)
 // The deadwood is not here: deadwood.js seats it on camp/terrain.js's ground, whose root mounds come from the forest's
 // seeded stream, which only the page draws (forest.js; changing its draws needs a rebake). So props/shadow/
 // export_casters.cjs still boots the page, takes the deadwood from it, and checks that the page agrees with this module.
@@ -19,7 +20,7 @@ import { lanternLayout, lanternLights } from "../../apps/canopy-prototype/camp/l
 export function pureLayout() {
   const xz = (p) => [p.x, p.z];
   const entry = JEEP_TRACK.pts.find((p) => Math.hypot(p.x, p.z) > RC - 0.6);   // as ground.js finds it
-  const sun = SUN.clone().normalize();
+  const sun = SUN.clone().normalize(), lantern = lanternLayout(LANTERN_TIES);
   return {
     RR: RC + 0.8, RC,
     wear: WEAR.map(({ name, at, r, path }) => ({ name, x: at.x, z: at.z, r, path })),
@@ -28,7 +29,8 @@ export function pureLayout() {
     place: {
       seats: SEATS.map((s) => [s.at.x, s.at.z, s.yaw]),
       anchors: Object.fromEntries(Object.entries(ANCHORS).map(([k, { at, yaw }]) => [k, [at.x, at.z, yaw]])),
-      lanternLights: lanternLights(lanternLayout(LANTERN_TIES)).map((v) => [v.x, v.y, v.z]),
+      lanternHang: lantern.hang.map((v) => [v.x, v.y, v.z]),   // the bake hangs its lights from these (R2-187)
+      lanternLights: lanternLights(lantern).map((v) => [v.x, v.y, v.z]),
       jeep: [JEEP_AT.x, JEEP_AT.z, Math.atan2(JEEP_TAN.x, JEEP_TAN.z)],   // jeep.js: rotation.y = atan2(tan.x, tan.z)
       sun: [sun.x, sun.y, sun.z],
     },

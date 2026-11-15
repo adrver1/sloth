@@ -3,7 +3,7 @@
 // ring at the tree's foot, a trodden patch where the path ends and people stand to look up at the sloths, leaf litter thickening into
 // the forest), a plank bench on two log ends facing the tree, a fallen mossy log with shelf fungus, mossy stones, two clusters of
 // mushrooms, three sunbeams through the canopy gap, and bushes out on the bare forest floor round the glade. The plants (tufts, tall grass, wildflowers, clover and the heliconia, bromeliad,
-// fern and orchid clumps at its edge) go in ground.js's one instanced draw: campGround.js passes gladePlants to createGround.
+// fern and orchid clumps at its edge) go in ground.js's second instanced draw of plants, culled on its own bounds: campGround.js passes gladePlants to createGround.
 // buildGlade() (main.js, once the props are in: the sunbeams use their rayMat; before the ground) builds it all.
 // The glade lies outside the baked light map and ground-shadow square (ground.js RR), so it is lit live like the forest round it:
 // nothing here needs a bake. Props: one draw (vertex colours); floor: one draw; sunbeams: one draw on the camp's rayMat (daylight.js
@@ -11,8 +11,8 @@
 import * as THREE from "three";
 import { D, S, scene, sun } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
-import { GLADE, GLADE_R, HERO, RC, pathLane, sloPath } from "./layout.js";
-import { blockers, rayMat } from "./campProps.js";
+import { GLADE, GLADE_R, GLADES, RC, pathLane, sloPath } from "./layout.js";
+import { addBlocker, rayMat } from "./campProps.js";
 import { leafGeo, leafM, leafScale, perClump } from "./forest.js";
 import { groundHeight } from "./terrain.js";
 
@@ -22,7 +22,7 @@ const G = GLADE, FR = GLADE_R + 1.2;          // the floor disc's radius: soft e
 // the frame: `in` points from the glade's centre back down the path (where you arrive), `across` a quarter turn from it
 const end = sloPath.pts[sloPath.pts.length - 1], inDir = V(end.x - G.x, 0, end.z - G.z).normalize(), across = V(-inDir.z, 0, inDir.x);
 const at = (r, turn) => { const a = Math.atan2(inDir.z, inDir.x) + turn; return V(G.x + Math.cos(a) * r, 0, G.z + Math.sin(a) * r); };
-const TRUNK = 1.25, TREE = HERO[1];   // the big tree's foot with its flare (forest.js HERO trunk), and where it stands (a little off the glade's middle)
+const TRUNK = 1.25, TREE = GLADES.find((g) => g.at === GLADE).tree.at;   // the big tree's foot with its flare (forest.js heroTrees), and where it stands (a little off the glade's middle)
 
 // where things stand (also what the plants keep clear of)
 const BENCH = { at: at(3.05, 1.15), yaw: 0 };   // to the right as you arrive, looking at the tree
@@ -32,13 +32,17 @@ LOG.yaw = Math.atan2(LOG.at.z - G.z, LOG.at.x - G.x) + Math.PI / 2 + 0.25;
 const STONES = [[at(3.3, -0.85), 0.32], [at(3.7, -0.65), 0.2], [at(2.9, 2.05), 0.26], [at(3.9, 2.9), 0.36]];
 const SHROOMS = [[LOG.at.clone().addScaledVector(V(Math.cos(LOG.yaw), 0, Math.sin(LOG.yaw)), 1.25), 5], [at(TRUNK + 0.35, 2.6).add(TREE).sub(G), 4]];
 const STAND = at(2.2, 0);   // the trodden spot under the low branches, where the path ends
-const pathEnd = (x, z) => { let d = 1e9; for (let i = sloPath.pts.length - 12; i < sloPath.pts.length; i++) d = Math.min(d, Math.hypot(sloPath.pts[i].x - x, sloPath.pts[i].z - z)); return d; };
-// how worn the ground is: the path's last stretch running on to the trodden spot (0 grass .. 1 bare earth)
+const LAST = sloPath.pts.slice(-12);   // the path's last stretch, which runs into the glade
+const pathEnd = (x, z) => { let d = 1e9; for (const q of LAST) d = Math.min(d, Math.hypot(q.x - x, q.z - z)); return d; };
+// how worn the ground is: the path's last stretch running on to the trodden spot (0 grass .. 1 bare earth). It is 0 farther than
+// 0.8 m from that lane and the path's last stretch and farther than 1.15 m from STAND; WORN_BOX is the box round all of that.
 const worn = (x, z) => {
   const s = STAND, e = end, dx = s.x - e.x, dz = s.z - e.z, t = Math.max(0, Math.min(1, ((x - e.x) * dx + (z - e.z) * dz) / (dx * dx + dz * dz)));
   const lane = Math.hypot(x - (e.x + dx * t), z - (e.z + dz * t));
   return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)));
 };
+const WORN_BOX = new THREE.Box2().setFromPoints([end, STAND].map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(1.15)
+  .union(new THREE.Box2().setFromPoints(LAST.map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(0.8));
 const taken = (x, z, pad) => Math.hypot(x - TREE.x, z - TREE.z) < TRUNK + 0.15 + pad || Math.hypot(x - BENCH.at.x, z - BENCH.at.z) < 0.85 + pad
   || STONES.some(([c, r]) => Math.hypot(x - c.x, z - c.z) < r + pad) || (() => { const ax = Math.cos(LOG.yaw), az = Math.sin(LOG.yaw), u = (x - LOG.at.x) * ax + (z - LOG.at.z) * az, v = -(x - LOG.at.x) * az + (z - LOG.at.z) * ax;
     return Math.abs(u) < LOG.len / 2 + pad && Math.abs(v) < LOG.r + 0.1 + pad; })();
@@ -55,9 +59,12 @@ function buildGlade() {
     blob(TREE.x - G.x, TREE.z - G.z, TRUNK + 1.3, "rgba(78,104,40,A)", 0.85);                                                          // moss round the tree's foot, under the roots
     blob(TREE.x - G.x, TREE.z - G.z, TRUNK + 0.4, "rgba(70,62,40,A)", 0.6);                                                           // bare and dark where the canopy drips
     for (let i = 0; i < 14; i++) { const a = R(0, 6.28), r = R(0.6, GLADE_R - 0.6); blob(Math.cos(a) * r, Math.sin(a) * r, R(0.3, 0.7), "rgba(255,246,190,A)", R(0.18, 0.3)); }   // sun flecks through the leaves
-    // the trodden earth from the path's end to the spot under the branches: soft-edged, a little darker in the middle where most feet go
+    // the trodden earth from the path's end to the spot under the branches: soft-edged, a little darker in the middle where most feet go.
+    // Only the pixels inside WORN_BOX can be worn, about a tenth of the disc (review R2-016).
     const img = g.getImageData(0, 0, PX, PX), d = img.data, mud = [143, 118, 83], mid = [118, 96, 66];
-    for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) {
+    const px = (w, c) => Math.max(0, Math.min(PX - 1, Math.floor(((w - c) / FR + 1) * PX / 2)));   // world x or z to its pixel column or row
+    const x0 = px(WORN_BOX.min.x, G.x), x1 = px(WORN_BOX.max.x, G.x) + 1, y0 = px(WORN_BOX.min.y, G.z), y1 = px(WORN_BOX.max.y, G.z) + 1;
+    for (let y = y0; y <= Math.min(PX - 1, y1); y++) for (let x = x0; x <= Math.min(PX - 1, x1); x++) {
       const wx = G.x + (x / PX * 2 - 1) * FR, wz = G.z + (y / PX * 2 - 1) * FR, w0 = worn(wx, wz); if (w0 <= 0.01) continue;
       const n = 0.5 + 0.5 * Math.sin(wx * 9.1 + wz * 3.3) * Math.sin(wx * 2.7 - wz * 8.3), w = Math.min(1, w0 * (0.85 + 0.3 * n)), c = sstep(0.75, 1, w0), i = (y * PX + x) * 4;
       for (let j = 0; j < 3; j++) d[i + j] = d[i + j] * (1 - w) + (mud[j] * (1 - c) + mid[j] * c) * w;
@@ -73,9 +80,12 @@ function buildGlade() {
         g.globalAlpha = R(0.55, 0.9); g.fillStyle = ["#b8743a", "#d3a24a", "#8a5a2c", "#a8823c"][i % 4]; g.beginPath(); g.ellipse(W(x), W(z), R(2, 3.6), R(1, 1.8), R(0, 3), 0, 7); g.fill(); }
     }
     g.globalAlpha = 1;
-    // the edge: a ragged soft fade into the forest floor
-    const e = g.getImageData(0, 0, PX, PX), ed = e.data;
-    for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) { const dx = x / PX * 2 - 1, dz = y / PX * 2 - 1, r = Math.hypot(dx, dz) * FR, a = Math.atan2(dz, dx);
+    // the edge: a ragged soft fade into the forest floor. The rim lies between GLADE_R - 0.3 and GLADE_R + 0.8, so inside IN the
+    // floor stays opaque as painted and beyond OUT it is clear; only the ring between needs the rim worked out (review R2-016).
+    const e = g.getImageData(0, 0, PX, PX), ed = e.data, IN = ((GLADE_R - 0.3 - 0.9) / FR) ** 2, OUT = ((GLADE_R + 0.8 + 0.6) / FR) ** 2;
+    for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) { const dx = x / PX * 2 - 1, dz = y / PX * 2 - 1, r2 = dx * dx + dz * dz;
+      if (r2 < IN) continue; if (r2 > OUT) { ed[(y * PX + x) * 4 + 3] = 0; continue; }
+      const r = Math.hypot(dx, dz) * FR, a = Math.atan2(dz, dx);
       const rim = GLADE_R + 0.25 + 0.35 * Math.sin(a * 5 + 1) + 0.2 * Math.sin(a * 11 + 2.3); ed[(y * PX + x) * 4 + 3] = 255 * (1 - sstep(rim - 0.9, rim + 0.6, r)); }
     g.putImageData(e, 0, 0);
   });
@@ -112,7 +122,7 @@ function buildGlade() {
     }
     list.forEach((g) => place(g, BENCH.at, BENCH.yaw));   // its length across the way it faces
     add("bench", list);
-    blockers.push(Object.assign([BENCH.at.clone(), 0.55], { wild: true, walk: { a: BENCH.at.clone().addScaledVector(V(Math.cos(BENCH.yaw), 0, -Math.sin(BENCH.yaw)), -0.55), b: BENCH.at.clone().addScaledVector(V(Math.cos(BENCH.yaw), 0, -Math.sin(BENCH.yaw)), 0.55), r: 0.2 } }));
+    addBlocker({ at: BENCH.at.clone(), r: 0.55, wild: true, walk: { a: BENCH.at.clone().addScaledVector(V(Math.cos(BENCH.yaw), 0, -Math.sin(BENCH.yaw)), -0.55), b: BENCH.at.clone().addScaledVector(V(Math.cos(BENCH.yaw), 0, -Math.sin(BENCH.yaw)), 0.55), r: 0.2 } });
   }
   // the fallen log: half sunk, moss along its back, one sawn end with rings, shelf fungus on the side you see
   {
@@ -129,7 +139,7 @@ function buildGlade() {
     list.forEach((q) => place(q, LOG.at, -LOG.yaw, r * 0.7));
     add("log", list);
     const ax = V(Math.cos(LOG.yaw), 0, Math.sin(LOG.yaw));
-    for (const t of [-0.8, 0, 0.8]) blockers.push(Object.assign([LOG.at.clone().addScaledVector(ax, t), 0.33], { wild: true }));
+    for (const t of [-0.8, 0, 0.8]) addBlocker({ at: LOG.at.clone().addScaledVector(ax, t), r: 0.33, wild: true });
   }
   // mossy stones: a low icosahedron each (20 tris), squashed and turned, moss on top
   {
@@ -138,7 +148,7 @@ function buildGlade() {
       const g = new THREE.IcosahedronGeometry(1, 0), p = g.attributes.position;
       for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * s * R(0.95, 1.15), Math.max(-0.2, p.getY(i)) * s * 0.55, p.getZ(i) * s * R(0.8, 1.0));
       list.push(place(paint(g, (x, y, z, nx, ny) => stone.clone().multiplyScalar(0.8 + 0.25 * sstep(-0.5, 1, ny)).lerp(mossC, sstep(0.45, 0.85, ny + 0.25 * Math.sin(x * 9 + z * 7)) * 0.85)), c, R(0, 6.28), s * 0.06));
-      blockers.push(Object.assign([c.clone(), s * 0.9], { wild: true }));
+      addBlocker({ at: c.clone(), r: s * 0.9, wild: true });
     }
     add("stones", list);
   }
@@ -169,8 +179,8 @@ function buildGlade() {
       const c = at(r, turn).addScaledVector(sd, 10), q = tilt.clone().multiply(new THREE.Quaternion().setFromAxisAngle(up, R(0, 3.14)));
       gs.push(new THREE.PlaneGeometry(w, 22).applyQuaternion(q).translate(c.x, c.y, c.z));
     }
-    const at_ = { position: [], uv: [] }; for (const g of gs) for (const a in at_) at_[a].push(...g.toNonIndexed().attributes[a].array);
-    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(at_.position, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(at_.uv, 2));
+    const at_ = { position: [], normal: [], uv: [] }; for (const g of gs) for (const a in at_) at_[a].push(...g.toNonIndexed().attributes[a].array);   // the normals: rayMat's edge-on fade (campProps.js)
+    const geo = new THREE.BufferGeometry(); for (const a in at_) geo.setAttribute(a, new THREE.Float32BufferAttribute(at_[a], a === "uv" ? 2 : 3));
     const beams = new THREE.Mesh(geo, rayMat); beams.name = "GladeBeams"; scene.add(beams);
     triCount.beams = tris(geo);
   }

@@ -4,11 +4,10 @@
 // weight (other weights at night), never the same thing twice in a row.
 // Exports lifeStep(dt) (step.js, each frame) and jumpTo(kind) (the checks: start that activity now, then carry on).
 import * as THREE from "three";
-import { rng, scene } from "../core.js";
+import { rng, scene, uNight } from "../core.js";
 const { R } = rng("operator");
 import { CRATE, RC, SOUP_POT } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
-import { uNight } from "../campProps.js";
 import { acts as chores } from "../chores.js";   // your chores (activities.js): he cooks only when the pot and the pail are free
 import { me } from "../player.js";
 import { giveBack, cuddleSeated, host, napTogether, pickUp, putDown, unhost } from "./buddy.js";

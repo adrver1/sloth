@@ -1,8 +1,8 @@
 // Writes props/shadow/layout_picked.json, the clearing's layout for props/ground/bake_ground.py and
 // props/camp/bake_camp_lightmap.py: the worn spots (camp/layout.js WEAR), the jeep's track, the path to the glade, the
 // tent, the hammock, the deadwood, and "place": where the page stands each baked prop and light (the log seats,
-// "anchors" = layout.js ANCHORS, the places the props' anchor tags name, review R2-249; the lantern lights, the jeep and
-// the sun). The light bake places everything from that block and keeps no copy of its own.
+// "anchors" = layout.js ANCHORS, the places the props' anchor tags name, review R2-249; the points the lanterns hang from
+// and their lights, the jeep and the sun). The light bake places everything from that block and keeps no copy of its own.
 // Everything but the deadwood comes from props/shadow/layout_pure.mjs, which works it out in node from the camp's pure
 // modules (review R2-257). The deadwood still needs the page: deadwood.js seats it on the terrain, whose root mounds come
 // from the forest's seeded stream. So this boots camp.html under SwiftShader, takes the deadwood from deadwood.js, and
@@ -32,13 +32,13 @@ if (!["expedition", "none"].includes(jeep)) { console.error(`only the expedition
   const { page: p, close } = await openCamp({ port: +(process.env.LAYOUT_PORT || 0), query: `?jeep=${jeep}&lm=1k`, width: 400, height: 300, before, timeout: 120000 });
   const page = await p.evaluate(async () => {
     // the modules already loaded: importing them again runs nothing
-    const [{ deadwood }, { lanternGlow }, { sun }, { track }, { groundLife }, { jeepApi }] = await Promise.all(
+    const [{ deadwood }, { LANTERNS }, { sun }, { track }, { groundLife }, { jeepApi }] = await Promise.all(
       ["deadwood", "campProps", "core", "forest", "campGround", "jeep"].map((m) => import(`./camp/${m}.js`)));
     const at = (n) => { const os = []; window.__scene?.traverse((o) => { if (o.name === n) os.push(o); });   // exactly one, or none
       return os.length === 1 ? [os[0].position.x, os[0].position.z, os[0].rotation.y] : null; };
     const jn = jeepApi?.node, sd = sun.position.clone().normalize();
     return { deadwood: deadwood?.layout || [],   // each with y, seated on the terrain: occluders in props/camp/bake_camp_lightmap.py
-      check: { seats: [0, 1, 2].map((i) => at(`Seat_${i}`)), lanternLights: lanternGlow.map((v) => [v.x, v.y, v.z]),
+      check: { seats: [0, 1, 2].map((i) => at(`Seat_${i}`)), lanternLights: LANTERNS.lights.map((v) => [v.x, v.y, v.z]), lanternHang: LANTERNS.hang.map((v) => [v.x, v.y, v.z]),
         jeep: jn ? [jn.position.x, jn.position.z, jn.rotation.y] : null, sun: [sd.x, sd.y, sd.z],
         track: track ? track.pts.map((q) => [q.x, q.z]) : [], wear: groundLife?.layout?.wear ?? null } };
   });
@@ -46,7 +46,7 @@ if (!["expedition", "none"].includes(jeep)) { console.error(`only the expedition
   if (errs.length) miss.push(`the page logged ${errs.length} error(s):\n  ` + errs.join("\n  "));
   if (!page.deadwood.length) miss.push("deadwood");
   // the page must agree with layout_pure.mjs (to 1e-6 m) wherever it builds the thing itself
-  const want = { seats: pure.place.seats, lanternLights: pure.place.lanternLights, jeep: jeep === "none" ? null : pure.place.jeep,
+  const want = { seats: pure.place.seats, lanternLights: pure.place.lanternLights, lanternHang: pure.place.lanternHang, jeep: jeep === "none" ? null : pure.place.jeep,
     sun: pure.place.sun, track: jeep === "none" ? [] : pure.track, wear: pure.wear.filter((w) => jeep !== "none" || !w.name.startsWith("jeep")) };
   const same = (a, c) => (typeof a === "number" && typeof c === "number") ? Math.abs(a - c) < 1e-6
     : Array.isArray(a) && Array.isArray(c) ? a.length === c.length && a.every((v, i) => same(v, c[i]))

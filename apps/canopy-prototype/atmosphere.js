@@ -1,9 +1,9 @@
-// Cozy camp atmosphere for camp.html: cheap particle effects round the fire, kept out of camp.html so the sibling threads' edits there don't collide.
-// Batch 1: smoke curling up from the fire, sparks that pop more often as you walk close, and steam off the soup pot.
-// Later: thin smoke from the tent stove's chimney, curling out from under its rain cap.
-// Batch 2: butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
+// The camp's atmosphere: cheap particle effects round the fire (camp/campAir.js builds it). Smoke curling up from the fire,
+// sparks that pop more often as you walk close, steam off the soup pot, and thin smoke from the tent stove's chimney, curling
+// out from under its rain cap.
+// Butterflies by day that flutter round the clearing and now and then land on a sloth's nose; blinking fireflies at dusk.
 // Each effect is one instanced draw of camera-facing quads (no point sprites, so phone GPUs' point-size caps don't matter) with a fixed pool, scaled by the detail level.
-// Exports createAtmosphere({ scene, camera, fx, fire, pot, chimneys, sloths, roam }) -> { update(dt, time, dusk), flutter, stats() }
+// Exports createAtmosphere({ scene, camera, fx, fire, pot, chimneys, sloths, roam }) -> { update(dt, time, dusk), debug } (main.js calls update)
 // (camp/campAir.js). An effect that cannot be seen is not drawn: the butterflies at night, the fireflies by day (review R2-086).
 import * as THREE from "three";
 import { canvasTex, rand } from "./camp/util.js";
@@ -144,7 +144,9 @@ export function createAtmosphere({ scene, camera, fx, fire = new THREE.Vector3(0
   }
   const flutter = butterflies(scene, Math.round(8 * k), sloths, roam);
   const flies = fireflies(scene, Math.round(70 * k), roam);
-  return { update, flutter, stats: () => ({ smoke: smoke.live.length, chimney: chim ? chim.live.length : 0, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter.landed() }) };
+  // debug: for screenshots and checks by hand in the console (the butterflies' list and land(i, k), the live particle counts); nothing
+  // in the repo reads them (R2-128)
+  return { update, debug: { butterflies: flutter, stats: () => ({ smoke: smoke.live.length, chimney: chim ? chim.live.length : 0, sparks: sparks.live.length, steam: steam ? steam.live.length : 0, landed: flutter.landed() }) } };
 }
 
 // ---------------------------------------------------------------- butterflies: two wing quads each, hinged on the body and flapped in the shader; all in one draw
@@ -250,7 +252,7 @@ function butterflies(scene, n, sloths, roam) {
     P.needsUpdate = W.needsUpdate = true;
     mat.uniforms.light.value = 1 - 0.5 * dusk;
   }
-  return { update, list: bs, sloths, landed: () => bs.filter((b) => b.state === "sit").length,
+  return { update, list: bs, landed: () => bs.filter((b) => b.state === "sit").length,
     land: (i, k = 0) => { const b = bs[i]; b.sloth = sloths[k]; b.state = "go"; nosePos(b.sloth, b.to); b.p.copy(b.to).add(new THREE.Vector3(0.3, 0.2, 0)); } };   // for screenshots
 }
 

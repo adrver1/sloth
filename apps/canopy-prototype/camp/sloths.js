@@ -1,6 +1,6 @@
 // Canopy Camp sloths, the way in for the rest of the page. The sloths' code is in camp/sloth/, one job per module; this
-// module puts the sloths in the scene (buildSloths, main.js, once the props and the jeep are in) and hands main.js their
-// frame steps.
+// module puts the sloths in the scene (buildSloths, main.js, once the props and the jeep are in; it waits for the sloth model's
+// download) and hands main.js their frame steps.
 // Adriaen 2026-11-12 ("simplify the gameplay loop"): no befriending. One wild sloth hangs in each big tree, and the seven
 // named sloths (cast.js) live in the camp from the start, one in each spot (sloth/spots.js). Each now and then leaves its
 // spot, crawls to the snack table or the kitchen crate to eat, and goes back the way it came (sloth/day.js). Clips:
@@ -10,9 +10,9 @@
 // the wayfinding grid, the things the sloths use, the named sloths, the guest spots, the saved state, and last the hooks.
 // Later steps use what earlier ones made. The modules in camp/sloth/ make nothing at their top level: that goes in a build
 // function called from here.
-// Exports: sloths (every sloth), hit (their tap spheres), and the frame steps main.js calls in this order: slothsStep(dt)
+// Exports: sloths (every sloth), hit (their tap spheres), SLOTH (the sloth model, for operator/buddy.js), and the frame steps main.js calls in this order: slothsStep(dt)
 // (sloth/life.js), campStep(dt, seat) (sloth/step.js), hammockStep(dt) (sloth/naps.js), warmStep(...) (sloth/body.js).
-import { OPT, rng } from "./core.js";
+import { OPT, PRE, rng } from "./core.js";
 const { R } = rng("sloths");
 import { V, tris as triCount } from "./util.js";
 import { HERO } from "./layout.js";
@@ -20,7 +20,7 @@ import { branchCurves } from "./forest.js";
 import { CAST } from "./cast.js";
 import { addLabButton } from "./labButton.js";
 import { addCrowd } from "./places.js";
-import { GROUND, camp, hit, sloths, spots, wild } from "./sloth/state.js";
+import { GROUND, SLOTH, camp, hit, setSloth, sloths, spots, wild } from "./sloth/state.js";
 import { hang, warmStep } from "./sloth/body.js";
 import { slothsStep } from "./sloth/life.js";
 import { treeOf } from "./sloth/poses.js";
@@ -38,11 +38,12 @@ import { restore } from "./sloth/saved.js";
 import { campStep, findSeats } from "./sloth/step.js";
 import { addHooks } from "./sloth/hooks.js";
 
-function buildSloths() {
+async function buildSloths() {
+  setSloth(await PRE.sloth);   // the model every sloth is made from (core.js started its download; sloth/state.js keeps it)
   buildFace();   // the mouth card's texture, material and geometry (sloth/face.js)
   // one wild sloth in each big tree, on the low branch reaching furthest out, so the branches nearest the fire stay free for
   // the camp's two branch sloths (the tripod sloth is gone; Adriaen: too close to the fire)
-  for (const tree of HERO) {
+  for (const { at: tree } of HERO) {
     const mine = branchCurves.filter((c) => c.low && treeOf(c).distanceTo(V(tree.x, 0, tree.z)) < 0.1).sort((a, b) => b.getPointAt(0.65).length() - a.getPointAt(0.65).length());
     for (const c of mine) {
       const t = R(0.5, 0.8), p = c.getPointAt(t), tan = c.getTangentAt(t);
@@ -77,4 +78,4 @@ function buildSloths() {
   }
   addLabButton();   // the move lab's button in the ⚙️ menu, and ?lab (labButton.js), once there are sloths to inspect
 }
-export { buildSloths, campStep, hammockStep, hit, sloths, slothsStep, warmStep };
+export { buildSloths, campStep, hammockStep, hit, SLOTH, sloths, slothsStep, warmStep };

@@ -7,7 +7,8 @@ import { rng, scene } from "../core.js";
 const { R } = rng("operator");
 import { RC } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
-import { SLOTH, blockers } from "../campProps.js";
+import { blockers } from "../campProps.js";
+import { SLOTH } from "../sloths.js";
 import { groundHeight as groundAt } from "../terrain.js";
 import { dropAll } from "./handProps.js";
 import { B, UP, body, cs, play, root } from "./model.js";
@@ -47,7 +48,7 @@ function clearSpot() {
   for (const d of [0.55, 0.75, 0.95]) for (const a of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, 2.3, -2.3, Math.PI]) {
     const p = root.localToWorld(V(Math.sin(a) * d, 0, -Math.cos(a) * d)); p.y = 0;
     if (Math.hypot(p.x, p.z) > RC - 1) continue;
-    if (blockers.every(([c, r]) => Math.hypot(p.x - c.x, p.z - c.z) > r + 0.22)) return p;
+    if (blockers.every((b) => Math.hypot(p.x - b.at.x, p.z - b.at.z) > b.r + 0.22)) return p;
   }
   return root.localToWorld(V(0.1, 0, -0.55));
 }

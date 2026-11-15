@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { fetchBytes, initKtx, lightDir, loadLightMap } from "../bakedlight.js";
 import { SUN } from "./layout.js";
+import { swap } from "./util.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
 // camp.html?name=value. "saved" is the ⚙️ menu's choice, kept per viewer in localStorage under KEYS.
@@ -130,9 +131,9 @@ let loadN = 0, loadDone = 0;
 const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
 initKtx(renderer);
 const tex = (url) => new THREE.TextureLoader().loadAsync(url).catch(() => null);
-// the 4K maps (?lm=4k, local only) have no KTX2 copy (bake_all.py converts the 2K and 1K maps), so they go straight to the PNG
-const lmLoad = async (n) => { const t = await loadLightMap(`${LMDIR}${n}_${LMSET}.png`, { ktx: LMSET !== "4k" }).catch(() => loadLightMap(`${LMDIR}${n}_2k.png`));
-  t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
+// the 4K maps (?lm=4k, local only) have no KTX2 copy (bake_all.py converts the 2K and 1K maps), so they go straight to the PNG;
+// on the props' second UV set
+const lmLoad = (n) => loadLightMap(`${LMDIR}${n}_${LMSET}.png`, { channel: 1, ktx: LMSET !== "4k" }).catch(() => loadLightMap(`${LMDIR}${n}_2k.png`, { channel: 1 }));
 const PRE = {
   sloth: pre(glb("models/sloth.txt")),
   operator: OPT.op ? pre(glb("models/operator.txt")) : null,                 // the bearded operator (camp/operator.js)
@@ -148,7 +149,8 @@ const PRE = {
   groundMask: pre(new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = "models/camp_ground_picked_mask.png"; })),
   groundSoil: pre(tex("models/camp_ground_picked.jpg")),
   // the baked shadows and night light come from LMDIR with the props' light (models/, or a preview bake's folder)
-  groundShadow: pre(tex(`${LMDIR}camp_shadow_picked_${JEEP}.png`)),
+  // only the jeep's set is baked: ?jeep=none (a debug view) asks for neither, so no 404s, and the ground casts its shadows live (R2-217)
+  groundShadow: JEEP === "expedition" ? pre(tex(`${LMDIR}camp_shadow_picked_expedition.png`)) : null,
   groundNight: JEEP === "expedition" ? pre(loadLightMap(`${LMDIR}camp_ground_night_picked_expedition.png`).catch(() => null)) : null,   // only the jeep's set has a night bake
 };
 const scene = new THREE.Scene();
@@ -159,6 +161,7 @@ const hemi = new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]); scene.a
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
 
 const uTime = { value: 0 };
+const uNight = { value: 0 };   // how far the night is in (0 day .. 1 rested; main.js sets it from the dusk): the baked night light, the ground, the operator's mood (R2-129)
 // the camp's pace: fast runs the sloths' day and the jeep seats that many times as fast (unset: 1). The move lab (lab.js) sets it,
 // and the tools through window.__campFast (debug.js)
 const pace = { fast: undefined };
@@ -172,4 +175,4 @@ async function glb(url) {
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 
-export { $, D, DETAIL, JEEP, KEYS, LIVED, LMDIR, OPT, PRE, S, camera, hemi, hex, renderer, rng, scene, pace, store, sun, uTime, wireSettings };
+export { $, D, DETAIL, JEEP, KEYS, LIVED, LMDIR, OPT, PRE, S, camera, hemi, hex, renderer, rng, scene, pace, store, sun, uNight, uTime, wireSettings };

@@ -1,5 +1,6 @@
 // Canopy Camp budget probe: loads a camp page headless (SwiftShader) and prints JSON with draw calls, triangles per object,
-// every download with its size, textures and page errors. fps is meaningless under SwiftShader; the counts are exact.
+// every download with its size, textures and page errors, and the camp's own counts (the ground's triangles and plants, the deadwood's
+// triangles per piece: window.__ground.tris and .counts, window.__deadwood.tris). fps is meaningless under SwiftShader; the counts are exact.
 // Usage (from the repo root, after npm ci):
 //   [PORT=0] [ROOT=<checkout>] node tools/camp-probe.cjs [--phone] [--strict] "/apps/canopy-prototype/camp.html" out.png [width height] [js to run before the shot]
 // PORT picks the local port (0, the default, takes a free one; the machine is shared; the server listens on 127.0.0.1 only and
@@ -41,7 +42,9 @@ const PHONE = flags.includes('--phone'), STRICT = flags.includes('--strict');
       for (const m of mats) for (const k in m) { const v = m[k]; if (v && v.isTexture && v.image) { const im = v.image; const w = im.width || im.videoWidth, h = im.height; tex.set(v.uuid, { k, w, h, name: names.join('/') || m.type, src: (im.src || im.currentSrc || (im.tagName || 'data')).toString().slice(-60) }); } }
       rows.push({ n: names.join('/') || o.type, type: o.isInstancedMesh ? 'inst' : o.isSkinnedMesh ? 'skin' : o.type, tris: o.isPoints ? 0 : Math.round(idx / 3), inst, mat: mats.map((m) => m.type + (m.transparent ? '+T' : '') + (m.onBeforeCompile && m.onBeforeCompile.toString().length > 30 ? '+obc' : '')).join(','), vis: o.visible && (() => { let q = o; while (q) { if (!q.visible) return false; q = q.parent; } return true; })(), verts: g.attributes.position.count, attrs: Object.keys(g.attributes).join(' ') });
     });
-    return { programs: window.__programs, programNames: window.__progNames, progSrc: window.__progSrc, stats: window.__stats, rows, tex: [...tex.values()] };
+    // the camp's own triangle counts: the ground's floor and plants with the plant counts per kind (ground.js), and each deadwood piece (deadwood.js)
+    const G = window.__ground, ground = G ? { tris: G.tris, counts: G.counts } : null, deadwood = window.__deadwood?.tris ?? null;
+    return { programs: window.__programs, programNames: window.__progNames, progSrc: window.__progSrc, stats: window.__stats, ground, deadwood, rows, tex: [...tex.values()] };
   });
   console.log(JSON.stringify({ net, tReady, errs: errs.slice(0, 10), ...info }));
   await close();

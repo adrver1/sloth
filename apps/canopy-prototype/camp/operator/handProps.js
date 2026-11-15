@@ -1,5 +1,5 @@
 // Canopy Camp operator, the props in his hands: a soup bowl (40 triangles) and its spoon (18), a mug (46 with its handle),
-// an open book (8) and, for cooking, the water pail (camp/canister.js, 60) carried by its bail, a long wooden stirring
+// an open book (8) and, for cooking, the water pail (camp/pail.js, 60) carried by its bail, a long wooden stirring
 // spoon (a 4-sided stick stretched from his hand to the pot, 8) and a vegetable from the crate (camp/food.js). All faceted,
 // like him. They stand hidden in the scene; the per-frame hand pose (handPose.js) puts the ones in use at his hands.
 // Nothing is built when this module loads: operator.js calls buildHandProps after the model.
@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import { scene } from "../core.js";
 import { V, canvasTex, lam } from "../util.js";
-import { makePail } from "../canister.js";
+import { makePail } from "../pail.js";
 import { op, reset } from "./state.js";
 
 let bowl, spoon, mug, book, pail, stick, veg;
@@ -43,7 +43,7 @@ function buildHandProps() {
     }
     return g;
   })();
-  // for cooking: the water pail (camp/canister.js, 60 tris) carried by its bail, a long wooden stirring spoon (a 4-sided stick
+  // for cooking: the water pail (camp/pail.js, 60 tris) carried by its bail, a long wooden stirring spoon (a 4-sided stick
   // stretched from his hand to the pot, 8 tris), and a vegetable from the crate (camp/food.js)
   pail = makePail();
   stick = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.011, 1, 4, 1, true).translate(0, 0.5, 0), facetLam(0x9a6b3f)); stick.material.side = THREE.DoubleSide;

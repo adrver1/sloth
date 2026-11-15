@@ -2,6 +2,7 @@
 // "Get in" on a front door walks you round to it (opening it if shut), ducks you in under the roof and onto the seat with a
 // little bounce of the springs, turns you to face the windscreen and swings the door shut. "Get out" (on the door), or walking
 // off with the stick or the keys, opens it, ducks you back out and leaves you standing beside it, and the door shuts behind you.
+// Walking off before you are in shuts the door again if this sit opened it.
 // While you sit the view drifts gently like on a log (linger.js does that for any seat). The wheel is on +X (left-hand drive),
 // so the camp-side door DoorP leads to the driver's seat (SeatP) and DoorD to the passenger's at -X.
 // Never on a sloth: the driver's seat is the jeep sloth's home (sloths.js spot "jeep"; a napping guest uses it too), so it is
@@ -46,7 +47,11 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
     ? sloths.find((s) => s.spot?.car && !OUTSIDE.has(s.trip?.phase))
     : sloths.find((s) => { const p = s.o.getWorldPosition(V()), l = jeep.worldToLocal(p); return l.y > 0.4 && Math.abs(l.x - SIDES.passenger.seat.x) < 0.3 && Math.abs(l.z - SIDES.passenger.seat.z) < 0.4; });
 
-  let cur = null;   // { side, phase: "walk" | "door" | "in" | "settle" | "sat" | "open" | "out", t, ... }
+  let cur = null;   // { side, phase: "walk" | "door" | "in" | "settle" | "sat" | "open" | "out", t, opened, ... }
+  // the door you got out by shuts 0.7 s after you stand clear, on the camp's sped-up clock (core.js pace). Getting in again by that
+  // door, or opening or closing it from its menu, cancels it (review R2-060: a bare setTimeout once slammed it while you ducked in).
+  let shut = null;   // { k, t } or null
+  const wantsOpen = (k) => !!J.doors.find((d) => d.k === k)?.open;   // the door is open or swinging open
   const seat = { pos: V(), yaw: 0, drop: 0, pitch: -0.3, car: true, leave: () => stand() };   // pitch: the gaze rests on the dash (linger.js), where the key, clock and radio are
   // the way round to the door: out to the side first, and round the front or the back if you start on the other side
   function route(from, s) {
@@ -61,14 +66,18 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
     if (cur) return false;
     const s = SIDES[side]; if (!s) return false;
     const who = slothIn(side); if (who) { toast(`${who.name} is in that seat 🦥`); return false; }
+    if (shut?.k === s.k) shut = null;
     holdSeat(side, true);
     const path = route(me.pos, s); let len = 0; for (let i = 1; i < path.length; i++) len += path[i].distanceTo(path[i - 1]);
-    cur = { side, s, phase: "walk", t: 0, path, len, yaw0: me.yaw };
+    cur = { side, s, phase: "walk", t: 0, path, len, yaw0: me.yaw, opened: false };   // opened: this sit opened the door
     me.seat = seat; me.sitK = 1; seat.drop = 0; seat.pos.copy(me.pos);
     return true;
   }
   function stand() {
-    if (cur && (cur.phase === "walk" || cur.phase === "door")) { holdSeat(cur.side, false); cur = null; me.seat = null; me.sitK = 0; return true; }   // walked off on the way
+    if (cur && (cur.phase === "walk" || cur.phase === "door")) {   // walked off on the way: shut the door again if this sit opened it (review R2-014)
+      if (cur.opened) J.close(cur.s.k);
+      holdSeat(cur.side, false); cur = null; me.seat = null; me.sitK = 0; return true;
+    }
     if (!cur || cur.phase !== "sat") return false;
     cur.phase = "open"; cur.t = 0; J.open(cur.s.k); me.seat = seat;   // walking cleared it; stay put until you are out
     return true;
@@ -83,6 +92,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
   }
   const sideYaw = (s) => yawFrom(W(s.door), W(s.seat));   // facing in through the door
   jeepSeatStep = (dt) => {
+    if (shut && (shut.t -= dt * (pace.fast || 1)) <= 0) { J.close(shut.k); shut = null; }
     if (!cur) return;
     const T = cur, s = T.s; T.t += dt * (pace.fast || 1);   // core.js pace: quicker for checks
     if (T.phase !== "sat") me.lastDrag = uTime.value;   // no gaze drift while moving (linger.js)
@@ -95,7 +105,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
       const want = T.len - T.t * WALK > 0.15 ? yawFrom(a, b) : sideYaw(s);
       me.yaw += wrapPi(want - me.yaw) * Math.min(1, dt * 6);
       me.pitch += (-0.05 - me.pitch) * Math.min(1, dt * 4);
-      if (T.len - T.t * WALK < 1.5) J.open(s.k);
+      if (T.len - T.t * WALK < 1.5) { if (!T.opened && !wantsOpen(s.k)) T.opened = true; J.open(s.k); }
       if (T.t * WALK >= T.len) { T.phase = "door"; T.t = 0; T.yaw0 = me.yaw; }
     } else if (T.phase === "door") {                   // wait for the door to swing open
       if (J.isOpen(s.k) && T.t > 0.15) { T.phase = "in"; T.t = 0; T.yaw0 = me.yaw; }
@@ -115,7 +125,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
       const k = Math.min(1, T.t / 1.1); setIn(1 - k, sideYaw(s) + Math.PI, T.yaw0);
       me.yaw = T.yaw0 + wrapPi(sideYaw(s) + Math.PI - T.yaw0) * ease(k);
       me.pitch += (0 - me.pitch) * Math.min(1, dt * 3);
-      if (k >= 1) { const k2 = s.k; setStand(W(s.door).setY(0)); me.seat = null; me.sitK = 0; me.drop = 0; holdSeat(T.side, false); cur = null; setTimeout(() => J.close(k2), 700); }
+      if (k >= 1) { setStand(W(s.door).setY(0)); me.seat = null; me.sitK = 0; me.drop = 0; holdSeat(T.side, false); cur = null; shut = { k: s.k, t: 0.7 }; }
     }
   };
   // the front doors' menus: Get in on the closed or open door, Get out while you sit there
@@ -135,7 +145,7 @@ function buildJeepSeats() {   // main.js, once the jeep and the sloths are in
     const picks = []; d.o.traverse((m) => m.isMesh && picks.push(m));
     const at = (v) => { box3.setFromObject(d.o).getBoundingSphere(sph); v.copy(sph.center); return sph; };
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
-      options: () => [...doorOptions(d), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], d.toggle]] };
+      options: () => [...doorOptions(d), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], () => { if (shut?.k === d.k) shut = null; d.toggle(); }]] };
   }]));
 }
 export { buildJeepSeats, jeepSeatStep, seatApi };

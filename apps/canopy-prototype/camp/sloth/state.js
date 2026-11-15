@@ -1,5 +1,7 @@
-// Canopy Camp sloths, what the sloth modules share: the lists of sloths and the few constants more than one of them needs.
+// Canopy Camp sloths, what the sloth modules share: the lists of sloths, the sloth model and the few constants more than one of them needs.
 // Nothing else lives here, nothing is built on import, and nothing is kept on window.
+//   SLOTH     the sloth model (models/sloth.txt: its scene and clips), set once by sloths.js buildSloths (setSloth) before any
+//             sloth is made from it; null until then (review R2-129: it used to live in campProps.js)
 //   SL        a wild sloth's size (the model is 1; the camp sloths have their spot's size)
 //   sloths    every sloth, wild and named, in the order they were made (debug.js's __boop(i) and __feed(i) index it)
 //   hit       their tap spheres, one each (input.js casts its ray at these)
@@ -12,6 +14,8 @@
 //   SPEED     (inside) crawling and climbing are 1.4x what they first were (Adriaen: "sliiightly faster"): CRAWL metres a second per
 //             unit of size, WALK_TS the walk clip's pace, HW and HW_POST the hang_walk clip's pace on a branch and on a post
 //   MAX_OUT   how many may be away from home at once
+export let SLOTH = null;
+export const setSloth = (gltf) => { SLOTH = gltf; };
 export const SL = 2.6;
 export const sloths = [], hit = [], camp = [], wild = [];
 export const spots = [], guests = [];

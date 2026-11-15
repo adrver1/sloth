@@ -2,9 +2,9 @@
 // kept off the tent and its planks so you can shelter there, and the light it brings: grey-green fog, a dimmer sun, no
 // shafts. Weather is set in the ⚙️ menu: Clear, Rain, or Changing (a shower every few minutes). ?weather=rain sets it.
 // Exports buildWeather() (main.js, once): wires the ⚙️ button and makes the streaks. weather: { wet (0 dry .. 1 pouring),
-// mode(), step(dt) }; main.js steps it each frame and hands weather.wet to daylight.js for the light; audio.js makes the
-// rain's sound. setWeather(mode): sets it at once (debug.js __weather). A light shower moves, uploads and draws only its
-// share of the N streaks (review R2-086).
+// step(dt) }; main.js steps it each frame and hands weather.wet to daylight.js for the light; audio.js makes the
+// rain's sound. setWeather(mode): sets clear, rain or changing at once (debug.js __weather). A light shower moves, uploads and
+// draws only its share of the N streaks (review R2-086).
 import * as THREE from "three";
 import { $, D, KEYS, OPT, camera, scene, store } from "./core.js";
 import { rand } from "./util.js";
@@ -36,7 +36,7 @@ function buildWeather() {
 const dry = (x, z, y) => y <= 3.4 && TENT.dry(x, z);
 
 let showerT = rand(90, 180), raining = mode === "rain";   // Changing: dry spells of 1.5..3 min, showers of 1..1.5 min
-const weather = { wet: raining ? 1 : 0, mode: () => mode };   // a saved or ?weather=rain loads already wet, not easing in from dry
+const weather = { wet: raining ? 1 : 0 };   // a saved or ?weather=rain loads already wet, not easing in from dry
 weather.step = (dt) => {
   if (mode === "changing") { showerT -= dt; if (showerT < 0) { raining = !raining; showerT = raining ? rand(60, 90) : rand(90, 180); } }
   else raining = mode === "rain";

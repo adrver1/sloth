@@ -4,6 +4,8 @@
 //   V(x, y, z)                    a Vector3
 //   sstep(a, b, x)                smoothstep: 0 below a, 1 above b
 //   rand(a, b)                    a number between a and b from Math.random: for noise that must not touch any seeded stream
+//   vnoise(x, z)                  smooth value noise, 0..1, on an integer lattice with a fixed integer hash: the same on every
+//                                 device (the terrain's height, the ground's colour patches)
 //   lcg(seed)                     a private random stream { rnd, R } (Park-Miller, 16807): its own numbers, so drawing from it
 //                                 leaves the named streams (core.js rng) alone. Same seed, same numbers as the copies it replaced
 //   canvasTex(w, h, draw, opts)   a CanvasTexture painted by draw(ctx, w, h); opts { srgb = true, aniso = 4 }
@@ -20,6 +22,9 @@
 //                                 the id, this hook's source, the key of the hook before it (its source, or its own key when
 //                                 patchMaterial put it there, so stacked hooks all stay in the key) and the source of any
 //                                 hook chained after it later by hand (one program per distinct code)
+//   swap(src, ...pairs)           a shader's source with each [anchor, text] pair's anchor (its first match) replaced by text.
+//                                 A missing anchor warns once on the console instead of silently dropping that part of the
+//                                 shader, which a three upgrade can do (review R2-037). Every camp shader hook edits through it
 import * as THREE from "three";
 
 export const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -27,6 +32,13 @@ export const V = (x, y, z) => new THREE.Vector3(x, y, z);
 export const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export const rand = (a, b) => a + Math.random() * (b - a);
+
+const hash = (i, j) => { let h = (i * 374761393 + j * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+export function vnoise(x, z) {
+  const i = Math.floor(x), j = Math.floor(z), fx = x - i, fz = z - j, u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+  const a = hash(i, j), b = hash(i + 1, j), c = hash(i, j + 1), d = hash(i + 1, j + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
 
 export function lcg(seed) {
   let s = seed;
@@ -76,4 +88,13 @@ export function patchMaterial(mat, id, hook) {
   mat.onBeforeCompile = own;
   mat.customProgramCacheKey = () => (mat.onBeforeCompile === own ? own.programKey() : own.programKey() + "|" + hookKey(mat.onBeforeCompile));
   return mat;
+}
+
+const swapMissed = new Set();
+export function swap(src, ...pairs) {
+  for (const [anchor, text] of pairs) {
+    if (!src.includes(anchor)) { if (!swapMissed.has(anchor)) { swapMissed.add(anchor); console.warn(`shader hook: "${anchor.slice(0, 60)}" is not in the shader, so its patch is left out`); } continue; }
+    src = src.replace(anchor, () => text);
+  }
+  return src;
 }

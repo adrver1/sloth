@@ -12,7 +12,7 @@
 // the anchors in those GLBs (review R2-252). SEAT_R and JEEP_OUT are exported for checks; no module
 // imports them. PATH_A, where the footpath leaves the camp, also starts the path ribbon in forest.js.
 import * as THREE from "three";
-import { V, polyDist, yawTo } from "./util.js";
+import { V, lineDist, yawTo } from "./util.js";
 
 // ---------------------------------------------------------------- the clearing and the ground
 export const RC = 9;      // the clearing's radius: a round clearing with the camp in it; the forest wall starts past RC
@@ -23,21 +23,35 @@ export const SUN = V(-4, 10, 3);   // the sun light's position (core.js); ground
 // across it (d0 turned a quarter left). The camp is laid out in this frame: tent, hammock, table and seats.
 export const A0 = -0.75, d0 = V(Math.cos(A0), 0, Math.sin(A0)), t0 = V(-d0.z, 0, d0.x);
 
-// ---------------------------------------------------------------- the sloth tree's path and glade (Adriaen 2026-11-11)
-// the second big tree stands in a small glade about 6 m into the forest; a footpath leaves the clearing between the tent and
-// the laundry line and winds to it. pathDist() clears trunks and ferns off the path and the glade (forest.js, terrain.js).
+// ---------------------------------------------------------------- the footpaths, the glades and the big trees (Adriaen 2026-11-11)
+// They are data, so a second path, glade or big tree is one more entry (review R2-036). PATHS lists the footpaths, each
+//   { id, curve, pts (its spaced points), half (the ribbon's half width, forest.js), lane (the half width the player keeps to,
+//   player.js), lead (points in the camp the ribbon starts from before the path's own curve, forest.js) }.
+// GLADES lists the glades { id, at, r, tree (its HERO entry) }. HERO lists the big mossy trees { id, at, flare (the phase of its
+// root flare, forest.js), roots (how many surface roots, deadwood.js), mound (null, or { r, h }: a root mound on its forest side
+// only, terrain.js) }. pathLane, pathDist, terrain.js's levelling, the path ribbons, player.js's keep-to-the-path rule, the
+// forest's clearings, the blockers, the roots and the wild sloths all loop over these lists.
+// Changing an entry's numbers, or adding one, moves trees, roots and ground in the light and ground bakes: rebake after.
+// the sloth tree's glade: the second big tree stands in a small glade about 6 m into the forest; a footpath leaves the clearing
+// between the tent and the laundry line and winds to it. glade.js dresses this glade (GLADE, GLADE_R, sloPath).
 export const PATH_A = 1.45, GLADE_R = 4.2, GLADE = V(Math.cos(PATH_A + 0.22), 0, Math.sin(PATH_A + 0.22)).multiplyScalar(RC + 9.5), PATH_W = 0.6;
 export const PATH_HALF = 0.75;    // half the path ribbon's width (forest.js); terrain.js keeps the ground level well past it
 export const sloPath = (() => {
   const P = (a, r) => V(Math.cos(a) * r, 0, Math.sin(a) * r);
   const curve = new THREE.CatmullRomCurve3([P(PATH_A, RC - 2), P(PATH_A, RC + 0.5), P(PATH_A - 0.1, RC + 2.5), P(PATH_A + 0.06, RC + 4.3), GLADE.clone().setLength(RC + 5.2), GLADE.clone().setLength(RC + 6.5)]);
-  return { curve, pts: curve.getSpacedPoints(48) };
+  // lead: the ribbon starts in the camp, just past the log seats round the fire (Adriaen 2026-11-14), while the path the player
+  // and the terrain follow starts at RC - 2
+  return { id: "glade", curve, pts: curve.getSpacedPoints(48), half: PATH_HALF, lane: PATH_W, lead: [P(PATH_A, 3.0), P(PATH_A, 5.0)] };
 })();
-export const pathLane = (x, z) => polyDist(sloPath.pts, x, z)[0];                                       // the path itself
-export const pathDist = (x, z) => Math.min(pathLane(x, z), Math.max(0, Math.hypot(x - GLADE.x, z - GLADE.z) - GLADE_R));   // path or glade
-// the two big mossy trees: one at the clearing's edge behind the fire, one in the glade
-// the glade's tree stands 0.4 m off the glade's middle, away from where the karaoke route passes it (Adriaen 2026-11-14: clear of the path)
-export const HERO = [d0.clone().multiplyScalar(RC + 0.4), GLADE.clone().add(V(0.35, 0, 0.19))];
+export const PATHS = [sloPath];
+// the big tree at the clearing's edge behind the fire, and the glade's tree, 0.4 m off the glade's middle, away from where the
+// karaoke route passes it (Adriaen 2026-11-14: clear of the path)
+const campTree = { id: "camp", at: d0.clone().multiplyScalar(RC + 0.4), flare: 0, roots: 10, mound: { r: 2.6, h: 0.45 } };
+const gladeTree = { id: "glade", at: GLADE.clone().add(V(0.35, 0, 0.19)), flare: 1, roots: 8, mound: null };
+export const HERO = [campTree, gladeTree];
+export const GLADES = [{ id: "sloth", at: GLADE, r: GLADE_R, tree: gladeTree }];
+export const pathLane = (x, z) => { let d = 1e9; for (const p of PATHS) d = Math.min(d, lineDist(p.pts, x, z)); return d; };   // the paths themselves
+export const pathDist = (x, z) => { let d = pathLane(x, z); for (const g of GLADES) d = Math.min(d, Math.max(0, Math.hypot(x - g.at.x, z - g.at.z) - g.r)); return d; };   // a path or a glade
 
 // ---------------------------------------------------------------- the jeep and its track
 // the jeep is parked at JEEP_AT along the clearing edge (facing JEEP_TAN, its right side to the fire) and came in on a muddy
@@ -62,7 +76,7 @@ export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 // the walk-in tent (build_camp.py wall_tent): its door faces the fire. Its own (Blender) frame: bx across, by toward the back
 // (-by toward the fire). toLocal(x, z) gives [a: ahead of the tent's centre toward the fire, b: across]; fromLocal(bx, by, y)
 // a world point. W, yf, yb: the walls' half width, front and back; DW: the doorway's half width; stove, chimney: where they are;
-// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy).
+// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy); floor: see bare below.
 // These sizes are build_camp.py's: fromModel (below) puts in the ones the Tent node carries, and the numbers here stand in for them.
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
@@ -70,8 +84,10 @@ export const TENT = (() => {
   return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth [bx, by, height]
     toLocal: (x, z) => { const dx = x - t.x, dz = z - t.z; return [dx * fx + dz * fz, dx * fz - dz * fx]; },
     fromLocal: (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz),
-    // in toLocal's terms: no grass in the tent or through its planks (ground.js), and dry under its roof and planks (weather.js)
-    bare: (x, z) => { const [a, b] = TENT.toLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; },
+    // in toLocal's terms: the floor rectangle (a from a0 to a1, |b| below b) is kept level (terrain.js) and has no grass in the tent or
+    // through its planks (ground.js); dry is the wider rectangle under its roof and planks (weather.js)
+    floor: { a0: -1.8, a1: 2.1, b: 1.95 },
+    bare: (x, z) => { const [a, b] = TENT.toLocal(x, z), f = TENT.floor; return a > f.a0 && a < f.a1 && Math.abs(b) < f.b; },
     dry: (x, z) => { const [a, b] = TENT.toLocal(x, z); return a > -1.9 && a < 2.2 && Math.abs(b) < 2.0; } };
 })();
 // the hammock between two posts (a and b), and where it hangs from. knot and ropeEnd: the -x post's rope, from its knot to the
@@ -91,7 +107,7 @@ export function fromModel(tent = {}, hammock = {}) {
 export const TABLE = { at: d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.2), yaw: 0.6 };   // the snack table
 // the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame (l0) and the hammock's
 // near post (post) up to the big tree behind the fire (tree)
-export const LANTERN_TIES = { l0: tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8), post: hA.clone().setY(2.35), tree: HERO[0] };
+export const LANTERN_TIES = { l0: tentAt.clone().multiplyScalar(1 - 1.12 / tentAt.length()).setY(2.8), post: hA.clone().setY(2.35), tree: campTree.at };
 
 // ---------------------------------------------------------------- the lived-in props (props/lived/)
 // the wood pile and the crate are turned by yawTo(at): it points their local -Z away from the fire, so their fronts (+Z) face it
@@ -137,4 +153,4 @@ export const WEAR = [
   ...[-0.95, 0.95].map((k, i) => ({ name: `jeep${i}`, at: JEEP_AT.clone().addScaledVector(JEEP_TAN, k), r: 1.05, path: true, set: "jeep" })),
 ];
 // the blockers ([centre, radius], campProps.js) of one WEAR set, in WEAR's order
-export const wearBlockers = (set) => WEAR.filter((w) => w.set === set).map((w) => [w.at, w.r]);
+export const wearBlockers = (set) => WEAR.filter((w) => w.set === set).map((w) => ({ at: w.at, r: w.r }));   // for campProps.js addBlocker

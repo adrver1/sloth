@@ -380,8 +380,9 @@ def wall_tent():
     Built at its final size with the door toward -Y. The light comes from the camp light map, so a sheet needs vertices
     only where it bends: the roof is a 6 x 3 grid for its sag, the side walls one column of hem and wall (review R2-169).
     It writes its sizes for the page (the walls, the doorway, the stove, the chimney and the bed) as custom properties on
-    the Tent, which the light bake exports as glTF extras for camp/layout.js fromModel; camp.html mirrors W, D, Y0, the
-    door and the furniture for walking."""
+    the Tent, which the light bake exports as glTF extras for camp/layout.js fromModel; camp/layout.js TENT mirrors W,
+    the walls' front and back (Y0 - D, Y0 + D), DW, the stove and the bed, and camp/tentInside.js turns them into
+    blockers for walking."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),

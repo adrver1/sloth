@@ -8,7 +8,7 @@
 //   homeClip(s), dozeClip(s)             [clip, timeScale] for where it is: awake, and asleep
 //   EAT_GRAB                             how many seconds into the eat clips the claws close on the food
 //   canStretch(s)                        it is sitting, or lying where it can sit up, so it can stretch when it wakes
-import { SLOTH } from "../campProps.js";
+import { SLOTH } from "./state.js";
 import { crossFade } from "../actor.js";
 
 const clipOf = (n) => SLOTH.animations.find((a) => a.name === n);

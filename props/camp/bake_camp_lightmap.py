@@ -49,7 +49,8 @@ under a minute on a laptop CPU (1/16 of the texels of the full bake and 1/64 of 
    colour channels apart, bounces included: the fire, the stove and the lanterns are baked in one pass as pure red,
    green and blue lamps, and the sun's two passes in one as a red sun with shadows and a green one without. The props
    that cast shadows are baked through one joined copy, the ground in the same call. Each pass has its own samples
-   (PASS_SAMPLES, review R2-171). Then write_maps writes:
+   (PASS_SAMPLES, review R2-171). Then write_maps writes (the channel layout, the contract with the page's shaders, is
+   described once in apps/canopy-prototype/camp/campProps.js above lnight):
      camp_lm_<k>.png      RGBA one light per channel (fire, stove, lanterns, moon), light / 4, gamma 2.2; the page
                                colours and mixes them (bakedlight.js) and tones the sum as
                                1 - exp(-6.4 x surface colour x light), unlit, at night
@@ -106,9 +107,10 @@ COLOUR = {"fire": (1.0, 0.50, 0.20), "stove": (1.0, 0.55, 0.15), "lanterns": (1.
 # toward the sun, the page's (-4, 10, 3) in Blender axes: kept here because the page's normalised copy differs from this
 # one in the last float bit (6e-8), and the bake must stay as it was; read_layout stops if the two ever disagree
 SUN_DIR = Vector((-4, -3, 10)).normalized()
-# the lanterns sway, so the page draws them and they are not baked; their lights are. The page's light is 0.125 m below
-# each lantern's hang point (lanterns.js JAR_Y), the bake's 0.12 m: 5 mm higher (review props-07), kept so the bake
-# stays as it was
+# the lanterns sway, so the page draws them and they are not baked; their lights are. The bake hangs each light 0.12 m below
+# its lantern's hang point (the place block's lanternHang: lanterns.js hang), 5 mm above the page's jar centre (lanterns.js
+# JAR_Y, 0.125 m): a deliberate offset, kept so the bake stays as it was (review props-07, R2-187). PAGE_LANTERN_DROP only
+# turns an older layout's lanternLights back into hang points.
 PAGE_LANTERN_DROP, LANTERN_DROP = 0.125, 0.12
 RR = 9.8                                                  # the ground disc's half width (ground.js)
 # light-map texels per metre for each prop, relative to the rest (review R2-172): the tent (its canvas, lining and plank
@@ -167,7 +169,7 @@ def read_layout():
         sys.exit("layout_picked.json's place block has no anchors (it is older than review R2-249): run props/bake_all.py --only layout")
     if (SUN_DIR - B(*pl["sun"])).length > 1e-6:
         sys.exit(f"the page's sun {pl['sun']} is not the bake's {tuple(SUN_DIR)}: update SUN_DIR")
-    print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points (the page: {PAGE_LANTERN_DROP} m)")
+    print(f"  layout from layout_picked.json; lantern lights {LANTERN_DROP} m below the hang points")
     return layout, pl
 
 
@@ -518,8 +520,9 @@ class Lights:
     def __init__(self, pl, tent):
         self.groups = {g: [] for g in CHANNELS}
         self.point("fire", "FireLight", B(0, 0.55, 0), 260, 0.25)
-        for i, (x, y, z) in enumerate(pl["lanternLights"]):          # y + PAGE_LANTERN_DROP: where each lantern hangs
-            self.point("lanterns", f"LanternLight_{i}", B(x, y + PAGE_LANTERN_DROP - LANTERN_DROP, z), 50, 0.05)
+        hang = pl.get("lanternHang") or [(x, y + PAGE_LANTERN_DROP, z) for x, y, z in pl["lanternLights"]]   # where each lantern hangs
+        for i, (x, y, z) in enumerate(hang):
+            self.point("lanterns", f"LanternLight_{i}", B(x, y - LANTERN_DROP, z), 50, 0.05)
         bpy.context.view_layer.update()
         self.point("stove", "StoveLight", tent.matrix_world @ (Vector(build_camp.STOVE) + Vector((-0.35, 0, -0.1))), 22, 0.12)
         moon = bpy.data.lights.new("Moon", "SUN"); moon.color = TINT["moon"]; moon.energy = 0.12; moon.angle = math.radians(2)
@@ -766,7 +769,7 @@ def write_maps(m, out, jeep, only=None):
     sun_open, sun_direct = m["sun_open"], m["sun_direct"]
     sv = np.where(sun_open > 0.02, np.clip(sun_direct / np.maximum(sun_open, 1e-6), 0, 1), 1.0)   # surfaces facing away: the page's N . L hides them anyway
     print(f"  sun: mean visibility {sv[sun_open > 0.02].mean():.2f}" if (sun_open > 0.02).any() else "  sun: no prop faces the sun")
-    save(np.stack([sv, np.clip(m["ao"], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun", out, lambda x: x, only)   # B, A: free (were the jeep's lights)
+    save(np.stack([sv, np.clip(m["ao"], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun", out, lambda x: x, only)   # B, A: unused (they held the jeep's baked lights, dropped 2026-11-12)
     # ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
     open_ = np.percentile(m["ground_day"], 99.5)
     shadow = np.clip(1 - m["ground_day"] / open_, 0, 1)[::-1]

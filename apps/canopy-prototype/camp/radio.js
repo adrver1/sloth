@@ -95,7 +95,7 @@ function step(dt) {
   lamp += ((on ? 1 : 0) - lamp) * Math.min(1, dt * 4); face.emissiveIntensity = 0.7 * lamp;
   const x = DIAL.x0 + (DIAL.x1 - DIAL.x0) * (i / (audio.stations.length - 1)); nx += (x - nx) * Math.min(1, dt * 5); needle.position.x = nx;
   const loud = 0.6 + 0.4 * (audio.musicVolume() > 0.3);
-  for (let k = 0; k < notes.length; k++) { const s = notes[k], f = (t * 0.45 + k * 0.5) % 1; s.position.set(-0.05 + k * 0.08 + Math.sin((f + k) * 6) * 0.02, H / 2 + 0.03 + f * 0.25, 0.02); s.material.opacity = lamp * Math.sin(f * Math.PI) * loud; }
+  for (let k = 0; k < notes.length; k++) { const s = notes[k], f = (t * 0.45 + k * 0.5) % 1; s.position.set(-0.05 + k * 0.08 + Math.sin((f + k) * 6) * 0.02, H / 2 + 0.03 + f * 0.25, 0.02); s.material.opacity = lamp * Math.sin(f * Math.PI) * loud; s.visible = lamp > 0.01; }   // hidden while off: no draw at opacity 0 (R2-087)
   radio.scale.y = 1 + lamp * 0.012 * Math.max(0, Math.sin(t * 9));   // a tiny bob to the music
 }
 const radioSource = () => source;

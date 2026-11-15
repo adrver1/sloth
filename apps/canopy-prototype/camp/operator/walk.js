@@ -31,7 +31,7 @@ function* walkTo(to, { near = 0.12 } = {}) {
     if (dist < (pts.length > 1 ? 0.3 : near)) { pts.shift(); continue; }
     const want = d.normalize().clone();
     // keep clear of blockers (unless the goal is inside one: a seat, the bed) and of everyone walking about
-    for (const [c, br] of blockers) {
+    for (const { at: c, r: br } of blockers) {
       const ox = p.x - c.x, oz = p.z - c.z, od = Math.hypot(ox, oz), lim = br + RADIUS + 0.15;
       if (od < lim && Math.hypot(to.x - c.x, to.z - c.z) > br) want.addScaledVector(V(ox / od, 0, oz / od), (lim - od) / lim * 1.6);
     }

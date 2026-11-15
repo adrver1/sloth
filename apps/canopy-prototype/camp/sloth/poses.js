@@ -36,7 +36,7 @@ function underAt(s, at, head) {
   return { q: new THREE.Quaternion().setFromRotationMatrix(m4), p: at.clone().sub(V(0, 0.1 * s.sc, -0.1 * s.sc).applyMatrix4(m4)) };
 }
 const trunkAt = (s, tree, out, y, R) => ({ p: tree.clone().addScaledVector(out, R(Math.max(0, y)) + 0.07 * s.sc).setY(y), q: yawQ(Math.atan2(out.x, out.z)) });
-const treeOf = (c) => HERO.reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
+const treeOf = (c) => HERO.map((h) => h.at).reduce((a, b) => (b.distanceTo(c.points[0].clone().setY(0)) < a.distanceTo(c.points[0].clone().setY(0)) ? b : a)).clone().setY(0);
 // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths.
 // Their sloths climb down the trunk and back up it (climbDown, climbUp below). Trunk radius after forest.js (1.05 at the
 // foot to 0.6 at 15 m, with the root flare).

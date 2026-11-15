@@ -4,11 +4,11 @@
 // them in order. Each system draws from its own named random stream (core.js rng), so moving a step does not move the
 // trees or the sloths; a step only has to come after the steps whose parts it uses, as the comments say.
 // Each frame it calls the modules' step functions in one fixed order (review boot-06, crosscut-14).
-import { stepLight } from "../bakedlight.js";
-import { $, DETAIL, OPT, PRE, camera, renderer, scene, uTime, wireSettings } from "./core.js";
+import { doneLoading, stepLight } from "../bakedlight.js";
+import { $, DETAIL, OPT, PRE, camera, renderer, scene, uNight, uTime, wireSettings } from "./core.js";
 import { buildSky } from "./sky.js";
 import { buildForest } from "./forest.js";
-import { buildProps, fireStep, lanternGlow, LANTERNS, motesStep, poolsStep, uNight } from "./campProps.js";
+import { buildProps, fireStep, LANTERNS, motesStep, poolsStep } from "./campProps.js";
 import { buildJeep, jeepStep } from "./jeep.js";
 import { buildSloths, campStep, hammockStep, slothsStep, warmStep } from "./sloths.js";
 import { labStep } from "./labButton.js";
@@ -16,7 +16,7 @@ import { fxStep } from "./fx.js";
 import { me, step } from "./player.js";
 import { buildDeadwood } from "./deadwood.js";
 import { buildGlade } from "./glade.js";
-import { buildGround, groundLife, shadowStep } from "./campGround.js";
+import { buildGround, castSunShadows } from "./campGround.js";
 import { buildTentInside } from "./tentInside.js";
 import { atmo, buildAtmosphere } from "./campAir.js";
 import { acts, buildChores } from "./chores.js";
@@ -51,12 +51,13 @@ buildForest();                         // forest.js: the big trees, the forest w
 await buildProps();                    // campProps.js: lanterns, fire, the baked props, the lived-in props, the laundry
 await buildJeep();                     // jeep.js (?jeep=none: nothing)
 // the characters: the sloths use the big trees' branches, the props and the jeep
-buildSloths();                         // sloths.js: the wild sloths, then the camp's seven in their spots
+await buildSloths();                   // sloths.js: the sloth model's download, the wild sloths, then the camp's seven in their spots
 // the lived-in clearing, set down on the finished props and sloths in this order: the deadwood and the glade first, then the
 // ground, painted round the blockers as they stand then; the tent's walls join the blockers only after that
 buildDeadwood();                       // deadwood.js
 buildGlade();                          // glade.js: its plants go into the ground's draw
 await buildGround();                   // campGround.js: waits for the ground's baked maps
+doneLoading();                         // bakedlight.js: frees the KTX2 workers once the props' and the ground's light maps are in
 buildTentInside();                     // tentInside.js
 buildAtmosphere();                     // campAir.js
 buildChores();                         // chores.js: your activities
@@ -75,6 +76,7 @@ buildRadio();                          // radio.js: the radio on the snack table
 buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
 buildCar();                            // car.js: the key, the dash radio and the dash clock
 createDaylight();                      // daylight.js: the mist banks, and the moon put where the start view sees it
+castSunShadows();                      // campGround.js: the live sun shadows, once every prop stands, only without the baked map (it failed to load, or ?jeep=none)
 
 // ================================================================ loop, with an fps panel and a resolution safety net
 addEventListener("resize", resize); resize();
@@ -146,15 +148,14 @@ renderer.setAnimationLoop((now) => {
   const fl = fireStep(dusk);                               // campProps.js: the fire's flicker
   acts.update(dt, uTime.value); aimStep(dt);               // the chores (after fireStep: a log on the fire boosts its light) and what lights up
   uNight.value = dusk; stepLight(fl, uTime.value);         // the baked night light: how far it is faded in, and its flicker (bakedlight.js)
-  warmStep(lanternGlow, fl, dusk);                         // sloths.js: the sloths' night glow, from the lanterns and the fire
-  poolsStep(dusk, fl, groundLife.isNightBaked());
+  warmStep(fl, dusk);                                      // sloths.js: the sloths' night glow, from the lanterns and the fire
+  poolsStep(dusk, fl);
   LANTERNS.update(uTime.value, dusk);
   clockStep(dt, dusk);
   daylightStep(dt, wet);                                   // the mist banks and the palette
   motesStep(dt);
   atmo.update(dt, uTime.value, dusk);
   audioStep(dt, dusk); radioStep(dt);
-  shadowStep();                                            // campGround.js: the sun shadows, re-cast while the props load
   renderer.render(scene, camera);
   perfStep(raw);                                           // the fps panel and the resolution safety net, above
 });

@@ -60,6 +60,7 @@ function daylightStep(dt, wet) {
   if (rayMat) {
     rayMat.color.copy(RAY_DAY).lerp(RAY_GOLD, gold);
     rayMat.opacity = S.rays * Math.max(1 - dusk, 1.8 * gold) * (1 - wet) * (0.85 + 0.15 * Math.sin(uTime.value * 0.21) * Math.sin(uTime.value * 0.13 + 1.0));   // a slow shimmer as leaves move over the gap
+    rayMat.visible = rayMat.opacity > 0.002;   // the shafts (the clearing's and the glade's) are not drawn at night or in the rain (R2-091); no recompile
   }
 }
 

@@ -14,20 +14,27 @@
 import * as THREE from "three";
 
 const FUR = [[0x8f, 0x7c, 0x62], [0x6a, 0x58, 0x44]];   // palette fur swatches (light, dark)
-let pc, pg;
+// The texture's pixels, read once per image and shared by every geometry that uses it (R2-061: one cache for all
+// textures read the first texture's pixels for every other animal).
+const PIX = new WeakMap();
+function pixels(img) {
+  let p = PIX.get(img);
+  if (!p) {
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0);
+    p = { w: c.width, h: c.height, px: g.getImageData(0, 0, c.width, c.height).data };
+    PIX.set(img, p);
+  }
+  return p;
+}
 function prepare(geo, map, fur = FUR) {
   if (geo.userData.furReady) return;
-  if (!pc) {
-    const img = map.image;
-    pc = document.createElement("canvas"); pc.width = img.width; pc.height = img.height;
-    pg = pc.getContext("2d", { willReadFrequently: true }); pg.drawImage(img, 0, 0);
-  }
-  const px = pg.getImageData(0, 0, pc.width, pc.height).data;
+  const { w, h, px } = pixels(map.image);
   const uv = geo.attributes.uv, pos = geo.attributes.position, nr = geo.attributes.normal, n = pos.count;
   const mask = new Float32Array(n), smooth = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
-    const x = Math.min(pc.width - 1, Math.floor(uv.getX(i) * pc.width)), y = Math.min(pc.height - 1, Math.floor(uv.getY(i) * pc.height));
-    const o = (y * pc.width + x) * 4;
+    const x = Math.min(w - 1, Math.floor(uv.getX(i) * w)), y = Math.min(h - 1, Math.floor(uv.getY(i) * h));
+    const o = (y * w + x) * 4;
     mask[i] = fur.some((c) => Math.abs(c[0] - px[o]) + Math.abs(c[1] - px[o + 1]) + Math.abs(c[2] - px[o + 2]) < 40) ? 1 : 0;
   }
   // smoothed normals: average the flat normals of every vertex at the same spot, so shells don't split at facets
@@ -52,17 +59,27 @@ export const WARM_N = 10;
 const WARM_GLSL = `uniform float uWarm; uniform vec3 uWarmPos[${WARM_N}]; uniform float uWarmK[${WARM_N}]; varying vec3 vWPos;
 vec3 warmAt(vec3 p) { float a = 0.0; for (int i = 0; i < ${WARM_N}; i++) { vec3 d = uWarmPos[i] - p; a += uWarmK[i] / (1.0 + dot(d, d) * 2.5); }
   return vec3(1.0, 0.66, 0.36) * a * uWarm; }`;
+// The same warn-once swap as Canopy Camp's camp/util.js (review R2-037), copied here because other pages share this file:
+// each [anchor, text] pair replaces the anchor's first match, and a missing anchor warns once instead of silently dropping the fur.
+const swapMissed = new Set();
+function swap(src, ...pairs) {
+  for (const [anchor, text] of pairs) {
+    if (!src.includes(anchor)) { if (!swapMissed.has(anchor)) { swapMissed.add(anchor); console.warn(`fur shader: "${anchor}" is not in the shader, so its patch is left out`); } continue; }
+    src = src.replace(anchor, () => text);
+  }
+  return src;
+}
 function patch(mat, frag, decl = "", nrm = "", pos = "", fdecl = "", warm = null) {
   mat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl + (warm ? "\nvarying vec3 vWPos;" : ""))
-      .replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\n" + nrm)
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFur = furMask; vObj = position;\n" + pos);
-    if (warm) sh.vertexShader = sh.vertexShader.replace("#include <project_vertex>", "#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;");
-    sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl + (warm ? WARM_GLSL : ""))
-      .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag);
-    if (warm) sh.fragmentShader = sh.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>");
+    sh.vertexShader = swap(sh.vertexShader,
+      ["#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl + (warm ? "\nvarying vec3 vWPos;" : "")],
+      ["#include <beginnormal_vertex>", "#include <beginnormal_vertex>\n" + nrm],
+      ["#include <begin_vertex>", "#include <begin_vertex>\nvFur = furMask; vObj = position;\n" + pos],
+      ...(warm ? [["#include <project_vertex>", "#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;"]] : []));
+    sh.fragmentShader = swap(sh.fragmentShader,
+      ["#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl + (warm ? WARM_GLSL : "")],
+      ["#include <map_fragment>", "#include <map_fragment>\n" + frag],
+      ...(warm ? [["#include <opaque_fragment>", "outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>"]] : []));
     Object.assign(sh.uniforms, mat.userData.u || {}, warm || {});
   };
   mat.customProgramCacheKey = () => "fur" + mat.type + !!warm + frag + pos;

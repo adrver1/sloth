@@ -3,11 +3,11 @@
 // Putting things back (Adriaen 2026-11-13: a vegetable taken before the pot had water left you stuck, hands full): a
 // "Put it back" pill in the corner whenever you carry something (Q or Backspace on a keyboard), and the place it came
 // from (wood pile, crate, pail spot) takes it back too. It goes back where it came from; a bowl goes back in the pot.
-// Triangles: the log 24, the pail 60 (camp/canister.js), a bowl 24, the food 15 to 36 (camp/food.js).
+// Triangles: the log 24, the pail 60 (camp/pail.js), a bowl 24, the food 15 to 36 (camp/food.js).
 // Exports createCarry({ camera, me, toast }): { held, hold(what), putBack(), onPutBack(what, fn), takeNext("veg" | "fruit"),
 // next(kind) and now(kind) (the [name, emoji] you would take, and the one you hold), food(), give(), update(dt, time) }.
 import * as THREE from "three";
-import { makePail } from "../camp/canister.js";
+import { makePail } from "../camp/pail.js";
 import { makeFood } from "../camp/food.js";
 import { V } from "../camp/util.js";
 import { FE, FN, VEG, VN, logGeo, logMat, soupBowl } from "./parts.js";

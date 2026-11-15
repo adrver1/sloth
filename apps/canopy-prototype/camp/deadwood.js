@@ -1,5 +1,5 @@
 // Canopy Camp deadwood (camp review B6): a fallen mossy log, a cut stump and a dead standing trunk at the clearing's edge,
-// with orange shelf fungus on all three. Low poly (about 300 tris in all, one draw) with the detail painted into vertex
+// with orange shelf fungus on all three. Low poly (one draw; deadwood.tris has the count per piece, printed by tools/camp-probe.cjs), with no caps where they are buried, and the detail painted into vertex
 // colours the way the forest trunks are (forest.js bake()): moss on the up-facing bark, pale wood with rings on the cut ends.
 // Lit live like the forest round them, so no light-map bake; their ground shadows join the GPU bake through deadwood (exported; props/shadow/export_casters.cjs imports it).
 // buildDeadwood() (main.js, once the props and the sloths stand, before the ground) places and builds them.
@@ -8,7 +8,7 @@ import { S, scene } from "./core.js";
 import { V, canvasTex, lcg, sstep, tris } from "./util.js";
 import { HERO, JEEP_AT, RC } from "./layout.js";
 import { trackDist } from "./forest.js";
-import { blockers } from "./campProps.js";
+import { addBlocker, blockers } from "./campProps.js";
 import { groundHeight } from "./terrain.js";
 
 const { R } = lcg(9173);   // its own fixed stream: the ground-shadow bake has the deadwood where this puts it
@@ -54,7 +54,7 @@ let deadwood = null;   // set by buildDeadwood
 function buildDeadwood() {
   // ---------------------------------------------------------------- where: three spread-out spots at the edge, clear of the props, the
   // track, the big trees and the jeep
-  const ok = (x, z, r) => trackDist(x, z) > 2.2 + r && Math.hypot(x - JEEP_AT.x, z - JEEP_AT.z) > 3.6 + r && !blockers.some(([c, br]) => Math.hypot(x - c.x, z - c.z) < br + r + 0.8) && !HERO.some((h) => Math.hypot(x - h.x, z - h.z) < 2.6 + r);
+  const ok = (x, z, r) => trackDist(x, z) > 2.2 + r && Math.hypot(x - JEEP_AT.x, z - JEEP_AT.z) > 3.6 + r && !blockers.some((b) => Math.hypot(x - b.at.x, z - b.at.z) < b.r + r + 0.8) && !HERO.some(({ at: h }) => Math.hypot(x - h.x, z - h.z) < 2.6 + r);
   const spots = [];
   for (const [rad, need] of [[RC - 1.3, 1.4], [RC - 1.4, 0.6], [RC + 0.2, 0.5]]) {   // the log, the stump, the dead trunk
     const a0 = R(0, 6.28);
@@ -71,22 +71,23 @@ function buildDeadwood() {
     const g = new THREE.CylinderGeometry(r * 0.92, r, L, 8, 3, false).rotateZ(Math.PI / 2);
     const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); if (x < -L / 2 + 0.01) p.setXYZ(i, x - (p.getY(i) > 0 ? 0.12 : 0) + Math.sin(i * 2.7) * 0.06, p.getY(i), p.getZ(i)); p.setY(i, p.getY(i) + 0.04 * Math.sin(x * 2.1)); }   // the broken end splinters
     parts.push(paint(g, { y0: -r, y1: r, cap: (x, y, z, nx) => Math.abs(nx) > 0.9 && x > 0 ? Math.min(1, Math.hypot(y, z) < 0.02 ? 1 : 0.15) : -1, uv: [1, 2] }).rotateY(-yaw).translate(c.x, r * 0.75, c.z));
-    const stub = new THREE.ConeGeometry(0.07, 0.6, 5, 1).rotateZ(-0.9).translate(0.35, r + 0.15, 0.1);   // a broken branch stub
+    const stub = new THREE.ConeGeometry(0.07, 0.6, 5, 1, true).rotateZ(-0.9).translate(0.35, r + 0.15, 0.1);   // a broken branch stub, open at its foot inside the log (R2-107)
     parts.push(paint(stub, { moss: 0.5, y0: 0, y1: 0.6 }).rotateY(-yaw).translate(c.x, r * 0.75 - 0.1, c.z));
     const ax = V(Math.cos(yaw), 0, Math.sin(yaw)), side = V(-ax.z, 0, ax.x);
     for (let i = 0; i < 3; i++) { const t = R(-0.9, 0.9), sd = i % 2 ? 1 : -1; shelf(parts, c.clone().addScaledVector(ax, t).addScaledVector(side, sd * r * 0.98).setY(r * 0.75 + R(-0.05, 0.08)), side.clone().multiplyScalar(sd), R(0.12, 0.16)); }
-    for (const t of [-0.9, 0, 0.9]) blockers.push(Object.assign([c.clone().addScaledVector(ax, t), 0.35], { wild: true }));
+    for (const t of [-0.9, 0, 0.9]) addBlocker({ at: c.clone().addScaledVector(ax, t), r: 0.35, wild: true });
     layout.push({ name: "FallenLog", x: c.x, z: c.z, y: lift(from, c), yaw, L, r }); count("log", from);
   }
   // the stump: a cut stump with flared roots and a ringed top
   if (spots[1]) { const c = spots[1], r = 0.36, h = 0.48, from = parts.length;
     const g = new THREE.CylinderGeometry(r * 0.85, r * 1.2, h, 9, 2, false).translate(0, h / 2, 0);
+    g.setIndex(Array.from(g.index.array.subarray(0, g.groups.find((q) => q.materialIndex === 2).start))); g.clearGroups();   // the sides and the cut top: the bottom cap is buried (R2-107)
     const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x), f = 1 + (y < 0.01 ? 0.7 * Math.max(0, Math.cos(a * 4 + 0.4)) : y < h - 0.01 ? 0.12 * Math.max(0, Math.cos(a * 4 + 0.4)) : 0);   // roots flare out at the foot
       p.setXYZ(i, x * f, y > h - 0.01 ? h + 0.03 * Math.sin(a * 2) * Math.hypot(x, z) / r : y < 0.01 ? -0.02 : y, z * f); }
     parts.push(paint(g, { y0: 0, y1: h, cap: (x, y, z, nx, ny) => ny > 0.8 ? (Math.hypot(x, z) < 0.02 ? 1 : 0.2) : -1, uv: [2, 0.5] }).translate(c.x, 0, c.z));
     const out = c.clone().normalize().negate();
     for (let i = 0; i < 2; i++) { const a = Math.atan2(out.z, out.x) + (i ? 0.7 : -0.6), d = V(Math.cos(a), 0, Math.sin(a)); shelf(parts, c.clone().addScaledVector(d, r * 1.02).setY(0.18 + i * 0.14), d, R(0.12, 0.15)); }
-    blockers.push(Object.assign([c.clone(), r + 0.1], { wild: true })); layout.push({ name: "Stump", x: c.x, z: c.z, y: lift(from, c), r, h }); count("stump", from);
+    addBlocker({ at: c.clone(), r: r + 0.1, wild: true }); layout.push({ name: "Stump", x: c.x, z: c.z, y: lift(from, c), r, h }); count("stump", from);
   }
   // the dead trunk: a bleached snag, snapped off at the top, a broken limb, fungus climbing it
   if (spots[2]) { const c = spots[2], H = 4.6, from = parts.length;
@@ -94,23 +95,24 @@ function buildDeadwood() {
     const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
       p.setXYZ(i, x + Math.sin(y * 0.6) * 0.12, y > H - 0.01 ? H - 0.5 * (0.5 + 0.5 * Math.sin(a * 3 + 1)) : y, z); }   // jagged snapped top
     parts.push(paint(g, { bleach: 0.8, moss: 0.6, y0: 0, y1: 2.5, uv: [1, 4] }).translate(c.x, 0, c.z));
-    const limb = new THREE.ConeGeometry(0.08, 1.1, 5, 1).rotateZ(-1.1).translate(0.45, 3.0, 0);
+    const limb = new THREE.ConeGeometry(0.08, 1.1, 5, 1, true).rotateZ(-1.1).translate(0.45, 3.0, 0);   // open at its foot inside the trunk (R2-107)
     parts.push(paint(limb, { bleach: 0.8, moss: 0.3, y0: 0, y1: 2.5 }).rotateY(R(0, 6.28)).translate(c.x, 0, c.z));
     const out = c.clone().normalize().negate();
     for (let i = 0; i < 4; i++) { const a = Math.atan2(out.z, out.x) + R(-0.8, 0.8), d = V(Math.cos(a), 0, Math.sin(a)), y = 0.5 + i * 0.42 + R(-0.1, 0.1), rr = 0.34 - y * 0.03; shelf(parts, c.clone().addScaledVector(d, rr).setY(y), d, R(0.13, 0.19)); }
-    blockers.push(Object.assign([c.clone(), 0.45], { wild: true }));   // wild: no worn dirt or path to it (ground.js)
+    addBlocker({ at: c.clone(), r: 0.45, wild: true });   // wild: no worn dirt or path to it (ground.js)
     layout.push({ name: "DeadTrunk", x: c.x, z: c.z, y: lift(from, c), H }); count("deadTrunk", from);   // was lost in the comment above: unseated, untallied, not in the bake
   }
   // roots (forest-ground note 2b): low half-round roots spreading 1.5 to 2.6 m from both big trees over the ground, across the sloths'
-  // way down, so the trees sit in the ground instead of on it. 16 triangles each, in the same draw and bark as the deadwood.
+  // way down, so the trees sit in the ground instead of on it. Each is a low ridge, two faces round over three rings (8 triangles,
+  // smooth-shaded so it reads round from eye height; R2-192 halved them from 16), in the same draw and bark as the deadwood.
   { const from = parts.length;
-    for (const [k, h] of HERO.entries()) for (let i = 0, n = k ? 8 : 10; i < n; i++) {
+    for (const { at: h, roots: n } of HERO) for (let i = 0; i < n; i++) {
       const a = (i / n) * 6.28 + R(-0.25, 0.25), L = R(1.5, 2.6), r0 = R(0.11, 0.15), dir = V(Math.cos(a), 0, Math.sin(a)), side = V(-dir.z, 0, dir.x), bend = R(-0.35, 0.35);
       const P = [], U = [], I = [];
       for (let j = 0; j <= 2; j++) { const t = j / 2, rad = r0 * (1 - 0.75 * t), c = h.clone().addScaledVector(dir, 0.9 + t * L).addScaledVector(side, bend * t * t);
-        for (let q = 0; q <= 4; q++) { const th = (q / 4) * Math.PI, x = c.x + side.x * Math.cos(th) * rad, z = c.z + side.z * Math.cos(th) * rad;
-          P.push(x, groundHeight(x, z) - 0.015 - 0.04 * t * t + Math.sin(th) * rad * 0.7, z); U.push(q / 4, t * L * 1.5); } }
-      for (let j = 0; j < 2; j++) for (let q = 0; q < 4; q++) { const b = j * 5 + q; I.push(b, b + 5, b + 1, b + 1, b + 5, b + 6); }
+        for (let q = 0; q <= 2; q++) { const th = (q / 2) * Math.PI, x = c.x + side.x * Math.cos(th) * rad, z = c.z + side.z * Math.cos(th) * rad;
+          P.push(x, groundHeight(x, z) - 0.015 - 0.04 * t * t + Math.sin(th) * rad * 0.7, z); U.push(q / 2, t * L * 1.5); } }
+      for (let j = 0; j < 2; j++) for (let q = 0; q < 2; q++) { const b = j * 3 + q; I.push(b, b + 3, b + 1, b + 1, b + 3, b + 4); }
       const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2)); g.setIndex(I);
       parts.push(paint(g, { moss: 0.8, y0: -2, y1: -1 }));
     }
