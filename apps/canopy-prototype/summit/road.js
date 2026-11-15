@@ -115,7 +115,8 @@ export function buildRoad() {
     const g = new THREE.Group(); g.position.set(JEEP.x, TOP, JEEP.z); g.rotation.y = JEEP.turn; scene.add(g); JEEP.node = g;   // drive.js drives it
     fetchBytes('models/jeep_expedition.txt').then((bin) => {
       new GLTFLoader().parse(bin.buffer, '', (gl) => { let n = 0;
-        gl.scene.traverse((o) => { if (!o.isMesh) return; const m0 = o.material; o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : m0.color, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, opacity: m0.opacity, alphaTest: m0.alphaTest }), mute, 'mute');
+        const glass = hazed(new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false }), null, 'glass');   // see-through, a little tinted, as camp/jeep.js does
+        gl.scene.traverse((o) => { if (!o.isMesh) return; if (o.name.startsWith('Glass')) { o.material = glass; o.renderOrder = 2; o.castShadow = false; n += tris0(o.geometry); return; } const m0 = o.material; o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : m0.color, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, opacity: m0.opacity, alphaTest: m0.alphaTest }), mute, 'mute');
           o.castShadow = false; o.receiveShadow = true; n += tris0(o.geometry); });
         bakeStatic(gl.scene);
         // its shadow comes from seven boxes (84 triangles) round body, cab, load and wheels, not its 6k triangles; drawn depth-only, never seen
@@ -135,8 +136,7 @@ export function buildRoad() {
       path([[-22, 2.6], [-17, 2.4], [-13, 1.6], [-9, 1.4]], 2.8, '#8a7a6a', 0.55); ruts([[-24, 2.7], [-20, 2.6], [-17, 2.2], [-14.5, 1.6], [-13, 1.3]]);
       const foot = (pts) => { path(pts, 1.3, '#a99b8c', 0.45); path(pts, 0.6, '#7a6a5c', 0.5); };
       foot([[-9.5, -0.5], [-8.2, -4.5], [-5, -7], [-1.5, -7.4]]); foot([[3, -7.3], [7.4, -5.6], [7.6, 0], [6.8, 5.5], [3.5, 7.4]]);
-      foot([[2.5, 8.2], [7.5, 11], [11, 11.5], [15.5, 15.5], [19, 19.5]]); foot([[-8, 2.6], [-6, 6.5], [-2.2, 8.4]]); foot([[-9.5, 2.8], [-8.6, 2.2]]);
-      for (let i = 0; i < 26; i++) { const [x, y] = at([(r() - 0.5) * 16, 6 + r() * 11]); g.fillStyle = `rgba(70,56,44,${0.25 + 0.3 * r()})`; g.beginPath(); g.ellipse(x, y, 6 + r() * 16, 4 + r() * 9, r() * 3, 0, 7); g.fill(); } });
+      foot([[2.5, 8.2], [7.5, 11], [11, 11.5], [15.5, 15.5], [19, 19.5]]); foot([[-8, 2.6], [-6, 6.5], [-2.2, 8.4]]); foot([[-9.5, 2.8], [-8.6, 2.2]]); });   // no loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
     const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })));
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
   }

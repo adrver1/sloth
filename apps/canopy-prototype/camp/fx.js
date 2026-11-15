@@ -23,7 +23,8 @@ const sprite = (txt, size = 96) => {
     t = canvasTex(512, 128, (g) => { g.font = font; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#fff"; g.strokeStyle = "rgba(74,52,38,.55)"; g.lineWidth = 10; g.strokeText(txt, 256, 68); g.fillText(txt, 256, 68); });
     if (document.fonts?.check(font) ?? true) TEX.set(key, t); else own = true;   // painted before Fredoka loaded: this sprite's own, freed with it
   }
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); s.scale.set(1.0, 0.25, 1); s.userData.fx = own ? "own" : true; return s;
+  // no depth written: its clear quad would hide the snow, mist and breath drawn behind it after it (the Zs' boxes at the summit)
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, depthWrite: false, transparent: true })); s.scale.set(1.0, 0.25, 1); s.userData.fx = own ? "own" : true; return s;
 };
 const fx = [];
 function burst(p, txt, life, size) { const s = sprite(txt, size); s.scale.multiplyScalar(0.6); s.position.copy(p); scene.add(s); fx.push({ s, v: V(0, R(0.25, 0.55), 0), t: 0, life }); }
