@@ -33,8 +33,11 @@ function eyeKit(o) {                                   // per sloth: its body's 
   o.traverse((m) => {
     if (!m.isSkinnedMesh || m.userData.fur || !m.material.map || !shutUVs(m.geometry, m.material.map)) return;
     const base = m.material, mat = base.clone(), uShut = { value: 0 };
-    mat.onBeforeCompile = base.onBeforeCompile;   // fur.js's hook, which clone() leaves out; patchMaterial chains this one after it
-    patchMaterial(mat, "eyes", (sh) => {
+    // fur.js's hook, which clone() leaves out; patchMaterial chains this one after it. That hook is a plain function whose
+    // source is the same for every fur variant, so the id carries fur's own program key: two eye-patched fur variants on
+    // one page then get their own programs instead of sharing one
+    mat.onBeforeCompile = base.onBeforeCompile;
+    patchMaterial(mat, "eyes|" + base.customProgramCacheKey(), (sh) => {
       sh.uniforms.uShut = uShut;
       sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute vec2 uvShut;\nuniform float uShut;")
         .replace("#include <uv_vertex>", "#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = mix(vMapUv, (mapTransform * vec3(uvShut, 1.0)).xy, uShut);\n#endif");
