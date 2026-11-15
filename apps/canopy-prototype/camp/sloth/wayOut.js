@@ -17,6 +17,7 @@ import { play } from "./clips.js";
 import { barkOf, climbYaw, linePose, postPose, ropeLen, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
 import { climbV, glide, postV, slide, toGround } from "./moves.js";
 import { brush } from "./spots.js";
+import { stepAlong } from "../actor.js";
 
 const tmp = V();
 function climbDown(s, then) {
@@ -32,7 +33,7 @@ function climbDown(s, then) {
 function downPost(s, spot, top, then) {             // from the top of a post, tail first down to the ground
   play(s, "hang_walk", 1.5, -HW_POST);
   glide(s, postPose(spot, top), 3, () => slide(s, top, 0, postV(s), (y, sd, P) => postPose(spot, y, P),
-    () => { const yaw = (spot.climbYaw ?? climbYaw) + Math.PI; toGround(s, spot.door.clone().add(V(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(0.3)), yaw, then); }));
+    () => { const yaw = (spot.climbYaw ?? climbYaw) + Math.PI; toGround(s, stepAlong(spot.door.clone(), yaw, 0.3), yaw, then); }));
 }
 // out of the tent bed (Adriaen 2026-11-13: "add a climb out of bed animation", not a glide): turn to the open side and
 // crawl to the edge, reach down over it nose first, step down onto the floor, then off to the door. Tent frame: the bed

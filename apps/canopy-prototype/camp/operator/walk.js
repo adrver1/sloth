@@ -5,7 +5,7 @@
 // Exports turnToward(yaw, dt, rate) (his turn, at most rate rad/s), yawToYou() (the yaw from him to the camera), wait(s, until), walkTo(to, { near }),
 // face(yaw), faceFire(), sitOn(seat), standUp().
 import { camera } from "../core.js";
-import { V, yawTo } from "../util.js";
+import { V, wrapPi, yawTo } from "../util.js";
 import { blockers } from "../campProps.js";
 import { me } from "../player.js";
 import { groundHeight as groundAt } from "../terrain.js";   // 0 across the camp floor
@@ -69,7 +69,7 @@ function* listen() {                                   // stop and turn to you w
   yield* wait(0.6);
 }
 function* face(yaw) {                                  // turn on the spot with small steps (the walk clip, slow), easing in and out
-  let d = Math.abs(Math.atan2(Math.sin(yaw - root.rotation.y), Math.cos(yaw - root.rotation.y))); if (d < 0.05) return;
+  let d = Math.abs(wrapPi(yaw - root.rotation.y)); if (d < 0.05) return;
   const prev = cur, a = play("walk", 0.25, { speed: 0.45 });
   for (let t = 0; ; ) { const dt = yield; t += dt; const left = turnToward(yaw, dt, 2.2 * Math.min(1, 0.3 + t * 1.5, 0.25 + d)); d = left; if (left < 0.02) break; }
   play(prev === a ? "idle" : prev?.getClip().name ?? "idle", 0.3);
@@ -81,7 +81,7 @@ function* face(yaw) {                                  // turn on the spot with 
 // rises with it played forwards, his feet still planted, and walks off from there (Adriaen: he stood up into the bench).
 const SIT_REACH = 0.43, SIT_LOW = 0.02, SIT_HIGH = 1.25;    // feet ahead of the hips seated; the clip's seated and standing ends
 function seatFeet(s) {                                 // where his feet go for seat s (hips just behind its middle)
-  const fwd = V(-Math.sin(s.yaw), 0, -Math.cos(s.yaw)), f = s.at.clone().addScaledVector(fwd, SIT_REACH - 0.04);
+  const f = stepAlong(s.at.clone(), s.yaw, SIT_REACH - 0.04);
   return f.setY(groundAt(f.x, f.z) + 0.09 + (s.at.y - 0.36));   // the clip seats him for a 0.36 m top (log seats); a higher top lifts him
 }
 function* sitOn(s) {
