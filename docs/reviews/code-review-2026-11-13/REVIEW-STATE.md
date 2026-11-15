@@ -55,7 +55,7 @@ Not looked at by either review, or only in part (from both reviews' own notes; `
 - Audio by ear. Nobody in the cloud can hear it. The second review read about 300 of the then 498 lines of `audio.js`; since then it has been split into `camp/audio/context.js`, `sfx.js`, `music.js` and `watch.js` (d8e81b2), which nobody has reviewed.
 - 6 of the first review's generator findings were not re-triaged one by one in the second review (its `findings.json`, `not_retriaged`), but each is covered in substance by a named R2 finding: genbake-13 by R2-217, genbake-17 by R2-127, genbake-31 by R2-170, genbake-32 (high) by R2-207, genbake-33 by R2-214, genbake-34 by R2-024.
 - The `engine/` submodule (desk-at-night: character kit, ponytail engineer, bearded operator). It was not checked out; only GLB stats were read.
-- The sloth styles `plush` and `plush_real`, the archived `build_camp` styles, `characters/aussie_critters`.
+- The sloth styles `plush` and `plush_real`, the archived camp and jeep styles (`props/camp/archive/build_camp_styles.py`, `props/jeep/archive/build_jeep_styles.py`), `characters/aussie_critters`.
 - Other apps in `apps/` (karaoke, synth, stickers-page, playtime, catch-the-baby, fur-options, playtime-tools), the stickers renderer and packs (including the 500 KB WhatsApp limit), and the canopy pages other than `camp.html`.
 - The karaoke trip branch and its route through the glade, beyond what `glade.js` reads.
 - `glade.js`, `deadwood.js` and the `atmosphere.js` pools only in part. `tools/tours/*.json` (28 files) were not reviewed.

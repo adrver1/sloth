@@ -370,9 +370,12 @@
    "note": "the GPU bake printed \"GPU OPTIX RTX 5070 Ti\" for all 16 bake calls (gpu_run.py re-enables OptiX after each reset); a --device flag and the print inside the repo remain"
   },
   "gencamp-08": {
-   "status": "waiting on Adriaen",
-   "commits": [],
-   "note": "section D or E of code-review.md: retired code or 4K maps, needs a go-ahead"
+   "status": "fixed",
+   "commits": [
+    "c36f734",
+    "8422fe0"
+   ],
+   "note": "the archived styles' builders and their command lines live next to their GLBs (props/camp/archive/build_camp_styles.py, props/jeep/archive/build_jeep_styles.py, review R2-258); build_camp.py keeps only what picked() uses and build_jeep.py only the Expedition, its LOD and what the archive shares (body() takes the wheel and the toy's sizes as arguments). Every live and archived build makes the same geometry as before, object for object"
   },
   "gencamp-13": {
    "status": "partly fixed",
@@ -486,15 +489,16 @@
    "note": "the blockers option, the fallbacks and the optional-call guards are gone (16996b7, a6ef95e, bedef9b), and the old flame sprites with them (83de465): chores.js boostFire scales only the flame cards"
   },
   "operator-09": {
-   "status": "partly fixed",
+   "status": "fixed",
    "commits": [
     "27dda54",
     "c3f1346",
     "5795b11",
     "d7ae27c",
-    "abb4bea"
+    "abb4bea",
+    "afe9420"
    ],
-   "note": "camp/actor.js holds what the sloths and the operator share and is stateless: aimBone (a bone turned toward a point), crossFade (the clip cross-fade, with the three ways the two players differ as options), and makeZ/zAt (the sleep Zs, each character with its own sizes), with yawTo/yawFrom in camp/util.js as pure maths; the sloths' and the operator's modules use them. Left apart, because they give different numbers or work differently: turning (the sloths turn by a share of the gap after wrapPi, the operator at a capped rate after atan2(sin, cos)), walking and steering (a per-frame grid path that gives way, against a generator with blockers, movers and overtaking), the gaze then wave (a view-direction test that fades, against a screen test that resets), finishing a one-shot clip (polling against the mixer's finished event), and bites (only the sloths shrink the food)"
+   "note": "camp/actor.js is the one character layer the sloths and the operator share (review R2-212): clips (crossFade), turning (turnYaw, a share of the gap or a capped rate, each character's own numbers), a step along a yaw, the walker in the way (ahead), a wander point (ringPoint), bone aim, the gaze test and timer before a wave, the sleep Zs and bites. Each keeps its own state machine: the sloths' grid path that gives way and the operator's generator that steers round blockers and overtakes, and how a one-shot clip is known to be done"
   },
   "operator-10": {
    "status": "partly fixed",
