@@ -26,6 +26,7 @@ function buildModel(gltf, anims) {
   for (const n of ["blink", "happy"]) { const a = clips[n]; a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; }
   // a soft round shadow under him (2 triangles): the props' shadows are baked, and he moves
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0.45,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,   // a decal on the level floor (coplanar since R2-181), like the ash ring
     map: canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
       r.addColorStop(0, "rgba(30,24,16,1)"); r.addColorStop(0.55, "rgba(30,24,16,.5)"); r.addColorStop(1, "rgba(30,24,16,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }, { srgb: false, aniso: 1 }) }));
   shadow.rotation.x = -Math.PI / 2; shadow.renderOrder = 1; scene.add(shadow); root.userData.shadow = shadow;

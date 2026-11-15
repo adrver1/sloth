@@ -88,7 +88,7 @@ function buildWeather() {
       #include <colorspace_fragment>
       #include <fog_fragment>
     }`));
-  ripples.material.polygonOffset = true; ripples.material.polygonOffsetFactor = -2;
+  ripples.material.polygonOffset = true; ripples.material.polygonOffsetFactor = -2; ripples.material.polygonOffsetUnits = -4;   // 4 mm over the floor (ground.js draws it at +0.012), and offset: seen from above the factor alone does nothing
   for (const m of [streaks, ripples]) { m.frustumCulled = false; m.visible = false; scene.add(m); }
 }
 
@@ -99,7 +99,7 @@ const dry = (x, z, y) => y <= 3.4 && TENT.dry(x, z);
 function splash(x, z, cx, cz) {
   const o = nextRip * 4;
   if ((x - cx) ** 2 + (z - cz) ** 2 > RIP_R * RIP_R || uT.value - rip[o + 3] < RIP_LIFE) return;
-  rip[o] = x; rip[o + 1] = groundHeight(x, z) + 0.01; rip[o + 2] = z; rip[o + 3] = uT.value;
+  rip[o] = x; rip[o + 1] = groundHeight(x, z) + 0.016; rip[o + 2] = z; rip[o + 3] = uT.value;
   nextRip = (nextRip + 1) % RIPS;
   ripAttr.needsUpdate = true;
 }
