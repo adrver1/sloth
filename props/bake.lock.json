@@ -244,5 +244,38 @@
    "props/lived/laundry.glb": "e7404d2d91c84bbd5acc",
    "props/lived/lived.glb": "708687d08ff988b6fd59"
   }
+ },
+ "summit": {
+  "inputs": {
+   "apps/canopy-prototype/summit/cabin.js": "35a7b8a7f411dfe0d227",
+   "apps/canopy-prototype/summit/core.js": "c44b31cb6853100407e8",
+   "apps/canopy-prototype/summit/forest.js": "8fe5fa0b7deab5468f92",
+   "apps/canopy-prototype/summit/land.js": "b0e59bb4cfa899330df4",
+   "apps/canopy-prototype/summit/lightmap.js": "01af77baf3dd0b0e86ca",
+   "blender": "Blender 5.2.3 LTS",
+   "cmd": [
+    "--samples",
+    "512"
+   ],
+   "gpu_run": "e328913e45a575da6356",
+   "props/lib/__init__.py": "d180aa4c93d9a77ba6b4",
+   "props/lib/audit.py": "af4f642b36fba0188e63",
+   "props/lib/bake.py": "b07146872302830317bf",
+   "props/lib/export.py": "4f582d21149dff819450",
+   "props/lib/materials.py": "43727daca33bbe4e7fff",
+   "props/lib/mesh.py": "4d591cb38b7eeceeb9d8",
+   "props/lib/quantize.py": "f6b5791c66c9a232f210",
+   "props/summit/bake_summit_lightmap.py": "c594c726cf6c168d434f",
+   "props/summit/export_summit.cjs": "a0b538f330f1cb2e0dc4"
+  },
+  "outputs": {
+   "apps/canopy-prototype/models/summit_lm.json": "39d35f7f88d2db9c566a",
+   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "bfb950b23648e3e37b8b",
+   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "807920af0c0e8098141f",
+   "apps/canopy-prototype/models/summit_lm_night_1k.png": "69605bb8b67c8dfba4a6",
+   "apps/canopy-prototype/models/summit_lm_night_2k.png": "a1e179516778edb096e3",
+   "props/summit/summit_layout.json": "8fac3ba38358a0ec8307",
+   "props/summit/summit_static.glb": "06bf951d6f84a272c2b2"
+  }
  }
 }
