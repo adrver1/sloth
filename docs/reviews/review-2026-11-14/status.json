@@ -59,9 +59,11 @@
     "needs_rebake": false
    },
    "canopy_haze": {
-    "status": "blocked",
-    "note": "Explained, no change: the backdrop is now a 34 m cylinder at 40 m (top 27 m) that follows the camera, so its top is about 40 deg up from the eye at 30 m and about 32 deg at 40 m; above that the sky dome's haze shows. A taller backdrop (43 m) would close it but also stretches the painted trees 1.26x vertically (nearer main's proportions); waiting on Adriaen to judge from a screenshot beside main (blocked: his go-ahead).",
-    "commits": [],
+    "status": "fixed",
+    "note": "Fixed in 048edcf, Adriaen's pick \"both tweaks\" (2026-11-15): the backdrop and both sky domes stay at FAR (40 m) but are drawn FAR/30 times taller and higher, so they fill the same angles as at 30 m on main, so the painted trees look as they did on main, and by day the backdrop no longer fades into the sky at its top; the fade comes only with dusk, as on main. Same draws, triangles and programs.",
+    "commits": [
+     "048edcf"
+    ],
     "needs_rebake": false
    },
    "operator_shadow": {
