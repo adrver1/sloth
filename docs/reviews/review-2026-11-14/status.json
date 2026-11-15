@@ -59,8 +59,8 @@
     "needs_rebake": false
    },
    "canopy_haze": {
-    "status": "not_applicable",
-    "note": "Explained, no change: the backdrop is now a 34 m cylinder at 40 m (top 27 m) that follows the camera, so its top is about 40 deg up from the eye at 30 m and about 32 deg at 40 m; above that the sky dome's haze shows. A taller backdrop (43 m) would close it but also stretches the painted trees 1.26x vertically (nearer main's proportions); left for Adriaen to judge from a screenshot beside main.",
+    "status": "blocked",
+    "note": "Explained, no change: the backdrop is now a 34 m cylinder at 40 m (top 27 m) that follows the camera, so its top is about 40 deg up from the eye at 30 m and about 32 deg at 40 m; above that the sky dome's haze shows. A taller backdrop (43 m) would close it but also stretches the painted trees 1.26x vertically (nearer main's proportions); waiting on Adriaen to judge from a screenshot beside main (blocked: his go-ahead).",
     "commits": [],
     "needs_rebake": false
    },
@@ -1686,7 +1686,7 @@
    ],
    "needs_rebake": false,
    "lane": "fx-gen-jeep",
-   "followup": "The rebake rebuilt the jeep with it: 5,371 triangles in 10 meshes on the page, 638 in the LOD. Verified on the real GPU after rebake 8dae856."
+   "followup": "The rebake rebuilt the jeep with it: 5,347 triangles in 10 meshes (models/jeep_expedition.txt), 638 in the LOD. Verified on the real GPU after rebake 8dae856."
   },
   "R2-249": {
    "status": "fixed",
@@ -1864,7 +1864,7 @@
    ],
    "needs_rebake": false,
    "lane": "fx-operator",
-   "followup": "The run-time triangle cutting in activities/fruitBowl.js can only go once camp_picked_lm.txt is rebaked. The rebake put the FruitBowl in camp_picked_lm.txt, and 7f8b34c removed the run-time plate cutting and tomato filter. Verified on the real GPU after rebake 8dae856."
+   "followup": "The rebake put the FruitBowl in camp_picked_lm.txt, and 7f8b34c removed the run-time plate cutting and tomato filter. Verified on the real GPU after rebake 8dae856."
   },
   "R2-160": {
    "status": "fixed",
@@ -1909,7 +1909,7 @@
   },
   "R2-164": {
    "status": "fixed",
-   "note": "terrain.js drops the third fbm octave (ground.js paints it as shading) and wall trunks sit at their lowest ground, so no trunk base floats; the regenerated height grid (-0.19 to +0.26 m in forest cells) reaches the baked ground only with the ground and light rebake.",
+   "note": "terrain.js drops the third fbm octave (ground.js paints it as shading) and wall trunks sit at their lowest ground, so no trunk base floats; the regenerated height grid (-0.19 to +0.26 m in forest cells) reached the baked ground with the ground and light rebake 8dae856, which carried the new height grid.",
    "commits": [
     "4dde207",
     "a3f5317",
@@ -1917,7 +1917,7 @@
    ],
    "needs_rebake": false,
    "lane": "fx-world",
-   "followup": "So R2-164 does depend on the light and ground rebake, which is already pending for R2-184 and covers it. Verified on the real GPU after rebake 8dae856."
+   "followup": "R2-164 depended on the light and ground rebake, which ran for R2-184 too (8dae856). Verified on the real GPU after rebake 8dae856."
   },
   "R2-165": {
    "status": "fixed",
@@ -1970,7 +1970,7 @@
   },
   "R2-170": {
    "status": "fixed",
-   "note": "--size now defaults to 2048 and a props bake under 4096 deletes the stale 4K maps, so ?lm=4k falls back to the 2K maps; it takes effect with the rebake.",
+   "note": "--size now defaults to 2048 and a props bake under 4096 deletes the stale 4K maps, so ?lm=4k falls back to the 2K maps; it took effect with 8dae856.",
    "commits": [
     "9dbd21a",
     "1cef260",
@@ -2043,7 +2043,7 @@
   },
   "R2-177": {
    "status": "fixed",
-   "note": "Option C: the hammock is a coarse 8x4 one-sided sling drawn from both sides, painted from props/camp/camp_paint.png, with one alpha card of painted strings per end (Hammock 84 + HammockPosts 32 tris); the page falls back to the old materials until the rebake ships the atlas.",
+   "note": "Option C: the hammock is a coarse 8x4 one-sided sling drawn from both sides, painted from props/camp/camp_paint.png, with one alpha card of painted strings per end (Hammock 84 + HammockPosts 32 tris); the atlas shipped in 8dae856.",
    "commits": [
     "00b0b08",
     "8dae856"
@@ -2290,7 +2290,7 @@
   },
   "R2-198": {
    "status": "fixed",
-   "note": "The log seat keeps today's look and loses only wasted faces: its two stumps go from 14 to 10 sides (Seat 104 -> 88 in the builder; the shipped bake still has 164 per seat).",
+   "note": "The log seat keeps today's look and loses only wasted faces: its two stumps go from 14 to 10 sides (Seat 104 -> 88 in the builder; Seat 88 shipped in 8dae856).",
    "commits": [
     "93cff1a",
     "8dae856"
@@ -2344,7 +2344,7 @@
   },
   "R2-203": {
    "status": "fixed",
-   "note": "Option C: the tent canvas, seams, hem, patch and bed are painted from the shared atlas, the side walls are one column and four guy ropes run to pegs that the page blocks once the Tent node carries them (Tent 876 tris in the builder, 826 shipped).",
+   "note": "Option C: the tent canvas, seams, hem, patch and bed are painted from the shared atlas, the side walls are one column and four guy ropes run to pegs that the page blocks once the Tent node carries them (Tent 876 tris in the builder, 876 shipped).",
    "commits": [
     "00b0b08",
     "ba41f51",
@@ -2482,7 +2482,7 @@
    ],
    "needs_rebake": false,
    "lane": "fx-hygiene",
-   "followup": "The rest waits for the next rebake and Adriaen's go-ahead: commit .glb/.ktx2 as the source, generate the base64 copies at publish time, flip the default meta and clean up .gitattributes/.gitignore."
+   "followup": "The rest waits only for Adriaen's go-ahead: commit .glb/.ktx2 as the source, generate the base64 copies at publish time, flip the default meta and clean up .gitattributes/.gitignore."
   },
   "R2-215": {
    "status": "partly",

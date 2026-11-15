@@ -141,11 +141,14 @@ function painted(m) {
 }
 // stand: moves every node of a loaded props GLB into the scene where its anchor tag says (userData.anchor, a key of layout.js
 // ANCHORS, written by the bake from props/lib/export.py tag, review R2-249), or onto its log seat ("seats": layout.js
-// SEATS[userData.seat]). Nodes with no anchor are left out.
+// SEATS[userData.seat]). A node with no usable anchor (none, an unknown one, or "seats" with no seat index) is left out, and
+// a console error names it if it holds a mesh: the model needs a rebuild (props/bake_all.py) or layout.js the anchor.
 function stand(root) {
   for (const o of [...root.children]) {
     const k = o.userData.anchor, A = k === "seats" ? SEATS[o.userData.seat] : ANCHORS[k];
-    if (A) { o.position.set(A.at.x, 0, A.at.z); o.rotation.set(0, A.yaw, 0); scene.add(o); }
+    if (A) { o.position.set(A.at.x, 0, A.at.z); o.rotation.set(0, A.yaw, 0); scene.add(o); continue; }
+    let mesh = false; o.traverse((c) => { mesh ||= c.isMesh; });
+    if (mesh) console.error(`${o.name} has no usable anchor (anchor ${k}, seat ${o.userData.seat}); it is left out. Rebuild the model (props/bake_all.py) or add the anchor to layout.js`);
   }
 }
 // buildProps (main.js, once, after the forest): the lanterns, the fire's light, the sunbeams and motes, then (once their downloads are
@@ -197,7 +200,11 @@ async function buildProps() {
     const P = await PRE.props;
     fromModel(P.scene.getObjectByName("Tent")?.userData, P.scene.getObjectByName("Hammock")?.userData);   // the tent's and hammock's sizes (layout.js)
     const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
-    P.scene.traverse((m) => { if (m.isMesh) m.material = m.userData.paint_image && m.material.map ? painted(m) : m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : lamL; });   // the hammock posts are textured (bamboo.png, review R2-169)
+    P.scene.traverse((m) => {
+      if (!m.isMesh) return;
+      if (m.userData.paint_image && !m.material.map) console.error(`${m.name} names the paint atlas (${m.userData.paint_image}) but has no map; it falls back to vertex colours. Rebuild the props (props/bake_all.py)`);
+      m.material = m.userData.paint_image && m.material.map ? painted(m) : m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : lamL;
+    });   // the hammock posts are textured (bamboo.png, review R2-169)
     stand(P.scene);   // the seats (Seat_0-2, each lit where it stands), the tent, the hammock with its posts and the table
   }
   // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its
