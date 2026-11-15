@@ -121,7 +121,9 @@ def ao_times_base(me):
 
 
 def flat_colours(objs):
-    """Plain base colours into "Col" (alpha 0 on faces whose material has the "glow" property), one "Baked" material each."""
+    """Plain base colours into "Col" (alpha 0 on faces whose material has the "glow" property), one "Baked" material each.
+    An object with a "paint_image" property (the name of a loaded image: build_camp.py paint_uvs) keeps that image on its
+    UV0 in its Baked material (lib.materials.baked_material), for the page to multiply over the colours."""
     for o in objs:
         me = o.data
         for c in list(me.color_attributes):
@@ -132,7 +134,7 @@ def flat_colours(objs):
         per_face = np.array(slots, np.float32)[_face_materials(me) if me.materials else np.zeros(len(me.polygons), np.int64)]
         col.data.foreach_set("color", corner_values(me, per_face).ravel())
         me.color_attributes.active_color = col
-        m = baked_material()
+        m = baked_material(image=bpy.data.images.get(o.get("paint_image", "")) if o.get("paint_image") else None)
         me.materials.clear(); me.materials.append(m)
 
 

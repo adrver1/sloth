@@ -12,6 +12,10 @@ function per prop, which the archived styles share: rustic_mats(), rustic_seat(M
 wall_tent(), stove_kettle(M, at), jungle_mats(), jungle_hammock(M), textured_posts(name, feet, h, r) and
 sag_sheet(span, width, depth, at, m_a, ...).
 
+The tent's canvas and bed and the hammock's sling and end cards are painted, not modelled (reviews R2-177 and R2-203, option
+C): picked() writes the atlas camp_paint.png (paint_camp.py), and paint_uvs(o, rule) lays each object's UV0 into it and tags
+it (paint_image) so the light bake keeps the image beside the light-map UVs; the page multiplies it over the vertex colours.
+
 The three earlier styles (Storybook, Rustic, Jungle) and the first pre-light-map picked GLB are archived (camp review,
 Adriaen 2026-11-12): their GLBs and their builders, with the command line that remakes them, are in props/camp/archive/
 (build_camp_styles.py, with a README; review R2-258). The page no longer offers them.
@@ -29,6 +33,8 @@ sys.path.insert(0, os.path.dirname(HERE))
 from lib.export import tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, bisect, box, cyl, drop_faces, drop_ground_faces, join, mesh_obj, mug, obj_from_bm, rod, rough_up, sweep, with_material  # noqa: E402
+sys.path.insert(0, HERE)
+import paint_camp  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
 SEAT_TOP = 0.36                   # rustic_seat(): the height of its flat sawn top (the log along X); build_lived.py sets things on it
@@ -36,6 +42,7 @@ SEAT_BOARD = (1.48, 0.46)         # the sawn-top quad build_lived.py lays on it:
 DOOR_PLANK = 0.03                 # wall_tent(): the top of the loose planks before the door (build_lived.py stands the wellies on it)
 BAMBOO_PNG = os.path.join(os.path.dirname(HERE), "lived", "bamboo.png")   # the fire tripod's bamboo (build_fire.py writes it)
 TEXTURED = ("HammockPosts",)      # picked() objects that keep their image (the light bake gives the others flat colours)
+PAINT_PNG = os.path.join(HERE, "camp_paint.png")   # the painted atlas (paint_camp.py) of the hammock and the tent: paint_uvs
 
 
 # ------------------------------------------------------------------ helpers (the shared ones are in props/lib)
@@ -56,6 +63,23 @@ def textured_posts(name, feet, h, r, sides=6, tile=0.6):
             lp[uv].uv = (0.5, 0.01)                                  # the node colour
     o = obj_from_bm(bm, name)
     o.data.materials.append(image_material(name, BAMBOO_PNG))
+    return o
+
+
+def paint_uvs(o, rule):
+    """Lays o's UV0 (its only UV layer, "UVMap") into the painted atlas camp_paint.png (paint_camp.py, reviews R2-177 and
+    R2-203): rule(material name, polygon) gives a function of a corner's position -> (region, u, v), or None for the
+    atlas's plain white block. Tags o with the atlas (paint_image, the image's name), so the light bake keeps the image
+    and UV0 beside its flat colours (lib.bake.flat_colours), and the page multiplies it over them (campProps.js). Returns o."""
+    me = o.data
+    while me.uv_layers:
+        me.uv_layers.remove(me.uv_layers[0])
+    layer = me.uv_layers.new(name="UVMap")
+    for p in me.polygons:
+        f = rule(me.materials[p.material_index].name, p)
+        for li in p.loop_indices:
+            layer.data[li].uv = paint_camp.uv(*f(me.vertices[me.loops[li].vertex_index].co)) if f else paint_camp.PLAIN
+    o["paint_image"] = bpy.data.images.load(PAINT_PNG, check_existing=True).name
     return o
 
 
@@ -168,7 +192,7 @@ def wall_tent():
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),
         fascia=(0.36, 0.26, 0.17), pipe=(0.22, 0.22, 0.24), glow=(0.45, 0.16, 0.06), stone=(0.45, 0.44, 0.42),
-        ticking=(0.84, 0.82, 0.76), blanket=(0.62, 0.2, 0.15), pillow=(0.94, 0.93, 0.9),
+        ticking=(1, 1, 1), blanket=(1, 1, 1), pillow=(1, 1, 1),         # white: the atlas holds the bed's colours (paint_camp.py)
         iron=(0.15, 0.15, 0.16), brass=(0.72, 0.56, 0.26), tin=(0.55, 0.56, 0.58)).items()}
     M["glow"]["glow"] = 1                       # the stove's fire window glows at night (lib.bake.flat_colours)
     W, D, E, H, Y0, Z0 = 1.4, 1.225, 1.3, 2.7, 0.275, 0.0    # half width, half depth, wall height, ridge, body offset, floor (the back stays
@@ -187,19 +211,19 @@ def wall_tent():
                 F.append(q[::-1] if flip else q); FM.append(mi[mf(i, j)])
     def face(pts, m):
         base = len(V); V.extend(pts); F.append(tuple(range(base, base + len(pts)))); FM.append(mi[m])
-    # roof: two slopes, 6 panels front to back (alternating cream so the seams read), sagging a little between poles
+    # roof: two slopes, 6 panels front to back (one cream: the seams are painted, camp_paint.png), sagging a little between poles
     ex, ez = W + 0.1, Z0 + E - 0.05
     for s in (1, -1):
         def roof(u, v, s=s):
             y = Y0 - D - 0.12 + (2 * D + 0.24) * u
             sag = 0.05 * math.sin(math.pi * v) * (0.4 + 0.6 * abs(math.sin(math.pi * u * 3)))
             return (s * ex * (1 - v), y, ez + (Z0 + H - ez) * v - sag)
-        quad_grid(roof, 6, 3, lambda i, j: "canvas" if i % 2 else "canvas2", flip=s < 0)
-    # side walls, flaring a touch to the ground, with a dirty hem: one column, since x and z vary only up the wall (R2-169)
+        quad_grid(roof, 6, 3, lambda i, j: "canvas", flip=s < 0)
+    # side walls, flaring a touch to the ground: one column, since x and z vary only up the wall (R2-169); the hem's dirt is painted
     for s in (1, -1):
         zs = (Z0, Z0 + 0.13, Z0 + E + 0.06)          # tops tucked up under the roof, no slit to the sky
         quad_grid(lambda u, v, s=s: (s * (W + 0.05 * (1 - v)), Y0 - D + 2 * D * u, zs[round(v * 2)]), 1, 2,
-                  lambda i, j: "hem" if j == 0 else "canvas", flip=s < 0)
+                  lambda i, j: "canvas", flip=s < 0)
     # back gable (faces +Y) and the front (faces -Y) round the open doorway; both flare at the foot like the side walls
     yb, yf = Y0 + D, Y0 - D
     zg = lambda x: Z0 + E + 0.06 + (H - E - 0.06) * (1 - abs(x) / W)      # the gable's sloping top edge
@@ -277,13 +301,18 @@ def wall_tent():
     p.append(pole((-DW - 0.12, yf - 0.08, DH + 0.09), (DW + 0.12, yf - 0.08, DH + 0.09), 0.08, M["canvas2"]))
     for x in (-DW + 0.08, DW - 0.08):
         p.append(pole((x - 0.03, yf - 0.08, DH + 0.09), (x + 0.03, yf - 0.08, DH + 0.09), 0.09, M["rope"]))
-    # the bed along the left wall, head at the back (Adriaen: feet not by the stove): a plank box, a ticking mattress,
-    # a red blanket over the foot end and a pillow at the head
+    # the bed along the left wall, head at the back (Adriaen: feet not by the stove), soft (review R2-203): a plank frame, a
+    # ticking mattress with rounded top edges, a red blanket draping over the room side and the foot, and a puffy pillow
     bx, by = -W + 0.48, yb - 0.06 - 0.95
-    p.append(box((0.84, 1.9, 0.3), at=(bx, by, 0.15), m=M["plank2"]))
-    p.append(box((0.8, 1.86, 0.14), at=(bx, by, 0.37), m=M["ticking"]))
-    p.append(box((0.88, 1.25, 0.06), at=(bx, by - 0.3, 0.45), m=M["blanket"]))
-    p.append(box((0.56, 0.3, 0.1), at=(bx, yb - 0.3, 0.49), rot=(0, 0, 0.05), m=M["pillow"]))
+    p += soft_bed(M, bx, by, yb)
+    # four guy ropes from the eave poles to wooden pegs (R2-203), kept clear of the footpath and the laundry line by
+    # their -x side: pegs PEG_OUT across from the middle, PEG_Y either side of the body's middle along it
+    PEG_OUT, PEG_Y = 2.1, 0.475
+    pegs = [(s * PEG_OUT, Y0 + t * PEG_Y) for s in (-1, 1) for t in (-1, 1)]
+    for x, y in pegs:
+        s = 1 if x > 0 else -1
+        p.append(rod((s * (W + 0.12), y, ez + 0.03), (x, y, 0.06), 0.011, M["rope"], verts=3, caps=False))
+        p.append(rod((x + s * 0.02, y, -0.04), (x + s * 0.05, y, 0.13), 0.022, M["pole"], verts=3, caps=True))
     # the wood stove on the right on a stone pad (Adriaen: a bit more detail): a cast-iron box with a wider top plate,
     # a framed fire door with a glowing window and a brass handle, an ash lip, splayed legs, a pipe collar and a kettle
     sx, sy = STOVE[0], STOVE[1]
@@ -310,12 +339,86 @@ def wall_tent():
         p.append(rod((sx + lx, sy + 0.12 + ly, top - 0.03), (sx + lx * 1.4, sy + 0.12 + ly * 1.4, top + 0.065), 0.006, M["iron"], verts=3))
     t = join(p, "Tent")
     t["coarse"] = True
+    paint_uvs(t, tent_paint(W, D, E, H, Y0, Z0, ez, bx, by, yb))
     # the sizes the page needs, in the tent's own frame (x across, y toward the back, z up), as glTF extras on the Tent
     # node (the light bake exports them; camp/layout.js fromModel reads them, review R2-250): the walls' half width, front
     # and back, the doorway's half width, the stove (x, y), the stovepipe's mouth (x, y, z) and the middle of the bed (x, y)
     for k, v in dict(W=W, yf=yf, yb=yb, DW=DW, stove=(sx, sy), chimney=(sx, sy + 0.12, top), bed=(bx, by)).items():
         t[k] = [round(c, 4) for c in v] if isinstance(v, tuple) else round(v, 4)
+    t["pegs"] = [[round(x, 4), round(y, 4)] for x, y in pegs]      # the guy ropes' pegs (tentInside.js blocks them)
     return t
+
+
+def tent_paint(W, D, E, H, Y0, Z0, ez, bx, by, yb):
+    """paint_uvs' rule for the wall tent (review R2-203): the roof slopes and the lining on the atlas's roof region (along the
+    ridge, up the slope), the side walls on the wall region (the +x, stove-side wall on the one with the patch), the gables
+    on the gable region, the mattress, blanket and pillow on theirs; everything else plain."""
+    y0, ly = Y0 - D - 0.12, 2 * D + 0.24
+    def rule(m, poly):
+        n = poly.normal
+        if m == "wt_canvas":
+            if abs(n.x) > 0.7:
+                return lambda co: ("wallPatch" if n.x > 0 else "wall", (co.y - (Y0 - D)) / (2 * D), (co.z - Z0) / (E + 0.06))
+            return lambda co: ("roof", (co.y - y0) / ly, (co.z - ez) / (Z0 + H - ez))
+        if m == "wt_canvas2" and abs(n.y) > 0.9:
+            return lambda co: ("gable", (co.x + W + 0.05) / (2 * W + 0.1), (co.z - Z0) / H)
+        if m == "wt_lining":
+            return lambda co: ("roof", (co.y - y0) / ly, (co.z - Z0) / H)
+        if m == "wt_ticking":
+            return lambda co: ("ticking", (co.x - bx + 0.42) / 0.84 + (0.44 - co.z) * 2, (co.y - by + 0.95) / 1.9)
+        if m == "wt_blanket":
+            return lambda co: ("blanket", (co.x - bx + 0.4) / 0.85, (co.y - by + 0.985) / 1.35)
+        if m == "wt_pillow":
+            return lambda co: ("pillow", (co.x - bx + 0.3) / 0.6, (co.y - (yb - 0.3) + 0.17) / 0.34)
+        return None
+    return rule
+
+
+def soft_bed(M, bx, by, yb):
+    """The tent's bed (review R2-203, 120 triangles): the plank frame with no bottom (10), a mattress with rounded top edges
+    and no bottom (26), a blanket over the foot two thirds that drapes down the room side (+x) and the foot end (60), and a
+    puffy pillow, top only, lying on the mattress (24). Its stripes, band and piping are painted (paint_camp.py)."""
+    out = []
+    hx, hy = 0.42, 0.95
+    V = [(bx + sx * hx, by + sy * hy, z) for z in (0.0, 0.3) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    out.append(mesh_obj("bedframe", V, [(4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], (M["plank2"],)))
+    hx, hy, z0, z1, r = 0.4, 0.93, 0.3, 0.44, 0.035
+    rings = [(0.0, z0), (0.0, z1 - r), (r * 0.3, z1 - r * 0.3), (r, z1)]          # (inset, z) up the edge
+    V = [(bx + sx * (hx - ins), by + sy * (hy - ins), z) for ins, z in rings for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    F = [(k * 4 + i, k * 4 + (i + 1) % 4, k * 4 + (i + 1) % 4 + 4, k * 4 + i + 4) for k in range(len(rings) - 1) for i in range(4)]
+    F.append(tuple(range((len(rings) - 1) * 4, len(rings) * 4)))
+    out.append(smooth(mesh_obj("mattress", V, F, (M["ticking"],))))
+    xs = [(-0.395, 0.462), (-0.1, 0.47), (0.25, 0.47), (0.398, 0.452), (0.43, 0.37), (0.445, 0.24)]       # across: (x off, z)
+    ys = [(-0.985, 0.24), (-0.965, 0.37), (-0.935, 0.452), (-0.5, 0.47), (0.0, 0.47), (0.3, 0.485), (0.36, 0.47)]   # along
+    V = []
+    for i, (xo, zx) in enumerate(xs):
+        for j, (yo, zy) in enumerate(ys):
+            wob = 0.014 * math.sin(yo * 11 + 1.3) if i >= 4 else 0.0
+            wob2 = 0.012 * math.sin(xo * 13) if j <= 1 else 0.0
+            V.append((bx + xo + wob, by + yo + wob2, min(zx, zy) + (0.012 if j == 5 and i < 4 else 0.0)))
+    nv = len(ys)
+    F = [(i * nv + j, (i + 1) * nv + j, (i + 1) * nv + j + 1, i * nv + j + 1) for i in range(len(xs) - 1) for j in range(nv - 1)]
+    out.append(smooth(mesh_obj("blanket", V, F, (M["blanket"],))))
+    cx, cy, L, Wd, Hh, nu, nw = bx, yb - 0.3, 0.27, 0.15, 0.085, 4, 3
+    V = []
+    for i in range(nu + 1):
+        for j in range(nw + 1):
+            u, w = i / nu, j / nw
+            h = Hh * (math.sin(math.pi * u) * math.sin(math.pi * w)) ** 0.6
+            x, y = (u - 0.5) * 2 * L * (1 + 0.06 * math.sin(math.pi * w)), (w - 0.5) * 2 * Wd * (1 + 0.08 * math.sin(math.pi * u))
+            V.append((cx + x, cy + y, 0.445 + h))
+    F = [(i * (nw + 1) + j, (i + 1) * (nw + 1) + j, (i + 1) * (nw + 1) + j + 1, i * (nw + 1) + j + 1) for i in range(nu) for j in range(nw)]
+    o = smooth(mesh_obj("pillow", V, F, (M["pillow"],)))
+    o.rotation_euler = (0, 0, 0.05)
+    out.append(o)
+    return out
+
+
+def smooth(o):
+    """o with every face smooth-shaded; returns o."""
+    for pl in o.data.polygons:
+        pl.use_smooth = True
+    return o
 
 def stove_kettle(M, at):
     """The kettle on the tent stove (Adriaen 2026-11-12: not one solid chunk, as light as the enamel mug): an 8-sided
@@ -357,13 +460,44 @@ ROPE = (1.75, 1.35)   # the hammock's ropes: the knot's height on the post and t
 
 
 def jungle_hammock(M):
-    """The woven hammock (picked): a coarse striped sling, 8 x 4 quads on both sides (camp review 2026-11-12), and its two
-    ropes. It has no posts of its own: picked() makes them as the textured HammockPosts (review R2-169). The archived
-    jungle style's hammock, on modelled bamboo posts with leaves on top, is archive/build_camp_styles.py jungle_hammock."""
-    h = HAMMOCK_SPAN / 2
-    p = [rod((s * h, 0, ROPE[0]), (s * (h - 0.4), 0, ROPE[1]), 0.012, M["rope"], verts=4) for s in (-1, 1)]
-    p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4, nx=8, ny=4))
-    return rope_extras(join(p, "Hammock"))
+    """The hammock (picked; Adriaen's pick C of review R2-177): its detail is painted, not modelled. A coarse 8 x 4 sling,
+    one-sided (the page draws it from both sides: the double_sided tag), gathered to 0.42 m at its ends and sagging a
+    little more across the middle where the sloth lies (its lowest point stays 0.70 m up, as before); at each end one
+    card from the sling's end up to a small ring, with the fan of six strings painted on it (alpha, the cutout tag), and
+    one rope from the ring to the knot on the post. The sling's bands, weave, rolled hems and pleats and the strings are in
+    camp_paint.png (paint_camp.py: sling, card). The ring sits on the line from the knot to the sling's end, so the rope
+    and the card are the path rope_extras gives the sloths' climb. 84 triangles: sling 64, cards 4, ropes 16.
+    It has no posts of its own: picked() makes them as the textured HammockPosts (review R2-169). The archived jungle
+    style's hammock is archive/build_camp_styles.py jungle_hammock."""
+    h, nx, ny = HAMMOCK_SPAN / 2, 8, 4
+    x0, zend, width, endw, dip, cross = h - 0.4, ROPE[1], 0.95, 0.42, 0.5, 0.15
+    half = lambda u: endw / 2 + (width - endw) / 2 * math.sin(math.pi * u) ** 0.6
+    sling_m, card_m = mat("ju_sling", (1, 1, 1)), mat("ju_card", (1, 1, 1))   # white: the atlas holds their colours
+    V, F = [], []
+    for i in range(nx + 1):
+        u = i / nx
+        w = math.sin(math.pi * u)
+        for j in range(ny + 1):
+            v = j / ny - 0.5
+            V.append(((2 * u - 1) * x0, 2 * v * half(u), zend - dip * w - cross * w * w * (1 - 4 * v * v)))
+    F = [(i * (ny + 1) + j, (i + 1) * (ny + 1) + j, (i + 1) * (ny + 1) + j + 1, i * (ny + 1) + j + 1) for i in range(nx) for j in range(ny)]   # facing up
+    p = [mesh_obj("sling", V, F, (sling_m,))]
+    for s in (-1, 1):
+        ring = Vector((s * (x0 + 0.19), 0, zend + 0.19))               # on the line from the knot (h, ROPE[0]) to the sling's end
+        e = (s * x0, half(0), zend)
+        p.append(mesh_obj("card", [(e[0], -e[1], e[2]), e, ring + Vector((0, 0.03, 0)), ring - Vector((0, 0.03, 0))], [(0, 1, 2, 3)], (card_m,)))
+        p.append(rod((s * h, 0, ROPE[0]), ring, 0.012, M["rope"], verts=4, caps=False))
+    o = join(p, "Hammock")
+
+    def rule(m, poly):
+        if m == "ju_sling":
+            return lambda co: ("sling", (co.x / x0 + 1) / 2, 0.5 + co.y / (2 * half((co.x / x0 + 1) / 2)))
+        if m == "ju_card":   # u across the card (0 at -y), v from the sling's end (0) to the ring (1)
+            return lambda co: ("card", 0.0 if co.y < 0 else 1.0, 0.0 if abs(co.x) < x0 + 0.01 else 1.0)
+        return None
+    o["double_sided"] = 1          # the audit's and the page's: drawn from both sides
+    o["cutout"] = 1                # the page: alpha-tested (the painted strings)
+    return rope_extras(paint_uvs(o, rule))
 
 
 def rope_extras(o):
@@ -385,6 +519,7 @@ def picked():
     faces that point down onto the ground (lib/mesh.py drop_ground_faces, review R2-154). Each is tagged with where the page stands it (lib.export.tag, review R2-249): the
     posts stand in the hammock's frame. "FruitBowl" is the plate, a child of "Table" with no tag of its own
     (review R2-159): whoever places the Table moves it too."""
+    paint_camp.paint(PAINT_PNG)                 # the hammock's and the tent's painted atlas, the same pixels every run
     R, J = rustic_mats(), jungle_mats()
     seat, (table, bowl) = rustic_seat(R), rustic_table(R)
     hammock = jungle_hammock(J)

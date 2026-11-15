@@ -113,6 +113,31 @@ const lnight = (mat) => {
 #include <opaque_fragment>`]);
   });
 };
+// painted: the tent's and the hammock's material, their painted atlas (props/camp/paint_camp.py camp_paint.png, on UV0) over
+// their vertex colours (reviews R2-177 and R2-203); a camp set baked before them has no atlas and keeps lamL. Tags from
+// build_camp.py: double_sided (the hammock's one-sided sling and end cards, lit from below as from above), cutout (the cards' painted strings: alpha
+// to coverage, so their edges stay soft with MSAA, and alpha scaled up with the mip level, so far off a 4 px string does not
+// fade below the test and vanish). One material per kind, shared by the meshes that need it. The tent is never cut out: its
+// glow faces carry vertex alpha 0 (lnight's glowK).
+const PAINTED = new Map();
+function painted(m) {
+  const two = !!m.userData.double_sided, cut = !!m.userData.cutout, key = `${two}|${cut}`;
+  if (!PAINTED.has(key)) {
+    const map = m.material.map; map.anisotropy = 4;
+    const mat = lnight(new THREE.MeshLambertMaterial({ map, vertexColors: true, side: two ? THREE.DoubleSide : THREE.FrontSide,
+      ...(cut && { alphaTest: 0.4, alphaToCoverage: true }) }));
+    if (two) patchMaterial(mat, "twoSide", (sh) => {   // thin cloth lit alike from both sides: the underside keeps the top's normal (three flips it), as the bake lit only the top
+      sh.fragmentShader = swap(sh.fragmentShader, ["#include <normal_fragment_begin>", "#include <normal_fragment_begin>\n  normal *= faceDirection;"]);
+    });
+    if (cut) patchMaterial(mat, "mipAlpha", (sh) => {
+      sh.fragmentShader = swap(sh.fragmentShader, ["#include <map_fragment>", `#include <map_fragment>
+  vec2 mipT = vMapUv * vec2(textureSize(map, 0)); float mipL = max(0.0, 0.5 * log2(max(dot(dFdx(mipT), dFdx(mipT)), dot(dFdy(mipT), dFdy(mipT)))));
+  diffuseColor.a *= 1.0 + 0.25 * mipL;`]);
+    });
+    PAINTED.set(key, mat);
+  }
+  return PAINTED.get(key);
+}
 // stand: moves every node of a loaded props GLB into the scene where its anchor tag says (userData.anchor, a key of layout.js
 // ANCHORS, written by the bake from props/lib/export.py tag, review R2-249), or onto the log seats ("seats": userData.seat,
 // or one copy on each seat). Nodes with no anchor are left out.
@@ -181,7 +206,7 @@ async function buildProps() {
     const P = await PRE.props;
     fromModel(P.scene.getObjectByName("Tent")?.userData, P.scene.getObjectByName("Hammock")?.userData);   // the tent's and hammock's sizes (layout.js)
     const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
-    P.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : lamL; });   // the hammock posts are textured (bamboo.png, review R2-169)
+    P.scene.traverse((m) => { if (m.isMesh) m.material = m.userData.paint_image && m.material.map ? painted(m) : m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : lamL; });   // the hammock posts are textured (bamboo.png, review R2-169)
     stand(P.scene);   // the seats (each copy on its own, Seat_0-2, since each is lit where it stands), the tent, the hammock with its posts (a GLB baked before R2-169 has them in the Hammock) and the table
   }
   // ---------------------------------------------------------------- lived-in props (props/lived/build_lived.py): a wood pile (its log stack one textured block) with a hatchet in its

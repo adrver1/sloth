@@ -18,7 +18,9 @@ With small=True it also quantizes the vertex data of a GLB the page loads (lib/q
                                                   flags: thin=1 (a double-sided card: casts no shadow, takes the brighter
                                                   of its two sides), no_shadow=1 (lit but casts nothing), unlit=1 (drawn
                                                   unlit on the page: not light-mapped, casts nothing), unbaked=1 (made, but
-                                                  left out of the bake and the page's GLBs)
+                                                  left out of the bake and the page's GLBs), double_sided=1 (drawn from both
+                                                  sides on the page), cutout=1 (its painted alpha cuts it out on the page);
+                                                  paint_image (build_camp.py paint_uvs) keeps its atlas through the bake
 
 bpy is imported inside the functions that use it, so to_txt and stale also work from plain Python (props/bake_all.py).
 """
