@@ -18,6 +18,7 @@ import { backdrop, buildBackdrop } from './backdrop.js';
 import { ready, stats } from './debug.js';
 import { buildDrive, driveStep } from './drive.js';
 import { buildSloths, slothsStep } from './sloths.js';
+import { buildOperator, operatorStep } from './operator.js';
 
 // ---------------------------------------------------------------- the build list (the order the scene's children were added in the prototype)
 buildCore();        // core.js: the canvas on the page, the sky dome
@@ -27,6 +28,7 @@ buildHorizon();     // horizon.js: the painted ring; MADE_FROM counts the scene'
 buildCabin();       // cabin.js: the cabin and the fire lookout
 buildScoutCamp();   // scoutCamp.js: the camp's GLBs round the fire (loading), lanterns, flag, snowman
 buildSloths();      // sloths.js: Hibi's sheepskin and the breath's puffs now, the seven when the sloth model is in (needs the scout camp's place)
+buildOperator();    // operator.js: the bearded operator on his end of the middle log (loading)
 buildRoad();        // road.js: fences, the road, bridge and tunnel, the jeep (loading; the map goes on its hood when it arrives), mud
 buildMap();         // map.js: the map and compass on the hood and in your hands
 buildFx();          // fx.js: smoke plumes and the storm's snow
@@ -53,6 +55,7 @@ function frame() {
   fxStep(dt, now, LIGHT.storm, LIGHT.bright);   // sets the wind before the flag reads it
   campStep(now, LIGHT.night, wind);
   slothsStep(dt, now);   // after the light: they doze off when it is dark
+  operatorStep(dt);      // after the sloths: his sips and his wave
   if (!BARE) { carry.step(dt, LIGHT.bright); roadStep(); }
   const shNow = renderer.shadowMap.needsUpdate, tr = performance.now();
   renderer.render(scene, camera); const mainInfo = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
