@@ -13,8 +13,8 @@
 // of day and the weather).
 import * as THREE from "three";
 import { D, S, scene, sun } from "./core.js";
-import { V, canvasTex, lcg, polyDist, sstep, tris } from "./util.js";
-import { GLADE, GLADE_EXIT, GLADE_R, GLADES, RC, cutSight, gladeTurn, pathLane, ribbonCurve, sloPath, tripPath } from "./layout.js";
+import { V, canvasTex, lcg, lineDist, polyDist, sstep, tris } from "./util.js";
+import { GLADE, GLADE_EXIT, GLADE_R, GLADES, RC, cutSight, gladeTurn, sloPath, tripPath } from "./layout.js";
 import { addBlocker, rayMat } from "./campProps.js";
 import { cards, clumpN, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest.js";
 import { CLEAN_UV, barkMat, bracket, fallenLog, paint as paintBark } from "./deadwood.js";
@@ -39,15 +39,19 @@ const STAND = at(2.2, 0);   // the trodden spot under the low branches, where th
 const LAST = sloPath.pts.slice(-12);   // the path's last stretch, which runs into the glade
 const pathEnd = (x, z) => { let d = 1e9; for (const q of LAST) d = Math.min(d, Math.hypot(q.x - x, q.z - z)); return d; };
 // the karaoke road's way round the glade tree (layout.js tripPath): the part of its ribbon on the glade's floor disc
-const ROUTE = ribbonCurve(tripPath).getSpacedPoints(160).filter((q) => Math.hypot(q.x - G.x, q.z - G.z) < FR + 1.3);
-// how worn the ground is: the path's last stretch running on to the trodden spot, and the karaoke road round the tree (0 grass ..
-// 1 bare earth). It is 0 farther than 0.8 m from that lane and the path's last stretch, farther than 1.15 m from STAND and
-// farther than 1.25 m from the road; WORN_BOX is the box round all of that.
-const worn = (x, z) => {
+const ROUTE = tripPath.ribbon.getSpacedPoints(160).filter((q) => Math.hypot(q.x - G.x, q.z - G.z) < FR + 1.3);
+// how worn the ground is (0 grass .. 1 bare earth). wornPath: the path's last stretch running on to the trodden spot, 0 farther
+// than 0.8 m from that lane and the path's last stretch and farther than 1.15 m from STAND. wornRoad: the karaoke road round the
+// tree, 0 farther than 1.25 m from it. worn is the two together; WORN_BOX is the box round all of that. Every test that decides
+// whether the glade's stream draws a number reads wornPath alone, as before the road came in, and wornRoad only hides what was
+// drawn, so the road leaves the glade's flowers, plants and bushes where they were (no draw is added or skipped for it).
+const wornPath = (x, z) => {
   const s = STAND, e = end, dx = s.x - e.x, dz = s.z - e.z, t = Math.max(0, Math.min(1, ((x - e.x) * dx + (z - e.z) * dz) / (dx * dx + dz * dz)));
   const lane = Math.hypot(x - (e.x + dx * t), z - (e.z + dz * t));
-  return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)), 1 - sstep(0.7, 1.25, polyDist(ROUTE, x, z)[0]));
+  return Math.max(1 - sstep(0.35, 0.8, Math.min(lane, pathEnd(x, z))), 1 - sstep(0.55, 1.15, Math.hypot(x - s.x, z - s.z)));
 };
+const wornRoad = (x, z) => 1 - sstep(0.7, 1.25, polyDist(ROUTE, x, z)[0]);
+const worn = (x, z) => Math.max(wornPath(x, z), wornRoad(x, z));
 const WORN_BOX = new THREE.Box2().setFromPoints([end, STAND].map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(1.15)
   .union(new THREE.Box2().setFromPoints(LAST.map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(0.8))
   .union(new THREE.Box2().setFromPoints(ROUTE.map((q) => new THREE.Vector2(q.x, q.z))).expandByScalar(1.25));
@@ -80,12 +84,20 @@ function buildGlade() {
     g.putImageData(img, 0, 0);
     {
       for (let i = 0; i < 900; i++) { const a = R(0, 6.28), r = Math.sqrt(rnd()) * FR, x = Math.cos(a) * r, z = Math.sin(a) * r;   // grass strokes, sparse on the earth
-        if (worn(G.x + x, G.z + z) > 0.6 && rnd() < 0.85) continue; g.strokeStyle = "#" + leaf[i % 4].getHexString(); g.globalAlpha = R(0.25, 0.6); g.lineWidth = 1.2; g.beginPath(); g.moveTo(W(x), W(z)); g.lineTo(W(x) + R(-1.5, 1.5), W(z) - R(2, 5)); g.stroke(); }
+        if (wornPath(G.x + x, G.z + z) > 0.6 && rnd() < 0.85) continue;
+        const al = R(0.25, 0.6), sx = R(-1.5, 1.5), sz = R(2, 5);
+        if (wornRoad(G.x + x, G.z + z) > 0.6 && i % 7) continue;   // sparse on the road's earth too: one stroke in seven
+        g.strokeStyle = "#" + leaf[i % 4].getHexString(); g.globalAlpha = al; g.lineWidth = 1.2; g.beginPath(); g.moveTo(W(x), W(z)); g.lineTo(W(x) + sx, W(z) - sz); g.stroke(); }
       for (let i = 0; i < 70; i++) { const a = R(0, 6.28), r = R(0, GLADE_R), x = Math.cos(a) * r, z = Math.sin(a) * r;                 // pebbles kicked onto the trodden earth
-        if (worn(G.x + x, G.z + z) < 0.4) continue; g.globalAlpha = R(0.4, 0.8); g.fillStyle = ["#b8ab92", "#8d8270", "#cfc3a8"][i % 3]; g.beginPath(); g.ellipse(W(x), W(z), R(0.8, 2), R(0.6, 1.5), R(0, 3), 0, 7); g.fill(); }
+        if (wornPath(G.x + x, G.z + z) < 0.4) continue; g.globalAlpha = R(0.4, 0.8); g.fillStyle = ["#b8ab92", "#8d8270", "#cfc3a8"][i % 3]; g.beginPath(); g.ellipse(W(x), W(z), R(0.8, 2), R(0.6, 1.5), R(0, 3), 0, 7); g.fill(); }
+      { const P = lcg(5151);   // and on the road round the tree, from their own stream, so the glade's stays as it was
+        for (let i = 0; i < 30; i++) { const q = ROUTE[Math.floor(P.rnd() * ROUTE.length)], x = q.x - G.x + P.R(-0.6, 0.6), z = q.z - G.z + P.R(-0.6, 0.6);
+          g.globalAlpha = P.R(0.4, 0.8); g.fillStyle = ["#b8ab92", "#8d8270", "#cfc3a8"][i % 3]; g.beginPath(); g.ellipse(W(x), W(z), P.R(0.8, 2), P.R(0.6, 1.5), P.R(0, 3), 0, 7); g.fill(); } }
       for (let i = 0; i < 520; i++) { const a = R(0, 6.28), r = FR * Math.pow(rnd(), 0.45), x = Math.cos(a) * r, z = Math.sin(a) * r;       // fallen leaves, thicker toward the forest
-        if (rnd() > 0.15 + 0.85 * sstep(GLADE_R - 1.8, FR, r) || worn(G.x + x, G.z + z) > 0.5) continue;
-        g.globalAlpha = R(0.55, 0.9); g.fillStyle = ["#b8743a", "#d3a24a", "#8a5a2c", "#a8823c"][i % 4]; g.beginPath(); g.ellipse(W(x), W(z), R(2, 3.6), R(1, 1.8), R(0, 3), 0, 7); g.fill(); }
+        if (rnd() > 0.15 + 0.85 * sstep(GLADE_R - 1.8, FR, r) || wornPath(G.x + x, G.z + z) > 0.5) continue;
+        const al = R(0.55, 0.9), ex = R(2, 3.6), ez = R(1, 1.8), turn = R(0, 3);
+        if (wornRoad(G.x + x, G.z + z) > 0.5) continue;   // none on the road
+        g.globalAlpha = al; g.fillStyle = ["#b8743a", "#d3a24a", "#8a5a2c", "#a8823c"][i % 4]; g.beginPath(); g.ellipse(W(x), W(z), ex, ez, turn, 0, 7); g.fill(); }
     }
     g.globalAlpha = 1;
     // the edge: a ragged soft fade into the forest floor. The rim lies between GLADE_R - 0.3 and GLADE_R + 0.8, so inside IN the
@@ -188,32 +200,36 @@ function buildGlade() {
   // ---------------------------------------------------------------- bushes out on the flat forest floor round the glade, where the bare leaf
   // litter met the fog (Adriaen 2026-11-14: not round the tree, that was too crowded). Low leafy mounds of the forest's own leaf cards
   // (forest.js leafGeo, 2 tris each), one instanced draw. Kept off the camp's clearing, the footpath, and the wedge the karaoke road
-  // leaves the glade by (layout.js GLADE_EXIT, turns round the glade from the path's end; the road itself is clear through pathLane), and
-  // the karaoke cut scene's view (layout.js cutSight).
+  // leaves the glade by (layout.js GLADE_EXIT, turns round the glade from the path's end). off() tests only what it tested before the
+  // karaoke trip came in (the footpath, not layout.js pathLane, which now holds the road too): a bush on the road or in its cut
+  // scene's view (layout.js cutSight) still draws all its numbers, so the glade's stream, and the flowers and plants after it, stay
+  // as they were, and is then left out when the leaves are placed (hide), as forest/plants.js trailVerge does.
   {
     const B = [];
     const off = (x, z) => { const t = gladeTurn(x, z);
-      return (t > GLADE_EXIT[0] && t < GLADE_EXIT[1]) || Math.hypot(x - G.x, z - G.z) < GLADE_R + 1.3 || Math.hypot(x, z) < RC + 1.5 || pathLane(x, z) < 2.2 || cutSight(x, z, 0.8); };
+      return (t > GLADE_EXIT[0] && t < GLADE_EXIT[1]) || Math.hypot(x - G.x, z - G.z) < GLADE_R + 1.3 || Math.hypot(x, z) < RC + 1.5 || lineDist(sloPath.pts, x, z) < 2.2; };
     // in clumps of two or three, as undergrowth grows, filling the flat floor out to where the fog takes over
     for (let tries = 0, groups = 0; tries < 800 && groups < Math.round(16 * Math.min(k, 1.2)); tries++) {
       const c = at(R(GLADE_R + 1.8, GLADE_R + 7.5), R(-Math.PI, Math.PI));
       if (off(c.x, c.z) || B.some((b) => Math.hypot(b.x - c.x, b.z - c.z) < 2.6)) continue;
       groups++;
       for (let j = 0, n = 2 + (rnd() < 0.5 ? 1 : 0); j < n; j++) { const a = R(0, 6.28), d = j ? R(0.9, 1.4) : 0, x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d;
-        if (!off(x, z)) B.push({ x, y: R(0.25, 0.55) + groundHeight(x, z), z, r: R(0.65, 1.15) }); }   // on the forest floor's hummocks
+        if (!off(x, z)) B.push({ x, y: R(0.25, 0.55) + groundHeight(x, z), z, r: R(0.65, 1.15), hide: cutSight(x, z, 0.8) || lineDist(tripPath.pts, x, z) < 2.2 }); }   // on the forest floor's hummocks
     }
     const per = Math.max(8, Math.round(perClump * 0.75)), keep = cards(per), nrm = new Float32Array(B.length * keep * 3);
     const im = new THREE.InstancedMesh(withLeafN(leafGeo, nrm), leafM, B.length * keep), m = new THREE.Matrix4(), c = new THREE.Color(), n = V(), p = V(), sc = V();
-    let i = 0;
+    let i = 0, slot = 0;   // i: the next instance; slot: every kept leaf, hidden or not, which picks its colour as before
     // wider than tall; every leaf draws its colour too, kept or not, so the plants after keep their places
     scatterLeaves(B, R, () => per, () => [-0.45, 0.55, 1], (b, j, u, q, size) => {
-      c.setHex(S.leaf[(j + i) % 4]).multiplyScalar(R(0.7, 0.95));
+      c.setHex(S.leaf[(j + slot) % 4]).multiplyScalar(R(0.7, 0.95));
       if (j >= keep) return;
+      slot++;
+      if (b.hide) return;
       m.compose(p.set(b.x + u.x, Math.max(b.y - 0.25, b.y + u.y), b.z + u.z), q, sc.setScalar(size * 0.85));
       im.setMatrixAt(i, m); im.setColorAt(i, c); clumpN(u, n).toArray(nrm, i * 3); i++;
     });
-    im.name = "GladeBushes"; scene.add(im);
-    triCount.bushes = B.length * cards(per) * tris(leafGeo); triCount.bushCount = B.length;
+    im.count = i; im.name = "GladeBushes"; scene.add(im);   // the bushes in the cut scene's view placed no leaves
+    triCount.bushes = i * tris(leafGeo); triCount.bushCount = B.filter((b) => !b.hide).length;
   }
 
   // ---------------------------------------------------------------- plants for ground.js: [x, z, type, size], its atlas cells (0 tuft, 1 tall grass,
@@ -223,12 +239,14 @@ function buildGlade() {
     const flower = (x, z) => Math.max(0, ...fl.map(([fx, fz, fr]) => 1 - Math.hypot(x - fx, z - fz) / fr));
     const want = [Math.round(170 * k), Math.round(45 * k), Math.round(80 * k), Math.round(45 * k)];
     for (const type of [1, 2, 0, 3]) for (let n = 0, tries = 0; tries < want[type] * 40 && n < want[type]; tries++) {
-      const a = R(0, 6.28), r = Math.sqrt(rnd()) * (GLADE_R + 0.6), x = G.x + Math.cos(a) * r, z = G.z + Math.sin(a) * r, w = worn(x, z), edge = sstep(GLADE_R - 1.6, GLADE_R + 0.3, r);
+      const a = R(0, 6.28), r = Math.sqrt(rnd()) * (GLADE_R + 0.6), x = G.x + Math.cos(a) * r, z = G.z + Math.sin(a) * r, w = wornPath(x, z), edge = sstep(GLADE_R - 1.6, GLADE_R + 0.3, r);
       if (w > 0.45 || taken(x, z, type === 1 ? 0.1 : 0)) continue;
       const verge = sstep(0.05, 0.3, w) * (1 - sstep(0.3, 0.45, w));   // the strip along the trodden earth: nobody steps there
       const p = type === 0 ? 0.35 + 0.5 * edge + 0.6 * verge : type === 1 ? 0.05 + 0.8 * edge + 0.5 * verge : type === 2 ? 0.08 + 0.9 * flower(x, z) : (0.4 - 0.3 * edge) * (1 - w);
       if (rnd() > p) continue;
-      gladePlants.push([x, z, type, type === 0 ? R(0.22, 0.42) * (1 + 0.4 * edge) : type === 1 ? R(0.55, 0.95) : type === 2 ? R(0.28, 0.45) : R(0.13, 0.22)]); n++;
+      const size = type === 0 ? R(0.22, 0.42) * (1 + 0.4 * edge) : type === 1 ? R(0.55, 0.95) : type === 2 ? R(0.28, 0.45) : R(0.13, 0.22);
+      if (wornRoad(x, z) <= 0.45) gladePlants.push([x, z, type, size]);   // drawn either way; none grows on the road
+      n++;
     }
     // clumps of colour round the edge, and dark ferns between them; one clump each side of the bench and at the log's ends
     const SZ = { 4: [0.95, 1.4], 5: [0.38, 0.55], 6: [0.7, 1.15], 7: [0.42, 0.6] }, groups = [[4, 6, 6], [5, 7, 6], [7, 6, 5], [4, 7, 6], [5, 6, 6]];
@@ -239,7 +257,7 @@ function buildGlade() {
     });
     for (let n = 0, tries = 0; tries < 600 && n < Math.round(22 * k); tries++) {
       const a = R(0, 6.28), r = R(GLADE_R - 0.9, GLADE_R + 0.7), x = G.x + Math.cos(a) * r, z = G.z + Math.sin(a) * r;
-      if (!taken(x, z, 0.15) && worn(x, z) < 0.1 && pathEnd(x, z) > 1.3) { gladePlants.push([x, z, 6, R(0.75, 1.3)]); n++; }
+      if (!taken(x, z, 0.15) && wornPath(x, z) < 0.1 && pathEnd(x, z) > 1.3) { const size = R(0.75, 1.3); if (wornRoad(x, z) < 0.1) gladePlants.push([x, z, 6, size]); n++; }
     }
     triCount.plants = gladePlants.length * 4;
   }

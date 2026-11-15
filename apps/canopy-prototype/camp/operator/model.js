@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { scene } from "../core.js";
 import { V, canvasTex } from "../util.js";
-import { crossFade } from "../actor.js";
+import { crossFade, kitLook } from "../actor.js";
 import * as ik from "./ik.js";
 
 const UP = V(0, 1, 0);
@@ -19,14 +19,8 @@ const B = {}, clips = {};
 // gltf and anims: the two downloads (core.js PRE.operator, PRE.operatorAnims)
 function buildModel(gltf, anims) {
   root = new THREE.Group();
-  body = clone(gltf.scene); root.add(body); scene.add(root);
-  body.traverse((m) => {
-    if (m.isBone) B[m.name] = m;
-    if (m.isMesh) {
-      const map = m.material.map; if (map) { map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestMipmapNearestFilter; }
-      m.material = new THREE.MeshLambertMaterial({ map, flatShading: true }); m.frustumCulled = false;
-    }
-  });
+  body = kitLook(clone(gltf.scene)); root.add(body); scene.add(root);   // actor.js: crisp texture, flat-shaded Lambert
+  body.traverse((m) => { if (m.isBone) B[m.name] = m; });
   mixer = new THREE.AnimationMixer(body);
   for (const a of anims.animations) clips[a.name] = mixer.clipAction(a);
   for (const n of ["blink", "happy"]) { const a = clips[n]; a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; }

@@ -172,7 +172,8 @@
     "e250e98"
    ],
    "needs_rebake": false,
-   "lane": "fx-props"
+   "lane": "fx-props",
+   "followup": "The karaoke trip's merge (6cb99d4) widened WORN_BOX to also take in the karaoke road round the glade tree (glade.js ROUTE, padded by 1.25 m), and worn() now also wears that road. A follow-up after the merge review split it into wornPath and wornRoad: every test that decides whether the glade's stream draws a number reads wornPath alone, as before the road, and wornRoad only hides what was drawn, so the glade's flowers, plants and bushes stay where they were."
   },
   "R2-017": {
    "status": "fixed",
@@ -392,7 +393,8 @@
     "990a62d"
    ],
    "needs_rebake": false,
-   "lane": "fx-world"
+   "lane": "fx-world",
+   "followup": "The karaoke trip's merge (6cb99d4) lets ribbon() take half as a function of t (0..1 along the curve) as well as a number, so the karaoke road's ribbon widens from the glade path's width to its own; the curve each path's ribbon follows is now built once in layout.js as path.ribbon."
   },
   "R2-036": {
    "status": "fixed",
@@ -401,7 +403,8 @@
     "bedb8ae"
    ],
    "needs_rebake": false,
-   "lane": "fx-props"
+   "lane": "fx-props",
+   "followup": "The karaoke trip's merge (6cb99d4) added a second PATHS entry, tripPath (the karaoke road), and the optional fields covers, segs, fade, wide and cut to the PATHS schema; layout.js now also gives each entry its ribbon curve (path.ribbon), and pathLane includes the road."
   },
   "R2-037": {
    "status": "fixed",
@@ -1058,7 +1061,8 @@
     "18cb2b8"
    ],
    "needs_rebake": false,
-   "lane": "fx-operator"
+   "lane": "fx-operator",
+   "followup": "The karaoke trip's merge (6cb99d4) added an optional tap() to a target: a thing with one obvious use (trip.js's karaoke sign) runs it at once on a tap instead of opening the menu."
   },
   "R2-101": {
    "status": "fixed",
@@ -2329,7 +2333,8 @@
     "612d1b0"
    ],
    "needs_rebake": false,
-   "lane": "integ"
+   "lane": "integ",
+   "followup": "After the karaoke trip's merge (6cb99d4), actor.js gained kitLook(obj), the kit characters' crisp-texture flat Lambert look, used by operator/model.js buildModel and trip.js person() instead of two copies."
   },
   "R2-213": {
    "status": "fixed",

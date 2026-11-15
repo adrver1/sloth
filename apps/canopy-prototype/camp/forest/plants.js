@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { groundHeight, jeepDist } from "../terrain.js";
 import { D, hex, S } from "../core.js";
 import { V, canvasTex, lcg, polyDist } from "../util.js";
-import { GLADE, GLADE_R, HERO, RC, cutSight, pathLane, ribbonCurve, tripPath } from "../layout.js";
+import { GLADE, GLADE_R, HERO, RC, cutSight, pathLane, tripPath } from "../layout.js";
 import { R, rnd, track, trackDist } from "./base.js";
 import { addSectors, cards, cardSet, clumpN, leafColour, leafGeo, leafM, leafMat, perClump, scatterLeaves } from "./cards.js";
 import { branchCurves, TOP } from "./trees.js";
@@ -91,7 +91,7 @@ function verge() {
 // (layout.js cutSight). Returns { clumps, tris } (trip.js reports them).
 function trailVerge() {
   const { R: Q3 } = lcg(4242);
-  const route = ribbonCurve(tripPath), L = route.getLength(), vc = [];
+  const route = tripPath.ribbon, L = route.getLength(), vc = [];
   for (let l = 1; l < L; l += 1.3) {
     const t = l / L, p = route.getPointAt(t), d = route.getTangentAt(t), side = V(-d.z, 0, d.x).normalize();
     if (t < tripPath.wide[1] || Math.hypot(p.x - GLADE.x, p.z - GLADE.z) < GLADE_R + 0.5) continue;   // from where it leaves the glade

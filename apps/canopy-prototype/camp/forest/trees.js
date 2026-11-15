@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { addMound, groundHeight, jeepDist } from "../terrain.js";
 import { D, S, scene } from "../core.js";
 import { V, lcg, sstep } from "../util.js";
-import { FAR, GLADE, GLADE_EXIT, GLADE_R, HERO, RC, cutSight, gladeTurn, pathLane, tripPath } from "../layout.js";
+import { FAR, GLADE, GLADE_EXIT, GLADE_R, HERO, RC, ROAD_TRUNK_R, cutSight, gladeTurn, pathLane, tripPath } from "../layout.js";
 import { R, rnd, trackDist, UP } from "./base.js";
 import { addSectors, cards, cardSet, clumpN, leafColour, leafGeo, leafM, perClump, scatterLeaves } from "./cards.js";
 
@@ -126,12 +126,12 @@ function forestWall() {
     const t = 0.12 + (i >> 1) * 0.16, p = cut.getPointAt(t), d = cut.getTangentAt(t), sd = (i & 1) ? 1 : -1;
     if (sd * (p.x * -d.z + p.z * d.x) < 0 && t > 0.4) continue;
     const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.5 + ((i * 7) % 3) * 0.45));
-    if (Math.hypot(q.x, q.z) < 28.4 && !wall.some((w) => Math.hypot(w.x - q.x, w.z - q.z) < 1.8) && !HERO.some(({ at: h }) => Math.hypot(h.x - q.x, h.z - q.z) < 4)) wall.push({ x: q.x, z: q.z, s: 0.7 + ((i * 5) % 4) * 0.15, y0: 0, top: 0, glade: true, road: true });
+    if (Math.hypot(q.x, q.z) < ROAD_TRUNK_R[0] && !wall.some((w) => Math.hypot(w.x - q.x, w.z - q.z) < 1.8) && !HERO.some(({ at: h }) => Math.hypot(h.x - q.x, h.z - q.z) < 4)) wall.push({ x: q.x, z: q.z, s: 0.7 + ((i * 5) % 4) * 0.15, y0: 0, top: 0, glade: true, road: true });
   }
   for (let i = 0; i < 6; i++) {   // and on along the road past the cut scene's stretch
     const t = 0.8 + (i >> 1) * 0.08, p = road.getPointAt(t), d = road.getTangentAt(t), sd = (i & 1) ? 1 : -1;
     const q = p.clone().add(V(-d.z * sd, 0, d.x * sd).multiplyScalar(2.6 + ((i * 7) % 3) * 0.5));
-    if (Math.hypot(q.x, q.z) < 29.5 && !wall.some((w) => Math.hypot(w.x - q.x, w.z - q.z) < 1.8)) wall.push({ x: q.x, z: q.z, s: 0.7 + ((i * 3) % 4) * 0.15, y0: 0, top: 0, glade: true, road: true });
+    if (Math.hypot(q.x, q.z) < ROAD_TRUNK_R[1] && !wall.some((w) => Math.hypot(w.x - q.x, w.z - q.z) < 1.8)) wall.push({ x: q.x, z: q.z, s: 0.7 + ((i * 3) % 4) * 0.15, y0: 0, top: 0, glade: true, road: true });
   }
   roadTrunks = wall.length - nT;
   // each tree on its own root mound; a tree kept off the track, the paths and the cut scene's lines of sight has none

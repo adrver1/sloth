@@ -5,7 +5,7 @@
 import * as THREE from "three";
 import { hex, S, scene } from "../core.js";
 import { V, canvasTex, rand, sstep } from "../util.js";
-import { PATHS, PATH_HALF, RC, TRACK_HALF, ribbonCurve } from "../layout.js";
+import { PATHS, PATH_HALF, RC, TRACK_HALF } from "../layout.js";
 import { R, track } from "./base.js";
 
 const FLOOR_OVERLAYS = [];   // the path and track ribbons drawn on the floor: they take the ground's contact shadow (groundLife.shadeOn)
@@ -73,7 +73,7 @@ function clearingFloor() {
     for (const path of PATHS) {
       if (covered.has(path.id)) continue;
       const w = path.wide, h0 = PATH_HALF * 1.35, h1 = path.half * 1.35, fade = path.fade ?? 1.2;
-      ribbon(ribbonCurve(path), { n: path.segs ?? 48, half: w ? (t) => h0 + (h1 - h0) * sstep(w[0], w[1], t) : h1, y: 0.024, tex: earth, tile: 2.5, order: 1, alpha: (p, l, L) => sstep(0, 1.0, l) * (1 - sstep(L - fade, L, l)) });
+      ribbon(path.ribbon, { n: path.segs ?? 48, half: w ? (t) => h0 + (h1 - h0) * sstep(w[0], w[1], t) : h1, y: 0.024, tex: earth, tile: 2.5, order: 1, alpha: (p, l, L) => sstep(0, 1.0, l) * (1 - sstep(L - fade, L, l)) });
     }
   }
 }

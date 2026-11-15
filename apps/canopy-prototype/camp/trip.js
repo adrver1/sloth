@@ -31,6 +31,7 @@ import { toast } from "./hud.js";
 import { CAST } from "./cast.js";
 import { flush, load, save } from "./save.js";
 import { opApi } from "./operator.js";
+import { kitLook } from "./actor.js";
 import { reach } from "./operator/ik.js";
 import { roadForest } from "./forest.js";
 
@@ -118,9 +119,7 @@ function wagon() {   // the red toy wagon (prototype A), roomy enough for three 
   return g;
 }
 function person(src, anims) {   // a clone of a kit character walking (both share the kit rig, so the operator's walk clip drives her too)
-  const o = clone(src.scene);
-  o.traverse((m) => { if (m.isMesh) { const map = m.material.map; if (map) { map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestMipmapNearestFilter; }
-    m.material = new THREE.MeshLambertMaterial({ map, flatShading: true }); m.frustumCulled = false; } });
+  const o = kitLook(clone(src.scene));   // actor.js: the same look as the operator's
   const B = {}; o.traverse((n) => { if (n.isBone) B[n.name] = n; });
   const mixer = new THREE.AnimationMixer(o); mixer.clipAction(anims.find((a) => a.name === "walk")).play();
   const rest = []; o.traverse((n) => n.isBone && rest.push([n, n.quaternion.clone()]));
@@ -136,7 +135,7 @@ const DUR = 6.2, SPEED = 0.85;   // seconds, m/s
 // out: from partway down the road on, away from camp. home (Adriaen 2026-11-12: "Back to camp should go to another cut scene
 // with the sloths and the wagon"): the same walk the other way, back toward the glade, with the sloths sleepy after the show,
 // nodding off in the wagon under a few slow z's instead of notes.
-async function start(names, home = false) {
+async function start(names, home = false, said = names) {   // said: the riders the homeward toast names (the saved list)
   if (cut) return;
   document.body.classList.add("trip-cut");
   const [OP, ANIM, SLOTH, HER] = await Promise.all([PRE.operator, PRE.operatorAnims, PRE.sloth, herModel()]).catch(() => []);
@@ -155,7 +154,7 @@ async function start(names, home = false) {
   const tex = notes();
   const flying = Array.from({ length: 6 }, (_, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: home ? (i % 2 ? tex[3] : tex[i % 3]) : tex[i % 3], transparent: true, depthWrite: false, fog: false })); s.scale.setScalar(0.22); scene.add(s); return { s, ph: i / 6 }; });
   if (opApi) opApi.root.visible = false;   // he can't be in two places
-  cut = { t: 0, w, op, pony, riding, notes: flying, names, home, dir: home ? -1 : 1, s0: (home ? 0.84 : 0.42) * LEN };
+  cut = { t: 0, w, op, pony, riding, notes: flying, names, said, home, dir: home ? -1 : 1, s0: (home ? 0.84 : 0.42) * LEN };
   if (home) tm.after(0.06, () => fade.classList.remove("on"));   // the page opened black; fade up on them
 }
 const frameAt = (s, dir = 1) => { const t = THREE.MathUtils.clamp(s / LEN, 0, 1), p = curve.getPointAt(t), d = curve.getTangentAt(t).multiplyScalar(dir); p.y = groundHeight(p.x, p.z); return { p, d, side: V(-d.z, 0, d.x).normalize() }; };   // d: the way they walk, side: their right
@@ -211,12 +210,12 @@ function endCut() {   // a cut scene is over: put the camp back as it was, and y
   cut = null; camera.near = NEAR0; resize();   // input.js resize() puts the camera's fov back
   document.body.classList.remove("trip-cut"); fade.classList.remove("on");
   if (!c.home) return;
-  const R = c.names;
+  const R = c.said;
   tm.after(0.5, () => toast(R.length ? `Back from karaoke with ${R.length > 1 ? R.slice(0, -1).join(", ") + " and " + R.at(-1) : R[0]} 🎤` : "Back from karaoke 🎤"));
 }
 
 // ---------------------------------------------------------------- buildTrip (main.js) and each frame
-let homeDue = null;   // the riders of the homeward cut scene, due on the first frame after the camp has loaded
+let homeDue = null;   // the homeward cut scene, due on the first frame after the camp has loaded: { show (who rides in the wagon), said (who the save says came) }
 function buildTrip() {
   NEAR0 = camera.near;
   document.head.append(Object.assign(document.createElement("style"), { textContent: CSS }));
@@ -238,13 +237,14 @@ function buildTrip() {
   if (back?.state === "back" || back?.state === "out") {
     const f = frameAt(SIGN_T * LEN + 1.2); me.pos.copy(f.p); me.yaw = Math.atan2(f.d.x, f.d.z); me.pitch = 0.02;
     save("trip", null);
-    if (back.state === "back") { homeDue = back.riders?.length ? back.riders : ["Hibi"]; fade.style.transition = "none"; fade.classList.add("on"); requestAnimationFrame(() => (fade.style.transition = "")); }
+    // with no riders saved, Hibi rides in the wagon, but the toast says only "Back from karaoke"
+    if (back.state === "back") { const said = back.riders ?? []; homeDue = { show: said.length ? said : ["Hibi"], said }; fade.style.transition = "none"; fade.classList.add("on"); requestAnimationFrame(() => (fade.style.transition = "")); }
   }
 }
 function tripStep(dt) {
   tm.step(dt);
   if (!card) return false;   // not built
-  if (homeDue) { const r = homeDue; homeDue = null; start(r, true); }
+  if (homeDue) { const { show, said } = homeDue; homeDue = null; start(show, true, said); }
   if (cut) { cutStep(dt); return true; }
   // walking far enough down the road asks too; it asks again only after you have gone back toward the glade
   const [d] = polyDist(CUT_PTS, me.pos.x, me.pos.z);

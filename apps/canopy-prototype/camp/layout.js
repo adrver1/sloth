@@ -11,8 +11,8 @@
 // check (review props-07). LAUNDRY and SOUP_POT restate build_laundry.py and build_fire.py; campProps.js checks them against
 // the anchors in those GLBs (review R2-252). SEAT_R is read by operator/cook.js (the fire side of a seat, where he hands a bowl);
 // JEEP_OUT is exported for checks, and no module imports it. PATH_A, where the footpath leaves the camp, also sets the glade path's lead points, where its ribbon starts (forest/floor.js).
-// The karaoke trip's road is the PATHS entry tripPath (trip.js, forest/, glade.js); ribbonCurve(path) is the curve a path's
-// ribbon follows and cutSight(x, z, r) the trip's cut scene camera's lines of sight, which the forest keeps clear.
+// The karaoke trip's road is the PATHS entry tripPath (trip.js, forest/, glade.js); each path's ribbon is the curve its ribbon
+// follows (built once here), ROAD_TRUNK_R how far out the road's trunks may stand, and cutSight(x, z, r) the trip's cut scene camera's lines of sight, which the forest keeps clear.
 import * as THREE from "three";
 import { V, lineDist, wrapPi, yawTo } from "./util.js";
 
@@ -21,6 +21,10 @@ export const RC = 9;      // the clearing's radius: a round clearing with the ca
 // FAR: the ground mesh's radius (terrain.js, the old forest-floor disc), the backdrop's and the sky domes' (which follow the camera,
 // sky.js skyStep). 40 m, so from the glade 18.5 m out the backdrop is still about 40 m away in the haze (review R2-161; it was 30)
 export const FAR = 40;
+// ROAD_TRUNK_R: how far from the fire the trunks lining the karaoke road may stand, along its cut scene stretch and past it
+// (forest/trees.js forestWall). They are the ground's edge as it was when FAR was 30 (FAR - 1.6 and FAR - 0.5 then), kept so
+// the road's trunks stand where the karaoke trip placed them.
+export const ROAD_TRUNK_R = [28.4, 29.5];
 export const SUN = V(-4, 10, 3);   // the sun light's position (core.js); ground.js renders its live shadows from it
 
 // the big tree at the clearing's edge, the bearing the camp is laid out by (tent, hammock, table and seats): HERO_ANGLE is
@@ -34,7 +38,8 @@ export const A0 = HERO_ANGLE, d0 = HERO_DIR, t0 = HERO_ACROSS;
 //   { id, curve, pts (its spaced points), half (the ribbon's half width, forest.js), lane (the half width the player keeps to,
 //   player.js), lead (points in the camp the ribbon starts from before the path's own curve, forest.js), and optionally covers
 //   (the id of a path whose ribbon this one's runs along and replaces), segs and fade (the ribbon's segments, 48, and the metres
-//   it fades out over at its end, 1.2), wide ([a, b]: the ribbon is PATH_HALF wide up to a and its own half from b, 0..1 along it) }.
+//   it fades out over at its end, 1.2), wide ([a, b]: the ribbon is PATH_HALF wide up to a and its own half from b, 0..1 along it) },
+//   and ribbon, the curve its ribbon follows (its lead points, then its own curve's, on the ground plane), built once below.
 // GLADES lists the glades { id, at, r, tree (its HERO entry) }. HERO lists the big mossy trees { id, at, flare (the phase of its
 // root flare, forest.js), roots (how many surface roots, deadwood.js), mound (null, or { r, h }: a root mound on its forest side
 // only, terrain.js) }. pathLane, pathDist, terrain.js's levelling, the path ribbons, player.js's keep-to-the-path rule, the
@@ -68,13 +73,15 @@ export const tripPath = (() => {
   const curve = new THREE.CatmullRomCurve3([atGlade(-2.6, 1.25), atGlade(-0.6, 2.25), ...trail]);
   const path = { id: "karaoke", curve, pts: curve.getSpacedPoints(64), half: 1.25 / 1.35, lane: 0.9, lead: [...sloPath.lead, ...sloPath.curve.points.slice(0, 5)],
     covers: "glade", segs: 160, fade: 2.5, wide: [0, 1], cut: { curve: cut, pts: cut.getSpacedPoints(40) } };
-  const pts = ribbonCurve(path).getSpacedPoints(160), near = (c) => pts.reduce((b, q, i) => (q.distanceTo(c) < pts[b].distanceTo(c) ? i : b), 0) / 160;
+  path.ribbon = ribbonCurve(path);
+  const pts = path.ribbon.getSpacedPoints(160), near = (c) => pts.reduce((b, q, i) => (q.distanceTo(c) < pts[b].distanceTo(c) ? i : b), 0) / 160;
   path.wide = [near(atGlade(-2.0, 1.7)), near(at(0))];
   return path;
 })();
 export const PATHS = [sloPath, tripPath];
-// ribbonCurve(path): the curve a path's ribbon is drawn along (forest/floor.js), its lead points then its own curve's
-export function ribbonCurve(path) { return new THREE.CatmullRomCurve3([...path.lead, ...path.curve.points].map((q) => q.clone().setY(0))); }
+for (const p of PATHS) p.ribbon ??= ribbonCurve(p);   // one curve per path, read by forest/floor.js, forest/plants.js and glade.js
+// ribbonCurve(path): the curve a path's ribbon is drawn along, its lead points then its own curve's
+function ribbonCurve(path) { return new THREE.CatmullRomCurve3([...path.lead, ...path.curve.points].map((q) => q.clone().setY(0))); }
 // cutSight(x, z, r): true when a thing of radius r at (x, z) stands in the karaoke cut scene camera's line of sight. trip.js films
 // the wagon from the camp's side of the road (side on, and three-quarter from ahead on an upright phone), so the forest keeps
 // those lines clear of trunks (forest/trees.js) and bushes (forest/plants.js)
@@ -84,7 +91,7 @@ const sight = [];
     sight.push([p, p.clone().addScaledVector(sd, 6 * inn).addScaledVector(d, 2.6)], [p, p.clone().addScaledVector(sd, 3 * inn).addScaledVector(d, 5)]); } }
 export const cutSight = (x, z, r) => sight.some(([a, b]) => lineDist([a, b], x, z) < r + 0.5);
 // the big tree at the clearing's edge behind the fire, and the glade's tree, 0.4 m off the glade's middle, away from where the
-// karaoke route passes it (Adriaen 2026-11-14: clear of the path)
+// karaoke road passes it (Adriaen 2026-11-14: clear of the path)
 const campTree = { id: "camp", at: d0.clone().multiplyScalar(RC + 0.4), flare: 0, roots: 10, mound: { r: 2.6, h: 0.45 } };
 const gladeTree = { id: "glade", at: GLADE.clone().add(V(0.35, 0, 0.19)), flare: 1, roots: 8, mound: null };
 export const HERO = [campTree, gladeTree];

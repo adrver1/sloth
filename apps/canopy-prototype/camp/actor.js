@@ -3,6 +3,11 @@
 // functions over the object and the numbers they are handed: each character keeps its own state machine and its own
 // constants (the sloths turn by a share of the gap, the operator at a capped rate; 0.22 or 0.24 of the food a bite).
 // Nothing runs on import, no scene object is made and no random number is drawn (ringPoint draws from the stream it is given).
+// Looks of the kit characters
+//   kitLook(obj)                gives every mesh under obj (a clone of a kit character's scene: the operator, or the
+//                               ponytail engineer in the karaoke cut scene) the camp's kit look: its texture sampled
+//                               nearest (crisp pixels), a flat-shaded Lambert material, and no frustum culling (the
+//                               skinned bounds lag the pose); returns obj
 // Clips
 //   crossFade(cur, next, fade, { once, at, speed, reps, restart, weigh })   starts clip action `next` `at` seconds in at
 //                               `speed`, looping or played once and held on its last frame, and cross-fades the playing
@@ -44,6 +49,15 @@ export function aimBone(b, dir, w = 1) {
   const bq = b.getWorldQuaternion(qa), y = vb.copy(Y).applyQuaternion(bq);
   qb.setFromUnitVectors(y, dir).slerp(qc.identity(), 1 - w).multiply(bq);
   b.quaternion.copy(b.parent.getWorldQuaternion(qc).invert().multiply(qb));
+}
+
+export function kitLook(obj) {
+  obj.traverse((m) => {
+    if (!m.isMesh) return;
+    const map = m.material.map; if (map) { map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestMipmapNearestFilter; }
+    m.material = new THREE.MeshLambertMaterial({ map, flatShading: true }); m.frustumCulled = false;
+  });
+  return obj;
 }
 
 export function crossFade(cur, next, fade, { once = false, at = 0, speed = 1, reps = Infinity, restart = false, weigh = false } = {}) {
