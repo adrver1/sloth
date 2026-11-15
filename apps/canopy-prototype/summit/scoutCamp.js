@@ -8,6 +8,7 @@ import { canvasTex, hazed, scene } from './core.js';
 import { tmpC } from './terrain.js';
 import { WHITE, v3 } from './forest.js';
 import { bakeStatic } from './cabin.js';
+import { fromModel } from '../camp/layout.js';
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
@@ -17,10 +18,10 @@ export let flag;
 export const mute = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, 0.6) * vec3(0.9, 0.92, 0.95);'); };   // the cozy camp's colours, toned down
 export const CAMP = { x: 0.5, z: 11.5, turn: 0 }, campGroup = new THREE.Group();
 // the camp's cast (castStage.js, life.js) measures some props by name: the log seats and their tops, the things on a seat, the
-// tent (places.js, operator/places.js, sloth/spots.js). bakeStatic merges the props into a few draws and takes them away, so
+// tent, the table and the kitchen crate (places.js, operator/places.js, sloth/spots.js, sloth/table.js). bakeStatic merges the props into a few draws and takes them away, so
 // each of those keeps an invisible stand-in under its name (no draw: never drawn, only measured and ray-tested), and the drawn
 // one is renamed. campReady resolves once all three GLBs are in.
-const MEASURED = ['Seat_0', 'Seat_1', 'Seat_2', 'SeatTop_0', 'SeatTop_1', 'SeatTop_2', 'SeatThings', 'Tent'];
+const MEASURED = ['Seat_0', 'Seat_1', 'Seat_2', 'SeatTop_0', 'SeatTop_1', 'SeatTop_2', 'SeatThings', 'Tent', 'Table', 'KitchenCrate', 'KitchenThings'];
 let campLoaded = null;
 export const campReady = new Promise((ok) => { campLoaded = ok; });
 export const fireLight = new THREE.PointLight('#ff9a48', 0, 14, 1.5);
@@ -40,6 +41,7 @@ export function buildScoutCamp() {
     const loader = new GLTFLoader(); let tris = 0, loaded = 0;
     for (const [file, keep] of Object.entries(KEEP)) fetchBytes(`models/${file}.txt`).then((bin) => {
       loader.parse(bin.buffer, '', (gl) => {
+        if (file === 'camp_picked_lm') fromModel(gl.scene.getObjectByName('Tent')?.userData, gl.scene.getObjectByName('Hammock')?.userData);   // the tent's sizes (its bed) for the cast, as campProps.js does
         for (const node of [...gl.scene.children]) { if (keep && !keep.includes(node.name)) continue;
           node.traverse((o) => { if (!o.isMesh) return;
             const m0 = o.material, flame = node.name === 'Fire' || node.name === 'Embers';

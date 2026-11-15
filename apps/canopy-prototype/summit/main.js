@@ -17,7 +17,6 @@ import { buildPlayer, jump, press, prof, showTris, testing, walk } from './playe
 import { backdrop, buildBackdrop } from './backdrop.js';
 import { ready, stats } from './debug.js';
 import { buildDrive, driveStep } from './drive.js';
-import { buildSloths, slothsStep } from './sloths.js';
 import { buildLife, lifeHooks, lifeStep } from './life.js';
 import { buildDaytime, daytimeApi, daytimeStep } from './daytime.js';
 import { audioStep, buildAudio } from './audio.js';
@@ -29,8 +28,7 @@ buildForest();      // forest.js: tree, log and rock buckets
 buildHorizon();     // horizon.js: the painted ring; MADE_FROM counts the scene's children here, so what follows is man-made
 buildCabin();       // cabin.js: the cabin and the fire lookout
 buildScoutCamp();   // scoutCamp.js: the camp's GLBs round the fire (loading), lanterns, flag, snowman
-buildSloths();      // sloths.js: Hibi's sheepskin and the breath's puffs now, the seven when the sloth model is in (needs the scout camp's place)
-buildLife();        // life.js: the camp's operator, going about his summit day (loading; he starts once the scout camp is in)
+buildLife();        // life.js: the camp's cast, the seven sloths and the operator, going about their summit day (loading; they start once the scout camp is in)
 buildRoad();        // road.js: fences, the road, bridge and tunnel, the jeep (loading; the map goes on its hood when it arrives), mud
 buildMap();         // map.js: the map and compass on the hood and in your hands
 buildFx();          // fx.js: smoke plumes and the storm's snow
@@ -59,8 +57,7 @@ function frame() {
   cabinStep(LIGHT.night);
   fxStep(dt, now, LIGHT.storm, LIGHT.bright);   // sets the wind before the flag reads it
   campStep(now, LIGHT.night, wind);
-  slothsStep(dt, now);   // after the light: they doze off when it is dark
-  lifeStep(dt);          // after the sloths and the light: the camp's cast, his summit day
+  lifeStep(dt);          // after the light: the camp's cast, the sloths' and his summit day
   audioStep(dt);         // after the light and the wind: the ear, the beds, the crackles and calls, your steps
   if (!BARE) { carry.step(dt, LIGHT.bright); roadStep(); }
   const shNow = renderer.shadowMap.needsUpdate, tr = performance.now();

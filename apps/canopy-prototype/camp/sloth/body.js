@@ -15,7 +15,7 @@
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { FUR_ON, WARM_N, furify } from "../../fur.js";
-import { D, LANTERNS, OPT, rng, S, scene } from "../stage.js";
+import { D, LANTERNS, OPT, rng, S, scene, toWorld } from "../stage.js";
 const { R } = rng("sloths");
 import { V } from "../util.js";
 import { SL, SLOTH, hit, sloths } from "./state.js";
@@ -30,7 +30,7 @@ const HIT_GEO = new THREE.SphereGeometry(0.42, 8, 6), HIT_MAT = new THREE.MeshBa
 // lanterns by then); warmStep sets the fire's strength with its flicker, and uWarm = dusk, each frame
 const SLOTH_WARM = { uWarm: { value: 0 }, uWarmPos: { value: Array.from({ length: WARM_N }, () => V(0, -99, 0)) }, uWarmK: { value: new Array(WARM_N).fill(0) } };
 const bodyWarm = FUR_ON && OPT.slothmat !== "old" ? SLOTH_WARM : null;   // furify gives the body the glow only then
-SLOTH_WARM.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0);   // the last slot is the fire
+toWorld(SLOTH_WARM.uWarmPos.value[WARM_N - 1].set(0, 0.6, 0));   // the last slot is the fire (the shader's are world points)
 let lanternsIn = false;   // set by the first makeSloth (placeLanterns)
 function placeLanterns() {
   lanternsIn = true;

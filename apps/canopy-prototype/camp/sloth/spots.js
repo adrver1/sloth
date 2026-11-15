@@ -26,7 +26,7 @@
 // is a copy with guest, of (the home it was copied from), key (the place it claims, places.js), bed and maxSc.
 // The modules ask a spot these, not its name; the name is in its home key and the move lab. Nothing runs on import; sloths.js calls the two builders in their place in the build order.
 import * as THREE from "three";
-import { branchCurves, HAMMOCK, jeepApi, LAUNDRY, LIVED, RC, scene, SEAT_SLOT, SEATS, TENT, toStage, toWorld, trunkR } from "../stage.js";
+import { branchCurves, HAMMOCK, HOMES, jeepApi, LAUNDRY, LIVED, RC, scene, SEAT_SLOT, SEATS, TENT, toStage, toWorld, trunkR } from "../stage.js";
 import { V, yawTo } from "../util.js";
 import { makeClothBrush, makeHammockSwing } from "../swing.js";
 import { bedKey, claim, release, seatKey } from "../places.js";
@@ -37,22 +37,43 @@ import { HAMMOCK_IN, branchBase, treeOf } from "./poses.js";
 const sling = () => HAMMOCK.sling - HAMMOCK.pivot, DOWN = V(0, -1, 0), ray = new THREE.Raycaster();
 let hammock = null, brush = null;
 
+// the spot makers a level's own homes use too (stage.js HOMES, the summit's):
+//   seatSpot(i, slot, more)   on log seat i, `slot` along it from its middle (places.js logSeats' slots), facing the fire; it
+//                             gets on from behind the log, away from the fire. more: what else the spot has (bench, claims, name)
+//   tentSpot()                lying in the tent's doorway, peeking out (Adriaen 2026-11-12, "our camp" walk-in tent only): it
+//                             crawls to the planks before the door, in, turns round and lies on its belly, chin on its paws
+//                             (clip peek). Tent frame: +Z out of the door, doorway at z 0.95, floor 0.02 up.
+//   tentBeds(Tp, guest)       the two places in the tent's bed (guests, buildGuests)
+function seatSpot(i, slot, more) {
+  const sa = SEATS[i].angle, at = V(SEATS[i].at.x, 0.33, SEATS[i].at.z).addScaledVector(V(Math.sin(sa), 0, -Math.cos(sa)), slot);   // on the log's top
+  const seat = new THREE.Group(); seat.position.copy(at); seat.rotation.y = Math.atan2(at.x, at.z); scene.add(seat);
+  return { name: "seat", parent: seat, at: V(0, 0, 0), yaw: 0, clip: "reach", scale: 1.9, doze: ["curl", 1], sitUp: true,
+    door: at.clone().setY(0).addScaledVector(at.clone().setY(0).normalize(), 0.8), ...more };
+}
+function tentSpot() {
+  const tg = new THREE.Group(); tg.position.copy(TENT.at).setY(0); tg.rotation.y = TENT.yaw; scene.add(tg); tg.updateMatrixWorld(true);
+  return { name: "tent", parent: tg, at: V(0, 0.04, 0.9), yaw: Math.PI, clip: "peek", scale: 1.9, noHop: true, doze: ["peek", 0.15],
+    via: toStage(tg.localToWorld(V(0, 0, 1.7))).setY(0), door: toStage(tg.localToWorld(V(0, 0, 0.3))).setY(0) };
+}
+function tentBeds(Tp, guest) {                      // the bed along the tent's left wall (tentInside.js), its middle at layout.js TENT.bed
+  const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = toStage(Tp.parent.localToWorld(V(x, 0, z))); ray.set(toWorld(V(w.x, 1.2, w.z)), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? toStage(h.point).y : 0.3; };
+  const [bx, by] = TENT.bed;                        // in the tent frame (bx, -by); the two lie 4 cm toward the door from its middle
+  for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = bx + dx, z = 0.04 - by; guest(Tp, { bed: true, key: bedKey(i), at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, sitUp: true }); }
+}
+
 function buildSpots() {
+  if (HOMES) { spots.push(...HOMES.spots()); return; }   // a level's own homes (the summit's)
   const hA = HAMMOCK.a, inward = HAMMOCK_IN;   // the hammock's first post (layout.js)
   // the hammock (swing.js): the sling swings about the line between the rope knots, and the napper lies in the group
   // that swings with it
   hammock = makeHammockSwing();
   const swing = hammock.swing;
-  // the log seat right of the gap, facing the fire
-  const sa = SEATS[0].angle, at = V(SEATS[0].at.x, 0.33, SEATS[0].at.z).addScaledVector(V(Math.sin(sa), 0, -Math.cos(sa)), SEAT_SLOT.sunny);   // on the log's top, just right of its middle (places.js logSeats: its sunny slot)
-  const seat = new THREE.Group(); seat.position.copy(at); seat.rotation.y = Math.atan2(at.x, at.z); scene.add(seat);
   // each spot: where the sloth ends up (local to its group), the clip it plays there, its size there, and the door on the
   // ground it crawls to before climbing in
   spots.push(
     { name: "hammock", parent: swing, at: V(0.08, sling(), 0), yaw: -Math.PI / 2, clip: "nap", scale: 2.2, asleep: true,
       doze: ["nap", 1], sitUp: true, door: hA.clone().setY(0).addScaledVector(inward, 0.1 * 2.2), climb: true },   // the foot of the -x post, fire side: climbs it, then the rope
-    { name: "seat", parent: seat, at: V(0, 0, 0), yaw: 0, clip: "reach", scale: 1.9, bench: true, claims: [seatKey(0)],
-      doze: ["curl", 1], sitUp: true, door: at.clone().setY(0).addScaledVector(at.clone().setY(0).normalize(), 0.8) },   // gets on from behind the log, away from the fire
+    seatSpot(0, SEAT_SLOT.sunny, { bench: true, claims: [seatKey(0)] }),   // the log seat right of the gap, facing the fire
   );
   // the jeep (thread "jeep"): it waits outside the camp-side door (DoorP), which opens for it (jeep.js jeepApi), clambers
   // onto the sill and onto the seat behind it, SeatP, the driver's seat since the jeep went left-hand drive (jeepSeat.js),
@@ -84,11 +105,7 @@ function buildSpots() {
   // the tent (Adriaen 2026-11-12, "our camp" walk-in tent only): it crawls to the planks before the door, in, turns round
   // and lies on its belly in the doorway, chin on its paws, peeking out (clip peek). Tent frame: +Z out of the door,
   // doorway at z 0.95, floor 0.02 up.
-  {
-    const tg = new THREE.Group(); tg.position.copy(TENT.at).setY(0); tg.rotation.y = TENT.yaw; scene.add(tg); tg.updateMatrixWorld(true);
-    spots.push({ name: "tent", parent: tg, at: V(0, 0.04, 0.9), yaw: Math.PI, clip: "peek", scale: 1.9, noHop: true, doze: ["peek", 0.15],
-      via: toStage(tg.localToWorld(V(0, 0, 1.7))).setY(0), door: toStage(tg.localToWorld(V(0, 0, 0.3))).setY(0) });
-  }
+  spots.push(tentSpot());
   // two low branches right at the camp's edge (Adriaen 2026-11-12): the tips nearest the fire clear of the wild sloths
   const tips = [];
   for (const c of branchCurves.filter((c) => c.low)) for (const t of [0.8, 0.9, 1]) { const p = c.getPointAt(t); if (Math.hypot(p.x, p.z) < RC + 0.3) tips.push({ p, tan: c.getTangentAt(t), c, t }); }
@@ -111,13 +128,10 @@ function buildGuests() {
   // (of: the home spot it was copied from; doze: it sleeps in the clip it lies in; maxSc: only a sloth smaller than that fits
   // beside the one already in the hammock)
   const guest = (from, g) => guests.push({ ...from, ...g, of: from, doze: [g.clip ?? from.clip, 1], guest: true, home: false, who: null });
+  if (HOMES) { HOMES.guests(guest); return; }        // a level's own (the summit's)
   if (H) guest(H, { key: "hammock:1", at: V(-0.42, sling() + 0.04, 0.02), asleep: false, maxSc: 2.0 });
   if (Jp && jeepApi?.seat) guest(Jp, { key: "jeep:P", at: Jp.parent.worldToLocal(jeepApi.seat.clone()), yaw: Math.PI, clip: "curl", scale: 2.2, sitUp: false });
-  if (Tp) {                                         // the bed along the tent's left wall (tentInside.js), its middle at layout.js TENT.bed
-    const tent = scene.getObjectByName("Tent"), top = (x, z) => { const w = toStage(Tp.parent.localToWorld(V(x, 0, z))); ray.set(toWorld(V(w.x, 1.2, w.z)), DOWN); ray.far = 1.2; const h = tent && ray.intersectObject(tent, true)[0]; return h ? toStage(h.point).y : 0.3; };
-    const [bx, by] = TENT.bed;                      // in the tent frame (bx, -by); the two lie 4 cm toward the door from its middle
-    for (const [i, dx, yaw] of [[0, 0.1, Math.PI - 0.2], [1, -0.1, Math.PI + 0.2]]) { const x = bx + dx, z = 0.04 - by; guest(Tp, { bed: true, key: bedKey(i), at: V(x, top(x, z) - 0.07, z), yaw, clip: "nap", scale: 1.9, sitUp: true }); }
-  }
+  if (Tp) tentBeds(Tp, guest);
 }
 
 // s's size in a spot: the spot's size for a sloth of the usual size, times s's own factor (cast.js scale, kept as s.k), so
@@ -129,4 +143,4 @@ const releaseHome = (s) => { release(`${s.spot.name}:${s.name}`, s); for (const 
 const moveInto = (s, g) => { claim(g.key, s); s.ownSpot = s.spot; s.spot = g; g.who = s; };
 const moveBack = (s) => { release(s.spot.key, s); s.spot.who = null; s.spot = s.ownSpot; s.ownSpot = null; };
 
-export { brush, buildGuests, buildSpots, claimHome, hammock, moveBack, moveInto, releaseHome, sizeIn };
+export { brush, buildGuests, buildSpots, claimHome, hammock, moveBack, moveInto, releaseHome, seatSpot, sizeIn, tentBeds, tentSpot };

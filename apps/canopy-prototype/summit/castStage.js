@@ -8,6 +8,9 @@
 //   blockers        the fire, the tent, the camp's seats, table, crate and woodpile (layout.js WEAR), the snowman, the poles,
 //                   the cabin's walls and porch posts, the cabin's woodpile
 //   chores          none here: no soup, no food in your hands (operator/day.js leaves out what needs them)
+//   walkY, NAV      the sloths walk on groundAt too (up the porch steps), on a grid wide enough for the porch
+//   OPT             the camp's sloths too, saving nothing of them (plan L5: they start at their spots each visit)
+//   HOMES, FOOD     their homes and food places (slothHomes.js), set by life.js once it is built
 //   OP_DAY          his summit day (opDay.js), set by life.js once it is built
 // No jeep, hammock, laundry line, big trees or lanterns' warmth here (HAMMOCK and LAUNDRY still get the camp's values, which
 // the sloths' poses measure from when they load; no spot here uses them). Exports castCam, castMe, syncCast(), syncBack(), CAST_O
@@ -29,6 +32,9 @@ const st = (x, y, z) => V(x - CAST_O.x, y, z - CAST_O.z);   // a world x, z (and
 // ---------------------------------------------------------------- the summit's places, in the camp's frame
 const PORCH = { x0: -W / 2, x1: W / 2, z0: -(D / 2 + 3), z1: -D / 2 };   // the porch deck, world x and z (cabin.js: W wide, 3 m deep)
 const onPorch = (x, z) => x > PORCH.x0 && x < PORCH.x1 && z > PORCH.z0 && z < PORCH.z1;
+// the porch steps at the deck's west end (cabin.js STEPS: three steps up to the deck, z -5.0 to -6.2), a ramp for the walkers
+export const STEPS = { x0: -W / 2 - 0.85, x1: -W / 2, z0: -(D / 2 + 2.2), z1: -(D / 2 + 1.0) };
+const onSteps = (x, z) => x > STEPS.x0 && x <= STEPS.x1 && z > STEPS.z0 && z < STEPS.z1;
 export const PLACES = {
   // the cabin's woodpile against its west wall (cabin.js: 0.9 x 3.4 m at x -(W/2 + 0.55)); he stands off its outer face
   woodpile: { stand: st(-(W / 2 + 1.55), 0, 0.4), at: st(-(W / 2 + 0.55), 0, 0.4), yaw: yawTo(V(1, 0, 0)) },
@@ -39,7 +45,9 @@ export const PLACES = {
   snowman: (() => { const c = st(CAMP.x - 3.3, 0, CAMP.z - 0.6), f = st(CAMP.x + 1.2, 0, CAMP.z - 5.2).sub(c).setY(0).normalize(); return { at: c, front: c.clone().addScaledVector(f, 0.95) }; })(),
   // the way round the cabin's west end to the porch: off its back corner, beside the porch's west end, then up onto the deck
   round: [st(-(W / 2 + 1.6), 0, D / 2 + 0.9), st(-(W / 2 + 1.6), 0, -(D / 2 + 1.4)), st(-W / 2 + 0.5, 0, -(D / 2 + 1.6))],
+  deck: YB,   // the porch deck's top over the ground
 };
+export const BASKET = st(-5.0, YB, -(D / 2 + 0.55));   // the sloths' fruit basket on the porch, by the steps (slothHomes.js)
 
 // ---------------------------------------------------------------- what the cast walks round
 const blockers = [];
@@ -55,6 +63,11 @@ for (let z = -D / 2 + 1.4; z <= D / 2 - 1.4; z += 1) { block(st(-W / 2 + 0.45, 0
 block(PLACES.woodpile.at.clone().setZ(PLACES.woodpile.at.z - 1.1), 0.6); block(PLACES.woodpile.at, 0.6); block(PLACES.woodpile.at.clone().setZ(PLACES.woodpile.at.z + 1.1), 0.6);
 for (const x of [-5.6, -1.9, 1.9, 5.6]) block(st(x, 0, -(D / 2 + 2.8)), 0.2);             // the porch posts
 block(st(-2.7, 0, -(D / 2 + 0.45)), 0.6, { r: 0.25 });                                     // the bench (his seat's feet are inside it, so he still reaches them)
+// the deck's edges, so walkers come up the steps: along its front, its east end, and its west end either side of the steps
+for (let x = -W / 2 + 0.2; x <= W / 2 - 0.2; x += 0.5) block(st(x, 0, -(D / 2 + 3)), 0.25);
+for (let z = -(D / 2 + 0.5); z >= -(D / 2 + 2.8); z -= 0.5) block(st(W / 2, 0, z), 0.25);
+block(st(-W / 2, 0, -(D / 2 + 0.5)), 0.25); block(st(-W / 2, 0, -(D / 2 + 2.8)), 0.25);
+block(BASKET, 0.22);                                                                       // the basket
 
 // ---------------------------------------------------------------- you and the camera, in the camp's frame
 export const castCam = new THREE.PerspectiveCamera();
@@ -72,10 +85,10 @@ export function syncCast() {
 // after it: a nudge he gave you (operator/step.js) moves you
 export function syncBack() { if (castMe.pos.x !== was.x || castMe.pos.z !== was.z) { me.x += castMe.pos.x - was.x; me.z += castMe.pos.z - was.z; } }
 
-function groundAt(x, z) { const wx = x + CAST_O.x, wz = z + CAST_O.z; return onPorch(wx, wz) ? YB : height(wx, wz) - TOP; }
+function groundAt(x, z) { const wx = x + CAST_O.x, wz = z + CAST_O.z; return onPorch(wx, wz) ? YB : onSteps(wx, wz) ? YB * (wx - STEPS.x0) / (STEPS.x1 - STEPS.x0) : height(wx, wz) - TOP; }
 
 const NO_CHORES = { cook: { stage: 'none', can: () => false }, food: () => null };
-setStage({ scene: campGroup, camera: castCam, origin: CAST_O, OPT: { op: true, campsloths: false, slothmat: 'lambert' }, LIVED: true,
-  D: { shells: 3 }, S: { slothTint: 0xffffff }, KEYS: { save: 'canopy-camp-save' }, me: castMe, groundAt, blockers, blockersVersion: () => 0,
+setStage({ scene: campGroup, camera: castCam, origin: CAST_O, OPT: { op: true, campsloths: true, slothsave: false, slothmat: 'lambert' }, LIVED: true,
+  D: { shells: 3 }, S: { slothTint: 0xffffff }, KEYS: { save: 'canopy-camp-save' }, me: castMe, groundAt, walkY: groundAt, NAV: { half: 20, rim: 19.5 }, blockers, blockersVersion: () => 0,
   LANTERNS: { lights: [] }, jeepApi: null, branchCurves: [], heroWood: null, trunkR: null, chores: NO_CHORES,
   A0, CRATE, HAMMOCK, HERO: [], LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT });

@@ -9,7 +9,7 @@
 //   greetStep(s, T, sd)           the greet phase: two that meet sit up, face each other, say hello and carry on (a pause
 //                                 inside a walk, on the walk's trip record, so the path is kept)
 // The words of a hello draw from the sloths' day stream (core.js rng("slothDay")) as they happen.
-import { blockers, blockersVersion, camera, RC, rng } from "../stage.js";
+import { blockers, blockersVersion, camera, NAV, RC, rng, walkY } from "../stage.js";
 const { R } = rng("slothDay");
 import { V, yawFrom, yawTo } from "../util.js";
 import { createNav } from "../nav.js";
@@ -23,7 +23,7 @@ import { ahead, stepAlong, turnYaw } from "../actor.js";
 let clearLine, findPath, isFree;
 const wDir = V(), wPath0 = V(), wWas = V(), wR = V(), wL = V(), wProbe = V(), wAxis = V();   // walkStep's scratch vectors, reused every frame
 let wSide = 0, wSlow = 1;                                  // what heed adds up over everyone near, for walkStep
-function buildNav() { ({ clearLine, findPath, isFree } = createNav({ blockers, version: blockersVersion, half: RC + 0.5, rim: RC - 0.8, fireKeep: 2.3, body: 0.28 })); }
+function buildNav() { ({ clearLine, findPath, isFree } = createNav({ blockers, version: blockersVersion, half: NAV?.half ?? RC + 0.5, rim: NAV?.rim ?? RC - 0.8, fireKeep: 2.3, body: 0.28 })); }   // NAV: a level's own (stage.js)
 
 function walkTo(s, goal, arrive) {
   setTrip(s, "walk", { path: findPath(s.o.position, goal), arrive, yaw: yawOf(s.o) });
@@ -52,7 +52,7 @@ function walkStep(s, T, sd) {
   }
   const off = turnYaw(T, "yaw", yawTo(dir), sd * 2.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   const v = CRAWL * s.sc * sd * slow * (off > 1 ? 0.3 : 1) * (T.snap || dist < 0.35 ? Math.max(0.1, Math.cos(Math.min(off, 1.5))) : 1);   // close to a point: turn first, so it can't circle it
-  const was = wWas.copy(pos); stepAlong(pos, T.yaw, v); pos.y = 0;
+  const was = wWas.copy(pos); stepAlong(pos, T.yaw, v); pos.y = walkY ? walkY(pos.x, pos.z) : 0;   // walkY: a level's own ground (the summit's porch)
   if (!isFree(pos) && isFree(was) && (T.path.length > 1 || isFree(aim))) {   // about to walk into something: slide along its path line instead
     // (Adriaen 2026-11-13, Mango stuck between the crate and the table end): the line from where it is to the next point
     // can clip a blocked cell the planned line (from a cell's middle) missed, so it slides along a wall: along the path
