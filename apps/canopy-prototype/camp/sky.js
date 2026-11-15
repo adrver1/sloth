@@ -9,7 +9,8 @@ const { R } = rng("sky");
 import { canvasTex, lcg, swap } from "./util.js";
 import { FAR } from "./layout.js";
 
-const uSkyDusk = { value: 0 }, uSkyRim = { value: new THREE.Color(0x0b1622) }, uSkyHaze = { value: 0 }, uSkyFog = { value: scene.fog?.color ?? new THREE.Color() };   // see the backdrop's shader below
+const NIGHT_RIM = new THREE.Color(0x0b1622);   // the night dome's rim (its texture's "#0b1622" below)
+const uSkyDusk = { value: 0 }, uSkyRim = { value: NIGHT_RIM.clone() }, uSkyHaze = { value: 0 }, uSkyFog = { value: scene.fog?.color ?? new THREE.Color() };   // see the backdrop's shader below
 let sky, dome, nightDome, moon, forestFloorTex;   // set by buildSky
 function buildSky() {
   // ---------------------------------------------------------------- backdrop: painted forest layers in the mist (no geometry behind them)
@@ -81,12 +82,14 @@ function buildSky() {
   back.wrapS = THREE.RepeatWrapping; back.repeat.x = 2;
   sky = new THREE.Mesh(new THREE.CylinderGeometry(FAR, FAR, 34, 32, 1, true), new THREE.MeshBasicMaterial({ map: back, side: THREE.BackSide, fog: false }));
   sky.position.y = 10; scene.add(sky);
-  // at night the backdrop's top melts into the night dome's rim colour, so there's no hard line where the two meet (Adriaen 2026-11-12)
+  // the backdrop's top melts into the dome's rim colour (uSkyRim, daylight.js: the day dome's rim by day, the night dome's at night),
+  // so there's no hard line where the two meet: at night over the top half (Adriaen 2026-11-12), by day over only the top strip,
+  // above the painted crowns (since R2-161 the backdrop is 40 m out and its top shows from the open end of the jeep's track)
   // and away from plain day (dusk, dawn mist, golden hour, rain, night) it sinks into the scene's own fog colour by uSkyHaze, so
   // it sits behind the same haze as the near forest instead of staying day-green (Adriaen 2026-11-13). daylight.js sets the amount.
   sky.material.onBeforeCompile = (sh) => { sh.uniforms.uDusk = uSkyDusk; sh.uniforms.uRim = uSkyRim; sh.uniforms.uHaze = uSkyHaze; sh.uniforms.uFogC = uSkyFog;
     sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nuniform float uDusk; uniform float uHaze; uniform vec3 uRim; uniform vec3 uFogC;"],
-      ["#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, uFogC, uHaze);\noutgoingLight = mix(outgoingLight, uRim, uDusk * smoothstep(0.45, 0.96, vMapUv.y));\n#include <opaque_fragment>"]); };
+      ["#include <opaque_fragment>", "outgoingLight = mix(outgoingLight, uFogC, uHaze);\noutgoingLight = mix(outgoingLight, uRim, mix(smoothstep(0.8, 0.98, vMapUv.y), smoothstep(0.45, 0.96, vMapUv.y), uDusk));\n#include <opaque_fragment>"]); };
   // the open sky over the clearing: a low dome capping the backdrop, painted with soft clouds and a fringe of leaves round its rim
   // (planar UVs, so the clouds don't pinch at the top); one draw, no fog, dimmed at dusk with the backdrop
   const ZENITH = ["#e8f1df", "#a6cdd6"];
@@ -108,7 +111,10 @@ function buildSky() {
   const domeGeo = new THREE.SphereGeometry(FAR, 24, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
   { const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / (2 * FAR), 0.5 - p.getZ(i) / (2 * FAR)); }
   dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
-  dome.position.y = 27; scene.add(dome);
+  // its rim sits 0.5 m below the backdrop's top (27 m): the dome's 24 sides cut inside the backdrop's 32, and level with it they left a
+  // thin crack of background between the two at dusk; the rim colours match there (uSkyRim), so the overlap does not show
+  const DOME_Y = 26.5;
+  dome.position.y = DOME_Y; scene.add(dome);
   // the night sky (camp review B1, Adriaen 2026-11-12): a second dome, deep blue to near black at the rim, with stars and a few faint
   // wisps, faded in over the day dome with dusk; and the moon, a soft disc with a halo, up in the canopy gap where the start view sees
   // it (one sprite each, no fog). Same dome geometry; once the night dome is fully opaque daylight.js hides the day dome under it,
@@ -126,7 +132,7 @@ function buildSky() {
       const b = g.createRadialGradient(x, y, 0, x, y, rr); b.addColorStop(0, "rgba(120,140,185,.16)"); b.addColorStop(1, "rgba(120,140,185,0)"); g.fillStyle = b; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
   });
   nightDome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: nightTex, side: THREE.BackSide, fog: false, transparent: true, opacity: 0, depthWrite: false }));
-  nightDome.position.y = 27; nightDome.visible = false; nightDome.renderOrder = -1; scene.add(nightDome);
+  nightDome.position.y = DOME_Y; nightDome.visible = false; nightDome.renderOrder = -1; scene.add(nightDome);
   const moonTex = canvasTex(128, 128, (g, w) => {
     const c = w / 2, h = g.createRadialGradient(c, c, 0, c, c, c); h.addColorStop(0, "rgba(220,230,255,.55)"); h.addColorStop(0.28, "rgba(190,205,250,.28)"); h.addColorStop(1, "rgba(160,180,240,0)");
     g.fillStyle = h; g.fillRect(0, 0, w, w);
@@ -150,4 +156,4 @@ function skyStep() {
   for (const o of [sky, dome, nightDome]) o.position.set(camera.position.x, o.position.y, camera.position.z);
 }
 
-export { buildSky, dome, forestFloorTex, moon, nightDome, sky, skyStep, uSkyDusk, uSkyFog, uSkyHaze };
+export { buildSky, dome, forestFloorTex, moon, NIGHT_RIM, nightDome, sky, skyStep, uSkyDusk, uSkyFog, uSkyHaze, uSkyRim };

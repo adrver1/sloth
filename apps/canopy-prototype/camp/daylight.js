@@ -14,7 +14,7 @@ import { D, hemi, rng, S, scene, sun, uTime } from "./core.js";
 const { R } = rng("daylight");
 import { V, sstep } from "./util.js";
 import { RC } from "./layout.js";
-import { dome, moon, nightDome, sky, uSkyDusk, uSkyFog, uSkyHaze } from "./sky.js";
+import { dome, moon, NIGHT_RIM, nightDome, sky, uSkyDusk, uSkyFog, uSkyHaze, uSkyRim } from "./sky.js";
 import { groundHeight } from "./terrain.js";
 import { glowTex, rayMat } from "./campProps.js";
 import { me } from "./player.js";
@@ -35,6 +35,9 @@ const mistOf = (h) => sstep(5, 6.3, h) * (1 - sstep(7.8, 10.5, h));             
 const light = { dusk: 0, gold: 0, mist: 0 };
 function setLight(hour, wet) { light.dusk = duskOf(hour); light.gold = goldOf(hour) * (1 - wet); light.mist = mistOf(hour); }
 
+// the backdrop's top takes the colour the domes show at their rim (sky.js uSkyRim): the day dome's rim, with the night dome faded over
+// it by uSkyDusk; the canvas blends the two in sRGB, so the rim colour is mixed in sRGB too (in linear it is too light at dusk)
+const NIGHT_RIM_SRGB = NIGHT_RIM.clone().convertLinearToSRGB();
 let DAY, banks;   // banks: the mist banks' billboard pool
 function createDaylight() {
   DAY = { fog: new THREE.Color(S.fog[0]), back: new THREE.Color(S.sky[0]), hemi: hemi.intensity, sun: sun.intensity, sky: hemi.color.clone(), ground: hemi.groundColor.clone(), sunC: sun.color.clone(), dens: scene.fog.density };
@@ -56,7 +59,7 @@ function daylightStep(dt, wet) {
   scene.fog.color.copy(DAY.fog).lerp(GOLD_FOG, 0.55 * gold).lerp(DUSK, dusk).lerp(DAWN_FOG, 0.5 * mist * (1 - dusk)).lerp(RAIN_FOG, 0.6 * wet * (1 - dusk)); scene.fog.density = DAY.dens * (1 + 0.6 * dusk + 0.7 * mist * (1 - dusk) + 0.5 * wet);
   hemi.intensity = DAY.hemi * (1 - 0.72 * dusk) * (1 - 0.2 * wet); hemi.color.copy(DAY.sky).lerp(NIGHT_SKY, dusk); hemi.groundColor.copy(DAY.ground).lerp(NIGHT_GROUND, dusk);
   sun.intensity = DAY.sun * (1 - 0.62 * dusk + 0.35 * gold) * (1 - 0.5 * wet); sun.color.copy(DAY.sunC).lerp(GOLD_SUN, 0.8 * gold).lerp(MOONC, sstep(0.35, 1, dusk));                      // the sun turns into cool moonlight
-  sky.material.color.setRGB(1, 1, 1).lerp(BACK_GOLD, 0.7 * gold).lerp(BACK_DAWN, 0.6 * mist * (1 - dusk)).lerp(BACK_RAIN, 0.5 * wet).lerp(BACK_NIGHT, dusk); uSkyDusk.value = Math.min(1, dusk * 1.3); uSkyFog.value = scene.fog.color; uSkyHaze.value = 0.75 * Math.max(dusk, gold, mist * (1 - dusk), 0.7 * wet); dome.material.color.setScalar(1 - 0.75 * dusk).lerp(BACK_GOLD, 0.6 * gold); scene.background.copy(DAY.back).lerp(DUSK, dusk);
+  sky.material.color.setRGB(1, 1, 1).lerp(BACK_GOLD, 0.7 * gold).lerp(BACK_DAWN, 0.6 * mist * (1 - dusk)).lerp(BACK_RAIN, 0.5 * wet).lerp(BACK_NIGHT, dusk); uSkyDusk.value = Math.min(1, dusk * 1.3); uSkyFog.value = scene.fog.color; uSkyHaze.value = 0.75 * Math.max(dusk, gold, mist * (1 - dusk), 0.7 * wet); dome.material.color.setScalar(1 - 0.75 * dusk).lerp(BACK_GOLD, 0.6 * gold); uSkyRim.value.copy(DAY.back).multiply(dome.material.color).convertLinearToSRGB().lerp(NIGHT_RIM_SRGB, uSkyDusk.value).convertSRGBToLinear(); scene.background.copy(DAY.back).lerp(DUSK, dusk);
   nightDome.visible = moon.visible = dusk > 0.01;
   nightDome.material.opacity = Math.min(1, dusk * 1.3);
   // The day dome is hidden under a fully opaque night dome.
