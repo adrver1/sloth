@@ -1,7 +1,7 @@
 // Camp activities, shared parts: the geometry, materials and painted textures the chores share (a log, a soup bowl and its
 // soup, the pot's surface shade, a bubble), made once when the page loads, and the food's names. Triangles: a log 24 with
 // its caps, a bowl 16 and its soup 8.
-// Exports the parts by name, paintLogs(woodTex) (the logs take the props' wood atlas), soupBowl() (a new bowl of soup),
+// Exports the parts by name, paintLogs(woodTex, spots) (the logs take the props' wood atlas at spots, from lived.glb), soupBowl() (a new bowl of soup),
 // an(name) ("a" or "an") and flat(a, b) (the distance between two points on the ground).
 import * as THREE from "three";
 import { FRUIT, VEG as VEG_KINDS } from "../camp/food.js";
@@ -28,12 +28,17 @@ export const soupMat = new THREE.MeshLambertMaterial({ color: 0xd9822e });
 export const surfTex = tex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 2, 32, 32, 32); r.addColorStop(0, "#ffffff"); r.addColorStop(0.75, "#d8d8d8"); r.addColorStop(1, "#8a8a8a"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
 export const bubbleTex = tex(32, 32, (g) => { g.strokeStyle = "rgba(255,244,225,.95)"; g.lineWidth = 3; g.beginPath(); g.arc(16, 16, 11, 0, 7); g.stroke(); g.fillStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.arc(16, 16, 9, 0, 7); g.fill(); });
 
-// logs painted like the props thread's stack: its atlas (props/lived/wood_stack.jpg) has log ends on the top half and the logs
-// seen from above bottom right, so the sides take one log's strip (mirrored round, so no seam) and the caps one round end
-export function paintLogs(woodTex) {
+// The carried logs' spots in the stack's atlas (props/lived/wood_stack.jpg, 1024 px, y down), which has log ends on the
+// top half and the logs seen from above bottom right: the sides take one log's strip (x0, y0, width, height; mirrored
+// round, so no seam) and the caps one round end (centre x, y and half-size). They are set once, in props/lived/build_lived.py
+// CARRIED, and the light bake puts them on the WoodStack in lived.glb (camp/campProps.js WOOD_SPOTS, review R2-243).
+// CARRIED here is the same pair, for a lived.glb baked before that; drop it once the light bake has run.
+const CARRIED = { side: [540, 555, 62, 455], end: [440, 92, 60] };
+export function paintLogs(woodTex, spots = CARRIED) {
   const px = (x, y) => [x / 1024, woodTex.flipY ? 1 - y / 1024 : y / 1024], uv = logGeo.attributes.uv, side = (6 + 1) * 2;
+  const [sx, sy, sw, sh] = spots.side, [ex, ey, eh] = spots.end;
   for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i);
-    uv.setXY(i, ...(i < side ? px(540 + 62 * Math.abs(2 * u - 1), 555 + 455 * v) : px(440 + (u - 0.5) * 120, 92 + (v - 0.5) * 120))); }
+    uv.setXY(i, ...(i < side ? px(sx + sw * Math.abs(2 * u - 1), sy + sh * v) : px(ex + (u - 0.5) * 2 * eh, ey + (v - 0.5) * 2 * eh))); }
   uv.needsUpdate = true; logMat.map = woodTex; logMat.needsUpdate = true;
 }
 // a bowl of soup: the cup and the soup's disc in one group

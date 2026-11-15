@@ -5,11 +5,15 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
 
     blender -b --python props/camp/bake_camp_lightmap.py -- --size 4096 --samples 512
     # on the desktop GPU: blender -b --python <render-jobs>/gpu_run.py -- props/camp/bake_camp_lightmap.py --size 4096
+    # --device auto (the default) bakes on the fastest GPU there is, else the CPU, and prints which; --device cpu forces the CPU, --device gpu stops when there is no GPU
 
 1. Runs the build() of props/lived/build_lived.py, build_fire.py and build_laundry.py with flat colours
    (lib.bake.flat_colours), so their vertex colours are plain base colours (no AO of their own), into scratch GLBs.
-2. Builds the picked set (build_camp.py, BUDGET decimate, no densify), imports the scratch GLBs, and stands everything where
-   camp.html puts it. The picked set's old Fire is left out: the lived fire set replaces it on the page.
+2. Builds the picked set (build_camp.py, BUDGET decimate, no densify; flat colours except build_camp.TEXTURED, the
+   hammock posts, which keep their bamboo image), imports the scratch GLBs, and stands everything where
+   camp.html puts it (picked() makes no fire and no lantern: the lived fire set and the page's lanterns.js draw those,
+   so neither is baked). The mesh audit
+   (props/lib/audit.py) reports on the lived props in step 1 and the picked set here, and never stops the bake.
 3. Adds the jeep (an occluder) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
    one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
    lanterns, the tent stove and a dim blue moon. Every prop gets a second UV map (TEXCOORD_1; TEXCOORD_0 stays the
@@ -25,8 +29,11 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
    Thin double-sided cards (laundry, chain) take the brighter of their two sides.
    COLOR_0 alpha 0 marks faces that glow at night (lantern glass, the stove's fire).
 4. Writes props/camp/camp_picked_lm.glb, props/lived/{lived,fire,laundry}.glb (each object back at its own origin, so
-   the page places them as before; SeatTop as SeatTop_0-2, one per seat) with their models/*.txt copies, and
-   apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png.
+   the page places them as before; SeatTop as SeatTop_0-2, one per seat; the laundry's and the fire's ANCHORS empties
+   kept as built, review R2-252; the WoodStack carries the carried logs' atlas spots from props/lived/wood_stack.json
+   as a glTF extra, review R2-243) with their models/*.txt copies, and
+   apps/canopy-prototype/models/camp_lm_<4k|2k|1k>.png. The GLBs carry quantized normals, colours and UVs
+   (KHR_mesh_quantization, lib/quantize.py), and the unlit Embers no normals (review R2-109).
 Where each prop and light stands comes from the page itself: the "place" block the layout step (export_casters.cjs)
 writes into props/shadow/layout_picked.json.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
@@ -49,19 +56,22 @@ ap.add_argument("--margin", type=float, default=6)    # texels between islands a
 ap.add_argument("--unwrap-only", action="store_true")
 ap.add_argument("--ground", type=int, default=1024, help="ground map size")
 ap.add_argument("--jeep", default="expedition")
+ap.add_argument("--device", default="auto", help="Cycles device: auto (the fastest GPU, else the CPU), gpu (stop if none), cpu, or a backend such as optix")
 a = ap.parse_args(argv)
 T0 = time.time()
 GLOW = ("ru_glass", "wt_glow")
 THIN = ("LaundryCloth", "Chain")
 
+os.environ.setdefault("PROPS_AUDIT", "warn")       # the mesh audit (lib/audit.py) reports here but never stops the bake
 sys.path.insert(0, HERE); sys.path.insert(0, LIVED); sys.path.insert(0, os.path.join(ROOT, "props"))
 import build_camp  # noqa: E402
 import build_fire  # noqa: E402
 import build_laundry  # noqa: E402
 import build_lived  # noqa: E402
-from lib.bake import flat_colours  # noqa: E402
+from lib.bake import flat_colours, pick_device  # noqa: E402
+from lib.audit import audit  # noqa: E402
 from lib.export import export_glb, reset, tris  # noqa: E402
-from lib.mesh import apply_all  # noqa: E402
+ANCHORS = build_laundry.ANCHORS + ("Soup",)    # the empties the lived sets carry for the page (review R2-252)
 
 
 # where the page stands each prop and light (step 2 uses it): checked before the minutes of building in step 1
@@ -120,13 +130,14 @@ PLACE = {
 reset()
 objs = build_camp.picked()
 for name, o in objs.items():
-    apply_all(o); o.location = (0, 0, 0)
+    o.location = (0, 0, 0)                            # each is joined from parts (join() applied them)
     n = build_camp.BUDGET["picked"].get(name); t = tris(o)
     if n and t > n:
         bpy.context.view_layer.objects.active = o
         d = o.modifiers.new("lean", "DECIMATE"); d.decimate_type = "COLLAPSE"; d.ratio = n / t; d.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=d.name)
-flat(list(objs.values()))
+flat([o for n, o in objs.items() if n not in build_camp.TEXTURED])   # the textured posts keep their image (review R2-169)
+audit(list(objs.values()), label="camp_picked")      # the picked set's mesh audit, before the minutes of baking
 
 
 def place(src, name, x, z, yaw, y=0.0, copy=True):
@@ -142,8 +153,9 @@ for i, (x, z, yaw) in enumerate(seat_at):
     picked.append(place(objs["Seat"], f"Seat_{i}", x, z, yaw))
 picked.append(place(objs["Tent"], "Tent", *TENT, copy=False))
 picked.append(place(objs["Hammock"], "Hammock", *HAMMOCK, copy=False))
+picked.append(place(objs["HammockPosts"], "HammockPosts", *HAMMOCK, copy=False))   # in the hammock's own frame
 picked.append(place(objs["Table"], "Table", *TABLE, copy=False))
-bpy.data.objects.remove(objs["Seat"]); bpy.data.objects.remove(objs["Lantern"])
+bpy.data.objects.remove(objs["Seat"])
 
 
 def import_glb(path):
@@ -152,14 +164,16 @@ def import_glb(path):
     return [o for o in bpy.data.objects if o not in before]
 
 
-sets, top = {}, None
+sets, anchors, top = {}, {}, None
 for sname, table in PLACE.items():
     new = import_glb(os.path.join(SCRATCH, f"{sname}.glb"))
     for o in new:
         if o.parent:
             mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
-    meshes = []
+    meshes, anchors[sname] = [], []
     for o in new:
+        if o.type == "EMPTY" and o.name.split(".")[0] in ANCHORS:    # points the page reads (review R2-252): left at the
+            o.name = o.name.split(".")[0]; anchors[sname].append(o); continue   # set's origin, not lit, written back in step 4
         if o.type != "MESH":
             bpy.data.objects.remove(o); continue
         key = o.name.split(".")[0]; o.name = key
@@ -273,7 +287,8 @@ sc = bpy.context.scene
 w = bpy.data.worlds.new("sky"); w.use_nodes = True; sc.world = w
 bgn = w.node_tree.nodes["Background"]
 sc.world.light_settings.distance = 0.6
-sc.render.engine = "CYCLES"; sc.cycles.samples = a.samples; sc.cycles.use_adaptive_sampling = False
+# after the last reset(): the factory reset also resets the preferences that choose the GPU (review R2-226)
+pick_device(sc, a.device); sc.cycles.samples = a.samples; sc.cycles.use_adaptive_sampling = False
 sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 3
 bk = sc.render.bake
 bk.target = "IMAGE_TEXTURES"; bk.margin = 8; bk.use_clear = True
@@ -404,15 +419,23 @@ json.dump({"channels": G, "colour": {g: LIGHTS[g][0] for g in LIGHTS}, "encoding
 print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}; " + ", ".join(f"{g} max {glit[g].max():.2f}" for g in G))
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
-def export(objs, path, txt, image_format="AUTO"):
-    export_glb(objs, path, image_format=image_format)
+def export(objs, path, txt, image_format="AUTO", extras=False):
+    export_glb(objs, path, image_format=image_format, check=False, small=True, unlit=("Embers",), extras=extras)   # audited in steps 1 and 2;
+    # small: quantized normals, colours and UVs, and no normals on the unlit embers (review R2-109)
     with open(path, "rb") as f, open(os.path.join(MODELS, txt), "w") as g:
         g.write(base64.b64encode(f.read()).decode())
 
 
 export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
+# the carried logs' spots in the wood stack's atlas ride on the WoodStack as a glTF extra, so the page reads them with the
+# atlas they belong to (activities/parts.js paintLogs, review R2-243); build_lived.py stack_spots writes them
+with open(os.path.join(LIVED, "wood_stack.json")) as f:
+    CARRIED = json.load(f)["carried"]
 for sname, meshes in sets.items():
     for o in meshes:
         o.location = (0, 0, 0); o.rotation_euler = (0, 0, 0)
-    export(meshes, os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO")
+        if o.name == "WoodStack":
+            o["carried"] = CARRIED
+    export(meshes + anchors[sname], os.path.join(LIVED, f"{sname}.glb"), f"{sname}.txt", "JPEG" if sname == "lived" else "AUTO",
+           extras=sname == "lived")
 print(f"camp light: {len(counts)} objects, {sum(counts.values())} triangles, {time.time() - T0:.0f} s")

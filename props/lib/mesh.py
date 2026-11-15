@@ -1,13 +1,22 @@
 """
-Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), shaping (bevel, rough_up,
-drop_faces, capless), and object plumbing (apply_all, join, obj_from_bm). Z up, metres; every helper links what it
-makes into the current scene's collection and returns it.
+Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), tubes (sweep, tube),
+shaping (bevel, rough_up, drop_faces, drop_ground_faces), object plumbing (apply_all, join, obj_from_bm, select_only) and
+anchor (a named empty the page reads a point from), and mug (the enamel mug on the seat and the snack table). Z up, metres;
+every helper that makes an object links it into the current scene's collection and returns it.
+
+    sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None)
+        a tube of `sides` flat sides into bmesh bm along the points, one ring per point, faces wound outward, caps only
+        where asked; returns {"rings", "sides", "cap_a", "cap_b", "angles"} so the caller can set UVs and materials
+    tube(a, b, r, m=None, sides=8, cap_a=False, cap_b=True, r_b=None, rings=None, twist=0.0, frame=None, smooth=True,
+         name="tube")
+        one straight tube from a to b as its own object (sweep on a fresh bmesh): the posts, roots and poles whose
+        buried or hidden end has no cap (review R2-251, which replaced five hand-written tube builders and capless)
 """
 import math
 
 import bpy
 import bmesh
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 
 def with_material(o, m, smooth=True):
@@ -47,6 +56,47 @@ def rod(a, b, r, m, verts=8, caps=True):
     o.rotation_mode = "QUATERNION"
     o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
     return o
+
+
+def _frame(d):
+    """Two unit vectors x, y across direction d with x, y, d right-handed: x = d x Z, or d x X when d is near Z."""
+    x = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.99 else Vector((1, 0, 0))).normalized()
+    return x, d.cross(x)
+
+
+def sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None):
+    """A tube with `sides` flat sides into bm along pts (at least two points), ring i of radius radii[i] round pts[i].
+    Ring vertex k sits at angle angles[k] = 2 pi (k + twist) / sides from the frame's x toward its y. frame=(x, y) sets the
+    first ring's frame (x, y and the direction right-handed); by default _frame. Along a bent path each ring's frame is
+    the last one turned onto the new direction (parallel transport), so the tube does not twist. Side faces are wound
+    outward, with loops in the order (ring i k, ring i k+1, ring i+1 k+1, ring i+1 k); cap_b faces along the path, cap_a
+    against it, and neither is made unless asked. Returns {"rings": [[BMVert]], "sides": [[BMFace] per segment],
+    "cap_a": BMFace or None, "cap_b": BMFace or None, "angles": [float]}."""
+    pts = [Vector(p) for p in pts]
+    angles = [2 * math.pi * (k + twist) / sides for k in range(sides)]
+    dirs = [(pts[i + 1] - pts[i]).normalized() for i in range(len(pts) - 1)]
+    tans = [dirs[0]] + [(dirs[i - 1] + dirs[i]).normalized() for i in range(1, len(dirs))] + [dirs[-1]]
+    x, y = (Vector(frame[0]), Vector(frame[1])) if frame else _frame(tans[0])
+    rings, prev = [], tans[0]
+    for c, r, t in zip(pts, radii, tans):
+        q = prev.rotation_difference(t)
+        x, y, prev = q @ x, q @ y, t
+        rings.append([bm.verts.new(c + (x * math.cos(a) + y * math.sin(a)) * r) for a in angles])
+    faces = [[bm.faces.new((A[k], A[(k + 1) % sides], B[(k + 1) % sides], B[k])) for k in range(sides)] for A, B in zip(rings, rings[1:])]
+    return {"rings": rings, "sides": faces, "angles": angles,
+            "cap_a": bm.faces.new(rings[0][::-1]) if cap_a else None, "cap_b": bm.faces.new(rings[-1]) if cap_b else None}
+
+
+def tube(a, b, r, m=None, sides=8, cap_a=False, cap_b=True, r_b=None, rings=None, twist=0.0, frame=None, smooth=True, name="tube"):
+    """A straight tube from a to b as its own object (see sweep): radius r at a and r_b (default r) at b, or rings, a list
+    of (t, radius) with t from 0 at a to 1 at b. By default the end at a (in the ground or inside another part) is open
+    and the end at b capped. m: the material (smooth shaded unless smooth=False)."""
+    a, b = Vector(a), Vector(b)
+    rings = rings or ((0.0, r), (1.0, r if r_b is None else r_b))
+    bm = bmesh.new()
+    sweep(bm, [a.lerp(b, t) for t, _ in rings], [rr for _, rr in rings], sides, cap_a, cap_b, twist, frame)
+    o = obj_from_bm(bm, name)
+    return with_material(o, m, smooth) if m else o
 
 
 def ball(r, at=(0, 0, 0), scale=(1, 1, 1), m=None, seg=16, rot=(0, 0, 0)):
@@ -101,49 +151,126 @@ def rough_up(o, amt, freq=4.0, axis_mask=(1, 1, 1)):
 
 
 def drop_faces(o, test):
-    """Delete the faces nobody sees (caps buried in the ground or inside another part); test(face) says which."""
+    """Delete the faces nobody sees (caps buried in the ground or inside another part); test(normal, centre) says which,
+    from each face's normal and median centre (Vectors, in o's applied frame)."""
     apply_all(o)
     bm = bmesh.new()
     bm.from_mesh(o.data)
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if test(type("F", (), {"normal": f.normal, "center": f.calc_center_median()}))], context="FACES")
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if test(f.normal, f.calc_center_median())], context="FACES")
     bm.to_mesh(o.data)
     bm.free()
     return o
 
 
-def capless(o, a, b, keep_end=True):
-    """Drop a rod's caps that nobody sees: the one at a (in the ground or the stump), and the one at b unless keep_end."""
-    apply_all(o)
-    d = (Vector(b) - Vector(a)).normalized()
+def drop_ground_faces(objs, h=0.05):
+    """Delete the faces of each mesh in objs that point down (normal z under -0.7) with their centre less than h above
+    the ground (world z = 0): bottoms standing on the ground, which nobody sees and which still took light-map space
+    (review R2-154). Tested in world space, so an object keeps its transform. Returns objs."""
+    for o in objs:
+        if o.type != "MESH":
+            continue
+        mw, nw = o.matrix_world, o.matrix_world.to_3x3().inverted().transposed()
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        down = [f for f in bm.faces if (nw @ f.normal).normalized().z < -0.7 and (mw @ f.calc_center_median()).z < h]
+        if down:
+            bmesh.ops.delete(bm, geom=down, context="FACES")
+            bm.to_mesh(o.data)
+        bm.free()
+    return objs
+
+
+def mug(M, at, n=8):
+    """The enamel mug (Adriaen 2026-11-12) standing at `at`: an n-sided body with no bottom, the blue rim painted as a
+    band at the top, coffee as one flat n-gon, and a 6 x 3 handle loop toward +X; M holds the "enamel", "rim" and
+    "coffee" materials. 96 triangles with n = 8 (build_lived.py's seat mug), 76 with n = 6 (build_camp.py's table mug,
+    review R2-194)."""
+    x0, y0, z0 = at
+    r, h = 0.042, 0.085
     bm = bmesh.new()
-    bm.from_mesh(o.data)
-    gone = [f for f in bm.faces if abs(f.normal.dot(d)) > 0.98 and (not keep_end or (f.calc_center_median() - Vector(a)).dot(d) < 0.01)]
-    bmesh.ops.delete(bm, geom=gone, context="FACES")
-    bm.to_mesh(o.data)
-    bm.free()
-    return o
+    ring = lambda rr, zz: [bm.verts.new((x0 + rr * math.cos(2 * math.pi * (i + 0.5) / n), y0 + rr * math.sin(2 * math.pi * (i + 0.5) / n), z0 + zz)) for i in range(n)]  # noqa: E731
+    lo, band, hi = ring(r, 0), ring(r, h - 0.008), ring(r, h)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((lo[i], lo[j], band[j], band[i])).material_index = 0
+        bm.faces.new((band[i], band[j], hi[j], hi[i])).material_index = 1
+    cof = ring(r * 0.86, h - 0.004)
+    bm.faces.new(cof).material_index = 2                                 # the coffee, just under the rim
+    for i in range(n):                                                   # the rim: a ring from the outside down to the coffee
+        j = (i + 1) % n
+        bm.faces.new((hi[i], hi[j], cof[j], cof[i])).material_index = 1
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    for f in bm.faces:
+        if f.calc_center_median().z > z0 + h - 0.006 and f.normal.z < 0:
+            f.normal_flip()
+    o = obj_from_bm(bm, "mug")
+    me = o.data
+    for k in ("enamel", "rim", "coffee"):
+        me.materials.append(M[k])
+    hd = torus(0.026, 0.006, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=6, minor=3)
+    for pl in hd.data.polygons:
+        pl.use_smooth = False
+    return join([o, hd], "mug")
+
+
+def anchor(name, at, size=1.0):
+    """An empty called name at `at`, scaled by size, linked into the scene: a point the page reads from the GLB by name
+    instead of a number typed again in camp/layout.js (review R2-252), as the jeep's SeatP."""
+    e = bpy.data.objects.new(name, None)
+    e.location = at
+    e.scale = (size, size, size)
+    bpy.context.collection.objects.link(e)
+    return e
+
+
+def select_only(o):
+    """Make o the only selected object and the active one (without the select_all operator, which walks every object)."""
+    for s in list(bpy.context.view_layer.objects.selected):
+        s.select_set(False)
+    o.select_set(True)
+    bpy.context.view_layer.objects.active = o
+
+
+def _plain(o):
+    """True when o's transform can be written into its mesh directly: no modifiers, no parent, no delta transforms, no
+    shape keys or custom normals, a mesh no other object uses, and no mirroring (a negative scale flips the faces)."""
+    me = o.data
+    return (not o.modifiers and o.parent is None and me.users == 1 and me.shape_keys is None and not me.has_custom_normals
+            and tuple(o.delta_scale) == (1, 1, 1) and not any(o.delta_rotation_euler) and tuple(o.delta_rotation_quaternion) == (1, 0, 0, 0)
+            and o.matrix_basis.to_3x3().determinant() > 0)
+
+
+def _apply(o, location):
+    """Write o's rotation and scale (and its location when location is True) into its mesh. A plain object (_plain) is
+    done through the mesh API, and returns at once when there is nothing to apply; any other goes through the operators."""
+    select_only(o)
+    if o.type == "MESH" and _plain(o):
+        m = o.matrix_basis.copy() if location else o.matrix_basis.to_3x3().to_4x4()
+        if m != Matrix.Identity(4):
+            o.data.transform(m)
+            o.matrix_basis = Matrix.Identity(4) if location else Matrix.Translation(o.location)
+            bpy.context.view_layer.update()            # so matrix_world is current, as after the operator
+        return
+    for mod in list(o.modifiers):
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.ops.object.transform_apply(location=location, rotation=True, scale=True)
 
 
 def apply_all(o):
-    """Apply o's modifiers, rotation and scale (o becomes the only selected, active object)."""
-    bpy.ops.object.select_all(action="DESELECT")
-    o.select_set(True)
-    bpy.context.view_layer.objects.active = o
-    for mod in list(o.modifiers):
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    """Apply o's modifiers, rotation and scale (o becomes the only selected, active object). Cheap when there is nothing
+    to apply, so calling it on an object that join() already applied costs nothing (review R2-237)."""
+    _apply(o, False)
 
 
 def join(objs, name):
     """Join objs into one object called name, with every transform applied (it keeps objs[0]'s mesh)."""
     for o in objs:
         apply_all(o)
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
+    select_only(objs[0])
+    for o in objs[1:]:
         o.select_set(True)
-    bpy.context.view_layer.objects.active = objs[0]
     bpy.ops.object.join()
     o = bpy.context.object
     o.name = name
-    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    _apply(o, True)
     return o
