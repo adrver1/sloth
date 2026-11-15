@@ -11,7 +11,7 @@ look used. PROPS (above make()) lists them all, one row each with its builder, h
     WoodPile      178  the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
     SeatThings    108  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
     TentSide      147  the pair of wellies by the tent (baked)
-    KitchenThings 100  the pan, plates and honey jar on the tins in the crate (baked)
+    KitchenThings 116  the pan (a dish with an inside), plates and honey jar on the tins in the crate (baked)
 
     .venv/bin/python props/lived/build_lived.py
     .venv/bin/python props/lived/build_lived.py --samples 64
@@ -726,25 +726,27 @@ CW, CD, CH, CT = 0.5, 0.34, 0.28, 0.018       # outer width, depth, height, wall
 # the crate is full of tins (Adriaen 2026-11-15: "put a rectangle in it upon which you draw cans of food seen from the top"):
 # one flat textured quad at CANS_Z fills the inside, with the tins painted on it, and everything else rests on it
 CANS_Z = 0.2
+PAN_R0, PAN_R1, PAN_X = 0.085, 0.1, -0.1             # the pan's bottom and top radius, and where its middle lies
 CANS_PX = (256, 168)                          # the tins' rectangle in kitchen_crate.png (bottom right), the inside's aspect
 
 
 def paint_cans(im, box, k):
     """Tins of food seen from the top, packed edge to edge into box (x0, y0, x1, y1, in pixels of im, which is drawn k times
-    larger than it is saved): a dark gap between them, a sliver of each one's label round its lid, then the lid with its
-    rims and a soft light from the top left. Warm storybook colours; the same tins every run (seeded)."""
+    larger than it is saved): a dark gap between them, a wide band of each one's label round its lid, then a cool silver
+    lid with a bright rolled rim, one pressed ring, a shine on the top left and a ring pull on most, so they read as metal
+    tins and not as sawn log ends (review of 2026-11-15). Warm storybook label colours; the same tins every run (seeded)."""
     from PIL import Image, ImageDraw, ImageFilter
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     d = ImageDraw.Draw(im)
     d.rectangle((x0 * k, y0 * k, x1 * k, y1 * k), fill=(58, 40, 26))            # the shadow between the tins
     r = random.Random(11)
-    labels = [(196, 72, 52), (222, 168, 64), (86, 128, 98), (232, 214, 176), (92, 118, 150), (170, 92, 120)]
+    labels = [(204, 70, 50), (230, 170, 56), (80, 134, 92), (92, 120, 168), (176, 84, 120), (226, 110, 60)]
     tins = []                                                                   # (cx, cy, radius) in saved pixels
-    rows, R0 = 3, h / 6.0                                                       # three rows, staggered, a little overlap at the edges
+    rows, R0 = 3, h / (2 + 2 * math.sqrt(3))                                    # three rows packed like tins in a box (staggered by a radius)
     for j in range(rows):
-        cy = R0 + j * (h - 2 * R0) / (rows - 1)
-        x = R0 * (0.2 if j % 2 else 0.95)
+        cy = R0 + j * math.sqrt(3) * R0
+        x = R0 * (0.05 if j % 2 else 1.0)
         while x < w + R0:
             rr = R0 * r.uniform(0.86, 1.0)
             tins.append((x0 + x, y0 + cy + r.uniform(-2, 2), rr))
@@ -759,25 +761,33 @@ def paint_cans(im, box, k):
         lab = r.choice(labels)
         def disc(rad, col, dx=0.0, dy=0.0):
             d.ellipse(((cx + dx - rad) * k, (cy + dy - rad) * k, (cx + dx + rad) * k, (cy + dy + rad) * k), fill=col)
-        disc(rr, tuple(int(v * 0.72) for v in lab))                              # the label, darker on its far side
+        def ring(rad, col, wid):
+            d.ellipse(((cx - rad) * k, (cy - rad) * k, (cx + rad) * k, (cy + rad) * k), outline=col, width=max(1, int(wid * k)))
+        disc(rr, tuple(int(v * 0.7) for v in lab))                               # the label, darker on its far side
         disc(rr * 0.97, lab, -0.8, -0.8)
-        lid = tuple(int(v * r.uniform(0.95, 1.03)) for v in (212, 196, 170))
-        disc(rr * 0.86, (150, 140, 124))                                         # the seam where lid meets label
-        disc(rr * 0.8, lid)
-        disc(rr * 0.66, tuple(int(v * 0.86) for v in lid))                       # the sunken middle inside the lid's rim
-        disc(rr * 0.62, tuple(min(255, int(v * 0.97)) for v in lid), -0.6, -0.6)
-        for q in (0.5, 0.34):                                                    # pressed rings in the lid
-            d.ellipse(((cx - rr * q) * k, (cy - rr * q) * k, (cx + rr * q) * k, (cy + rr * q) * k), outline=tuple(int(v * 0.84) for v in lid), width=k)
-        d.arc(((cx - rr * 0.8) * k, (cy - rr * 0.8) * k, (cx + rr * 0.8) * k, (cy + rr * 0.8) * k), 160, 280, fill=(236, 230, 214), width=2 * k)   # light on the rim
-        if r.random() < 0.35:                                                    # a ring pull on some
+        ring(rr * 0.86, (250, 236, 200), 0.9)                                    # a cream stripe printed on the label
+        f = r.uniform(0.94, 1.04)
+        silver = tuple(int(v * f) for v in (178, 182, 186))
+        disc(rr * 0.74, (96, 96, 100))                                           # the seam where lid meets label
+        disc(rr * 0.71, (226, 228, 230))                                         # the rolled rim, bright
+        disc(rr * 0.6, tuple(int(v * 0.82) for v in silver))                     # the lid sunk inside the rim
+        disc(rr * 0.57, silver, -0.5, -0.5)
+        ring(rr * 0.38, tuple(int(v * 0.86) for v in silver), 0.6)               # one fine pressed ring
+        d.arc(((cx - rr * 0.66) * k, (cy - rr * 0.66) * k, (cx + rr * 0.66) * k, (cy + rr * 0.66) * k), 190, 260, fill=(255, 255, 255), width=int(1.6 * k))   # shine on the rim, top left
+        d.arc(((cx - rr * 0.48) * k, (cy - rr * 0.48) * k, (cx + rr * 0.48) * k, (cy + rr * 0.48) * k), 200, 245, fill=(236, 238, 240), width=int(1.2 * k))
+        if r.random() < 0.75:                                                    # a ring pull on most: a tab from the middle out
             a = r.uniform(0, 6.28)
-            px, py = cx + math.cos(a) * rr * 0.3, cy + math.sin(a) * rr * 0.3
-            d.ellipse(((px - rr * 0.2) * k, (py - rr * 0.13) * k, (px + rr * 0.2) * k, (py + rr * 0.13) * k), outline=(128, 120, 106), width=k)
+            ca, sa = math.cos(a), math.sin(a)
+            tab = [(cx + ca * rr * (0.22 + 0.2 * math.cos(t)) - sa * rr * 0.12 * math.sin(t), cy + sa * rr * (0.22 + 0.2 * math.cos(t)) + ca * rr * 0.12 * math.sin(t))
+                   for t in (i * math.pi / 8 for i in range(16))]
+            d.polygon([(px * k, py * k) for px, py in tab], outline=(104, 106, 112), width=int(1.5 * k))
+            disc(rr * 0.07, (112, 114, 120))                                     # its rivet in the middle
 
 
 def crate_texture(path):
     """512 x 512: outer planks (left half), inside planks (top right), the tins (bottom right, CANS_PX, paint_cans) and the
-    sawn rim (a strip under the tins)."""
+    sawn rim (a strip under the tins). 512 and not 256 because the tins fill about 180 px of a phone screen up close and
+    their rims and ring pulls blur at 128; it costs about 28 KB more of JPEG in the lived GLB (44 KB against 16 KB)."""
     from PIL import Image, ImageDraw
     k, S = 4, 2                                       # drawn at 4x, saved at 512 (the old 256 layout scaled by S)
     im = Image.new("RGB", (512 * k, 512 * k), (60, 42, 28))
@@ -841,6 +851,23 @@ def kitchen_crate():
     return o
 
 
+def dish(r0, r1, ri, h, fz, m, n=8):
+    """An open n-sided dish standing on z = 0: its outside wall from r0 at the bottom out to r1 at h, then straight down
+    inside to a floor of radius ri at fz (no rim band, no bottom cap: it lies on something). 5n - 2 triangles."""
+    bm = bmesh.new()
+    ring_at = lambda r, z: [bm.verts.new((r * math.cos(2 * math.pi * i / n), r * math.sin(2 * math.pi * i / n), z)) for i in range(n)]  # noqa: E731
+    ob, ot, ib = ring_at(r0, 0), ring_at(r1, h), ring_at(ri, fz)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((ob[i], ob[j], ot[j], ot[i]))                 # outside, facing out
+        bm.faces.new((ot[i], ot[j], ib[j], ib[i]))                 # inside, facing in and up
+    bm.faces.new(ib)                                               # the floor, facing up
+    bm.normal_update()
+    o = obj_from_bm(bm, "dish")
+    o.data.materials.append(m)
+    return o
+
+
 def top_only(o):
     """o (an upright cylinder) without its bottom cap."""
     return drop_faces(o, lambda n, c: n.z < -0.9)
@@ -852,16 +879,18 @@ def kitchen_things(M):
     baked like the other props). The front middle and front left are bare tins, where the page lays the sloths' fruit
     (camp/sloth/table.js, which finds the top of whatever is there). The wooden spoon is gone (Adriaen 2026-11-15)."""
     p = []
-    # the pan: a shallow 8-sided dish, wide side up, no bottom (it lies on the tins); its handle rests on the left rim, so
-    # the dish tilts 12 degrees with its far edge on the tins. Built with its bottom middle at the origin, handle along -X,
-    # rising 15 degrees from the dish; tilted, it rests on the inner edge of the left rim and clears the outer one by 1 cm
-    pan = top_only(cyl(0.1, 0.035, at=(0, 0, 0.0175), m=M["pan"], verts=8, r2=0.12, smooth=False))
-    a = math.radians(15)
-    handle = rod((-0.115, 0, 0.03), (-0.115 - 0.19 * math.cos(a), 0, 0.03 + 0.19 * math.sin(a)), 0.012, M["pan"], verts=4)
+    # the pan: a shallow 8-sided dish with a floor and an inside wall, so it reads as a pan from above (review of
+    # 2026-11-15: a flat top read as a slab), no bottom (it lies on the tins), a little smaller than before so more tins
+    # show. Its handle rests on the left rim, so the dish tilts 12 degrees with its far edge on the tins. Built with its
+    # bottom middle at the origin, handle along -X rising 24 degrees from the dish; tilted, its underside crosses the
+    # left wall's inner edge at 0.280 (the rim is at CH = 0.28) and clears the outer edge by 1 cm
+    pan = dish(PAN_R0, PAN_R1, 0.074, 0.03, 0.006, M["pan"])
+    a = math.radians(24)
+    handle = rod((-PAN_R1, 0, 0.028), (-PAN_R1 - 0.2 * math.cos(a), 0, 0.028 + 0.2 * math.sin(a)), 0.012, M["pan"], verts=4)
     pj = join([pan, handle], "pan")
     tilt = math.radians(12)
-    pj.rotation_euler = (0, tilt, 0)                               # the handle side up
-    pj.location = (-0.088, 0.025, CANS_Z + 0.1 * math.sin(tilt))   # the low edge (r 0.1 at the bottom) on the tins
+    pj.rotation_euler = (0, tilt, 0)                                  # the handle side up
+    pj.location = (PAN_X, 0.02, CANS_Z + PAN_R0 * math.sin(tilt))     # the low edge on the tins
     p.append(pj)
     k0 = mark(p, 0, "Frying pan")
     # plates stacked on the tins, front right
