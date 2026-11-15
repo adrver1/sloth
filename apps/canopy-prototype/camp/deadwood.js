@@ -8,7 +8,8 @@
 //   bracket(r)                                    one shelf fungus bracket (6 tris), its uvs on the texture's clean strip
 //   fallenLog(L, r)                               the fallen log along x, centred on its axis: tapered, one end broken, one sawn,
 //                                                 a branch stub ([log, stub], painted)
-//   barkTex()                                     the bark painted once (128 px), multiplied over the vertex colours; u > 0.96 is white
+//   barkMat()                                     the one material of the deadwood and the glade's props: the bark painted once
+//                                                 (128 px) over the vertex colours, front faces only; u > 0.96 is white
 //   CLEAN_UV                                      [u, v] on that white strip, for parts with no bark
 // Exports those, buildDeadwood and deadwood ({ layout, tris }, set by buildDeadwood).
 import * as THREE from "three";
@@ -81,6 +82,9 @@ function barkTex() {
   bark.wrapT = THREE.RepeatWrapping;
   return bark;
 }
+// shared, so the glade's props draw with the same program as the deadwood (review R2-199)
+let barkM = null;
+const barkMat = () => (barkM ??= new THREE.MeshLambertMaterial({ vertexColors: true, map: barkTex() }));
 // brackets stuck to a surface point, facing out along dir (xz), a little tilted
 const shelf = (out, at, dir, r) => { const a = Math.atan2(dir.z, dir.x); out.push(bracket(r).rotateZ(R(-0.12, 0.08)).rotateY(-a + Math.PI / 2).translate(at.x, at.y, at.z)); };
 
@@ -148,9 +152,8 @@ function buildDeadwood() {
     }
     count("roots", from);
   }
-  const deadMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: barkTex() });
-  const geo = merge(parts), mesh = new THREE.Mesh(geo, deadMat); mesh.name = "Deadwood"; scene.add(mesh);
+  const geo = merge(parts), mesh = new THREE.Mesh(geo, barkMat()); mesh.name = "Deadwood"; scene.add(mesh);
   triCount.total = tris(geo);
   deadwood = { layout, tris: triCount };   // for the GPU thread's ground-shadow bake (props/bake_all.py, through debug.js) and the tris report
 }
-export { CLEAN_UV, barkTex, bracket, buildDeadwood, deadwood, fallenLog, paint };
+export { CLEAN_UV, barkMat, bracket, buildDeadwood, deadwood, fallenLog, paint };

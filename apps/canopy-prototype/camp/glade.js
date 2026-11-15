@@ -17,7 +17,7 @@ import { V, canvasTex, lcg, sstep, tris } from "./util.js";
 import { GLADE, GLADE_EXIT, GLADE_R, GLADES, RC, gladeTurn, pathLane, sloPath } from "./layout.js";
 import { addBlocker, rayMat } from "./campProps.js";
 import { cards, clumpN, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest.js";
-import { CLEAN_UV, barkTex, bracket, fallenLog, paint as paintBark } from "./deadwood.js";
+import { CLEAN_UV, barkMat, bracket, fallenLog, paint as paintBark } from "./deadwood.js";
 import { groundHeight } from "./terrain.js";
 
 const { R, rnd } = lcg(5150);   // its own fixed stream
@@ -164,7 +164,7 @@ function buildGlade() {
     const at_ = { position: [], normal: [], color: [], uv: [] };
     for (const g of parts) for (const a in at_) at_[a].push(...g.attributes[a].array);
     const geo = new THREE.BufferGeometry(); for (const [a, v] of Object.entries(at_)) geo.setAttribute(a, new THREE.Float32BufferAttribute(v, a === "uv" ? 2 : 3));
-    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, map: barkTex(), side: THREE.DoubleSide })); mesh.name = "GladeProps"; scene.add(mesh);   // two-sided: the open stump and stem ends
+    const mesh = new THREE.Mesh(geo, barkMat()); mesh.name = "GladeProps"; scene.add(mesh);   // the deadwood's material, one program for both: the open ends (stumps, stems, caps) face the ground or hide inside
     triCount.props = tris(geo);   // the bench, the log, the stones and the mushrooms, all in this one draw
   }
 
