@@ -74,7 +74,7 @@ const buttons = ACTIONS.map((a) => [a, box.querySelector(`[data-do="${a.id}"]`)]
 let readT = 0;   // seconds to the next read-out (readOut, below); 0 updates it on the next frame
 let sel = cs[0], follow = true, showPath = true, speed = 1, stepLeft = 0, scrub = null, dist = 1.6 + cs[0].sc * 0.4;
 const pick = () => (sel = cs[+who.value]);
-who.onchange = () => { endScrub(); pick(); dist = 1.6 + sel.sc * 0.4; readT = 0; };
+who.onchange = () => { endScrub(); pick(); dist = 1.6 + sel.sc * 0.4; readT = 0; cam.used = null; };
 $("labClose").onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggle(); };
 $("labFollow").onclick = (e) => { follow = !follow; e.target.classList.toggle("on", follow); document.body.classList.toggle("follow", follow); };
 $("labPath").onclick = (e) => { showPath = !showPath; e.target.classList.toggle("on", showPath); };
@@ -123,17 +123,36 @@ const tgt = V(), wp = V();
 // (ELEV_STEP at a time, up to the orbit's top) before it is pulled in: from inside the sling's bowl, the laundry or under
 // a seat it rises over the edge and looks down at the sloth, instead of stopping a hand's width from the cloth, which the
 // swing (swing.js, drawn in the vertex shader, so a ray only sees the sling at rest) could then carry through the camera.
+// The search runs about 6 times a second (SCAN_T), and up to 20 while you turn or zoom, not every frame (review of the final
+// fixes: up to 14 casts a frame while blocked, ~25 ms here). The camera eases to the height it found (ease, below) and only
+// comes down again once the lower view has stayed clear for LOWER_AFTER searches, so a thin post or a tripod leg sweeping
+// through the line of sight no longer pops it up and down. Each frame one cast each way at the height actually used keeps
+// the camera in front of the nearest solid: it is pulled in at once and eases back out.
 let solids = [], solidsT = 0;
-const ray = new THREE.Raycaster(), dir = V(), far = V(), ELEV_STEP = 0.25, EL_TOP = 1.3;
-// how far from tgt along dir the first solid is (dist when there is none in the way)
+const ray = new THREE.Raycaster(), dir = V(), far = V(), hits = [], ELEV_STEP = 0.25, EL_TOP = 1.3, SCAN_T = 0.15, LOWER_AFTER = 3;
+const cam = { want: 0, used: null, d: 0, scanT: 0, lowerN: 0, yaw: 0, el: 0, dist: 0 };   // used null: snap on the next frame
+// how far from tgt along dir the first solid is (dist when there is none in the way); hits is reused, nothing is allocated
 function clearTo(dist) {
   let d = dist;
-  ray.set(tgt, dir); ray.near = 0.15; ray.far = dist;
-  for (const h of ray.intersectObjects(solids, false)) if (shown(h.object)) { d = Math.min(d, h.distance); break; }
-  far.copy(tgt).addScaledVector(dir, dist); ray.set(far, dir.negate()); ray.near = 0; ray.far = dist - 0.15;
-  for (const h of ray.intersectObjects(solids, false)) if (shown(h.object)) d = Math.min(d, dist - h.distance);   // the last hit back is the one nearest the sloth
-  dir.negate();
+  ray.set(tgt, dir); ray.near = 0.15; ray.far = dist; hits.length = 0;
+  for (const h of ray.intersectObjects(solids, false, hits)) if (shown(h.object)) { d = Math.min(d, h.distance); break; }
+  far.copy(tgt).addScaledVector(dir, dist); ray.set(far, dir.negate()); ray.near = 0; ray.far = dist - 0.15; hits.length = 0;
+  for (const h of ray.intersectObjects(solids, false, hits)) if (shown(h.object)) d = Math.min(d, dist - h.distance);   // the last hit back is the one nearest the sloth
+  dir.negate(); hits.length = 0;
   return d;
+}
+// the lowest clear height from el up to the orbit's top, which is always tried last (el itself when none is clear). Between
+// full searches a raised camera only checks its own height and the step below (4 casts instead of up to 14)
+function scan(el, full) {
+  if (!full && cam.want > el + 1e-6) {                  // raised already: still clear there, and the step below still not? (4 casts)
+    const below = el + (Math.ceil((cam.want - el) / ELEV_STEP - 1e-6) - 1) * ELEV_STEP;
+    aim(cam.want); if (clearTo(dist) >= dist) { aim(below); if (clearTo(dist) < dist) return cam.want; }
+  }
+  for (let k = 0; ; k++) {
+    const e = Math.min(el + k * ELEV_STEP, EL_TOP);
+    aim(e); if (clearTo(dist) >= dist) return e;
+    if (e >= EL_TOP) return el;
+  }
 }
 const aim = (el) => dir.set(Math.sin(me.yaw) * Math.cos(el), Math.sin(el), Math.cos(me.yaw) * Math.cos(el));
 function findSolids() {
@@ -163,11 +182,20 @@ const labStep = (dt) => {
   if (follow) {                                       // orbit: drag turns round it (me.yaw), up and down tilts (me.pitch)
     s.o.getWorldPosition(tgt).y += 0.2 * s.sc / 2.6;
     const el = THREE.MathUtils.clamp(0.35 - me.pitch, -0.2, EL_TOP);
-    if ((solidsT -= dt) < 0) { solids = findSolids(); solidsT = 2; }
-    aim(el); let d = clearTo(dist);                                           // as asked, then higher until the view is clear
-    for (let e = el + ELEV_STEP; d < dist && e <= EL_TOP + 1e-6; e += ELEV_STEP) { aim(e); d = clearTo(dist); }
-    if (d < dist) { aim(el); d = Math.max(0.25, clearTo(dist) - 0.12); }      // nowhere clear (inside the tent): in front of the nearest
-    camera.position.copy(tgt).addScaledVector(dir, d);
+    if ((solidsT -= dt) < 0) { solids = findSolids(); solidsT = 2; cam.scanT = 0; }
+    const turned = Math.abs(me.yaw - cam.yaw) > 0.05 || Math.abs(el - cam.el) > 0.05 || Math.abs(dist - cam.dist) > 0.1;
+    cam.scanT -= dt;
+    if (cam.used === null || (cam.scanT <= 0) || (turned && cam.scanT < SCAN_T - 0.05)) {   // a drag searches at most 20 times a second               // as asked, then higher until the view is clear
+      const e = scan(el, turned || cam.used === null); cam.scanT = SCAN_T; cam.yaw = me.yaw; cam.el = el; cam.dist = dist;
+      if (e >= cam.want || turned || cam.used === null) { cam.want = e; cam.lowerN = 0; }   // up at once (or where you turned to)
+      else if (++cam.lowerN >= LOWER_AFTER) { cam.want = e; cam.lowerN = 0; }             // down once it has stayed clear
+    }
+    const k = cam.used === null ? 1 : 1 - Math.exp(-8 * dt);
+    cam.used = cam.used === null ? cam.want : cam.used + (cam.want - cam.used) * k;
+    aim(cam.used); let d = clearTo(dist);                                       // the safety net: in front of the nearest solid
+    if (d < dist) d = Math.max(0.25, d - 0.12);                                  // (nowhere clear, inside the tent, or mid-ease)
+    cam.d = d < cam.d || k === 1 ? d : cam.d + (d - cam.d) * k;                 // pulled in at once, eased back out
+    camera.position.copy(tgt).addScaledVector(dir, cam.d);
     camera.lookAt(tgt);
   }
   if ((readT -= dt) <= 0) { readT = 0.2; readOut(s); }
@@ -177,6 +205,6 @@ const labStep = (dt) => {
 export function toggle() {
   const open = box.hidden; box.hidden = !open;
   document.body.classList.toggle("lab", open); document.body.classList.toggle("follow", open && follow);
-  if (open) { setLabStep(labStep); setSpeed(1); return; }
+  if (open) { cam.used = null; setLabStep(labStep); setSpeed(1); return; }
   endScrub(); setSpeed(1); pace.fast = 1; setLabStep(null); pathLine.visible = false;
 }
