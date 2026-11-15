@@ -21,7 +21,7 @@ for (const { at: h, mound: m } of HERO) if (m) { const l = Math.hypot(h.x, h.z);
 export function addMound(x, z, r, h) { mounds.push([x, z, r, h, 0, 0]); }
 // where the props stand on the camp floor, [x, z, radius]: the swell is kept at exactly 0 under them, so they neither float nor sink
 // (R2-181: up to 4 cm, the crate, a seat and the wood pile), easing back in over FLAT_EDGE metres; the tent's floor is the rectangle
-// TENT.bare keeps free of grass
+// TENT.floor (the one TENT.bare keeps free of grass)
 const FLAT = [[FIRE.x, FIRE.z, 1.3], ...SEATS.map(({ at }) => [at.x, at.z, 0.95]), [TABLE.at.x, TABLE.at.z, 0.9], [CRATE.at.x, CRATE.at.z, 0.8],
   [WOOD_PILE.at.x + 0.3 * WOOD_PILE.side.x, WOOD_PILE.at.z + 0.3 * WOOD_PILE.side.z, 1.2], [HAMMOCK.a.x, HAMMOCK.a.z, 0.4], [HAMMOCK.b.x, HAMMOCK.b.z, 0.4],
   ...LAUNDRY.posts.map((p) => [p.x, p.z, 0.35])];
@@ -29,7 +29,7 @@ const FLAT_EDGE = 0.6;
 function propFloor(x, z) {   // 1 under a prop, easing to 0 FLAT_EDGE metres out
   let d = 1e9;
   for (const [fx, fz, r] of FLAT) d = Math.min(d, Math.hypot(x - fx, z - fz) - r);
-  const [a, b] = TENT.toLocal(x, z); d = Math.min(d, Math.max(-1.8 - a, a - 2.1, Math.abs(b) - 1.95));
+  const [a, b] = TENT.toLocal(x, z), f = TENT.floor; d = Math.min(d, Math.max(f.a0 - a, a - f.a1, Math.abs(b) - f.b));   // the tent floor
   return 1 - sstep(0, FLAT_EDGE, d);
 }
 

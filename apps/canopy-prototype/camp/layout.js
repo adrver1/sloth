@@ -73,15 +73,17 @@ export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 // the walk-in tent (build_camp.py wall_tent): its door faces the fire. Its own (Blender) frame: bx across, by toward the back
 // (-by toward the fire). toLocal(x, z) gives [a: ahead of the tent's centre toward the fire, b: across]; fromLocal(bx, by, y)
 // a world point. W, yf, yb: the walls' half width, front and back; DW: the doorway's half width; stove, chimney: where they are;
-// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy)
+// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy); floor: see bare below
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
   const t = tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
   return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth (Z0 + H + 0.62)
     toLocal: (x, z) => { const dx = x - t.x, dz = z - t.z; return [dx * fx + dz * fz, dx * fz - dz * fx]; },
     fromLocal: (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz),
-    // in toLocal's terms: no grass in the tent or through its planks (ground.js), and dry under its roof and planks (weather.js)
-    bare: (x, z) => { const [a, b] = TENT.toLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; },
+    // in toLocal's terms: the floor rectangle (a from a0 to a1, |b| below b) is kept level (terrain.js) and has no grass in the tent or
+    // through its planks (ground.js); dry is the wider rectangle under its roof and planks (weather.js)
+    floor: { a0: -1.8, a1: 2.1, b: 1.95 },
+    bare: (x, z) => { const [a, b] = TENT.toLocal(x, z), f = TENT.floor; return a > f.a0 && a < f.a1 && Math.abs(b) < f.b; },
     dry: (x, z) => { const [a, b] = TENT.toLocal(x, z); return a > -1.9 && a < 2.2 && Math.abs(b) < 2.0; } };
 })();
 // the hammock between two posts (a and b), and where it hangs from
