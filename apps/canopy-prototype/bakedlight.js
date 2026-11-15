@@ -80,11 +80,16 @@ export const LIGHT = {
 };
 export const GAIN = { fire: 1, stove: 1, lanterns: 1, moon: 1, day: 0.5 };
 
-// GLSL: decode texels, the camp's night light, its warm lights alone, and the hue-keeping tone
+// GLSL: decode texels, the camp's night light, its warm lights alone, and the hue-keeping tone.
+// lmNight shapes the night light into a pool round the fire (review R2-173, Adriaen's pick B): the baked sum is scaled by
+// (luminance / POOL_REF)^POOL_K, at most POOL_MAX, so the bright light near the fire, the stove and under the lanterns stays
+// (or gains a little) while the dim spill further out falls off fast; the tent canvas went from 88% of noon to about half.
 export const LIGHT_GLSL = `
 uniform vec3 uLCol[4]; uniform vec4 uLK; uniform float uLDay;
 vec4 lmDecode(vec4 t) { return pow(t, vec4(2.2)); }
-vec3 lmNight(vec4 q) { q *= uLK; return uLCol[0] * q.x + uLCol[1] * q.y + uLCol[2] * q.z + uLCol[3] * q.w; }
+const float POOL_REF = 0.4, POOL_K = 1.3, POOL_MAX = 1.6;
+vec3 lmNight(vec4 q) { q *= uLK; vec3 e = uLCol[0] * q.x + uLCol[1] * q.y + uLCol[2] * q.z + uLCol[3] * q.w;
+  return e * min(pow(max(dot(e, vec3(0.2126, 0.7152, 0.0722)), 1e-4) / POOL_REF, POOL_K), POOL_MAX); }
 vec3 lmWarm(vec4 q) { q *= uLK; return uLCol[0] * q.x + uLCol[1] * q.y + uLCol[2] * q.z; }
 vec3 nightTone(vec3 x) { float l = max(dot(x, vec3(0.2126, 0.7152, 0.0722)), 1e-4); return min(x * (1.0 - exp(-l)) / l, vec3(1.0)); }
 // the warm lights' share by day, as a multiple of the surface colour, eased off so it never passes WARM_CAP times it, hue kept:
