@@ -59,17 +59,27 @@ export const WARM_N = 10;
 const WARM_GLSL = `uniform float uWarm; uniform vec3 uWarmPos[${WARM_N}]; uniform float uWarmK[${WARM_N}]; varying vec3 vWPos;
 vec3 warmAt(vec3 p) { float a = 0.0; for (int i = 0; i < ${WARM_N}; i++) { vec3 d = uWarmPos[i] - p; a += uWarmK[i] / (1.0 + dot(d, d) * 2.5); }
   return vec3(1.0, 0.66, 0.36) * a * uWarm; }`;
+// The same warn-once swap as Canopy Camp's camp/util.js (review R2-037), copied here because other pages share this file:
+// each [anchor, text] pair replaces the anchor's first match, and a missing anchor warns once instead of silently dropping the fur.
+const swapMissed = new Set();
+function swap(src, ...pairs) {
+  for (const [anchor, text] of pairs) {
+    if (!src.includes(anchor)) { if (!swapMissed.has(anchor)) { swapMissed.add(anchor); console.warn(`fur shader: "${anchor}" is not in the shader, so its patch is left out`); } continue; }
+    src = src.replace(anchor, () => text);
+  }
+  return src;
+}
 function patch(mat, frag, decl = "", nrm = "", pos = "", fdecl = "", warm = null) {
   mat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl + (warm ? "\nvarying vec3 vWPos;" : ""))
-      .replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\n" + nrm)
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFur = furMask; vObj = position;\n" + pos);
-    if (warm) sh.vertexShader = sh.vertexShader.replace("#include <project_vertex>", "#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;");
-    sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl + (warm ? WARM_GLSL : ""))
-      .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag);
-    if (warm) sh.fragmentShader = sh.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>");
+    sh.vertexShader = swap(sh.vertexShader,
+      ["#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl + (warm ? "\nvarying vec3 vWPos;" : "")],
+      ["#include <beginnormal_vertex>", "#include <beginnormal_vertex>\n" + nrm],
+      ["#include <begin_vertex>", "#include <begin_vertex>\nvFur = furMask; vObj = position;\n" + pos],
+      ...(warm ? [["#include <project_vertex>", "#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;"]] : []));
+    sh.fragmentShader = swap(sh.fragmentShader,
+      ["#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl + (warm ? WARM_GLSL : "")],
+      ["#include <map_fragment>", "#include <map_fragment>\n" + frag],
+      ...(warm ? [["#include <opaque_fragment>", "outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>"]] : []));
     Object.assign(sh.uniforms, mat.userData.u || {}, warm || {});
   };
   mat.customProgramCacheKey = () => "fur" + mat.type + !!warm + frag + pos;
