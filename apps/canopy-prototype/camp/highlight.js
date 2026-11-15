@@ -12,6 +12,7 @@
 // up builds nothing and main.js's compile sees the two overlay shaders: review R2-102) }.
 import * as THREE from "three";
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
+import { ownMeshes } from "./util.js";
 
 const COLOR = new THREE.Color(1.0, 0.9, 0.62);   // warm cream, like the fire light
 
@@ -68,7 +69,7 @@ export function createHighlight(scene, renderer, { width = 2.5 } = {}) {
     p.glow.renderOrder = 2; parts.set(mesh, p); return p;
   }
   // the meshes under an object (an object, a list of objects, or null for nothing)
-  const meshesOf = (objs) => { const out = []; for (const o of [objs ?? []].flat()) o.traverse((m) => { if (m.isMesh && !m.userData.fur && m.material?.visible !== false && !m.material?.transparent) out.push(m); }); return out; };   // not the fur shells or glass
+  const meshesOf = (objs) => { const out = []; for (const o of [objs ?? []].flat()) out.push(...ownMeshes(o, (m) => !m.userData.fur && m.material?.visible !== false && !m.material?.transparent)); return out; };   // not the fur shells or glass, nor a child that is a target of its own (util.js ownMeshes)
   let key = null;
   return {
     warm(objs) { for (const m of meshesOf(objs)) partsFor(m); },

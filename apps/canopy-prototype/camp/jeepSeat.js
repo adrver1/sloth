@@ -17,7 +17,7 @@
 // The claims go through camp/places.js; core.js pace is the checks' speed-up.
 import * as THREE from "three";
 import { camera, pace, toStage, uTime } from "./stage.js";
-import { V, ease, wrapPi, yawFrom, yawTo } from "./util.js";
+import { V, ease, ownMeshes, wrapPi, yawFrom, yawTo } from "./util.js";
 import { addTargets, frameAt } from "./targets.js";
 import { feetAt, me } from "./player.js";
 import { OUT, sloths } from "./sloth/state.js";
@@ -140,7 +140,7 @@ function buildJeepSeats(J) {   // the page's main.js, once the jeep (jeepRig.js 
   const DOOR_REACH = 4, DOOR_NAME = { P: "door", D: "door", B: "boot", H: "hood" };
   const box3 = new THREE.Box3(), to = new THREE.Vector3(), none = [];
   addTargets("doors", () => J.doors ?? none, (d) => {
-    const picks = [], sph = new THREE.Sphere(); d.o.traverse((m) => m.isMesh && picks.push(m));
+    const picks = ownMeshes(d.o), sph = new THREE.Sphere();   // not the map and compass on the bonnet: they are a target of their own
     const at = frameAt((v) => { box3.setFromObject(d.o).getBoundingSphere(sph); toStage(sph.center); v.copy(sph.center); return sph; });   // once a frame: it swings and the jeep may drive; in the stage's frame, as every target
     return { look: d.o, picks, at, ready: () => d.o.visible !== false && picks[0]?.visible && at(to).distanceToPoint(camera.position) < DOOR_REACH,
       options: () => [...doorOptions(d), [(d.open ? "Close the " : "Open the ") + DOOR_NAME[d.k], () => { if (shut?.k === d.k) shut = null; d.toggle(); }]] };

@@ -91,7 +91,7 @@ export function buildMapCompass({ scene, camera, map: MAP, paint: paintLevel, li
     if (!onHood) [sheet, comp].forEach((m, i) => { m.renderOrder = 10 + i; m.frustumCulled = false; });
     return { sheet, comp, mats: [sheet.material, comp.material] }; };
   // on the bonnet: the map open where the model's own lay, the same size across, the compass where its compass lay
-  const hood = make(true), hoodAt = new THREE.Group(); hoodAt.name = "MapAndCompass"; hoodAt.add(hood.sheet, hood.comp); hoodAt.visible = false;
+  const hood = make(true), hoodAt = new THREE.Group(); hoodAt.name = "MapAndCompass"; hoodAt.userData.ownTarget = true; hoodAt.add(hood.sheet, hood.comp); hoodAt.visible = false;   // ownTarget: the bonnet's own target leaves it out (util.js ownMeshes)
   hood.sheet.scale.set(0.78, 0.78, 1); hood.sheet.rotation.set(-Math.PI / 2, 0, 0); hood.sheet.position.set(0, 0.004, 0); hood.comp.scale.setScalar(0.05); hood.comp.rotation.x = -Math.PI / 2; hood.comp.position.set(0.21, 0.018, 0.17);
   const setHood = (jeep) => {
     jeep.add(hoodAt); hoodAt.position.set(AT.x, BONNET(AT.z), AT.z); hoodAt.rotation.set(Math.atan(0.05 / 1.14), AT.turn, 0, "YXZ");

@@ -56,6 +56,12 @@ export function canvasTex(w, h, draw, { srgb = true, aniso = 4, read = false } =
   const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; return t;
 }
 
+// the meshes under o, leaving out any under a child that is a tap target of its own (userData.ownTarget: the map and compass
+// on the jeep's bonnet, mapCompass.js), so the bonnet's target neither takes its taps nor lights it (jeepSeat.js, highlight.js)
+export function ownMeshes(o, keep = (m) => true) {
+  const out = []; const walk = (n) => { if (n !== o && n.userData.ownTarget) return; if (n.isMesh && keep(n)) out.push(n); for (const c of n.children) walk(c); }; walk(o); return out;
+}
+
 // the warm round glow (the lanterns' halos, the motes, the fire chore's sparks), one texture for the page, made when first asked for
 let glow = null;
 export const glowTex = () => (glow ??= canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,240,200,1)"); r.addColorStop(0.3, "rgba(255,200,120,.7)"); r.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }));
