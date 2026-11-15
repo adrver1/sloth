@@ -35,11 +35,11 @@
  },
  "ktx": {
   "inputs": {
-   "apps/canopy-prototype/models/camp_ground_night_picked_expedition.png": "e53d27d3ea99dd95c406",
-   "apps/canopy-prototype/models/camp_lm_1k.png": "d090d5d130e56a76fc02",
-   "apps/canopy-prototype/models/camp_lm_2k.png": "9c5d2667a582094d101b",
-   "apps/canopy-prototype/models/camp_lm_sun_1k.png": "3e173f68c6ec1b697a9b",
-   "apps/canopy-prototype/models/camp_lm_sun_2k.png": "a2ba6a640723baa28667",
+   "apps/canopy-prototype/models/camp_ground_night_picked_expedition.png": "da460f3512d89c0225c5",
+   "apps/canopy-prototype/models/camp_lm_1k.png": "3bb36599795f5638f989",
+   "apps/canopy-prototype/models/camp_lm_2k.png": "d62fc705f41e67b6234c",
+   "apps/canopy-prototype/models/camp_lm_sun_1k.png": "14f328e8e1c285821867",
+   "apps/canopy-prototype/models/camp_lm_sun_2k.png": "dd825f5c6eaf1970b6fe",
    "cmd": [
     "--t2",
     "--encode",
@@ -59,11 +59,11 @@
    "toktx": null
   },
   "outputs": {
-   "apps/canopy-prototype/models/camp_ground_night_picked_expedition.ktx2.txt": "2b85ddfca998127e9d32",
-   "apps/canopy-prototype/models/camp_lm_1k.ktx2.txt": "cb995a310bce66c25ab7",
-   "apps/canopy-prototype/models/camp_lm_2k.ktx2.txt": "8506c5505be8ee5f1ee9",
-   "apps/canopy-prototype/models/camp_lm_sun_1k.ktx2.txt": "ad5dec95211e5a72d7d2",
-   "apps/canopy-prototype/models/camp_lm_sun_2k.ktx2.txt": "cb46d2a49b1e655b6a41"
+   "apps/canopy-prototype/models/camp_ground_night_picked_expedition.ktx2.txt": "906d015ef1828e93e979",
+   "apps/canopy-prototype/models/camp_lm_1k.ktx2.txt": "d9a322fd1f9632d44446",
+   "apps/canopy-prototype/models/camp_lm_2k.ktx2.txt": "ccbcff81c3be96185415",
+   "apps/canopy-prototype/models/camp_lm_sun_1k.ktx2.txt": "7a7efda39df91748252a",
+   "apps/canopy-prototype/models/camp_lm_sun_2k.ktx2.txt": "971f23cbcbe40015f4fb"
   }
  },
  "layout": {
