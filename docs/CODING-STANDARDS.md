@@ -1,8 +1,8 @@
 # Coding standards: Canopy Camp and its generators
 
-These are the rules for `apps/canopy-prototype/` (the camp page, `camp.html` and `camp/`), its Blender generators in `props/` and the sloth's source in `characters/sloth_baby/`. They describe the code as it is after the section C clean-up of the 2026-11-13 review (status as of 2026-11-14). Each rule says why it exists, meaning which kind of problem the reviews found, and where the canonical example lives. When the code and this file disagree, read the code, then fix whichever one is wrong.
+These are the rules for `apps/canopy-prototype/` (the camp page, `camp.html` and `camp/`), its Blender generators in `props/` and the sloth's source in `characters/sloth_baby/`. They describe the code as it is after the section C clean-up of the 2026-11-13 review and the fixes of the 2026-11-14 review (branch `fx-integ`, 2026-11-15). Each rule says why it exists, meaning which kind of problem the reviews found, and where the canonical example lives. When the code and this file disagree, read the code, then fix whichever one is wrong.
 
-The review state (what was found, what is fixed, what is open) is in `docs/reviews/code-review-2026-11-13/REVIEW-STATE.md`. The findings these rules refer to (ids such as `crosscut-03`) are in `docs/reviews/code-review-2026-11-13/findings.json`, with their status in `status.json`.
+The review state (what was found, what is fixed, what is open) is in `docs/reviews/code-review-2026-11-13/REVIEW-STATE.md`. The findings these rules refer to are in `docs/reviews/code-review-2026-11-13/findings.json` (ids such as `crosscut-03`) and `docs/reviews/review-2026-11-14/findings.json` (ids such as `R2-036`), each with its status in the `status.json` beside it.
 
 ## 1. Layout values live in `camp/layout.js`
 
@@ -10,6 +10,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - Why: the seat ring, crate, pot and wood pile were typed by hand in up to five modules and again in the bake, and drifted (C1: world-12, props-06, crosscut-10, operator-12, genbake-14).
 - `layout.js` holds only numbers, vectors and pure functions: no scene, no DOM, no random numbers. Units are metres, y is up, the fire is at the origin.
 - The one exception is `fromModel(tent, hammock)`, which copies build_camp.py's glTF extras into `TENT` and `HAMMOCK` when `campProps.js` `buildProps` runs (R2-250). So read `TENT.W`, `DW`, `yf`, `yb`, `stove`, `chimney`, `bed` and `HAMMOCK.knot`, `ropeEnd` only inside build or step functions, never at import time (section 4).
+- Rule: things the camp can have more than one of are lists of entries in `layout.js`, never one-off names: `PATHS` (footpaths), `GLADES`, `HERO` (the big mossy trees), `WEAR` (worn ground, each entry with its `set`; `wearBlockers(set)` gives that set's blocker circles) and `ANCHORS` (where tagged props stand). A second path, glade or tree is one more entry. Why: a second path, glade or big tree meant editing five files, and the worn ground was painted from blocker circles typed again by hand (R2-036, R2-255).
 - Example: `SEATS` in `camp/layout.js`, the log seats round the fire, read by `campProps.js`, `places.js` and `sloth/spots.js`, and `SEAT_SLOT`, where things go along a log (read by `places.js` and `sloth/spots.js`).
 
 ## 2. Shared helpers, no copies
@@ -73,6 +74,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - Why: log seats were described in five modules and tapped through competing targets (operator-14, boot-08, R2-209).
 - Rule: who holds a seat, a bed or a spot goes through `camp/places.js`: `claim(place, who)`, `release(place, who)`, `holder`, `taken`, `host`/`join`, and `addMover`/`addCrowd`/`movers` for walkers. The log seats live in one table, `places.js` `logSeats()`, built once from `Seat_<i>`: each seat's middle, its axis, its slots (where you, the operator and Sunny sit, each with its key) and its two ends (where a bowl goes, held as `"bowl"`; `endFree(end)`). Read a seat's places from it instead of finding the logs or measuring them again (R2-209). Other keys for the log seats and the tent beds come from `seatKey(i, part)` and `bedKey(i)`; do not build those by hand. The jeep's places are fixed strings: `"jeep:driver"` and `"jeep:passenger"` (`jeepSeat.js` `holdSeat`, read by `sloth/day.js`), `"jeep:hood"` (the engine fix, `sloth/day.js` and `sloth/fix.js`) and `"jeep:P"` (a sloth's guest spot, `sloth/spots.js`).
 - Why: the registry lived inside the sloths and was reached through `window.__campLife`, and characters sat on each other (operator-10, sloths-30, operator-15).
+- Rule: what keeps plants, props and characters apart is the blocker list in `campProps.js`, changed only through `addBlocker({ at, r, walk, wild, tag })` and `dropBlockers(tag)`; never push to or splice the array. `blockersVersion()` counts the changes, and `nav.js` rebuilds the sloths' grid when it moves. Why: blockers were one shared array of `[centre, radius]` pairs with ad-hoc flags, filled and spliced by five modules, and the grid noticed a change only by the count (R2-038, R2-113).
 - The operator's own wrappers are named `claimPlace` and `releasePlace` (`operator/places.js`) so they are not confused with `places.js`'s `claim` and `release`. Other modules import `claim` and `release` under those names; do not rename them on import.
 
 ## 9. One job per module, and size
@@ -87,6 +89,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - Rule: every source file starts with a comment that says what it does, what it exports (one line per export, with its signature when it takes arguments), which review findings shaped it, and anything a reader must know before changing it (order, options, units). Python files use the module docstring.
 - Why: stale headers and comments that described removed features were one of the most common findings (crosscut-16, boot-22, boot-23, sloths-23, operator-24, world-25, genbake-12, gencamp-19, genlived-16).
 - Not every file meets this yet. Known gaps (headers that do not list every export): `core.js` (21 exports), `layout.js` (`RC`, `FAR`, `SUN`, `HERO`, `JEEP_AT`, `TENT`, `HAMMOCK`, `CRATE` and more), `food.js`, `highlight.js`, `sky.js`, `weather.js`, `audio/context.js`, `activities/parts.js`. Every new file follows the rule, and a file you change gets its header brought up to it in the same commit.
+- Rule: a `//` comment ends its line. When you add a trailing comment or join lines, never leave code after it, and keep one statement per line where a comment follows. Why: twice a new trailing comment swallowed the statement after it, which silently stopped the moon fading in and broke the tours' `acts` and `car` getters (R2-077, R2-121).
 - When you change what a file does or exports, update its header in the same commit. Write plain, full sentences. Do not leave comments about code that is gone; git history keeps it.
 - Read `head -30` of a file before reading it whole. Examples: `camp/util.js`, `camp/targets.js`, `camp/debug.js`, `props/lib/__init__.py`.
 
@@ -134,6 +137,6 @@ Adriaen, 2026-11-14: a change, including a clean-up, need not keep the camp byte
 
 ## 16. Review status
 
-- Rule: when a commit fixes or changes a review finding, update its entry in `docs/reviews/code-review-2026-11-13/status.json` (status, commits, note; 1-space JSON indent), run `python3 docs/reviews/code-review-2026-11-13/build.py`, and commit `status.json` and the regenerated `findings.md` together.
+- Rule: when a commit fixes or changes a review finding, update its entry in the review's `status.json` in the same commit (1-space JSON indent). First review (`crosscut-03` style ids): `docs/reviews/code-review-2026-11-13/status.json`, then run `python3 docs/reviews/code-review-2026-11-13/build.py` and commit the regenerated `findings.md` with it. Second review (`R2-NNN`): `docs/reviews/review-2026-11-14/status.json` (status, one-sentence note, commits, needs_rebake), its `counts`, and section 1 of `REVIEW-STATE.md`. A change that shows only after the GPU rebake is `waiting_rebake` until the rebaked models are committed.
 - Why: the status page is generated; editing `findings.md` by hand is lost on the next build.
 - Commit in small steps, each one loading on its own, with plain, full-sentence messages.
