@@ -93,8 +93,11 @@ def rel(f):
     return os.path.relpath(f, ROOT).replace(os.sep, "/")
 
 
+TEXT_EXT = {".py", ".js", ".cjs", ".mjs", ".json", ".html", ".css", ".md", ".txt", ".glsl"}
+
+
 def file_hash(f):
-    """sha256 of a file: of its pixels for an image, of its content without the "ktx2" flag for camp_lights.json."""
+    """sha256 of a file: of its pixels for an image, of its text with LF line ends for a source file, of its content without the "ktx2" flag for camp_lights.json."""
     h = hashlib.sha256()
     ext = os.path.splitext(f)[1].lower()
     if ext in (".png", ".jpg", ".jpeg"):
@@ -105,7 +108,10 @@ def file_hash(f):
         j = json.load(open(f)); j.pop("ktx2", None); h.update(json.dumps(j, sort_keys=True).encode())
     else:
         with open(f, "rb") as fi:
-            h.update(fi.read())
+            data = fi.read()
+        if ext in TEXT_EXT:   # a Windows checkout has CRLF line ends: hash text as LF so both machines agree
+            data = data.replace(b"\r\n", b"\n")
+        h.update(data)
     return h.hexdigest()[:20]
 
 
@@ -113,12 +119,17 @@ def hashes(files):
     return {rel(f): file_hash(f) if os.path.isfile(f) else None for f in sorted(set(files))}
 
 
+LINKS = {"karaoke"}
+
+
 def tree(*dirs, skip=(), exts=None):
     out = []
     for d in dirs:
         for dp, dn, fn in os.walk(os.path.join(ROOT, d)):
             dn[:] = sorted(x for x in dn if x not in ("__pycache__", "archive", *skip))
-            out += [os.path.join(dp, f) for f in fn if not f.endswith(".pyc") and (exts is None or f.endswith(exts))]
+            # the karaoke link (apps/canopy-prototype/karaoke -> ../karaoke) is a folder link on Linux but a small text file on a
+            # Windows checkout without core.symlinks, so it is left out on both, or the two machines never agree
+            out += [os.path.join(dp, f) for f in fn if not f.endswith(".pyc") and f not in LINKS and (exts is None or f.endswith(exts))]
     return out
 
 
