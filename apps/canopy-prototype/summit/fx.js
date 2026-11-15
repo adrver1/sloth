@@ -8,7 +8,7 @@ import { v3 } from './forest.js';
 // chimney smoke: a few soft sprites rising and drifting with the wind
 const puff = canvasTex(64, 64, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(235,238,242,.75)'); gr.addColorStop(1, 'rgba(235,238,242,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
 // each plume is one draw: n camera-facing quads, one instance per puff with its own place, size and opacity (was a sprite each)
-function plume(n) { const g = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1)); g.instanceCount = n;
+export function plume(n) { const g = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1)); g.instanceCount = n;
   const P = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4), A = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
   P.setUsage(THREE.DynamicDrawUsage); A.setUsage(THREE.DynamicDrawUsage); g.setAttribute('puff', P); g.setAttribute('alpha', A);
   const mat = new THREE.ShaderMaterial({ uniforms: { map: { value: puff }, uBright: { value: 1 } }, transparent: true, depthWrite: false,
