@@ -19,9 +19,10 @@
 // Levels (Adriaen checks the mix by ear; cloud sessions can't hear it): audio/context.js LEVEL and the bus gains are the knobs.
 import * as THREE from "three";
 import { $, KEYS, OPT, camera, store } from "./core.js";
-import { STATIONS, ac, applyGain, bus, comp, hooks, loadSettings, makeHint, own, saved, set, showHint, start, wake } from "./audio/context.js";
+import { ac, applyGain, hooks, loadSettings, makeHint, own, saved, set, showHint, start, wake } from "./audio/context.js";
+import { makeAudio } from "./audio/api.js";
 import { SFX, startBeds } from "./audio/sfx.js";
-import { mus, musicFrom } from "./audio/music.js";
+import { mus } from "./audio/music.js";
 import { audioStep } from "./audio/watch.js";
 
 const listeners = new Set();
@@ -38,30 +39,9 @@ function cue(name) {
 }
 
 // ---------------------------------------------------------------- the API (the radio prop) and the ⚙️ fallback
-const audio = {
-  stations: STATIONS,
-  start,
-  volume(v) { if (v !== undefined) { set.volume = THREE.MathUtils.clamp(+v, 0, 1); applyGain(); keep(); } return set.volume; },
-  muted(m) { if (m !== undefined) { own("muted"); set.muted = !!m; applyGain(); keep(); } return set.muted; },
-  music(on) { if (on !== undefined) { set.music = !!on; if (on) mus.st = null; applyGain(); keep(); } return set.music; },
-  musicVolume(v) { if (v !== undefined) { set.musicVolume = THREE.MathUtils.clamp(+v, 0, 1); applyGain(); keep(); } return set.musicVolume; },
-  station(s) { if (s !== undefined) { const st = typeof s === "number" ? STATIONS[((s % STATIONS.length) + STATIONS.length) % STATIONS.length] : STATIONS.find((x) => x.id === s); if (st) { own("station"); set.station = st.id; mus.st = null; if (ac) mus.next = ac.currentTime + 0.6; keep(); } } return STATIONS.find((x) => x.id === set.station); },
-  next() { const i = audio.stationIndex(); audio.tune(); return audio.station(i + 1); },
-  tune() { if (ac?.state === "running") SFX.tune(); },
-  musicFrom,
-  running: () => ac?.state === "running",
-  playing: () => set.music && !set.muted,
-  stationIndex() { for (let i = 0; i < STATIONS.length; i++) if (STATIONS[i].id === set.station) return i; return 0; },
-  state: () => ({ ctx: ac?.state ?? "none", started: !!ac && ac.state === "running", volume: set.volume, muted: set.muted, music: set.music, musicVolume: set.musicVolume, station: set.station }),
-  onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-  play(name, pos) { if (ac?.state === "running" && SFX[name]) SFX[name](pos || null); },   // any sound by name, for other modules and checks
-  levels() {   // checks: the loudness of the mix now, in dBFS, over 0.2 s
-    if (!ac) return null; if (!audio._an) { audio._an = ac.createAnalyser(); audio._an.fftSize = 8192; comp.connect(audio._an); }
-    const a = new Float32Array(audio._an.fftSize); audio._an.getFloatTimeDomainData(a); let s = 0, pk = 0; for (const x of a) { s += x * x; pk = Math.max(pk, Math.abs(x)); }
-    return { rms: +(10 * Math.log10(s / a.length + 1e-12)).toFixed(1), peak: +(20 * Math.log10(pk + 1e-9)).toFixed(1) };
-  },
-  _bus: () => bus,
-};
+// the shared API (audio/api.js, the summit's too) and the camp's listeners (onChange)
+const audio = makeAudio(keep);
+audio.onChange = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 
 // ⚙️ fallback: one button that cycles All (music and camp), then Nature only (no music), then Off
 let btn = null;

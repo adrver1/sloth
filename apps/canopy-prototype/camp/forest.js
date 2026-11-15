@@ -11,7 +11,7 @@
 import { track, trackDist } from "./forest/base.js";
 import { FLOOR_OVERLAYS, clearingFloor, grassTex, trackRoad } from "./forest/floor.js";
 import { branchCurves, crowns, forestWall, heroTrees, heroWood, roadTrunks, trunkR } from "./forest/trees.js";
-import { cards, clumpN, leafCard, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest/cards.js";
+import { addLeafPool, cards, clumpN, leafCard, leafGeo, leafM, perClump, scatterLeaves, withLeafN } from "./forest/cards.js";
 import { ferns, trailVerge, verge, wallLeaves } from "./forest/plants.js";
 
 // buildForest (main.js, once, right after the sky) runs the steps below in this order. Every step but the crowns and the
@@ -28,6 +28,7 @@ function buildForest() {
   roadForest.verge = trailVerge();   // bushes along the karaoke road (its own stream)
   roadForest.trunks = roadTrunks;
   ferns();                       // ferns and undergrowth round the clearing
+  addLeafPool();                 // every leaf card above, in one set of culled sectors (forest/cards.js)
 }
 // what the karaoke road's forest came to: { trunks (how many line it), verge ({ clumps, tris } of its bushes) }, set by buildForest
 const roadForest = { trunks: 0, verge: null };

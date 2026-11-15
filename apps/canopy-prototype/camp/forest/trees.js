@@ -11,7 +11,7 @@ import { D, S, scene } from "../core.js";
 import { V, lcg, sstep } from "../util.js";
 import { FAR, GLADE, GLADE_EXIT, GLADE_R, HERO, RC, ROAD_TRUNK_R, cutSight, gladeTurn, pathLane, tripPath } from "../layout.js";
 import { R, rnd, trackDist, UP } from "./base.js";
-import { addSectors, cards, cardSet, clumpN, leafColour, leafGeo, leafM, perClump, scatterLeaves } from "./cards.js";
+import { cards, cardSet, clumpN, leafColour, perClump, poolLeaves, scatterLeaves } from "./cards.js";
 
 // ---------------------------------------------------------------- bark with "baked" light: AO by height and crevice, moss on the upper sides
 const barkA = new THREE.Color(S.bark[0]), barkB = new THREE.Color(S.bark[1]), mossC = new THREE.Color(S.moss);
@@ -240,7 +240,7 @@ function crowns(wall, clumps) {
       leafColour(c, k + i, p.y); i++;
       if (k < cards(per(cl)) && (!far || cl.cover || Math.hypot(cl.x, cl.z) <= NEAR)) lm.add(m, c, clumpN(u, n));
     });
-    addSectors(lm, leafGeo, leafM);
+    poolLeaves(lm);
   }
 }
 

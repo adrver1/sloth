@@ -6,8 +6,9 @@
 //   the fire  a soft roar and crackles at the fire ring, louder as you come near
 //   snow      your footsteps crunch (a step every 0.7 m)
 //   by day a raven calls far off now and then; at night the camp's owl
-// The radio: a small wooden radio on the porch bench, beside Mango (a box, 12 triangles, its dial painted). Tap it: on, the next
-// station (with a burst of static), and off after the last. The music comes from it (music.js musicFrom), loudest on the porch.
+// The radio is the camp's own (camp/radio.js, Adriaen 2026-11-15: "use the one from the original camp"), on the porch bench beside
+// Mango: it lights up, its menu turns it on, changes the station, quieter, louder, off, and the music comes from it, loudest on
+// the porch. `audio` is the camp's sound API (camp/audio/api.js) over the summit's settings.
 // The ⚙️ menu's Sound button is the fallback: All, Nature only, Off. ?sound=0 starts muted and ?station= picks one, for that
 // visit only (land.js OPT), as in the camp.
 // Nothing plays until the first tap or key (browsers block it before that). Exports buildAudio() (main.js, once),
@@ -15,20 +16,23 @@
 // Levels: the mix is the camp's (context.js LEVEL); the summit's beds have their gains below. Cloud sessions can't hear any of it.
 import * as THREE from 'three';
 import { $, D, KEYS, OPT, TOP, TRIS, YB, store } from './land.js';
-import { camera, canvasTex, me, renderer, scene } from './core.js';
+import { camera, me, scene } from './core.js';
 import { LIGHT } from './daylight.js';
 import { wind as windV } from './fx.js';
 import { CAMP } from './scoutCamp.js';
-import { BROWN, STATIONS, ac, applyGain, bus, env, filt, gain, hooks, loadSettings, makeHint, noise, osc, own, saved, set, showHint, spot, start, wake } from '../camp/audio/context.js';
+import { BROWN, ac, applyGain, bus, env, filt, gain, hooks, loadSettings, makeHint, noise, osc, own, saved, set, showHint, spot, start, wake } from '../camp/audio/context.js';
 import { SFX } from '../camp/audio/sfx.js';
-import { mus, musicFrom, musicObj, musicPan } from '../camp/audio/music.js';
+import { mus, musicObj, musicPan } from '../camp/audio/music.js';
+import { makeAudio } from '../camp/audio/api.js';
+import { RADIO_SIZE, buildRadio, radioStep } from '../camp/radio.js';
 
 const R = (a, b) => a + Math.random() * (b - a);
 const FIRE = new THREE.Vector3(CAMP.x, TOP + 0.4, CAMP.z);
-const RADIO = new THREE.Vector3(-1.95, TOP + YB + 0.45 + 0.085, -(D / 2 + 0.4));
+const RADIO = new THREE.Vector3(-1.95, TOP + YB + 0.45, -(D / 2 + 0.4));   // on the porch bench's seat
 const beds = {}, tmp = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
-let radio = null, btn = null, gust = 0.5, gustT = 0, crackT = 0, callT = 8, stepD = 0, last = null;
+let btn = null, gust = 0.5, gustT = 0, crackT = 0, callT = 8, stepD = 0, last = null;
 const keep = () => { store.set(KEYS.audio, saved()); showBtn(); };
+export const audio = makeAudio(keep);   // the camp's sound API, which the radio drives
 
 function winterBeds() {
   const t = ac.currentTime, loop = (dest) => { const s = ac.createBufferSource(); s.buffer = BROWN; s.loop = true; s.connect(dest); s.start(t, Math.random() * 3); };
@@ -47,43 +51,6 @@ function crunch(soft, pos = null) {   // pos: someone else's step, heard where i
   noise(t, 0.16, filt('bandpass', R(900, 1400), 0.9, g)); const h = gain(g, 0.5); noise(t + 0.015, 0.1, filt('highpass', R(3000, 4500), 0.7, h));
 }
 
-// the radio on the porch bench: a box with its front painted (the dial, the speaker cloth, two knobs)
-function buildRadio() {
-  const front = canvasTex(128, 80, (g, w, h) => {
-    g.fillStyle = '#6b4128'; g.fillRect(0, 0, w, h); g.fillStyle = '#d9c39a'; g.fillRect(8, 8, 70, h - 16);
-    g.strokeStyle = 'rgba(80,50,30,.5)'; for (let x = 12; x < 76; x += 5) { g.beginPath(); g.moveTo(x, 10); g.lineTo(x, h - 10); g.stroke(); }
-    g.fillStyle = '#f3e3b8'; g.fillRect(84, 10, 36, 22); g.fillStyle = '#b5302a'; g.fillRect(100, 10, 2, 22);
-    g.fillStyle = '#2a1a10'; for (const x of [92, 112]) { g.beginPath(); g.arc(x, 56, 7, 0, 7); g.fill(); }
-  });
-  const wood = new THREE.MeshLambertMaterial({ color: '#6b4128' }), face = new THREE.MeshLambertMaterial({ map: front, emissive: '#ffb860', emissiveIntensity: 0 });
-  radio = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.17, 0.12), [wood, wood, wood, wood, wood, face]);   // +x, -x, +y, -y, +z, -z: the front faces the porch
-  radio.position.copy(RADIO); radio.rotation.y = 0.25; radio.castShadow = true; scene.add(radio); radio.userData.face = face;
-  TRIS.push(['Porch radio', 12]);
-  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
-  renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
-  renderer.domElement.addEventListener('pointerup', (e) => {
-    if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return; down = null;
-    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); ray.far = 7;
-    if (ray.intersectObject(radio).length) turnRadio();
-  });
-}
-// on, the next station, and off after the last
-function turnRadio() {
-  start(); if (set.muted) { own('muted'); set.muted = false; set.music = false; }
-  const i = STATIONS.findIndex((s) => s.id === set.station);
-  if (!set.music) set.music = true;
-  else if (i >= STATIONS.length - 1) { set.music = false; set.station = STATIONS[0].id; }
-  else { own('station'); set.station = STATIONS[i + 1].id; if (ac?.state === 'running') SFX.tune(); }
-  mus.st = null; if (ac) mus.next = ac.currentTime + 0.6; applyGain(); keep();
-  const s = STATIONS.find((x) => x.id === set.station); say(set.music ? `📻 ${s.emoji} ${s.name}` : '📻 Off');
-}
-// the station's name, shown for a moment in the hint's place (on phones too, where the hint is hidden)
-let sayT = 0, hintText = null;
-function say(text) {
-  const h = $('hint'); hintText ??= h.textContent; h.textContent = text; h.style.display = 'block';
-  clearTimeout(sayT); sayT = setTimeout(() => { h.textContent = hintText; h.style.display = ''; }, 2500);
-}
-
 const btnText = () => `Sound: ${set.muted ? 'Off' : set.music ? 'All' : 'Nature only'}`;
 function showBtn() { if (btn) btn.textContent = btnText(); }
 export function buildAudio() {
@@ -96,14 +63,15 @@ export function buildAudio() {
   btn = $('sound');
   btn.onclick = () => { start(); own('muted'); if (set.muted) { set.muted = false; set.music = true; mus.st = null; } else if (set.music) set.music = false; else set.muted = true; applyGain(); keep(); };
   showBtn();
-  buildRadio(); musicFrom(radio);
+  buildRadio({ scene, audio, place: (r) => { r.position.copy(RADIO).setY(RADIO.y + RADIO_SIZE.H / 2); r.rotation.y = 0.25 + Math.PI; r.castShadow = true; } });   // its front to the porch
+  TRIS.push(['Porch radio', 22]);
 }
 const OWN = { crunch: (pos) => crunch(true, pos) };   // the summit's own sounds a cue can name, before the camp's SFX
 export function cue(name, pos, ...more) { if (ac?.state === 'running' && !set.muted) (OWN[name] ?? SFX[name])?.(pos, ...more); }
 
 // each frame after the light: the ear, the beds by the wind, the storm and the hour, the fire's crackles, the calls, your steps
 export function audioStep(dt) {
-  if (radio) radio.userData.face.emissiveIntensity = set.music && !set.muted ? 0.25 + 0.35 * LIGHT.night : 0;   // the dial glows while it plays
+  radioStep(dt);   // the dial lamp, the needle and the notes
   if (!ac || ac.state !== 'running') return;
   const t = ac.currentTime, L = ac.listener; camera.getWorldPosition(tmp); camera.getWorldDirection(fwd); up.set(0, 1, 0).applyQuaternion(camera.quaternion);
   if (L.positionX) { L.positionX.value = tmp.x; L.positionY.value = tmp.y; L.positionZ.value = tmp.z; L.forwardX.value = fwd.x; L.forwardY.value = fwd.y; L.forwardZ.value = fwd.z; L.upX.value = up.x; L.upY.value = up.y; L.upZ.value = up.z; }
