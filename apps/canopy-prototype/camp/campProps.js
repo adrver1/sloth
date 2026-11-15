@@ -10,7 +10,7 @@ import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, rng, S, scene, sun, uTime } from "./core.js";
 const { R } = rng("props");
 import { V, canvasTex, patchMaterial } from "./util.js";
-import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE } from "./layout.js";
+import { CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, SOUP_POT, TABLE, TENT, WOOD_PILE, fromModel } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
@@ -112,6 +112,7 @@ async function buildProps() {
   [LMTEX, LMSUN] = await PRE.lm;
   {
     const P = await PRE.props;
+    fromModel(P.scene.getObjectByName("Tent")?.userData, P.scene.getObjectByName("Hammock")?.userData);   // the tent's and hammock's sizes (layout.js)
     const lamL = lnight(new THREE.MeshLambertMaterial({ vertexColors: true }));
     P.scene.traverse((m) => { if (m.isMesh) m.material = m.material.map ? lnight(new THREE.MeshLambertMaterial({ map: m.material.map, color: BAMBOO })) : lamL; });   // the hammock posts are textured (bamboo.png, review R2-169)
     // the picked set holds each copy on its own (Seat_0, Seat_1 ...), since each is lit where it stands

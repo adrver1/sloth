@@ -1,28 +1,28 @@
 """
-Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html), in three styles to pick from:
+Camp props for the Canopy Camp game (apps/canopy-prototype/camp.html). The page uses one set, picked() (Adriaen
+2026-11-11): the rustic seat and table, a canvas wall tent with planks before the door, and the jungle hammock on plain
+textured bamboo posts (HammockPosts). The fire, tripod and pot are props/lived/build_fire.py, and the page draws its own
+lanterns (lanterns.js). props/camp/bake_camp_lightmap.py builds the set, through props/bake_all.py on the GPU, places it
+from the page's layout and bakes its light map; this script never exports it.
+
+The three earlier styles, and the first pre-light-map picked GLB, are archived (camp review, Adriaen 2026-11-12): their
+GLBs and txt files are in props/camp/archive/ and the page no longer offers them.
 
     storybook  chunky and rounded: pebble fire ring, bell tent with a pennant, striped hammock, paper lanterns
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
     jungle     a rainforest hideout: bamboo tripod and kettle, a leaf-thatched lean-to, bamboo bench, gourd lanterns
-    picked     the set in use: the rustic seat and table, a canvas wall tent with planks before the door, and the jungle
-               hammock on plain textured bamboo posts (HammockPosts; the fire, tripod and pot are props/lived/build_fire.py;
-               the page draws its own lanterns, lanterns.js)
 
-Storybook, Rustic and Jungle (and the first pre-light-map picked GLB) are archived (camp review, Adriaen 2026-11-12): their
-GLBs and txt files are in props/camp/archive/ and the page no longer offers them. Their builders stay here, one function
-per prop, since the picked set is made from some of them (rustic_seat, rustic_table, jungle_hammock).
-The page's picked set is built (picked()) and baked by bake_camp_lightmap.py (through props/bake_all.py, on the GPU);
-this script's own AO bake only remakes an archived style, into props/camp/out/ (git-ignored) unless told to write over
-the kept copy:
+Their builders stay here, one function per prop, since the picked set is made from some of them (rustic_seat,
+rustic_table, jungle_hammock). This script's command line only remakes an archived style, with its own AO bake (Cycles
+ambient occlusion with a ground plane, times each part's base colour, into one colour attribute), into props/camp/out/
+(git-ignored) unless told to write over the kept copy:
 
     .venv/bin/python props/camp/build_camp.py --style rustic --samples 64     # -> props/camp/out/camp_rustic.glb
     .venv/bin/python props/camp/build_camp.py --style rustic --overwrite-archive   # -> props/camp/archive/camp_rustic.glb + .txt
 
 Each archived style is one GLB (props/camp/archive/camp_<style>.glb) holding six objects, each at its own origin, standing on
-z = 0 with its front toward -Y (three.js +Z): Fire, Seat, Tent, Hammock, Lantern, Table. The page places them.
-Light is baked: Cycles ambient occlusion (with a ground plane, so props darken where they meet the ground)
-times each part's base colour goes into one colour attribute, so the page draws them with a plain Lambert
-material and no textures. The Hammock's posts stand at x = +-HAMMOCK_SPAN / 2, to match the page.
+z = 0 with its front toward -Y (three.js +Z): Fire, Seat, Tent, Hammock, Lantern, Table. The Hammock's posts stand at
+x = +-HAMMOCK_SPAN / 2.
 """
 import argparse
 import math
@@ -37,9 +37,9 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset, tris  # noqa: E402
+from lib.export import export_glb, reset, to_txt  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
-from lib.mesh import apply_all, ball, bevel, box, cyl, drop_faces, drop_ground_faces, join, mug, obj_from_bm, rod, rough_up, sweep, torus, with_material  # noqa: E402
+from lib.mesh import apply_all, ball, bevel, bisect, box, cyl, drop_faces, drop_ground_faces, join, mesh_obj, mug, obj_from_bm, quad, rod, rough_up, sweep, torus, with_material  # noqa: E402
 
 HAMMOCK_SPAN = 2.86
 SEAT_TOP = 0.36                   # rustic_seat(): the height of its flat sawn top (the log along X); build_lived.py sets things on it
@@ -48,7 +48,7 @@ DOOR_PLANK = 0.03                 # wall_tent(): the top of the loose planks bef
 BAMBOO_PNG = os.path.join(os.path.dirname(HERE), "lived", "bamboo.png")   # the fire tripod's bamboo (build_fire.py writes it)
 TEXTURED = ("HammockPosts",)      # picked() objects that keep their image (the light bake gives the others flat colours)
 STYLES = ("storybook", "rustic", "jungle")      # the archived styles build() remakes; the picked set comes from the light bake
-rng = random.Random(7)
+rng = random.Random(7)   # the rocks and leaves; each style builder (and picked) reseeds it (rng.seed(7)) first
 
 
 # ------------------------------------------------------------------ helpers (the shared ones are in props/lib)
@@ -110,10 +110,7 @@ def leaf(length, width, at, yaw, pitch, m, droop=0.35, roll=0.0):
         for j in range(nw):
             a = i * (nw + 1) + j
             faces.append((a, a + nw + 1, a + nw + 2, a + 1))
-    me = bpy.data.meshes.new("leaf")
-    me.from_pydata(verts, [], faces)
-    o = bpy.data.objects.new("leaf", me)
-    bpy.context.collection.objects.link(o)
+    o = mesh_obj("leaf", verts, faces)
     o.location = at
     o.rotation_euler = (roll, -pitch, yaw)
     with_material(o, m)
@@ -139,15 +136,9 @@ def sag_sheet(span, width, depth, at, m_a, m_b=None, stripes=0, thick=0.012, nx=
             a = i * (ny + 1) + j
             faces.append((a, a + ny + 1, a + ny + 2, a + 1))
             mats.append(1 if stripes and (j // max(1, ny // stripes)) % 2 else 0)
-    me = bpy.data.meshes.new("sling")
-    me.from_pydata(verts, [], faces)
-    o = bpy.data.objects.new("sling", me)
-    bpy.context.collection.objects.link(o)
+    o = mesh_obj("sling", verts, faces, (m_a, m_b or m_a), mats)
     o.location = at
-    o.data.materials.append(m_a)
-    o.data.materials.append(m_b or m_a)
-    for p, mi in zip(o.data.polygons, mats):
-        p.material_index = mi
+    for p in o.data.polygons:
         p.use_smooth = True
     sol = o.modifiers.new("s", "SOLIDIFY")
     sol.thickness = thick
@@ -164,6 +155,7 @@ def flower(at, m_petal, m_mid, r=0.05):
 
 # ------------------------------------------------------------------ the three styles
 def storybook():
+    rng.seed(7)
     M = {k: mat(f"sb_{k}", c) for k, c in dict(
         stone=(0.62, 0.6, 0.58), stone2=(0.72, 0.68, 0.64), bark=(0.42, 0.26, 0.15), wood=(0.86, 0.68, 0.45), ember=(0.9, 0.32, 0.08),
         cream=(0.96, 0.91, 0.8), pink=(0.95, 0.52, 0.62), door=(0.55, 0.35, 0.3), rope=(0.82, 0.72, 0.52), red=(0.86, 0.2, 0.18),
@@ -263,10 +255,7 @@ def rustic_seat(M):
     tubes that end inside the log (no caps: their feet stand on the ground and their tops were inside the log)."""
     lg = cyl(0.25, 1.5, at=(0, 0, 0.0), rot=(0, math.pi / 2, 0), m=M["bark"], verts=24)
     apply_all(lg)
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.bisect(plane_co=(0, 0, 0), plane_no=(0, 0, 1), clear_outer=True, use_fill=True)
-    bpy.ops.object.mode_set(mode="OBJECT")
+    bisect(lg, (0, 0, 0), (0, 0, 1), clear_outer=True, fill=True)
     lg.data.materials.append(M["wood"])               # the sawn fill reads as pale wood, not bark (seen with ?lived=0)
     for pl in lg.data.polygons:
         if pl.normal.z > 0.99 and abs(pl.center.z) < 1e-5:
@@ -301,15 +290,11 @@ def rustic_tent(M):
         for j in range(2 * ny):
             a = i * (2 * ny + 1) + j
             faces.append((a, a + 2 * ny + 1, a + 2 * ny + 2, a + 1))
-    me = bpy.data.meshes.new("roof")
-    me.from_pydata(verts, [], faces)
-    roof = bpy.data.objects.new("roof", me); bpy.context.collection.objects.link(roof); with_material(roof, M["canvas"])
+    roof = with_material(mesh_obj("roof", verts, faces), M["canvas"])
     roof.modifiers.new("s", "SOLIDIFY").thickness = 0.025
     p = [roof]
     def gable(x, tris, m):
-        me = bpy.data.meshes.new("gable")
-        me.from_pydata([v for t in tris for v in t], [], [(3 * k, 3 * k + 1, 3 * k + 2) for k in range(len(tris))])
-        g = bpy.data.objects.new("gable", me); bpy.context.collection.objects.link(g); with_material(g, m, False)
+        g = mesh_obj("gable", [v for t in tris for v in t], [(3 * k, 3 * k + 1, 3 * k + 2) for k in range(len(tris))], (m,))
         g.modifiers.new("s", "SOLIDIFY").thickness = 0.02
         return g
     xb, xf = L / 2 - 0.01, -L / 2 + 0.01
@@ -352,10 +337,7 @@ def rustic_lantern(M):
     the wire handle as one flat quad."""
     p = [cyl(0.065, 0.16, at=(0, 0, -0.14), m=M["glass"], verts=6, smooth=False),
          cyl(0.072, 0.03, at=(0, 0, -0.05), m=M["tin"], verts=6, r2=0.05, smooth=False)]
-    hq = bpy.data.meshes.new("handle")
-    hq.from_pydata([(-0.05, 0, -0.035), (0.05, 0, -0.035), (0.03, 0, 0.0), (-0.03, 0, 0.0)], [], [(0, 1, 2, 3)])
-    ho = bpy.data.objects.new("handle", hq); bpy.context.collection.objects.link(ho); with_material(ho, M["tin"], False)
-    p.append(ho)
+    p.append(quad([(-0.05, 0, -0.035), (0.05, 0, -0.035), (0.03, 0, 0.0), (-0.03, 0, 0.0)], M["tin"]))
     for o in p[:2]:                                    # the jar's top and the lid's bottom are hidden inside each other
         drop_faces(o, lambda n, c: abs(n.z) > 0.9 and -0.07 < c.z < -0.055)
     return join(p, "Lantern")
@@ -378,6 +360,7 @@ def rustic_table(M):
 
 def rustic():
     """The archived rustic style's six props, made in this order (the order its props draw from the seeded rng)."""
+    rng.seed(7)
     M = rustic_mats()
     return {"Fire": rustic_fire(M), "Seat": rustic_seat(M), "Tent": rustic_tent(M), "Hammock": rustic_hammock(M),
             "Lantern": rustic_lantern(M), "Table": rustic_table(M)}
@@ -394,7 +377,9 @@ def wall_tent():
     a wood stove on the right under the stovepipe.
     Built at its final size with the door toward -Y. The light comes from the camp light map, so a sheet needs vertices
     only where it bends: the roof is a 6 x 3 grid for its sag, the side walls one column of hem and wall (review R2-169).
-    camp.html mirrors W, D, Y0, the door and the furniture for walking."""
+    It writes its sizes for the page (the walls, the doorway, the stove, the chimney and the bed) as custom properties on
+    the Tent, which the light bake exports as glTF extras for camp/layout.js fromModel; camp.html mirrors W, D, Y0, the
+    door and the furniture for walking."""
     M = {k: mat(f"wt_{k}", c) for k, c in dict(
         canvas=(0.93, 0.9, 0.82), canvas2=(0.86, 0.83, 0.74), hem=(0.55, 0.5, 0.4), lining=(1.0, 0.93, 0.78),
         pole=(0.74, 0.62, 0.46), rope=(0.62, 0.54, 0.4), plank=(0.58, 0.43, 0.28), plank2=(0.5, 0.36, 0.23),
@@ -481,11 +466,7 @@ def wall_tent():
         face([P(-ln / 2, -hw2, t), P(ln / 2, -hw2, t), P(ln / 2, hw2, t), P(-ln / 2, hw2, t)], m)
         face([P(-ln / 2, -hw2, 0), P(ln / 2, -hw2, 0), P(ln / 2, -hw2, t), P(-ln / 2, -hw2, t)], "fascia")
         face([P(ln / 2, hw2, 0), P(-ln / 2, hw2, 0), P(-ln / 2, hw2, t), P(ln / 2, hw2, t)], "fascia")
-    me = bpy.data.meshes.new("wall_tent"); me.from_pydata(V, [], F)
-    for m in mats: me.materials.append(m)
-    for p, k in zip(me.polygons, FM): p.material_index = k
-    body = bpy.data.objects.new("canvas", me); bpy.context.collection.objects.link(body)
-    p = [body]
+    p = [mesh_obj("canvas", V, F, mats, FM)]
     # frame: open-ended poles (no caps anyone would see)
     def pole(a, b, r, m, verts=6):
         return rod(a, b, r, m, verts=verts, caps=False)
@@ -544,6 +525,11 @@ def wall_tent():
         p.append(rod((sx + lx, sy + 0.12 + ly, top - 0.03), (sx + lx * 1.4, sy + 0.12 + ly * 1.4, top + 0.065), 0.006, M["iron"], verts=3))
     t = join(p, "Tent")
     t["coarse"] = True
+    # the sizes the page needs, in the tent's own frame (x across, y toward the back, z up), as glTF extras on the Tent
+    # node (the light bake exports them; camp/layout.js fromModel reads them, review R2-250): the walls' half width, front
+    # and back, the doorway's half width, the stove (x, y), the stovepipe's mouth (x, y, z) and the middle of the bed (x, y)
+    for k, v in dict(W=W, yf=yf, yb=yb, DW=DW, stove=(sx, sy), chimney=(sx, sy + 0.12, top), bed=(bx, by)).items():
+        t[k] = [round(c, 4) for c in v] if isinstance(v, tuple) else round(v, 4)
     return t
 
 def stove_kettle(M, at):
@@ -641,6 +627,9 @@ def jungle_tent(M):
     return t
 
 
+ROPE = (1.75, 1.35)   # the hammock's ropes: the knot's height on the post and the sling end's height, 0.4 m in from it
+
+
 def jungle_hammock(M, plain_posts=False):
     """The woven hammock on bamboo posts. plain_posts: the picked one, a coarse sling and no leaves on top, and no posts of
     its own: picked() makes them as the textured HammockPosts (review R2-169)."""
@@ -649,14 +638,18 @@ def jungle_hammock(M, plain_posts=False):
     for s in (-1, 1):
         if not plain_posts:
             p += bamboo((s * h, 0, 0), (s * h, 0, 2.4), 0.055, M["bamboo"], M["node"])
-        p.append(rod((s * h, 0, 1.75), (s * (h - 0.4), 0, 1.35), 0.012, M["rope"], verts=4 if plain_posts else 5))
+        p.append(rod((s * h, 0, ROPE[0]), (s * (h - 0.4), 0, ROPE[1]), 0.012, M["rope"], verts=4 if plain_posts else 5))
     if plain_posts:                                      # a coarse sling for the picked set: 8 x 4 quads, both sides (camp review 2026-11-12)
         p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4, nx=8, ny=4))
     else:
         p.append(sag_sheet(HAMMOCK_SPAN - 0.8, 0.95, 0.55, (0, 0, 1.35), M["weave"], M["orange"], stripes=4))
     for s in (-1, 1) if not plain_posts else ():         # two leaves tucked over the posts (not in the picked set)
         p.append(leaf(0.9, 0.38, (s * h, 0, 2.4), 0 if s < 0 else math.pi, 0.5, M["leaf2"], droop=0.3))
-    return join(p, "Hammock")
+    o = join(p, "Hammock")
+    # the -x post's rope, from its knot to the sling's end, as glTF extras on the Hammock node (camp/layout.js fromModel
+    # reads them for the sloths' climb, sloth/poses.js; review R2-250)
+    o["knot"], o["rope_end"] = [round(-h, 4), 0.0, ROPE[0]], [round(-(h - 0.4), 4), 0.0, ROPE[1]]
+    return o
 
 
 def jungle_lantern(M):
@@ -682,6 +675,7 @@ def jungle_table(M):
 
 def jungle():
     """The archived jungle style's six props, made in this order (the order its props draw from the seeded rng)."""
+    rng.seed(7)
     M = jungle_mats()
     return {"Fire": jungle_fire(M), "Seat": jungle_seat(M), "Tent": jungle_tent(M), "Hammock": jungle_hammock(M),
             "Lantern": jungle_lantern(M), "Table": jungle_table(M)}
@@ -696,6 +690,7 @@ def picked():
     made, in the order the light bake's atlas has always seen them (seat, table, hammock, tent, then the posts). The jar lanterns are
     drawn by the page (lanterns.js), so the set has no lantern mesh (review R2-236). The tent, hammock and table lose the
     faces that point down onto the ground (lib/mesh.py drop_ground_faces, review R2-154)."""
+    rng.seed(7)
     R, J = rustic_mats(), jungle_mats()
     seat, table = rustic_seat(R), rustic_table(R)
     hammock = jungle_hammock(J, plain_posts=True)
@@ -708,14 +703,13 @@ def picked():
 
 
 # triangle budgets for the picked set (Adriaen 2026-11-11: as few as still look good): the light bake
-# (bake_camp_lightmap.py) collapse-decimates each object down to its budget, which keeps the silhouette
+# (bake_camp_lightmap.py) collapse-decimates each object down to its budget before baking, which keeps the silhouette
 BUDGET = {"picked": {"Table": 1400, "Seat": 500}}
 
 
 def build(style, samples, overwrite_archive=False):
     """Make an archived style in a fresh scene, give it its own AO light and write it to props/camp/out/camp_<style>.glb
     (git-ignored), or, with overwrite_archive, over props/camp/archive/camp_<style>.glb and its base64 .txt copy."""
-    import base64
     reset()
     objs = {"storybook": storybook, "rustic": rustic, "jungle": jungle}[style]()
     for o in objs.values():
@@ -726,8 +720,7 @@ def build(style, samples, overwrite_archive=False):
     os.makedirs(out, exist_ok=True)
     path = export_glb(list(objs.values()), os.path.join(out, f"camp_{style}.glb"), texcoords=False, check="warn")   # archived: report only
     if overwrite_archive:
-        with open(path, "rb") as fi, open(path[:-4] + ".txt", "w") as fo:
-            fo.write(base64.b64encode(fi.read()).decode())
+        to_txt(path, path[:-4] + ".txt")
     print(f"{style} -> {path}")
 
 

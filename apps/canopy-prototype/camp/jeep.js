@@ -23,8 +23,9 @@ async function buildJeep() {
   const jm = new THREE.MeshLambertMaterial({ vertexColors: true });
   const glassM = new THREE.MeshLambertMaterial({ color: 0xa9c4cc, transparent: true, opacity: 0.25, depthWrite: false });   // see-through, a little tinted
   jeep.traverse((m) => { if (m.isMesh) { m.material = m.name.startsWith("Glass") ? glassM : jm; if (m.name.startsWith("Glass")) m.renderOrder = 2; } });
-  // far away (camp review P7): beyond about 12 m the 880-triangle JeepLOD (props/jeep/build_jeep.py jeep_lod) stands in for the
-  // full jeep (6,002 triangles, 12 draws), never while a door is open. Only the jeep's own meshes are hidden, so a sloth sitting
+  // far away (camp review P7): beyond about 12 m the JeepLOD (props/jeep/build_jeep.py jeep_lod, one mesh of under 700 triangles
+  // after the R2-148/168/190/191 rebake) stands in for the full jeep (about 5,300 triangles in 10 meshes after that rebake;
+  // build_jeep.py prints both counts), never while a door is open. Only the jeep's own meshes are hidden, so a sloth sitting
   // in it (parented to the jeep) stays.
   const jeepMeshes = []; jeep.traverse((m) => { if (m.isMesh) jeepMeshes.push(m); });
   const far = (await PRE.jeepLod)?.scene;
@@ -33,15 +34,21 @@ async function buildJeep() {
   jeep.position.copy(at); jeep.rotation.set(0, Math.atan2(tan.x, tan.z), 0); scene.add(jeep); jeep.updateMatrixWorld(true);
   if (far) { far.position.copy(jeep.position); far.rotation.copy(jeep.rotation); }
   for (const k of [-0.95, 0.95]) blockers.push([at.clone().addScaledVector(tan, k), 1.05]);
-  // how far each swings (rad) and about which axis, as in build_jeep.py; H is the hood (Adriaen 2026-11-12), hinged at the windscreen
-  const D3 = { P: ["DoorP", -1.2, "y"], D: ["DoorD", 1.2, "y"], B: ["BackDoor", 1.75, "y"], H: ["Hood", -1.15, "x"] }, doors = {};
-  for (const [k, [n, open, axis]] of Object.entries(D3)) { const o = jeep.getObjectByName(n); if (o) doors[k] = { o, open, axis, cur: 0, want: 0 }; }
+  // the doors and the hood (Adriaen 2026-11-12, hinged at the windscreen): how far each swings (rad) and about which axis come
+  // from the node's glTF extras, "open" and "axis", which build_jeep.py writes from its HINGES and HOOD_OPEN (review R2-250).
+  // OLD stands in for a jeep GLB built before the extras; drop it once the jeep is rebuilt and baked again.
+  const OLD = { DoorP: [-1.2, "y"], DoorD: [1.2, "y"], BackDoor: [1.75, "y"], Hood: [-1.15, "x"] }, doors = {};
+  for (const [k, n] of Object.entries({ P: "DoorP", D: "DoorD", B: "BackDoor", H: "Hood" })) {
+    const o = jeep.getObjectByName(n); if (!o) continue;
+    const { open = OLD[n][0], axis = OLD[n][1] } = o.userData;
+    doors[k] = { o, open, axis, cur: 0, want: 0 };
+  }
   const world = (n) => jeep.getObjectByName(n)?.getWorldPosition(V()) ?? at.clone();
   const local = (x, y, z) => jeep.localToWorld(V(x, y, z));
   const boot = jeep.getObjectByName("Boot")?.position ?? V(0, 0.78, -1.06);
   // the cabin light (Adriaen 2026-11-12): on while any door stands open. CabinLight is its lens (unlit when on); the light it
   // throws is live: one shadowed spot light (cabSpot), redrawn while a door moves; it replaced the baked keyframes.
-  // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the Lamps lenses stay as plain parts.
+  // The headlights were dropped (Adriaen 2026-11-12: "they don't add much"); the lenses are plain parts of the body.
   const cabinL = jeep.getObjectByName("CabinLight");
   const cabOn = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
   const OFF = new THREE.Color(0x8c8778), CL = new THREE.Color(0xffe2a8);

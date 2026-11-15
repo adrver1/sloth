@@ -1,8 +1,8 @@
 """
-Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, quad), tubes (sweep, tube),
-shaping (bevel, rough_up, drop_faces, drop_ground_faces), object plumbing (apply_all, join, obj_from_bm, select_only) and
-anchor (a named empty the page reads a point from), and mug (the enamel mug on the seat and the snack table). Z up, metres;
-every helper that makes an object links it into the current scene's collection and returns it.
+Mesh helpers shared by the props/ generators: primitives (cyl, rod, ball, box, torus, arc, quad), tubes (sweep, tube),
+shaping (bevel, rough_up, drop_faces, drop_ground_faces, drop_enclosed, outward, bisect), object plumbing (apply_all, join,
+obj_from_bm, mesh_obj, select_only), anchor (a named empty the page reads a point from) and mug (the enamel mug on the
+seat and the snack table). Z up, metres; every helper that makes an object links it into the current scene's collection and returns it.
 
     sweep(bm, pts, radii, sides=8, cap_a=False, cap_b=True, twist=0.0, frame=None)
         a tube of `sides` flat sides into bmesh bm along the points, one ring per point, faces wound outward, caps only
@@ -11,6 +11,15 @@ every helper that makes an object links it into the current scene's collection a
          name="tube")
         one straight tube from a to b as its own object (sweep on a fresh bmesh): the posts, roots and poles whose
         buried or hidden end has no cap (review R2-251, which replaced five hand-written tube builders and capless)
+
+    mesh_obj(name, verts, faces, mats=(), face_mats=None, validate=False)   an object from hand-written vertices and faces
+    arc(R, r, a0, a1, segs, at, rot, m, minor=3, smooth=True)   an open piece of a torus (a handle, a tow loop)
+    drop_enclosed(parts, margin=0.002)    before join(): delete the faces that lie inside another part's closed volume
+
+cyl, ball and box build their mesh with bmesh (one bmesh op each, review R2-227) and match the bpy.ops primitives they
+replace: the same vertices, a "UVMap" with the same UVs, the object named Cylinder, Cone, Sphere or Cube at its
+location and rotation, made the active object (it is not selected). torus still calls bpy.ops (its mesh is made in
+Python by Blender's operator). outward and bisect work in bmesh too, so nothing here switches to edit mode.
 """
 import math
 
@@ -23,8 +32,7 @@ def with_material(o, m, smooth=True):
     """Give o its material and (by default) smooth shading."""
     o.data.materials.append(m)
     if smooth:
-        for p in o.data.polygons:
-            p.use_smooth = True
+        o.data.polygons.foreach_set("use_smooth", [True] * len(o.data.polygons))
     return o
 
 
@@ -38,14 +46,43 @@ def obj_from_bm(bm, name):
     return o
 
 
+def mesh_obj(name, verts, faces, mats=(), face_mats=None, validate=False):
+    """A new object called name, linked into the scene, whose mesh (also called name) has the vertices verts and the faces
+    faces (tuples of vertex indices), flat shaded. mats are its material slots, in order; face_mats[i] is the slot of face
+    i (all faces take slot 0 when it is None). validate=True runs Mesh.validate() first, which drops broken faces (so leave
+    it off when face_mats is given)."""
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(v) for v in verts], [], [tuple(f) for f in faces])
+    if validate:
+        me.validate()
+    me.update()
+    for m in mats:
+        me.materials.append(m)
+    if face_mats is not None:
+        for p, k in zip(me.polygons, face_mats):
+            p.material_index = k
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    return o
+
+
+def primitive(name, make, at=(0, 0, 0), rot=(0, 0, 0)):
+    """A new object called name at at, turned by rot (Euler XYZ), holding the mesh make(bm) builds about the origin in a
+    bmesh with a "UVMap" layer (pass calc_uvs=True to the bmesh op). It becomes the active object."""
+    bm = bmesh.new()
+    bm.loops.layers.uv.new("UVMap")
+    make(bm)
+    o = obj_from_bm(bm, name)
+    o.location, o.rotation_euler = at, rot
+    bpy.context.view_layer.objects.active = o
+    return o
+
+
 def cyl(r, h, at=(0, 0, 0), rot=(0, 0, 0), m=None, verts=16, r2=None, smooth=True, caps=True):
     """A cylinder (or cone when r2 is given) of height h centred on at; caps=False leaves both ends open."""
-    fill = "NGON" if caps else "NOTHING"
-    if r2 is None:
-        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=h, vertices=verts, end_fill_type=fill, location=at, rotation=rot)
-    else:
-        bpy.ops.mesh.primitive_cone_add(radius1=r, radius2=r2, depth=h, vertices=verts, end_fill_type=fill, location=at, rotation=rot)
-    return with_material(bpy.context.object, m, smooth)
+    make = lambda bm: bmesh.ops.create_cone(bm, cap_ends=caps, cap_tris=False, segments=verts, radius1=r, radius2=r if r2 is None else r2,
+                                            depth=h, matrix=Matrix(), calc_uvs=True)
+    return with_material(primitive("Cylinder" if r2 is None else "Cone", make, at, rot), m, smooth)
 
 
 def rod(a, b, r, m, verts=8, caps=True):
@@ -100,15 +137,14 @@ def tube(a, b, r, m=None, sides=8, cap_a=False, cap_b=True, r_b=None, rings=None
 
 
 def ball(r, at=(0, 0, 0), scale=(1, 1, 1), m=None, seg=16, rot=(0, 0, 0)):
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=r, segments=seg, ring_count=max(6, seg // 2), location=at, rotation=rot)
-    o = bpy.context.object
+    make = lambda bm: bmesh.ops.create_uvsphere(bm, u_segments=seg, v_segments=max(6, seg // 2), radius=r, matrix=Matrix(), calc_uvs=True)
+    o = primitive("Sphere", make, at, rot)
     o.scale = scale
     return with_material(o, m)
 
 
 def box(size, at=(0, 0, 0), rot=(0, 0, 0), m=None, bevel=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=at, rotation=rot)
-    o = bpy.context.object
+    o = primitive("Cube", lambda bm: bmesh.ops.create_cube(bm, size=1, matrix=Matrix(), calc_uvs=True), at, rot)
     o.scale = size
     with_material(o, m, smooth=False)
     if bevel:
@@ -123,13 +159,30 @@ def torus(R, r, at=(0, 0, 0), rot=(0, 0, 0), m=None, major=24, minor=8):
     return with_material(bpy.context.object, m)
 
 
+def arc(R, r, a0, a1, segs, at=(0, 0, 0), rot=(0, 0, 0), m=None, minor=3, smooth=True):
+    """Part of a torus, in torus()'s frame (the ring in its local XY plane round at, turned by rot): the tube of radius r
+    from angle a0 to a1 (radians, counter-clockwise from local X) in segs segments, minor sides round, with open ends.
+    For a handle or a loop whose ends go into another part, so no triangle is spent on the hidden part of the ring
+    (review R2-191)."""
+    def make(bm):
+        rings = []
+        for k in range(segs + 1):
+            a = a0 + (a1 - a0) * k / segs
+            u = Vector((math.cos(a), math.sin(a), 0))
+            rings.append([bm.verts.new(u * (R + r * math.cos(t * 2 * math.pi / minor)) + Vector((0, 0, r * math.sin(t * 2 * math.pi / minor))))
+                          for t in range(minor)])
+        for A, B in zip(rings, rings[1:]):
+            for t in range(minor):
+                f = bm.faces.new((A[t], B[t], B[(t + 1) % minor], A[(t + 1) % minor]))
+                c = f.calc_center_median()
+                if f.normal.dot(c - Vector((c.x, c.y, 0)).normalized() * R) < 0:   # face away from the tube's centre line
+                    f.normal_flip()
+    return with_material(primitive("Torus", make, at, rot), m, smooth)
+
+
 def quad(corners, m):
     """One flat face through four corners, flat shaded (a page, a line of print, a ribbon, a wood chip)."""
-    me = bpy.data.meshes.new("quad")
-    me.from_pydata(corners, [], [(0, 1, 2, 3)])
-    o = bpy.data.objects.new("quad", me)
-    bpy.context.collection.objects.link(o)
-    return with_material(o, m, smooth=False)
+    return mesh_obj("quad", corners, [(0, 1, 2, 3)], (m,))
 
 
 def bevel(o, w, seg=2):
@@ -162,6 +215,79 @@ def drop_faces(o, test):
     return o
 
 
+def _inside(bvh, p, margin):
+    """Whether point p lies inside the closed surface in bvh, at least margin from it: an odd number of crossings along
+    each of three skewed rays (skewed so a ray does not run along an edge)."""
+    hit = bvh.find_nearest(p)
+    if hit[0] is None or hit[3] < margin:
+        return False
+    for d in _RAYS:
+        n, q = 0, p
+        for _ in range(64):
+            loc = bvh.ray_cast(q, d)[0]
+            if loc is None:
+                break
+            n += 1
+            q = loc + d * 1e-5
+        if n % 2 == 0:
+            return False
+    return True
+
+
+_RAYS = [Vector(d).normalized() for d in ((0.31, 0.17, 0.93), (-0.83, 0.41, 0.23), (0.27, -0.91, -0.33))]
+
+
+def drop_enclosed(parts, margin=0.002):
+    """Delete every face of parts (objects about to be join()ed into one) that lies wholly inside another part's closed
+    volume, so nobody can see it from any side, with any door open (review R2-148: overlapping shells left about a fifth
+    of the jeep's triangles hidden). A face goes only when its corners, its centre, its edge middles and the points half
+    way from the centre to each corner are all inside the same closed part, at least margin from its surface; a face
+    flush with another part's surface stays. Only closed parts (every edge on exactly two faces) can hide faces. Applies
+    each part's modifiers, rotation and scale (apply_all); returns the parts that still have faces, and removes the rest."""
+    from mathutils.bvhtree import BVHTree
+    world = []
+    for o in parts:
+        apply_all(o)
+        world.append([o.matrix_world @ v.co for v in o.data.vertices])
+    closed = []
+    for o, vs in zip(parts, world):
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        ok = len(bm.faces) > 0 and all(len(e.link_faces) == 2 for e in bm.edges)
+        bm.free()
+        if ok:
+            lo = Vector([min(v[i] for v in vs) for i in range(3)])
+            hi = Vector([max(v[i] for v in vs) for i in range(3)])
+            closed.append((o, BVHTree.FromPolygons(vs, [tuple(p.vertices) for p in o.data.polygons]), lo, hi))
+    kept = []
+    for o, vs in zip(parts, world):
+        gone = []
+        for p in o.data.polygons:
+            corners = [vs[i] for i in p.vertices]
+            c = sum(corners, Vector()) / len(corners)
+            pts = [c, *corners, *((a + b) / 2 for a, b in zip(corners, corners[1:] + corners[:1])), *((c + a) / 2 for a in corners)]
+            lo = Vector([min(q[i] for q in corners) for i in range(3)])
+            hi = Vector([max(q[i] for q in corners) for i in range(3)])
+            for other, bvh, blo, bhi in closed:
+                if other is o or any(lo[i] < blo[i] or hi[i] > bhi[i] for i in range(3)):
+                    continue
+                if all(_inside(bvh, q, margin) for q in pts):
+                    gone.append(p.index)
+                    break
+        if gone:
+            bm = bmesh.new()
+            bm.from_mesh(o.data)
+            bm.faces.ensure_lookup_table()
+            bmesh.ops.delete(bm, geom=[bm.faces[i] for i in gone], context="FACES")
+            bm.to_mesh(o.data)
+            bm.free()
+        if len(o.data.polygons):
+            kept.append(o)
+        else:
+            bpy.data.objects.remove(o)
+    return kept
+
+
 def drop_ground_faces(objs, h=0.05):
     """Delete the faces of each mesh in objs that point down (normal z under -0.7) with their centre less than h above
     the ground (world z = 0): bottoms standing on the ground, which nobody sees and which still took light-map space
@@ -182,9 +308,9 @@ def drop_ground_faces(objs, h=0.05):
 
 def mug(M, at, n=8):
     """The enamel mug (Adriaen 2026-11-12) standing at `at`: an n-sided body with no bottom, the blue rim painted as a
-    band at the top, coffee as one flat n-gon, and a 6 x 3 handle loop toward +X; M holds the "enamel", "rim" and
-    "coffee" materials. 96 triangles with n = 8 (build_lived.py's seat mug), 76 with n = 6 (build_camp.py's table mug,
-    review R2-194)."""
+    band at the top, coffee as one flat n-gon, and a 4 x 3 handle toward +X that is only the part of the loop outside the
+    body, its ends inside the mug wall (arc, review R2-191); M holds the "enamel", "rim" and "coffee" materials. 78
+    triangles with n = 8 (build_lived.py's seat mug), 64 with n = 6 (build_camp.py's table mug, review R2-194)."""
     x0, y0, z0 = at
     r, h = 0.042, 0.085
     bm = bmesh.new()
@@ -207,10 +333,38 @@ def mug(M, at, n=8):
     me = o.data
     for k in ("enamel", "rim", "coffee"):
         me.materials.append(M[k])
-    hd = torus(0.026, 0.006, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], major=6, minor=3)
-    for pl in hd.data.polygons:
-        pl.use_smooth = False
+    hd = arc(0.026, 0.006, math.radians(-125), math.radians(125), 4, at=(x0 + 0.048, y0, z0 + 0.045), rot=(math.pi / 2, 0, 0), m=M["enamel"], smooth=False)
     return join([o, hd], "mug")
+
+
+def outward(o):
+    """Point o's normals outward, whichever way its faces were wound (a closed mesh; the AO bake needs them outward)."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bm.to_mesh(o.data)
+    bm.free()
+    return o
+
+
+def bisect(o, co, no, clear_inner=False, clear_outer=False, fill=False):
+    """Cut o along the plane through co with normal no (both in world space, as the edit-mode bisect takes them):
+    clear_inner drops what lies behind the plane, clear_outer what lies in front, and fill closes the cut with one face
+    that takes its material and shading from the faces next to it."""
+    inv = o.matrix_world.inverted()
+    co_l, no_l = inv @ Vector(co), (o.matrix_world.to_3x3().transposed() @ Vector(no)).normalized()
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    cut = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], dist=0.0001, plane_co=co_l, plane_no=no_l,
+                                 clear_inner=clear_inner, clear_outer=clear_outer)["geom_cut"]
+    if fill:
+        nf = -no_l if clear_outer and not clear_inner else no_l
+        faces = [f for f in bmesh.ops.triangle_fill(bm, use_dissolve=True, edges=[e for e in cut if isinstance(e, bmesh.types.BMEdge)], normal=nf)["geom"]
+                 if isinstance(f, bmesh.types.BMFace)]
+        bmesh.ops.face_attribute_fill(bm, faces=faces, use_normals=True, use_data=True)
+    bm.to_mesh(o.data)
+    bm.free()
+    return o
 
 
 def anchor(name, at, size=1.0):
@@ -263,12 +417,14 @@ def apply_all(o):
 
 
 def join(objs, name):
-    """Join objs into one object called name, with every transform applied (it keeps objs[0]'s mesh)."""
-    for o in objs:
-        apply_all(o)
+    """Join objs into one object called name, with their modifiers and every transform applied (it keeps objs[0]'s
+    mesh). One convert applies all the parts' modifiers, the join brings each part's transform into objs[0]'s, and one
+    _apply finishes it (review R2-227: it used to apply every part on its own first; R2-237: the mesh API when it can)."""
     select_only(objs[0])
     for o in objs[1:]:
         o.select_set(True)
+    if any(o.modifiers for o in objs):
+        bpy.ops.object.convert(target="MESH")
     bpy.ops.object.join()
     o = bpy.context.object
     o.name = name

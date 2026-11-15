@@ -15,7 +15,7 @@ import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { CRAWL, HW, HW_POST, WALK_TS } from "./state.js";
 import { play } from "./clips.js";
-import { ROPE_L, barkProfile, climbYaw, linePose, postPose, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
+import { barkProfile, climbYaw, linePose, postPose, ropeLen, ropePose, trunkAt, underAt, yawOf, yawQ } from "./poses.js";
 import { climbV, glide, slide, toGround } from "./moves.js";
 import { brush } from "./spots.js";
 
@@ -64,7 +64,7 @@ function exitSpot(s, go) {
   }
   if (spot.climb) {                                 // the hammock: out of the sling, up the rope to the knot, down the post
     play(s, "hang_walk", 2, -HW_POST);
-    return glide(s, ropePose(s, ROPE_L - 0.05), 3, () => slide(s, ROPE_L - 0.05, 0.1, 0.015 * HW_POST * s.sc, (u) => ropePose(s, u), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
+    return glide(s, ropePose(s, ropeLen() - 0.05), 3, () => slide(s, ropeLen() - 0.05, 0.1, 0.015 * HW_POST * s.sc, (u) => ropePose(s, u), () => { scene.attach(s.o); downPost(s, spot, HAMMOCK_PIVOT - 0.2 * s.sc, go); }));
   }
   if (spot.car) { s.trip.phase = "exit"; s.trip.go = go; jeepApi.open("P"); return; }   // waits for the door, then climbs out (exitStep)
   const away = spot.via ? yawFrom(spot.door, spot.via) : yawFrom(s.o.getWorldPosition(tmp), spot.door);

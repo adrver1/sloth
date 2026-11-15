@@ -9,6 +9,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - Rule: every place, radius and distance that more than one module or the bake uses is exported from `apps/canopy-prototype/camp/layout.js`. Import it; never type the number again in another module, a comment or a test.
 - Why: the seat ring, crate, pot and wood pile were typed by hand in up to five modules and again in the bake, and drifted (C1: world-12, props-06, crosscut-10, operator-12, genbake-14).
 - `layout.js` holds only numbers, vectors and pure functions: no scene, no DOM, no random numbers. Units are metres, y is up, the fire is at the origin.
+- The one exception is `fromModel(tent, hammock)`, which copies build_camp.py's glTF extras into `TENT` and `HAMMOCK` when `campProps.js` `buildProps` runs (R2-250). So read `TENT.W`, `DW`, `yf`, `yb`, `stove`, `chimney`, `bed` and `HAMMOCK.knot`, `ropeEnd` only inside build or step functions, never at import time (section 4).
 - Example: `SEATS` in `camp/layout.js`, the log seats round the fire, read by `campProps.js`, `linger.js`, `places.js`, `operator/places.js` and `sloth/spots.js`.
 
 ## 2. Shared helpers, no copies

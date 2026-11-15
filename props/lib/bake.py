@@ -17,14 +17,40 @@ Vertex-colour light for the props/ generators, both into the "Col" colour attrib
 Before the AO bake each object (unless it has the "coarse" property) has its transforms applied (apply=True) or, with
 split=True, its long edges split by densify() so the per-vertex AO has room to vary ("ao_edge" sets the length). The
 low-triangle rule (Adriaen 2026-11-11) means only the archived styles split.
+
+    corner_values(me, per_face)                    a per-face array spread to every face corner (loop), for foreach_set
+    ao_times_base(me)                              bake()'s last step: "AO" x each face's base colour into "Col"
+
+The colours are worked out with numpy over whole arrays and written with one foreach_set per object (review R2-253).
 """
 import sys
 
 import bpy
-from mathutils import Vector
+import numpy as np
 
 from lib.materials import baked_material
 from lib.mesh import apply_all
+
+
+def corner_values(me, per_face):
+    """per_face (one row per polygon of me) spread to the face corners: row i of the result belongs to loop i."""
+    n = len(me.polygons)
+    start, total = np.empty(n, np.int64), np.empty(n, np.int64)
+    me.polygons.foreach_get("loop_start", start)
+    me.polygons.foreach_get("loop_total", total)
+    face = np.repeat(np.arange(n), total)                                     # the polygon of each corner, in polygon order
+    loop = np.repeat(start, total) + np.arange(len(face)) - np.repeat(np.cumsum(total) - total, total)
+    per_face = np.asarray(per_face)
+    out = np.empty((len(me.loops),) + per_face.shape[1:], per_face.dtype)
+    out[loop] = per_face[face]
+    return out
+
+
+def _face_materials(me):
+    """Each polygon's material slot index."""
+    mi = np.empty(len(me.polygons), np.int64)
+    me.polygons.foreach_get("material_index", mi)
+    return mi
 
 
 def densify(o, edge=0.13):
@@ -72,22 +98,25 @@ def bake(objs, samples, split=False, apply=True, device="auto"):
         sc.world.light_settings.distance = 0.6
         bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
     bpy.data.objects.remove(ground)
-    # colour = base colour x soft AO, into the attribute the exporter writes as COLOR_0
     for o in objs:
-        me = o.data
-        ao = me.color_attributes["AO"]
-        col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        bases = [Vector(m["base"]) for m in me.materials]
-        for poly in me.polygons:
-            base = bases[poly.material_index]
-            for li in poly.loop_indices:
-                a = ao.data[li].color[0]
-                k = 0.32 + 0.68 * a
-                col.data[li].color = (base.x * k, base.y * k, base.z * k, 1)
-        me.color_attributes.remove(ao)
-        me.color_attributes.active_color = me.color_attributes["Col"]
-        me.materials.clear()
-        me.materials.append(baked_material(roughness=0.9))   # one plain material that uses the colour attribute
+        ao_times_base(o.data)
+
+
+def ao_times_base(me):
+    """Colour = base colour x soft AO (the "AO" attribute, then removed) into "Col", the attribute the exporter writes as
+    COLOR_0; then one plain material that uses it in place of the mesh's materials."""
+    a = np.empty(len(me.loops) * 4, np.float32)
+    me.color_attributes["AO"].data.foreach_get("color", a)
+    k = 0.32 + 0.68 * a[0::4]
+    bases = np.array([m["base"] for m in me.materials], np.float32)
+    rgba = np.ones((len(me.loops), 4), np.float32)
+    rgba[:, :3] = corner_values(me, bases[_face_materials(me)]) * k[:, None]
+    col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
+    col.data.foreach_set("color", rgba.ravel())
+    me.color_attributes.remove(me.color_attributes["AO"])
+    me.color_attributes.active_color = me.color_attributes["Col"]
+    me.materials.clear()
+    me.materials.append(baked_material(roughness=0.9))
 
 
 def flat_colours(objs, glow=()):
@@ -97,12 +126,10 @@ def flat_colours(objs, glow=()):
         for c in list(me.color_attributes):
             me.color_attributes.remove(me.color_attributes[c.name])
         col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-        for poly in me.polygons:
-            m = me.materials[poly.material_index] if me.materials else None
-            base = Vector(m["base"]) if m and "base" in m else Vector((0.5, 0.5, 0.5))
-            al = 0.0 if m and m.name.split(".")[0] in glow else 1.0
-            for li in poly.loop_indices:
-                col.data[li].color = (base.x, base.y, base.z, al)
+        slots = [(*(m["base"] if m and "base" in m else (0.5, 0.5, 0.5)), 0.0 if m and m.name.split(".")[0] in glow else 1.0)
+                 for m in me.materials] or [(0.5, 0.5, 0.5, 1.0)]                # no material: grey
+        per_face = np.array(slots, np.float32)[_face_materials(me) if me.materials else np.zeros(len(me.polygons), np.int64)]
+        col.data.foreach_set("color", corner_values(me, per_face).ravel())
         me.color_attributes.active_color = col
         m = baked_material()
         me.materials.clear(); me.materials.append(m)

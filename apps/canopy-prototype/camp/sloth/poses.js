@@ -12,8 +12,9 @@
 //   trunkR0(y), barkProfile(tree, out, yTop), branchBase(curve, tree)   the trunk's radius by formula, as measured on one
 //                                     side, and the first point along a branch that is clear of the bark
 //   HAMMOCK_IN, climbYaw              from the hammock toward the fire, and the yaw of a sloth climbing its post
-//   ROPE_L, ropePose(s, u)            the hammock's rope from the post's knot to the sling: its length, and hanging under it
-//                                     u metres down from the knot (in the swing's frame, swing.js)
+//   ropeLen(), ropePose(s, u)         the hammock's rope from the post's knot to the sling (layout.js HAMMOCK.knot, ropeEnd):
+//                                     its length, and hanging under it u metres down from the knot (in the swing's frame,
+//                                     swing.js). Both read the rope when first called, after campProps.js has loaded the set.
 //   linePose(s, t)                    hanging under the laundry line at fraction t from its end a: { at, p, q }
 //   postPose(spot, y)                 upright on the spot's post (the hammock's or the line's) at height y
 import * as THREE from "three";
@@ -61,13 +62,19 @@ function branchBase(c, tree) {                      // the first point along the
 const HAMMOCK_IN = (() => {                               // from the hammock toward the fire
   const hd = HAMMOCK.b.clone().sub(HAMMOCK.a), inward = V(-hd.z, 0, hd.x).normalize(); if (inward.dot(HAMMOCK.mid) > 0) inward.negate(); return inward;
 })();
-// the hammock route, in the swing's frame (x along the span, the knots on the pivot line): up the -x post to its rope knot
-// (x -1.43, y 0), then hand over hand down the rope to the sling's end (x -1.03, y -0.40), hanging back-down under it
-// as on a branch (hang_walk), then onto the sling. hang_walk keeps its paws on a line 0.10 (x scale) over its belly,
+// the hammock route, in the swing's frame (x along the span, the knots on the pivot line, y up from them): up the -x post to
+// its rope knot (HAMMOCK.knot), then hand over hand down the rope to the sling's end (HAMMOCK.ropeEnd), hanging back-down
+// under it as on a branch (hang_walk), then onto the sling. hang_walk keeps its paws on a line 0.10 (x scale) over its belly,
 // spanning 0..0.20 toward its head, so the same clip climbs the post when the sloth is upright facing it.
-const KNOT = V(-1.43, 0, 0), ROPE_END = V(-1.03, -0.40, 0), ROPE = ROPE_END.clone().sub(KNOT), ROPE_L = ROPE.length(); ROPE.normalize();
+let rope = null;   // { knot, dir, L }: the knot, the rope's unit direction and its length, read once (ropeOf)
+function ropeOf() {
+  if (!rope) { const [kx, , kz] = HAMMOCK.knot, [ex, , ez] = HAMMOCK.ropeEnd, d = V(ex - kx, ez - kz, 0);
+    rope = { knot: V(kx, 0, 0), L: d.length(), dir: d.normalize() }; }
+  return rope;
+}
+const ropeLen = () => ropeOf().L;
 const climbYaw = Math.atan2(HAMMOCK_IN.x, HAMMOCK_IN.z);
-const ropePose = (s, u) => underAt(s, KNOT.clone().addScaledVector(ROPE, u), ROPE);   // hanging under the rope, its grip centre u metres down from the knot
+const ropePose = (s, u) => { const r = ropeOf(); return underAt(s, r.knot.clone().addScaledVector(r.dir, u), r.dir); };   // hanging under the rope, its grip centre u metres down from the knot
 function linePose(s, t) {                           // hanging back-down under the laundry line at fraction t from a, its head toward b
   const L = LL.a.distanceTo(LL.b), y = (k) => LL.a.y - LL.sag * 4 * k * (1 - k);
   const at = LL.a.clone().addScaledVector(LL.dir, L * t).setY(y(t)), tan = LL.dir.clone().setY((y(t + 0.01) - y(t)) / (0.01 * L)).normalize();
@@ -75,4 +82,4 @@ function linePose(s, t) {                           // hanging back-down under t
 }
 const postPose = (spot, y) => ({ p: spot.door.clone().setY(y), q: yawQ(spot.climbYaw ?? climbYaw) });
 
-export { HAMMOCK_IN, ROPE_L, UP, barkProfile, branchBase, climbYaw, linePose, postPose, ropePose, treeOf, trunkAt, trunkR0, turnTo, underAt, yawOf, yawQ };
+export { HAMMOCK_IN, UP, barkProfile, branchBase, climbYaw, linePose, postPose, ropeLen, ropePose, treeOf, trunkAt, trunkR0, turnTo, underAt, yawOf, yawQ };

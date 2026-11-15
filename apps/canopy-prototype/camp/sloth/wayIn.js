@@ -18,7 +18,7 @@ import { LAUNDRY } from "../layout.js";
 import { HAMMOCK_PIVOT } from "../swing.js";
 import { HW, HW_POST } from "./state.js";
 import { clipOf, play } from "./clips.js";
-import { ROPE_L, UP, barkProfile, climbYaw, linePose, ropePose, trunkAt, turnTo, underAt } from "./poses.js";
+import { UP, barkProfile, climbYaw, linePose, ropeLen, ropePose, trunkAt, turnTo, underAt } from "./poses.js";
 import { climbV, glide, slide } from "./moves.js";
 import { brush, claimHome } from "./spots.js";
 import { doze } from "./naps.js";
@@ -92,9 +92,9 @@ function lineStep(s, T, sd, spot) {                 // hand over hand along the 
   if (T.u >= spot.t) { play(s, "cling", 3, 0.6); atHome(s); }
 }
 function ropeStep(s, T, sd) {                       // down the rope to the sling's end
-  T.u = Math.min(ROPE_L - 0.05, T.u + 0.015 * HW_POST * s.sc * sd); const R1 = ropePose(s, T.u);
+  T.u = Math.min(ropeLen() - 0.05, T.u + 0.015 * HW_POST * s.sc * sd); const R1 = ropePose(s, T.u);
   s.o.position.copy(R1.p); s.o.quaternion.copy(R1.q);
-  if (T.u >= ROPE_L - 0.05) settleIn(s, 3);
+  if (T.u >= ropeLen() - 0.05) settleIn(s, 3);
 }
 function settleStep(s, T, sd, spot) {               // about 4 s: climbs up into its spot and settles
   const k = Math.min(1, T.t / (spot.climb ? 6 : 4)), e = ease(k);

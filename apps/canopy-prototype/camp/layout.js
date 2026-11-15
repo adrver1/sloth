@@ -1,6 +1,7 @@
 // Canopy Camp layout: where everything in the camp stands, in one place (camp review C1: world-12, props-06, crosscut-10,
 // operator-12, world-16). Only numbers, vectors and pure functions: no scene, no DOM, no random numbers (what is placed at random, the forest wall, the
-// ferns, the deadwood, stays where it is drawn), so any module can import it at any point. Units are metres; y is up, the fire is at the origin.
+// ferns, the deadwood, stays where it is drawn), so any module can import it at any point. The one exception is fromModel,
+// which copies the tent's and hammock's sizes in from their models once campProps.js has loaded them (review R2-250). Units are metres; y is up, the fire is at the origin.
 // The bakes get the layout from the live page: props/shadow/export_casters.cjs writes the tent and hammock (from window.__camp),
 // the track (from window.__ground.layout; debug.js sets both) and a "place" block (where each baked prop and light stands) to
 // props/shadow/layout_picked.json, and props/camp/bake_camp_lightmap.py places everything from that block. Two values are
@@ -60,20 +61,32 @@ export const SEAT_GAPS = [A0, A0 + Math.PI - 0.575, A0 + Math.PI + 0.575];
 // the walk-in tent (build_camp.py wall_tent): its door faces the fire. Its own (Blender) frame: bx across, by toward the back
 // (-by toward the fire). toLocal(x, z) gives [a: ahead of the tent's centre toward the fire, b: across]; fromLocal(bx, by, y)
 // a world point. W, yf, yb: the walls' half width, front and back; DW: the doorway's half width; stove, chimney: where they are;
-// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy)
+// bed: the middle of the bed along the left wall, [bx, by] (the operator sleeps there; sloths.js still types its own copy).
+// These sizes are build_camp.py's: fromModel (below) puts in the ones the Tent node carries, and the numbers here stand in for them.
 const tentAt = d0.clone().multiplyScalar(-4.2).addScaledVector(t0, 2.4);
 export const TENT = (() => {
   const t = tentAt, L = t.length(), fx = -t.x / L, fz = -t.z / L;
-  return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth (Z0 + H + 0.62)
+  return { at: t, yaw: yawTo(t), W: 1.4, yf: -0.95, yb: 1.5, DW: 0.45, stove: [1.0, 0.85], chimney: [1.0, 0.97, 3.32], bed: [-0.92, 0.49],   // chimney: the pipe's mouth [bx, by, height]
     toLocal: (x, z) => { const dx = x - t.x, dz = z - t.z; return [dx * fx + dz * fz, dx * fz - dz * fx]; },
     fromLocal: (bx, by, y = 0) => V(t.x + bx * fz - by * fx, y, t.z - bx * fx - by * fz),
     // in toLocal's terms: no grass in the tent or through its planks (ground.js), and dry under its roof and planks (weather.js)
     bare: (x, z) => { const [a, b] = TENT.toLocal(x, z); return a > -1.8 && a < 2.1 && Math.abs(b) < 1.95; },
     dry: (x, z) => { const [a, b] = TENT.toLocal(x, z); return a > -1.9 && a < 2.2 && Math.abs(b) < 2.0; } };
 })();
-// the hammock between two posts (a and b), and where it hangs from
+// the hammock between two posts (a and b), and where it hangs from. knot and ropeEnd: the -x post's rope, from its knot to the
+// sling's end, in the hammock's own (Blender) frame [x along the span, y across, z up] (sloth/poses.js climbs it); like the
+// tent's sizes they are build_camp.py's, put in by fromModel, and the numbers here stand in for them
 const hA = d0.clone().multiplyScalar(-1.5).addScaledVector(t0, -4.6), hB = hA.clone().addScaledVector(d0, -2.6).addScaledVector(t0, -1.2);
-export const HAMMOCK = { a: hA, b: hB, mid: hA.clone().add(hB).multiplyScalar(0.5), yaw: (() => { const hd = hB.clone().sub(hA); return -Math.atan2(hd.z, hd.x); })() };
+export const HAMMOCK = { a: hA, b: hB, mid: hA.clone().add(hB).multiplyScalar(0.5), yaw: (() => { const hd = hB.clone().sub(hA); return -Math.atan2(hd.z, hd.x); })(),
+  knot: [-1.43, 0, 1.75], ropeEnd: [-1.03, 0, 1.35] };
+// fromModel(tent, hammock): the camp set's Tent and Hammock nodes carry build_camp.py's sizes as glTF extras (their userData;
+// review R2-250), and this copies them over the numbers in TENT and HAMMOCK. campProps.js buildProps calls it as soon as the
+// set has loaded, before any module reads them. The numbers above only stand in for a camp set baked before the extras
+// existed; drop them, and this fallback, after the next light bake.
+export function fromModel(tent = {}, hammock = {}) {
+  for (const k of ["W", "yf", "yb", "DW", "stove", "chimney", "bed"]) if (tent[k] !== undefined) TENT[k] = tent[k];
+  if (hammock.knot && hammock.rope_end) { HAMMOCK.knot = hammock.knot; HAMMOCK.ropeEnd = hammock.rope_end; }
+}
 export const TABLE = { at: d0.clone().multiplyScalar(1.6).addScaledVector(t0, 3.2), yaw: 0.6 };   // the snack table
 // the lantern strings (lanterns.js, review B3, Adriaen 2026-11-12): a V from the tent's front A-frame (l0) and the hammock's
 // near post (post) up to the big tree behind the fire (tree)

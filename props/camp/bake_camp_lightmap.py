@@ -14,7 +14,8 @@ crate, the fire set and the laundry line) are baked together, in one scene, into
    camp.html puts it (picked() makes no fire and no lantern: the lived fire set and the page's lanterns.js draw those,
    so neither is baked). The mesh audit
    (props/lib/audit.py) reports on the lived props in step 1 and the picked set here, and never stops the bake.
-3. Adds the jeep (an occluder) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
+3. Adds the jeep (an occluder: props/jeep/jeep_<jeep>.glb, with a warning when it is older than build_jeep.py or
+   props/lib) and the real ground disc, so the WHOLE scene is baked as one (Adriaen 2026-11-12), under
    one set of lights: day = the page's sun (from (-4, 10, 3), 4 degrees wide) + a white sky; night = the fire, 8 jar
    lanterns, the tent stove and a dim blue moon. Every prop gets a second UV map (TEXCOORD_1; TEXCOORD_0 stays the
    texture's, or a dummy) packed into one atlas. Written:
@@ -38,7 +39,7 @@ Where each prop and light stands comes from the page itself: the "place" block t
 writes into props/shadow/layout_picked.json.
 A three.js point (x, y, z) is Blender (x, -z, y); yaw about up is the same angle in both.
 """
-import argparse, atexit, base64, json, math, os, shutil, sys, tempfile, time
+import argparse, atexit, json, math, os, shutil, sys, tempfile, time
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -70,7 +71,7 @@ import build_laundry  # noqa: E402
 import build_lived  # noqa: E402
 from lib.bake import flat_colours, pick_device  # noqa: E402
 from lib.audit import audit  # noqa: E402
-from lib.export import export_glb, reset, tris  # noqa: E402
+from lib.export import builder_sources, export_glb, reset, stale, tris  # noqa: E402
 ANCHORS = build_laundry.ANCHORS + ("Soup",)    # the empties the lived sets carry for the page (review R2-252)
 
 
@@ -228,7 +229,10 @@ if a.unwrap_only:
 jeep = []
 jroot = bpy.data.objects.new("JeepRoot", None); bpy.context.collection.objects.link(jroot)     # the page's jeep group: every
 jroot.location = B(JEEP[0], 0, JEEP[1]); jroot.rotation_euler = (0, 0, JEEP[2])              # node keeps its own place under it
-jall = import_glb(os.path.join(ROOT, "props", "jeep", f"jeep_{a.jeep}.glb"))
+jeep_glb = os.path.join(ROOT, "props", "jeep", f"jeep_{a.jeep}.glb")
+if stale(jeep_glb, builder_sources(os.path.join(ROOT, "props", "jeep", "build_jeep.py"))):
+    print(f"  WARNING: {os.path.basename(jeep_glb)} is older than build_jeep.py or props/lib, so its shadow may not match: run bake_all.py's jeep step")
+jall = import_glb(jeep_glb)
 for o in jall:
     if o.type == "MESH" and o.name.startswith("Glass"):
         o.hide_render = True                                                           # see-through on the page
@@ -236,8 +240,6 @@ for o in jall:
         o.parent = jroot
     if o.type == "MESH":
         jeep.append(o)
-DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}         # camp.html: node, open angle (rad, about up)
-doors = {k: next(o for o in jall if o.name.split(".")[0] == n) for k, (n, _) in DOORS.items()}
 # the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
 # saved it; plain cylinders are enough for their shadows
 for d in LAYOUT.get("deadwood", []):
@@ -420,13 +422,12 @@ print(f"  ground: open-ground light {open_:.3f}, shadow mean {shadow.mean():.3f}
 
 # ---- 4. export: the picked set at its camp positions, the lived sets each object back at its own origin
 def export(objs, path, txt, image_format="AUTO", extras=False):
-    export_glb(objs, path, image_format=image_format, check=False, small=True, unlit=("Embers",), extras=extras)   # audited in steps 1 and 2;
+    export_glb(objs, path, image_format=image_format, check=False, small=True, unlit=("Embers",), extras=extras,
+               txt=os.path.join(MODELS, txt))   # audited in steps 1 and 2;
     # small: quantized normals, colours and UVs, and no normals on the unlit embers (review R2-109)
-    with open(path, "rb") as f, open(os.path.join(MODELS, txt), "w") as g:
-        g.write(base64.b64encode(f.read()).decode())
 
 
-export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt")
+export(picked, os.path.join(HERE, "camp_picked_lm.glb"), "camp_picked_lm.txt", extras=True)   # the Tent's and Hammock's sizes (build_camp.py)
 # the carried logs' spots in the wood stack's atlas ride on the WoodStack as a glTF extra, so the page reads them with the
 # atlas they belong to (activities/parts.js paintLogs, review R2-243); build_lived.py stack_spots writes them
 with open(os.path.join(LIVED, "wood_stack.json")) as f:
