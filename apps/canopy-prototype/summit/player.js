@@ -1,5 +1,6 @@
 // Summit Cabin walking, first person: keyboard, stick, drag to look, Run, Jump to; the settings panel's handlers (time, weather,
 // haze, wireframe), the Speed and Walk tests (prof), and showTris for the triangle table. walk(dt) each frame.
+import { stats } from './debug.js';
 import * as THREE from 'three';
 import { $, BARE, BIG, D, HILL_P, HT, JEEP, LAKE, TRIS, W, groundAt, height, walkable } from './land.js';
 import { camera, me, renderer, scene, touch, tris } from './core.js';
@@ -114,7 +115,7 @@ export function buildPlayer() {
       ['Plain grey materials', () => { scene.overrideMaterial = plain; return () => { scene.overrideMaterial = null; }; }],
       ['Nothing drawn', () => hideAll(() => true)],
     ];
-    const rows = [], head = `${renderer.domElement.width}×${renderer.domElement.height} px, ratio ${renderer.getPixelRatio()}, ${window.__stats?.calls} draws, ${(window.__stats?.tris / 1000).toFixed(0)}k tris`; let base = 0;
+    const rows = [], head = `${renderer.domElement.width}×${renderer.domElement.height} px, ratio ${renderer.getPixelRatio()}, ${stats.calls} draws, ${(stats.tris / 1000).toFixed(0)}k tris`; let base = 0;
     for (const [name, set] of steps) { out.textContent = `Testing: ${name}…\n` + rows.join('\n'); const undo = set(); await wait(900); const ms = await time(2200); undo(); await wait(300);
       if (!base) base = ms; rows.push(`${name.padEnd(23)}${ms.toFixed(1).padStart(6)} ms${base !== ms ? ` ${ms < base ? '−' : '+'}${Math.abs(base - ms).toFixed(1)}` : ` ${(1000 / ms).toFixed(0)} fps`}`); }
     out.textContent = `${gpu}\n${head}\n` + rows.join('\n');

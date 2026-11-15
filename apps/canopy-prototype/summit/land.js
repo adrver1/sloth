@@ -12,7 +12,12 @@ export const TRIS = [];
 // The land within 1.3 km is reshaped by an offline landscape-evolution run (tools/lem.cjs: river incision, creep and
 // scree), stored as the change in height on two grids (models/summit-erosion-world.json, summit-erosion-near.json) and added to hBase() below. ?ero=off shows the old land, ?bare=1 the land alone.
 // Two grids: the world, 12.8 km at 25 m, and the play area, 2.56 km at 5 m; each fades out over the outer 15 % of its square.
-const ERO = await (async () => { const v = new URLSearchParams(location.search).get('ero') || 'on'; if (v === 'off') return null;
+// URL options, parsed here once (coding standards section 7):
+//   ?ero=off   the land before erosion (default on)              read here (ERO)
+//   ?bare=1    the grown land alone, nothing man-made             BARE: main.js, player.js, map.js, road.js
+const Q = new URLSearchParams(location.search);
+export const OPT = { ero: Q.get('ero') !== 'off', bare: Q.get('bare') === '1' };
+const ERO = await (async () => { if (!OPT.ero) return null;
   const load = async (f) => { const r = await fetch(`models/${f}.json`); if (!r.ok) throw new Error(`${f} ${r.status}`); const m = await r.json(); m.d = new Int16Array(b64bytes(m.d).buffer); return m; };   // d: the height change, int16 times scale, base64
   try { return await Promise.all([load('summit-erosion-world'), load('summit-erosion-near')]); } catch (e) { console.warn('no erosion', e); return null; } })();
 function eroGrid(G, x, z) { const { N, DX, X0, Z0, scale, d } = G, u = (x - X0) / DX, v = (z - Z0) / DX; if (!(u >= 0 && v >= 0 && u < N - 1 && v < N - 1)) return [0, 0];
@@ -20,7 +25,7 @@ function eroGrid(G, x, z) { const { N, DX, X0, Z0, scale, d } = G, u = (x - X0) 
   return [scale * ((d[k] * (1 - fu) + d[k + 1] * fu) * (1 - fv) + (d[k + N] * (1 - fu) + d[k + N + 1] * fu) * fv), e * e * (3 - 2 * e)]; }
 // BARE: the grown land alone, with nothing man-made and none of the level's carving (Adriaen 2026-11-15: get a good, realistic
 // foundation first, then add the cabin, road, bridge and boardwalk back). Now opt-in with ?bare=1.
-export const BARE = !!ERO && new URLSearchParams(location.search).get('bare') === '1';
+export const BARE = !!ERO && OPT.bare;
 // The play core (the summit, the clearing, the boardwalk and the watch hill: a capsule from the cabin to the hill) keeps the
 // old land exactly, so the level fits as it was; erosion fades in from 150 m round it to full strength at 320 m.
 function eroKeep(x, z) { const bx = 215, bz = 100, k = Math.max(0, Math.min(1, (x * bx + z * bz) / (bx * bx + bz * bz))), d = Math.hypot(x - bx * k, z - bz * k), t = Math.min(1, Math.max(0, (d - 150) / 170)); return t * t * (3 - 2 * t); }

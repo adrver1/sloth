@@ -1,6 +1,6 @@
 // Summit Cabin entry: builds the parts in the order of the build list below, then runs the frame, which only calls each part's
 // step in a fixed order, renders, repaints the backdrop and keeps the fps line and the pixel ratio.
-// window.__scene and window.__stats are for the headless shot tools.
+// The tool hooks (window.__) are set by debug.js.
 import * as THREE from 'three';
 import { $, BARE, BIG_H, BW, CL, CL_Y, HT, HUT, LAKE, ROAD, TOP, TOWER, TRIS, hBase, height, walkable } from './land.js';
 import { adaptPixelRatio, buildCore, camera, me, renderer, scene, sky, tris } from './core.js';
@@ -15,6 +15,7 @@ import { buildFx, fxStep, wind } from './fx.js';
 import { LIGHT, SKY, WEATHER, W_NOW, buildDaylight, daylightStep } from './daylight.js';
 import { buildPlayer, fmt, jump, press, prof, showTris, testing, walk } from './player.js';
 import { backdrop, buildBackdrop } from './backdrop.js';
+import { ready, stats } from './debug.js';
 
 // ---------------------------------------------------------------- the build list (the order the scene's children were added in the prototype)
 buildCore();        // core.js: the canvas on the page, the sky dome
@@ -55,9 +56,8 @@ function frame() {
   if (acc > 0.5) { const i = mainInfo;   // the frame itself, not the backdrop's repaint
     adaptPixelRatio(frames / acc, now > 5 && !testing);
     $('stats').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lookout ${metres(dist(TOWER))}`;
-    window.__stats = { calls: i.calls, tris: i.triangles, fps: Math.round(frames / acc), pr: renderer.getPixelRatio() }; frames = 0; acc = 0; if ($('menu').open) showTris(); }
+    Object.assign(stats, { calls: i.calls, tris: i.triangles, fps: Math.round(frames / acc), pr: renderer.getPixelRatio() }); frames = 0; acc = 0; if ($('menu').open) showTris(); }
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { SKY.target = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop, updateLevel };
-window.__ready = true;
+ready({ setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { SKY.target = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop, updateLevel });
