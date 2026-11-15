@@ -1410,7 +1410,7 @@ function frame() {
   frames++; acc += dt;
   if (acc > 0.5) { const i = mainInfo;   // the frame itself, not the backdrop's repaint
     // not in the first 5 s (shaders compiling); a step back up that then runs slow is not tried again
-    const fpsNow = frames / acc, live = now > 5 && !testing; slow = live && fpsNow < 45 ? slow + 1 : 0; fast = live && fpsNow > 57 ? fast + 1 : 0;
+    const fpsNow = frames / acc, live = now > 5 && !testing; slow = live && fpsNow < 45 && Math.abs(fpsNow - 30) > 1.5 ? slow + 1 : 0;   // a steady 30 is Safari's cap for embedded pages until you tap them (or Low Power Mode), not a slow frame fast = live && fpsNow > 57 ? fast + 1 : 0;
     if (slow >= 4 && pr > 1) { if (raised) prTop = pr - 0.25; pr = Math.max(1, pr - 0.25); raised = false; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); slow = 0; }
     else if (fast >= 16 && pr < prTop) { pr = Math.min(prTop, pr + 0.25); raised = true; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); fast = 0; }
     else if (fast >= 16) raised = false;
