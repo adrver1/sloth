@@ -117,15 +117,32 @@ const tgt = V(), wp = V();
 // the operator (not the leaves, the sloths or the see-through cards), gathered again every 2 s while the lab follows, since
 // ?lab opens it before the rest of the camp is built; the camera stops 0.12 m short of the first one the ray from the
 // sloth meets.
+// Cloth too (final play-test 2026-11-15: in the hammock, q_lab frame 40, the camera sat inside the sling's bowl and showed
+// only fabric). The ray is cast both ways, out from the sloth and back from where the camera would be, so a one-sided
+// surface such as the tent's canvas stops it from either side. And the camera first looks for a clear view higher up
+// (ELEV_STEP at a time, up to the orbit's top) before it is pulled in: from inside the sling's bowl, the laundry or under
+// a seat it rises over the edge and looks down at the sloth, instead of stopping a hand's width from the cloth, which the
+// swing (swing.js, drawn in the vertex shader, so a ray only sees the sling at rest) could then carry through the camera.
 let solids = [], solidsT = 0;
-const ray = new THREE.Raycaster(), dir = V();
+const ray = new THREE.Raycaster(), dir = V(), far = V(), ELEV_STEP = 0.25, EL_TOP = 1.3;
+// how far from tgt along dir the first solid is (dist when there is none in the way)
+function clearTo(dist) {
+  let d = dist;
+  ray.set(tgt, dir); ray.near = 0.15; ray.far = dist;
+  for (const h of ray.intersectObjects(solids, false)) if (shown(h.object)) { d = Math.min(d, h.distance); break; }
+  far.copy(tgt).addScaledVector(dir, dist); ray.set(far, dir.negate()); ray.near = 0; ray.far = dist - 0.15;
+  for (const h of ray.intersectObjects(solids, false)) if (shown(h.object)) d = Math.min(d, dist - h.distance);   // the last hit back is the one nearest the sloth
+  dir.negate();
+  return d;
+}
+const aim = (el) => dir.set(Math.sin(me.yaw) * Math.cos(el), Math.sin(el), Math.cos(me.yaw) * Math.cos(el));
 function findSolids() {
   const op = opApi?.root, inOp = (o) => { for (let p = o; p; p = p.parent) if (p === op) return true; return false; };
   const list = [];
   scene.traverse((o) => {
     if (!o.isMesh || o.isInstancedMesh || pathLine === o) return;
     if (o.isSkinnedMesh && !inOp(o)) return;   // the sloths
-    if ([].concat(o.material).some((m) => m.transparent || m.depthWrite === false)) return;
+    if ([].concat(o.material).some((m) => m.transparent || m.depthWrite === false || !m.visible || !m.colorWrite)) return;   // and not the unseen tap spheres round the sloths
     list.push(o);
   });
   return list;
@@ -145,12 +162,12 @@ const labStep = (dt) => {
   if (pathLine.visible) drawPath(s.o.getWorldPosition(wp), T.path);
   if (follow) {                                       // orbit: drag turns round it (me.yaw), up and down tilts (me.pitch)
     s.o.getWorldPosition(tgt).y += 0.2 * s.sc / 2.6;
-    const el = THREE.MathUtils.clamp(0.35 - me.pitch, -0.2, 1.3);
+    const el = THREE.MathUtils.clamp(0.35 - me.pitch, -0.2, EL_TOP);
     if ((solidsT -= dt) < 0) { solids = findSolids(); solidsT = 2; }
-    dir.set(Math.sin(me.yaw) * Math.cos(el), Math.sin(el), Math.cos(me.yaw) * Math.cos(el));
-    ray.set(tgt, dir); ray.near = 0.15; ray.far = dist;
-    const hit = ray.intersectObjects(solids, false).find((h) => shown(h.object));
-    camera.position.copy(tgt).addScaledVector(dir, hit ? Math.max(0.25, hit.distance - 0.12) : dist);
+    aim(el); let d = clearTo(dist);                                           // as asked, then higher until the view is clear
+    for (let e = el + ELEV_STEP; d < dist && e <= EL_TOP + 1e-6; e += ELEV_STEP) { aim(e); d = clearTo(dist); }
+    if (d < dist) { aim(el); d = Math.max(0.25, clearTo(dist) - 0.12); }      // nowhere clear (inside the tent): in front of the nearest
+    camera.position.copy(tgt).addScaledVector(dir, d);
     camera.lookAt(tgt);
   }
   if ((readT -= dt) <= 0) { readT = 0.2; readOut(s); }
