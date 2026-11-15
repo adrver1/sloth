@@ -22,6 +22,12 @@ const SHADE = (xz) => `outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0
 // the big colour patches the noise drives: drier and yellower, or bluer and greener, 5 to 10 m across; the plants take the same tint as the ground
 const MACRO_GLSL = `
   vec3 macroTint(float m) { return mix(vec3(1.1, 1.02, 0.74), vec3(0.8, 0.97, 0.95), m); }
+  // value noise on an integer lattice, the same as util.js vnoise (an integer hash, so the page and the shader agree). The floor's
+  // big fields come from noiseTex (R2-167); this is only for the forest's finest hummock bump (R2-164), too fine for that texture,
+  // and is evaluated only outside the clearing
+  float hs(int i, int j) { uint h = uint(i) * 374761393u + uint(j) * 668265263u; h = (h ^ (h >> 13u)) * 1274126177u; h ^= h >> 16u; return float(h) / 4294967296.0; }
+  float vnoise(vec2 p) { vec2 i = floor(p), f = p - i, u = f * f * (3.0 - 2.0 * f); int x = int(i.x), y = int(i.y);
+    float a = hs(x, y), b = hs(x + 1, y), c = hs(x, y + 1), d = hs(x + 1, y + 1); return a + (b - a) * u.x + (c - a) * u.y + (a - b - c + d) * u.x * u.y; }
 `;
 const macroTint = (m, c) => c.multiply(new THREE.Color(1.1 + (0.8 - 1.1) * m, 1.02 + (0.97 - 1.02) * m, 0.74 + (0.95 - 0.74) * m));
 
@@ -42,7 +48,7 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
   // ---------------------------------------------------------------- wear map: R dirt, G lushness (0.5 neutral), B ash / wet mud
   // The baked one (props/ground/bake_ground.py) when it came; without it, painted here from its own stream (lcg(seed + 1)), so
   // the plants below draw the same numbers either way and the painter is skipped when the bake is there (R2-189)
-  const wear = baked ? canvasTex(M, M, (g) => g.drawImage(baked.mask, 0, 0, M, M), { srgb: false }) : canvasTex(M, M, (g) => {
+  const wear = baked ? canvasTex(M, M, (g) => g.drawImage(baked.mask, 0, 0, M, M), { srgb: false, read: true }) : canvasTex(M, M, (g) => {
     const { rnd, R } = lcg(seed + 1);
     g.fillStyle = "rgb(0,128,0)"; g.fillRect(0, 0, M, M);
     const blob = (x, z, r, rgba) => { const X = px(x), Z = px(z), Rp = (r / (2 * RR)) * M, gr = g.createRadialGradient(X, Z, 0, X, Z, Rp); gr.addColorStop(0, rgba); gr.addColorStop(1, rgba.replace(/[\d.]+\)$/, "0)")); g.fillStyle = gr; g.fillRect(X - Rp, Z - Rp, 2 * Rp, 2 * Rp); };
@@ -69,7 +75,7 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
     blob(0, 0, 1.25, "rgba(0,0,255,.75)");
     for (const { at: c, r } of wearAt) if (rnd() < 0.5) blob(c.x + R(-0.3, 0.3), c.z + R(-0.3, 0.3), r * 0.6 + 0.3, "rgba(0,0,180,.3)");
     if (entry) blob(entry.x * 0.95, entry.z * 0.95, 1.1, "rgba(0,0,200,.45)");
-  }, { srgb: false });
+  }, { srgb: false, read: true });   // read back below for the plants' lookups
   wear.anisotropy = 1; wear.flipY = false;   // canvas rows run with +z, like the shader's lookup
 
   // ---------------------------------------------------------------- shadows (Adriaen 2026-11-12): the page has no shadow maps, so castShadows(renderer)
@@ -161,8 +167,8 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
   // browns and olives, each with its own height in alpha (0 between leaves), so the shader shows more or fewer whole leaves where litter
   // gathers. A DataTexture, so the alpha isn't premultiplied away
   const litterTex = (() => {
-    const W = 256, cv = document.createElement("canvas"); cv.width = cv.height = W; const g = cv.getContext("2d");
-    const hc = document.createElement("canvas"); hc.width = hc.height = W; const gh = hc.getContext("2d");
+    const W = 256, cv = document.createElement("canvas"); cv.width = cv.height = W; const g = cv.getContext("2d", { willReadFrequently: true });
+    const hc = document.createElement("canvas"); hc.width = hc.height = W; const gh = hc.getContext("2d", { willReadFrequently: true });   // both read back once
     g.fillStyle = "#8a6438"; g.fillRect(0, 0, W, W); gh.fillStyle = "#000"; gh.fillRect(0, 0, W, W);
     const LEAF = ["#96602a", "#b27e36", "#7a4a24", "#a06e3c", "#6c5a2e", "#8c8046", "#5e6a2c", "#c49446"];
     const { R: Q } = lcg(4242);
@@ -310,6 +316,11 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
         float show = smoothstep(1.0 - litW - 0.03, 1.0 - litW + 0.03, l1.a) * step(0.01, l1.a);
         c = mix(c, sRGBTransferEOTF(vec4(l1.rgb, 1.0)).rgb * (0.85 + 0.3 * mS), show);
         hB = hB * inD + 0.006 * show;
+        #ifdef FAR
+          // the forest's finest hummocks (period about 1 m): camp/terrain.js leaves this octave out of the height, since the mesh's
+          // rings are too far apart to follow it, so it is a bump here (review R2-164)
+          if (rr > uRC + 0.5) hB += 0.165 * vnoise(vG * 0.946 + vec2(-7.1, 2.9)) * smoothstep(uRC + 0.5, uRC + 5.0, rr);
+        #endif
         diffuseColor.rgb = c;
         albedoG = diffuseColor.rgb;
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`],

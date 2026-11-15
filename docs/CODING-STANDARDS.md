@@ -18,7 +18,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - Why: the review found pasted copies of smoothstep, canvas textures, base64 decoding, yaw maths and clip cross-fades that had drifted apart (world-15, crosscut-09, crosscut-13, operator-09, operator-23).
 - `util.js` runs nothing on import, so the shared modules outside `camp/` (`ground.js`, `atmosphere.js`) can import it too. Its header lists every helper with its signature: `V`, `sstep`, `rand`, `vnoise`, `lcg`, `canvasTex`, `polyDist`, `lineDist`, `tris`, `trisIn`, `wrapPi`, `yawTo`, `yawFrom`, `ease`, `lam`, `patchMaterial`, `swap`.
 - `actor.js` is stateless functions over the object and numbers they are handed: `aimBone`, `crossFade`, `makeZ`, `zAt`. Each character keeps its own constants.
-- A shader hook added to a material that may already have one goes through `util.js` `patchMaterial(mat, id, hook)`, which chains the hooks and puts each one's source in the program cache key. A material's only hook may set `onBeforeCompile` directly (`forest.js` `leafMat`, `sky.js`, `ground.js`); three then keys the program on the hook's source. So never write a value into the shader text with a template literal: pass it as a uniform (`leafMat`'s `uSway`), or give the material its own `customProgramCacheKey` (`fur.js`). Otherwise two materials with different values share one program and one value (props-12, fixed in 9800b8e).
+- A shader hook added to a material that may already have one goes through `util.js` `patchMaterial(mat, id, hook)`, which chains the hooks and puts each one's source in the program cache key. A material's only hook may set `onBeforeCompile` directly (`forest/cards.js` `leafMat`, `sky.js`, `ground.js`); three then keys the program on the hook's source. So never write a value into the shader text with a template literal: pass it as a uniform (`leafMat`'s `uSway`), or give the material its own `customProgramCacheKey` (`fur.js`). Otherwise two materials with different values share one program and one value (props-12, fixed in 9800b8e).
 - Every shader hook edits three's source through `util.js` `swap(src, [anchor, text], ...)`, never a bare `.replace()`: a missing anchor (after a three upgrade, say) then warns once on the console instead of silently dropping the baked sun shadow or the light mix (R2-037). `shared/fur.js` uses its own copy of `swap`, since other pages share it and cannot import `camp/util.js`.
 - The generators have the same rule for Python: helpers live in `props/lib/` (section 11).
 
@@ -79,7 +79,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - Rule: a module does one job, which its header can say in one sentence. When a module grows past about 400 lines or 25 KB, or gains a second job, split it into a folder with the old file as the way in.
 - Why: the 910-line `sloths.js`, the 46 KB `audio.js` and the five-job `campLife.js` were hard to read and to change safely (sloths-29, operator-15, operator-17).
 - Examples: `camp/sloths.js` with `camp/sloth/`, `camp/operator.js` with `camp/operator/`, `camp/audio.js` with `camp/audio/`.
-- Still large: `apps/canopy-prototype/ground.js` (476 lines, 47 KB) and `camp/forest.js` (31 KB, split into nine named steps called by `buildForest`). Split them when you next change them a lot.
+- Still large: `apps/canopy-prototype/ground.js` (476 lines, 47 KB). Split it when you next change it a lot. `camp/forest.js` is split the same way: its steps live in `camp/forest/`.
 
 ## 10. File headers
 

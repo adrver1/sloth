@@ -15,7 +15,7 @@ function eyeKit(o) {                                   // per sloth: its own cop
   o.traverse((m) => {
     if (!m.isSkinnedMesh || !m.material.map) return;
     if (!palette) { const img = m.material.map.image, cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
-      const g = cv.getContext("2d"); g.drawImage(img, 0, 0); palette = { w: cv.width, h: cv.height, px: g.getImageData(0, 0, cv.width, cv.height).data }; }
+      const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0); palette = { w: cv.width, h: cv.height, px: g.getImageData(0, 0, cv.width, cv.height).data }; }
     const { w, h, px } = palette;
     m.geometry = m.geometry.clone(); const uv = m.geometry.attributes.uv, kind = [];
     for (let i = 0; i < uv.count; i++) {

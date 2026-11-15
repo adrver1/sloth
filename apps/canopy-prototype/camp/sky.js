@@ -20,13 +20,23 @@ function buildSky() {
     const fogC = new THREE.Color(S.fog[0]), skyTop = new THREE.Color(S.sky[0]);
     const wrap = (x, f) => { f(x); if (x < 160) f(x + w); if (x > w - 160) f(x - w); };     // draw across the seam so the texture tiles
     const blob = (x, y, rx, ry, rot = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, 7); g.fill(); };
-    const leafy = (x, y, r, n, flat) => {                                     // a crown cluster: many small leaves, not one ball
-      for (let i = 0; i < n; i++) { const a = Q(0, 6.28), d = r * Math.sqrt(Q(0, 1)); const lx = x + Math.cos(a) * d * (flat ? 1.5 : 1), ly = y + Math.sin(a) * d * (flat ? 0.55 : 0.8);
-        blob(lx, ly, Q(3, 7) * r / 26, Q(2, 4) * r / 26, Q(-0.8, 0.8)); }
+    // a crown cluster: many small flat leaves, not one ball. Each cluster is painted once into a small sprite per colour (a few
+    // shapes each, from their own stream) and stamped scaled, so the backdrop is about 1,600 drawImage calls instead of
+    // 72,000 ellipse fills (review R2-076). A cluster's leaves all scale with its radius, so a scaled stamp keeps its look.
+    const SPR = 40, KINDS = 4, shapes = lcg(4243);
+    const cluster = (n, style) => {
+      const c = document.createElement("canvas"); c.width = Math.ceil(2 * 1.78 * SPR) + 2; c.height = Math.ceil(2 * 0.83 * SPR) + 2;
+      const x = c.getContext("2d"), r = SPR; x.fillStyle = style;
+      for (let i = 0; i < n; i++) { const a = shapes.R(0, 6.28), d = r * Math.sqrt(shapes.R(0, 1));
+        x.beginPath(); x.ellipse(c.width / 2 + Math.cos(a) * d * 1.5, c.height / 2 + Math.sin(a) * d * 0.55, shapes.R(3, 7) * r / 26, shapes.R(2, 4) * r / 26, shapes.R(-0.8, 0.8), 0, 7); x.fill(); }
+      return c;
     };
+    const kinds = (n, style) => Array.from({ length: KINDS }, () => cluster(n, style));
+    const leafy = (x, y, r, set) => { const c = set[Math.floor(Q(0, set.length))], k = r / SPR; g.drawImage(c, x - c.width / 2 * k, y - c.height / 2 * k, c.width * k, c.height * k); };
     const L = 4;
     for (let l = 0; l < L; l++) {
       const k = l / (L - 1), col = fogC.clone().lerp(new THREE.Color(S.leaf[2]), 0.18 + k * 0.5), dark = col.clone().multiplyScalar(0.86), lite = col.clone().lerp(skyTop, 0.18);
+      const crownDark = kinds(60, dark.getStyle()), crownMid = kinds(55, col.getStyle()), crownLite = kinds(18, lite.getStyle()), lowMid = kinds(26, col.getStyle()), lowDark = kinds(26, dark.getStyle());
       const base = h * (0.66 + k * 0.12), sc = 0.55 + k * 0.55;            // nearer layers sit lower and bigger
       // trees
       for (let x = Q(-40, 0); x < w; x += Q(55, 120) * sc) wrap(x, (x) => {
@@ -55,13 +65,13 @@ function buildSky() {
         const tips = [[x, top + 10]];
         for (let i = 0; i < limbs; i++) { const sd = i % 2 ? 1 : -1, y0 = top + Q(20, 60), ex = x + sd * Q(18, 40) * sc, ey = y0 - Q(10, 30) * sc;
           g.lineWidth = tw * 0.45; g.beginPath(); g.moveTo(x, y0); g.quadraticCurveTo(x + sd * 6, y0 - 4, ex, ey); g.stroke(); tips.push([ex, ey]); }
-        for (const [tx, ty] of tips) { g.fillStyle = dark.getStyle(); leafy(tx, ty + 4, cr * 0.9, 60, true); g.fillStyle = col.getStyle(); leafy(tx, ty - 2, cr * 0.8, 55, true); g.fillStyle = lite.getStyle(); leafy(tx - cr * 0.2, ty - cr * 0.25, cr * 0.45, 18, true); }
+        for (const [tx, ty] of tips) { leafy(tx, ty + 4, cr * 0.9, crownDark); leafy(tx, ty - 2, cr * 0.8, crownMid); leafy(tx - cr * 0.2, ty - cr * 0.25, cr * 0.45, crownLite); }
         if (Q(0, 1) < 0.6) { g.strokeStyle = dark.getStyle(); g.lineWidth = 1.2 * sc;   // lianas hanging from the crown
           for (let v = 0; v < 3; v++) { const vx = x + Q(-cr, cr), vy = top + Q(0, 20), len = Q(40, 110) * sc; g.beginPath(); g.moveTo(vx, vy); g.quadraticCurveTo(vx + Q(-8, 8), vy + len * 0.6, vx + Q(-4, 4), vy + len); g.stroke(); } }
       });
       // undergrowth band at the foot of the layer, then mist over it so the far layers fade
       g.fillStyle = dark.getStyle(); g.fillRect(0, base, w, h - base);
-      for (let x = 0; x < w; x += 22 * sc) { g.fillStyle = (Q(0, 1) < 0.5 ? col : dark).getStyle(); leafy(x, base - Q(2, 10) * sc, Q(12, 20) * sc, 26, true); }
+      for (let x = 0; x < w; x += 22 * sc) leafy(x, base - Q(2, 10) * sc, Q(12, 20) * sc, Q(0, 1) < 0.5 ? lowMid : lowDark);
       if (l < L - 1) { const m = g.createLinearGradient(0, 0, 0, h); const fc = (a) => `rgba(${Math.round(fogC.r * 255)},${Math.round(fogC.g * 255)},${Math.round(fogC.b * 255)},${a})`;
         m.addColorStop(0, fc(0.04)); m.addColorStop(0.55, fc(0.26)); m.addColorStop(1, fc(0.42)); g.fillStyle = m; g.fillRect(0, 0, w, h); }
     }
@@ -92,13 +102,15 @@ function buildSky() {
       }
     }
   });
-  const domeGeo = new THREE.SphereGeometry(FAR, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
+  // 24 x 8 segments (360 triangles): the UVs are planar, so the clouds need no finer mesh, and the low rim hides behind the backdrop (review R2-077)
+  const domeGeo = new THREE.SphereGeometry(FAR, 24, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
   { const p = domeGeo.attributes.position, uv = domeGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getX(i) / (2 * FAR), 0.5 - p.getZ(i) / (2 * FAR)); }
   dome = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide, fog: false }));
   dome.position.y = 27; scene.add(dome);
   // the night sky (camp review B1, Adriaen 2026-11-12): a second dome, deep blue to near black at the rim, with stars and a few faint
   // wisps, faded in over the day dome with dusk; and the moon, a soft disc with a halo, up in the canopy gap where the start view sees
-  // it (one sprite each, no fog). Same dome geometry, so 2 draws more at night only.
+  // it (one sprite each, no fog). Same dome geometry; once the night dome is fully opaque daylight.js hides the day dome under it,
+  // so the night costs 1 draw more than the day, and 2 while the two cross-fade.
   const nightTex = canvasTex(1024, 1024, (g, w, h) => {
     const { R: Q } = lcg(777);
     const c = w / 2, gr = g.createRadialGradient(c, c, 0, c, c, c);
