@@ -42,6 +42,7 @@ async function start(out) {   // out: arriving from the camp (the jeep comes OUT
   const riders = await import('../camp/riders.js').then((m) => m.boardRiders(JEEP.node)).catch((e) => { console.warn('riders', e); return null; }); boarding = false;
   // the camera hangs over the gorge beside the bridge (on the side away from the cliff), 6 m out and 2.5 m up, where the
   // arriving jeep passes it as it slows, or the leaving one as it speeds up, and turns to follow the jeep
+  for (const w of ['P', 'D', 'B']) JEEP.rig?.api.close(w);   // shut, as the camp's drive does
   const r = roadAt(out ? P - 62 : P - 50), cam = { x: r.x + r.dz * 6, y: r.y + 2.5, z: r.z - r.dx * 6 };
   spin ??= wheelsOf(JEEP.node);
   shot = { t: 0, out, cam, left: false, s: along(0, out), riders };

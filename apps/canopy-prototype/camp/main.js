@@ -24,6 +24,8 @@ import { atmo, buildAtmosphere } from "./campAir.js";
 import { acts, buildChores } from "./chores.js";
 import { buildOperator, opStep } from "./operator.js";
 import { aimStep, initInput, resize, warmHighlight } from "./input.js";
+import { ray } from "./hud.js";
+import { slothLife } from "./sloth/hooks.js";
 import { buildWeather, weather } from "./weather.js";
 import { buildLinger, lingerStep } from "./linger.js";
 import { dayStep, wireTimeMenu } from "./daytime.js";
@@ -72,7 +74,10 @@ await buildOperator();                 // operator.js: waits for his downloads (
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
 wireSettings();                        // core.js: the ⚙️ menu, and its Detail and Light buttons
-initInput();                           // input.js
+initInput({ renderer, scene, camera, canvas: $("c"), stick: $("stick"), help: $("q"), touch: OPT.touch,   // input.js, shared with the summit
+  carry: { food: () => acts.food(), give: () => { const f = acts.give(); return f && { mesh: f.make(), from: f.from, emoji: f.emoji }; } },
+  eat: (s, mesh, from) => !!slothLife && (slothLife.eatGift(s, mesh, from), true),
+  missed: (x, y, h) => { const a = acts.pick(ray); if (a && (!h || a.distance < h.distance)) { acts.tap(a); return true; } return false; } });   // a chore out of reach says why
 initAudio();                           // audio.js: the first-tap listeners, the Tap for sound pill, the ⚙️ Sound button
 buildWeather();                        // weather.js: the ⚙️ Weather button and the rain streaks
 buildLinger();                         // linger.js: the log seats light up
@@ -80,7 +85,7 @@ wireTimeMenu();                        // daytime.js: the ⚙️ menu's time sli
 await fonts;                           // the clock and radio faces below are painted once, so in the camp's own font
 buildClocks();                         // clock.js: the tent's alarm clock and the dial on the hammock post
 buildRadio();                          // radio.js: the radio on the snack table
-buildJeepSeats();                      // jeepSeat.js: the jeep's doors and seats
+buildJeepSeats(jeepApi);                      // jeepSeat.js: the jeep's doors and seats
 buildCar();                            // car.js: the key, the dash radio and the dash clock
 buildDrive();                          // drive.js: the drive to the summit's page bits; back from the summit, the jeep's arrival plays on the first frame (needs the jeep and the input)
 buildTrip();                           // trip.js: the karaoke sign (a tap target), the question card, the cut scene's page bits; back from the karaoke stage, it stands you by the sign (before the daylight, which reads where you stand)
