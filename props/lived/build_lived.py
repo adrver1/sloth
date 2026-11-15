@@ -159,36 +159,41 @@ def stack_logs(M):
 STACK_BOX = dict(x=(-0.56, 0.56), y=(-0.26, 0.26), z=(0.0, 0.64))     # the region the stack renders cover
 
 
-def _render_view(path, at, rot, w, h, px):
-    """An orthographic Cycles render of w x h metres (centred on at, camera rotation rot) at px pixels per metre,
-    lit only by a white sky, so it shades like the baked AO on the other props."""
-    sc = bpy.context.scene
+def _render_view(sc, path, at, rot, w, h, px):
+    """An orthographic Cycles render of scene sc (wood_stack's own scene, which holds only the logs, its camera and its
+    sun) of w x h metres (centred on at, camera rotation rot) at px pixels per metre."""
     cam = sc.camera
     cam.location, cam.rotation_euler = at, rot
     cam.data.type = "ORTHO"
     cam.data.ortho_scale = max(w, h)
     sc.render.resolution_x, sc.render.resolution_y = round(w * px), round(h * px)
     sc.render.filepath = path
-    bpy.ops.render.render(write_still=True)
+    bpy.ops.render.render(write_still=True, scene=sc.name)
 
 
 def wood_stack(M, samples):
     """The log stack as one block: its front outline extruded along the logs, painted with renders of the detailed
-    stack (end grain on the two ends, log sides on the left and right, log tops on top), so it costs about 100 triangles."""
+    stack (end grain on the two ends, log sides on the left and right, log tops on top), so it costs about 100 triangles.
+    The renders run in a scene of their own that holds only the logs, the camera and the sun: the light bake makes the
+    lived props in its camp scene (review R2-254), where the picked camp already stands round the origin, and a render
+    there drew a log seat into the end grain and the outline (2026-11-15 wood pile bug). The scene it is called in is
+    left as it was."""
     logs = stack_logs(M)
-    sc = bpy.context.scene
+    sc = bpy.data.scenes.new("wood_stack_renders")
+    for o in logs:
+        sc.collection.objects.link(o)
     pick_device(sc)                                  # the fastest GPU there is, else the CPU (review R2-111)
     sc.cycles.samples = samples
     sc.render.film_transparent = True
     sc.view_settings.view_transform = "Standard"
-    sc.world = sc.world or bpy.data.worlds.new("w")
+    sc.world = bpy.data.worlds.new("wood_stack_sky")
     sc.world.use_nodes = True
     sc.world.node_tree.nodes["Background"].inputs["Color"].default_value = (1, 1, 1, 1)
     sc.world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.55
     sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", "SUN"))
     sun.data.energy, sun.data.angle = 2.2, math.radians(25)
     sun.rotation_euler = (math.radians(50), math.radians(-25), math.radians(-30))   # from the front, above and to the left
-    bpy.context.collection.objects.link(sun)
+    sc.collection.objects.link(sun)
     for m in bpy.data.materials:                     # Cycles reads node colours, so copy each base colour in
         if "base" in m:
             m.use_nodes = True
@@ -207,7 +212,7 @@ def wood_stack(M, samples):
     nt.links.new(wave.outputs["Fac"], ramp.inputs["Fac"])
     nt.links.new(ramp.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
-    bpy.context.collection.objects.link(cam)
+    sc.collection.objects.link(cam)
     sc.camera = cam
     (X0, X1), (Y0, Y1), (Z0, Z1) = STACK_BOX["x"], STACK_BOX["y"], STACK_BOX["z"]
     W, D, H = X1 - X0, Y1 - Y0, Z1 - Z0
@@ -239,20 +244,27 @@ def wood_stack(M, samples):
         tmpdir = tempfile.mkdtemp(prefix="wood_stack_")        # the three renders, removed however the run ends
         tmp = os.path.join(tmpdir, "%s.png")
         try:
-            _render_view(tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
-            _render_view(tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
-            _render_view(tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
+            _render_view(sc, tmp % "end", ((X0 + X1) / 2, -3, (Z0 + Z1) / 2), (math.pi / 2, 0, 0), W, H, px)
+            _render_view(sc, tmp % "side", (3, (Y0 + Y1) / 2, (Z0 + Z1) / 2), (math.pi / 2, 0, math.pi / 2), D, H, px)
+            _render_view(sc, tmp % "top", ((X0 + X1) / 2, (Y0 + Y1) / 2, 3), (0, 0, 0), W, D, px)
             outline = _stack_atlas(tmp, atlas_path, X0, W, Z0, H)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
-        with open(stamp, "w") as f:
-            json.dump({"key": key, "parts": parts, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
     else:
         print("  wood stack: renders unchanged (wood_stack.json), reusing wood_stack.jpg")
+    lx = [(o.matrix_world @ v.co).x for o in logs for v in o.data.vertices]
+    if outline[0][0] < min(lx) - 0.02 or outline[-1][0] > max(lx) + 0.02:     # something besides the logs is in the end render
+        sys.exit(f"wood stack: the outline spans x {outline[0][0]:.3f} to {outline[-1][0]:.3f} but the logs {min(lx):.3f} to {max(lx):.3f}")
+    if cached is None:                               # stamped only once the outline is the logs' own
+        with open(stamp, "w") as f:
+            json.dump({"key": key, "parts": parts, "outline": [list(p) for p in outline]}, f)   # full floats: the block comes out the same
+    world = sc.world
     for o in logs:
         bpy.data.objects.remove(o)
     bpy.data.objects.remove(cam)
     bpy.data.objects.remove(sun)
+    bpy.data.scenes.remove(sc)
+    bpy.data.worlds.remove(world)
     return _stack_block(outline, atlas_path, X0, W, Y0, D, Z0, H)
 
 
