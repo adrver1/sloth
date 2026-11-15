@@ -99,6 +99,7 @@ function buildCar(J, { audio: sound, drive = null }) {   // main.js, once the je
     if (engine !== "off" && !inCar() && !seatApi?.seatBusy("driver") && !seatApi?.seatBusy("passenger")) {
       if ((away += dt) > 30) { engine = "off"; away = 0; }   // audio/watch.js hears the state turn off and plays the stop
     } else away = 0;
+    J.engineOn = engine === "run";   // the headlights (jeepRig.js)
     if (engine === "crank") { crank += dt; if (crank > 1.1) { engine = "run"; toast("Brrrm! The engine is running 🚙"); } }
     if (engine !== "off" || Math.abs(keyA) > 1e-3) {
       still = false;

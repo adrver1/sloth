@@ -21,6 +21,7 @@ import { buildLife, lifeHooks, lifeStep } from './life.js';
 import { buildDaytime, daytimeApi, daytimeStep } from './daytime.js';
 import { audio, audioStep, buildAudio } from './audio.js';
 import { clockStep } from '../camp/clock.js';
+import { hearJeep } from '../camp/audio/jeepSound.js';
 
 // ---------------------------------------------------------------- the build list (the order the scene's children were added in the prototype)
 buildCore();        // core.js: the canvas on the page, the sky dome
@@ -51,7 +52,7 @@ function jeepStep(dt) {
   JEEP.rig.step(dt);
   // the camp's seats and dash (key, radio, clock: camp/car.js), once the jeep is in; imported here, after the stage is set
   if (!seats) { seats = 'loading'; Promise.all([import('../camp/jeepSeat.js'), import('../camp/car.js')]).then(([m, car]) => {
-    m.buildJeepSeats(JEEP.rig.api); car.buildCar(JEEP.rig.api, { audio, drive: ['Drive back to camp 🌴', () => driveApi.away()] }); seats = { step: (d) => { m.jeepSeatStep(d); car.carStep(d); } };
+    m.buildJeepSeats(JEEP.rig.api); car.buildCar(JEEP.rig.api, { audio, drive: ['Drive back to camp 🌴', () => driveApi.away()] }); seats = { step: (d) => { m.jeepSeatStep(d); car.carStep(d); hearJeep(JEEP.rig.api, car.carApi?.engine()); } };   // its doors and engine heard as in the camp (camp/audio/jeepSound.js)
   }).catch((e) => console.warn('jeep seats', e)); }
   else if (seats !== 'loading') seats.step(dt);
 }

@@ -47,6 +47,7 @@ async function start(out) {   // out: arriving from the camp (the jeep comes OUT
   const r = roadAt(out ? P - 62 : P - 50), cam = { x: r.x + r.dz * 6, y: r.y + 2.5, z: r.z - r.dx * 6 };
   spin ??= wheelsOf(JEEP.node);
   shot = { t: 0, out, cam, left: false, s: along(0, out), riders };
+  if (JEEP.rig) JEEP.rig.api.driving = true;   // its headlights come on at night (camp/headlights.js)
   document.body.classList.add('drive-cut'); skip.hidden = false;
   if (out) fade.classList.remove('on');   // the page opened dark; its transition fades up on the jeep coming out of the tunnel
 }
@@ -74,6 +75,7 @@ function end() {
   c.riders?.remove();   // everyone is out at the summit
   camera.fov = 60; camera.updateProjectionMatrix();
   shot = null; document.body.classList.remove('drive-cut'); skip.hidden = true;
+  if (JEEP.rig) JEEP.rig.api.driving = false;
   fade.classList.remove('on');   // its transition fades the view back in
 }
 
