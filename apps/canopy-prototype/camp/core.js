@@ -2,7 +2,7 @@
 // started at once (PRE, camp review P2) and the look's leaf material (the small shared helpers are in util.js). Loaded first by camp.html via main.js.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { b64bytes, initKtx, lightDir, loadLightMap } from "../bakedlight.js";
+import { fetchBytes, initKtx, lightDir, loadLightMap } from "../bakedlight.js";
 import { SUN } from "./layout.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
@@ -29,7 +29,7 @@ import { SUN } from "./layout.js";
 //   lmdir    a folder in the app, e.g.     models                            core.js (LMDIR: the light maps, camp_lights.json and the four light-mapped
 //            lmpreview (letters, digits,                                     models), campGround.js (the ground's baked shadow and night maps): a preview
 //            - and _, / between parts)                                       bake, props/camp/bake_camp_lightmap.py --preview; anything else keeps models
-//   fur      1 | 0                         1                                 fur.js reads location itself (index.html and nooks.html share it)
+//   fur      1 | 0                         1                                 fur.js reads location itself (the pages in prototypes/ share it)
 const qs = new URLSearchParams(location.search);
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };   // a number, or null when it is missing or not a number
 // localStorage keys: detail, lm (core.js), weather (weather.js), time and cycle (daytime.js), save (save.js: the camp's lived
@@ -39,7 +39,7 @@ const KEYS = { detail: "canopy-detail", lm: "canopy-lm", weather: "canopy-weathe
 // The modules talk through imports only. The window.__ names are for the headless tools (camp-probe.cjs, camp-replay.cjs,
 // camp-scenarios.cjs and props/shadow/export_casters.cjs) and are all set in debug.js, which lists them with their readers.
 // the look: Mossy real, the one picked. The Painterly and Low-poly looks were archived on 2026-11-12 (camp review; Adriaen):
-// they live on in index.html (the forest look prototype), and camp.html with all three, with their branches in forest.js,
+// they live on in prototypes/index.html (the forest look prototype), and camp.html with all three, with their branches in forest.js,
 // glade.js and sky.js, is in git history before commit "Canopy camp: start every download at once".
 const $ = (id) => document.getElementById(id);
 
@@ -124,7 +124,8 @@ const LIVED = OPT.lived;   // ?lived=0 hides the lived-in props to compare
 let loadN = 0, loadDone = 0;
 const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
 initKtx(renderer);
-const lmLoad = async (n) => { const t = await loadLightMap(`${LMDIR}${n}_${LMSET}.png`).catch(() => loadLightMap(`${LMDIR}${n}_2k.png`));
+// the 4K maps (?lm=4k, local only) have no KTX2 copy (bake_all.py converts the 2K and 1K maps), so they go straight to the PNG
+const lmLoad = async (n) => { const t = await loadLightMap(`${LMDIR}${n}_${LMSET}.png`, { ktx: LMSET !== "4k" }).catch(() => loadLightMap(`${LMDIR}${n}_2k.png`));
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.channel = 1; t.anisotropy = 4; return t; };
 const PRE = {
   sloth: pre(glb("models/sloth.txt")),
@@ -168,8 +169,8 @@ const leafMat = (opts, sway) => {
 };
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
-async function glb(url) {
-  const bin = b64bytes((await (await fetch(url)).text()).trim());
+async function glb(url) {   // url: the model's base64 .txt; fetchBytes takes the .glb instead where the host serves binary files
+  const bin = await fetchBytes(url);
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
 

@@ -1,12 +1,10 @@
-<!-- PROTOTYPE (throwaway): Canopy Nooks. Question: does gliding between a few fixed nooks feel free enough to explore, while keeping the scene cheap?
-     Copied from index.html (the forest look prototype); only the sloth, camera and play parts below differ.
-     Was: Canopy Hide & Seek. Question: which forest look is lush and cute but still smooth on a phone?
+<!-- PROTOTYPE (throwaway): Canopy Hide & Seek. Question: which forest look is lush and cute but still smooth on a phone?
      Three looks of the same seeded tree behind #moss | #paint | #low (or ?look=). Drag to turn round the tree, pinch or wheel to zoom, tap a sloth to find it.
      Detail button (Low / Medium / High, or ?detail=) scales leaves, ferns, fur shells, effects and resolution.
      No real-time shadows; "baked" light is vertex colour; leaves and plants are instanced (one draw per kind). -->
 <meta charset="utf-8">
 <meta name="claude:viewport-fit-sides" content="cover">
-<title>Canopy Nooks</title>
+<title>Canopy Hide and Seek</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
 <style>
@@ -25,29 +23,25 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   padding: 9px 16px; text-decoration: none; box-shadow: 0 3px 0 rgb(138 90 59 / .2); cursor: pointer; }
 .bar a.on { background: var(--pink); color: #fff; box-shadow: 0 3px 0 #d95c86; }
 .bar button { background: #ffe9a8; }
-#toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none;
+#toast { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .35s; pointer-events: none;
   font-weight: 700; font-size: 34px; color: #fff; text-shadow: 0 3px 0 #d95c86, 0 0 18px rgb(255 127 168 / .7); white-space: nowrap; }
-#edges button { position: fixed; width: 46px; height: 46px; margin: -23px 0 0 -23px; border: 0; border-radius: 50%; background: rgb(255 248 238 / .88); box-shadow: 0 3px 0 rgb(138 90 59 / .2);
-  font-size: 22px; cursor: pointer; display: grid; place-items: center; padding: 0; }
-#edges button span { display: block; transition: transform .2s; }
 #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 #q { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); top: calc(56px + env(safe-area-inset-top, 0px)); text-align: center; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .5); pointer-events: none; }
 </style>
 <canvas id="c"></canvas>
-<div class="hud"><div class="pill" id="score">💗 0 friends</div><div class="pill" id="perf">… fps</div></div>
-<div id="q">Drag to look around · tap a glowing leaf to glide · tap a sloth to boop, hold to feed</div>
-<div id="toast"></div>
-<div id="edges"></div>
+<div class="hud"><div class="pill" id="score">🦥 0 / 5</div><div class="pill" id="perf">… fps</div></div>
+<div id="q">Prototype: which forest look? Drag to turn, pinch to zoom, tap a sloth.</div>
+<div id="toast">Found one! 💗</div>
 <div class="bar">
   <a href="#moss" data-l="moss">Mossy real</a><a href="#paint" data-l="paint">Painterly</a><a href="#low" data-l="low">Low-poly</a>
-  <button id="detail">Detail: Medium</button><button id="rest">Rest 🌙</button>
+  <button id="detail">Detail: Medium</button><button id="hint">Hint 💤</button>
 </div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { furify } from "./fur.js";
+import { furify } from "../fur.js";
 
 const qs = new URLSearchParams(location.search);
 const pick = location.hash.slice(1) || qs.get("look");   // #moss | #paint | #low (the hash survives in the published page)
@@ -320,223 +314,87 @@ if (nMotes) {
   scene.add(motes);
 }
 
-// ---------------------------------------------------------------- sloths clinging under branches, each one the heart of a nook
+// ---------------------------------------------------------------- sloths, moss-tinted, clinging under branches
 async function glb(url) {
   const txt = (await (await fetch(url)).text()).trim(), bin = Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
   return new Promise((ok, err) => new GLTFLoader().parse(bin.buffer, "", ok, err));
 }
-const SLOTH = await glb("models/sloth.txt");
-const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL }, COUNT = 5;
+const SLOTH = await glb("../models/sloth.txt");
+const SL = 2.6, BR = { y: 0.10 * SL, z: 0.10 * SL }, HIDE = 5;
 const sloths = [], hit = [];
 seed = 2000 + Number(qs.get("seed") || 7);
-const spots = [...branches.keys()].sort(() => rnd() - 0.5).slice(0, COUNT);
+const spots = [...branches.keys()].sort(() => rnd() - 0.5).slice(0, HIDE);
 let tinted = false;
 for (const bi of spots) {
   const o = clone(SLOTH.scene); o.scale.setScalar(SL);
   o.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
   furify(o, { shells: D.shells });
-  if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }
+  if (!tinted) { o.traverse((m) => m.isMesh && m.material.color?.setHex(S.slothTint)); tinted = true; }   // algae in the fur: shared by all sloths
   const mixer = new THREE.AnimationMixer(o), act = mixer.clipAction(SLOTH.animations.find((a) => a.name === "cling"));
   act.play(); act.time = R(0, 4); act.timeScale = 0.6;
   const curve = branches[bi], t = R(0.55, 0.8), p = curve.getPointAt(t), tan = curve.getTangentAt(t);
-  rnd(); if (tan.x * p.x + tan.z * p.z < 0) tan.negate();   // head toward the open forest, so a nook can face it
+  if (rnd() < 0.5) tan.negate();
   const yl = tan.clone().setY(tan.y * 0.5).normalize(), zl = new THREE.Vector3(0, -1, 0).addScaledVector(yl, yl.y).normalize(), xl = new THREE.Vector3().crossVectors(yl, zl);
   const rot = new THREE.Matrix4().makeBasis(xl, yl, zl);
   o.quaternion.setFromRotationMatrix(rot);
   o.position.copy(p).sub(new THREE.Vector3(0, BR.z, -BR.y).applyMatrix4(rot));
   scene.add(o);
-  const box = new THREE.Mesh(new THREE.SphereGeometry(0.42), new THREE.MeshBasicMaterial({ visible: false }));
+  const box = new THREE.Mesh(new THREE.SphereGeometry(0.45), new THREE.MeshBasicMaterial({ visible: false }));
   box.position.copy(p).add(new THREE.Vector3(0, -0.25, 0)); scene.add(box);
-  const s = { o, mixer, box, p, yl, head: o.getObjectByName("head"), squish: 0, nod: 0, friend: false };
-  box.userData.s = s; sloths.push(s); hit.push(box);
-}
-// a flower for each friend, worn on the head
-function flowerCrown(s) {
-  const c = new THREE.Group(), cols = [0xff7fa8, 0xffd66e, 0xffffff];
-  for (let k = 0; k < 7; k++) {
-    const a = (k / 7) * Math.PI * 2, f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.016, 0), new THREE.MeshLambertMaterial({ color: cols[k % 3], emissive: 0x331100 }));
-    f.position.set(Math.cos(a) * 0.058, 0, Math.sin(a) * 0.052); c.add(f);
-  }
-  c.position.set(0, 0.105, 0); c.rotation.x = -0.25; s.head.add(c);
+  const s = { o, mixer, box, found: false, pop: 0, p }; box.userData.s = s; sloths.push(s); hit.push(box);
 }
 
-// little sprites: hearts, words, flowers
-const sprite = (txt, size = 96) => {
-  const t = canvasTex(512, 128, (g) => { g.font = `600 ${size}px Fredoka, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#fff"; g.strokeStyle = "rgba(74,52,38,.55)"; g.lineWidth = 10; g.strokeText(txt, 256, 68); g.fillText(txt, 256, 68); });
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); s.scale.set(1.0, 0.25, 1); return s;
+// little sprites: hearts when found, zzz for hints
+const sprite = (txt) => {
+  const t = canvasTex(128, 128, (g) => { g.font = "96px serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 64, 70); });
+  return new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true }));
 };
 const fx = [];
-function burst(p, txt, n, life, size) { for (let i = 0; i < n; i++) { const s = sprite(txt, size); s.scale.multiplyScalar(n > 1 ? 0.45 : 0.6); s.position.copy(p); scene.add(s); fx.push({ s, v: new THREE.Vector3(R(-0.4, 0.4) * (n > 1), R(0.25, 0.55), R(-0.4, 0.4) * (n > 1)), t: 0, life }); } }
+function burst(p, txt, n, life) { for (let i = 0; i < n; i++) { const s = sprite(txt); s.scale.setScalar(0.35); s.position.copy(p); scene.add(s); fx.push({ s, v: new THREE.Vector3(R(-0.6, 0.6), R(0.8, 1.6), R(-0.6, 0.6)), t: 0, life }); } }
 
-// ---------------------------------------------------------------- nooks: a handful of fixed spots; the camera only ever sits in one or glides between two
-const nooks = [{ name: "Mossy roots", pos: new THREE.Vector3(6.2, 1.5, 5.4), look: new THREE.Vector3(0, 3.6, 0) }];
-const NAMES = ["Fern swing", "Liana corner", "Sleepy fork", "Sunny ledge", "Treetop lookout", "Cloud perch"];
-const byHeight = [...sloths].sort((a, b) => a.p.y - b.p.y);
-byHeight.forEach((s, i) => {
-  const out = new THREE.Vector3(s.p.x, 0, s.p.z).normalize(), side = new THREE.Vector3(-out.z, 0, out.x);
-  // in front of its face (head end of the branch), a little out from the trunk and just below: sloths hang belly up
-  const fwd = s.yl.clone().setY(0).normalize();
-  const pos = s.p.clone().addScaledVector(fwd, 1.5).addScaledVector(out, 0.5).add(new THREE.Vector3(0, -0.75, 0));
-  if (Math.hypot(pos.x, pos.z) < 1.6) pos.addScaledVector(out, 1.6 - Math.hypot(pos.x, pos.z));
-  nooks.push({ name: NAMES[i], pos, look: s.p.clone().add(new THREE.Vector3(0, -0.3, 0)), sloth: s });
-});
-// links: up and down the chain, plus the nearest other nook
-nooks.forEach((n, i) => { n.links = new Set(); if (i > 0) n.links.add(i - 1); if (i < nooks.length - 1) n.links.add(i + 1); });
-nooks.forEach((n, i) => { let best = -1, bd = 1e9; nooks.forEach((m, j) => { const d = n.pos.distanceTo(m.pos); if (j !== i && !n.links.has(j) && d < bd) { bd = d; best = j; } }); if (best >= 0 && bd < 5) { n.links.add(best); nooks[best].links.add(i); } });
-// the glide: along a sagging vine arc that swings out from the trunk
-function glidePath(a, b) {
-  const mid = a.pos.clone().lerp(b.pos, 0.5), out = new THREE.Vector3(mid.x, 0, mid.z).normalize();
-  mid.addScaledVector(out, 1.3).y -= 0.5 + a.pos.distanceTo(b.pos) * 0.08;
-  return new THREE.CatmullRomCurve3([a.pos, mid, b.pos]);
-}
-// glowing leaves to tap: one per link, a third of the way along its path
-const leafTex = canvasTex(128, 128, (g) => {
-  const r = g.createRadialGradient(64, 64, 4, 64, 64, 62); r.addColorStop(0, "rgba(255,250,200,.95)"); r.addColorStop(0.45, "rgba(255,240,160,.45)"); r.addColorStop(1, "rgba(255,240,160,0)");
-  g.fillStyle = r; g.fillRect(0, 0, 128, 128); g.font = "64px serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("🍃", 64, 68);
-});
-const markers = [];
-function showMarkers(i) {
-  for (const m of markers) scene.remove(m); markers.length = 0;
-  for (const j of nooks[i].links) {
-    const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: leafTex, transparent: true, depthWrite: false, fog: false }));
-    m.position.copy(glidePath(nooks[i], nooks[j]).getPoint(0.32)); m.scale.setScalar(0.55); m.userData.to = j; m.userData.ph = R(0, 6);
-    scene.add(m); markers.push(m);
-  }
-}
-
-// leaves that are off screen get a round arrow button at the screen edge, pointing the way
-const edgeBox = $("edges"), pv = new THREE.Vector3();
-function edges() {
-  const want = view.glide ? [] : markers;
-  while (edgeBox.children.length > want.length) edgeBox.lastChild.remove();
-  while (edgeBox.children.length < want.length) { const b = document.createElement("button"); b.innerHTML = "<span>➜</span>"; b.onclick = () => goTo(+b.dataset.to); edgeBox.append(b); }
-  want.forEach((m, i) => {
-    const b = edgeBox.children[i]; b.dataset.to = m.userData.to;
-    pv.copy(m.position).project(camera);
-    const behind = pv.z > 1, inView = !behind && Math.abs(pv.x) < 0.92 && Math.abs(pv.y) < 0.85;
-    b.hidden = inView; if (inView) return;
-    let x = pv.x, y = pv.y; if (behind) { x = -x; y = -y; }
-    const k = 1 / Math.max(Math.abs(x) / 0.86, Math.abs(y) / 0.62, 1e-3); x *= k; y *= k;
-    b.style.left = ((x + 1) / 2) * innerWidth + "px"; b.style.top = ((1 - y) / 2) * innerHeight + "px";
-    b.firstChild.style.transform = `rotate(${Math.atan2(-y, x)}rad)`;
-  });
-}
-
-// ---------------------------------------------------------------- camera: sit in a nook and look around a little, or glide
-const view = { at: 0, yaw: 0, pitch: 0, fov: 0, glide: null };
-const ease = (t) => t * t * (3 - 2 * t);
-function goTo(j) {
-  const a = nooks[view.at], b = nooks[j];
-  view.glide = { from: view.at, to: j, path: glidePath(a, b), t: 0, dur: 1.8 + a.pos.distanceTo(b.pos) * 0.22 };
-  for (const m of markers) scene.remove(m); markers.length = 0;
-}
-function arrive(j) {
-  view.at = j; view.glide = null; showMarkers(j);
-  toast(nooks[j].name);
-}
-let toastT;
-function toast(txt) { const t = $("toast"); t.textContent = txt; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1500); }
-const tmpLook = new THREE.Vector3(), base = new THREE.Vector3(), q = new THREE.Quaternion(), right = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
-function placeCamera(dt) {
-  let pos, look;
-  if (view.glide) {
-    const g = view.glide; g.t = Math.min(1, g.t + dt / g.dur); const e = ease(g.t);
-    pos = g.path.getPoint(e); look = tmpLook.copy(nooks[g.from].look).lerp(nooks[g.to].look, ease(Math.min(1, e * 1.25)));
-    view.yaw *= 0.92; view.pitch *= 0.92;
-    if (g.t >= 1) arrive(g.to);
-  } else { pos = nooks[view.at].pos; look = nooks[view.at].look; }
-  camera.position.copy(pos);
-  base.copy(look).sub(pos).normalize();
-  base.applyAxisAngle(UP, view.yaw);
-  right.crossVectors(base, UP).normalize(); base.applyAxisAngle(right, view.pitch);
-  camera.lookAt(tmpLook.copy(pos).add(base));
-}
-
-// ---------------------------------------------------------------- input: drag to look, tap a leaf to glide, tap a sloth to boop, hold to feed
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-function pickAt(x, y, list) { ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.intersectObjects(list)[0]; }
-const ptrs = new Map(); let moved = 0, holdT = null, pinch0 = 0, fov0 = 0, fed = false;
-addEventListener("pointerdown", (e) => {
-  if (e.target.closest(".bar")) return;
-  ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; fed = false;
-  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); fov0 = view.fov; clearTimeout(holdT); return; }
-  const h = !view.glide && pickAt(e.clientX, e.clientY, hit);
-  if (h) holdT = setTimeout(() => { if (moved < 10) { fed = true; feed(h.object.userData.s); } }, 550);
-});
+// ---------------------------------------------------------------- camera: orbit the big tree with one thumb
+const cam = { th: 0.6, y: 5, d: 10 };
+const ptrs = new Map(); let pinch0 = 0, d0 = 0, moved = 0;
+addEventListener("pointerdown", (e) => { if (e.target.closest(".bar")) return; ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = 0;
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); d0 = cam.d; } });
 addEventListener("pointermove", (e) => {
   if (!ptrs.has(e.pointerId)) return; const [px, py] = ptrs.get(e.pointerId), dx = e.clientX - px, dy = e.clientY - py; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
   moved += Math.abs(dx) + Math.abs(dy);
-  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; view.fov = THREE.MathUtils.clamp(fov0 + (pinch0 - Math.hypot(a[0] - b[0], a[1] - b[1])) * 0.06, -18, 8); return; }
-  view.yaw = THREE.MathUtils.clamp(view.yaw + dx * 0.004, -0.85, 0.85); view.pitch = THREE.MathUtils.clamp(view.pitch - dy * 0.004, -0.45, 0.45);
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; cam.d = THREE.MathUtils.clamp(d0 * pinch0 / Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), 6, 13); return; }
+  cam.th -= dx * 0.008; cam.y = THREE.MathUtils.clamp(cam.y + dy * 0.02, 1.2, 10.5);
 });
-addEventListener("pointerup", (e) => {
-  clearTimeout(holdT);
-  if (ptrs.has(e.pointerId) && ptrs.size === 1 && moved < 8 && !fed && !view.glide) {
-    const m = pickAt(e.clientX, e.clientY, markers); if (m) goTo(m.object.userData.to);
-    else { const h = pickAt(e.clientX, e.clientY, hit); if (h) boop(h.object.userData.s); }
-  }
+const up = (e) => {
+  if (ptrs.has(e.pointerId) && ptrs.size === 1 && moved < 8) tap(e.clientX, e.clientY);
   ptrs.delete(e.pointerId);
-});
-addEventListener("pointercancel", (e) => { clearTimeout(holdT); ptrs.delete(e.pointerId); });
-addEventListener("wheel", (e) => { view.fov = THREE.MathUtils.clamp(view.fov + e.deltaY * 0.02, -18, 8); }, { passive: true });
-
-const BOOP = ["eep!", "hehe", "*slow blink*", "boop", "mmh?", "*yawn*"];
-function boop(s) { s.squish = 1; s.nod = 0.6; burst(s.p.clone().add(new THREE.Vector3(0, 0.25, 0)), BOOP[Math.floor(R(0, BOOP.length))], 1, 1.6, 64); }
-let friends = 0;
-function feed(s) {
-  const f = sprite("🌺", 96); f.scale.set(1.0, 0.25, 1); f.position.copy(camera.position).add(new THREE.Vector3(0, -0.3, 0).applyQuaternion(camera.quaternion)); scene.add(f);
-  fx.push({ s: f, fly: { from: f.position.clone(), to: s.p.clone().add(new THREE.Vector3(0, -0.15, 0)) }, t: 0, life: 0.9, done() {
-    s.nod = 2.4; burst(s.p.clone().add(new THREE.Vector3(0, 0.2, 0)), "💗", 5, 1.6, 80);
-    if (!s.friend) { s.friend = true; friends++; flowerCrown(s); $("score").textContent = `💗 ${friends} friend${friends > 1 ? "s" : ""}`; toast(friends === COUNT ? "Everyone's your friend! 🌸" : "New friend! 🌸"); }
-    else burst(s.p.clone().add(new THREE.Vector3(0, 0.45, 0)), "nom nom", 1, 1.4, 60);
-  } });
+};
+addEventListener("pointerup", up); addEventListener("pointercancel", (e) => ptrs.delete(e.pointerId));
+addEventListener("wheel", (e) => { cam.d = THREE.MathUtils.clamp(cam.d * (1 + e.deltaY * 0.001), 6, 13); }, { passive: true });
+const ray = new THREE.Raycaster();
+let found = 0;
+function tap(x, y) {
+  ray.setFromCamera(new THREE.Vector2((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1), camera);
+  const h = ray.intersectObjects(hit)[0]; if (!h) return;
+  const s = h.object.userData.s; if (s.found) return;
+  s.found = true; s.pop = 1; found++; burst(s.p, "💗", 8, 1.4);
+  $("score").textContent = `🦥 ${found} / ${HIDE}`;
+  $("toast").textContent = found === HIDE ? "All found! 🎉" : "Found one! 💗"; $("toast").classList.add("show"); setTimeout(() => $("toast").classList.remove("show"), 1100);
 }
-
-// rest: the light slowly turns to dusk and fireflies come out; tap again for day
-const DAY = { fog: new THREE.Color(S.fog[0]), hemi: scene.children.find((o) => o.isHemisphereLight).intensity, sun: sun.intensity };
-const DUSK = { fog: new THREE.Color(0x3c4a5c) };
-let dusk = 0, duskTo = 0;
-const hemiL = scene.children.find((o) => o.isHemisphereLight);
-const flies = (() => {
-  const n = 90, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) p.set([R(-6, 6), R(0.5, 9), R(-6, 6)], i * 3);
-  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(p, 3));
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ map: canvasTex(32, 32, (c) => { const r = c.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, "#fff"); r.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = r; c.fillRect(0, 0, 32, 32); }),
-    color: 0xd8ff7a, size: 0.12, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-  scene.add(pts); return pts;
-})();
-$("rest").onclick = () => { duskTo = duskTo ? 0 : 1; $("rest").textContent = duskTo ? "Wake up ☀️" : "Rest 🌙"; };
+$("hint").onclick = () => { const s = sloths.find((s) => !s.found); if (s) burst(s.p.clone().add(new THREE.Vector3(0, 0.2, 0)), "💤", 3, 2.4); };
 
 // ---------------------------------------------------------------- loop, with an fps panel and a resolution safety net
-function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = (camera.aspect < 0.8 ? 66 : 52) + view.fov; camera.updateProjectionMatrix(); }
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 62 : 50; camera.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
-if (qs.has("nook")) view.at = Math.min(nooks.length - 1, +qs.get("nook"));
-showMarkers(view.at);
-const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0, lastFov = 0;
+if (qs.has("cam")) Object.assign(cam, JSON.parse(qs.get("cam")));
+const clock = new THREE.Clock(); let frames = 0, acc = 0, slow = 0;
 window.__stats = {};
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05); uTime.value += dt;
-  placeCamera(dt);
-  if (view.fov !== lastFov) { lastFov = view.fov; resize(); }
+  camera.position.set(Math.sin(cam.th) * cam.d, cam.y + 0.8, Math.cos(cam.th) * cam.d); camera.lookAt(0, cam.y, 0);
   for (const s of sloths) {
     s.mixer.update(dt);
-    if (s.squish > 0) { s.squish = Math.max(0, s.squish - dt * 1.4); const k = Math.sin(s.squish * Math.PI * 3) * s.squish * 0.18; s.o.scale.set(SL * (1 + k), SL * (1 - k), SL * (1 + k)); }
-    if (s.nod > 0) { s.nod = Math.max(0, s.nod - dt); s.head.rotation.x += Math.sin(s.nod * 9) * 0.25 * Math.min(1, s.nod); }
+    if (s.pop > 0) { s.pop = Math.max(0, s.pop - dt * 1.6); s.o.scale.setScalar(SL * (1 + 0.25 * Math.sin(s.pop * Math.PI * 3) * s.pop)); }
   }
-  for (const m of markers) { m.userData.ph += dt * 2; m.scale.setScalar(0.5 + 0.06 * Math.sin(m.userData.ph)); }
-  edges();
-  for (let i = fx.length - 1; i >= 0; i--) {
-    const f = fx[i]; f.t += dt;
-    if (f.fly) { const e = ease(Math.min(1, f.t / f.life)); f.s.position.lerpVectors(f.fly.from, f.fly.to, e); f.s.position.y += Math.sin(e * Math.PI) * 0.4; }
-    else { f.s.position.addScaledVector(f.v, dt); f.v.multiplyScalar(0.96); f.s.material.opacity = 1 - f.t / f.life; }
-    if (f.t > f.life) { scene.remove(f.s); fx.splice(i, 1); f.done?.(); }
-  }
-  dusk += Math.sign(duskTo - dusk) * Math.min(Math.abs(duskTo - dusk), dt * 0.25);
-  if (dusk || duskTo) {
-    scene.fog.color.copy(DAY.fog).lerp(DUSK.fog, dusk); hemiL.intensity = DAY.hemi * (1 - 0.6 * dusk); sun.intensity = DAY.sun * (1 - 0.85 * dusk);
-    sky.material.color.setScalar(1 - 0.65 * dusk); flies.material.opacity = dusk; flies.rotation.y += dt * 0.03;
-    for (const a of flies.geometry.attributes.position.array.keys()) if (a % 3 === 1) flies.geometry.attributes.position.array[a] += Math.sin(uTime.value + a) * dt * 0.08;
-    flies.geometry.attributes.position.needsUpdate = true;
-  }
+  for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; f.s.position.addScaledVector(f.v, dt); f.v.multiplyScalar(0.97); f.s.material.opacity = 1 - f.t / f.life; if (f.t > f.life) { scene.remove(f.s); fx.splice(i, 1); } }
   if (motes) motes.rotation.y += dt * 0.02;
   renderer.render(scene, camera);
   frames++; acc += raw;
@@ -549,6 +407,7 @@ renderer.setAnimationLoop(() => {
     frames = 0; acc = 0;
   }
 });
-window.__view = view; window.__markers = markers; window.__camera = camera; window.__nooks = nooks; window.__goTo = goTo; window.__boop = (i) => boop(nooks[i].sloth); window.__feed = (i) => feed(nooks[i].sloth); window.__rest = () => $("rest").click();
+window.__S = sloths; window.__THREE = THREE;
+window.__sloths = sloths.map((s) => s.p.toArray().map((v) => +v.toFixed(2)));
 window.__ready = true;
 </script>

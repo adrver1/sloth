@@ -5,7 +5,7 @@
 // virtual clock too. At each mark it writes rows-N.txt (the replay's rounded rows), exact-N.txt (every object's world
 // matrix, material numbers, uniforms and buffers as bit-exact hashes), state-N.json (you, the camera, the jeep, the clocks,
 // the day, the menus, localStorage, every sloth's and the operator's own state, the tour's log) and console.txt.
-// Usage (from the repo root, after npm install):
+// Usage (from the repo root, after npm ci):
 //   npm run scenarios -- run --root <checkout> --out <dir> [--port 9050] [--shots] [name ...]   (no names: all of them)
 //   npm run scenarios -- compare <dirA> <dirB> [name ...]
 // Base against head: put the base in a second checkout (git worktree add ../base main, or git archive main | tar -x -C ../base),

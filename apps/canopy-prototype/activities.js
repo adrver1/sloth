@@ -1,4 +1,4 @@
-// Camp activities for camp.html (thread "Plan camp activities", plan in project files canopy-hide-and-seek/activities-plan.md).
+// Camp activities for camp.html (thread "Plan camp activities", plan in docs/plans/canopy-camp-activities.md).
 // Calm by design: no timer, no score, no fail. Walk up to a thing, it lights up when you can use it (camp/highlight.js), tap
 // it. You carry one thing at a time. This file is the list of things you can tap: where each is, when a tap does something,
 // what it does, what the tap menu calls it and what to say when it does not apply. The work behind them is in activities/:

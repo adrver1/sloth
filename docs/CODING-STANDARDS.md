@@ -88,11 +88,12 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 - When you change what a file does or exports, update its header in the same commit. Write plain, full sentences. Do not leave comments about code that is gone; git history keeps it.
 - Read `head -30` of a file before reading it whole. Examples: `camp/util.js`, `camp/targets.js`, `camp/debug.js`, `props/lib/__init__.py`.
 
-## 11. `fur.js` is edited only in `shared/`
+## 11. `fur.js` is edited only in `shared/`, and shared models stay equal
 
 - Rule: edit `shared/fur.js`, then run `npm run sync-shared` (`tools/sync-shared.cjs`) to rewrite the copies in each app folder. `npm run check-shared` exits 1 if a copy differs.
 - Why: there were six copies in three variants (props-11, hygiene-14). Each app folder is published on its own, so it needs its own copy.
 - The copies start with a `GENERATED from shared/fur.js` line. Never edit them.
+- The other pages' `models/sloth.txt` (five folders) and `models/ponytail.txt` (two) are in `sync-shared.cjs` `SAME`: the first folder listed holds the source; repack it, then run `npm run sync-shared`. Canopy Camp's own `sloth.txt` is a newer pack on purpose and is not in the group (R2-223).
 
 ## 12. Generators (`props/`, `characters/sloth_baby/`)
 
@@ -113,7 +114,7 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 ## 14. Archives
 
-- Rule: retired asset variants are kept, not deleted: `props/camp/archive/` (the Storybook, Rustic and Jungle camp sets and the first picked GLB), `props/jeep/archive/` (the Toy and Camper jeeps). Their builders may stay in the generator (`build_camp.py` keeps one function per prop). Keep the sloth styles `plush`, `baby` and `plush_real`, and the flat sticker set.
+- Rule: retired asset variants are kept, not deleted: `props/camp/archive/` (the Storybook, Rustic and Jungle camp sets and the first picked GLB), `props/jeep/archive/` (the Toy and Camper jeeps), each with a README. An archive keeps the GLB only: its base64 `.txt` copy is made again with `base64 -w0` when it is needed (R2-221). Their builders may stay in the generator (`build_camp.py` keeps one function per prop). Keep the sloth styles `plush`, `baby` and `plush_real`, and the flat sticker set.
 - Rule: the page has no branches for retired options. When an option is archived, remove its code paths from the page; the asset stays in `archive/` and the code stays in git history.
 - Why: about 45 branches served the retired looks and prop sets (crosscut-17, world-04, gencamp-08).
 
@@ -121,9 +122,10 @@ The review state (what was found, what is fixed, what is open) is in `docs/revie
 
 Adriaen, 2026-11-14: a change, including a clean-up, need not keep the camp byte-for-byte the same. It must not make the player's experience worse.
 
+- `npm run check` passes: the static checks (`tools/check-imports.cjs`, `tools/check-python.py`, `check-shared`) that CI runs on every pull request and before every deploy.
 - The camp loads with no page or console errors. Interactions still work (walk, boop, feed, sit, the menus, the jeep), and no character gets stuck or clips.
 - Screenshots at phone size (390×844) and desktop size (1280×800) look no worse. Show them to Adriaen.
-- Performance is no worse than main. In the cloud, `tools/camp-probe.cjs` gives exact counts (draw calls, triangles per object, shader programs, downloads); its fps means nothing under SwiftShader. Real frame times, start-up time and draws come from `tools/camp-gpu.cjs` (`--phone` for the phone view) on Adriaen's desktop through Remote Control.
+- Performance is no worse than main. In the cloud, `tools/camp-probe.cjs` (`npm run probe`, `npm run probe:phone`, both with `--strict`, which exits 1 on any page error) gives exact counts (draw calls, triangles per object, shader programs, downloads); its fps means nothing under SwiftShader. Real frame times, start-up time and draws come from `tools/camp-gpu.cjs` (`--phone` for the phone view) on Adriaen's desktop through Remote Control.
 - `npm run replay` (`tools/camp-replay.cjs`) and `npm run scenarios` (`tools/camp-scenarios.cjs`) are optional diagnostics. Their fingerprints are expected to change; a difference is something to look at, not a failure. `CAMP_GPU=1` makes them use the real GPU (`tools/camp-page.cjs`) on a GPU machine.
 - No long runs on the cloud CPU: keep SwiftShader runs to a few hundred frames, run at most two headless browsers at once on a shared machine, and pick ports with `PORT=` or `--port`. Long runs and play-tests go to Adriaen's desktop, in the worktrees `C:\claude\sloth-gpu` and `C:\claude\sloth-gpu-main`. Never touch `C:\claude\sloth`, which is the GPU bake thread's copy.
 - If you changed anything under `camp/audio.js` or `camp/audio/`, say so: nobody in the cloud can hear audio, and Adriaen checks the mix by ear.

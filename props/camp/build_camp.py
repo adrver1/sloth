@@ -6,7 +6,7 @@ lanterns (lanterns.js). props/camp/bake_camp_lightmap.py builds the set, through
 from the page's layout and bakes its light map; this script never exports it.
 
 The three earlier styles, and the first pre-light-map picked GLB, are archived (camp review, Adriaen 2026-11-12): their
-GLBs and txt files are in props/camp/archive/ and the page no longer offers them.
+GLBs are in props/camp/archive/ (with a README) and the page no longer offers them.
 
     storybook  chunky and rounded: pebble fire ring, bell tent with a pennant, striped hammock, paper lanterns
     rustic     closer to real: rough rocks and split logs, an A-frame canvas tent with guy ropes, jar lanterns
@@ -15,10 +15,10 @@ GLBs and txt files are in props/camp/archive/ and the page no longer offers them
 Their builders stay here, one function per prop, since the picked set is made from some of them (rustic_seat,
 rustic_table, jungle_hammock). This script's command line only remakes an archived style, with its own AO bake (Cycles
 ambient occlusion with a ground plane, times each part's base colour, into one colour attribute), into props/camp/out/
-(git-ignored) unless told to write over the kept copy:
+(git-ignored) unless told to write over the kept copy (an archive keeps only the GLB, with a README):
 
     .venv/bin/python props/camp/build_camp.py --style rustic --samples 64     # -> props/camp/out/camp_rustic.glb
-    .venv/bin/python props/camp/build_camp.py --style rustic --overwrite-archive   # -> props/camp/archive/camp_rustic.glb + .txt
+    .venv/bin/python props/camp/build_camp.py --style rustic --overwrite-archive   # -> props/camp/archive/camp_rustic.glb
 
 Each archived style is one GLB (props/camp/archive/camp_<style>.glb) holding six objects, each at its own origin, standing on
 z = 0 with its front toward -Y (three.js +Z): Fire, Seat, Tent, Hammock, Lantern, Table. The Hammock's posts stand at
@@ -37,7 +37,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from lib.bake import bake  # noqa: E402
-from lib.export import export_glb, reset, tag, to_txt  # noqa: E402
+from lib.export import export_glb, reset, tag  # noqa: E402
 from lib.materials import image_material, mat  # noqa: E402
 from lib.mesh import apply_all, ball, bevel, bisect, box, cyl, drop_faces, drop_ground_faces, join, mesh_obj, mug, obj_from_bm, quad, rod, rough_up, sweep, torus, with_material  # noqa: E402
 
@@ -714,7 +714,7 @@ BUDGET = {"picked": {"Table": 1400, "Seat": 500}}
 
 def build(style, samples, overwrite_archive=False):
     """Make an archived style in a fresh scene, give it its own AO light and write it to props/camp/out/camp_<style>.glb
-    (git-ignored), or, with overwrite_archive, over props/camp/archive/camp_<style>.glb and its base64 .txt copy."""
+    (git-ignored), or, with overwrite_archive, over props/camp/archive/camp_<style>.glb (an archive keeps no base64 copy)."""
     reset()
     objs = {"storybook": storybook, "rustic": rustic, "jungle": jungle}[style]()
     for o in objs.values():
@@ -724,8 +724,6 @@ def build(style, samples, overwrite_archive=False):
     out = os.path.join(HERE, "archive" if overwrite_archive else "out")
     os.makedirs(out, exist_ok=True)
     path = export_glb(list(objs.values()), os.path.join(out, f"camp_{style}.glb"), texcoords=False, check="warn")   # archived: report only
-    if overwrite_archive:
-        to_txt(path, path[:-4] + ".txt")
     print(f"{style} -> {path}")
 
 
@@ -733,6 +731,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--style", required=True, choices=STYLES)
     ap.add_argument("--samples", type=int, default=32)
-    ap.add_argument("--overwrite-archive", action="store_true", help="write over the kept GLB and .txt in props/camp/archive/")
+    ap.add_argument("--overwrite-archive", action="store_true", help="write over the kept GLB in props/camp/archive/")
     a = ap.parse_args()
     build(a.style, a.samples, a.overwrite_archive)

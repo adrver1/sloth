@@ -5,6 +5,8 @@ metadata:
   type: project
 ---
 
+Note: this memory was written in desk-at-night, so its paths and PR numbers are desk-at-night's, not this repo's.
+
 - 2026-10-28: sloth added (cream mask, dark teardrop eye patches). Builds need libegl1.
 - 2026-11-04: Adriaen picked play style swing, and the sloth got its own rig (characters/sloth_baby/sloth_rig.py: idle, walk crawl at WALK_SPEED, cling under CLING_BRANCH); sloths cling under her forearms (anims.PLAY_HOLD). PR #146. Preview https://claude.ai/artifact/UUimcJPizJcUjnNKU6TyWd (source in /mnt/project-files/control-room-game/sloth-play/).
 - 2026-11-04 later: Adriaen "keep it" + asked for real sloth limbs/locomotion. Added plush_real style, belly crawl walk, hang_walk (PR #146).

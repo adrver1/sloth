@@ -15,20 +15,23 @@ in several different places", and bake the whole scene as one). Run it whenever 
             models/camp_lm_sun_<2k|1k>.png      props: where the sun reaches them (R) and sky occlusion (G)
             models/camp_shadow_picked_<jeep>.png         ground: day shadow (sun + sky)
             models/camp_ground_night_picked_<jeep>.png   ground: night light
-          and the props' GLBs/txt
+          and the props' GLBs/txt. The 4K maps stay on the desktop (.gitignore, review R2-207): ?lm=4k works there, and a
+          clone or Pages falls back to the 2K maps
   ktx     the light maps again as KTX2 (UASTC + zstd, linear: they are data), base64 in <map>.ktx2.txt next to the PNGs (artifacts
-          don't serve .ktx2), which stay as the fallback;
+          don't serve .ktx2; the .ktx2 itself is deleted, and .gitignore covers one a stopped bake leaves), which stay as
+          the fallback, and camp_lights.json "ktx2": each converted map with the hash of its PNG, merged into the entries
+          already there (the page tries KTX2 only for the maps listed, and tools/check-imports.cjs finds a stale one);
           needs Khronos' toktx (KTX-Software): set TOKTX=<path to toktx.exe> or have it on PATH. When this step will run
           (stale, forced, or after a layout or light step that runs), toktx is checked before any step starts. The light step
           removes the old .ktx2.txt of every map it rewrites and writes
-          camp_lights.json without the "ktx2" flag; this step sets the flag only when every map's .ktx2.txt is newer than
-          its PNG, so the page never loads an out-of-date KTX2 copy (review R2-005)
+          camp_lights.json without the "ktx2" entries; this step lists only the maps whose .ktx2.txt is newer than its PNG,
+          and fails when one is not, so the page never loads an out-of-date KTX2 copy (review R2-005)
   layout  props/shadow/export_casters.cjs: the clearing's layout (the worn spots, the jeep's track, the path, the deadwood,
           and the "place" block: where the page stands each baked prop and light, which the light bake reads instead of
           keeping its own copy). All but the deadwood comes from props/shadow/layout_pure.mjs in node (review R2-257); the
           exporter boots the page for the deadwood and checks the page agrees. The page is served by this script on a free local port that it
           hands the exporter as LAYOUT_PORT (it stops if its server dies or never answers, review R2-042) ->
-          props/shadow/layout_picked.json (needs `npm install` and CHROME=<a Chrome>); it stops the bake if the page gave
+          props/shadow/layout_picked.json (needs `npm ci`, and CHROMIUM=<a Chrome> when the repo's playwright has no browser); it stops the bake if the page gave
           an incomplete layout or disagrees with layout_pure.mjs
   ground  props/ground/bake_ground.py: the worn soil, ash and litter (numpy) -> models/camp_ground_picked.jpg and _mask.png
 
@@ -264,11 +267,15 @@ def step_ktx():
         to_txt(out, out + ".txt")   # artifacts don't serve .ktx2: the page loads them base64 from .ktx2.txt, like the models
         print(f"  {os.path.basename(out)}: {os.path.getsize(out) // 1024} KB, as text {os.path.getsize(out + '.txt') // 1024} KB (png {os.path.getsize(f) // 1024} KB)", flush=True)
         os.remove(out)
-    old = [os.path.basename(f) for f in maps if not os.path.exists(f[:-4] + ".ktx2.txt") or os.path.getmtime(f[:-4] + ".ktx2.txt") < os.path.getmtime(f)]
+    old = [f for f in maps if not os.path.exists(f[:-4] + ".ktx2.txt") or os.path.getmtime(f[:-4] + ".ktx2.txt") < os.path.getmtime(f)]
+    # tells the page which maps have a .ktx2.txt (it tries no other, so the 4K maps do not 404), stamped with the first 16 hex
+    # digits of each source PNG's sha256, so tools/check-imports.cjs finds a .ktx2.txt that is older than its PNG
+    stamp = {os.path.basename(f)[:-4]: hashlib.sha256(open(f, "rb").read()).hexdigest()[:16] for f in maps if f not in old}
     jf = os.path.join(MODELS, "camp_lights.json"); j = json.load(open(jf))
-    j["ktx2"] = bool(maps) and not old; json.dump(j, open(jf, "w"), indent=1)   # tells the page to try .ktx2
+    j["ktx2"] = {**(j["ktx2"] if isinstance(j.get("ktx2"), dict) else {}), **stamp}   # merged, so a run with fewer maps (--jeep none) keeps the others
+    json.dump(j, open(jf, "w"), indent=1)
     if old:
-        sys.exit("no KTX2 for the page: these maps have no up-to-date .ktx2.txt: " + ", ".join(old))
+        sys.exit("no KTX2 for the page: these maps have no up-to-date .ktx2.txt: " + ", ".join(os.path.basename(f) for f in old))
 
 
 def step_ground():

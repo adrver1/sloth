@@ -6,13 +6,15 @@
 // so the page colours them, flickers the fire and the stove on their own, switches the jeep's lights (the jeep code sets
 // GAIN.cabin and GAIN.doors, 0..1), dims or brightens any of them live, and adds the warm ones a little by day (they
 // show in the shade; the sun drowns them in the open).
-// Exports: lightDir(dir) (where camp_lights.json is), initKtx(renderer), b64bytes(txt), loadLightMap(png), LIGHT and GAIN
+// Exports: lightDir(dir) (where camp_lights.json is), initKtx(renderer), fetchBytes(txt), loadLightMap(png, { ktx }), LIGHT and GAIN
 // (the uniforms and gains), LIGHT_GLSL, LIGHT_MIX(...), liveChunk(chunk), bindLight(shader), stepLight(fl, t).
 import * as THREE from "three";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 
 // the light maps ship as KTX2 (UASTC + zstd, props/bake_all.py --only ktx): about half the download of the PNGs and a quarter
-// of the GPU memory; a map with no .ktx2 next to it (or a browser that can't take it) falls back to its .png
+// of the GPU memory; a map with no .ktx2 next to it (or a browser that can't take it) falls back to its .png.
+// camp_lights.json "ktx2" says which maps have one: an object of map name -> the hash of the PNG it was made from (written by
+// bake_all.py; tools/check-imports.cjs uses the hash to find a stale .ktx2.txt), or true from older bakes, when every map is tried
 let ktx = null, META = null;
 // lightDir(dir): the folder that holds camp_lights.json (default "models/"; camp.html?lmdir= points it at a preview bake,
 // props/camp/bake_camp_lightmap.py --preview). Call it before the first loadLightMap; the file is read once, on first use.
@@ -26,19 +28,31 @@ const meta = () => (META ??= fetch(DIR + "camp_lights.json").then((r) => r.json(
 export function initKtx(renderer) {
   ktx = new KTX2Loader().setTranscoderPath("https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/libs/basis/").detectSupport(renderer);
 }
-// base64 text -> bytes. The models and the KTX2 maps ship as base64 .txt files (artifacts serve text and images only).
+// base64 text -> bytes. The models and the KTX2 maps are committed as base64 .txt files (artifacts serve text and images only).
 // Uint8Array.from(atob(txt), callback) called the callback per character: 140 ms for the 3 MB light map, against 8 ms for
 // this loop and 2 ms where the browser has Uint8Array.fromBase64 (measured in Chromium).
-export function b64bytes(txt) {
+function b64bytes(txt) {
   if (Uint8Array.fromBase64) return Uint8Array.fromBase64(txt);
   const s = atob(txt), n = s.length, u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = s.charCodeAt(i); return u;
 }
-export async function loadLightMap(png) {
+// How the host serves them: base64 .txt (the default, for artifacts and a checkout), or the binary files (X.txt as X.glb,
+// X.ktx2.txt as X.ktx2) when the page has <meta name="camp-models" content="binary">. The Pages deploy decodes the .txt files
+// and sets that (.github/workflows/pages.yml, review R2-214): about a fifth less to download and nothing to decode.
+const BINARY = document.querySelector('meta[name="camp-models"]')?.content === "binary";
+// fetchBytes(txt): the bytes of the model or map whose base64 copy is at the URL txt, from the binary file where it is served
+export async function fetchBytes(txt) {
+  const r = await fetch(BINARY ? txt.replace(/(\.ktx2)?\.txt$/, (m, k) => k || ".glb") : txt);
+  if (!r.ok) throw new Error(`${r.status} ${r.url}`);
+  return BINARY ? new Uint8Array(await r.arrayBuffer()) : b64bytes((await r.text()).trim());
+}
+// loadLightMap(png, { ktx }): the map as a texture, from its .ktx2.txt when there is one, else the .png. ktx: false skips the
+// KTX2 try (core.js passes it for the 4K maps, which bake_all.py does not convert), so no request 404s.
+export async function loadLightMap(png, { ktx: tryKtx = true } = {}) {
   let t = null;
-  // artifacts don't serve .ktx2, so the maps ship base64 in .ktx2.txt files like the models (still well under the PNGs)
-  const m = await meta();   // also gives LIGHT the bake's colours, once
-  if (ktx && m.ktx2) t = await fetch(png.replace(/\.png$/, ".ktx2.txt")).then((r) => (r.ok ? r.text() : Promise.reject()))
-    .then((b64) => new Promise((ok, no) => ktx.parse(b64bytes(b64.trim()).buffer, ok, no))).catch(() => null);   // only once the bake wrote them
+  // artifacts don't serve .ktx2, so the maps are committed base64 in .ktx2.txt files like the models (fetchBytes)
+  const has = (await meta()).ktx2, name = png.replace(/^.*\//, "").replace(/\.png$/, "");   // meta() also gives LIGHT the bake's colours, once
+  if (ktx && tryKtx && (has === true || (has && typeof has === "object" && name in has))) t = await fetchBytes(png.replace(/\.png$/, ".ktx2.txt"))
+    .then((u) => new Promise((ok, no) => ktx.parse(u.buffer, ok, no))).catch(() => null);   // only once the bake wrote them
   t ??= await new THREE.TextureLoader().loadAsync(png);
   t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;   // data, decoded in the shaders
 }
