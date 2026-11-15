@@ -26,7 +26,7 @@ import { CAST } from "./cast.js";
 import { addLabButton } from "./labButton.js";
 import { addCrowd } from "./places.js";
 import { GROUND, OUT, camp, hit, sloths, spots, wild } from "./sloth/state.js";
-import { makeSloth, placeUnder, warmStep } from "./sloth/body.js";
+import { bodyWarm, makeSloth, placeUnder, warmStep } from "./sloth/body.js";
 import { slothsStep } from "./sloth/life.js";
 import { treeOf } from "./sloth/poses.js";
 import { buildFace } from "./sloth/face.js";
@@ -44,7 +44,7 @@ import { campStep } from "./sloth/step.js";
 import { addHooks } from "./sloth/hooks.js";
 
 function buildSloths() {
-  buildFace();   // the mouth card's texture, material and geometry (sloth/face.js)
+  buildFace(bodyWarm);   // the mouth card's texture, material and geometry, with the body's warm glow (sloth/face.js)
   // one wild sloth in each big tree, on the low branch reaching furthest out, so the branches nearest the fire stay free for
   // the camp's two branch sloths (the tripod sloth is gone; Adriaen: too close to the fire)
   for (const tree of HERO) {

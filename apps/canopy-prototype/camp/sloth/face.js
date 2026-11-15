@@ -1,6 +1,7 @@
 // Canopy Camp sloths, the face: which way it points, the eyes that open and shut, the mouth card and the yawn.
 //   FACE            which way the face points in the head bone's frame
-//   buildFace()     makes the mouth card's texture, material and geometry (sloths.js, once, first in its body)
+//   buildFace(warm) makes the mouth card's texture, material and geometry, with the body's warm glow at night when warm is
+//                   its uniforms (body.js bodyWarm; null: none, like the body) (sloths.js, once, first in its body)
 //   eyeKit(o)       per sloth: a function (closed) that shuts or opens its eyes, by switching its body to the eyes-shut UVs
 //   mouthOf(s)      the sloth's mouth card (made the first time): it opens for a yawn and as it chews
 //   openMouth(s, x, y)   how far its mouth is open across (x) and down (y), 0..1 of the card's size (eating.js, life.js)
@@ -8,6 +9,7 @@
 import * as THREE from "three";
 import { V, canvasTex, patchMaterial, sstep } from "../util.js";
 import { SLOTH } from "../campProps.js";
+import { warmShader } from "../../fur.js";
 
 const FACE = V();                                      // which way the face points in the head bone's frame (the sloth faces -Z at rest); set by buildFace
 // the eyes (review R2-105): every sloth shares the body's one geometry, which gets a second UV set once, uvShut, with
@@ -48,23 +50,25 @@ function eyeKit(o) {                                   // per sloth: its body's 
 }
 // a yawn (Adriaen 2026-11-12): the head tips back, the eyes squeeze shut and a mouth opens wide (a painted card on the
 // muzzle, 2 triangles, made the first time), about 2.8 s. Before a doze, after one, and now and then.
-// buildFace() works out FACE from the model and makes the card's texture, material and geometry; sloths.js calls it first
+// buildFace(warm) works out FACE from the model and makes the card's texture, material and geometry; sloths.js calls it first
 // thing, before any sloth is made.
-// The card (review R2-182): Lambert, so it takes the camp's light like the face (it used to be unlit and glowed at night);
+// The card (review R2-182): Lambert, so it takes the camp's light like the face (it used to be unlit and glowed at night),
+// and the same warm glow from the lanterns and the fire as the face round it (fur.js warmShader), so it is not darker by night;
 // 2 mm further back than it was, with a small depth offset, so it stands less proud of the muzzle; and it is not drawn
 // when seen nearly edge-on, so in profile it no longer shows as a flat disc or a sliver off the snout. (A card bent onto
 // the face was tried: the chin falls back 3 cm under the smile, so the lower half of the mouth vanished behind the chin
 // and the scarf.) One material for every sloth; the card's scale opens and shuts it (openMouth).
 const MOUTH_AT = V(0, 0.024, -0.085);
 let mouthMat, mouthGeo;
-function buildFace() {
+function buildFace(warm) {
   SLOTH.scene.updateMatrixWorld(true); const h = SLOTH.scene.getObjectByName("head");
   FACE.set(0, 0, -1).applyQuaternion(h.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(SLOTH.scene.getWorldQuaternion(new THREE.Quaternion())));
   const mouthTex = canvasTex(64, 64, (g) => { g.fillStyle = "#4a1c26"; g.beginPath(); g.ellipse(32, 32, 28, 28, 0, 0, 7); g.fill();
     g.fillStyle = "#e07a8a"; g.beginPath(); g.ellipse(32, 48, 16, 11, 0, 0, 7); g.fill(); });
   mouthMat = new THREE.MeshLambertMaterial({ map: mouthTex, alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
-  patchMaterial(mouthMat, "edgeOn", (sh) => {          // seen within about 17 degrees of edge-on: not drawn
+  patchMaterial(mouthMat, warm ? "edgeOn|warm" : "edgeOn", (sh) => {   // seen within about 17 degrees of edge-on: not drawn
     sh.fragmentShader = sh.fragmentShader.replace("#include <map_fragment>", "if (abs(dot(normalize(vNormal), normalize(vViewPosition))) < 0.3) discard;\n#include <map_fragment>");
+    if (warm) warmShader(sh, warm);
   });
   mouthGeo = new THREE.PlaneGeometry(0.036, 0.034);
 }

@@ -7,11 +7,13 @@
 //   placeUnder(s, p, dir)   hangs s under a branch at p (poses.js underAt), its head toward dir (a wild sloth)
 //   warmStep(lanternGlow, fl, dusk)   each frame (main.js): sets SLOTH_WARM, the uniforms (kept in here) of the warm glow
 //                      the sloths take at night from the lanterns and the fire (fur.js warm)
+//   bodyWarm           SLOTH_WARM when the body takes that glow (fur on and Lambert), else null: the mouth card takes the
+//                      same (sloths.js hands it to face.js buildFace)
 // review 2026-11-12 (P5, B4): Lambert body and fur like the camp; a fixed padded bounding sphere so off-screen sloths are
 // culled; an 8x6 tap sphere, one geometry and material shared by all.
 import * as THREE from "three";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import { WARM_N, furify } from "../../fur.js";
+import { FUR_ON, WARM_N, furify } from "../../fur.js";
 import { D, OPT, rng, S, scene } from "../core.js";
 const { R } = rng("sloths");
 import { V } from "../util.js";
@@ -26,6 +28,7 @@ const HIT_GEO = new THREE.SphereGeometry(0.42, 8, 6), HIT_MAT = new THREE.MeshBa
 // at night the camp's light is baked into the props, so the sloths take a warm glow from the lanterns and the fire nearby
 // (fur.js warm; warmStep sets it each frame: lantern positions, the fire, and uWarm = dusk with the fire's flicker)
 const SLOTH_WARM = { uWarm: { value: 0 }, uWarmPos: { value: Array.from({ length: WARM_N }, () => V(0, -99, 0)) }, uWarmK: { value: new Array(WARM_N).fill(0) } };
+const bodyWarm = FUR_ON && OPT.slothmat !== "old" ? SLOTH_WARM : null;   // furify gives the body the glow only then
 function warmStep(lanternGlow, fl, dusk) {             // each frame (main.js): where the lanterns are, the fire's flicker fl, how far the night is in
   const W = SLOTH_WARM, n = Math.min(lanternGlow.length, WARM_N - 1);
   for (let i = 0; i < n; i++) { W.uWarmPos.value[i].copy(lanternGlow[i]); W.uWarmK.value[i] = 0.15; }
@@ -112,4 +115,4 @@ function placeUnder(s, p, dir) {                      // under a branch at p, it
   s.box.position.copy(p).y -= 0.25; s.p.copy(p);
 }
 
-export { makeSloth, placeUnder, warmStep };
+export { bodyWarm, makeSloth, placeUnder, warmStep };

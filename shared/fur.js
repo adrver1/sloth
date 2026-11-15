@@ -9,7 +9,8 @@
 // Camp, review 2026-11-12: cheaper, and matches the Lambert props). Each sloth's shell mesh is in root.userData.furShells.
 // { warm } (with lambert): uniforms { uWarm (float), uWarmPos (vec3[WARM_N]), uWarmK (float[WARM_N]) } for a warm glow from
 // nearby lanterns and the fire at night, falling off with distance (the camp's lights are baked, so without it the sloths
-// go black next to a lit lantern). The 10-light loop runs only while uWarm > 0.
+// go black next to a lit lantern). The 10-light loop runs only while uWarm > 0. warmShader(sh, warm) adds the same glow to
+// another material's shader (Canopy Camp's mouth card).
 // { tint: 0xc9d9a6 } multiplies only the fur (the body's fur fragments and the shells) by this colour, so the face mask,
 // eyes and claws keep their palette colours (Canopy Camp's day tint, review R2-174: it used to tint whole materials, and
 // the cream mask went lime). One uniform per colour, shared by every material made with it.
@@ -58,19 +59,28 @@ export const WARM_N = 10;
 const WARM_GLSL = `uniform float uWarm; uniform vec3 uWarmPos[${WARM_N}]; uniform float uWarmK[${WARM_N}]; varying vec3 vWPos;
 vec3 warmAt(vec3 p) { float a = 0.0; for (int i = 0; i < ${WARM_N}; i++) { vec3 d = uWarmPos[i] - p; a += uWarmK[i] / (1.0 + dot(d, d) * 2.5); }
   return vec3(1.0, 0.66, 0.36) * a * uWarm; }`;
+// the warm glow on a shader, inside an onBeforeCompile hook (Lambert, or any material with outgoingLight): declares vWPos
+// and the warm uniforms, sets vWPos in the vertex shader and adds the glow before the output. patch below uses it for the
+// fur, and Canopy Camp's mouth card (camp/sloth/face.js) for the same glow as the face round it.
+export function warmShader(sh, warm) {
+  sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vWPos;")
+    .replace("#include <project_vertex>", "#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;");
+  // the warm loop only while there is warmth (uWarm is 0 by day): a uniform branch, nearly free
+  sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\n" + WARM_GLSL)
+    .replace("#include <opaque_fragment>", "if (uWarm > 0.0) outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>");
+  Object.assign(sh.uniforms, warm);
+}
 function patch(mat, frag, decl = "", nrm = "", pos = "", fdecl = "", warm = null) {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl + (warm ? "\nvarying vec3 vWPos;" : ""))
+      .replace("#include <common>", "#include <common>\nattribute float furMask;\nattribute vec3 furNormal;\nvarying float vFur;\nvarying vec3 vObj;\n" + decl)
       .replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\n" + nrm)
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFur = furMask; vObj = position;\n" + pos);
-    if (warm) sh.vertexShader = sh.vertexShader.replace("#include <project_vertex>", "#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;");
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl + (warm ? WARM_GLSL : ""))
+      .replace("#include <common>", "#include <common>\nvarying float vFur;\nvarying vec3 vObj;\n" + NOISE + fdecl)
       .replace("#include <map_fragment>", "#include <map_fragment>\n" + frag);
-    // the warm loop only while there is warmth (uWarm is 0 by day): a uniform branch, nearly free
-    if (warm) sh.fragmentShader = sh.fragmentShader.replace("#include <opaque_fragment>", "if (uWarm > 0.0) outgoingLight += diffuseColor.rgb * warmAt(vWPos);\n#include <opaque_fragment>");
-    Object.assign(sh.uniforms, mat.userData.u || {}, warm || {});
+    Object.assign(sh.uniforms, mat.userData.u || {});
+    if (warm) warmShader(sh, warm);
   };
   mat.customProgramCacheKey = () => "fur" + mat.type + !!warm + frag + pos + nrm;
   return mat;
