@@ -8,7 +8,7 @@ import { canvasTex, hazed, scene } from './core.js';
 import { tmpC } from './terrain.js';
 import { WHITE, v3 } from './forest.js';
 import { bakeStatic } from './cabin.js';
-import { fromModel } from '../camp/layout.js';
+import { ANCHORS, SEATS, fromModel } from '../camp/layout.js';
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
@@ -43,6 +43,8 @@ export function buildScoutCamp() {
       loader.parse(bin.buffer, '', (gl) => {
         if (file === 'camp_picked_lm') fromModel(gl.scene.getObjectByName('Tent')?.userData, gl.scene.getObjectByName('Hammock')?.userData);   // the tent's sizes (its bed) for the cast, as campProps.js does
         for (const node of [...gl.scene.children]) { if (keep && !keep.includes(node.name)) continue;
+          { const k = node.userData.anchor, A = k === 'seats' ? SEATS[node.userData.seat] : ANCHORS[k];   // stood where its anchor says, as the camp's campProps.js stand does
+            if (A) { node.position.set(A.at.x, 0, A.at.z); node.rotation.set(0, A.yaw, 0); } }
           node.traverse((o) => { if (!o.isMesh) return;
             const m0 = o.material, flame = node.name === 'Fire' || node.name === 'Embers';
             o.material = flame ? new THREE.MeshBasicMaterial({ color: node.name === 'Fire' ? '#ffb15a' : '#ff6a2a', vertexColors: !!o.geometry.attributes.color, transparent: node.name === 'Fire', opacity: 0.9, depthWrite: node.name !== 'Fire' })
