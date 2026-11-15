@@ -13,12 +13,13 @@ import { buildRoad, roadStep } from './road.js';
 import { buildMap, carry } from './map.js';
 import { buildFx, fxStep, wind } from './fx.js';
 import { LIGHT, SKY, WEATHER, W_NOW, buildDaylight, daylightStep } from './daylight.js';
-import { buildPlayer, fmt, jump, press, prof, showTris, testing, walk } from './player.js';
+import { buildPlayer, jump, press, prof, showTris, testing, walk } from './player.js';
 import { backdrop, buildBackdrop } from './backdrop.js';
 import { ready, stats } from './debug.js';
 import { buildDrive, driveStep } from './drive.js';
 import { buildSloths, slothsStep } from './sloths.js';
 import { buildOperator, operatorStep } from './operator.js';
+import { buildDaytime, daytimeApi, daytimeStep } from './daytime.js';
 
 // ---------------------------------------------------------------- the build list (the order the scene's children were added in the prototype)
 buildCore();        // core.js: the canvas on the page, the sky dome
@@ -35,6 +36,7 @@ buildFx();          // fx.js: smoke plumes and the storm's snow
 buildDaylight();    // daylight.js: hemisphere light and sun, the sun's shadow spot
 buildPlayer();      // player.js: keys, stick, look drags, settings panel handlers
 buildBackdrop();    // backdrop.js: eight painted panels for the land beyond 1 km
+buildDaytime();     // daytime.js: the camp's hour and day cycle, the porch clock, the time slider
 buildDrive();       // drive.js: the drive's letterbox and the Drive back pill (needs the road's jeep group and the pill row); come from the camp, the arrival plays on the first frame
 if (BARE) scene.children.slice(MADE_FROM).forEach((o) => { if (!o.isCamera) o.visible = false; });
 
@@ -49,6 +51,7 @@ function frame() {
   updateTerrain(me.x, me.z); cullTerrain(); cullWedges();
   if (prof.on) prof.mark('ground', pf);
   if (!placedAt || Math.hypot(me.x - placedAt.x, me.z - placedAt.z) > 12 || Math.abs(+$('hour').value - placedAt.h) > 0.75) { const t = performance.now(); placeThings(me.x, me.z); if (prof.on) prof.mark('trees', t); }
+  daytimeStep(dt);    // the camp's hour: the cycle, the eased hour shown, the slider and the clock's hands (the light reads the slider)
   daylightStep(dt);   // before everything lit: sets LIGHT, the sun, the sky's uniforms and the shadow map's redraw flag
   sky.position.copy(camera.position); horizonStep();
   cabinStep(LIGHT.night);
@@ -69,4 +72,4 @@ function frame() {
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-ready({ setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { SKY.target = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop, updateLevel });
+ready({ setHour: daytimeApi.setHour, weather: (w) => { SKY.target = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop, updateLevel });

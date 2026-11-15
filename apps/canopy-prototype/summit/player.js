@@ -55,7 +55,6 @@ export const jump = (p) => { const [x, z, t] = PLACES[p]; me.x = x; me.z = z; me
 export let testing = false;
 // prof: while a walk test runs, the frame records how long (ms of script) each kind of work took
 export const prof = { on: false, t: {}, mark(k, t0) { const d = performance.now() - t0, e = this.t[k] || (this.t[k] = { n: 0, sum: 0, max: 0 }); e.n++; e.sum += d; e.max = Math.max(e.max, d); } };
-export const fmt = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
 export function showTris() {
   const rows = [['Terrain rings (10, round you)', levels.reduce((n, l) => n + l.tris, 0)], ...SPECIES.map((n, i) => [`${n[0].toUpperCase() + n.slice(1)} near (${nearN[i]} × ${tris(TREES[n])})`, nearN[i] * tris(TREES[n])]), [`Young spruces (${saplings.count} × ${tris(TREES.spruce)})`, saplings.count * tris(TREES.spruce)], [`Snowy bushes (${bushes.count} × ${tris(bushGeo)})`, bushes.count * tris(bushGeo)], [`Tree cards (${cards.reduce((n, m) => n + m.count, 0)} × 2)`, cards.reduce((n, m) => n + m.count, 0) * 2], [`Rocks (${rocks.count} × 20)`, rocks.count * 20], [`Fallen logs (${logs.count} × ${tris(logGeo)})`, logs.count * tris(logGeo)], ...TRIS];
   $('tris').innerHTML = rows.map(([n, t]) => `<tr><td>${n}</td><td>${Math.round(t).toLocaleString('en')}</td></tr>`).join('') + `<tr><td><b>Total</b></td><td><b>${Math.round(rows.reduce((s, [, t]) => s + t, 0)).toLocaleString('en')}</b></td></tr>`;
@@ -124,6 +123,5 @@ export function buildPlayer() {
   $('weather').onclick = (e) => { const w = e.target.dataset?.w; if (!w) return; SKY.target = WEATHER[w]; press($('weather'), 'w', w); };
   $('hazeOn').onchange = (e) => { SKY.haze = e.target.checked; };
   $('wire').onchange = (e) => { for (const m of terrainMats) m.wireframe = e.target.checked; };
-  $('hour').oninput = () => { $('hourOut').textContent = fmt(+$('hour').value); };
   addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 }
