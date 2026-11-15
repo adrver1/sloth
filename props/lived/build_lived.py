@@ -1,17 +1,17 @@
 """
 Lived-in camp props for the Canopy Camp game (apps/canopy-prototype/camp.html): the small things that make the camp
 look used. PROPS (above make()) lists them all, one row each with its builder, how it is lit and where the page stands it. Triangles as of
-2026-11-14 (build() prints them, with a breakdown per piece of the baked props):
+2026-11-15 (build() prints them, with a breakdown per piece of the baked props):
 
     WoodStack      94  the stacked split logs by the fire as one textured block (renders of the detailed stack)
     LooseLogs      48  three loose split logs by the pile (textured, on the stack's atlas)
     SeatTop         2  the rustic seat's sawn top (textured; the page puts one on each of three seats)
     MatRoll        24  the rolled sleeping mat by the tent (textured)
-    KitchenCrate   26  the kitchen crate (textured)
+    KitchenCrate   26  the kitchen crate, full of tins painted on one quad (textured)
     WoodPile      178  the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
     SeatThings    108  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
     TentSide      147  the pair of wellies by the tent (baked)
-    KitchenThings 130  the pan, plates, honey jar and spoon on the crate (baked)
+    KitchenThings 100  the pan, plates and honey jar on the tins in the crate (baked)
 
     .venv/bin/python props/lived/build_lived.py
     .venv/bin/python props/lived/build_lived.py --samples 64
@@ -723,39 +723,95 @@ def mat_roll(path):
 
 # the camp kitchen crate: an open wooden crate on the ground beside the snack table, on the side away from the fire
 CW, CD, CH, CT = 0.5, 0.34, 0.28, 0.018       # outer width, depth, height, wall thickness
+# the crate is full of tins (Adriaen 2026-11-15: "put a rectangle in it upon which you draw cans of food seen from the top"):
+# one flat textured quad at CANS_Z fills the inside, with the tins painted on it, and everything else rests on it
+CANS_Z = 0.2
+CANS_PX = (256, 168)                          # the tins' rectangle in kitchen_crate.png (bottom right), the inside's aspect
+
+
+def paint_cans(im, box, k):
+    """Tins of food seen from the top, packed edge to edge into box (x0, y0, x1, y1, in pixels of im, which is drawn k times
+    larger than it is saved): a dark gap between them, a sliver of each one's label round its lid, then the lid with its
+    rims and a soft light from the top left. Warm storybook colours; the same tins every run (seeded)."""
+    from PIL import Image, ImageDraw, ImageFilter
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    d = ImageDraw.Draw(im)
+    d.rectangle((x0 * k, y0 * k, x1 * k, y1 * k), fill=(58, 40, 26))            # the shadow between the tins
+    r = random.Random(11)
+    labels = [(196, 72, 52), (222, 168, 64), (86, 128, 98), (232, 214, 176), (92, 118, 150), (170, 92, 120)]
+    tins = []                                                                   # (cx, cy, radius) in saved pixels
+    rows, R0 = 3, h / 6.0                                                       # three rows, staggered, a little overlap at the edges
+    for j in range(rows):
+        cy = R0 + j * (h - 2 * R0) / (rows - 1)
+        x = R0 * (0.2 if j % 2 else 0.95)
+        while x < w + R0:
+            rr = R0 * r.uniform(0.86, 1.0)
+            tins.append((x0 + x, y0 + cy + r.uniform(-2, 2), rr))
+            x += 2 * R0 * r.uniform(0.98, 1.04)
+    sh = Image.new("L", im.size, 0)                                             # a soft shadow under each tin, down and right
+    ds = ImageDraw.Draw(sh)
+    for cx, cy, rr in tins:
+        ds.ellipse(((cx - rr + 2) * k, (cy - rr + 3) * k, (cx + rr + 2) * k, (cy + rr + 3) * k), fill=150)
+    sh = sh.filter(ImageFilter.GaussianBlur(3 * k))
+    im.paste((30, 20, 12), mask=sh)
+    for cx, cy, rr in tins:
+        lab = r.choice(labels)
+        def disc(rad, col, dx=0.0, dy=0.0):
+            d.ellipse(((cx + dx - rad) * k, (cy + dy - rad) * k, (cx + dx + rad) * k, (cy + dy + rad) * k), fill=col)
+        disc(rr, tuple(int(v * 0.72) for v in lab))                              # the label, darker on its far side
+        disc(rr * 0.97, lab, -0.8, -0.8)
+        lid = tuple(int(v * r.uniform(0.95, 1.03)) for v in (212, 196, 170))
+        disc(rr * 0.86, (150, 140, 124))                                         # the seam where lid meets label
+        disc(rr * 0.8, lid)
+        disc(rr * 0.66, tuple(int(v * 0.86) for v in lid))                       # the sunken middle inside the lid's rim
+        disc(rr * 0.62, tuple(min(255, int(v * 0.97)) for v in lid), -0.6, -0.6)
+        for q in (0.5, 0.34):                                                    # pressed rings in the lid
+            d.ellipse(((cx - rr * q) * k, (cy - rr * q) * k, (cx + rr * q) * k, (cy + rr * q) * k), outline=tuple(int(v * 0.84) for v in lid), width=k)
+        d.arc(((cx - rr * 0.8) * k, (cy - rr * 0.8) * k, (cx + rr * 0.8) * k, (cy + rr * 0.8) * k), 160, 280, fill=(236, 230, 214), width=2 * k)   # light on the rim
+        if r.random() < 0.35:                                                    # a ring pull on some
+            a = r.uniform(0, 6.28)
+            px, py = cx + math.cos(a) * rr * 0.3, cy + math.sin(a) * rr * 0.3
+            d.ellipse(((px - rr * 0.2) * k, (py - rr * 0.13) * k, (px + rr * 0.2) * k, (py + rr * 0.13) * k), outline=(128, 120, 106), width=k)
 
 
 def crate_texture(path):
-    """256 x 256: outer planks (left half), inside planks (top right), sawn rim (bottom right)."""
+    """512 x 512: outer planks (left half), inside planks (top right), the tins (bottom right, CANS_PX, paint_cans) and the
+    sawn rim (a strip under the tins)."""
     from PIL import Image, ImageDraw
-    k = 4
-    im = Image.new("RGB", (256 * k, 256 * k), (60, 42, 28))
+    k, S = 4, 2                                       # drawn at 4x, saved at 512 (the old 256 layout scaled by S)
+    im = Image.new("RGB", (512 * k, 512 * k), (60, 42, 28))
     d = ImageDraw.Draw(im)
     r = random.Random(3)
     def boards(x0, y0, x1, y1, n, base, dark):
+        x0, y0, x1, y1 = x0 * S, y0 * S, x1 * S, y1 * S
         h = (y1 - y0) / n
         for i in range(n):
             c = tuple(int(v * r.uniform(0.92, 1.06)) for v in base)
-            d.rectangle((x0 * k, (y0 + i * h + 2) * k, x1 * k, (y0 + (i + 1) * h - 2) * k), fill=c)
+            d.rectangle((x0 * k, (y0 + i * h + 2 * S) * k, x1 * k, (y0 + (i + 1) * h - 2 * S) * k), fill=c)
             for g in range(5):                                    # a few grain streaks along the board
-                yy = y0 + i * h + r.uniform(5, h - 5)
-                d.line((x0 * k, yy * k, x1 * k, (yy + r.uniform(-2, 2)) * k), fill=dark, width=k)
-            for nx in (x0 + 6, x1 - 6):                           # two nails at each end
-                d.ellipse(((nx - 1.6) * k, (y0 + i * h + h / 2 - 1.6) * k, (nx + 1.6) * k, (y0 + i * h + h / 2 + 1.6) * k), fill=(70, 66, 62))
+                yy = y0 + i * h + r.uniform(5 * S, h - 5 * S)
+                d.line((x0 * k, yy * k, x1 * k, (yy + r.uniform(-2, 2) * S) * k), fill=dark, width=S * k)
+            for nx in (x0 + 6 * S, x1 - 6 * S):                   # two nails at each end
+                d.ellipse(((nx - 1.6 * S) * k, (y0 + i * h + h / 2 - 1.6 * S) * k, (nx + 1.6 * S) * k, (y0 + i * h + h / 2 + 1.6 * S) * k), fill=(70, 66, 62))
     boards(0, 0, 128, 256, 3, (178, 136, 88), (150, 112, 70))
     # a stamped paw on the outside, faded
-    cx, cy = 64 * k, 128 * k
+    cx, cy, u = 64 * S * k, 128 * S * k, S * k
     stamp = (128, 84, 52)
-    d.ellipse((cx - 14 * k, cy - 4 * k, cx + 14 * k, cy + 18 * k), fill=stamp)
+    d.ellipse((cx - 14 * u, cy - 4 * u, cx + 14 * u, cy + 18 * u), fill=stamp)
     for dx, dy in ((-16, -14), (-6, -22), (6, -22), (16, -14)):
-        d.ellipse((cx + (dx - 5) * k, cy + (dy - 5) * k, cx + (dx + 5) * k, cy + (dy + 5) * k), fill=stamp)
+        d.ellipse((cx + (dx - 5) * u, cy + (dy - 5) * u, cx + (dx + 5) * u, cy + (dy + 5) * u), fill=stamp)
     boards(128, 0, 256, 128, 3, (140, 104, 66), (116, 84, 52))
-    d.rectangle((128 * k, 128 * k, 256 * k, 256 * k), fill=(204, 168, 120))
-    im.resize((256, 256), Image.LANCZOS).save(path)
+    d.rectangle((256 * k, 256 * k, 512 * k, 512 * k), fill=(204, 168, 120))       # the rim's sawn wood, under the tins
+    cans = Image.new("RGB", (CANS_PX[0] * k, CANS_PX[1] * k))
+    paint_cans(cans, (0, 0) + CANS_PX, k)
+    im.paste(cans, (256 * k, 256 * k))
+    im.resize((512, 512), Image.LANCZOS).save(path)
 
 
 def kitchen_crate():
-    """The crate as one textured open box: outer walls, inner walls, floor and rim (13 quads, 26 triangles)."""
+    """The crate as one textured open box: outer walls, inner walls down to the tins, the tins (one quad at CANS_Z, painted)
+    and the rim (13 quads, 26 triangles). Nothing under the tins is made: no one sees the floor."""
     img = os.path.join(HERE, "kitchen_crate.png")
     crate_texture(img)
     bm = bmesh.new()
@@ -764,19 +820,21 @@ def kitchen_crate():
         f = bm.faces.new([bm.verts.new(p) for p in pts])
         for lp, t in zip(f.loops, uvs):
             lp[uv].uv = t
-    X, Y, x, y, Z, z0 = CW / 2, CD / 2, CW / 2 - CT, CD / 2 - CT, CH, 0.02
+    X, Y, x, y, Z = CW / 2, CD / 2, CW / 2 - CT, CD / 2 - CT, CH
     # outer walls, counter-clockwise seen from outside: u along the wall (the boards run along it), v up
     for (a, b), w in ((((-X, -Y), (X, -Y)), CW), (((X, -Y), (X, Y)), CD), (((X, Y), (-X, Y)), CW), (((-X, Y), (-X, -Y)), CD)):
         u1 = 0.5 * w / CW
         q([(a[0], a[1], 0), (b[0], b[1], 0), (b[0], b[1], Z), (a[0], a[1], Z)], [(0, 0), (u1, 0), (u1, 1), (0, 1)])
-    # inner walls, facing in
+    # inner walls, facing in, from the tins up (v 0.5 to 1 is the wall's full height, so the boards keep their size)
+    v0 = 1 - 0.5 * (CH - CANS_Z) / CH
     for (a, b), w in ((((x, -y), (-x, -y)), CW), (((x, y), (x, -y)), CD), (((-x, y), (x, y)), CW), (((-x, -y), (-x, y)), CD)):
         u1 = 0.5 + 0.5 * w / CW
-        q([(a[0], a[1], z0), (b[0], b[1], z0), (b[0], b[1], Z), (a[0], a[1], Z)], [(0.5, 0.5), (u1, 0.5), (u1, 1), (0.5, 1)])
-    q([(-x, -y, z0), (x, -y, z0), (x, y, z0), (-x, y, z0)], [(0.5, 0.5), (1, 0.5), (1, 1), (0.5, 1)])      # floor
-    # rim: four flat strips on top of the walls
+        q([(a[0], a[1], CANS_Z), (b[0], b[1], CANS_Z), (b[0], b[1], Z), (a[0], a[1], Z)], [(0.5, v0), (u1, v0), (u1, 1), (0.5, 1)])
+    cu, cv = 0.5 + CANS_PX[0] / 512, 0.5 - CANS_PX[1] / 512                     # the tins' rectangle in the atlas
+    q([(-x, -y, CANS_Z), (x, -y, CANS_Z), (x, y, CANS_Z), (-x, y, CANS_Z)], [(0.5, cv), (cu, cv), (cu, 0.5), (0.5, 0.5)])   # the tins, front at the bottom
+    # rim: four flat strips on top of the walls, on the sawn wood under the tins
     for pts in (((-X, -Y), (X, -Y), (x, -y), (-x, -y)), ((X, -Y), (X, Y), (x, y), (x, -y)), ((X, Y), (-X, Y), (-x, y), (x, y)), ((-X, Y), (-X, -Y), (-x, -y), (-x, y))):
-        q([(p[0], p[1], Z) for p in pts], [(0.55, 0.05), (0.95, 0.05), (0.95, 0.45), (0.55, 0.45)])
+        q([(p[0], p[1], Z) for p in pts], [(0.55, 0.02), (0.95, 0.02), (0.95, 0.13), (0.55, 0.13)])
     bm.verts.ensure_lookup_table()
     o = obj_from_bm(bm, "KitchenCrate")
     o.data.materials.append(image_material("KitchenCrate", img))
@@ -789,30 +847,33 @@ def top_only(o):
 
 
 def kitchen_things(M):
-    """What's in and by the crate: a frying pan standing in it with its handle up, a stack of enamel plates, a honey
-    jar and a wooden spoon (plain low-sided shapes, baked like the other props)."""
+    """What's in the crate, on the tins (kitchen_crate CANS_Z): a frying pan propped on its handle with the handle out over
+    the left rim, a stack of enamel plates in front on the right and a honey jar behind them (plain low-sided shapes,
+    baked like the other props). The front middle and front left are bare tins, where the page lays the sloths' fruit
+    (camp/sloth/table.js, which finds the top of whatever is there). The wooden spoon is gone (Adriaen 2026-11-15)."""
     p = []
-    # the pan: a shallow 8-sided dish leaning against the back wall, handle sticking up out of the crate
-    pan = cyl(0.12, 0.035, at=(0, 0, 0), m=M["pan"], verts=8, r2=0.1, smooth=False)
-    handle = rod((0, 0.115, 0.01), (0, 0.3, 0.03), 0.012, M["pan"], verts=4)
+    # the pan: a shallow 8-sided dish, wide side up, no bottom (it lies on the tins); its handle rests on the left rim, so
+    # the dish tilts 12 degrees with its far edge on the tins. Built with its bottom middle at the origin, handle along -X,
+    # rising 15 degrees from the dish; tilted, it rests on the inner edge of the left rim and clears the outer one by 1 cm
+    pan = top_only(cyl(0.1, 0.035, at=(0, 0, 0.0175), m=M["pan"], verts=8, r2=0.12, smooth=False))
+    a = math.radians(15)
+    handle = rod((-0.115, 0, 0.03), (-0.115 - 0.19 * math.cos(a), 0, 0.03 + 0.19 * math.sin(a)), 0.012, M["pan"], verts=4)
     pj = join([pan, handle], "pan")
-    pj.rotation_euler = (math.radians(75), 0, 0)                  # stood on its rim, dish to the front, handle up and out
-    pj.location = (-0.08, 0.06, 0.14)
+    tilt = math.radians(12)
+    pj.rotation_euler = (0, tilt, 0)                               # the handle side up
+    pj.location = (-0.088, 0.025, CANS_Z + 0.1 * math.sin(tilt))   # the low edge (r 0.1 at the bottom) on the tins
     p.append(pj)
     k0 = mark(p, 0, "Frying pan")
-    # plates stacked on the floor of the crate, front right
-    # (no caps nobody sees, review R2-154: the stack is open at both ends, under the rim and on the crate floor, and
-    # the rim and the jar's lid have only their top)
-    p.append(cyl(0.085, 0.04, at=(0.12, -0.04, 0.04), m=M["plate"], verts=8, smooth=False, caps=False))
-    p.append(top_only(cyl(0.086, 0.004, at=(0.12, -0.04, 0.0615), m=M["rim"], verts=8, smooth=False)))
+    # plates stacked on the tins, front right
+    # (no caps nobody sees, review R2-154: the stack is open at both ends, on the tins, and the rim and the jar's lid
+    # have only their top)
+    p.append(cyl(0.085, 0.04, at=(0.13, -0.045, CANS_Z + 0.02), m=M["plate"], verts=8, smooth=False, caps=False))
+    p.append(top_only(cyl(0.086, 0.004, at=(0.13, -0.045, CANS_Z + 0.0415), m=M["rim"], verts=8, smooth=False)))
     k0 = mark(p, k0, "Enamel plates")
-    # the honey jar in the back corner of the crate, and a wooden spoon resting across the rim
-    p.append(cyl(0.045, 0.1, at=(0.17, 0.095, 0.07), m=M["honey"], verts=6, smooth=False, caps=False))
-    p.append(top_only(cyl(0.05, 0.022, at=(0.17, 0.095, 0.131), m=M["lid"], verts=6, smooth=False)))
-    k0 = mark(p, k0, "Honey jar")
-    p.append(rod((-0.2, -0.17, CH + 0.008), (0.06, -0.15, CH + 0.03), 0.008, M["handle"], verts=4))
-    p.append(box((0.07, 0.045, 0.014), at=(0.1, -0.148, CH + 0.03), rot=(0, 0.15, 0.08), m=M["handle"]))
-    mark(p, k0, "Wooden spoon")
+    # the honey jar in the back right corner, its lid just over the rim
+    p.append(cyl(0.045, 0.1, at=(0.17, 0.095, CANS_Z + 0.05), m=M["honey"], verts=6, smooth=False, caps=False))
+    p.append(top_only(cyl(0.05, 0.022, at=(0.17, 0.095, CANS_Z + 0.111), m=M["lid"], verts=6, smooth=False)))
+    mark(p, k0, "Honey jar")
     return join(p, "KitchenThings")
 
 
