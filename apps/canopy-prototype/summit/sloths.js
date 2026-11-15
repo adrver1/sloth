@@ -40,9 +40,9 @@ function spots() {
   const door = tent.localToWorld(V(0, 0.04, 0.9));
   const sx = CAMP.x - 3.3, sz = CAMP.z - 0.6;   // the snowman (scoutCamp.js)
   return {
-    Sunny: seat(0, SEAT_SLOT.sunny), Bandit: seat(1, 0), Figgy: seat(2, 0),
+    Sunny: seat(0, SEAT_SLOT.sunny), Bandit: seat(1, 0.2), Figgy: seat(2, -0.2),   // off the ends the operator sits on (SEAT_SLOT.op)
     Hibi: { at: inCamp(rug.x, rug.y, rug.z), yaw: rugA, clip: 'nap', doze: 'nap', scale: 2.2, rug },
-    Mango: { at: V(-2.7, TOP + YB + 0.445, -(D / 2 + 0.45)), yaw: 0, clip: 'reach', doze: 'curl', scale: 1.9 },
+    Mango: { at: V(-2.5, TOP + YB + 0.445, -(D / 2 + 0.45)), yaw: 0, clip: 'reach', doze: 'curl', scale: 1.9 },
     Pip: { at: V(sx - 0.75, TOP, sz - 0.2), yaw: Math.atan2(sx - 0.75 - CAMP.x, sz - 0.2 - CAMP.z), clip: 'idle', doze: 'curl', scale: 2.2 },
     Hazel: { at: inCamp(door.x, door.y, door.z), yaw: TENT.yaw + Math.PI, clip: 'peek', doze: 'peek', scale: 1.9 },
   };

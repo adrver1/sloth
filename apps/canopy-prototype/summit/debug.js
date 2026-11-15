@@ -3,7 +3,7 @@
 // first frame is set up, and fills `stats` (also read by player.js's Speed test) twice a second.
 //   name       what                                                                     read by
 //   __ready    true once the summit runs                                                the shot scripts: they wait for it
-//   __scene    { setHour, weather, jump, me, showTris, TRIS, scene, renderer, levels, backdrop, ... } (main.js)   the shot and draw-count scripts
+//   __scene    { setHour, weather, jump, me, showTris, TRIS, scene, renderer, levels, backdrop, life, ... } (main.js)   the shot and draw-count scripts
 //   __stats    fps, draw calls, triangles, pixel ratio                                  the probe scripts
 export const stats = { calls: 0, tris: 0, fps: 0, pr: 1 };
 export function ready(api) {

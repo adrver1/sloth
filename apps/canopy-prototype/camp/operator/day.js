@@ -3,10 +3,13 @@
 // a book, warming his hands at the fire, a stroll, sleep in the tent bed, playing with a sloth, sitting with you by the fire,
 // and making the soup (cook.js). What comes next is drawn by weight (other weights at night), never the same thing twice in
 // a row. With ?lived=0 there is no kitchen crate, so no mug, no cooking and no soup.
-// Exports lifeStep(dt) (step.js, each frame; an error in an activity is logged and his day starts again) and jumpTo(kind)
-// (the checks, opChecks.jump: stop what he is doing cleanly, start that activity now, then carry on).
+// A level can bring its own day (stage.js OP_DAY: { weights(night), DO: { name: activity } }): its activities join the camp's
+// and its weights replace WEIGHTS (the summit's firewood, porch bench and snowman, summit/opDay.js).
+// Exports lifeStep(dt) (step.js, each frame; an error in an activity is logged and his day starts again), jumpTo(kind)
+// (the checks, opChecks.jump: stop what he is doing cleanly, start that activity now, then carry on), and for a level's own
+// activities seatWith(activity, seat), sipping(n) and wantJoin().
 import * as THREE from "three";
-import { chores, CRATE, LIVED, me, RC, rng, scene, SOUP_POT, toStage, uNight } from "../stage.js";
+import { chores, CRATE, LIVED, me, OP_DAY, RC, rng, scene, SOUP_POT, toStage, uNight } from "../stage.js";
 const { R } = rng("operator");
 import { V, ease, yawTo } from "../util.js";
 import { ringPoint } from "../actor.js";
@@ -33,8 +36,8 @@ function* sipping(n) {                                 // n sips from what's in 
     for (let t = SIP.top; t > SIP.hold;) { t -= (yield) * 1.3; a.time = Math.max(t, SIP.hold); }
   }
 }
-function* seatWith(activity) {                         // claim a seat, sit, do it, and cuddle any sloth that joins
-  const s = freeSeat(); if (!s || !claimPlace(s.key)) return;
+function* seatWith(activity, seat = null) {            // claim a seat (a free log seat unless one is given), sit, do it, and cuddle any sloth that joins
+  const s = seat ?? freeSeat(); if (!s || !claimPlace(s.key)) return;
   host(s.key);
   yield* sitOn(s);
   yield* activity();
@@ -159,16 +162,18 @@ DO.join = function* () {
   } finally { op.cd.join = R(90, 150); }
 };
 DO.cook = cook;
+// a level's own day (stage.js OP_DAY, the summit's): its activities join these, and its weights replace the camp's
+const act = (k) => OP_DAY?.DO[k] ?? DO[k];
 function* lifeLoop() {
   yield* wait(R(2, 5));
   for (;;) {
     const kind = op.next || (wantJoin() ? "join" : pick()); op.next = null; op.kind = kind;
-    yield* DO[kind](); op.kind = "idle"; op.last = kind;
+    yield* act(kind)(); op.kind = "idle"; op.last = kind;
     yield* wait(R(2, 6), () => op.next || wantJoin());
   }
 }
 function pick() {
-  const w = Object.entries(WEIGHTS(uNight.value > 0.5)).filter(([k]) => k !== op.last && (LIVED || !NEEDS_CRATE.has(k)) && (k !== "play" || slothLife) && (k !== "cook" || (op.cd.cook <= 0 && chores.cook.can())) && (k !== "eat" || chores.cook.stage === "ready"));
+  const w = Object.entries((OP_DAY?.weights ?? WEIGHTS)(uNight.value > 0.5)).filter(([k]) => k !== op.last && (LIVED || !NEEDS_CRATE.has(k)) && (k !== "play" || slothLife) && (k !== "cook" || (op.cd.cook <= 0 && chores.cook.can())) && (k !== "eat" || chores.cook.stage === "ready"));
   let r = R(0, w.reduce((s, [, v]) => s + v, 0)); for (const [k, v] of w) if ((r -= v) <= 0) return k; return w[0][0];
 }
 
@@ -191,9 +196,9 @@ function lifeStep(dt) {
 }
 // the checks (opChecks.jump): this activity now, then his day goes on
 function jumpTo(k) {
-  if (!DO[k]) throw new Error(`operator: no activity "${k}" (one of ${Object.keys(DO).join(", ")})`);
+  if (!act(k)) throw new Error(`operator: no activity "${k}" (one of ${[...Object.keys(DO), ...Object.keys(OP_DAY?.DO ?? {})].join(", ")})`);
   lifeStop();
-  it = (function* () { op.kind = k; yield* DO[k](); op.kind = "idle"; yield* lifeLoop(); })(); it.next();
+  it = (function* () { op.kind = k; yield* act(k)(); op.kind = "idle"; yield* lifeLoop(); })(); it.next();
 }
 
-export { jumpTo, lifeStep };
+export { jumpTo, lifeStep, seatWith, sipping, wantJoin };

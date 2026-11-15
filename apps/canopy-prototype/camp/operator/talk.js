@@ -36,7 +36,7 @@ function buildTalk() {
   on(EV.act, react);
   bubble = document.createElement("div");
   bubble.style.cssText = "position:fixed;left:0;top:0;z-index:3;pointer-events:none;transform:translate(-50%,-100%) scale(.85);opacity:0;transition:opacity .35s,transform .35s;" +
-    "max-width:min(260px,70vw);text-align:center;font:600 16px/1.3 var(--display);color:var(--ink);background:rgb(255 248 238 / .96);border-radius:18px;padding:9px 14px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";
+    "max-width:min(260px,70vw);text-align:center;font:600 16px/1.3 var(--display);color:var(--bubble-ink, var(--ink));background:rgb(255 248 238 / .96);border-radius:18px;padding:9px 14px;box-shadow:0 3px 0 rgb(138 90 59 / .25)";
   const tail = document.createElement("i"); tail.style.cssText = "position:absolute;left:50%;bottom:-7px;width:14px;height:14px;margin-left:-7px;background:inherit;transform:rotate(45deg);border-radius:0 0 3px 0";
   say = document.createElement("span"); bubble.append(say, tail); document.body.append(bubble);
   // what a tap finds: an invisible column round him

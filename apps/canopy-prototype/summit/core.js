@@ -47,6 +47,8 @@ THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
     vHazeO = fogOETF(mix(uSkyLo, uHor, 0.35 + 0.65 * f2) + uSunCol * (f4 * 0.5));   // a warm glow toward the sun, like the camp's sunlit mist
     vMistO = fogOETF(uMistCol + uSunCol * (f4 * 0.25)); vFogO = fogOETF(uFogCol); }
 #endif`;
+// a sprite's shader has no `transformed` for the fog above: give it its centre (the cast's sleep z's and hearts are sprites)
+THREE.ShaderLib.sprite.vertexShader = THREE.ShaderLib.sprite.vertexShader.replace('#include <fog_vertex>', 'vec3 transformed = vec3(0.0);\n#include <fog_vertex>');
 THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
 varying vec3 vFogW, vHazeO, vMistO, vFogO;
 uniform float uHaze, uMist, uMistTop, uFogDen;

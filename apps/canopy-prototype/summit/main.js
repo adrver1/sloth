@@ -18,7 +18,7 @@ import { backdrop, buildBackdrop } from './backdrop.js';
 import { ready, stats } from './debug.js';
 import { buildDrive, driveStep } from './drive.js';
 import { buildSloths, slothsStep } from './sloths.js';
-import { buildOperator, operatorStep } from './operator.js';
+import { buildLife, lifeHooks, lifeStep } from './life.js';
 import { buildDaytime, daytimeApi, daytimeStep } from './daytime.js';
 import { audioStep, buildAudio } from './audio.js';
 
@@ -30,7 +30,7 @@ buildHorizon();     // horizon.js: the painted ring; MADE_FROM counts the scene'
 buildCabin();       // cabin.js: the cabin and the fire lookout
 buildScoutCamp();   // scoutCamp.js: the camp's GLBs round the fire (loading), lanterns, flag, snowman
 buildSloths();      // sloths.js: Hibi's sheepskin and the breath's puffs now, the seven when the sloth model is in (needs the scout camp's place)
-buildOperator();    // operator.js: the bearded operator on his end of the middle log (loading)
+buildLife();        // life.js: the camp's operator, going about his summit day (loading; he starts once the scout camp is in)
 buildRoad();        // road.js: fences, the road, bridge and tunnel, the jeep (loading; the map goes on its hood when it arrives), mud
 buildMap();         // map.js: the map and compass on the hood and in your hands
 buildFx();          // fx.js: smoke plumes and the storm's snow
@@ -60,7 +60,7 @@ function frame() {
   fxStep(dt, now, LIGHT.storm, LIGHT.bright);   // sets the wind before the flag reads it
   campStep(now, LIGHT.night, wind);
   slothsStep(dt, now);   // after the light: they doze off when it is dark
-  operatorStep(dt);      // after the sloths: his sips and his wave
+  lifeStep(dt);          // after the sloths and the light: the camp's cast, his summit day
   audioStep(dt);         // after the light and the wind: the ear, the beds, the crackles and calls, your steps
   if (!BARE) { carry.step(dt, LIGHT.bright); roadStep(); }
   const shNow = renderer.shadowMap.needsUpdate, tr = performance.now();
@@ -75,4 +75,4 @@ function frame() {
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-ready({ setHour: daytimeApi.setHour, weather: (w) => { SKY.target = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop, updateLevel });
+ready({ setHour: daytimeApi.setHour, weather: (w) => { SKY.target = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop, updateLevel, life: lifeHooks });
