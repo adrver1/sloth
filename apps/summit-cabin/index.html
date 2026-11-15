@@ -736,9 +736,10 @@ function cullWedges() {   // a wedge shows when it overlaps the view's width, wi
 }
 const tiles = new Map();
 // which style grows here: birches low down by the lake and at thin forest edges, pines and dead snags on high, dry ground
-function species(x, z, h, f, roll) {
-  const low = 1 - sstep(LAKE + 30, LAKE + 140, h), high = sstep(TREELINE - 260, TREELINE - 40, h), edge = 1 - sstep(0.3, 0.75, f);
-  const pBirch = 0.04 + 0.35 * low * (0.5 + 0.5 * edge) + 0.12 * edge, pSnag = 0.03 + 0.12 * high, pPine = 0.1 + 0.2 * high + 0.1 * sstep(0.45, 0.6, fbm(x / 300 - 4, z / 300 + 9, 2));
+function species(x, z, h, f, roll) {   // the mix keeps its old heights: tying it to the lowered treeline turned the summit's forest into dead snags
+  const low = 1 - sstep(LAKE + 30, LAKE + 140, h), high = sstep(LAKE + 460, LAKE + 680, h), edge = 1 - sstep(0.3, 0.75, f);
+  const pBirch = 0.02 + low * (0.2 + 0.25 * edge), pSnag = 0,   // bare birches only down by the lake; no dead snags (Adriaen 2026-11-15: bare poles and twig crowns up high looked weird)
+    pPine = 0.1 + 0.2 * high + 0.1 * sstep(0.45, 0.6, fbm(x / 300 - 4, z / 300 + 9, 2));
   return roll < pBirch ? 2 : roll < pBirch + pSnag ? 3 : roll < pBirch + pSnag + pPine ? 1 : (roll * 97) % 1 < 0.5 ? 0 : 4;   // two fir shapes
 }
 const SIZE = [[7, 8], [12, 7], [8, 5], [6, 6], [7, 9]];   // height range per style: base + up to extra, in metres
