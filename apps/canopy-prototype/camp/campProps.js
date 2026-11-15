@@ -10,7 +10,7 @@ import { LIGHT_GLSL, LIGHT_MIX, bindLight, liveChunk } from "../bakedlight.js";
 import { D, LIVED, PRE, rng, S, scene, sun, uTime } from "./core.js";
 const { R } = rng("props");
 import { V, canvasTex, patchMaterial } from "./util.js";
-import { ANCHORS, CRATE, HAMMOCK, HERO, LANTERN_TIES, LAUNDRY, RC, SEATS, TABLE, TENT, WOOD_PILE } from "./layout.js";
+import { ANCHORS, HAMMOCK, HERO, LANTERN_TIES, RC, SEATS, TABLE, TENT, WOOD_PILE, wearBlockers } from "./layout.js";
 import { lanternLayout, createLanterns } from "./lanterns.js";
 
 // ---------------------------------------------------------------- the camp: fire, logs, tent, hammock, lanterns, snack table
@@ -25,9 +25,10 @@ const CAMP = { tentAt: TENT.at, hA: HAMMOCK.a, hB: HAMMOCK.b, tb: TABLE.at };
 // blockers: [centre, radius] circles that keep plants, props and sloths apart. A few also carry a tighter shape for walking
 // (.walk, player.js): the fire ring stops you at its stones, and each log seat is a thin capsule along the log, so there is
 // a ring to walk round the fire between them (Adriaen 2026-11-13: the old circles walled the fire in)
-const blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Object.assign([TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), 1.9], { tent: true }), [TABLE.at, 0.75], [HAMMOCK.a, 0.3], [HAMMOCK.b, 0.3], ...HERO.map((h) => [h, 1.4])];
-for (const { angle: a, at: c } of SEATS) { const t = V(-Math.sin(a), 0, Math.cos(a));
-  blockers.push(Object.assign([c, 0.75], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); }   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
+// (the table, hammock posts, seats, lived props, laundry posts and jeep take their circles from layout.js WEAR, wearBlockers)
+const blockers = [Object.assign([V(0, 0, 0), 0.9], { walk: { r: 0.75 } }), Object.assign([TENT.at.clone().multiplyScalar(1 + 0.275 / TENT.at.length()), 1.9], { tent: true }), ...wearBlockers("camp"), ...HERO.map((h) => [h, 1.4])];
+wearBlockers("seats").forEach(([c, r], i) => { const a = SEATS[i].angle, t = V(-Math.sin(a), 0, Math.cos(a));
+  blockers.push(Object.assign([c, r], { walk: { a: c.clone().addScaledVector(t, -0.6), b: c.clone().addScaledVector(t, 0.6), r: 0.25 } })); });   // build_camp.py rustic seat: a 1.5 m half log, 0.5 m deep
 const FIRE_CARDS = [];   // the fire's flame cards (the activities flare them)
 const uNight = { value: 0 };   // how far the baked night light is faded in (main.js sets it from the dusk)
 let glowTex, LANTERNS, fireLight, rayMat, motes, pools, SLOTH, LMTEX, LMSUN, WOODPILE, WOOD_TEX;   // set by buildProps
@@ -132,8 +133,8 @@ async function buildProps() {
     // the wood pile, the mug and book on the middle seat, the wellies and rolled mat by the tent door, the kitchen crate
     // beside the snack table (its front to the fire) and the sawn top on each seat
     stand(L.scene);
-    const { at: wp, side } = WOOD_PILE; WOODPILE = wp;   // the activities take logs from here
-    blockers.push([wp, 0.55], [wp.clone().addScaledVector(side, 1.0), 0.35], [CRATE.at, 0.35]);
+    WOODPILE = WOOD_PILE.at;   // the activities take logs from here
+    blockers.push(...wearBlockers("lived"));   // the wood pile, its chopping stump and the kitchen crate
   }
   // ---------------------------------------------------------------- the laundry line (props/lived/build_laundry.py): two forked sticks east of the fire,
   // between the snack table and the tent, with a towel and three sloth socks pegged on it (textured quads, about 110 triangles).
@@ -142,7 +143,7 @@ async function buildProps() {
     const LD = await PRE.laundry;
     LD.scene.traverse((m) => { if (m.isMesh) m.material = lnight(m.material.map ? new THREE.MeshLambertMaterial({ map: m.material.map, alphaTest: 0.5, side: THREE.DoubleSide }) : new THREE.MeshLambertMaterial({ vertexColors: true })); });
     stand(LD.scene);
-    blockers.push([LAUNDRY.posts[0], 0.25], [LAUNDRY.posts[1], 0.25]);
+    blockers.push(...wearBlockers("laundry"));   // the two posts
   }
   // ---------------------------------------------------------------- the campfire and soup pot (props/lived/build_fire.py), picked 2026-11-11:
   // a teepee fire in a ring of sooty stones under the bamboo tripod, and an open iron pot of soup hanging on a chain (one

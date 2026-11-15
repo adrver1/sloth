@@ -104,19 +104,23 @@ export const ANCHORS = { tent: TENT, hammock: { at: HAMMOCK.mid, yaw: HAMMOCK.ya
   seatThings: SEATS[1], kitchen: CRATE, laundry: { at: LAUNDRY.mid, yaw: LAUNDRY.yaw }, fire: { at: V(0, 0, 0), yaw: 0 } };   // seatThings: the middle seat
 
 // ---------------------------------------------------------------- the worn ground round the things people use (review R2-255)
-// One named entry per thing: { name, at, r, path, lived?, jeep? }. r is its footprint (the collision radius campProps.js and
-// jeep.js give it); path: a footpath runs to it from the fire. lived: only with the lived-in props (?lived=1), jeep: only
-// with a jeep. ground.js paints its live wear map from these (campGround.js filters them), and export_casters.cjs hands
+// One named entry per thing: { name, at, r, path, set }. r is its footprint, and also its collision radius: campProps.js
+// and jeep.js put their blockers down from these entries (wearBlockers), so the wear and the collision cannot drift apart.
+// path: a footpath runs to it from the fire. set: which part of the camp it belongs to, "camp" (always there), "seats"
+// (SEATS order), "lived" and "laundry" (only with the lived-in props, ?lived=1) or "jeep" (only with a jeep). ground.js
+// paints its live wear map from these (campGround.js filters them), and export_casters.cjs hands
 // them to props/ground/bake_ground.py as "wear", which gives each entry its own random stream keyed by its name, so adding
 // a thing re-rolls only its own patch and path. The hammock's posts have no path: the bake wears a patch along the
 // hammock itself. The deadwood is wild and gets no worn ground.
 export const WEAR = [
-  { name: "table", at: TABLE.at, r: 0.75, path: true },
-  ...SEATS.map((s, i) => ({ name: `seat${i}`, at: s.at, r: 0.75, path: false })),   // inside the trampled ring round the fire
-  { name: "hammockA", at: HAMMOCK.a, r: 0.3, path: false }, { name: "hammockB", at: HAMMOCK.b, r: 0.3, path: false },
-  { name: "woodPile", at: WOOD_PILE.at, r: 0.55, path: true, lived: true },
-  { name: "choppingStump", at: WOOD_PILE.at.clone().addScaledVector(WOOD_PILE.side, 1.0), r: 0.35, path: true, lived: true },
-  { name: "kitchen", at: CRATE.at, r: 0.35, path: true, lived: true },
-  ...LAUNDRY.posts.map((p, i) => ({ name: `laundry${i}`, at: p, r: 0.25, path: true, lived: true })),
-  ...[-0.95, 0.95].map((k, i) => ({ name: `jeep${i}`, at: JEEP_AT.clone().addScaledVector(JEEP_TAN, k), r: 1.05, path: true, jeep: true })),
+  { name: "table", at: TABLE.at, r: 0.75, path: true, set: "camp" },
+  ...SEATS.map((s, i) => ({ name: `seat${i}`, at: s.at, r: 0.75, path: false, set: "seats" })),   // inside the trampled ring round the fire
+  { name: "hammockA", at: HAMMOCK.a, r: 0.3, path: false, set: "camp" }, { name: "hammockB", at: HAMMOCK.b, r: 0.3, path: false, set: "camp" },
+  { name: "woodPile", at: WOOD_PILE.at, r: 0.55, path: true, set: "lived" },
+  { name: "choppingStump", at: WOOD_PILE.at.clone().addScaledVector(WOOD_PILE.side, 1.0), r: 0.35, path: true, set: "lived" },
+  { name: "kitchen", at: CRATE.at, r: 0.35, path: true, set: "lived" },
+  ...LAUNDRY.posts.map((p, i) => ({ name: `laundry${i}`, at: p, r: 0.25, path: true, set: "laundry" })),
+  ...[-0.95, 0.95].map((k, i) => ({ name: `jeep${i}`, at: JEEP_AT.clone().addScaledVector(JEEP_TAN, k), r: 1.05, path: true, set: "jeep" })),
 ];
+// the blockers ([centre, radius], campProps.js) of one WEAR set, in WEAR's order
+export const wearBlockers = (set) => WEAR.filter((w) => w.set === set).map((w) => [w.at, w.r]);

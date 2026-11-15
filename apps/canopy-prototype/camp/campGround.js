@@ -22,7 +22,7 @@ let groundLife = null;
 // baked: the ground mask core.js downloaded (PRE.groundMask), or null: then ground.js paints its wear map live
 function buildGround(baked) {
   groundLife = createGround({ baked, height: groundHeight, far: FAR, forestMap: forestFloorTex, noise: vnoise, scene, RC, blockers, grassMap: grassTex, S, fx: D.fx, uTime, night: uNight, trackDist, trackPts: track ? track.pts : [], extra: gladePlants,
-    wear: WEAR.filter((w) => (LIVED || !w.lived) && (JEEP !== "none" || !w.jeep)),   // the worn dirt and paths: only the things that are there
+    wear: WEAR.filter((w) => ({ lived: LIVED, laundry: LIVED, jeep: JEEP !== "none" })[w.set] ?? true),   // the worn dirt and paths: only the things that are there
     bare: TENT.bare,   // no grass in the tent or through its planks
     // the baked ground shadows (for a set with no bake, ground.js renders them live) and the night light baked with the
     // props, from LMDIR (models/, or a preview bake's folder); only the jeep's set has a night bake, so ?jeep=none asks for none and lights the ground live (no 404s)
