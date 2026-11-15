@@ -79,7 +79,7 @@ await buildOperator();                 // operator.js: waits for his downloads (
 // the things you use, in this order: input.js first (the listeners, the highlight and the menu), then the modules that add
 // tap targets and props of their own. car.js comes after the jeep seats, the radio and the clocks, whose menus it shares.
 wireSettings();                        // core.js: the ⚙️ menu, and its Detail and Light buttons
-if (OPT.dev) speedSliders($("opts"));   // player.js: the walking speeds, for trying them out (?dev)
+if (OPT.dev) speedSliders($("opts"));   // player.js: the walking speeds, for trying them out (?dev or ?debug)
 initInput({ renderer, scene, camera, canvas: $("c"), stick: $("stick"), help: $("q"), touch: OPT.touch,   // input.js, shared with the summit
   carry: { food, give: handOver },   // chores.js: what you hold
   eat: (s, mesh, from) => !!slothLife && (slothLife.eatGift(s, mesh, from), true),

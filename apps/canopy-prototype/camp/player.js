@@ -68,7 +68,7 @@ function step(dt) {
 }
 
 // the debug tools' walking speed sliders (Adriaen 2026-11-15: "walking speed access as a slider in debug mode"), in the
-// level's debug menu: camp ?dev (core.js), summit ?debug=1 (summit/player.js); styled by camp/hud.css .time
+// level's debug menu, with ?dev or ?debug in either level (camp core.js, summit/player.js); styled by camp/hud.css .time
 function speedSliders(into) {
   for (const [k, label, max] of [["speed", "🚶 Stroll", 6], ["stride", "🥾 Long walk", 12]]) {
     const row = document.createElement("label"), inp = document.createElement("input"), out = document.createElement("span");

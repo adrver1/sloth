@@ -3,7 +3,7 @@
 // summit's ground and where you may walk handed over (setPlayer): the snow and the porch deck (land.js groundAt), the fence
 // and the cliff (walkable), the trees, the cabin, the jeep and the cast's blockers (castStage.js: the fire, the tent, the seats,
 // the porch's edges, so you come up its steps). Also Jump to, the settings panel's handlers (time, weather, haze, wireframe), the
-// Speed and Walk tests (prof), and showTris for the triangle table; the tests, jumps, table and fps line show with ?debug=1.
+// Speed and Walk tests (prof), and showTris for the triangle table; the tests, jumps, table and fps line show with ?dev or ?debug, as in the camp.
 // walk(dt) each frame (the camp's step and the aim of what lights up).
 import { stats } from './debug.js';
 import * as THREE from 'three';
