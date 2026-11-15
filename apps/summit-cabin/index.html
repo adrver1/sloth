@@ -312,8 +312,12 @@ const snowTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fi
 // how flat you look across it (cotangent of the view angle): looking down from the summit you see snow between the trees, looking
 // across a far slope you see a wall of trees. uTreeCol and uTreeK (cover per unit cotangent) are measured from the card itself.
 const uTreeCol = { value: new THREE.Color('#33463c') }, uTreeK = { value: 0.2 }, NEAR = isPhone ? 85 : 110, CARD_R = isPhone ? 700 : 850, uCardR = { value: CARD_R };
-const morph = (half) => (sh) => {
-  sh.uniforms.uHalf = half; sh.uniforms.uTreeCol = uTreeCol; sh.uniforms.uTreeK = uTreeK; sh.uniforms.uCardR = uCardR;
+// three's ACES filmic curve (as the renderer applies on screen, exposure 1.05), for the backdrop's textures, which get none
+const BAKE_ACES = `vec3 bakeRRT(vec3 v) { vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
+vec3 bakeACES(vec3 c) { const mat3 I = mat3(vec3(0.59719, 0.07600, 0.02840), vec3(0.35458, 0.90834, 0.13383), vec3(0.04823, 0.01566, 0.83777));
+  const mat3 O = mat3(vec3(1.60475, -0.10208, -0.00327), vec3(-0.53108, 1.10813, -0.07276), vec3(-0.07367, -0.00605, 1.07602)); c *= 1.05 / 0.6; return clamp(O * bakeRRT(I * c), 0.0, 1.0); }\n`;
+const morph = (half, far) => (sh) => {
+  sh.uniforms.uHalf = half; sh.uniforms.uClipR = uClipR; sh.uniforms.uTreeCol = uTreeCol; sh.uniforms.uTreeK = uTreeK; sh.uniforms.uCardR = uCardR;
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float hc; attribute vec3 nc; attribute vec3 cc; attribute float fm; uniform float uHalf, uTreeK, uCardR; varying float vForest; varying vec2 vWxz; varying vec3 vRk;')
     .replace('#include <color_vertex>', `vec2 mq = abs(position.xz - cameraPosition.xz); float mph = clamp((max(mq.x, mq.y) - 0.55 * uHalf) / (0.3 * uHalf), 0.0, 1.0);
       vColor = vec4(mix(color.rgb, cc, mph), 1.0);
@@ -323,10 +327,15 @@ const morph = (half) => (sh) => {
     .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = normalize(mix(normal, nc, mph));')
     .replace('#include <begin_vertex>', 'vec3 transformed = vec3(position.x, mix(position.y, hc, mph), position.z); vec2 fh = normalize(vec2(-objectNormal.z, objectNormal.x) + 1e-4); vRk = vec3(dot(position.xz, fh), transformed.y, 1.0 - objectNormal.y);');
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-uniform vec3 uTreeCol; varying float vForest; varying vec2 vWxz; varying vec3 vRk;
-float tn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5), b = fract(sin(dot(i + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5),
+uniform vec3 uTreeCol; uniform float uClipR; varying float vForest; varying vec2 vWxz; varying vec3 vRk;
+${far ? BAKE_ACES : ''}float tn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5), b = fract(sin(dot(i + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5),
   c = fract(sin(dot(i + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5), d = fract(sin(dot(i + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5); return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }`)
     // the painted forest is dappled like treetops (dark crowns, snowy gaps), fading to its plain average where it gets too small to see
+    .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+  ${far ? 'if (length(vWxz - cameraPosition.xz) < uClipR - 30.0) discard;' : 'if (length(vWxz - cameraPosition.xz) > uClipR) discard;'}`)
+    // the far rings are only ever drawn into the backdrop's textures, where three applies no tone mapping or sRGB: do both here,
+    // before the haze, exactly as on screen, so the painted land matches the real land at the seam
+    .replace('#include <fog_fragment>', far ? 'gl_FragColor.rgb = sRGBTransferOETF(vec4(bakeACES(gl_FragColor.rgb), 1.0)).rgb;\n' + THREE.ShaderChunk.fog_fragment.replaceAll('linearToOutputTexel', 'sRGBTransferOETF') : '#include <fog_fragment>')   // real ground ends at uClipR; the painted backdrop starts a little inside it
     .replace('#include <color_fragment>', `#include <color_fragment>
   float px = length(fwidth(vWxz)), dap = (tn(vWxz / 9.0) * 0.65 + tn(vWxz / 31.0) * 0.35 - 0.5) * (1.0 - smoothstep(4.0, 14.0, px));
   diffuseColor.rgb = mix(diffuseColor.rgb, uTreeCol * (1.0 - 0.9 * dap), clamp(vForest * (1.0 + 1.4 * dap), 0.0, 1.0));
@@ -340,14 +349,17 @@ float tn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
 // every tree is drawn (near model or card) out to 80% of CARD_R; over the last 20% the cards dither out as the painted forest fades in, so the forest's tone stays the same
 // trees per cell × mean size² / 100 at forest density f, matching tile(): old forest is denser and taller
 const treeCover = (f) => Math.min(1, 1.1 * f) * (0.75 + 0.5 * f) ** 2 * (49 + 56 + 64 / 3) / 100;
-const LEVELS = 10, SLICES = 8, NC = isPhone ? 48 : 64, NV = NC + 1, NB = NV + 2, levels = [], terrainMats = [];
+// Only the rings out to CLIP_R (1 km) are real, moving with you; the far rings are built once round the play area and only
+// painted into the backdrop (below), which draws them as eight flat panels.
+const CLIP_R = 1000, uClipR = { value: CLIP_R };
+const LEVELS = 10, SLICES = 8, NC = isPhone ? 48 : 64, REAL = isPhone ? 6 : 5, NV = NC + 1, NB = NV + 2, levels = [], terrainMats = [];
 for (let L = 0; L < LEVELS; L++) {
   const g = new THREE.BufferGeometry(), c = 2 ** (L + 1), half = { value: (NC / 2) * c };
   for (const [name, n] of [['position', 3], ['normal', 3], ['color', 3], ['uv', 2], ['hc', 1], ['nc', 3], ['cc', 3], ['fm', 1]]) g.setAttribute(name, new THREE.BufferAttribute(new Float32Array(NV * NV * n), n));
-  const mat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex }), morph(half)); terrainMats.push(mat);
+  const mat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex }), morph(half, L >= REAL), L >= REAL ? 'far' : 'near'); terrainMats.push(mat);
   // each ring is drawn as eight 45° slices round you sharing its vertices; cullTerrain() hides the slices outside your view
-  const parts = [...Array(SLICES)].map(() => { const pg = new THREE.BufferGeometry(); for (const k in g.attributes) pg.setAttribute(k, g.attributes[k]); pg.setIndex(new THREE.BufferAttribute(new Uint16Array((NC * NC * 6) / 4), 1));
-    const mesh = new THREE.Mesh(pg, mat); mesh.frustumCulled = false; mesh.receiveShadow = true; scene.add(mesh); pg.userData.mesh = mesh; return pg; });
+  const parts = [...Array(SLICES + 1)].map(() => { const pg = new THREE.BufferGeometry(); for (const k in g.attributes) pg.setAttribute(k, g.attributes[k]); pg.setIndex(new THREE.BufferAttribute(new Uint16Array((NC * NC * 6) / 4), 1));
+    const mesh = new THREE.Mesh(pg, mat); mesh.frustumCulled = false; mesh.receiveShadow = true; if (L >= REAL) mesh.layers.set(2); scene.add(mesh); pg.userData.mesh = mesh; return pg; });
   levels.push({ L, c, g, parts, cx: NaN, cz: NaN, hb: new Float32Array(NB * NB), tris: 0 });
 }
 function updateLevel(lv) {
@@ -375,25 +387,26 @@ function updateLevel(lv) {
     for (let e = 0; e < 3; e++) { nc[k * 3 + e] = (nor[a * 3 + e] + nor[b * 3 + e]) / 2; cc[k * 3 + e] = (col[a * 3 + e] + col[b * 3 + e]) / 2; }
   }
   // cells inside the finer ring are left out
-  const inner = lv.L ? levels[lv.L - 1] : null, ih = inner ? (NC / 2) * inner.c : 0, ns = lv.parts.map(() => 0); lv.tris = 0;
+  const inner = lv.L && lv.L !== REAL ? levels[lv.L - 1] : null, ih = inner ? (NC / 2) * inner.c : 0, ns = lv.parts.map(() => 0); lv.tris = 0;
   for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
     const ax = x0 + i * c, az = z0 + j * c; if (inner && ax >= inner.cx - ih && ax + c <= inner.cx + ih && az >= inner.cz - ih && az + c <= inner.cz + ih) continue;
-    const sl = Math.floor(((Math.atan2(az + c / 2 - lv.cz, ax + c / 2 - lv.cx) / (2 * Math.PI) + 1) % 1) * SLICES) % SLICES, idx = lv.parts[sl].index.array;   // which slice round the ring's centre
+    const sl = Math.max(Math.abs(ax + c / 2 - lv.cx), Math.abs(az + c / 2 - lv.cz)) < 10 ? SLICES : Math.floor(((Math.atan2(az + c / 2 - lv.cz, ax + c / 2 - lv.cx) / (2 * Math.PI) + 1) % 1) * SLICES) % SLICES, idx = lv.parts[sl].index.array;   // which slice round the ring's centre
     const a = j * NV + i, b = a + 1, cc2 = a + NV, d = cc2 + 1; let n = ns[sl]; idx[n++] = a; idx[n++] = cc2; idx[n++] = b; idx[n++] = b; idx[n++] = cc2; idx[n++] = d; ns[sl] = n;
   }
   lv.parts.forEach((pg, k) => { pg.setDrawRange(0, ns[k]); pg.index.needsUpdate = true; lv.tris += ns[k] / 3; });
   for (const a of Object.keys(A)) A[a].needsUpdate = true;
 }
-// show only the slices that can be in view: the inner two rings always (they are round your feet), the rest when their 45°
+{ const P0 = { x: 95, z: 44 }; for (const lv of levels) if (lv.L >= REAL) { const s2 = 2 * lv.c; lv.cx = Math.round(P0.x / s2) * s2; lv.cz = Math.round(P0.z / s2) * s2; updateLevel(lv); } }   // the far rings, once
+// show only the slices that can be in view: the ground right round your feet always, the rest when their 45°
 // wedge overlaps the view's width plus a margin; looking steeply down shows the near rings whole
 function cullTerrain() {
   const fwd = Math.atan2(-Math.cos(me.yaw), -Math.sin(me.yaw)), hf = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect), reach = hf + Math.PI / SLICES + 0.08 + 0.5 * Math.abs(me.pitch);
-  for (const lv of levels) lv.parts.forEach((pg, k) => { const mid = ((k + 0.5) / SLICES) * 2 * Math.PI, d = Math.abs(((mid - fwd + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
-    pg.userData.mesh.visible = lv.L < 2 || (me.pitch < -0.7 && lv.L < 4) || d < reach; });
+  for (const lv of levels) if (lv.L < REAL) lv.parts.forEach((pg, k) => { const mid = ((k + 0.5) / SLICES) * 2 * Math.PI, d = Math.abs(((mid - fwd + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+    pg.userData.mesh.visible = k === SLICES || (me.pitch < -0.7 && lv.L < 4) || d < reach + (lv.L === 0 ? 0.3 : lv.L === 1 ? 0.1 : 0); });   // the last part is the ground within 10 m of your feet, always drawn
 }
 function updateTerrain(px, pz) {   // fine to coarse, since each ring cuts its hole from the one inside it
   let changed = false;
-  for (const lv of levels) { const s = 2 * lv.c, cx = Math.round(px / s) * s, cz = Math.round(pz / s) * s; if (changed || cx !== lv.cx || cz !== lv.cz) { lv.cx = cx; lv.cz = cz; updateLevel(lv); changed = true; } }
+  for (const lv of levels) { if (lv.L >= REAL) break; const s = 2 * lv.c, cx = Math.round(px / s) * s, cz = Math.round(pz / s) * s; if (changed || cx !== lv.cx || cz !== lv.cz) { lv.cx = cx; lv.cz = cz; updateLevel(lv); changed = true; } }
   return changed;
 }
 
@@ -1144,8 +1157,8 @@ const flakes = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: '#fff
 flakes.frustumCulled = false; scene.add(flakes);
 
 // ---------------------------------------------------------------- light
-const hemi = new THREE.HemisphereLight('#b8d4f4', '#a0a8b8', 1); scene.add(hemi);
-const sun = new THREE.DirectionalLight('#ffffff', 2.5); sun.castShadow = true; scene.add(sun);
+const hemi = new THREE.HemisphereLight('#b8d4f4', '#a0a8b8', 1); scene.add(hemi); hemi.layers.enable(2);
+const sun = new THREE.DirectionalLight('#ffffff', 2.5); sun.castShadow = true; scene.add(sun); sun.layers.enable(2);
 sun.shadow.mapSize.set(isPhone ? 1024 : 2048, isPhone ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 10, far: 500 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 const moonDir = new THREE.Vector3(0.45, 0.42, 0.78).normalize();
@@ -1241,6 +1254,37 @@ function showTris() {
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 // ---------------------------------------------------------------- each frame
+// ---------------------------------------------------------------- the backdrop: the land beyond 1 km, painted on eight flat panels
+// (Adriaen 2026-11-15: "the far away mountains can be painted as flat surfaces, since we never reach them"). Eight cameras at
+// your eye, 45° apart, render only the far rings (layer 2, with the real ground's range cut out) into eight textures; each is
+// shown on a flat panel 3 km out, square to its camera, so from where it was painted it looks exactly like the land. It is
+// painted again, one panel a frame, when you have walked 20 m or climbed 8 m, or the time, weather or haze change.
+const backdrop = (() => {
+  const W = isPhone ? 512 : 768, VF = 60, A = Math.tan(Math.PI / 8) / Math.tan(THREE.MathUtils.degToRad(VF / 2)), H = Math.round(W / A), RD = 3000;
+  const cam = new THREE.PerspectiveCamera(VF, A, 1, 40000); cam.layers.set(2);
+  const panels = [...Array(8)].map((_, k) => { const rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, depthBuffer: true });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * RD * Math.tan(Math.PI / 8), 2 * RD * Math.tan(THREE.MathUtils.degToRad(VF / 2))), new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, depthWrite: false, fog: false, toneMapped: false }));
+    m.material.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <colorspace_fragment>', ''); };   // the texture already holds screen colours
+    m.renderOrder = -4; m.frustumCulled = false; scene.add(m); return { rt, m, yaw: (k * Math.PI) / 4 }; });
+  let at = null, key = '', next = 8, pend = null;
+  const stateKey = () => [+$('hour').value, hazeOn ? 1 : 0, ...Object.values(W_NOW).map((v) => v.toFixed(2))].join();
+  function paint(P, c) {
+    cam.position.set(c.x, c.y, c.z); cam.rotation.set(0, P.yaw, 0); cam.updateMatrixWorld();
+    const fwd = Math.atan2(-Math.cos(P.yaw), -Math.sin(P.yaw));   // only the far slices this panel can see
+    for (const lv of levels) if (lv.L >= REAL) lv.parts.forEach((pg, k) => { const d = Math.abs(((((k + 0.5) / SLICES) * 2 * Math.PI - fwd + 3 * Math.PI) % (2 * Math.PI)) - Math.PI); pg.userData.mesh.visible = k === SLICES || d < Math.PI / 4 + 0.2; });
+    const keepRT = renderer.getRenderTarget(), auto = renderer.shadowMap.autoUpdate, cc = renderer.getClearAlpha(); renderer.getClearColor(tmpC);
+    renderer.shadowMap.autoUpdate = false; renderer.setRenderTarget(P.rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, cam);
+    renderer.setRenderTarget(keepRT); renderer.setClearColor(tmpC, cc); renderer.shadowMap.autoUpdate = auto;
+    P.m.position.set(c.x - Math.sin(P.yaw) * RD, c.y, c.z - Math.cos(P.yaw) * RD); P.m.rotation.set(0, P.yaw, 0);
+  }
+  function step(all) {
+    all = all || !at; const e = camera.position, k2 = stateKey();
+    if (!at || Math.hypot(e.x - at.x, e.z - at.z) > 20 || Math.abs(e.y - at.y) > 8 || k2 !== key) { at = { x: e.x, y: e.y, z: e.z }; key = k2; pend = { ...at }; next = 0; }
+    do { if (next < 8) paint(panels[next++], pend); } while (all && next < 8);
+  }
+  TRIS.push(['Painted backdrop beyond 1 km (8 panels)', 16]);
+  return { step, panels };
+})();
 const sunDir = new THREE.Vector3(), clock = new THREE.Timer(), wind = new THREE.Vector3(); let frames = 0, acc = 0;
 const fogGrey = new THREE.Color('#b9c4d2'), white = new THREE.Color('#ffffff');
 const shadowAt = new THREE.Object3D(); scene.add(shadowAt); sun.target = shadowAt;
@@ -1291,14 +1335,15 @@ function frame() {
   sky.position.copy(camera.position); horizon.position.x = camera.position.x; horizon.position.z = camera.position.z; horizon.position.y = (HOR_HI + HOR_LO) / 2 + (camera.position.y - TOP);
   carry.step(dt, bright);
   if (JEEP.lod) { const f = Math.hypot(me.x - JEEP.x, me.z - JEEP.z) > 110; JEEP.lod[0].visible = !f; JEEP.lod[1].visible = f; }
-  renderer.render(scene, camera);
+  renderer.render(scene, camera); const mainInfo = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
+  backdrop.step();   // after the frame, so the shadow map it reads already exists
   frames++; acc += dt;
-  if (acc > 0.5) { const i = renderer.info.render;
+  if (acc > 0.5) { const i = mainInfo;   // the frame itself, not the backdrop's repaint
     $('stats').innerHTML = `${Math.round(frames / acc)} fps · ${i.calls} draws · ${(i.triangles / 1000).toFixed(1)}k tris<br>Altitude ${Math.round(me.y - 1.65 - LAKE)} m · Cabin ${metres(dist({ x: 0, z: 0 }))}<br>Lake hut ${metres(dist(HUT))} · Lookout ${metres(dist(TOWER))}`;
     frames = 0; acc = 0; window.__stats = { calls: i.calls, tris: i.triangles }; if ($('menu').open) showTris(); }
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
 renderer.setAnimationLoop(frame);
-window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer };
+window.__scene = { setHour: (h) => { $('hour').value = h; $('hourOut').textContent = fmt(h); }, weather: (w) => { wTarget = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop };
 window.__ready = true;
 </script>
