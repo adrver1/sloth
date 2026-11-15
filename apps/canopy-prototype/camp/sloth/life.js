@@ -10,7 +10,7 @@ const { R } = rng("slothDay");
 import { V, sstep } from "../util.js";
 import { LIVELY, SL, sloths } from "./state.js";
 import { FACE, mouthOf, openMouth, yawnStep } from "./face.js";
-import { aimBone } from "../actor.js";
+import { aimBone, gazeStep, watched } from "../actor.js";
 import { giftArm } from "./arms.js";
 
 const FUR_NEAR = 8, FUR_FULL = 3, LOOK_NEAR = 4.5;
@@ -39,8 +39,7 @@ function slothLife(s, dt) {                            // after the clip: fur by
   }
   const T = s.trip, still = !s.asleep && (!T || LIVELY.has(T.phase));
   // the gaze: how long you have kept it near the middle of your view
-  const off = Math.sqrt(Math.max(0, d * d - (camDir.dot(wa.copy(va).sub(camera.position))) ** 2));
-  s.gaze = still && d < 10 && camDir.dot(wa) > 0 && off < 0.5 + d * 0.04 ? s.gaze + dt : Math.max(0, s.gaze - dt * 1.5);
+  s.gaze = gazeStep(s.gaze, still && watched(va, camDir, 10), dt, 1.5);
   s.waveCD -= dt;
   if (s.gaze > GAZE_S && s.waveCD <= 0 && !s.wave) { s.wave = 1e-3; s.waveCD = 15; s.gaze = 0; }
   if (s.wave) { s.wave += dt; if (s.wave > WAVE_S || !still) s.wave = 0; }

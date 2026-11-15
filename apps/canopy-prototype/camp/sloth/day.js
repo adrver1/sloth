@@ -34,16 +34,11 @@ import { smoreStep } from "./smore.js";
 import { exitSpot } from "./wayOut.js";
 import { enterSpot } from "./wayIn.js";
 import { EV, on } from "../events.js";
+import { ringPoint } from "../actor.js";
 
 // a free point in the clearing at least 1.2 m (on the ground plane) from every camp sloth. o.p is where each one is in the
 // world; o.o.position is local for one in the hammock, the seat, the jeep or the tent (review R2-047).
-function wanderPoint() {
-  for (let k = 0; k < 60; k++) {
-    const a = R(0, 2 * Math.PI), r = R(2.6, RC - 2), p = V(Math.cos(a) * r, 0, Math.sin(a) * r);
-    if (isFree(p) && camp.every((o) => Math.hypot(o.p.x - p.x, o.p.z - p.z) > 1.2)) return p;
-  }
-  return V(3, 0, -2);
-}
+const wanderPoint = () => ringPoint(R, 2.6, RC - 2, (p) => isFree(p) && camp.every((o) => Math.hypot(o.p.x - p.x, o.p.z - p.z) > 1.2), 60) ?? V(3, 0, -2);
 // leaving home: back out of its spot the way it came in, onto the ground, then off on its errand
 function leave(s) {
   if (s.gift?.clip) { scene.remove(s.gift.mesh); s.gift = null; }   // never left eating: the eat clip's end would never come

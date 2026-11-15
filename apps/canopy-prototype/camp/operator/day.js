@@ -10,6 +10,7 @@ import { LIVED, rng, scene, uNight } from "../core.js";
 const { R } = rng("operator");
 import { CRATE, RC, SOUP_POT } from "../layout.js";
 import { V, ease, yawTo } from "../util.js";
+import { ringPoint } from "../actor.js";
 import { acts as chores } from "../chores.js";   // your chores (activities.js): he cooks only when the pot and the pail are free
 import { me } from "../player.js";
 import { giveBack, cuddleSeated, host, napTogether, pickUp, putDown, unhost } from "./buddy.js";
@@ -82,8 +83,7 @@ const DO = {
     op.ik = null;
   },
   *stroll() {                                          // a slow walk to somewhere in the camp, a look round, a wave if you look at him
-    let to = null;
-    for (let k = 0; k < 30 && !to; k++) { const a = R(0, 6.28), r = R(1.6, RC - 1.8), p = V(Math.cos(a) * r, 0, Math.sin(a) * r); if (freeOf(p, 0.6)) to = p; }
+    const to = ringPoint(R, 1.6, RC - 1.8, (p) => freeOf(p, 0.6), 30);
     if (!to) return;
     yield* walkTo(to);
     for (let t = 0, T = R(5, 10); t < T && !wantJoin();) { t += yield; op.look = Math.sin(t * 0.7) * 0.5; }

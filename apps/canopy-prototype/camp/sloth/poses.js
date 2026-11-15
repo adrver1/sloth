@@ -8,8 +8,6 @@
 //   UP                                the world's up
 //   yawQ(yaw)                         a quaternion turned by yaw about UP
 //   yawOf(object)                     the yaw an object faces in the world (a sloth faces its own -Z)
-//   turnTo(T, want, k)                turns the trip's yaw T.yaw toward `want` by the share k, the short way round; returns
-//                                     how far off it still was
 //   underAt(s, at, head, into)        hanging back-down under a branch or pole at `at`, its head toward `head`
 //   trunkAt(s, tree, out, y, R, into) upright on a trunk at height y, facing the bark on the side `out`; R(y) is the bark's radius
 //   treeOf(curve)                     the big tree a branch grows from (its foot, on the ground)
@@ -23,7 +21,7 @@
 //   postPose(spot, y, into)           upright on the spot's post (the hammock's or the line's) at height y
 import * as THREE from "three";
 import { heroWood, trunkR } from "../forest.js";
-import { V, wrapPi, yawTo } from "../util.js";
+import { V, yawTo } from "../util.js";
 import { HAMMOCK, HERO, LAUNDRY } from "../layout.js";
 
 const UP = V(0, 1, 0), m4 = new THREE.Matrix4(), LL = LAUNDRY, LL_L = LL.a.distanceTo(LL.b);
@@ -32,7 +30,6 @@ const yl = V(), zl = V(), xl = V(), grip = V();   // underAt's scratch
 const yawQ = (yaw) => new THREE.Quaternion().setFromAxisAngle(UP, yaw);
 const yawOf = (o) => { const f = V(0, 0, -1).applyQuaternion(o.getWorldQuaternion(qWorld)); return yawTo(f); };
 const qWorld = new THREE.Quaternion();
-const turnTo = (T, want, k) => { const d = wrapPi(want - T.yaw); T.yaw += d * Math.min(1, k); return Math.abs(d); };
 // poses for climbing: hanging back-down under a branch or pole at `at`, head toward `head`, and upright on a trunk at
 // height y, facing the bark on the side `out` points to. underAt is the one hanging pose: body.js placeUnder() hangs a new
 // sloth with it, and the rope and the line below are it too. Its grip is 0.1 of its size over its belly and toward its head.
@@ -90,4 +87,4 @@ function linePose(s, t, into = newPose()) {         // hanging back-down under t
 }
 function postPose(spot, y, into = newPose()) { into.p.copy(spot.door).setY(y); into.q.setFromAxisAngle(UP, spot.climbYaw ?? climbYaw); return into; }
 
-export { HAMMOCK_IN, UP, barkOf, branchBase, climbYaw, linePose, newPose, postPose, ropeLen, ropePose, treeOf, trunkAt, turnTo, underAt, yawOf, yawQ };
+export { HAMMOCK_IN, UP, barkOf, branchBase, climbYaw, linePose, newPose, postPose, ropeLen, ropePose, treeOf, trunkAt, underAt, yawOf, yawQ };

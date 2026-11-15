@@ -6,14 +6,14 @@ import * as THREE from "three";
 import { camera, rng } from "../core.js";
 const { R } = rng("operator.face");   // its own stream: blinks and fidgets follow frame timing, so they must not move his day's picks (review R2-122)
 import { V } from "../util.js";
-import { aimBone, makeZ, zAt } from "../actor.js";
+import { aimBone, gazeStep, makeZ, watched, zAt } from "../actor.js";
 import { B, UP, clips, csDir, cur, play, root } from "./model.js";
 import { handsBusy, op } from "./state.js";
 import { turnToward, yawToYou } from "./walk.js";
 
 let zz = null;
 function buildSleepZ() { zz = makeZ(); zz.material.opacity = 0; }
-const vHp = V(), vTo = V(), vF = V(), vDir = V(), vA = V(), vY = V();   // scratch: no allocation per frame (review R2-019)
+const vHp = V(), vTo = V(), vF = V(), vDir = V(), vA = V(), vY = V(), vCam = V();   // scratch: no allocation per frame (review R2-019)
 const ZS = { wob: 0.08, y0: 0.25, rise: 0.4, w0: 0.22, w1: 0.25 };   // how his z sways, rises and grows (actor.js zAt)
 function poseHead(dt) {
   // the head: a look down at a book or a sloth, round the camp, or at you when you're near and he's awake
@@ -38,10 +38,11 @@ function poseHead(dt) {
   // standing about with his hands free when you talk to him: he turns to you (walking, listen() stops him first)
   if (talking && !op.seated && !op.lying && cur === clips.idle && !handsBusy())
     turnToward(yawToYou(), dt, 1.2);
-  // a wave back when you keep looking at him for 3 s (standing about, not busy)
+  // a wave back when you keep looking right at him for 3 s (standing about, not busy): the sloths' test (actor.js watched)
+  // on his face, 1.5 m up. Looking away starts the 3 s over; a wave sets the timer 12 s back, so a gaze kept on him waves
+  // again only after 15 s
   if (op.kind === "stroll" && cur === clips.idle && camD < 9) {
-    const v = vA.copy(root.position).add(vY.set(0, 1.5, 0)).project(camera);
-    op.gaze = Math.abs(v.x) < 0.25 && Math.abs(v.y) < 0.35 && v.z < 1 ? op.gaze + dt : 0;
+    op.gaze = gazeStep(op.gaze, watched(vA.copy(root.position).add(vY.set(0, 1.5, 0)), camera.getWorldDirection(vCam), 9), dt);
     if (op.gaze > 3) { op.gaze = -12; play("wave", 0.3, { once: true }); op.anim.wave = clips.wave.getClip().duration; }
   }
   // the wave's end: back to idle, unless something else (a walk) has taken over by then. A timer, not a "finished" listener:

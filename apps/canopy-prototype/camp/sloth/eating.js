@@ -14,7 +14,8 @@ import { V, sstep } from "../util.js";
 import { release } from "../places.js";
 import { WALK_TS, setTrip } from "./state.js";
 import { EAT_GRAB, play, playOnce } from "./clips.js";
-import { UP, turnTo } from "./poses.js";
+import { UP } from "./poses.js";
+import { bite, turnYaw } from "../actor.js";
 import { move, moveStep } from "./moves.js";
 import { mouthOf, openMouth } from "./face.js";
 import { pawOf } from "./arms.js";
@@ -27,7 +28,7 @@ function startEat(s, slot, done) { setTrip(s, "eat", { st: "turn", slot, cards: 
 function eatStep(s, T, sd) {
   const slot = T.slot, F = slot?.food;
   if (T.st === "turn") {                           // face the fruit, then up onto the table or up against the crate
-    if (turnTo(T, slot.yaw, sd * 2) < 0.05 || T.t > 3) {
+    if (turnYaw(T, "yaw", slot.yaw, sd * 2) < 0.05 || T.t > 3) {
       const sit = sitFor(slot, s.sc);
       if (slot.name === "table") { play(s, "hang_walk", 1, 2); move(s, T, sit, 3.5, 0.12, -0.5, () => T.cards ? cardsSit(s, T) : chew(s, T)); }
       else { play(s, "walk", 1, WALK_TS); move(s, T, sit, 1.6, 0, 0, () => chew(s, T)); }
@@ -60,8 +61,8 @@ function chewStep(s, mesh, from, t0) {
   const t = s.act.time; if (t < t0) return;
   pawOf(s, paw); mesh.position.lerpVectors(from, paw, sstep(t0, t0 + 0.35, t));
   mouthOf(s).getWorldPosition(mouthW); mesh.position.lerp(mouthW, 0.75 * sstep(2.8, 3.3, t) * (1 - sstep(6.6, 7.0, t)));   // right up to its lips while it bites
-  const bites = t < 3.2 ? 0 : Math.floor((t - 3.2) / (8 / 9)), base = mesh.userData.base;
-  if (base) mesh.scale.copy(base).multiplyScalar(1 - 0.22 * bites);
+  const bites = t < 3.2 ? 0 : Math.floor((t - 3.2) / (8 / 9));
+  bite(mesh, bites, 0.22);
   mesh.visible = bites < 4;
   const m = mouthOf(s), open = t > 3.0 && t < 6.9 ? Math.max(0, Math.sin(2 * Math.PI * 9 * (t / 8 - 0.4) + 0.6)) : 0;
   m.visible = open > 0.08; openMouth(s, 0.9, open);

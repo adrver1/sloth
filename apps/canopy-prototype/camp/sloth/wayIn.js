@@ -19,7 +19,8 @@ import { yawFrom } from "../util.js";
 import { HAMMOCK, LAUNDRY } from "../layout.js";
 import { HW, HW_POST, setTrip } from "./state.js";
 import { clipOf, play } from "./clips.js";
-import { UP, barkOf, linePose, postPose, ropeLen, ropePose, trunkAt, turnTo, underAt, yawQ } from "./poses.js";
+import { UP, barkOf, linePose, postPose, ropeLen, ropePose, trunkAt, underAt, yawQ } from "./poses.js";
+import { turnYaw } from "../actor.js";
 import { climbV, glide, postV, slide } from "./moves.js";
 import { brush, claimHome, sizeIn } from "./spots.js";
 import { doze } from "./naps.js";
@@ -81,7 +82,7 @@ function enterSpot(s) {                             // at its spot's door: in th
 }
 function doorStep(s, T, sd) {                       // waits, facing the door, until it has swung open, then about 4 s up onto the sill
   const J = jeepApi, sill = T.sill;
-  turnTo(T, yawFrom(s.o.position, sill), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+  turnYaw(T, "yaw", yawFrom(s.o.position, sill), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   if (!J.isOpen("P")) J.open("P");
   else if (T.t > 2) { play(s, "hang_walk", 1, 2); glide(s, { p: sill, lift: 0.1, tip: -0.5 }, 4, () => settleIn(s, 3)); }   // hauls itself up, facing T.yaw
 }

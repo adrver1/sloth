@@ -14,6 +14,7 @@ import { acts as chores } from "../chores.js";   // your chores (activities.js):
 import { addTarget } from "../targets.js";
 import { EV, on } from "../events.js";
 import { fx } from "../fx.js";
+import { bite } from "../actor.js";
 import { LINES, line, pickLine } from "./lines.js";
 import { B, clips, csDir, root } from "./model.js";
 import { ME, freeHand, op } from "./state.js";
@@ -84,7 +85,7 @@ function talkStep(dt) {
   op.talk.munch = Math.max(0, (op.talk.munch || 0) - dt);
   const hd = op.talk.hand?.side;
   if (op.talk.fly) hd ? palmAt(hd, op.talk.fly.to) : mouthAt(op.talk.fly.to);
-  if (op.talk.food) { const F = op.talk.food; F.t += dt; if (hd) palmAt(hd, F.m.position).lerp(mouthAt(vB), 0.35 * THREE.MathUtils.smoothstep(F.t, 0.2, 0.4)); else mouthAt(F.m.position); F.m.scale.copy(F.m.userData.base).multiplyScalar(Math.max(0.1, 1 - 0.24 * Math.floor(F.t / 0.5)));
+  if (op.talk.food) { const F = op.talk.food; F.t += dt; if (hd) palmAt(hd, F.m.position).lerp(mouthAt(vB), 0.35 * THREE.MathUtils.smoothstep(F.t, 0.2, 0.4)); else mouthAt(F.m.position); bite(F.m, Math.floor(F.t / 0.5), 0.24);
     if (F.t > 2.1) { scene.remove(F.m); op.talk.food = null; } }
   if (op.talk.t <= 0 && !op.talk.munch && clips.talk.isRunning() && clips.talk.getEffectiveWeight() > 0.99) clips.talk.fadeOut(0.3);
   const on = op.talk.t > 0;

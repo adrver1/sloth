@@ -22,6 +22,7 @@ import { EAT_GRAB, canStretch, homeClip, play, playOnce } from "./clips.js";
 import { mouthOf } from "./face.js";
 import { pawOf } from "./arms.js";
 import { chewStep } from "./eating.js";
+import { bite } from "../actor.js";
 
 const paw = V(), mouthW = V();
 // back to what its day was doing: walking on, standing to greet, or its clip at home
@@ -60,7 +61,7 @@ function giftFly(s, dt) {
   if (G.t < 3.6) {
     if (!G.at && G.t > 1.2) { G.at = true; s.nod = 0.8; s.munch = 2.4; }
     G.mesh.position.copy(paw).lerp(mouthW, 0.45 * sstep(0.9, 1.3, G.t));
-    G.mesh.scale.copy(G.mesh.userData.base ?? V(1, 1, 1)).multiplyScalar(Math.max(0.1, 1 - 0.22 * Math.max(0, Math.floor((G.t - 1.2) / 0.6))));
+    bite(G.mesh, Math.max(0, Math.floor((G.t - 1.2) / 0.6)), 0.22);
   } else if (G.mesh.parent) scene.remove(G.mesh);
   if (G.t > 4.2) s.gift = null;
 }

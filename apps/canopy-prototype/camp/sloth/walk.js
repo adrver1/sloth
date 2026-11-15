@@ -19,10 +19,11 @@ import { walkers } from "../places.js";
 import { burst } from "../fx.js";
 import { CRAWL, GROUND, WALK_TS, camp, setTrip } from "./state.js";
 import { play } from "./clips.js";
-import { UP, turnTo, yawOf } from "./poses.js";
+import { UP, yawOf } from "./poses.js";
+import { ahead, stepAlong, turnYaw } from "../actor.js";
 
 let clearLine, findPath, isFree;
-const wDir = V(), wPath0 = V(), wWas = V(), wFwd = V(), wR = V(), wL = V(), wProbe = V(), wAxis = V();   // walkStep's scratch vectors, reused every frame
+const wDir = V(), wPath0 = V(), wWas = V(), wR = V(), wL = V(), wProbe = V(), wAxis = V();   // walkStep's scratch vectors, reused every frame
 let wSide = 0, wSlow = 1;                                  // what heed adds up over everyone near, for walkStep
 function buildNav() { ({ clearLine, findPath, isFree } = createNav({ blockers, version: blockersVersion, half: RC + 0.5, rim: RC - 0.8, fireKeep: 2.3, body: 0.28 })); }
 
@@ -51,9 +52,9 @@ function walkStep(s, T, sd) {
     const r = wR.set(path0.x - path0.z * side, 0, path0.z + path0.x * side).normalize(), l = wL.set(path0.x + path0.z * side, 0, path0.z - path0.x * side).normalize();
     if (freeAhead(pos, r, step)) dir.copy(r); else if (freeAhead(pos, l, step)) dir.copy(l); else slow = Math.min(slow, 0.25);   // boxed in: on along its path, slowly
   }
-  const off = turnTo(T, yawTo(dir), sd * 2.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+  const off = turnYaw(T, "yaw", yawTo(dir), sd * 2.5); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   const v = CRAWL * s.sc * sd * slow * (off > 1 ? 0.3 : 1) * (T.snap || dist < 0.35 ? Math.max(0.1, Math.cos(Math.min(off, 1.5))) : 1);   // close to a point: turn first, so it can't circle it
-  const was = wWas.copy(pos); pos.addScaledVector(wFwd.set(-Math.sin(T.yaw), 0, -Math.cos(T.yaw)), v); pos.y = 0;
+  const was = wWas.copy(pos); stepAlong(pos, T.yaw, v); pos.y = 0;
   if (!isFree(pos) && isFree(was) && (T.path.length > 1 || isFree(aim))) {   // about to walk into something: slide along its path line instead
     // (Adriaen 2026-11-13, Mango stuck between the crate and the table end): the line from where it is to the next point
     // can clip a blocked cell the planned line (from a cell's middle) missed, so it slides along a wall: along the path
@@ -72,12 +73,12 @@ function walkStep(s, T, sd) {
 // one walker (p, keeping `near` from it; o the sloth, or null for you and the operator) near s's path: adds to how far s
 // steps aside (wSide) and how much it slows (wSlow). True when it stopped to greet the sloth o instead.
 function heed(s, pos, p, near, o) {
-  const dx = p.x - pos.x, dz = p.z - pos.z, d = Math.hypot(dx, dz);
-  if (d > near + 0.6) return false;
+  const n = ahead(pos, wPath0, p, near + 0.6); if (!n) return false;
+  const d = n.d;
   if (o && d < 0.95 && s.greetCD <= 0 && o.greetCD <= 0) { greet(s, o); return true; }
   if (!o && !isFree(p)) return false;
-  const ahead = (dx * wPath0.x + dz * wPath0.z) / Math.max(d, 1e-4); if (ahead <= 0) return false;
-  wSide += Math.min(1.5, (near + 0.6 - d) / 0.6) * ahead * 1.4;
+  if (n.ahead <= 0) return false;
+  wSide += Math.min(1.5, (near + 0.6 - d) / 0.6) * n.ahead * 1.4;
   if (d < near) wSlow = Math.min(wSlow, 0.25);
   return false;
 }
@@ -92,7 +93,7 @@ function greet(s, o) {
 }
 function greetStep(s, T, sd) {                        // sit up, face each other, say hello, carry on
   const o = T.with.o.position, pos = s.o.position;
-  turnTo(T, yawFrom(pos, o), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+  turnYaw(T, "yaw", yawFrom(pos, o), sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
   if (!T.said && T.t > 0.9) { T.said = true; s.nod = 1.2; s.squish = 0.5; if (T.lead) burst(pos.clone().lerp(o, 0.5).setY(0.75), HELLO[Math.floor(R(0, HELLO.length))], 1.8, 64); }
   if (T.t > 3.4) { T.phase = "walk"; play(s, "walk", 1, WALK_TS); }
 }

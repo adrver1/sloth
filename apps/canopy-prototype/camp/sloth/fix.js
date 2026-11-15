@@ -14,7 +14,8 @@ import { V } from "../util.js";
 import { release } from "../places.js";
 import { setTrip } from "./state.js";
 import { play } from "./clips.js";
-import { UP, turnTo, yawOf } from "./poses.js";
+import { UP, yawOf } from "./poses.js";
+import { turnYaw } from "../actor.js";
 import { move, moveStep } from "./moves.js";
 import { pawOf } from "./arms.js";
 import { walkTo } from "./walk.js";
@@ -32,7 +33,7 @@ function fixEngine(s, done) {
 function fixStep(s, T, sd) {
   const J = jeepApi, n = J.node, back = yawOf(n);   // facing the windscreen from the front (the jeep looks along its +Z)
   if (T.st === "turn") {
-    turnTo(T, back, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
+    turnYaw(T, "yaw", back, sd * 2); s.o.quaternion.setFromAxisAngle(UP, T.yaw);
     if (!J.isOpen("H")) J.open("H"); else if (T.t > 2.5) { T.yaw = back; play(s, "hang_walk", 1, 2); move(s, T, T.sit, 4, 0.15, -0.5, () => { T.st = "reach"; T.t = 0; play(s, "eat", 0.8); }); }
   } else if (T.st === "move") moveStep(s, T);
   else if (T.st === "reach") { if (s.act.time > 1.5) { T.st = "work"; T.t = 0; s.act.paused = true; } }
