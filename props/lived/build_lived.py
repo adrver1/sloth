@@ -11,7 +11,7 @@ look used. PROPS (above make()) lists them all, one row each with its builder, h
     WoodPile      178  the rest of the pile: end posts, a chopping stump with a hatchet in it and chips (baked)
     SeatThings    108  an enamel mug and a book left open face up, laid out on the rustic half-log seat's flat top (baked)
     TentSide      147  the pair of wellies by the tent (baked)
-    KitchenThings 116  the pan (a dish with an inside), plates and honey jar on the tins in the crate (baked)
+    KitchenThings 162  the pan (a 12-sided dish with a rim and a sloped inside), plates and honey jar on the tins (baked)
 
     .venv/bin/python props/lived/build_lived.py
     .venv/bin/python props/lived/build_lived.py --samples 64
@@ -72,7 +72,7 @@ def materials():
     return {k: mat(f"lv_{k}", c) for k, c in dict(
         bark=(0.3, 0.21, 0.14), bark2=(0.24, 0.17, 0.11), wood=(0.68, 0.52, 0.36), endgrain=(0.78, 0.62, 0.42), chip=(0.82, 0.68, 0.48),
         handle=(0.62, 0.45, 0.28), steel=(0.32, 0.33, 0.35), edge=(0.7, 0.71, 0.72),
-        pan=(0.16, 0.16, 0.17), plate=(0.92, 0.92, 0.88), honey=(0.86, 0.56, 0.12), lid=(0.72, 0.2, 0.16),
+        pan=(0.16, 0.16, 0.17), panrim=(0.5, 0.5, 0.52), plate=(0.92, 0.92, 0.88), honey=(0.86, 0.56, 0.12), lid=(0.72, 0.2, 0.16),
         rubber=(0.2, 0.36, 0.2), coffee=(0.2, 0.11, 0.06), sole=(0.1, 0.09, 0.08), cuff=(0.14, 0.27, 0.15), mud=(0.3, 0.21, 0.13), inside=(0.08, 0.08, 0.07),
         enamel=(0.97, 0.96, 0.92), rim=(0.16, 0.24, 0.45), cover=(0.5, 0.16, 0.13), page=(0.93, 0.9, 0.8), ink=(0.55, 0.52, 0.46), ribbon=(0.85, 0.7, 0.2)).items()}
 
@@ -851,20 +851,29 @@ def kitchen_crate():
     return o
 
 
-def dish(r0, r1, ri, h, fz, m, n=8):
-    """An open n-sided dish standing on z = 0: its outside wall from r0 at the bottom out to r1 at h, then straight down
-    inside to a floor of radius ri at fz (no rim band, no bottom cap: it lies on something). 5n - 2 triangles."""
+def dish(r0, r1, ri, h, fz, m, rim, n=12, lip=0.008):
+    """An open n-sided dish standing on z = 0: its outside wall from r0 at the bottom out to r1 at h, a flat rim band of
+    width lip on top in material rim (a lighter rolled edge, so the round outline shows from above), then an inside wall
+    sloping down and in to a floor of radius ri at fz, well inside the rim, so the inside reads as a bowl and not as one
+    flat patch (Adriaen 2026-11-15: "Very square flat pan bottom"). No bottom cap: it lies on something. 7n triangles."""
     bm = bmesh.new()
     ring_at = lambda r, z: [bm.verts.new((r * math.cos(2 * math.pi * i / n), r * math.sin(2 * math.pi * i / n), z)) for i in range(n)]  # noqa: E731
-    ob, ot, ib = ring_at(r0, 0), ring_at(r1, h), ring_at(ri, fz)
+    ob, ot, it, ib = ring_at(r0, 0), ring_at(r1, h), ring_at(r1 - lip, h), ring_at(ri, fz)
+    rims = []
     for i in range(n):
         j = (i + 1) % n
         bm.faces.new((ob[i], ob[j], ot[j], ot[i]))                 # outside, facing out
-        bm.faces.new((ot[i], ot[j], ib[j], ib[i]))                 # inside, facing in and up
-    bm.faces.new(ib)                                               # the floor, facing up
+        rims.append(bm.faces.new((ot[i], ot[j], it[j], it[i])))    # the rim band, facing up
+        bm.faces.new((it[i], it[j], ib[j], ib[i]))                 # inside wall, facing in and up
+    mid = bm.verts.new((0, 0, fz))
+    for i in range(n):                                             # the floor as a fan round its middle, so any shading
+        bm.faces.new((ib[i], ib[(i + 1) % n], mid))                # on it stays round (one n-gon split into slivers read square)
+    for f in rims:
+        f.material_index = 1
     bm.normal_update()
     o = obj_from_bm(bm, "dish")
     o.data.materials.append(m)
+    o.data.materials.append(rim)
     return o
 
 
@@ -879,12 +888,13 @@ def kitchen_things(M):
     baked like the other props). The front middle and front left are bare tins, where the page lays the sloths' fruit
     (camp/sloth/table.js, which finds the top of whatever is there). The wooden spoon is gone (Adriaen 2026-11-15)."""
     p = []
-    # the pan: a shallow 8-sided dish with a floor and an inside wall, so it reads as a pan from above (review of
-    # 2026-11-15: a flat top read as a slab), no bottom (it lies on the tins), a little smaller than before so more tins
-    # show. Its handle rests on the left rim, so the dish tilts 12 degrees with its far edge on the tins. Built with its
+    # the pan: a shallow 12-sided dish with a lighter rim, an inside wall sloping in to a smaller floor and that floor a
+    # fan round its middle, so it reads as a round pan from above (reviews of 2026-11-15: a flat top read as a slab, then
+    # an 8-sided dish's floor read as a flat square), no bottom (it lies on the tins), a little smaller than before so
+    # more tins show. Its handle rests on the left rim, so the dish tilts 12 degrees with its far edge on the tins. Built with its
     # bottom middle at the origin, handle along -X rising 24 degrees from the dish; tilted, its underside crosses the
     # left wall's inner edge at 0.280 (the rim is at CH = 0.28) and clears the outer edge by 1 cm
-    pan = dish(PAN_R0, PAN_R1, 0.074, 0.03, 0.006, M["pan"])
+    pan = dish(PAN_R0, PAN_R1, 0.058, 0.03, 0.006, M["pan"], M["panrim"])
     a = math.radians(24)
     handle = rod((-PAN_R1, 0, 0.028), (-PAN_R1 - 0.2 * math.cos(a), 0, 0.028 + 0.2 * math.sin(a)), 0.012, M["pan"], verts=4)
     pj = join([pan, handle], "pan")
