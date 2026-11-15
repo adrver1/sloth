@@ -228,7 +228,7 @@ export function createGround({ scene, RC, blockers, wear: wearAt = [], grassMap,
   // the floor's value noise (util.js vnoise), baked once into one texture over the floor instead of hashed per pixel (R2-167: five
   // noise calls, about 20 integer hashes, on every ground pixel): R the colour patches (0.13 per m, the plants' tint below), G the
   // mottle at 1 m (0.9), B the second grass tile's patches in the clearing and the moss patches on the forest floor (0.35; they
-  // never meet), A the mottle at 3 m (0.33). 256 texels over 2 x NH metres (about 4 to a 1 m cell), linear, no mipmaps, like the noise it replaces
+  // never meet), A the mottle at 3 m (0.33). 256 texels over 2 x NH metres (about 3 to a 1 m cell at NH = layout.js FAR, 40 m; value noise is smooth, so that is enough), linear, no mipmaps, like the noise it replaces
   const NH = far || RR, NN = 256, nz = new Uint8Array(NN * NN * 4);
   for (let j = 0; j < NN; j++) for (let i = 0; i < NN; i++) {
     const x = ((i + 0.5) / NN * 2 - 1) * NH, z = ((j + 0.5) / NN * 2 - 1) * NH, k = (j * NN + i) * 4;

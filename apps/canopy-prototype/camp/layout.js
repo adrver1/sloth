@@ -12,7 +12,7 @@
 // the anchors in those GLBs (review R2-252). SEAT_R is read by operator/cook.js (the fire side of a seat, where he hands a bowl);
 // JEEP_OUT is exported for checks, and no module imports it. PATH_A, where the footpath leaves the camp, also sets the glade path's lead points, where its ribbon starts (forest/floor.js).
 import * as THREE from "three";
-import { V, lineDist, yawTo } from "./util.js";
+import { V, lineDist, wrapPi, yawTo } from "./util.js";
 
 // ---------------------------------------------------------------- the clearing and the ground
 export const RC = 9;      // the clearing's radius: a round clearing with the camp in it; the forest wall starts past RC
@@ -58,7 +58,7 @@ export const pathLane = (x, z) => { let d = 1e9; for (const p of PATHS) d = Math
 // gladeTurn(x, z): where (x, z) lies round the glade, as the angle from the direction back down the footpath (its last point),
 // in -pi..pi. The karaoke road leaves the glade between GLADE_EXIT's two turns, so nothing grows there (glade.js, forest/trees.js)
 const gladeIn = Math.atan2(sloPath.pts[sloPath.pts.length - 1].z - GLADE.z, sloPath.pts[sloPath.pts.length - 1].x - GLADE.x);
-export const gladeTurn = (x, z) => { const a = Math.atan2(z - GLADE.z, x - GLADE.x) - gladeIn; return Math.atan2(Math.sin(a), Math.cos(a)); };
+export const gladeTurn = (x, z) => wrapPi(Math.atan2(z - GLADE.z, x - GLADE.x) - gladeIn);
 export const GLADE_EXIT = [-2.35, -1.75];
 export const pathDist = (x, z) => { let d = pathLane(x, z); for (const g of GLADES) d = Math.min(d, Math.max(0, Math.hypot(x - g.at.x, z - g.at.z) - g.r)); return d; };   // a path or a glade
 

@@ -156,7 +156,8 @@ const PRE = {
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(S.fog[0], S.fog[1]);
 // the field of view is input.js setFov's (58 degrees, 70 on a tall phone screen, set again on every resize); things beyond 80 m are not drawn
-// (far 80 m: from the end of the jeep's track, about 30 m out, the backdrop on the far side of the camp is 60 m away, review R2-179)
+// (far 80 m: the backdrop and the domes follow the camera at layout.js FAR, 40 m (sky.js skyStep), so the farthest thing drawn, the dome's
+// rim, is about 48 m away; 80 leaves a wide margin, and depth precision is set by the 0.1 m near plane, reviews R2-179 and R2-161)
 const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 80);
 const hemi = new THREE.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]); scene.add(hemi);   // the sky light; daylight.js dims and tints it by the hour
 const sun = new THREE.DirectionalLight(S.sun[0], S.sun[1]); sun.position.copy(SUN); scene.add(sun);
