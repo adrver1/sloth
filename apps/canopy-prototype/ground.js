@@ -208,7 +208,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   }
   // the baked night light on the ground (props/camp/bake_camp_lightmap.py: fire, lanterns, stove and moon, with the props' and the
   // jeep's shadows), one channel per light, coloured and mixed as on the props (bakedlight.js), the warm ones a little by day too; uGNon = 0 until it loads
-  const uGN = { value: null }, uGJ = { value: null }, uGDP = { value: null }, uGDD = { value: null }, uGDB = { value: null }, uGNon = { value: 0 };   // uGD: the cabin light's spill through each door (patch round the jeep)   // uGJ: the jeep's headlights (R) and cabin light (G)
+  const uGN = { value: null }, uGNon = { value: 0 };
   // the floor's value noise (util.js vnoise), baked once into one texture over the floor instead of hashed per pixel (R2-167: five
   // noise calls, about 20 integer hashes, on every ground pixel): R the colour patches (0.13 per m, the plants' tint below), G the
   // mottle at 1 m (0.9), B the second grass tile's patches in the clearing and the moss patches on the forest floor (0.35; they
@@ -229,13 +229,13 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   const grassM = meanLin(grassMap), dirtM = meanLin(dirtTex); dirtM.set(lin(dirtM.x), lin(dirtM.y), lin(dirtM.z));
   const mat = new THREE.MeshLambertMaterial({ map: grassMap });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGJ, uGDP, uGDD, uGDB, uGNon, uShadeT: uShade, uShadeK }); bindLight(sh);
+    Object.assign(sh.uniforms, { uMask: { value: bakedMask || wear }, uDirt: { value: dirtTex }, uSoil: { value: bakedSoil }, uR: { value: RR }, uNight: night, uGN, uGNon, uShadeT: uShade, uShadeK }); bindLight(sh);
     if (baked) sh.defines = { ...sh.defines, BAKED: 1 };
     if (far) sh.defines = { ...sh.defines, FAR: 1 };
     if (!fx) sh.defines = { ...sh.defines, LOWFX: 1 };
     Object.assign(sh.uniforms, { uLitter: { value: litterTex }, uForest: { value: forestMap || grassMap }, uRC: { value: RC }, uNoise: { value: noiseTex }, uNH: { value: NH }, uGrassM: { value: grassM }, uDirtM: { value: dirtM } });
     sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw;"], ["#include <begin_vertex>", "#include <begin_vertex>\nvG = position.xz; vNw = normal;"]);
-    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw; uniform sampler2D uMask, uDirt, uSoil, uGN, uGJ, uGDP, uGDD, uGDB, uShadeT, uLitter, uForest, uNoise; uniform float uR, uRC, uNight, uGNon, uShadeK, uNH; uniform vec3 uGrassM, uDirtM; vec3 albedoG; float hB = 0.0;\n" + MACRO_GLSL + LIGHT_GLSL],
+    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nvarying vec2 vG; varying vec3 vNw; uniform sampler2D uMask, uDirt, uSoil, uGN, uShadeT, uLitter, uForest, uNoise; uniform float uR, uRC, uNight, uGNon, uShadeK, uNH; uniform vec3 uGrassM, uDirtM; vec3 albedoG; float hB = 0.0;\n" + MACRO_GLSL + LIGHT_GLSL],
       ["#include <lights_fragment_begin>", liveChunk()],   // keeps the live cabin light's share apart (Cabin: live)
       ["#include <normal_fragment_maps>", `#include <normal_fragment_maps>
         #ifndef LOWFX
@@ -304,9 +304,7 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
         diffuseColor.rgb = c;
         albedoG = diffuseColor.rgb;
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight);`],
-      ["#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, uvC)) * uGNon * vec4(vec3(inD), 1.0 - 0.4 * smoothstep(uR, uR + 8.0, rr));
-        vec2 gj = lmDecode2(texture2D(uGJ, uvC).rg) * uGNon * inD;
-        vec2 du = lmDoorUv(vG); vec3 gd = all(greaterThan(du, vec2(0.0))) && all(lessThan(du, vec2(1.0))) ? vec3(doorKey(lmDecode(texture2D(uGDP, du)), uLD.x), doorKey(lmDecode(texture2D(uGDD, du)), uLD.y), doorKey(lmDecode(texture2D(uGDB, du)), uLD.z)) * uGNon : vec3(0.0);${LIGHT_MIX("albedoG", "gq", "gj", "(uNight * uGNon)", "gd", true)}
+      ["#include <opaque_fragment>", `vec4 gq = lmDecode(texture2D(uGN, uvC)) * uGNon * vec4(vec3(inD), 1.0 - 0.4 * smoothstep(uR, uR + 8.0, rr));${LIGHT_MIX("albedoG", "gq", "(uNight * uGNon)", true)}
         outgoingLight = mix(outgoingLight, vec3(0.0103, 0.0070, 0.0024), shd * uShadeK * (1.0 - (0.5 + 0.5 * uGNon) * uNight));   // SHADE(), reusing shd (R2-094)
 #include <opaque_fragment>`]);
   };
@@ -455,8 +453,8 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   if (glade) glade.geometry.setAttribute("aCell", new THREE.InstancedBufferAttribute(cells[1], 1));
   const pmat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide });
   pmat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR }; sh.uniforms.uGN = uGN; sh.uniforms.uGJ = uGJ; sh.uniforms.uGNon = uGNon; bindLight(sh);
-    sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade, uGN, uGJ; attribute float aCell; varying float vShade; varying vec4 vGN; varying vec2 vGJ;"],
+    sh.uniforms.uTime = uTime; sh.uniforms.uNight = night; sh.uniforms.uShade = uShade; sh.uniforms.uR = { value: RR }; sh.uniforms.uGN = uGN; sh.uniforms.uGNon = uGNon; bindLight(sh);
+    sh.vertexShader = swap(sh.vertexShader, ["#include <common>", "#include <common>\nuniform float uTime, uR; uniform sampler2D uShade, uGN; attribute float aCell; varying float vShade; varying vec4 vGN;"],
       ["#include <uv_vertex>", "#include <uv_vertex>\nvMapUv = vMapUv * vec2(0.25, 0.5) + vec2(mod(aCell, 4.0) * 0.25, (1.0 - floor(aCell / 4.0)) * 0.5);"],
       ["#include <begin_vertex>", `#include <begin_vertex>
         vec3 ip = instanceMatrix[3].xyz;
@@ -464,12 +462,12 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
         transformed.xz += vec2(w * 0.06, w * 0.035) * position.y * position.y;
         float rr = length(ip.xz); vec2 uvP = ip.xz / (2.0 * uR) + 0.5;
         vGN = pow(texture2D(uGN, uvP), vec4(2.2));
-        if (rr < uR) { vShade = texture2D(uShade, uvP).r; vGJ = pow(texture2D(uGJ, uvP).rg, vec2(2.2)); } else { vShade = 0.0; vGJ = vec2(0.0); }`]);
+        vShade = rr < uR ? texture2D(uShade, uvP).r : 0.0;`]);
     // the plants take the ground's night light where they stand. Outside the baked square (the glade) the maps hold only their clamped
-    // edge: those plants skip the shadow and jeep-light reads (R2-098) and keep the edge's night light, which matches the glade's
+    // edge: those plants skip the shadow read (R2-098) and keep the edge's night light, which matches the glade's
     // own live-lit floor (a test at 21:30 with only the moon left came out visibly darker than the floor round them)
-    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nuniform float uNight, uGNon; varying float vShade; varying vec4 vGN; varying vec2 vGJ; vec3 albedoP;\n" + LIGHT_GLSL],
-      ["#include <opaque_fragment>", LIGHT_MIX("albedoP", "(vGN * uGNon)", "(vGJ * uGNon)", "(uNight * uGNon)") + "\n#include <opaque_fragment>"],
+    sh.fragmentShader = swap(sh.fragmentShader, ["#include <common>", "#include <common>\nuniform float uNight, uGNon; varying float vShade; varying vec4 vGN; vec3 albedoP;\n" + LIGHT_GLSL],
+      ["#include <opaque_fragment>", LIGHT_MIX("albedoP", "(vGN * uGNon)", "(uNight * uGNon)") + "\n#include <opaque_fragment>"],
       ["#include <map_fragment>", "#include <map_fragment>\nalbedoP = diffuseColor.rgb;\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.38, 0.42, 0.6), uNight) * (1.0 - vShade * (1.0 - 0.5 * uNight));"], ["#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);"]);   // both sides lit like the ground, never black from behind
   };
   for (const m of [im, glade]) if (m) { m.material = pmat; scene.add(m); own.add(m); }
@@ -496,9 +494,6 @@ export function createGround({ scene, RC, blockers, grassMap, S, fx, uTime, nigh
   let nightBaked = false;
   if (nightMap) loadLightMap(nightMap).then((t) => {
     uGN.value = t; uGNon.value = 1; nightBaked = true; }).catch(() => {});
-  uGJ.value = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); uGJ.value.needsUpdate = true;   // no jeep light until its map loads
-  for (const [k, u] of [["P", uGDP], ["D", uGDD], ["B", uGDB]]) { u.value = uGJ.value;   // each door's spill at four openings
-  }
   const cast = (renderer) => shadowBaked ? 0 : castShadows(renderer);
   const layout = { RR, RC, spots: used.map(({ at: c, r }) => [c.x, c.z, r]), entry: entry ? [entry.x, entry.z] : null, track: trackPts.map((p) => [p.x, p.z]) };   // for props/ground/bake_ground.py
   // what campGround.js uses (floor, castShadows, shadowLoad, isBaked, isNightBaked, shadeOn), the layout for props/shadow/export_casters.cjs,

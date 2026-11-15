@@ -221,8 +221,6 @@ for o in jall:
         o.parent = jroot
     if o.type == "MESH":
         jeep.append(o)
-DOORS = {"P": ("DoorP", -1.2), "D": ("DoorD", 1.2), "B": ("BackDoor", 1.75)}         # node, open angle (rad, about up), as camp/jeep.js opens them
-doors = {k: next(o for o in jall if o.name.split(".")[0] == n) for k, (n, _) in DOORS.items()}
 # the deadwood at the clearing edge (camp/deadwood.js, seeded): occluders only, from the page's layout as export_casters.cjs
 # saved it; plain cylinders are enough for their shadows
 for d in LAYOUT.get("deadwood", []):
@@ -390,7 +388,7 @@ save(np.stack([enc(lit[g]) for g in G], -1).astype(np.float32), "camp_lm")
 so_ = sunopen[..., :3].mean(-1); sd_ = sundirect[..., :3].mean(-1)
 sv = np.where(so_ > 0.02, np.clip(sd_ / np.maximum(so_, 1e-6), 0, 1), 1.0)   # surfaces facing away: the page's N . L hides them anyway
 print(f"  sun: mean visibility {sv[so_ > 0.02].mean():.2f}")
-save(np.stack([sv, np.clip(ao[..., 0], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun")   # B, A: free (were the jeep's lights)
+save(np.stack([sv, np.clip(ao[..., 0], 0, 1), np.zeros_like(sv), np.zeros_like(sv)], -1).astype(np.float32), "camp_lm_sun")   # B, A: unused (they held the jeep's baked lights, dropped 2026-11-12)
 # ground: the day shadow (1 - light / open ground, as before) and one channel per light; row 0 = page z -RR
 from PIL import Image
 gd = gday[..., :3].mean(-1); open_ = np.percentile(gd, 99.5)

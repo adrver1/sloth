@@ -89,7 +89,7 @@ const lnight = (mat) => {
   #else
   float glowK = 0.0;
   #endif`],
-      ["#include <opaque_fragment>", LIGHT_MIX("baseC", "lmQ", "lmDecode2(sunT.ba)", "uNight", "vec3(0.0)", true) + `
+      ["#include <opaque_fragment>", LIGHT_MIX("baseC", "lmQ", "uNight", true) + `
   outgoingLight = mix(outgoingLight, min(baseC * 1.15, vec3(1.0)), glowK * uNight);
 #include <opaque_fragment>`]);
   });
