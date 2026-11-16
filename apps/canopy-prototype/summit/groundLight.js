@@ -53,6 +53,12 @@ float rlH(vec2 u) { return textureLod(uRl, u, ${RELIEF.blur.toFixed(1)}).a * ${R
     reflectedLight.indirectDiffuse += diffuseColor.rgb * (gn.r * uGbFire + gn.g * uGbCabin + gn.b * uGbLant); }`);
 }
 
+// groundLight plus the ground's paint (road.js's paths, trodden snow and prints) drawn on the surface itself: for snow that lies
+// over the ground inside the square (cabin.js snowBank), so the paths run over it instead of disappearing under it
+export function groundPaint(sh) { groundLight(sh);
+  sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+  if (uRlOn > 0.0) { vec4 gp = texture2D(uRl, vec2(vGbUv.x, 1.0 - vGbUv.y)); diffuseColor.rgb = mix(diffuseColor.rgb, gp.rgb, gp.a * gbEdge()); }`); }
+
 // road.js: the painted ground (paths, trodden snow, prints), whose alpha is the relief
 export function setRelief(tex) { U.uRl.value = tex; U.uRlOn.value = 1; }
 
