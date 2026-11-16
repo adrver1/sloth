@@ -76,10 +76,11 @@ export function packLightmap(meshes, size = SIZE) {
   return { texelsPerMetre: s, rects: rects.length, area: total };
 }
 
+export let lmReady = Promise.resolve();   // resolves once the maps are on (or left off): the loading card waits for it (summit/main.js)
 export function buildLightmap(groups) {
   if (!OPT.lm) return;
   const meshes = receivers(groups);
-  fetch('models/summit_lm.json').then((r) => (r.ok ? r.json() : null)).then((J) => {
+  lmReady = fetch('models/summit_lm.json').then((r) => (r.ok ? r.json() : null)).then((J) => {
     if (!J) return;   // not baked yet
     const sig = signature(meshes);
     if (J.sig !== sig) { console.warn('summit light maps: the cabin or lookout changed since the bake; run props/bake_all.py --only summit'); return; }

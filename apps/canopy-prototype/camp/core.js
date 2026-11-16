@@ -5,6 +5,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { fetchBytes, initKtx, lightDir, loadLightMap } from "../bakedlight.js";
 import { SUN } from "./layout.js";
 import { pace, rng, uNight, uTime } from "./stage.js";
+import { track } from "./loading.js";
 
 // ---------------------------------------------------------------- URL options and saved settings, all parsed here (review boot-17, crosscut-15)
 // camp.html?name=value. "saved" is the ⚙️ menu's choice, kept per viewer in localStorage under KEYS.
@@ -121,8 +122,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 // Every model, the light maps and the ground's baked maps start loading here, while the forest below is grown, instead of one after
 // another further down. Each section awaits its own entry in PRE (null when it isn't shown). The loading card counts them.
 const LIVED = OPT.lived;   // ?lived=0 hides the lived-in props to compare
-let loadN = 0, loadDone = 0;
-const pre = (p) => { if (!p) return null; loadN++; const tick = () => { $("loadbar").style.width = `${4 + 86 * ++loadDone / loadN}%`; }; p.then(tick, tick); return p; };
+const pre = (p) => (p ? track(p) : null);   // camp/loading.js: the loading card counts it
 initKtx(renderer);
 const tex = (url) => new THREE.TextureLoader().loadAsync(url).catch(() => null);
 // the 4K maps (?lm=4k, local only) have no KTX2 copy (bake_all.py converts the 2K and 1K maps), so they go straight to the PNG;
