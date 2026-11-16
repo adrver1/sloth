@@ -70,8 +70,12 @@ export const BW_JOINTS = (() => {
 })();
 { // the cliff rail: from the boardwalk's south rail where it leaves the summit, round the edge (land.js edgeR), clockwise along
   // the cliff, to the road's shoulder; and the hilltop's ring, from one of the boardwalk's end posts round to the other
-  const s0 = BW_JOINTS[0].side(-1), line = [s0]; let a = Math.atan2(s0[1], s0[0]);
-  for (; a > -3.3; a -= 0.004) { const r = edgeR(a), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.hypot(x - s0[0], z - s0[1]) < 0.6 && line.length === 1) continue;
+  // It leaves the boardwalk square to it, 2.4 m straight out from its side, then turns a corner onto the edge: running
+  // along the edge from the boardwalk's corner, it cut under the boardwalk's first steps at a slant (Adriaen 2026-11-16:
+  // "something very strange going on here where the boardwalk meets the fence")
+  const j0 = BW_JOINTS[0], s0 = j0.side(-1), [ox, oz] = [s0[0] - j0.x, s0[1] - j0.z], s1 = [s0[0] + ox * 2.4, s0[1] + oz * 2.4], line = [s0, s1];
+  let a = Math.atan2(s1[1], s1[0]);
+  for (; a > -3.3; a -= 0.004) { const r = edgeR(a), x = Math.cos(a) * r, z = Math.sin(a) * r; if (line.length === 2 && z > s1[1] - 0.6) continue;   // joins the edge where it has come round past the corner, so no V
     const rd = x < -12 ? roadNear(x, z) : null; if (rd && rd.d < 3.1) { line.push([x, z]); break; } line.push([x, z]); }
   railLine(fencePosts(line, 2.4), 'Cliff rail', { skip: [0] });
   const end = BW_JOINTS[BW_JOINTS.length - 1], A = end.side(1), B = end.side(-1), R = (Math.hypot(A[0] - HT.x, A[1] - HT.z) + Math.hypot(B[0] - HT.x, B[1] - HT.z)) / 2;
