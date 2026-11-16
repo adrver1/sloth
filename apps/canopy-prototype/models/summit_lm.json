@@ -1,7 +1,7 @@
 {
  "size": 2048,
- "scale": 4.5799,
- "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,Lookout_0:4,Lookout_1:24,Lookout_2:8,Lookout_10:12,Lookout_11:2044,Lookout_12:8,Lookout_13:120,Lookout_14:24|138069.8",
+ "scale": 4.6422,
+ "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,Lookout_0:4,Lookout_1:24,Lookout_2:8,Lookout_9:12,Lookout_10:2044,Lookout_11:8,Lookout_12:120,Lookout_13:24|131522.3",
  "meshes": {
   "Cabin_0": 10,
   "Cabin_4": 24,
@@ -11,10 +11,10 @@
   "Lookout_0": 4,
   "Lookout_1": 24,
   "Lookout_2": 8,
-  "Lookout_10": 12,
-  "Lookout_11": 2044,
-  "Lookout_12": 8,
-  "Lookout_13": 120,
-  "Lookout_14": 24
+  "Lookout_9": 12,
+  "Lookout_10": 2044,
+  "Lookout_11": 8,
+  "Lookout_12": 120,
+  "Lookout_13": 24
  }
 }
