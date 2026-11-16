@@ -11,7 +11,7 @@
 // Inside the square the live point lights (the fire, the porch lamp, the light inside) no longer light the snow: the bake
 // does, with the props' shadows, and the fire channel flickers with the live fire. Without the maps (not baked yet, or
 // ?lm=0) the snow is lit live as before.
-// Exports groundLight(sh) (an onBeforeCompile extra for hazed(): terrain.js's near rings and road.js's mud), buildGroundLight()
+// Exports groundLight(sh) (an onBeforeCompile extra for hazed(): terrain.js's near rings and road.js's mud), setRelief(tex), buildGroundLight()
 // (main.js: loads the maps; returns a promise the loading card waits for) and groundLightStep(night, fire, porch) (each frame: the live fire's and porch lamp's intensities).
 import * as THREE from 'three';
 import { OPT } from './land.js';
@@ -20,7 +20,14 @@ const COL = { fire: new THREE.Color('#ff9a48'), cabin: new THREE.Color('#ffb760'
 const CYCLES = 2.1;   // measured: open ground round the fire bakes at 0.47 of the formula below (Cycles' units against three's)
 const GAIN = { fire: 1, cabin: 0.08, lantern: 0.5 };   // the knobs to tune by eye: the cabin's channel has its glowing windows too, which
 // the live scene never had, so it is turned well down (0.08 once the camp-side door was added, 2026-11-16); the lanterns have no live light (their strength at full dark)
-const U = { uGbAo: { value: null }, uGbNight: { value: null }, uGbO: { value: new THREE.Vector2() }, uGbS: { value: 44 }, uGbOn: { value: 0 },
+// The snow's relief (Adriaen 2026-11-16: "a solid 10 cm of snow on the roof, but on the ground it's not nearly as deep"): the
+// paths, the trodden snow and the boot prints that road.js paints in the same square are pressed into the snow, with a soft
+// raised rim where the snow was pushed aside (the paint's alpha, less a blurred copy of it). Nothing moves: the snow's normal
+// is tilted by that relief's slope, so the low sun lights one wall of each path and print and leaves the other in shade.
+// RELIEF: how deep full paint presses in (m), how much of the blurred copy comes back up as the rim, and the mip it is read at.
+const RELIEF = { depth: 0.16, rim: 0.75, blur: 4.0 };
+const U = { uRl: { value: null }, uRlOn: { value: 0 }, uRlD: { value: RELIEF.depth },
+  uGbAo: { value: null }, uGbNight: { value: null }, uGbO: { value: new THREE.Vector2() }, uGbS: { value: 44 }, uGbOn: { value: 0 },
   uGbFire: { value: new THREE.Color(0, 0, 0) }, uGbCabin: { value: new THREE.Color(0, 0, 0) }, uGbLant: { value: new THREE.Color(0, 0, 0) } };
 let J = null;
 
@@ -31,13 +38,23 @@ export function groundLight(sh) {
   // gbIn: 1 inside the square, fading out over its outer 3% (the bake sees nothing past its edge)
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
 uniform sampler2D uGbAo, uGbNight; uniform float uGbOn; uniform vec3 uGbFire, uGbCabin, uGbLant; varying vec2 vGbUv;
-float gbIn() { vec2 e = min(vGbUv, 1.0 - vGbUv); return uGbOn * smoothstep(0.0, 0.03, min(e.x, e.y)); }`)
+float gbEdge() { vec2 e = min(vGbUv, 1.0 - vGbUv); return smoothstep(0.0, 0.03, min(e.x, e.y)); }
+float gbIn() { return uGbOn * gbEdge(); }
+uniform sampler2D uRl; uniform float uRlOn, uRlD, uGbS;
+float rlH(vec2 u) { return textureLod(uRl, u, ${RELIEF.blur.toFixed(1)}).a * ${RELIEF.rim.toFixed(2)} - texture2D(uRl, u).a; }`)
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+  if (uRlOn > 0.0) { vec2 ru = vec2(vGbUv.x, 1.0 - vGbUv.y); float e = 0.07 / uGbS;   // 7 cm either side; the canvas's rows run with z, so v runs against it
+    vec2 sl = vec2(rlH(ru + vec2(e, 0.0)) - rlH(ru - vec2(e, 0.0)), rlH(ru - vec2(0.0, e)) - rlH(ru + vec2(0.0, e))) * uRlD / (2.0 * e * uGbS);
+    normal = normalize(normal - mat3(viewMatrix) * vec3(sl.x, 0.0, sl.y) * gbEdge()); }`)
     .replace('#include <lights_fragment_begin>', 'float gbK = gbIn();\n' + THREE.ShaderChunk.lights_fragment_begin.replace('getPointLightInfo( pointLight, geometryPosition, directLight );', 'getPointLightInfo( pointLight, geometryPosition, directLight ); directLight.color *= 1.0 - gbK;'))
     .replace('#include <aomap_fragment>', `#include <aomap_fragment>
   if (gbK > 0.0) { vec2 gu = clamp(vGbUv, 0.0, 1.0); vec3 gn = texture2D(uGbNight, gu).rgb * gbK;
     reflectedLight.indirectDiffuse *= mix(1.0, texture2D(uGbAo, gu).r, gbK);
     reflectedLight.indirectDiffuse += diffuseColor.rgb * (gn.r * uGbFire + gn.g * uGbCabin + gn.b * uGbLant); }`);
 }
+
+// road.js: the painted ground (paths, trodden snow, prints), whose alpha is the relief
+export function setRelief(tex) { U.uRl.value = tex; U.uRlOn.value = 1; }
 
 export function buildGroundLight() {
   if (!OPT.lm) return Promise.resolve();

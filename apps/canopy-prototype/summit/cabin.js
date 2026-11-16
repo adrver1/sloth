@@ -7,6 +7,8 @@ import { D, R, RH, RIDGE, TOP, TOWER, TRIS, W, WH, YB, YT, mulberry } from './la
 import { canvasTex, hazed, scene, tris } from './core.js';
 import { m4, q, sc, up, v3 } from './forest.js';
 import { buildLightmap, lightmapStep } from './lightmap.js';
+import { snowC, snowTex } from './terrain.js';
+import { groundLight } from './groundLight.js';
 
 // ---------------------------------------------------------------- the cabin: a big log cabin with a porch toward the south (-z)
 const cabin = new THREE.Group();
@@ -110,6 +112,33 @@ part(new THREE.BoxGeometry(0.16, 0.26, 0.16), lampMat, ENTRY.x + 1.0, YB + 2.05,
 export const porchLight = new THREE.PointLight('#ffb760', 0, 22, 1.6);
 export const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6);
 
+// ---------------------------------------------------------------- the snow banked against the cabin
+// Adriaen 2026-11-16: "a solid 10 cm of snow on the roof, but on the ground it's not nearly as deep". Snow drifts up the stone
+// footing on the east, north and west walls (the porch covers the south one, the entrance's stoop the middle of the north one):
+// from 0.3 to 0.5 m up the wall, rounded, out to 1 m. Its own mesh, outside the cabin's group, so the cabin's baked light map
+// still fits; it takes the ground's bake (groundLight.js: dark at the wall's foot, the fire's and windows' light at night) and
+// the terrain's snow texture. About 160 triangles, one draw.
+function snowBank() {
+  const X = (W + 0.3) / 2, Z = (D + 0.3) / 2, OUT = [[0, 1], [0.38, 0.62], [0.75, 0.22], [1.0, -0.06]];   // the profile: (out, share of the height)
+  const pts = [];   // [x, z, outward normal x, z, height]
+  const side = (x0, z0, x1, z1, nx, nz) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(L / 0.7));
+    for (let i = 0; i <= n; i++) pts.push([x0 + (x1 - x0) * i / n, z0 + (z1 - z0) * i / n, nx, nz]); };
+  const corner = (x, z, a0, a1) => { for (let i = 1; i < 4; i++) { const a = a0 + (a1 - a0) * i / 4; pts.push([x, z, Math.cos(a), Math.sin(a)]); } };
+  const strips = [];
+  const strip = () => { const P = [], UV = [], I = [], r = mulberry(17 + strips.length);
+    pts.forEach(([x, z, nx, nz], i) => { const end = Math.min(i, pts.length - 1 - i), hh = (0.3 + 0.2 * r()) * Math.min(1, 0.25 + end / 3);   // lower toward the ends
+      for (const [o, k] of OUT) { const px = x + nx * o, pz = z + nz * o; P.push(px, k * hh, pz); UV.push(px / 6, pz / 6); } });
+    for (let i = 0; i < pts.length - 1; i++) for (let j = 0; j < OUT.length - 1; j++) { const a = i * OUT.length + j, b = a + OUT.length; I.push(a, a + 1, b, a + 1, b + 1, b); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setIndex(I); strips.push(g); pts.length = 0; };
+  // the east wall (x -) from the porch round to the stoop, then the stoop round the west wall (x +) to the porch
+  side(-X, -Z, -X, Z, -1, 0); corner(-X, Z, Math.PI, Math.PI / 2); side(-X, Z, -1.3, Z, 0, 1); strip();
+  side(1.3, Z, X, Z, 0, 1); corner(X, Z, Math.PI / 2, 0); side(X, Z, X, -Z, 1, 0); strip();
+  const geo = mergeGeometries(strips); geo.computeVertexNormals();
+  const bank = new THREE.Mesh(geo, hazed(new THREE.MeshLambertMaterial({ color: snowC, map: snowTex }), groundLight, 'bank'));
+  bank.position.set(0, TOP, 0); bank.receiveShadow = true; bank.name = 'SnowBank'; scene.add(bank);
+  TRIS.push(['Snow banked on the cabin', tris(geo)]);
+}
+
 // ---------------------------------------------------------------- places to walk to: the fire lookout
 export const placeTris = (g) => { let n = 0; g.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); return n; };
 const tower = new THREE.Group();
@@ -127,6 +156,7 @@ export function buildCabin() {
   cabin.add(inside);   // the glow from the back windows on the snow
   { let n = 0; cabin.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); TRIS.push(['Cabin, porch, woodpile', n]); }
   bakeStatic(cabin, (o) => o.userData.door);   // each door its own mesh, for bakeSources
+  snowBank();
   tower.position.set(TOWER.x, TOWER.y - 0.5, TOWER.z);
   tower.rotation.y = 0.5;
   scene.add(tower);

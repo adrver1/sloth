@@ -1,7 +1,7 @@
 // Summit Cabin road: the level's edges (fences), the road in with its bridge and tunnel, the jeep (models/jeep_expedition.txt,
 // a box LOD beyond 110 m, the map and compass go on its hood), and the mud tracks round the camp. Builds on import.
 import * as THREE from 'three';
-import { groundLight } from './groundLight.js';
+import { groundLight, setRelief } from './groundLight.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BW, BW_CORNERS, HT, JEEP, PLAT_R, ROAD, ROAD_Y, SNOWMAN as SM, TOP, TOWER, TRIS, bwY, edgeR, groundAt, height, isPhone, mulberry, polyNear, roadNear, trailHalf } from './land.js';
@@ -23,6 +23,12 @@ const woodC = (top) => tmpC.set(top ? '#f1f0ee' : '#6b625a').clone();
 const snowTopBox = (w, h, d, wood = '#6b625a') => { const g = new THREE.BoxGeometry(w, h, d), n = g.attributes.normal, C = [];
   for (let i = 0; i < n.count; i++) { tmpC.set(n.getY(i) > 0.5 ? '#f1f0ee' : wood); if (n.getY(i) < -0.5) tmpC.multiplyScalar(0.6); C.push(tmpC.r, tmpC.g, tmpC.b); } g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return g; };
 const fenceMat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true }));
+// a post's drift: the snow heaped round its foot (Adriaen 2026-11-16: the ground's snow should look as deep as the roof's), a
+// eight-sided open cone in snow white, its foot 4 cm under the ground, its tip inside the post; 8 triangles, in the post's draw.
+// r: its reach (m), h: its height, g: where the ground is in the post's frame
+function driftCollar(r, h, g) { const c = new THREE.ConeGeometry(r, h, 8, 1, true).translate(0, g - 0.04 + h / 2, 0), C = [];
+  for (let i = 0; i < c.attributes.position.count; i++) { tmpC.set('#f1f0ee'); C.push(tmpC.r, tmpC.g, tmpC.b); }
+  c.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return c; }
 // Fences (Adriaen 2026-11-16: "the fence / rail needs to be better aligned ... no unnatural gaps or weird angles"): a post at
 // every corner of the line and evenly between (about every `step` m), two rails from post to post that climb and fall with the
 // ground, so they meet the posts at the same height on both sides. Fences end on the boardwalk's own end posts (shared, so
@@ -41,14 +47,14 @@ function fencePosts(line, step) {
 }
 // railLine(ps, label, { skip }): posts at ps (but not at the indices in skip: they are another fence's), rails between them
 function railLine(ps, label, { skip = [] } = {}) {
-  const postG = snowTopBox(0.16, 2.25, 0.16).translate(0, 0.12, 0), railG = snowTopBox(1, 0.1, 0.09), np = ps.length - skip.length;
+  const postG = mergeGeometries([snowTopBox(0.16, 2.25, 0.16).translate(0, 0.12, 0), driftCollar(0.38, 0.16, 0.05)]), railG = snowTopBox(1, 0.1, 0.09), np = ps.length - skip.length;
   const posts = new THREE.InstancedMesh(postG, fenceMat, np), rails = new THREE.InstancedMesh(railG, fenceMat, (ps.length - 1) * 2), e = new THREE.Euler();
   let n = 0; ps.forEach(([x, z], i) => { const g = groundAt(x, z); if (!skip.includes(i)) posts.setMatrixAt(n++, m4.makeTranslation(x, g - 0.05, z));   // 1 m of each post is in the ground: coarser terrain rings further off sit lower than height() across a slope
     if (i) { const [px, pz] = ps[i - 1], pg = groundAt(px, pz), L = Math.hypot(x - px, z - pz), rise = g - pg, yaw = -Math.atan2(z - pz, x - px);
       for (const [k, hh] of [[0, 0.5], [1, 1.02]]) { const sag = k ? 0 : 0.03 * Math.sin(i * 2.1);   // the lower rail a little uneven, as split rails are
         rails.setMatrixAt((i - 1) * 2 + k, m4.compose(v3.set((x + px) / 2, (g + pg) / 2 + hh + sag, (z + pz) / 2), q.setFromEuler(e.set(0, yaw, Math.atan2(rise, L), 'YZX')), sc.set(Math.hypot(L, rise) + 0.12, 1, 1))); } } });
   posts.castShadow = rails.castShadow = true; scene.add(posts, rails);
-  TRIS.push([`${label} (${np} posts × 12, ${(ps.length - 1) * 2} rails × 12)`, tris(postG, np) + tris(railG, (ps.length - 1) * 2)]);
+  TRIS.push([`${label} (${np} posts × 20 with their drift, ${(ps.length - 1) * 2} rails × 12)`, tris(postG, np) + tris(railG, (ps.length - 1) * 2)]);
 }
 // the boardwalk's joints: where its pieces meet (a bend, a stair's foot or head, or every 3 m), with the mitred side offset
 // there, so its rails meet at the corners; its posts and the fences that end on it stand on these
@@ -196,6 +202,7 @@ export function buildRoad() {
       foot([DOOR, NW, [6.9, 4.4], [7.6, 0.4], WSIDE, WEST]);   // round the west end to the other porch steps
       foot([NW, [7.5, 10.4], [11, 11.5], [15.5, 15.5], [19, 19.5]]); });   // the trail head, off the west path. No loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
     const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }), groundLight, 'mud'));   // lit as the snow under it (groundLight.js)
+    setRelief(tex);   // its paint is pressed into the snow round it too (groundLight.js RELIEF)
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
   }
 }

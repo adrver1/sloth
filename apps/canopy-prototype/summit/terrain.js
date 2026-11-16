@@ -13,7 +13,7 @@ import { camera, canvasTex, hazed, me, scene } from './core.js';
 export const snowC = new THREE.Color('#fbf7f0'), rockC = new THREE.Color('#4b4b4f'), shadeC = new THREE.Color('#a9b3c9'), iceC = new THREE.Color('#93a9bb'), trailC = new THREE.Color('#e8dfd4'), tmpC = new THREE.Color(), rockV = new THREE.Color();
 // the snow's own texture, 6 m across and tiled (Adriaen 2026-11-16: the summit needs "detail and texture, as illustrated by the
 // jungle"): soft lumps, wind ripples (a lit crest over a blue trough), a few crusted patches and glints
-const snowTex = canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const r = mulberry(7);
+export const snowTex = canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const r = mulberry(7);
   const soft = (x, y, R, col) => { for (const [dx, dy] of [[0, 0], [w, 0], [-w, 0], [0, h], [0, -h]]) { const gr = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, R); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x + dx - R, y + dy - R, 2 * R, 2 * R); } };
   for (let i = 0; i < 26; i++) soft(r() * w, r() * h, 40 + r() * 90, `rgba(196,210,232,${0.16 + r() * 0.12})`);   // lumps and hollows
   for (let i = 0; i < 18; i++) soft(r() * w, r() * h, 30 + r() * 60, 'rgba(255,255,255,0.5)');
