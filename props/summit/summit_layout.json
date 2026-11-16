@@ -1,6 +1,6 @@
 {
  "size": 2048,
- "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,LookoutDoor:12,Lookout_1:4,Lookout_2:24,Lookout_3:10,Lookout_10:12,Lookout_11:2068,Lookout_12:8,Lookout_13:120,Lookout_14:24|133732.0",
+ "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,LookoutDoor:12,Lookout_1:4,Lookout_2:24,Lookout_4:12,Lookout_5:272,Lookout_6:68,Lookout_9:12,Lookout_10:2128,Lookout_11:8,Lookout_12:120,Lookout_13:24|158614.3",
  "meshes": {
   "Cabin_0": 10,
   "Cabin_4": 24,
@@ -10,12 +10,14 @@
   "LookoutDoor": 12,
   "Lookout_1": 4,
   "Lookout_2": 24,
-  "Lookout_3": 10,
-  "Lookout_10": 12,
-  "Lookout_11": 2068,
-  "Lookout_12": 8,
-  "Lookout_13": 120,
-  "Lookout_14": 24
+  "Lookout_4": 12,
+  "Lookout_5": 272,
+  "Lookout_6": 68,
+  "Lookout_9": 12,
+  "Lookout_10": 2128,
+  "Lookout_11": 8,
+  "Lookout_12": 120,
+  "Lookout_13": 24
  },
  "lights": [
   {
@@ -229,6 +231,18 @@
   {
    "kind": "point",
    "at": [
+    192.13354903425608,
+    686.8719284502971,
+    88.40628387481797
+   ],
+   "color": "#ffc477",
+   "distance": 0,
+   "name": "lookout",
+   "group": "lantern"
+  },
+  {
+   "kind": "point",
+   "at": [
     1.05,
     637.3589661936378,
     -4.6
@@ -345,6 +359,90 @@
    ],
    "color": "#ffc477",
    "distance": 0
+  },
+  {
+   "kind": "point",
+   "name": "lantern",
+   "group": "lantern",
+   "at": [
+    193.74649425623028,
+    674.9219284502971,
+    83.5368991384359
+   ],
+   "color": "#ffc477",
+   "distance": 0
+  },
+  {
+   "kind": "point",
+   "name": "lantern",
+   "group": "lantern",
+   "at": [
+    196.23950705697212,
+    677.2519284502971,
+    88.10032846026584
+   ],
+   "color": "#ffc477",
+   "distance": 0
+  },
+  {
+   "kind": "point",
+   "name": "lantern",
+   "group": "lantern",
+   "at": [
+    193.74649425623028,
+    679.581928450297,
+    83.5368991384359
+   ],
+   "color": "#ffc477",
+   "distance": 0
+  },
+  {
+   "kind": "point",
+   "name": "lantern",
+   "group": "lantern",
+   "at": [
+    196.23950705697212,
+    681.9119284502971,
+    88.10032846026584
+   ],
+   "color": "#ffc477",
+   "distance": 0
+  },
+  {
+   "kind": "point",
+   "name": "lantern",
+   "group": "lantern",
+   "at": [
+    193.74649425623028,
+    684.2419284502971,
+    83.5368991384359
+   ],
+   "color": "#ffc477",
+   "distance": 0
+  },
+  {
+   "kind": "point",
+   "name": "lantern",
+   "group": "lantern",
+   "at": [
+    193.64900138873475,
+    686.8719284502971,
+    87.00864151666438
+   ],
+   "color": "#ffc477",
+   "distance": 0
+  },
+  {
+   "kind": "point",
+   "name": "lantern",
+   "group": "lantern",
+   "at": [
+    192.13354903425608,
+    686.8719284502971,
+    88.40628387481797
+   ],
+   "color": "#ffc477",
+   "distance": 0
   }
  ],
  "ground": {
@@ -353,6 +451,6 @@
   "size": 44,
   "px": 1024
  },
- "texelsPerMetre": 35.53,
- "rects": 1279
+ "texelsPerMetre": 33.78,
+ "rects": 1480
 }
