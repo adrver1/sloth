@@ -82,7 +82,7 @@ function frame() {
   clockStep(dt, LIGHT.night);   // the camp's clocks (camp/clock.js): the porch clock and the jeep's dash clock, hands and glow
   sky.position.copy(camera.position); horizonStep();
   cabinStep(LIGHT.night);
-  lookoutStep(LIGHT.night);   // lookout.js: its room near, its glowing panes far
+  lookoutStep(LIGHT.night, dt);   // lookout.js: its room near, its glowing panes far, its door swinging
   fxStep(dt, now, LIGHT.storm, LIGHT.bright);   // sets the wind before the flag reads it
   campStep(now, LIGHT.night, wind);
   groundLightStep(LIGHT.night, fireLight.intensity, porchLight.intensity);   // after the fire and the porch lamp are set: the baked ground light follows them

@@ -19,6 +19,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TOWER, mulberry } from './land.js';
 import { camera, canvasTex } from './core.js';
 import { pennant, poleMat, scoutPennant } from './flag.js';
+import { addDoor, doorsStep } from '../camp/hingedDoor.js';
 
 // ---------------------------------------------------------------- the plan (the tower's frame, metres)
 const TURN = 0.5, BASE = TOWER.y - 0.5;   // the tower's turn and the height its frame starts at (cabin.js puts the group there)
@@ -57,6 +58,7 @@ export function lookoutFloor(x, z, feet) { const [lx, lz] = local(x, z), f = flo
 // things inside. Climbing more than a step or dropping off an edge is player.js's rule. BODY keeps you off railings; walls keep
 // you WALL off, past the camera's near plane (0.3 m, core.js) and its corners, so you never see through them.
 const BODY = 0.25, WALL = 0.45;
+let lookDoor = null;   // the door (buildLookout), read here to let you through only while it is open
 const POSTS = [[-LEG, -LEG], [-LEG, LEG], [LEG, -LEG], [LEG, LEG], [SC.x1, SC.s0], [SC.x1, SC.n1]];
 export function lookoutBlocks(x0, z0, x1, z1, feet) {
   const [ax, az] = local(x0, z0), [bx, bz] = local(x1, z1), fy = feet - BASE;
@@ -75,7 +77,7 @@ export function lookoutBlocks(x0, z0, x1, z1, feet) {
   if (deck(ax, az) !== deck(bx, bz) && !gap(ax, az) && !gap(bx, bz)) return true;
   if (!deck(bx, bz) && !gap(bx, bz) && !onStairs(bx, bz)) return true;
   // the cab: its walls keep you WALL off on either side; the doorway lets you through
-  const r = Math.max(Math.abs(bx), Math.abs(bz)), door = bx > 0 && bz > DOOR.z0 + BODY && bz < DOOR.z1 - BODY && Math.abs(bz) < CAB - 0.06;
+  const r = Math.max(Math.abs(bx), Math.abs(bz)), door = (!lookDoor || lookDoor.cur > lookDoor.open * 0.6) && bx > 0 && bz > DOOR.z0 + BODY && bz < DOOR.z1 - BODY;   // through the doorway while the door stands open
   if (r > CAB - 0.06 - WALL && r < CAB + 0.06 + WALL && !door) return true;
   if (r <= CAB - 0.06 - WALL) for (const [x, z, rr] of INSIDE_BLOCK) if (Math.hypot(bx - x, bz - z) < rr + BODY) return true;
   return false;
@@ -83,7 +85,7 @@ export function lookoutBlocks(x0, z0, x1, z1, feet) {
 const INSIDE_BLOCK = [[0, 0, 0.45], [-1.65, -1.6, 0.35], [-1.8, 0.45, 0.4], [-1.8, 1.0, 0.4], [-1.8, 1.55, 0.4]];   // the fire finder, the stove, the bed (three circles)
 
 // ---------------------------------------------------------------- building it
-let inner = null, panes = null, glass = null, lampMat = null, warmLam = null;
+let inner = null, panes = null, glass = null, lampMat = null, warmLam = null, door = null;
 export function buildLookout(tower, { M, lam, part, winMat }) {
   const box = (w, h, d, mat, x, y, z, ry = 0, rz = 0, parent = tower) => { const m = part(new THREE.BoxGeometry(w, h, d), mat, x, y, z, parent); m.rotation.set(0, ry, rz, 'YZX'); return m; };
   // legs, a girt at the landing's height and painted X braces between the legs
@@ -127,7 +129,10 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
     { const [x, z] = at(0); box(CAB * 2 + T, TOPW - HEAD, T, M.log, x, Y0 + (HEAD + TOPW) / 2, z, ry); }
     for (const o of [-CAB, -CAB / 3, CAB / 3, CAB]) { if (door && o > DOOR.z0 - 0.1 && o < DOOR.z1 + 0.1) continue; const [x, z] = at(o); box(0.1, HEAD - SILL, 0.1, M.wood, x, Y0 + (SILL + HEAD) / 2, z); }
   }
-  { const w = DOOR.z1 - DOOR.z0 - 0.04; box(w, 2.0, 0.05, M.wood, CAB - w / 2 - 0.04, Y0 + 1.0, DOOR.z1 - 0.02); }   // the door, open inward against the north wall's sill
+  // the door, hung on the north jamb: shut in the wall, it swings in against the north wall from its menu, like the jeep's (camp/hingedDoor.js)
+  { const w = DOOR.z1 - DOOR.z0 - 0.04, hinge = new THREE.Group(); hinge.position.set(CAB, Y0, DOOR.z1 - 0.02); tower.add(hinge);
+    const leaf = box(0.06, 2.0, w, M.wood, 0, 1.0, -w / 2, 0, 0, hinge); leaf.userData.keep = true; leaf.name = 'LookoutDoor'; hinge.userData.keep = true;
+    lookDoor = door = addDoor({ o: hinge, open: Math.PI / 2 * 0.95, name: 'door', reach: 2.6, ready: () => camera.position.y > BASE + TH - 1 }); }
   box(CAB * 2, 0.08, CAB * 2, M.wood, 0, Y0 + TOPW + 0.04, 0);   // the ceiling, so from inside you see boards, not the sky
   // the roof: a hipped cap over the deck, snow on it, a stove pipe and the pennant on the peak
   const roof = part(new THREE.ConeGeometry(4.3, 1.9, 4, 1, true), M.roof, 0, Y0 + TOPW + 0.95, 0, tower); roof.rotation.y = Math.PI / 4;
@@ -191,8 +196,9 @@ export function furnishFromTent(tent) {
 
 // each frame: the room and its clear glass near, the glowing panes far; the lamp and the room's glow after dark
 const wp = new THREE.Vector3();
-export function lookoutStep(night) {
+export function lookoutStep(night, dt) {
   if (!inner) return;
+  doorsStep(dt);
   const near = camera.position.distanceTo(wp.set(TOWER.x, BASE + FLOOR, TOWER.z)) < INNER_R;
   inner.visible = glass.visible = near; panes.visible = !near;
   if (near) { lampMat.color.setScalar(0.55 + 0.45 * night).multiply(new THREE.Color('#ffd28a')); inner.traverse((o) => { if (o.material?.emissive) o.material.emissiveIntensity = 1.4 * night; }); }
