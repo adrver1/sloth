@@ -18,8 +18,8 @@ import { OPT } from './land.js';
 
 const COL = { fire: new THREE.Color('#ff9a48'), cabin: new THREE.Color('#ffb760'), lantern: new THREE.Color('#ffc477') };
 const CYCLES = 2.1;   // measured: open ground round the fire bakes at 0.47 of the formula below (Cycles' units against three's)
-const GAIN = { fire: 1, cabin: 0.15, lantern: 0.5 };   // the knobs to tune by eye: the cabin's channel has its glowing windows too, which
-// the live scene never had, so it is turned down; the lanterns have no live light (their strength at full dark)
+const GAIN = { fire: 1, cabin: 0.08, lantern: 0.5 };   // the knobs to tune by eye: the cabin's channel has its glowing windows too, which
+// the live scene never had, so it is turned well down (0.08 once the camp-side door was added, 2026-11-16); the lanterns have no live light (their strength at full dark)
 const U = { uGbAo: { value: null }, uGbNight: { value: null }, uGbO: { value: new THREE.Vector2() }, uGbS: { value: 44 }, uGbOn: { value: 0 },
   uGbFire: { value: new THREE.Color(0, 0, 0) }, uGbCabin: { value: new THREE.Color(0, 0, 0) }, uGbLant: { value: new THREE.Color(0, 0, 0) } };
 let J = null;
