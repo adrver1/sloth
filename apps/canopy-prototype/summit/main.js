@@ -9,6 +9,7 @@ import { CARDS, SPECIES, TREES, buildForest, cards, cullWedges, logGeo, logs, ne
 import { MADE_FROM, buildHorizon, horizonStep } from './horizon.js';
 import { buildCabin, cabinStep } from './cabin.js';
 import { buildScoutCamp, campStep } from './scoutCamp.js';
+import { buildCover } from './cover.js';
 import { buildRoad, roadStep } from './road.js';
 import { buildMap, carry } from './map.js';
 import { buildFx, fxStep, wind } from './fx.js';
@@ -27,6 +28,7 @@ import { hearJeep } from '../camp/audio/jeepSound.js';
 buildCore();        // core.js: the canvas on the page, the sky dome
 buildTerrain();     // terrain.js: the rings round you (needs the land and the haze chunk)
 buildForest();      // forest.js: tree, log and rock buckets
+buildCover();       // cover.js: dry grass through the snow round the camp and the cabin
 buildHorizon();     // horizon.js: the painted ring; MADE_FROM counts the scene's children here, so what follows is man-made
 buildCabin();       // cabin.js: the cabin and the fire lookout
 buildScoutCamp();   // scoutCamp.js: the camp's GLBs round the fire (loading), lanterns, flag, snowman

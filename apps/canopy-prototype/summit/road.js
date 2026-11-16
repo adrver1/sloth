@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { BW, BW_CORNERS, HT, JEEP, PLAT_R, ROAD, ROAD_Y, TOP, TOWER, TRIS, bwY, edgeR, groundAt, height, mulberry, polyNear, trailHalf } from './land.js';
+import { BW, BW_CORNERS, HT, JEEP, PLAT_R, ROAD, ROAD_Y, TOP, TOWER, TRIS, bwY, edgeR, groundAt, height, isPhone, mulberry, polyNear, trailHalf } from './land.js';
 import { camera, canvasTex, hazed, renderer, scene, tris } from './core.js';
 import { rigJeep } from '../camp/jeepRig.js';
 import { tmpC } from './terrain.js';
@@ -139,7 +139,8 @@ export function buildRoad() {
   }
 
   { // mud: wheel ruts from the road to the jeep, and the paths worn between jeep, porch, camp, woodpile and the trail head
-    const S = 44, PX = 1024, k = PX / S, tex = canvasTex(PX, PX, (g) => { const r = mulberry(23), at = ([x, z]) => [(x + S / 2) * k, (z + S / 2) * k];
+    const S = 44, PX = isPhone ? 1024 : 2048, k = PX / S, tex = canvasTex(PX, PX, (g) => { const r = mulberry(23), at = ([x, z]) => [(x + S / 2) * k, (z + S / 2) * k];
+      paintCampSnow(g, at, k, mulberry(31));   // the lived-in snow round the camp first, the paths over it
       const path = (pts, wid, col, a) => { g.lineCap = g.lineJoin = 'round'; for (let pass = 0; pass < 3; pass++) { g.strokeStyle = col; g.globalAlpha = a * (pass === 0 ? 0.35 : pass === 1 ? 0.55 : 0.9); g.lineWidth = wid * k * (pass === 0 ? 1.8 : pass === 1 ? 1.3 : 0.8);
         g.beginPath(); pts.forEach((p, i) => { const [x, y] = at(p); const j = pass && wid > 0.6 ? (r() - 0.5) * 4 : 0; i ? g.lineTo(x + j, y + j) : g.moveTo(x, y); }); g.stroke(); } g.globalAlpha = 1; };
       const ruts = (pts) => { for (const o of [-0.8, 0.8]) path(pts.map(([x, z], i) => { const n = pts[Math.min(i + 1, pts.length - 1)], m = pts[Math.max(i - 1, 0)], dx = n[0] - m[0], dz = n[1] - m[1], l = Math.hypot(dx, dz) || 1; return [x - (dz / l) * o, z + (dx / l) * o]; }), 0.32, '#5e4d40', 0.55); };
@@ -155,4 +156,45 @@ export function buildRoad() {
 export function roadStep() {
   if (!JEEP.lod) return;
   const p = JEEP.node.position, far = Math.hypot(camera.position.x - p.x, camera.position.z - p.z) > 110; JEEP.lod[0].visible = !far; JEEP.lod[1].visible = far;
+}
+
+// The snow round the camp, lived in as the jungle camp's ground is (Adriaen 2026-11-16: "bland and boring compared to the
+// jungle"), painted under the paths on the same canvas (world metres; at() takes [x, z] to pixels, k pixels a metre). All of it
+// in the snow's own blue-white and earth tones, soft-edged: plain grey spots read as dirt splotches here (Adriaen 2026-11-15).
+//   trodden snow: packed, a little blue, round the fire and the seats, to the table, the tent, the crate and the cabin's door
+//   boot prints: pairs along the ways people walk and scattered round the fire, sloth prints (three toes) round the seats
+//   the fire's melt ring: wet dark earth and ash under the stones, slush round it
+//   the snowman's roll track: where its balls were rolled up, a winding strip of bare ground and dry grass
+//   sawdust and chips round the chopping stump, needles and twigs here and there
+function paintCampSnow(g, at, k, r) {
+  const blob = (x, z, rad, col, a) => { const [px, py] = at([x, z]), R = rad * k, gr = g.createRadialGradient(px, py, 0, px, py, R);
+    gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(0.6, `rgba(${col},${a * 0.6})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(px - R, py - R, 2 * R, 2 * R); };
+  const along = (pts, step, fn) => { for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0);
+    for (let d = 0; d < L; d += step) { const t = d / L; fn(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, (x1 - x0) / L, (z1 - z0) / L); } } };
+  const FIRE = [0.5, 11.5], SEATS = [[1.2, 13.5], [-1, 12.9], [-1.4, 10.7]], TABLE = [3.9, 12.8], TENT = [-0.9, 16.1], CRATE = [5, 13.2], DOOR = [0, 4.6], SNOWMAN = [-2.8, 10.9], CHOP = [-6.75, 2.9];
+  // trodden: overlapping soft blotches, densest at the fire
+  for (let i = 0; i < 70; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 3.6; blob(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, 0.6 + r() * 0.9, '150,168,196', 0.10 + r() * 0.08); }
+  for (const to of [TABLE, TENT, CRATE, DOOR, SNOWMAN, ...SEATS]) along([FIRE, to], 0.45, (x, z) => blob(x + (r() - 0.5) * 0.6, z + (r() - 0.5) * 0.6, 0.5 + r() * 0.4, '150,168,196', 0.09 + r() * 0.06));
+  // the snowman's roll track: from the open snow toward him, wider as the ball grew, bare earth and dry grass showing
+  const roll = [[-9.5, 7.2], [-8, 9.2], [-6.2, 8.4], [-4.8, 10.1], [-3.4, 10.6]];
+  along(roll, 0.08, (x, z, dx, dz) => { const t = Math.min(1, Math.hypot(x - roll[0][0], z - roll[0][1]) / 9), w = (0.12 + 0.3 * t) * k, [px, py] = at([x, z]);
+    g.save(); g.translate(px, py); g.rotate(Math.atan2(dz, dx)); g.fillStyle = `rgba(118,104,78,${0.5 + 0.2 * r()})`; g.fillRect(-0.06 * k, -w / 2 + (r() - 0.5) * 0.05 * k, 0.12 * k, w * (0.85 + 0.15 * r())); g.restore();
+    for (let j = 0; j < 3; j++) { const [qx, qy] = at([x + (r() - 0.5) * 0.4 * (0.4 + t), z + (r() - 0.5) * 0.4 * (0.4 + t)]); g.strokeStyle = `rgba(${170 + r() * 40 | 0},${140 + r() * 30 | 0},80,0.7)`; g.lineWidth = 1; g.beginPath(); g.moveTo(qx, qy); g.lineTo(qx + (r() - 0.5) * 4, qy - 2 - r() * 4); g.stroke(); } });   // dry grass blades
+  // the fire's melt ring under and round the stones
+  blob(FIRE[0], FIRE[1], 2.1, '205,214,228', 0.35); blob(FIRE[0], FIRE[1], 1.55, '120,118,120', 0.45); blob(FIRE[0], FIRE[1], 1.1, '74,60,48', 0.85); blob(FIRE[0], FIRE[1], 0.7, '52,46,44', 0.9);
+  for (let i = 0; i < 40; i++) { const a = r() * 6.28, d = 0.9 + r() * 0.5; blob(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, 0.08 + r() * 0.12, '96,92,90', 0.4); }   // ash flecks
+  // boot prints: a left and a right, 0.3 m apart along the way, toes pointing on
+  const boot = (x, z, dx, dz, side) => { const [px, py] = at([x - dz * side * 0.09, z + dx * side * 0.09]); g.save(); g.translate(px, py); g.rotate(Math.atan2(dz, dx));
+    g.fillStyle = 'rgba(128,146,178,0.42)'; g.beginPath(); g.ellipse(0.04 * k, 0, 0.085 * k, 0.045 * k, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(-0.1 * k, 0, 0.045 * k, 0.04 * k, 0, 0, 7); g.fill(); g.restore(); };
+  const walk = (pts) => { let side = 1; along(pts, 0.36, (x, z, dx, dz) => { if (r() < 0.85) boot(x + (r() - 0.5) * 0.05, z + (r() - 0.5) * 0.05, dx, dz, side); side = -side; }); };
+  for (const to of [TABLE, TENT, CRATE, SNOWMAN]) walk([[FIRE[0] + (to[0] - FIRE[0]) * 0.35, FIRE[1] + (to[1] - FIRE[1]) * 0.35], to]);
+  walk([[-1.5, 9.6], [-0.6, 7.2], DOOR]); walk([DOOR, [-3.5, 4.2], [-6.2, 3.2]]); walk([[3.2, 9.2], [7.4, 5.6], [7.6, 0]]);
+  for (let i = 0; i < 26; i++) { const a = r() * 6.28, d = 1.6 + r() * 1.9; boot(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, Math.cos(a + 1.6 + r()), Math.sin(a + 1.6 + r()), r() < 0.5 ? 1 : -1); }
+  // sloth prints: three long toe marks, small, round the seats and the crate
+  for (let i = 0; i < 34; i++) { const c = [...SEATS, CRATE, TENT][i % 5], a = r() * 6.28, d = 0.5 + r() * 1.1, [px, py] = at([c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d]);
+    g.save(); g.translate(px, py); g.rotate(r() * 6.28); g.fillStyle = 'rgba(120,138,170,0.4)'; for (const o of [-1, 0, 1]) { g.beginPath(); g.ellipse(0.05 * k, o * 0.025 * k, 0.045 * k, 0.01 * k, o * 0.25, 0, 7); g.fill(); } g.restore(); }
+  // sawdust and chips round the chopping stump, needles and twigs under the camp
+  for (let i = 0; i < 160; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 1.3, [px, py] = at([CHOP[0] + Math.cos(a) * d, CHOP[1] + Math.sin(a) * d]); g.fillStyle = `rgba(${190 + r() * 30 | 0},${145 + r() * 30 | 0},${90 + r() * 25 | 0},${0.5 + r() * 0.4})`; g.fillRect(px, py, 1 + r() * 0.06 * k, 1 + r() * 0.03 * k); }
+  for (let i = 0; i < 140; i++) { const a = r() * 6.28, d = 2.4 + r() * 6, [px, py] = at([FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d]), L = (0.04 + r() * 0.12) * k, b = r() * 6.28;
+    g.strokeStyle = `rgba(${70 + r() * 30 | 0},${52 + r() * 20 | 0},${36 + r() * 12 | 0},${0.35 + r() * 0.35})`; g.lineWidth = r() < 0.2 ? 2 : 1; g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(b) * L, py + Math.sin(b) * L); g.stroke(); }
 }

@@ -45,7 +45,7 @@ THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
   #endif
   vFogW = (modelMatrix * fogW).xyz;
   { float fs = max(dot(normalize(vFogW - cameraPosition), uSunDir), 0.0), f2 = fs * fs, f4 = f2 * f2;
-    vHazeO = fogOETF(mix(uSkyLo, uHor, 0.35 + 0.65 * f2) + uSunCol * (f4 * 0.5));   // a warm glow toward the sun, like the camp's sunlit mist
+    vHazeO = fogOETF(mix(uSkyLo, uHor, 0.6 + 0.4 * f2) + uSunCol * (f4 * 0.5));   // mostly the horizon's colour (the far land in the sky's colour, as in The Long Dark), with a warm glow toward the sun
     vMistO = fogOETF(uMistCol + uSunCol * (f4 * 0.25)); vFogO = fogOETF(uFogCol); }
 #endif`;
 // a sprite's shader has no `transformed` for the fog above: give it its centre (the cast's sleep z's and hearts are sprites)
@@ -71,13 +71,26 @@ export const tris = (geo, n = 1) => ((geo.index ? geo.index.count : geo.attribut
 
 // ---------------------------------------------------------------- sky: gradient, sun, stars; follows the camera
 export const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), new THREE.ShaderMaterial({
-  uniforms: { uZen: { value: new THREE.Color() }, uHor: U.uHor, uSkyLo: U.uSkyLo, uSunCol: U.uSunCol, uSunDir: U.uSunDir, uMoonDir: { value: new THREE.Vector3() }, uNight: { value: 0 }, uFog: { value: 0 }, uFogCol: U.uFogCol },
+  uniforms: { uZen: { value: new THREE.Color() }, uHor: U.uHor, uSkyLo: U.uSkyLo, uSunCol: U.uSunCol, uSunDir: U.uSunDir, uMoonDir: { value: new THREE.Vector3() }, uNight: { value: 0 }, uFog: { value: 0 }, uFogCol: U.uFogCol, uT: { value: 0 } },
   vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform vec3 uZen, uHor, uSkyLo, uSunCol, uSunDir, uMoonDir, uFogCol; uniform float uNight, uFog; varying vec3 vDir;
+  // painted clouds (soft streaks lit in the horizon's colour) and at night an aurora's green curtains, as in The Long Dark
+  // (Adriaen 2026-11-16, summit-level/look/reference/); uT the time in seconds (daylight.js)
+  fragmentShader: `uniform vec3 uZen, uHor, uSkyLo, uSunCol, uSunDir, uMoonDir, uFogCol; uniform float uNight, uFog, uT; varying vec3 vDir;
+  float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hsh(i), hsh(i + vec2(1, 0)), f.x), mix(hsh(i + vec2(0, 1)), hsh(i + vec2(1, 1)), f.x), f.y); }
+  float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * vn(p); p = p * 2.03 + 7.1; a *= 0.5; } return s; }
   void main(){ vec3 d = normalize(vDir); float y = max(d.y, 0.0); float sf = max(dot(d, uSunDir), 0.0); vec3 c = mix(mix(uSkyLo, uHor, 0.3 + 0.7 * sf * sf), uZen, pow(y, 0.6)); c = mix(uHor, c, smoothstep(0.0, 0.06, y) * 0.6 + 0.4 * (1.0 - sf * sf));
     float s = max(dot(d, uSunDir), 0.0); c += uSunCol * (pow(s, 6.0) * 0.35 + pow(s, 90.0) * 0.8 + smoothstep(0.9994, 0.9997, s) * 6.0);
     if (uNight > 0.0) { vec3 p = floor(d * 380.0); float h = fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); c += vec3(0.85, 0.9, 1.0) * smoothstep(0.9972, 1.0, h) * uNight * smoothstep(0.0, 0.25, y) * 2.0;
       float m = max(dot(d, uMoonDir), 0.0); c += vec3(0.85, 0.9, 1.0) * (smoothstep(0.99955, 0.9997, m) * 1.6 + pow(m, 400.0) * 0.2) * uNight; }
+    { vec2 q = d.xz / (y + 0.18); float n = fbm(q * vec2(0.9, 2.6) + vec2(uT * 0.004, 0.0)), cl = smoothstep(0.5, 0.78, n) * smoothstep(0.02, 0.12, y) * (1.0 - smoothstep(0.55, 0.9, y));   // streaks, stretched along the horizon
+      vec3 lit = mix(uHor, vec3(1.0), 0.25) + uSunCol * pow(max(dot(d, uSunDir), 0.0), 4.0) * 0.6;
+      c = mix(c, mix(lit, uSkyLo * 0.7, smoothstep(0.62, 0.9, n)) * (1.0 - 0.75 * uNight), cl * 0.55); }
+    if (uNight > 0.05) { vec2 q = d.xz / (y + 0.35); float x = q.x * 0.8 + q.y * 0.35;
+      float edge = q.y * 0.5 - 0.35 - 0.45 * sin(x * 0.9 + uT * 0.05) - 0.2 * sin(x * 2.3 - uT * 0.08);   // the curtain's lower edge, swaying
+      float rays = 0.35 + 0.65 * vn(vec2(x * 30.0, uT * 0.25)) * vn(vec2(x * 7.0 + 3.0, uT * 0.1)), up = smoothstep(-0.03, 0.01, edge) * exp(-max(edge, 0.0) * 3.0);   // fine rays rising from a sharp lower edge
+      vec3 au = mix(vec3(0.15, 1.0, 0.55), vec3(0.55, 0.3, 0.9), smoothstep(0.2, 1.4, edge)) * up * rays * smoothstep(0.08, 0.3, y) * smoothstep(0.05, 0.9, uNight);
+      c += au * 0.55; }
     c = mix(c, uFogCol, uFog); gl_FragColor = vec4(c, 1.0);
     #include <colorspace_fragment>
   }`,

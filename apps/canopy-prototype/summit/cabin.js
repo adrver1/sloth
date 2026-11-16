@@ -34,11 +34,11 @@ const lam = (o) => hazed(new THREE.MeshLambertMaterial(o));
 export function bakeStatic(root, skip = () => false) {
   root.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), buckets = new Map(), rel = new THREE.Matrix4(), c = new THREE.Color();
   root.traverse((o) => { if (!o.isMesh || o.isInstancedMesh || Array.isArray(o.material) || !o.visible || skip(o)) return;
-    const m = o.material, own = !!(m.map || m.emissiveMap || m.emissive?.getHex() || !(m.isMeshLambertMaterial || m.isMeshBasicMaterial) || !m.colorWrite);
-    const key = [own ? (m.emissive?.getHex() ? m.uuid : [m.type, m.map?.uuid, m.color.getHex(), m.vertexColors, m.colorWrite].join()) : m.type,   // glowing materials change at night, so only meshes sharing one merge
+    const m = o.material, own = !!(m.map || m.aoMap || m.emissiveMap || m.emissive?.getHex() || !(m.isMeshLambertMaterial || m.isMeshBasicMaterial) || !m.colorWrite);
+    const key = [own ? (m.emissive?.getHex() ? m.uuid : [m.type, m.map?.uuid, m.aoMap?.uuid, m.color.getHex(), m.vertexColors, m.colorWrite].join()) : m.type,   // glowing materials change at night, so only meshes sharing one merge
       m.side, m.transparent, m.opacity, m.alphaTest, m.depthWrite, m.customProgramCacheKey(), o.castShadow, o.receiveShadow, o.renderOrder].join('|');
     let g = o.geometry.clone().applyMatrix4(rel.multiplyMatrices(inv, o.matrixWorld)); if (g.index) g = g.toNonIndexed(); if (!g.attributes.normal) g.computeVertexNormals();
-    const keep = ['position', 'normal', ...(own && m.map ? ['uv'] : []), ...(own && m.vertexColors ? ['color'] : [])];
+    const keep = ['position', 'normal', ...(own && m.map ? ['uv'] : []), ...(m.aoMap ? ['uv1'] : []), ...(own && m.vertexColors ? ['color'] : [])];   // uv1: a baked map's own UVs (the scout camp's occlusion)
     if (!own) { const n = g.attributes.position.count, C = new Float32Array(n * 3), vc = m.vertexColors && g.attributes.color; c.copy(m.color);
       for (let i = 0; i < n; i++) { C[i * 3] = c.r * (vc ? vc.getX(i) : 1); C[i * 3 + 1] = c.g * (vc ? vc.getY(i) : 1); C[i * 3 + 2] = c.b * (vc ? vc.getZ(i) : 1); }
       g.setAttribute('color', new THREE.BufferAttribute(C, 3)); keep.push('color'); }

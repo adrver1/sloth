@@ -10,9 +10,17 @@ import { camera, canvasTex, hazed, me, scene } from './core.js';
 // the vertex shader slides toward those values over the outer part of each ring, so at its edge a ring already looks exactly
 // like the next one and nothing pops as rings move.
 export const snowC = new THREE.Color('#fbf7f0'), rockC = new THREE.Color('#4b4b4f'), shadeC = new THREE.Color('#a9b3c9'), iceC = new THREE.Color('#93a9bb'), trailC = new THREE.Color('#e8dfd4'), tmpC = new THREE.Color(), rockV = new THREE.Color();
-const snowTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const r = mulberry(7);
-  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(206,218,234,${0.04 + r() * 0.06})`; g.beginPath(); g.ellipse(r() * w, r() * h, 20 + r() * 50, 3 + r() * 6, 0.2, 0, 7); g.fill(); }
-  for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(r() * w, r() * h, 1, 1); } }, true);
+// the snow's own texture, 6 m across and tiled (Adriaen 2026-11-16: the summit needs "detail and texture, as illustrated by the
+// jungle"): soft lumps, wind ripples (a lit crest over a blue trough), a few crusted patches and glints
+const snowTex = canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const r = mulberry(7);
+  const soft = (x, y, R, col) => { for (const [dx, dy] of [[0, 0], [w, 0], [-w, 0], [0, h], [0, -h]]) { const gr = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, R); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x + dx - R, y + dy - R, 2 * R, 2 * R); } };
+  for (let i = 0; i < 26; i++) soft(r() * w, r() * h, 40 + r() * 90, `rgba(196,210,232,${0.16 + r() * 0.12})`);   // lumps and hollows
+  for (let i = 0; i < 18; i++) soft(r() * w, r() * h, 30 + r() * 60, 'rgba(255,255,255,0.5)');
+  const ripple = (x, y, L, a, amp) => { for (const [dx, dy] of [[0, 0], [w, 0], [-w, 0], [0, h], [0, -h]]) { g.save(); g.translate(x + dx, y + dy); g.rotate(a); g.lineCap = 'round';
+    for (const [off, col, lw] of [[3, `rgba(170,188,220,${0.32 * amp})`, 5], [0, `rgba(255,255,255,${0.8 * amp})`, 2.5]]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(-L / 2, off); g.bezierCurveTo(-L / 6, -8 + off, L / 6, 8 + off, L / 2, off); g.stroke(); } g.restore(); } };
+  for (let i = 0; i < 70; i++) ripple(r() * w, r() * h, 50 + r() * 120, 0.25 + (r() - 0.5) * 0.35, 0.4 + 0.6 * r());   // the wind's ripples, all one way
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(206,218,234,${0.05 + r() * 0.06})`; g.beginPath(); g.ellipse(r() * w, r() * h, 20 + r() * 50, 3 + r() * 6, 0.2, 0, 7); g.fill(); }
+  for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.75 ? 'rgba(255,255,255,.95)' : 'rgba(190,206,236,.6)'; g.fillRect(r() * w, r() * h, 1 + (r() < 0.1), 1); } }, true);
 // Far forest: the ground takes the colour the tree cards would give it there. How much of the ground the trees hide depends on
 // how flat you look across it (cotangent of the view angle): looking down from the summit you see snow between the trees, looking
 // across a far slope you see a wall of trees. uTreeCol and uTreeK (cover per unit cotangent) are measured from the card itself.
@@ -49,7 +57,17 @@ ${far ? BAKE_ACES : ''}float tn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f
     float strata = tn(vec2(rp.x / 9.0, rp.y / 2.4)) * 0.6 + tn(rp / 2.0) * 0.4, crack = smoothstep(0.25, 0.55, tn(vec2(rp.x / 2.2, rp.y / 16.0)));
     float ledge = smoothstep(0.68, 0.74, tn(vec2(rp.x / 23.0, rp.y / 4.5)) * 0.85 + 0.15 * tn(rp / 1.7)) * smoothstep(0.85, 0.6, vRk.z);
     vec3 rock = vec3(0.11, 0.11, 0.12) * mix(1.0, (0.7 + 0.55 * strata) * (0.75 + 0.35 * crack), far);
-    diffuseColor.rgb = mix(diffuseColor.rgb, mix(rock, vec3(0.85, 0.86, 0.9), ledge * 0.8), st); }`);
+    diffuseColor.rgb = mix(diffuseColor.rgb, mix(rock, vec3(0.85, 0.86, 0.9), ledge * 0.8), st);
+    // the snowy slopes below the rock (Adriaen 2026-11-16: "detail and texture"): gullies running down the fall line, blue in
+    // their troughs (dark rock ribs showing through read as dirty spots, so none); a coarse set for the far slopes, a fine one near
+    float sl = smoothstep(0.05, 0.16, vRk.z) * (1.0 - st);
+    // (from the world position, stretched up and down, so the streaks run continuous across the land's flat facets)
+    vec3 wp = vec3(vWxz.x, vRk.y, vWxz.y);
+    float gC = 0.5 * (tn(vec2(wp.x / 45.0, wp.y / 260.0)) + tn(vec2(wp.z / 45.0, wp.y / 260.0 + 9.0))) * 0.7 + 0.5 * (tn(vec2(wp.x / 17.0, wp.y / 90.0 + 3.0)) + tn(vec2(wp.z / 17.0, wp.y / 90.0))) * 0.3;
+    float gF = 0.5 * (tn(vec2(wp.x / 4.0, wp.y / 22.0)) + tn(vec2(wp.z / 4.0, wp.y / 22.0 + 5.0))), nearK = 1.0 - smoothstep(0.4, 2.5, px);
+    float gul = mix(gC, gC * 0.6 + gF * 0.4, nearK);
+    diffuseColor.rgb *= mix(vec3(1.0), vec3(0.72, 0.8, 0.95), sl * smoothstep(0.5, 0.7, gul));
+  }`);
 };
 // every tree is drawn (near model or card) out to 80% of CARD_R; over the last 20% the cards dither out as the painted forest fades in, so the forest's tone stays the same
 // trees per cell × mean size² / 100 at forest density f, matching tile(): old forest is denser and taller
