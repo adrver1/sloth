@@ -27,6 +27,9 @@ import { warmHighlight } from '../camp/input.js';
 import { compileAll, lift, track, until } from '../camp/loading.js';
 import { campReady } from './scoutCamp.js';
 import { lmReady } from './lightmap.js';
+import { buildGroundLight, groundLightStep } from './groundLight.js';
+import { fireLight } from './scoutCamp.js';
+import { porchLight } from './cabin.js';
 
 // ---------------------------------------------------------------- the build list (the order the scene's children were added in the prototype)
 buildCore();        // core.js: the canvas on the page, the sky dome
@@ -80,6 +83,7 @@ function frame() {
   cabinStep(LIGHT.night);
   fxStep(dt, now, LIGHT.storm, LIGHT.bright);   // sets the wind before the flag reads it
   campStep(now, LIGHT.night, wind);
+  groundLightStep(LIGHT.night, fireLight.intensity, porchLight.intensity);   // after the fire and the porch lamp are set: the baked ground light follows them
   lifeStep(dt);          // after the light: the camp's cast, the sloths' and his summit day
   audioStep(dt);         // after the light and the wind: the ear, the beds, the crackles and calls, your steps
   if (!BARE) { carry.step(dt, LIGHT.bright); roadStep(); }
@@ -94,11 +98,12 @@ function frame() {
     Object.assign(stats, { calls: i.calls, tris: i.triangles, fps: Math.round(frames / acc), pr: renderer.getPixelRatio() }); frames = 0; acc = 0; if (!$('opts').hidden) showTris(); }
 }
 updateTerrain(me.x, me.z); placeThings(me.x, me.z); console.table(showTris());
+const groundReady = buildGroundLight();   // groundLight.js: the scout camp's baked ground (loading)
 renderer.setAnimationLoop(frame);   // the world builds round you behind the loading card
 // the camp's loading card (camp/loading.js; Adriaen 2026-11-16): it stays up until the scout camp's props, the cast, the jeep and the
 // cabin's light maps are in (or 20 s on a slow line), then every shader is compiled, hidden things too, and it lifts, so nothing
 // pops in and the first look round doesn't stutter
-const loaded = BARE ? [] : [track(campReady), track(until(() => lifeHooks.op && lifeHooks.sloths, 20000)), track(until(() => JEEP.rig, 20000)), track(lmReady)];   // ?bare=1 has none of them
+const loaded = BARE ? [] : [track(campReady), track(until(() => lifeHooks.op && lifeHooks.sloths, 20000)), track(until(() => JEEP.rig, 20000)), track(lmReady), track(groundReady)];   // ?bare=1 has none of them
 Promise.race([Promise.all(loaded), until(() => false, 25000)])   // a model that never comes in doesn't keep the card up
   .then(() => { warmHighlight(); return compileAll(renderer, scene, camera); }).then(lift, lift);
 ready({ setHour: daytimeApi.setHour, weather: (w) => { SKY.target = WEATHER[w]; Object.assign(W_NOW, WEATHER[w]); press($('weather'), 'w', w); }, jump, me, showTris, dbg: { cards: () => cards, near: () => near, cardR: (r) => { uCardR.value = r; }, k: uTreeK, col: uTreeCol }, looks: () => JSON.stringify(CARDS.look), counts: () => [nearN.join('/'), saplings.count, logs.count, cards.reduce((n, m) => n + m.count, 0), rocks.count, SPECIES.map((n) => tris(TREES[n])).join('/'), tris(logGeo), uTreeCol.value.getHexString(), uTreeK.value], TRIS, LAKE, TOP, TOWER, HUT, height, hBase, ROAD, walkable, HT, BIG_H, CL, CL_Y, BWP: () => BW, carry, scene, renderer, levels, backdrop, updateLevel, life: lifeHooks });

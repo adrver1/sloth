@@ -1,6 +1,7 @@
 // Summit Cabin road: the level's edges (fences), the road in with its bridge and tunnel, the jeep (models/jeep_expedition.txt,
 // a box LOD beyond 110 m, the map and compass go on its hood), and the mud tracks round the camp. Builds on import.
 import * as THREE from 'three';
+import { groundLight } from './groundLight.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BW, BW_CORNERS, HT, JEEP, PLAT_R, ROAD, ROAD_Y, TOP, TOWER, TRIS, bwY, edgeR, groundAt, height, isPhone, mulberry, polyNear, trailHalf } from './land.js';
@@ -148,7 +149,7 @@ export function buildRoad() {
       const foot = (pts) => { path(pts, 1.3, '#a99b8c', 0.45); path(pts, 0.6, '#7a6a5c', 0.5); };
       foot([[-9.5, -0.5], [-8.2, -4.5], [-5, -7], [-1.5, -7.4]]); foot([[3, -7.3], [7.4, -5.6], [7.6, 0], [6.8, 5.5], [3.5, 7.4]]);
       foot([[2.5, 8.2], [7.5, 11], [11, 11.5], [15.5, 15.5], [19, 19.5]]); foot([[-8, 2.6], [-6, 6.5], [-2.2, 8.4]]); foot([[-9.5, 2.8], [-8.6, 2.2]]); });   // no loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
-    const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })));
+    const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }), groundLight, 'mud'));   // lit as the snow under it (groundLight.js)
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
   }
 }

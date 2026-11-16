@@ -1,6 +1,7 @@
 // Summit Cabin terrain: clipmap rings round the player, each twice as coarse as the one inside, cut in eight slices that are
 // drawn only when in view (cullTerrain); the far rings beyond 1 km are drawn only into the backdrop (layer 2). updateTerrain(x, z) each frame.
 import * as THREE from 'three';
+import { groundLight } from './groundLight.js';
 import { TOP, forestAt, height, isPhone, mulberry, onIce, sstep, trailDist, vnoise } from './land.js';
 import { camera, canvasTex, hazed, me, scene } from './core.js';
 
@@ -135,7 +136,8 @@ export function buildTerrain() {
   for (let L = 0; L < LEVELS; L++) {
     const g = new THREE.BufferGeometry(), c = 2 ** (L + 1), half = { value: (NC / 2) * c };
     for (const [name, n] of [['position', 3], ['normal', 3], ['color', 3], ['uv', 2], ['hc', 1], ['nc', 3], ['cc', 3], ['fm', 1]]) g.setAttribute(name, new THREE.BufferAttribute(new Float32Array(NV * NV * n), n));
-    const mat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex }), morph(half, L >= REAL), L >= REAL ? 'far' : 'near'); terrainMats.push(mat);
+    const far = L >= REAL, mo = morph(half, far);   // the near rings take the scout camp's baked ground light (groundLight.js)
+    const mat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true, map: snowTex }), far ? mo : (sh) => { mo(sh); groundLight(sh); }, far ? 'far' : 'near'); terrainMats.push(mat);
     // each ring is drawn as eight 45° slices round you sharing its vertices; cullTerrain() hides the slices outside your view
     const parts = [...Array(SLICES + 1)].map(() => { const pg = new THREE.BufferGeometry(); for (const k in g.attributes) pg.setAttribute(k, g.attributes[k]); pg.setIndex(new THREE.BufferAttribute(new Uint16Array((NC * NC * 6) / 4), 1));
       const mesh = new THREE.Mesh(pg, mat); mesh.frustumCulled = false; mesh.receiveShadow = true; if (L >= REAL) mesh.layers.set(2); scene.add(mesh); pg.userData.mesh = mesh; return pg; });

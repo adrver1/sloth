@@ -16,6 +16,11 @@ and writes, to apps/canopy-prototype/models (or --out):
   summit_lm_ao_2k.png, summit_lm_ao_1k.png         grey, linear
   summit_lm_night_2k.png, summit_lm_night_1k.png   RGB, sRGB-encoded (the page reads them as sRGB)
   summit_lm.json                                   { size, scale, sig, meshes } (the page checks sig before using the maps)
+and the scout camp's ground (G_ground: a square round the cabin and the fire, its UVs the square; summit/groundLight.js):
+  ground AO     sky occlusion within 4 m under every prop on it -> summit_ground_ao.png (grey, linear)
+  ground night  one pass for each group of night lights, white, coloured on the page: R the fire, G the cabin (windows, door,
+                porch lamp, the light inside), B the lanterns; each channel divided by its 99.5th percentile
+                -> summit_ground_night.png (RGB, sRGB-encoded) and summit_ground.json { cx, cz, size, scale, power }
 --preview: a 256-texel atlas and 8 samples on the CPU, to check the set-up in a few seconds; never commit its maps.
 """
 import argparse, json, math, os, sys, time
@@ -30,7 +35,9 @@ from lib.bake import pick_device  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLES = {"ao": 128, "night": 512}          # at --samples 512; AO is smooth, the night light has several small lights
 ENERGY = {"window": 45.0, "door": 30.0}     # watts a square metre of glowing glass or door
-POINT = {"porch": 70.0, "inside": 120.0, "fire": 500.0}   # watts
+POINT = {"porch": 70.0, "inside": 120.0, "fire": 500.0, "lantern": 20.0}   # watts
+FIRE_DROP = 0.35   # metres: the flames' middle, below the pot that hangs where the page's light is
+GROUND_SAMPLES = {"ao": 128, "night": 256}   # the camp's ground, at --samples 512 (each night channel is one pass)
 WARM = (1.0, 0.72, 0.42)
 
 
@@ -61,6 +68,8 @@ def material(name, c, node_image=None):
 
 
 def add_lights(lights):
+    """the night lights as Blender lights; returns [(object, group)] (group: fire, cabin or lantern, from the exporter)"""
+    made = []
     for i, L in enumerate(lights):
         at = to_blender(L["at"])
         if L["kind"] in ENERGY:
@@ -71,10 +80,15 @@ def add_lights(lights):
             z = -n                                           # an area light shines along its own -Z
             y = Vector((0, 0, 1)); y = (y - z * y.dot(z)).normalized(); x = y.cross(z)
             o.matrix_world = Matrix.Translation(at + n * 0.05) @ Matrix((x, y, z)).transposed().to_4x4()
+            made.append((o, L.get("group", "cabin")))
         else:
             d = bpy.data.lights.new(f"point_{i}", "POINT"); d.energy = POINT.get(L.get("name"), 100.0); d.shadow_soft_size = 0.15
+            if L.get("name") == "fire":   # the page's fire light hangs at the pot (0.9 m); the bake's sits in the flames, a ball of them
+                at = at - Vector((0, 0, FIRE_DROP)); d.shadow_soft_size = 0.3
             c = L["color"].lstrip("#"); d.color = tuple(int(c[k:k + 2], 16) / 255 for k in (0, 2, 4))
             o = bpy.data.objects.new(d.name, d); o.location = at; bpy.context.collection.objects.link(o)
+            made.append((o, L.get("group", "fire")))
+    return made
 
 
 def bake(kind, objs, samples):
@@ -135,7 +149,7 @@ def main():
     bake("AO", rec, round(SAMPLES["ao"] * a.samples / 512))
     ao = read()[..., :1].repeat(3, -1)
     bg.inputs["Strength"].default_value = 0.0
-    add_lights(lay["lights"])
+    made = add_lights(lay["lights"])
     bake("DIFFUSE", rec, round(SAMPLES["night"] * a.samples / 512))
     night = read()
     lit = night.max(-1); scale = float(np.percentile(lit[lit > 1e-5], 99.5)) if (lit > 1e-5).any() else 1.0
@@ -148,7 +162,56 @@ def main():
         save(night if f == 1 else half(night), os.path.join(a.out, f"summit_lm_night_{tag}.png"), True)
     json.dump({"size": size, "scale": round(scale, 5), "sig": lay["sig"], "meshes": lay["meshes"]},
               open(os.path.join(a.out, "summit_lm.json"), "w"), indent=1)
-    print(f"  night scale {scale:.4g}; done", flush=True)
+    print(f"  night scale {scale:.4g}", flush=True)
+    bake_ground(a, lay, bg, made)
+    print("  done", flush=True)
+
+
+def reach(lay, gr, px, name):
+    """three's window for a point light with a distance (pow(saturate(1 - (d / distance)^4), 2)), over the ground's texels
+    (rows bottom-up, v north), from the page's light of that name"""
+    L = next(l for l in lay["lights"] if l.get("name") == name)
+    t = (np.arange(px) + 0.5) / px - 0.5
+    x, z = np.meshgrid(gr["cx"] + t * gr["size"], gr["cz"] + t * gr["size"])
+    d = np.hypot(x - L["at"][0], z - L["at"][2]) / L["distance"]
+    return np.clip(1 - d ** 4, 0, 1) ** 2
+
+
+def bake_ground(a, lay, bg, made):
+    """the scout camp's ground: its own image, its sky occlusion and one night pass for each light group"""
+    G, gr = bpy.data.objects.get("G_ground"), lay.get("ground")
+    if not G or not gr:
+        sys.exit("summit_static.glb lacks the camp's ground (G_ground): export again (bake_all.py --only summit)")
+    px = 128 if a.preview else gr["px"]
+    img = bpy.data.images.new("ground", px, px, alpha=False, float_buffer=True)
+    G.data.materials.clear(); G.data.materials.append(material("ground", 0.8, img))   # snow, a little grey for the bounce
+    buf = np.empty(px * px * 4, np.float32)
+    read = lambda: (img.pixels.foreach_get(buf), buf.reshape(px, px, 4)[..., :3].copy())[1]
+    bg.inputs["Strength"].default_value = 1.0
+    for o, _ in made:
+        o.hide_render = True
+    bake("AO", [G], round(GROUND_SAMPLES["ao"] * a.samples / 512))
+    ao = read()[..., :1].repeat(3, -1)
+    bg.inputs["Strength"].default_value = 0.0
+    night, scale = np.zeros((px, px, 3), np.float32), {}
+    for ch, grp in enumerate(("fire", "cabin", "lantern")):
+        for o, g in made:
+            o.hide_render = g != grp
+        bake("DIFFUSE", [G], round(GROUND_SAMPLES["night"] * a.samples / 512))
+        v = read().mean(-1)
+        if grp == "fire":   # the page's fire light reaches 10 m (three's distance window): so does its pool on the snow
+            v *= reach(lay, gr, px, "fire")
+        lit = v[v > 1e-6]
+        scale[grp] = round(float(np.percentile(lit, 99.5)), 6) if lit.size else 1.0
+        night[..., ch] = v / scale[grp]
+    for o, _ in made:
+        o.hide_render = False
+    save(ao, os.path.join(a.out, "summit_ground_ao.png"), False)
+    save(night, os.path.join(a.out, "summit_ground_night.png"), True)
+    power = {"fire": POINT["fire"], "cabin": POINT["porch"], "lantern": POINT["lantern"]}   # the page's light of each, to bring a channel back to three's units
+    json.dump({"cx": gr["cx"], "cz": gr["cz"], "size": gr["size"], "scale": scale, "power": power},
+              open(os.path.join(a.out, "summit_ground.json"), "w"), indent=1)
+    print(f"  ground {px}x{px}: scales {scale}", flush=True)
 
 
 main()
