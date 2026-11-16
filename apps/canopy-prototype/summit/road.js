@@ -70,12 +70,10 @@ export const BW_JOINTS = (() => {
 })();
 { // the cliff rail: from the boardwalk's south rail where it leaves the summit, round the edge (land.js edgeR), clockwise along
   // the cliff, to the road's shoulder; and the hilltop's ring, from one of the boardwalk's end posts round to the other
-  // It leaves the boardwalk square to it, 2.4 m straight out from its side, then turns a corner onto the edge: running
-  // along the edge from the boardwalk's corner, it cut under the boardwalk's first steps at a slant (Adriaen 2026-11-16:
-  // "something very strange going on here where the boardwalk meets the fence")
-  const j0 = BW_JOINTS[0], s0 = j0.side(-1), [ox, oz] = [s0[0] - j0.x, s0[1] - j0.z], s1 = [s0[0] + ox * 2.4, s0[1] + oz * 2.4], line = [s0, s1];
-  let a = Math.atan2(s1[1], s1[0]);
-  for (; a > -3.3; a -= 0.004) { const r = edgeR(a), x = Math.cos(a) * r, z = Math.sin(a) * r; if (line.length === 2 && z > s1[1] - 0.6) continue;   // joins the edge where it has come round past the corner, so no V
+  // It meets the boardwalk square: the boardwalk starts out past the summit's edge (land.js BW), and the rail runs straight
+  // from its side to the edge, then along the edge (Adriaen 2026-11-16: a fence that meets the boardwalk "at almost 90 degrees")
+  const s0 = BW_JOINTS[0].side(-1), line = [s0]; let a = Math.atan2(s0[1], s0[0]);
+  for (; a > -3.3; a -= 0.004) { const r = edgeR(a), x = Math.cos(a) * r, z = Math.sin(a) * r; if (line.length === 1 && x < s0[0]) continue;   // the edge from where it is straight out from the boardwalk's corner
     const rd = x < -12 ? roadNear(x, z) : null; if (rd && rd.d < 3.1) { line.push([x, z]); break; } line.push([x, z]); }
   railLine(fencePosts(line, 2.4), 'Cliff rail', { skip: [0] });
   const end = BW_JOINTS[BW_JOINTS.length - 1], A = end.side(1), B = end.side(-1), R = (Math.hypot(A[0] - HT.x, A[1] - HT.z) + Math.hypot(B[0] - HT.x, B[1] - HT.z)) / 2;
@@ -204,7 +202,7 @@ export function buildRoad() {
       foot([DOOR, [-0.3, 7.6], FIREW]);   // the front door to the fire
       foot([ROADEND, [-9.3, -1.2], [-8.7, -4.3], EAST]);   // round the cabin's east end to the porch steps
       foot([DOOR, NW, [8.4, 5.2], [8.7, 0.4], WSIDE, WEST]);   // round the west end to the other porch steps
-      foot([NW, [7.5, 10.4], [11, 11.5], [15.5, 15.5], [19, 19.5]]); });   // the trail head, off the west path. No loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
+      foot([NW, [7.5, 10.4], [11, 11.5], [15, 14.5], [BW[0][0] - 0.3, BW[0][1]]]); });   // the trail head, off the west path. No loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
     const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }), groundLight, 'mud'));   // lit as the snow under it (groundLight.js)
     setRelief(tex);   // its paint is pressed into the snow round it too (groundLight.js RELIEF)
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);

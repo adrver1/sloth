@@ -142,11 +142,13 @@ export const HUT = { x: SHORE.x + (LAKE_P.x - SHORE.x) * 0.3, z: SHORE.z + (LAKE
 // two marked trails from the cabin: one down to the lake, one over to the lookout
 // the way up to the watch hill: a timber boardwalk from the summit's trail head, landings where the ground is level and stair
 // flights where it climbs (or dips), always just above the snow, railed both sides, ending on the hilltop by the tower
+// it starts 3 m past the summit's edge, out where the cliff rail can meet its side square on (road.js), with a step up
+export const BW_X0 = 18.5;
 export const BW = (() => {
   // the route: down off the summit by short flights into the valley, along the clearing's north edge, then switchbacks up the
   // watch hill. Each leg turns off the fall line just far enough to climb at stair pitch (about 0.4), so every leg climbs and
   // the legs zigzag; each turn gets a flat landing.
-  const ctrl = [[15.5, 15.5], [30, 16], [46, 17], [60, 20], [74, 23], [88, 24]], corners = new Set();
+  const ctrl = [[BW_X0, 15.6], [30, 16], [46, 17], [60, 20], [74, 23], [88, 24]], corners = new Set();
   const gH = (x, z) => [(hBase(x + 6, z) - hBase(x - 6, z)) / 12, (hBase(x, z + 6) - hBase(x, z - 6)) / 12];
   { let [px, pz] = ctrl[ctrl.length - 1], side = -1;
     for (let k = 0; k < 14 && Math.hypot(HT.x - px, HT.z - pz) > 30; k++) {
@@ -161,7 +163,7 @@ export const BW = (() => {
     for (let k = i ? 1 : 0; k <= n; k++) { if (pts.length) s += L / n; const x = ax + ((bx - ax) * k) / n, z = az + ((bz - az) * k) / n; pts.push([x, z, s, height(x, z) + 0.3, 0]); } }
   // follow the ground, smoothed over ±3 m, never steeper than stairs (0.7), starting on the summit and arriving on the hilltop
   const sm = pts.map((p, i) => { let a = 0, n = 0; for (let j = Math.max(0, i - 6); j <= Math.min(pts.length - 1, i + 6); j++) { a += pts[j][3]; n++; } return a / n; });
-  sm[0] = TOP + 0.02; sm[sm.length - 1] = HT.y + 0.05;
+  sm[0] = height(BW_X0, 15.6) + 0.05; sm[sm.length - 1] = HT.y + 0.05;
   pts.forEach((p) => { if (BW_CORNERS.some(([cx, cz]) => Math.hypot(p[0] - cx, p[1] - cz) < 1.3)) p[4] = 1; });   // landings at the turns
   for (let i = 0; i < pts.length; i++) if (pts[i][4]) { let j = i; while (j + 1 < pts.length && pts[j + 1][4]) j++; const y = (sm[i] + sm[j]) / 2; for (let k = i; k <= j; k++) sm[k] = y; i = j; }
   for (let i = 1; i < sm.length; i++) { const ds = pts[i][2] - pts[i - 1][2]; sm[i] = Math.min(Math.max(sm[i], sm[i - 1] - 0.7 * ds), sm[i - 1] + 0.7 * ds); }
@@ -188,6 +190,7 @@ export function walkable(x, z) {
   if (Math.hypot(x, z) < edgeR(Math.atan2(z, x)) - 0.4) return true;
   const rd = roadNear(x, z); if (rd && rd.d < 2.4 && x > ROAD.portal.x + 1.2) return true;
   if (polyNear(BW, x, z).d < 0.85) return true;   // on the boardwalk, between its rails
+  if (x > 10 && x < BW_X0 - 0.4 && z > 0 && z < BW[0][1] + 0.85) return true;   // the ground out to its first step, inside the cliff rail's straight end
   if (Math.hypot(x - CL.x, z - CL.z) < 15) return true;   // step off into the clearing
   return Math.hypot(x - HT.x, z - HT.z) < 9.1;   // the hilltop, inside its rail (road.js: a ring through the boardwalk's end posts, about 9.55 m round the top)
 }
