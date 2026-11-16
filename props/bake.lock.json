@@ -286,7 +286,7 @@
    "apps/canopy-prototype/summit/groundLight.js": "395247cd036628553b4d",
    "apps/canopy-prototype/summit/land.js": "a1af9b05933c0bf1e8e6",
    "apps/canopy-prototype/summit/lightmap.js": "040489cc815f942d23f3",
-   "apps/canopy-prototype/summit/lookout.js": "9a223a542e8f3588c748",
+   "apps/canopy-prototype/summit/lookout.js": "d019e0afe48ac9192caf",
    "apps/canopy-prototype/summit/road.js": "72756d2056df59cf08c2",
    "apps/canopy-prototype/summit/scoutCamp.js": "02edbcd28c68481651d6",
    "blender": "Blender 5.2.3 LTS",
@@ -306,16 +306,16 @@
    "props/summit/export_summit.cjs": "43c9f6ac86ced2a6b407"
   },
   "outputs": {
-   "apps/canopy-prototype/models/summit_ground.json": "db471d2e84578ffccd9c",
+   "apps/canopy-prototype/models/summit_ground.json": "eabdeb193def01638f49",
    "apps/canopy-prototype/models/summit_ground_ao.png": "9924b4d612af2f0a5cc8",
-   "apps/canopy-prototype/models/summit_ground_night.png": "4e64c578af60d6dcaf25",
-   "apps/canopy-prototype/models/summit_lm.json": "f6c592848b3d3d03a7a2",
-   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "2873368b8a2e79361755",
-   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "5cc325dc5da7c8539052",
-   "apps/canopy-prototype/models/summit_lm_night_1k.png": "8d61ff8b0d888c37d2b7",
-   "apps/canopy-prototype/models/summit_lm_night_2k.png": "83a22fb026fb56748951",
-   "props/summit/summit_layout.json": "71e1b01c9815fa7c4bce",
-   "props/summit/summit_static.glb": "ea017f6e4b7c7de5a43f"
+   "apps/canopy-prototype/models/summit_ground_night.png": "7ddc5b060abf94a3fa2b",
+   "apps/canopy-prototype/models/summit_lm.json": "7fa9845f72af2edbedd7",
+   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "657c3decbebde05202a1",
+   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "596e12ec8e7e4d76d843",
+   "apps/canopy-prototype/models/summit_lm_night_1k.png": "2b06bd63832d3932bd63",
+   "apps/canopy-prototype/models/summit_lm_night_2k.png": "2565d399cd00e97edaa9",
+   "props/summit/summit_layout.json": "d433078798faa972f011",
+   "props/summit/summit_static.glb": "ebcad645d2df1b62df48"
   }
  }
 }
