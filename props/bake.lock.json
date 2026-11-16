@@ -279,13 +279,13 @@
  },
  "summit": {
   "inputs": {
-   "apps/canopy-prototype/summit/cabin.js": "7b8703762d002decf76b",
+   "apps/canopy-prototype/summit/cabin.js": "d4b84e8b642248c70787",
    "apps/canopy-prototype/summit/core.js": "9162cd44a25afa77a59d",
    "apps/canopy-prototype/summit/forest.js": "b8bdd44b4512f08aecbd",
-   "apps/canopy-prototype/summit/groundLight.js": "2b11894ea75469db0bdd",
-   "apps/canopy-prototype/summit/land.js": "637164b403a4e6705395",
+   "apps/canopy-prototype/summit/groundLight.js": "395247cd036628553b4d",
+   "apps/canopy-prototype/summit/land.js": "a1af9b05933c0bf1e8e6",
    "apps/canopy-prototype/summit/lightmap.js": "040489cc815f942d23f3",
-   "apps/canopy-prototype/summit/road.js": "7011da9076d7ddb479ac",
+   "apps/canopy-prototype/summit/road.js": "c5c030808a4bf2b8bf4a",
    "apps/canopy-prototype/summit/scoutCamp.js": "f82a6c5be3f3b2578504",
    "blender": "Blender 5.2.3 LTS",
    "cmd": [
@@ -304,16 +304,16 @@
    "props/summit/export_summit.cjs": "43c9f6ac86ced2a6b407"
   },
   "outputs": {
-   "apps/canopy-prototype/models/summit_ground.json": "70ee685ff26147b886a9",
-   "apps/canopy-prototype/models/summit_ground_ao.png": "3705555629f339649c1c",
-   "apps/canopy-prototype/models/summit_ground_night.png": "8dea5bb77f68e8556445",
-   "apps/canopy-prototype/models/summit_lm.json": "1915525607b778070eea",
-   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "8555f2b7ff5b736ebc7b",
-   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "d7a5ffbfd65e62099971",
-   "apps/canopy-prototype/models/summit_lm_night_1k.png": "f892a8c32ce47928c755",
-   "apps/canopy-prototype/models/summit_lm_night_2k.png": "e13cdf7df624f4497732",
+   "apps/canopy-prototype/models/summit_ground.json": "cb9a2ec6d109187ae8e9",
+   "apps/canopy-prototype/models/summit_ground_ao.png": "0688b27cb8f937a8f402",
+   "apps/canopy-prototype/models/summit_ground_night.png": "0c8fce8b33b167af8626",
+   "apps/canopy-prototype/models/summit_lm.json": "f412f389f95211b086f4",
+   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "6ef3fc44de5d7b3e044e",
+   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "6e40fc34fd134aacd4c8",
+   "apps/canopy-prototype/models/summit_lm_night_1k.png": "51ad7ae48306ad0b4d5f",
+   "apps/canopy-prototype/models/summit_lm_night_2k.png": "9d1834a6352656e50ed9",
    "props/summit/summit_layout.json": "9e494aabc872f8c94e2d",
-   "props/summit/summit_static.glb": "873ed39bc7ab630238e2"
+   "props/summit/summit_static.glb": "34eb68595e829da37ac6"
   }
  }
 }
