@@ -243,6 +243,78 @@
   {
    "kind": "point",
    "at": [
+    193.74649425623028,
+    674.9219284502971,
+    83.5368991384359
+   ],
+   "color": "#ffc477",
+   "distance": 0,
+   "name": "lookout_lamp",
+   "group": "lantern"
+  },
+  {
+   "kind": "point",
+   "at": [
+    196.23950705697212,
+    677.2519284502971,
+    88.10032846026584
+   ],
+   "color": "#ffc477",
+   "distance": 0,
+   "name": "lookout_lamp",
+   "group": "lantern"
+  },
+  {
+   "kind": "point",
+   "at": [
+    193.74649425623028,
+    679.581928450297,
+    83.5368991384359
+   ],
+   "color": "#ffc477",
+   "distance": 0,
+   "name": "lookout_lamp",
+   "group": "lantern"
+  },
+  {
+   "kind": "point",
+   "at": [
+    196.23950705697212,
+    681.9119284502971,
+    88.10032846026584
+   ],
+   "color": "#ffc477",
+   "distance": 0,
+   "name": "lookout_lamp",
+   "group": "lantern"
+  },
+  {
+   "kind": "point",
+   "at": [
+    193.74649425623028,
+    684.2419284502971,
+    83.5368991384359
+   ],
+   "color": "#ffc477",
+   "distance": 0,
+   "name": "lookout_lamp",
+   "group": "lantern"
+  },
+  {
+   "kind": "point",
+   "at": [
+    193.64900138873475,
+    686.8719284502971,
+    87.00864151666438
+   ],
+   "color": "#ffc477",
+   "distance": 0,
+   "name": "lookout_lamp",
+   "group": "lantern"
+  },
+  {
+   "kind": "point",
+   "at": [
     1.05,
     637.3589661936378,
     -4.6
@@ -356,90 +428,6 @@
     -3.3875,
     636.7277161936379,
     13.55
-   ],
-   "color": "#ffc477",
-   "distance": 0
-  },
-  {
-   "kind": "point",
-   "name": "lantern",
-   "group": "lantern",
-   "at": [
-    193.74649425623028,
-    674.9219284502971,
-    83.5368991384359
-   ],
-   "color": "#ffc477",
-   "distance": 0
-  },
-  {
-   "kind": "point",
-   "name": "lantern",
-   "group": "lantern",
-   "at": [
-    196.23950705697212,
-    677.2519284502971,
-    88.10032846026584
-   ],
-   "color": "#ffc477",
-   "distance": 0
-  },
-  {
-   "kind": "point",
-   "name": "lantern",
-   "group": "lantern",
-   "at": [
-    193.74649425623028,
-    679.581928450297,
-    83.5368991384359
-   ],
-   "color": "#ffc477",
-   "distance": 0
-  },
-  {
-   "kind": "point",
-   "name": "lantern",
-   "group": "lantern",
-   "at": [
-    196.23950705697212,
-    681.9119284502971,
-    88.10032846026584
-   ],
-   "color": "#ffc477",
-   "distance": 0
-  },
-  {
-   "kind": "point",
-   "name": "lantern",
-   "group": "lantern",
-   "at": [
-    193.74649425623028,
-    684.2419284502971,
-    83.5368991384359
-   ],
-   "color": "#ffc477",
-   "distance": 0
-  },
-  {
-   "kind": "point",
-   "name": "lantern",
-   "group": "lantern",
-   "at": [
-    193.64900138873475,
-    686.8719284502971,
-    87.00864151666438
-   ],
-   "color": "#ffc477",
-   "distance": 0
-  },
-  {
-   "kind": "point",
-   "name": "lantern",
-   "group": "lantern",
-   "at": [
-    192.13354903425608,
-    686.8719284502971,
-    88.40628387481797
    ],
    "color": "#ffc477",
    "distance": 0
