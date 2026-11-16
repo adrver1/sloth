@@ -114,7 +114,7 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
   const W = SC.x1 - SC.x0, XC = (SC.x0 + SC.x1) / 2;
   for (let k = 1; k <= NF; k++) { const y = G + RISE * k, north = k % 2 === 1, z0 = north ? SC.zB : SC.s0, z1 = north ? SC.n1 : SC.zA, ze = north ? SC.n1 : SC.s0;
     box(W + 0.1, 0.12, z1 - z0 + 0.1, M.wood, XC, y - 0.06, (z0 + z1) / 2);
-    rail(SC.x0, ze, SC.x1, ze, y, y, false); rail(SC.x1, z0, SC.x1, z1, y, y, false); }   // the inner side is the tower's braced face
+    rail(k < NF ? SC.x0 : E, ze, SC.x1, ze, y, y, false); rail(SC.x1, z0, SC.x1, z1, y, y, false); }   // the top one's starts at the deck's railing, not over the deck   // the inner side is the tower's braced face
   for (const z of [SC.s0, SC.n1]) box(0.22, FLOOR + 1.08 + 1.5, 0.22, M.wood, SC.x1, (FLOOR + 1.08 - 1.5) / 2, z);   // the two outer posts; the inner ones are the tower's legs
   for (let k = 1; k <= NF; k++) for (const z of [SC.s0, SC.n1]) box(SC.x1 - LEG, 0.16, 0.12, M.wood, (SC.x1 + LEG) / 2, G + RISE * k - 0.2, z);   // ties from the legs to the posts under each landing level
   // the cab: log walls below and above a band of windows, corner posts and mullions, the door in the east wall, a ceiling
@@ -172,13 +172,13 @@ export function furnishFromTent(tent) {
   const { bed, stove, W } = tent.userData || {};
   if (!inner || !bed || !stove || !tent.geometry) return 0;
   const g0 = tent.geometry.index ? tent.geometry.toNonIndexed() : tent.geometry, P = g0.attributes.position, UV = g0.attributes.uv, C = g0.attributes.color;
-  const cut = ([cx, cz], hx, hz, top, to) => { const pos = [], uv = [], col = [];
+  const cut = ([cx, cz], hx, hz, top, to, flip = false) => { const pos = [], uv = [], col = [], f = flip ? -1 : 1;   // flip: turned half round, its door to the room
     for (let t = 0; t < P.count; t += 3) { let ok = true, hi = 0;
       for (let i = t; i < t + 3 && ok; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i); ok = Math.abs(x - cx) <= hx && Math.abs(z - cz) <= hz && y <= top && Math.abs(x) < W - 0.01; hi = Math.max(hi, y); }
       if (!ok || hi < 0.09) continue;   // the floor's planks are lower
-      for (let i = t; i < t + 3; i++) { pos.push(P.getX(i) - cx + to[0], P.getY(i), P.getZ(i) - cz + to[1]); if (UV) uv.push(UV.getX(i), UV.getY(i)); if (C) col.push(C.getX(i), C.getY(i), C.getZ(i)); } }
+      for (let i = t; i < t + 3; i++) { pos.push(f * (P.getX(i) - cx) + to[0], P.getY(i), f * (P.getZ(i) - cz) + to[1]); if (UV) uv.push(UV.getX(i), UV.getY(i)); if (C) col.push(C.getX(i), C.getY(i), C.getZ(i)); } }
     return { pos, uv, col }; };
-  const parts = [cut([bed[0], -bed[1]], 0.5, 1.1, 0.9, [-1.8, 1.0]), cut([stove[0], -stove[1]], 0.42, 0.42, 1.0, [-1.65, -1.6])];
+  const parts = [cut([bed[0], -bed[1]], 0.5, 1.1, 0.9, [-1.8, 1.0]), cut([stove[0], -stove[1]], 0.42, 0.42, 1.0, [-1.65, -1.72], true)];   // the stove turned so its collar (0.12 m behind its middle) sits under the pipe
   const g = new THREE.BufferGeometry(), cat = (k) => parts.flatMap((q) => q[k]);
   g.setAttribute('position', new THREE.Float32BufferAttribute(cat('pos'), 3));
   if (UV) g.setAttribute('uv', new THREE.Float32BufferAttribute(cat('uv'), 2));
