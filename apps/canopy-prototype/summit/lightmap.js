@@ -17,7 +17,10 @@ import * as THREE from 'three';
 import { OPT, isPhone } from './land.js';
 
 const SIZE = 2048, PAD = 3, EDGE = 16;   // the atlas, the gap round each rectangle in texels, and a clear border
-const NIGHT_GAIN = 1.6;   // the night map's strength at full dark (the map is normalised by the bake): the knob to tune by eye
+const NIGHT_GAIN = 1.6;
+// the night map is normalised as a whole, so the fire sets its scale; the lookout's lamps are small beside it and read dim at
+// that scale, so its receivers (named Lookout_<n>, and its door) take more of it (Adriaen 2026-11-16: "brighten it up")
+const GROUP_GAIN = { Lookout: 3.5, LookoutDoor: 3.5 };   // the night map's strength at full dark (the map is normalised by the bake): the knob to tune by eye
 let night = null;
 
 // the meshes that take a light map: still, not instanced, lit (Lambert) and not glowing; named Cabin_3, Lookout_0, ...
@@ -93,14 +96,15 @@ export function buildLightmap(groups) {
     const load = (f, srgb) => new THREE.TextureLoader().loadAsync(f).then((t) => { t.channel = 1; t.flipY = true; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; });
     return Promise.all([load(`models/summit_lm_ao_${k}k.png`), load(`models/summit_lm_night_${k}k.png`, true)]).then(([ao, nightTex]) => {
       const mats = new Map();
-      for (const o of meshes) {   // each look gets its own copy with the maps (a mesh without uv1 must never share one)
-        if (!mats.has(o.material)) { const m0 = o.material, m = m0.clone(); m.onBeforeCompile = m0.onBeforeCompile; m.customProgramCacheKey = m0.customProgramCacheKey;
-          m.aoMap = ao; m.aoMapIntensity = 0.8; m.lightMap = nightTex; m.lightMapIntensity = 0; mats.set(m0, m); }
-        o.material = mats.get(o.material);
+      for (const o of meshes) {   // each look gets its own copy with the maps (a mesh without uv1 must never share one), and one per group gain
+        const gain = NIGHT_GAIN * (GROUP_GAIN[o.name.split('_')[0]] ?? GROUP_GAIN[o.name] ?? 1), key = `${o.material.uuid}|${gain}`;
+        if (!mats.has(key)) { const m0 = o.material, m = m0.clone(); m.onBeforeCompile = m0.onBeforeCompile; m.customProgramCacheKey = m0.customProgramCacheKey;
+          m.aoMap = ao; m.aoMapIntensity = 0.8; m.lightMap = nightTex; m.lightMapIntensity = 0; m.userData.nightGain = gain; mats.set(key, m); }
+        o.material = mats.get(key);
       }
       night = [...mats.values()];
     });
   }).catch((e) => console.warn('summit light maps', e));
 }
 // the night map's strength: off by day, up to the baked brightness after dark (night 0..1, daylight.js LIGHT)
-export function lightmapStep(k) { if (night) for (const m of night) m.lightMapIntensity = NIGHT_GAIN * k; }
+export function lightmapStep(k) { if (night) for (const m of night) m.lightMapIntensity = m.userData.nightGain * k; }
