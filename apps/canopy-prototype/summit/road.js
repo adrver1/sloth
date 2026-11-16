@@ -41,9 +41,9 @@ function fencePosts(line, step) {
 }
 // railLine(ps, label, { skip }): posts at ps (but not at the indices in skip: they are another fence's), rails between them
 function railLine(ps, label, { skip = [] } = {}) {
-  const postG = snowTopBox(0.16, 1.25, 0.16).translate(0, 0.62, 0), railG = snowTopBox(1, 0.1, 0.09), np = ps.length - skip.length;
+  const postG = snowTopBox(0.16, 2.25, 0.16).translate(0, 0.12, 0), railG = snowTopBox(1, 0.1, 0.09), np = ps.length - skip.length;
   const posts = new THREE.InstancedMesh(postG, fenceMat, np), rails = new THREE.InstancedMesh(railG, fenceMat, (ps.length - 1) * 2), e = new THREE.Euler();
-  let n = 0; ps.forEach(([x, z], i) => { const g = groundAt(x, z); if (!skip.includes(i)) posts.setMatrixAt(n++, m4.makeTranslation(x, g - 0.05, z));
+  let n = 0; ps.forEach(([x, z], i) => { const g = groundAt(x, z); if (!skip.includes(i)) posts.setMatrixAt(n++, m4.makeTranslation(x, g - 0.05, z));   // 1 m of each post is in the ground: coarser terrain rings further off sit lower than height() across a slope
     if (i) { const [px, pz] = ps[i - 1], pg = groundAt(px, pz), L = Math.hypot(x - px, z - pz), rise = g - pg, yaw = -Math.atan2(z - pz, x - px);
       for (const [k, hh] of [[0, 0.5], [1, 1.02]]) { const sag = k ? 0 : 0.03 * Math.sin(i * 2.1);   // the lower rail a little uneven, as split rails are
         rails.setMatrixAt((i - 1) * 2 + k, m4.compose(v3.set((x + px) / 2, (g + pg) / 2 + hh + sag, (z + pz) / 2), q.setFromEuler(e.set(0, yaw, Math.atan2(rise, L), 'YZX')), sc.set(Math.hypot(L, rise) + 0.12, 1, 1))); } } });
@@ -94,10 +94,11 @@ export function buildRoad() {
         for (const sd of [-1, 1]) put((A[0] + B[0]) / 2 + nx * 0.98 * sd, (A[3] + B[3]) / 2 - 0.15, (A[1] + B[1]) / 2 + nz * 0.98 * sd, Math.hypot(L, rise), 0.28, 0.08, yaw, Math.atan2(rise, L)); }   // stringers
     }
     for (const [cx, cz] of BW_CORNERS) { const b = polyNear(BW, cx, cz), P = BW[Math.max(b.i - 4, 0)], Q = BW[Math.min(b.i + 4, BW.length - 1)]; put(cx, bwY(b) - 0.06, cz, 2.3, 0.12, 2.3, -Math.atan2((P[1] + Q[1]) / 2 - cz, (P[0] + Q[0]) / 2 - cx)); }   // a square landing at each turn
-    // hand rails from joint to joint on the mitred sides, so they meet at the bends; a post at every joint, from the ground up
+    // hand rails from joint to joint on the mitred sides, so they meet at the bends; a post at every joint, from 0.8 m in the ground (so it
+    // never floats over the coarser terrain further off) up
     // through the rail (BW_JOINTS: the cliff rail and the hilltop's ring end on the first and last of these)
     for (let k = 0; k < BW_JOINTS.length; k++) { const j = BW_JOINTS[k];
-      for (const sd of [-1, 1]) { const [px, pz] = j.side(sd), g = height(px, pz); put(px, (j.y + 1.05 + g) / 2, pz, 0.12, j.y + 1.05 - g + 0.3, 0.12);
+      for (const sd of [-1, 1]) { const [px, pz] = j.side(sd), g = height(px, pz); put(px, (j.y + 1.2 + g - 0.8) / 2, pz, 0.12, j.y + 1.2 - g + 0.8, 0.12);
         if (k) { const [qx, qz] = BW_JOINTS[k - 1].side(sd), L = Math.hypot(px - qx, pz - qz), rise = j.y - BW_JOINTS[k - 1].y; put((px + qx) / 2, (j.y + BW_JOINTS[k - 1].y) / 2 + 1.0, (pz + qz) / 2, Math.hypot(L, rise) + 0.1, 0.09, 0.09, -Math.atan2(pz - qz, px - qx), Math.atan2(rise, L)); } } }
     const geo = snowTopBox(1, 1, 1), wMat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true }), (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n gl_Position = projectionMatrix * vec4(mvPosition.xyz * 0.975, 1.0);'); }, 'boardwalk');
     const cells = new Map(); for (const m of M4) { const k = Math.floor(m.elements[12] / 40) + ',' + Math.floor(m.elements[14] / 40); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(m); }

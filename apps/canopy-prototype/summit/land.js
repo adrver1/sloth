@@ -111,8 +111,8 @@ export const HT = (() => { let best = [0, 0, -1e9]; for (let i = -6; i <= 6; i++
 export const ROAD_Y = (s) => (s < ROAD.b0 ? TOP - 0.07 * s : ROAD.y);
 export const roadNear = (x, z) => (x > -8 || x < ROAD.portal.x - 20 || z > 22 || z < -30 ? null : polyNear(ROAD.pts, x, z));
 // the cliff's lip south of the cabin (Adriaen 2026-11-16: "the cabin needs to come back from the cliff a little bit"): it was
-// at z -8.5 + 3 sin(x / 9), which put the porch's east corner over the edge; now 2.5 m further out and straighter
-export const lip = (x) => -11 + 2.2 * Math.sin(x / 9);
+// at z -8.5 + 3 sin(x / 9), which put the porch's east corner over the edge; now 3.3 m further out and straighter
+export const lip = (x) => -11.8 + 2.2 * Math.sin(x / 9);
 // the snowman stands east of the cabin, in the open snow by the cliff rail (Adriaen 2026-11-16, from his phone still), facing
 // back toward the porch and the path round the cabin
 // the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks down over the valleys
@@ -176,9 +176,12 @@ export const LOOK_TRAIL = BW, JEEP = { x: -12, z: 1.2, turn: Math.PI / 2 };   //
 // where you may walk: the summit inside its rail and rocks, the road to the tunnel, the lookout trail (wider as it leaves the
 // summit) and the lookout's hilltop. Everything else is fenced off by what you see: the cliff rail, rocks, the mountain walls.
 export const PLAT_R = 22;
+// the rail stands this far in from the lip: a whole terrain cell (2 m near you) on the flat, so the drawn ground under its
+// posts is the summit's and not a slope cut across the lip (Adriaen 2026-11-16: floating fence posts by the porch)
+const EDGE_IN = 1.8;
 export const SNOWMAN = { x: 12, z: -4.4, face: [6.5, -3] };
-export function edgeR(a) { const cx = Math.cos(a), cz = Math.sin(a); if (PLAT_R * cz >= lip(PLAT_R * cx) + 0.9) return PLAT_R; let lo = 0, hi = PLAT_R;
-  for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (m * cz < lip(m * cx) + 0.9) hi = m; else lo = m; } return lo; }
+export function edgeR(a) { const cx = Math.cos(a), cz = Math.sin(a); if (PLAT_R * cz >= lip(PLAT_R * cx) + EDGE_IN) return PLAT_R; let lo = 0, hi = PLAT_R;
+  for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (m * cz < lip(m * cx) + EDGE_IN) hi = m; else lo = m; } return lo; }
 export const trailHalf = (s) => Math.min(20, 2.5 + s * 0.35);
 export function walkable(x, z) {
   if (BARE) return true;
