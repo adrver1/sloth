@@ -1,16 +1,19 @@
 // Summit Cabin: the fire lookout on the watch hill, and walking on it (Adriaen 2026-11-16: "I want stairs going up, a small
 // interior (when we're close), a flag on the top"; the look after the Long Dark's sunset lookout, summit-level/look/reference/).
-// A timber tower 12 m tall on four legs with X braces, a deck all round the cab with a railing, and beside its east face a stair
-// tower on its own four posts (Adriaen 2026-11-16, after the Long Dark's: "make the stairs more like this"): five steep flights
-// that switch back in two lanes, the outer lane climbing north and the inner one south, with a landing at each turn and the top
+// A timber tower 12 m tall on four legs with X braces, a deck all round the cab with a railing, and against its east face a
+// switchback stair (Adriaen 2026-11-16, after the Long Dark's: "make the stairs more like this", then "hug the main tower, so
+// that two of the support legs become the supports for the stairs as well"): the tower's two east legs and two posts outside
+// carry five steep flights in two lanes, the outer climbing north and the inner south, with a landing at each turn and the top
 // landing opening onto the deck. The cab has a
-// door, glass all round and, within INNER_R of the camera, a small interior: the fire finder on its stand in the middle, a cot,
-// a little stove with its pipe through the roof, a chair, a shelf, a map on the wall and a lamp. Further off its windows are the
+// door, glass all round and, within INNER_R of the camera, a small interior: the fire finder on its stand in the middle, the
+// scout tent's own bed and stove (Adriaen: "use the bed and stove from the tent"; furnishFromTent cuts them out of the tent's
+// model when the scout camp loads it), the stove's pipe through the roof, a chair, a shelf, a map on the wall and a lamp. Further off its windows are the
 // glowing panes the cabin's are (cabin.js winMat), so the cab reads as lit from the valley. A scout pennant flies from the roof's
 // peak (flag.js). Everything is in the tower's own frame: x along its south face, z through it, y up from TOWER.y - 0.5.
 // Exports buildLookout(tower, kit) (cabin.js buildCabin: fills the group; kit = { M, lam, part, winMat }), lookoutFloor(x, z,
 // feet) and lookoutBlocks(x0, z0, x1, z1, feet) (player.js: the stairs, deck and cab under your feet, and what stops you) and
-// lookoutStep(night) (each frame: the interior shown near, the panes far, the lamp after dark).
+// lookoutStep(night) (each frame: the interior shown near, the panes far, the lamp after dark) and furnishFromTent(tent) (scoutCamp.js,
+// with the camp set's Tent mesh as it loads).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TOWER, mulberry } from './land.js';
@@ -22,7 +25,7 @@ const TURN = 0.5, BASE = TOWER.y - 0.5;   // the tower's turn and the height its
 const TH = 12, LEG = 2.6, DECK = 3.5, CAB = 2.3, G = 0.5, MID = 6.1, FLOOR = TH + 0.15;   // deck height, leg spread, deck and cab half-widths, the ground, the landing, the deck's top
 // the stair tower: x0..xm the inner lane, xm..x1 the outer; the flights run between zA and zB, the landings span both lanes
 // south of zA (from s0) and north of zB (to n1). Flight k climbs RISE from G + k RISE, northward in the outer lane when k is even.
-const SC = { x0: DECK, xm: 4.55, x1: 5.6, s0: -2.1, zA: -1.0, zB: 1.8, n1: 2.9 };
+const SC = { x0: LEG + 0.15, xm: LEG + 1.2, x1: LEG + 2.25, s0: -LEG, zA: -1.5, zB: 1.5, n1: LEG };   // the inner edge just off the legs' faces, the ends on their line
 const NF = 5, RISE = (FLOOR - G) / NF;
 const flightY = (k, lz) => { const t = (lz - SC.zA) / (SC.zB - SC.zA); return G + RISE * (k + (k % 2 ? 1 - t : t)); };
 const DOOR = { z0: 0.75, z1: 1.85 };                      // the cab's door, in its east wall (+x), facing the stairs' top
@@ -49,34 +52,38 @@ function floorLocal(lx, lz, fy) {
 // where your feet are on the tower (world y), or null where it is not under you (player.js then takes the ground)
 export function lookoutFloor(x, z, feet) { const [lx, lz] = local(x, z), f = floorLocal(lx, lz, feet - BASE); return f === null ? null : BASE + f; }
 
-// what stops a step from (x0, z0) to (x1, z1): the legs and the stair tower's posts and flights (down below), the stair tower's
-// railings (the outside, and between its lanes over the flights), the deck's railing (only the top landing opens onto it), the
-// cab's walls (only the door) and the things inside. Climbing more than a step or dropping off an edge is player.js's rule.
-const BODY = 0.25;
-const POSTS = [[-LEG, -LEG], [-LEG, LEG], [LEG, -LEG], [LEG, LEG], [SC.x0, SC.s0], [SC.x1, SC.s0], [SC.x0, SC.n1], [SC.x1, SC.n1]];
+// what stops a step from (x0, z0) to (x1, z1): the legs and the stairs' posts and flights (down below), the stairs' sides and the
+// rail between their lanes, the deck's railing (only the top landing opens onto it), the cab's walls (only the door) and the
+// things inside. Climbing more than a step or dropping off an edge is player.js's rule. BODY keeps you off railings; walls keep
+// you WALL off, past the camera's near plane (0.3 m, core.js) and its corners, so you never see through them.
+const BODY = 0.25, WALL = 0.45;
+const POSTS = [[-LEG, -LEG], [-LEG, LEG], [LEG, -LEG], [LEG, LEG], [SC.x1, SC.s0], [SC.x1, SC.n1]];
 export function lookoutBlocks(x0, z0, x1, z1, feet) {
   const [ax, az] = local(x0, z0), [bx, bz] = local(x1, z1), fy = feet - BASE;
   if (Math.hypot(bx, bz) > 8) return false;
-  const lane = (x) => x >= SC.xm;
+  const lane = (x) => x >= SC.xm, crossLane = inCol(bx, bz) && (inRun(ax, az) || inRun(bx, bz)) && lane(ax) !== lane(bx);
   if (fy < G + 0.4) {   // on the ground: the posts, and the flights overhead, entered only at the foot of the first
     for (const [x, z] of POSTS) if (Math.hypot(bx - x, bz - z) < 0.2 + BODY) return true;
     if (inRun(bx, bz) && !inRun(ax, az)) return !(lane(bx) && lane(ax) && az < SC.zA && ax <= SC.x1);
-    return inRun(ax, az) && inRun(bx, bz) && lane(ax) !== lane(bx);
+    return inRun(ax, az) && crossLane;
   }
-  const zone = (x, z) => Math.abs(x) <= DECK - BODY && Math.abs(z) <= DECK - BODY ? 1 : inCol(x, z, BODY) || (x >= DECK - BODY - 0.01 && x <= SC.x0 + BODY + 0.01 && z >= SC.zB + BODY && z <= SC.n1 - BODY) ? 2 : 0;
-  const za = zone(ax, az), zb = zone(bx, bz);
-  if (za !== zb && !(za + zb === 3 && fy > TH - 3)) return true;   // over the rails; deck to stairs only at the top landing
-  if (zb === 2 && (inRun(ax, az) || inRun(bx, bz)) && lane(ax) !== lane(bx)) return true;
-  if (fy < TH - 3) return false;
-  const cab = (x, z) => Math.abs(x) < CAB + 0.06 + BODY && Math.abs(z) < CAB + 0.06 + BODY;
-  if (cab(ax, az) !== cab(bx, bz) && !(bx > 0 && ax > 0 && bz > DOOR.z0 + BODY && bz < DOOR.z1 - BODY)) return true;
-  if (cab(bx, bz)) for (const [x, z, r] of INSIDE_BLOCK) if (Math.hypot(bx - x, bz - z) < r + BODY) return true;
+  if (crossLane) return true;
+  const onStairs = (x, z) => inCol(x, z, BODY);
+  if (fy < FLOOR - 0.3) return onStairs(ax, az) !== onStairs(bx, bz);   // on a flight or a lower landing: its rails all round
+  // up top: the deck's railing all round but for the top landing, which keeps you in by the stairs' rails
+  const deck = (x, z) => Math.abs(x) <= DECK - BODY && Math.abs(z) <= DECK - BODY, gap = (x, z) => x >= DECK - BODY - 0.01 && x <= SC.x1 - BODY && z >= SC.zB + BODY && z <= SC.n1 - BODY;
+  if (deck(ax, az) !== deck(bx, bz) && !gap(ax, az) && !gap(bx, bz)) return true;
+  if (!deck(bx, bz) && !gap(bx, bz) && !onStairs(bx, bz)) return true;
+  // the cab: its walls keep you WALL off on either side; the doorway lets you through
+  const r = Math.max(Math.abs(bx), Math.abs(bz)), door = bx > 0 && bz > DOOR.z0 + BODY && bz < DOOR.z1 - BODY && Math.abs(bz) < CAB - 0.06;
+  if (r > CAB - 0.06 - WALL && r < CAB + 0.06 + WALL && !door) return true;
+  if (r <= CAB - 0.06 - WALL) for (const [x, z, rr] of INSIDE_BLOCK) if (Math.hypot(bx - x, bz - z) < rr + BODY) return true;
   return false;
 }
-const INSIDE_BLOCK = [[0, 0, 0.45], [-1.65, -1.6, 0.35], [-1.85, 0.6, 0.45], [-1.85, 1.3, 0.45]];   // the fire finder, the stove, the cot (two circles)
+const INSIDE_BLOCK = [[0, 0, 0.45], [-1.65, -1.6, 0.35], [-1.8, 0.45, 0.4], [-1.8, 1.0, 0.4], [-1.8, 1.55, 0.4]];   // the fire finder, the stove, the bed (three circles)
 
 // ---------------------------------------------------------------- building it
-let inner = null, panes = null, glass = null, lampMat = null;
+let inner = null, panes = null, glass = null, lampMat = null, warmLam = null;
 export function buildLookout(tower, { M, lam, part, winMat }) {
   const box = (w, h, d, mat, x, y, z, ry = 0, rz = 0, parent = tower) => { const m = part(new THREE.BoxGeometry(w, h, d), mat, x, y, z, parent); m.rotation.set(0, ry, rz, 'YZX'); return m; };
   // legs, a girt at the landing's height and painted X braces between the legs
@@ -103,12 +110,13 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
   for (let k = 0; k < NF; k++) { const out = k % 2 === 0, cx = out ? (SC.xm + SC.x1) / 2 : (SC.x0 + SC.xm) / 2, y0 = G + RISE * k;
     if (out) flight(cx, SC.zA, cx, SC.zB, y0, y0 + RISE, 1, 0); else flight(cx, SC.zB, cx, SC.zA, y0, y0 + RISE, -1, 0); }
   // its landings (north after the odd rises, south after the even), railed round except where the flights or the deck meet them,
-  // and its four posts, run on below the ground in case the hill dips
+  // and its two outer posts, run on below the ground in case the hill dips
   const W = SC.x1 - SC.x0, XC = (SC.x0 + SC.x1) / 2;
   for (let k = 1; k <= NF; k++) { const y = G + RISE * k, north = k % 2 === 1, z0 = north ? SC.zB : SC.s0, z1 = north ? SC.n1 : SC.zA, ze = north ? SC.n1 : SC.s0;
     box(W + 0.1, 0.12, z1 - z0 + 0.1, M.wood, XC, y - 0.06, (z0 + z1) / 2);
-    rail(SC.x0, ze, SC.x1, ze, y, y, false); rail(SC.x1, z0, SC.x1, z1, y, y, false); if (k < NF) rail(SC.x0, z0, SC.x0, z1, y, y, false); }
-  for (const [x, z] of [[SC.x0, SC.s0], [SC.x1, SC.s0], [SC.x0, SC.n1], [SC.x1, SC.n1]]) { const top = x === SC.x0 ? FLOOR - 0.1 : FLOOR + 1.08; box(0.18, top + 1.5, 0.18, M.wood, x, (top - 1.5) / 2, z); }
+    rail(SC.x0, ze, SC.x1, ze, y, y, false); rail(SC.x1, z0, SC.x1, z1, y, y, false); }   // the inner side is the tower's braced face
+  for (const z of [SC.s0, SC.n1]) box(0.22, FLOOR + 1.08 + 1.5, 0.22, M.wood, SC.x1, (FLOOR + 1.08 - 1.5) / 2, z);   // the two outer posts; the inner ones are the tower's legs
+  for (let k = 1; k <= NF; k++) for (const z of [SC.s0, SC.n1]) box(SC.x1 - LEG, 0.16, 0.12, M.wood, (SC.x1 + LEG) / 2, G + RISE * k - 0.2, z);   // ties from the legs to the posts under each landing level
   // the cab: log walls below and above a band of windows, corner posts and mullions, the door in the east wall, a ceiling
   const Y0 = FLOOR, SILL = 1.0, HEAD = 2.15, TOPW = 2.45, T = 0.12;
   for (const [ry, nx, nz] of [[0, 0, -1], [0, 0, 1], [Math.PI / 2, -1, 0], [Math.PI / 2, 1, 0]]) {
@@ -138,17 +146,15 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
   const mapTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#e8dcc0'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(120,96,64,.5)'; for (let i = 0; i < 14; i++) { g.beginPath(); g.ellipse(w / 2 + (r() - 0.5) * 60, h / 2 + (r() - 0.5) * 60, 20 + i * 8, 14 + i * 7, r(), 0, 7); g.stroke(); }
     g.strokeStyle = '#7a3a2a'; g.lineWidth = 3; g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(w / 2, 8); g.lineTo(w / 2, h - 8); g.moveTo(8, h / 2); g.lineTo(w - 8, h / 2); g.stroke(); g.fillStyle = '#3a6a8a'; g.fillRect(40, 150, 60, 30); });
   const shelfTex = canvasTex(128, 64, (g, w, h) => { g.fillStyle = '#4a3424'; g.fillRect(0, 0, w, h); for (let x = 4; x < w - 6;) { const bw = 5 + r() * 7; g.fillStyle = ['#8a3a2a', '#2f5a6a', '#c8a050', '#4a6a3a', '#6a4a7a'][(r() * 5) | 0]; g.fillRect(x, 8 + r() * 8, bw, 24); x += bw + 1; } g.fillStyle = '#2a1c12'; g.fillRect(0, 32, w, 4); for (let x = 6; x < w - 10; x += 16) { g.fillStyle = '#d8c8a8'; g.fillRect(x, 42, 10, 14); } });
-  const blanket = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#7a2a24'; g.fillRect(0, 0, w, h); g.fillStyle = '#e8d8b0'; for (const y of [10, 50]) g.fillRect(0, y, w, 4); g.fillStyle = '#2a4a3a'; g.fillRect(0, 16, w, 3); g.fillRect(0, 45, w, 3); });
-  const warm = (o) => { const m = lam(o); m.emissive.set('#5a3418'); m.emissiveIntensity = 0; return m; };   // lit a little by the lamp after dark (lookoutStep)
-  const IW = warm({ color: '#8a6a4a' }), IM = warm({ map: mapTex }), IS = warm({ map: shelfTex }), IB = warm({ map: blanket }), IK = warm({ color: '#2a2624' });
+    const warm = (o) => { const m = lam(o); m.emissive.set('#5a3418'); m.emissiveIntensity = 0; return m; };   // lit a little by the lamp after dark (lookoutStep)
+  const IW = warm({ color: '#8a6a4a' }), IM = warm({ map: mapTex }), IS = warm({ map: shelfTex }), IK = warm({ color: '#2a2624' });
   const ib = (w, h, d, mat, x, y, z, ry = 0) => box(w, h, d, mat, x, Y0 + y, z, ry, 0, inner);
   ib(0.18, 0.9, 0.18, IW, 0, 0.45, 0); ib(0.9, 0.05, 0.9, IW, 0, 0.92, 0);   // the fire finder's stand
   part(new THREE.CylinderGeometry(0.4, 0.4, 0.04, 14), IM, 0, Y0 + 0.97, 0, inner);   // its map, the sighting ring round it
   part(new THREE.TorusGeometry(0.41, 0.02, 4, 16).rotateX(Math.PI / 2), IK, 0, Y0 + 1.0, 0, inner);
   ib(0.04, 0.22, 0.02, IK, 0.38, 1.1, 0); ib(0.04, 0.22, 0.02, IK, -0.38, 1.1, 0);   // the sights
-  ib(0.8, 0.35, 1.9, IW, -1.85, 0.18, 0.95); ib(0.78, 0.12, 1.85, IB, -1.85, 0.42, 0.95); ib(0.6, 0.1, 0.35, warm({ color: '#e8e0d0' }), -1.85, 0.52, 1.7);   // the cot, its blanket and pillow
-  ib(0.5, 0.55, 0.45, IK, -1.65, 0.28, -1.6); ib(0.3, 0.12, 0.3, IK, -1.65, 0.6, -1.6);   // the stove (its pipe goes up through the roof)
-  part(new THREE.CylinderGeometry(0.07, 0.07, TOPW - 0.6, 6), IK, -1.65, Y0 + 0.6 + (TOPW - 0.6) / 2, -1.6, inner);
+  part(new THREE.CylinderGeometry(0.07, 0.07, TOPW - 0.75, 6), IK, -1.65, Y0 + 0.75 + (TOPW - 0.75) / 2, -1.6, inner);   // the stove's pipe up through the roof (the bed and stove: furnishFromTent)
+  warmLam = (o) => warm(o);
   ib(0.42, 0.06, 0.42, IW, 1.2, 0.45, -1.1); ib(0.42, 0.5, 0.05, IW, 1.2, 0.73, -1.3); for (const [x, z] of [[1.0, -0.9], [1.4, -0.9], [1.0, -1.3], [1.4, -1.3]]) ib(0.04, 0.45, 0.04, IW, x, 0.22, z);   // a chair
   ib(1.4, 0.7, 0.3, IS, 0.6, SILL / 2 + 0.02, -CAB + 0.24);   // a shelf of books and jars under the south windows
   ib(0.9, 0.6, 0.02, IM, -0.5, 0.55, CAB - 0.08);   // the area map, pinned under the north windows
@@ -157,6 +163,31 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
   return pennant({ parent: tower, at: new THREE.Vector3(0, Y0 + TOPW + 1.85, 0), pole: 2.4, size: 1.0, tex: scoutPennant(), poleMat });
 }
 export const lookoutInside = () => inner;
+
+// the scout tent's bed and stove (build_camp.py wall_tent: soft_bed, the stove and its kettle), cut out of the camp set's Tent
+// mesh by their boxes in its frame (glTF: x across, y up, z = -Blender y; TENT's bed and stove are Blender [x, y]) and stood in
+// the cab: the bed along the west wall, the stove in the south-west corner under its pipe. The floor, the walls and the pipe
+// that leave the boxes stay with the tent. Returns the triangles added (0 when the tent has no bed or stove sizes).
+export function furnishFromTent(tent) {
+  const { bed, stove, W } = tent.userData || {};
+  if (!inner || !bed || !stove || !tent.geometry) return 0;
+  const g0 = tent.geometry.index ? tent.geometry.toNonIndexed() : tent.geometry, P = g0.attributes.position, UV = g0.attributes.uv, C = g0.attributes.color;
+  const cut = ([cx, cz], hx, hz, top, to) => { const pos = [], uv = [], col = [];
+    for (let t = 0; t < P.count; t += 3) { let ok = true, hi = 0;
+      for (let i = t; i < t + 3 && ok; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i); ok = Math.abs(x - cx) <= hx && Math.abs(z - cz) <= hz && y <= top && Math.abs(x) < W - 0.01; hi = Math.max(hi, y); }
+      if (!ok || hi < 0.09) continue;   // the floor's planks are lower
+      for (let i = t; i < t + 3; i++) { pos.push(P.getX(i) - cx + to[0], P.getY(i), P.getZ(i) - cz + to[1]); if (UV) uv.push(UV.getX(i), UV.getY(i)); if (C) col.push(C.getX(i), C.getY(i), C.getZ(i)); } }
+    return { pos, uv, col }; };
+  const parts = [cut([bed[0], -bed[1]], 0.5, 1.1, 0.9, [-1.8, 1.0]), cut([stove[0], -stove[1]], 0.42, 0.42, 1.0, [-1.65, -1.6])];
+  const g = new THREE.BufferGeometry(), cat = (k) => parts.flatMap((q) => q[k]);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(cat('pos'), 3));
+  if (UV) g.setAttribute('uv', new THREE.Float32BufferAttribute(cat('uv'), 2));
+  if (C) g.setAttribute('color', new THREE.Float32BufferAttribute(cat('col'), 3));
+  g.computeVertexNormals();
+  const m0 = tent.material, mesh = new THREE.Mesh(g, warmLam({ map: m0.map || null, vertexColors: !!C, side: m0.side }));
+  mesh.position.y = FLOOR; mesh.name = 'LookoutTentFurniture'; inner.add(mesh);
+  return g.attributes.position.count / 3;
+}
 
 // each frame: the room and its clear glass near, the glowing panes far; the lamp and the room's glow after dark
 const wp = new THREE.Vector3();

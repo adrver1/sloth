@@ -13,6 +13,7 @@ import { dressFire } from '../camp/fire.js';
 import { createLanterns } from '../camp/lanterns.js';
 import { glowTex } from '../camp/util.js';
 import { flagsStep, pennant, poleMat, scoutPennant } from './flag.js';
+import { furnishFromTent } from './lookout.js';
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
@@ -85,6 +86,7 @@ export function buildScoutCamp() {
             const lit = ao && o.geometry.attributes.uv1;   // the camp's occlusion where the prop has its light-map UVs
             if (file !== 'fire') o.material = hazed(new THREE.MeshLambertMaterial({ map: m0.map || null, vertexColors: !!o.geometry.attributes.color, side: m0.side, transparent: m0.transparent, alphaTest: m0.alphaTest, aoMap: lit ? ao : null }), lit ? campAO : mute, lit ? 'campAO' : 'mute');
             o.castShadow = !glow; o.receiveShadow = true; tris += tris0(o.geometry); });
+          if (node.name === 'Tent' && node.isMesh) TRIS.push(['Fire lookout room: the tent\'s bed and stove (lookout.js furnishFromTent)', furnishFromTent(node)]);
           if (MEASURED.includes(node.name)) { const m = node.clone(true); m.traverse((o) => { o.visible = false; o.userData.standIn = true; }); node.name += '_look'; campGroup.add(m); }
           campGroup.add(node); }
         TRIS.push([`Scout camp: ${file}`, tris]); tris = 0; bakeStatic(campGroup, (o) => flames.includes(o) || o.parent?.name === 'Embers' || o.name === 'Embers');   // the flames (their shader moves them) and the glowing embers stay apart
