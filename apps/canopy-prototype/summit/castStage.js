@@ -68,10 +68,10 @@ for (let z = -D / 2 + 1.4; z <= D / 2 - 1.4; z += 1) { block(st(-W / 2 + 0.45, 0
 block(PLACES.woodpile.at.clone().setZ(PLACES.woodpile.at.z - 1.1), 0.6); block(PLACES.woodpile.at, 0.6); block(PLACES.woodpile.at.clone().setZ(PLACES.woodpile.at.z + 1.1), 0.6);
 for (const x of [-5.6, -1.9, 1.9, 5.6]) block(st(x, 0, -(D / 2 + 2.8)), 0.2);             // the porch posts
 block(st(-2.7, 0, -(D / 2 + 0.45)), 0.6, { r: 0.25 });                                     // the bench (his seat's feet are inside it, so he still reaches them)
-// the deck's edges, so walkers come up the steps: along its front, its east end, and its west end either side of the steps
+// the deck's edges, so walkers come up the steps: along its front, and at both ends either side of the steps (STEPS: there are
+// steps at both ends since 2026-11-16, Adriaen: "I cannot get down from the right side of the balcony")
 for (let x = -W / 2 + 0.2; x <= W / 2 - 0.2; x += 0.5) block(st(x, 0, -(D / 2 + 3)), 0.25);
-for (let z = -(D / 2 + 0.5); z >= -(D / 2 + 2.8); z -= 0.5) block(st(W / 2, 0, z), 0.25);
-block(st(-W / 2, 0, -(D / 2 + 0.5)), 0.25); block(st(-W / 2, 0, -(D / 2 + 2.8)), 0.25);
+for (const sx of [-1, 1]) { block(st(sx * W / 2, 0, -(D / 2 + 0.5)), 0.25); block(st(sx * W / 2, 0, -(D / 2 + 2.8)), 0.25); }
 block(BASKET, 0.22);                                                                       // the basket
 
 // ---------------------------------------------------------------- you and the camera, in the camp's frame
