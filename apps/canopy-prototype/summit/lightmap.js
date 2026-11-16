@@ -25,7 +25,9 @@ let night = null;
 export const seeThrough = (m) => m.transparent && m.opacity < 0.5;
 export function receivers(groups) {
   const out = [];
-  for (const g of groups) { let i = 0; g.traverse((o) => { if (!o.isMesh || o.isInstancedMesh) return; o.name ||= `${g.name}_${i}`; i++;
+  // an unnamed mesh is named by its place among the group's unnamed ones, so a named thing added later (the tent's bed and
+  // stove in the lookout, after the camp loads) never shifts the names the bake was made with
+  for (const g of groups) { let i = 0; g.traverse((o) => { if (!o.isMesh || o.isInstancedMesh) return; if (!o.name) o.name = `${g.name}_${i++}`;
     const m = o.material; if (!Array.isArray(m) && m.isMeshLambertMaterial && !m.emissive?.getHex() && !seeThrough(m)) out.push(o); }); }
   return out;
 }
