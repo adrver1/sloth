@@ -21,7 +21,7 @@ import { TRIS } from './land.js';
 import { camera, me } from './core.js';
 import { campReady } from './scoutCamp.js';
 import { LIGHT } from './daylight.js';
-import { CAST_O, blockers, castCam, castMe, syncBack, syncCast } from './castStage.js';
+import { CAST_O, PLACES, blockers, castCam, castMe, syncBack, syncCast } from './castStage.js';
 import { ray, toast } from '../camp/hud.js';
 import { campGroup, fireLight, flames } from './scoutCamp.js';
 import { createAtmosphere } from '../atmosphere.js';
@@ -53,10 +53,14 @@ export function buildLife() {
     // he starts by the fire on its woodpile side, looking at it, as in the camp
     const p = V(Math.cos(A0 + 0.9) * 2.6, 0, Math.sin(A0 + 0.9) * 2.6);
     opApi = start.startOperator(G, A, p, yawTo(p.clone().negate()));
-    // your chores, the camp's own (camp/chores.js): logs from the loose ones by the cabin's woodpile onto the fire, the pail under
+    // your chores, the camp's own (camp/chores.js): logs from the cabin's woodpile (or the loose ones by it) onto the fire, the pail under
     // the table, vegetables from the crate, soup in the pot, bowls on the log seats, and fruit from the porch basket
-    const logs = campGroup.getObjectByName('LooseLogs'), basket = sl.basket();
-    acts = chores.buildChores({ woodPile: { at: new THREE.Box3().setFromObject(logs).getCenter(V()).sub(CAST_O).setY(0), built: true },
+    // the cabin's woodpile (cabin.js: a 0.9 x 1.6 x 3.4 m stack against its west wall, merged into the cabin's draws) gets an
+    // invisible stand-in, so the whole stack lights up and takes a tap, with the loose logs by the stump (Adriaen 2026-11-15)
+    const stack = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.6, 3.4), new THREE.MeshBasicMaterial());
+    stack.position.copy(PLACES.woodpile.at).setY(0.8); stack.visible = false; stack.userData.standIn = true; stack.name = 'CabinWoodStack'; campGroup.add(stack);
+    const basket = sl.basket();
+    acts = chores.buildChores({ woodPile: { at: PLACES.woodpile.at, built: true, r: 0.9, look: [stack], picks: [stack] },
       fruit: basket && { at: basket.position, r: 0.3, look: basket.children },
       toast: (text, sound) => { toast(text); if (sound) cue(sound, castMe.pos.clone().add(CAST_O)); }, addBlocker: (at, r) => blockers.push({ at, r, walk: null, wild: false, tag: null }),
       boostFire: (wide, tall, light) => { for (const c of flames) c.scale.set(wide, tall, wide); fireLight.intensity *= light; } });

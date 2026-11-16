@@ -75,7 +75,7 @@ block(BASKET, 0.22);                                                            
 // ---------------------------------------------------------------- you and the camera, in the camp's frame
 export const castCam = new THREE.PerspectiveCamera();
 castCam.matrixAutoUpdate = true;
-export const castMe = { pos: V(), seat: null, vel: V() };
+export const castMe = { pos: V(), seat: null, vel: V(), walkT: 0 };
 const was = V();
 // before the cast's step: the stand-in camera and you, from the summit's camera and you
 export function syncCast() {
@@ -83,7 +83,7 @@ export function syncCast() {
   castCam.position.copy(camera.position).sub(CAST_O); castCam.quaternion.copy(camera.quaternion);
   castCam.projectionMatrix.copy(camera.projectionMatrix); castCam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
   castCam.updateMatrixWorld(true);
-  castMe.pos.set(me.x - CAST_O.x, groundAt(me.x - CAST_O.x, me.z - CAST_O.z), me.z - CAST_O.z); was.copy(castMe.pos);
+  castMe.pos.set(me.x - CAST_O.x, groundAt(me.x - CAST_O.x, me.z - CAST_O.z), me.z - CAST_O.z); was.copy(castMe.pos); castMe.walkT = me.walkT;   // how far you have walked: what you carry sways with it (activities/carry.js)
   // your seat (a log by the fire: camp/linger.js, or the jeep's), in the camp's frame: he comes and joins you at the fire (operator/day.js)
   const s = me.seat; if (s !== seatWas) { seatWas = s; castMe.seat = s && { ...s, pos: s.pos.clone().sub(CAST_O) }; }
   else if (s) castMe.seat.pos.copy(s.pos).sub(CAST_O);

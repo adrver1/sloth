@@ -8,8 +8,9 @@
 // (operator/cook.js and day.js cook with it, talk.js lets you give him the food in your hand), and the page updates each
 // frame (acts.update). The camp's audio/watch.js imports acts too, for the pot's sounds. It also adds the things you can use
 // to the tap targets (targets.js), and hands the chores the log seats (places.js logSeats), whose ends a bowl claims.
-// level: { woodPile: { at, built } (where you take a log, in the stage's frame; built: a prop stands there, otherwise the
-// chores stack plain logs), boostFire(wide, tall, light) (the logs you put on make the level's fire bigger: each frame, on
+// level: { woodPile: { at, built, r, look, picks } (where you take a log, in the stage's frame; built: a prop stands there,
+// otherwise the chores stack plain logs; r, look, picks: optional, the tap sphere's size, more that lights up and more a tap
+// finds: the summit's stack by the cabin), boostFire(wide, tall, light) (the logs you put on make the level's fire bigger: each frame, on
 // top of what its light set), toast(text, sound) (a chore's message and the sound that goes with it), addBlocker(at, r),
 // glowTex (the sparks; util.js's by default), woodTex and woodSpots (the carried logs painted like the level's stack; null: plain), fruit: the
 // place fruit comes from, { at, r, look } (the summit's porch basket), or null for the snack table's plate (the camp) }.
@@ -28,14 +29,14 @@ function buildChores({ woodPile, boostFire, toast, addBlocker, glowTex = sharedG
     places: { woodPile, fire: FIRE, pot: SOUP_POT, table: TABLE, crate: LIVED ? CRATE.at : null, fruit,
       seats: logSeats().map(({ o, c, along, ends }) => ({ o, c, along, ends: ends.map((e) => ({ at: e.at, free: () => endFree(e), take: () => claim(e.key, "bowl"), leave: () => release(e.key, "bowl") })) })) },   // a bowl holds its end (places.js)
     looks: Object.fromEntries(Object.entries({ woodpile: ["WoodStack", "LooseLogs"], fireOnly: ["Ring", "Fire"], pot: ["Pot"], crate: ["KitchenCrate", "KitchenThings"] })   // what lights up when you can use it (camp/highlight.js); the summit has no WoodStack, its loose logs by the cabin's pile light up
-      .map(([k, ns]) => [k, ns.map((n) => scene.getObjectByName(n)).filter(Boolean)]).filter(([, v]) => v.length)),
+      .map(([k, ns]) => [k, [...ns.map((n) => scene.getObjectByName(n)), ...(k === "woodpile" ? woodPile.look ?? [] : [])].filter(Boolean)]).filter(([, v]) => v.length)),   // woodPile.look: the level's own stack too
     woodTex, woodSpots, glowTex, burst, toast, addBlocker, boostFire });
   // the things you can use light up and open a menu (targets.js): only ever the one thing a tap does now (the thing's own
   // label, activities.js). A thing that is part of another target's object (a log seat: t.on) adds its option to that
   // target instead, so a log has one menu (review R2-209)
   const sph = new THREE.Sphere(), lit = acts.things.filter((t) => t.look && !t.on);   // the things never change once made
   for (const t of acts.things) if (t.on) addOption(t.on, { ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] });
-  addTargets("things", () => lit, (t) => ({ get look() { return t.look; }, picks: [t.box],
+  addTargets("things", () => lit, (t) => ({ get look() { return t.look; }, picks: [t.box, ...t.picks],
     at: (v) => sph.set(v.copy(t.box.position), t.box.geometry.parameters.radius), ready: () => acts.ready(t), options: () => [[t.label(), () => acts.tap({ thing: t })]] }));
   return acts;
 }

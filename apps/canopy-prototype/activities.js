@@ -41,16 +41,17 @@ export function createActivities({ scene, camera, me, places: { woodPile, fire, 
   // (looks[name], the props' own objects, so the highlight hugs the real thing; look may be a function of what you hold);
   // on: the object of another tap target this thing is part of (a log seat), which then shows its label beside its own
   const things = [], hitList = [];
-  function thing({ name, at, r, when, act, label, why = () => null, look = null, on = null }) {
+  function thing({ name, at, r, when, act, label, why = () => null, look = null, on = null, picks = [] }) {
     const box = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); box.position.copy(at).setY(at.y + r * 0.6); scene.add(box);
     const own = looks[name] ?? look ?? null;
-    const t = { name, at, box, when, act, label, why, on, get look() { return typeof own === "function" ? own() : own; } }; box.userData.thing = t; things.push(t); hitList.push(box); return t;
+    const t = { name, at, box, picks, when, act, label, why, on, get look() { return typeof own === "function" ? own() : own; } }; box.userData.thing = t; things.push(t); hitList.push(box); for (const m of picks) { m.userData.thing = t; hitList.push(m); } return t;
   }
   const held = () => carry.held, full = "Your hands are full. Put it back first ✋";
   // somewhere you take one thing from, and that takes it back: free hands or that thing in them
   const source = (what, take) => ({ when: () => !held() || held() === what, act: () => { if (held()) { carry.putBack(); return; } take(); }, why: () => held() && full });
 
-  thing({ name: "woodpile", at: pile.at, r: 0.55, look: pile.stand, ...source("log", () => { carry.hold("log"); toast("Got a log 🪵", "knock"); }),
+  // r, picks: a level's bigger stack (the summit's, by the cabin) answers a tap anywhere on it
+  thing({ name: "woodpile", at: pile.at, r: woodPile.r ?? 0.55, look: pile.stand, picks: woodPile.picks ?? [], ...source("log", () => { carry.hold("log"); toast("Got a log 🪵", "knock"); }),
     label: () => held() === "log" ? "Put the log back 🪵" : "Take a log 🪵" });
   // the fire and the pot over it are one place: what a tap does there depends on what you hold
   thing({ name: "fire", at: fire, r: 0.6, when: () => held() === "log" || soupChore.wants(),

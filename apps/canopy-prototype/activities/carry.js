@@ -68,7 +68,7 @@ export function createCarry({ camera, me, toast }) {
     // what you hold sways a little as you walk
     update(dt, time) {
       hand.userData.t = (hand.userData.t || 0) + dt; hand.position.x = 0.1 + 0.26 * Math.min(1, camera.aspect);   // stays in view on a narrow phone
-      hand.position.y = -0.36 + Math.sin(me.walkT * 7) * 0.01 + (1 - Math.min(1, hand.userData.t * 4)) * -0.2;
+      hand.position.y = -0.36 + Math.sin((me.walkT || 0) * 7) * 0.01 + (1 - Math.min(1, hand.userData.t * 4)) * -0.2;
       if (inHand.food.visible) inHand.food.rotation.z = 0.35 + Math.sin(time * 2) * 0.1;
     },
   };

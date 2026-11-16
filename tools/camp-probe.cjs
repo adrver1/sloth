@@ -31,7 +31,7 @@ const PHONE = flags.includes('--phone'), STRICT = flags.includes('--strict');
   const { page: p, tReady, close } = camp;
   await p.waitForTimeout(6000);
   if (argv[4]) { await p.evaluate(argv[4]); await p.waitForTimeout(5000); }
-  if (out) await p.screenshot({ path: out });
+  if (out) await p.screenshot({ path: out, timeout: 120000 });   // a SwiftShader frame on a slow 2-4 core runner (GitHub's headless shell) can take over 30 s
   const info = await p.evaluate(() => {
     const S = window.__scene, rows = [], tex = new Map();
     S.traverse((o) => {

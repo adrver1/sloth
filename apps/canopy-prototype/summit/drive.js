@@ -8,8 +8,8 @@
 // takes the camera, and holds you where the camera is so the ground and trees round it are the near ones), and driveApi
 // { away(), home(), shot() } for checks, which import this module.
 // The parked jeep itself drives, with everyone in it: camp/riders.js, the same as the camp's drive (him at the wheel, you, and
-// the seven sloths in their winter gear; clones only while a shot plays). Arriving, the shot waits (dark) until the cast is
-// built, at most 10 s. The letterbox, fade and skip layer are page elements.
+// the seven sloths in their winter gear; clones only while a shot plays). Arriving, the shot waits (dark) until the jeep's model
+// has loaded and the cast is built, at most 15 s. The letterbox, fade and skip layer are page elements.
 import { $, BARE, JEEP, OPT, ROAD, ROAD_Y, TOP, groundAt } from './land.js';
 import { camera, me } from './core.js';
 import { wheelsOf } from '../camp/util.js';
@@ -95,7 +95,9 @@ export function buildDrive() {
 // each frame, right after walk(): a shot takes the camera
 export function driveStep(dt) {
   if (!fade) return false;
-  if (homeDue && JEEP.node && ((lifeHooks.op && lifeHooks.sloths) || (waited += dt) > 10)) { homeDue = false; start(true); }
+  // the jeep's model (road.js: JEEP.rig once it has loaded) and the cast must be in first, or on a slow line the shot drove an
+  // empty group and the jeep popped in at the very end (Adriaen 2026-11-15: "car still doesn't show up in cutscene from jungle")
+  if (homeDue && JEEP.node && ((JEEP.rig && lifeHooks.op && lifeHooks.sloths) || (waited += dt) > 15)) { homeDue = false; start(true); }
   if (shot) { step(dt); return true; }
   return false;
 }

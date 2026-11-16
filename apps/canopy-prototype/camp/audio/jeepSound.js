@@ -2,12 +2,15 @@
 // level"): its doors and the hood as they open and shut, and its engine (car.js: off → crank → run): a click of the key and the
 // starter cranking, the engine catching with a rev, a steady idle while it runs, and a few last chugs as it dies.
 // hearJeep(J, engine) each frame while the sound runs (the camp's audio/watch.js; the summit's audio.js): J is the jeep's rig
-// api (jeepRig.js: doors, node), engine car.js carApi.engine() ("off" with no car). Allocates nothing on a quiet frame.
+// api (jeepRig.js: doors, node, driving), engine car.js carApi.engine() ("off" with no car). Allocates nothing on a quiet frame.
+// While a drive shot moves the jeep (api.driving: camp/drive.js, summit/drive.js; Adriaen 2026-11-15: "the car should also make
+// driving sounds while driving") the engine runs, follows the jeep, and pulls harder and louder with its speed, over the rumble
+// of the tyres on the track; it dies again when the shot ends, unless the key still has it running.
 import * as THREE from "three";
 import { ac, BROWN, env, filt, gain, noise, osc, spot } from "./context.js";
 import { SFX } from "./sfx.js";
 
-const was = { door: [], engine: "off" };
+const was = { door: [], engine: "off", driving: false, t: 0, speed: 0 }, bay = new THREE.Vector3(), last = new THREE.Vector3();
 function hearJeep(J, engine = "off") {
   if (!J?.doors || ac?.state !== "running") return;
   for (let i = 0; i < J.doors.length; i++) { const d = J.doors[i], o = d.open; if (was.door[i] !== undefined && o !== was.door[i]) SFX.door(d.o.getWorldPosition(new THREE.Vector3()), o); was.door[i] = o; }
@@ -18,6 +21,17 @@ function hearJeep(J, engine = "off") {
     if (engine === "off") ENGINE.stop(at);
   }
   was.engine = engine;
+  // the drive shots: the engine runs while it drives, wherever the key is
+  const driving = !!J.driving, now = ac.currentTime, dt = now - was.t; was.t = now;
+  J.node.localToWorld(bay.set(0, 0.7, 1.2));
+  if (driving && !was.driving) { ENGINE.idle(bay, engine !== "run"); last.copy(bay); was.speed = 0; }
+  if (!driving && was.driving && engine !== "run") ENGINE.stop(bay);
+  was.driving = driving;
+  if (driving && ENGINE.on && dt > 0) {
+    const v = Math.min(20, bay.distanceTo(last) / dt); last.copy(bay);
+    was.speed += (v - was.speed) * Math.min(1, dt * 3);   // smoothed, so a frame's hitch doesn't rev it
+    ENGINE.drive(bay, Math.min(1, was.speed / 9), now);
+  }
 }
 // the jeep's engine: a low sawtooth with a sub, through a low-pass, pulsed at the firing rate by an LFO
 const ENGINE = {
@@ -37,7 +51,19 @@ const ENGINE = {
     lfo.frequency.setTargetAtTime(25, t + 0.25, 0.35);
     const rumble = noise(t, 1e5, filt("lowpass", 220, 0.7, gain(g, 0.5)), BROWN);
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.32, t + 0.12); g.gain.setTargetAtTime(0.16, t + 0.4, 0.4);   // the rev, then a quiet idle
-    ENGINE.on = { g, nodes: [o, sub, lfo, rumble] };
+    const road = gain(g, 0), tyres = noise(t, 1e5, filt("bandpass", 420, 0.8, road), BROWN);   // the tyres on the track, silent until it drives
+    ENGINE.on = { g, out, lp, road, o, sub, lfo, nodes: [o, sub, lfo, rumble, tyres] };
+  },
+  // driving at k (0 standing .. 1 full speed on the track): the engine note and its firing rate rise, the low-pass opens, it
+  // gets louder and carries further, and the tyres rumble; set as smooth targets each frame, so nothing clicks
+  drive(at, k, t) {
+    const e = ENGINE.on, p = e.out;
+    if (p.positionX) { p.positionX.setTargetAtTime(at.x, t, 0.03); p.positionY.setTargetAtTime(at.y, t, 0.03); p.positionZ.setTargetAtTime(at.z, t, 0.03); } else p.setPosition(at.x, at.y, at.z);
+    p.refDistance = 1.8 + 4 * k;
+    const f = 34 * (1 + 1.6 * k);
+    e.o.frequency.setTargetAtTime(f, t, 0.2); e.sub.frequency.setTargetAtTime(f / 2, t, 0.2); e.lfo.frequency.setTargetAtTime(f * 0.75, t, 0.2);
+    e.lp.frequency.setTargetAtTime(380 + 520 * k, t, 0.2);
+    e.g.gain.setTargetAtTime(0.16 + 0.16 * k, t, 0.25); e.road.gain.setTargetAtTime(1.4 * k, t, 0.25);   // through g, so it fades with the engine when it stops
   },
   stop(at) {
     const e = ENGINE.on; ENGINE.on = null; ENGINE.click(at); if (!e) return; const t = ac.currentTime;
