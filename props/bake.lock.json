@@ -286,7 +286,7 @@
    "apps/canopy-prototype/summit/groundLight.js": "395247cd036628553b4d",
    "apps/canopy-prototype/summit/land.js": "a1af9b05933c0bf1e8e6",
    "apps/canopy-prototype/summit/lightmap.js": "040489cc815f942d23f3",
-   "apps/canopy-prototype/summit/lookout.js": "82109f34b2b835289f11",
+   "apps/canopy-prototype/summit/lookout.js": "41267f9642b03b2727b7",
    "apps/canopy-prototype/summit/road.js": "72756d2056df59cf08c2",
    "apps/canopy-prototype/summit/scoutCamp.js": "02edbcd28c68481651d6",
    "blender": "Blender 5.2.3 LTS",
@@ -308,14 +308,14 @@
   "outputs": {
    "apps/canopy-prototype/models/summit_ground.json": "db471d2e84578ffccd9c",
    "apps/canopy-prototype/models/summit_ground_ao.png": "9924b4d612af2f0a5cc8",
-   "apps/canopy-prototype/models/summit_ground_night.png": "4079350f498e2cd44d79",
-   "apps/canopy-prototype/models/summit_lm.json": "5a958327d58bdead65b9",
-   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "e16988c74f6216570e7e",
-   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "3fcf31eaabc51e93e668",
-   "apps/canopy-prototype/models/summit_lm_night_1k.png": "8695d30ec69454b81df5",
-   "apps/canopy-prototype/models/summit_lm_night_2k.png": "872822b1b1c1ff306acf",
-   "props/summit/summit_layout.json": "a763a3bc6cae2efb98dc",
-   "props/summit/summit_static.glb": "804196170f782b003bef"
+   "apps/canopy-prototype/models/summit_ground_night.png": "0459486e67de9fb77d1f",
+   "apps/canopy-prototype/models/summit_lm.json": "048b03460a5547ad5f22",
+   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "a49e38b5635f370b5df7",
+   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "fe0ac3712d1a0d27a945",
+   "apps/canopy-prototype/models/summit_lm_night_1k.png": "7663a0f62e152c9c85e4",
+   "apps/canopy-prototype/models/summit_lm_night_2k.png": "c056f9ca7b9faec8a48c",
+   "props/summit/summit_layout.json": "9f6bfc3a2bac956065a9",
+   "props/summit/summit_static.glb": "a774f324e01eae251aec"
   }
  }
 }
