@@ -18,9 +18,9 @@ import { OPT, isPhone } from './land.js';
 
 const SIZE = 2048, PAD = 3, EDGE = 16;   // the atlas, the gap round each rectangle in texels, and a clear border
 const NIGHT_GAIN = 1.6;
-// the night map is normalised as a whole, so the fire sets its scale; the lookout's lamps are small beside it and read dim at
-// that scale, so its receivers (named Lookout_<n>, and its door) take more of it (Adriaen 2026-11-16: "brighten it up")
-const GROUP_GAIN = { Lookout: 3.5, LookoutDoor: 3.5 };   // the night map's strength at full dark (the map is normalised by the bake): the knob to tune by eye
+// the bake normalises the lookout's receivers (Lookout_<n>, LookoutDoor) on their own, by its lamps (bake_summit_lightmap.py), and
+// they take more of it still: its lamps are what you climb by at night (Adriaen 2026-11-16: "impossible to see anything")
+const GROUP_GAIN = { Lookout: 2.2, LookoutDoor: 2.2 };   // the night map's strength at full dark (the map is normalised by the bake): the knob to tune by eye
 let night = null;
 
 // the meshes that take a light map: still, not instanced, lit (Lambert) and not glowing; named Cabin_3, Lookout_0, ...

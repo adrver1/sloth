@@ -9,7 +9,7 @@ import { m4, q, sc, up, v3 } from './forest.js';
 import { buildLightmap, lightmapStep } from './lightmap.js';
 import { snowC, snowTex } from './terrain.js';
 import { groundPaint } from './groundLight.js';
-import { buildLookout, lookoutInside, lookoutRoomLamp } from './lookout.js';
+import { buildLookout, lookoutInside, lookoutLamps, lookoutRoomLamp } from './lookout.js';
 
 // ---------------------------------------------------------------- the cabin: a big log cabin with a porch toward the south (-z)
 const cabin = new THREE.Group();
@@ -186,6 +186,7 @@ export function bakeSources() {
         out.push({ kind: 'window', at: p.toArray(), normal: n.toArray(), w: w * s.x, h: h * s.y }); } }
     if (o.isMesh && o.material === doorMat) { o.matrixWorld.decompose(p, qq, s); n.set(0, 0, 1).applyQuaternion(qq); out.push({ kind: 'door', at: p.toArray(), normal: n.toArray(), w: 1.2, h: 2.3 }); } });
   out.push({ kind: 'point', at: lookoutRoomLamp().toArray(), color: '#ffc477', distance: 0, name: 'lookout' });   // the lookout room's lamp, brighter than a lantern (lookout.js), bake only
+  for (const p of lookoutLamps().slice(0, -1)) out.push({ kind: 'point', at: p.add(new THREE.Vector3(0, -0.125, 0)).toArray(), color: '#ffc477', distance: 0, name: 'lookout_lamp' });   // its stair and door lanterns, at their jars
   scene.traverse((l) => { if (l.isPointLight) out.push({ kind: 'point', at: l.getWorldPosition(p).toArray(), color: '#' + l.color.getHexString(), distance: l.distance, name: l === porchLight ? 'porch' : l === inside ? 'inside' : 'fire' }); });
   return out;
 }

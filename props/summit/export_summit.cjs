@@ -31,7 +31,7 @@ const SIZE = +(process.argv[2] || 2048), OUT = __dirname;
       const S = window.__scene.scene, groups = ['Cabin', 'Lookout'].map((n) => S.getObjectByName(n));
       S.updateMatrixWorld(true);
       const rec = receivers(groups), sig = signature(rec), meshes = Object.fromEntries(rec.map((o) => [o.name, (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3]));
-      const pack = packLightmap(rec, SIZE), GROUP = { porch: 'cabin', inside: 'cabin', fire: 'fire', lookout: 'lantern' };
+      const pack = packLightmap(rec, SIZE), GROUP = { porch: 'cabin', inside: 'cabin', fire: 'fire', lookout: 'lantern', lookout_lamp: 'lantern' };
       const lights = bakeSources().map((L) => ({ ...L, group: L.kind === 'point' ? GROUP[L.name] : 'cabin' }));
       for (const p of lanternLights) lights.push({ kind: 'point', name: 'lantern', group: 'lantern', at: p.toArray(), color: '#ffc477', distance: 0 });
       const out = new THREE.Scene(), plain = new THREE.MeshBasicMaterial();

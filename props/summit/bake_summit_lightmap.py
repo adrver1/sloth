@@ -35,7 +35,7 @@ from lib.bake import pick_device  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLES = {"ao": 128, "night": 512}          # at --samples 512; AO is smooth, the night light has several small lights
 ENERGY = {"window": 45.0, "door": 30.0}     # watts a square metre of glowing glass or door
-POINT = {"porch": 70.0, "inside": 120.0, "fire": 500.0, "lantern": 20.0, "lookout": 150.0}   # watts (lookout: the fire lookout room's lamp)
+POINT = {"porch": 70.0, "inside": 120.0, "fire": 500.0, "lantern": 20.0, "lookout": 150.0, "lookout_lamp": 100.0}   # watts (lookout: the fire lookout room's lamp)
 FIRE_DROP = 0.35   # metres: the flames' middle, below the pot that hangs where the page's light is
 GROUND_SAMPLES = {"ao": 128, "night": 256}   # the camp's ground, at --samples 512 (each night channel is one pass)
 WARM = (1.0, 0.72, 0.42)
@@ -150,10 +150,17 @@ def main():
     ao = read()[..., :1].repeat(3, -1)
     bg.inputs["Strength"].default_value = 0.0
     made = add_lights(lay["lights"])
-    bake("DIFFUSE", rec, round(SAMPLES["night"] * a.samples / 512))
-    night = read()
-    lit = night.max(-1); scale = float(np.percentile(lit[lit > 1e-5], 99.5)) if (lit > 1e-5).any() else 1.0
-    night = night / scale
+    # the lookout's receivers on their own, each set filling the map by its own brightest (Adriaen 2026-11-16: its lamps "nowhere
+    # near bright enough" when the campfire set the one scale): their rectangles are apart (PAD 3 >= the margin), so max joins them
+    def night_of(objs):
+        if not objs: return np.zeros((size, size, 3), np.float32), 1.0
+        bake("DIFFUSE", objs, round(SAMPLES["night"] * a.samples / 512)); n = read()
+        lit = n.max(-1); s = float(np.percentile(lit[lit > 1e-5], 99.5)) if (lit > 1e-5).any() else 1.0
+        return n / s, s
+    look = [o for o in rec if o.name.startswith("R_Lookout")]
+    n1, scale = night_of([o for o in rec if o not in look]); n2, scale_l = night_of(look)
+    night = np.maximum(n1, n2)
+    print(f"  lookout night scale {scale_l:.4g}", flush=True)
 
     os.makedirs(a.out, exist_ok=True)
     names = [(f"{size / 1024:g}k", 1)] + ([("1k", 2)] if size == 2048 else [])   # the page loads <size>k, and 1k on phones

@@ -105,7 +105,7 @@ export function buildScoutCamp() {
     hang.push(...lookoutLamps());   // and the fire lookout's (lookout.js), hung with these so they cost no draws of their own
     for (let k = 0; k < 8; k++) for (const f of [0.33, 0.67]) { const t = (k + f) / 8; flags.push([on(t - 0.006), on(t + 0.006)]); }
     lanternSet = createLanterns({ scene, layout: { strings: [pts], hang, flags }, glowTex: glowTex() });
-    lanternLights.push(...lanternSet.lights);
+    lanternLights.push(...lanternSet.lights.slice(0, lanternSet.lights.length - lookoutLamps().length));   // the camp's own: the lookout's are baked brighter, as its lamps (cabin.js bakeSources)
     TRIS.push(['Lantern pole (the string, jars and bunting: camp/lanterns.js)', tris0(pole.geometry)]); bakeStatic(lanterns); }
   // a scout flag on a pole: a green pennant that sways in the wind (flag.js, shared with the lookout's)
   { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, TOP, CAMP.z + 2.5); scene.add(g);
