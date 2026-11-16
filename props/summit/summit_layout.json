@@ -1,6 +1,6 @@
 {
  "size": 2048,
- "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,Lookout_0:4,Lookout_1:24,Lookout_2:8,Lookout_10:12,Lookout_11:1492,Lookout_12:8,Lookout_13:120,Lookout_14:24|84615.3",
+ "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,Lookout_0:4,Lookout_1:24,Lookout_2:8,Lookout_10:12,Lookout_11:2044,Lookout_12:8,Lookout_13:120,Lookout_14:24|138069.8",
  "meshes": {
   "Cabin_0": 10,
   "Cabin_4": 24,
@@ -11,7 +11,7 @@
   "Lookout_1": 24,
   "Lookout_2": 8,
   "Lookout_10": 12,
-  "Lookout_11": 1492,
+  "Lookout_11": 2044,
   "Lookout_12": 8,
   "Lookout_13": 120,
   "Lookout_14": 24
@@ -336,6 +336,6 @@
   "size": 44,
   "px": 1024
  },
- "texelsPerMetre": 36.07,
- "rects": 984
+ "texelsPerMetre": 35.53,
+ "rects": 1260
 }

@@ -304,16 +304,16 @@
    "props/summit/export_summit.cjs": "43c9f6ac86ced2a6b407"
   },
   "outputs": {
-   "apps/canopy-prototype/models/summit_ground.json": "db471d2e84578ffccd9c",
+   "apps/canopy-prototype/models/summit_ground.json": "00d756455bee00718236",
    "apps/canopy-prototype/models/summit_ground_ao.png": "9924b4d612af2f0a5cc8",
-   "apps/canopy-prototype/models/summit_ground_night.png": "4c0d486bb0a0c684b00e",
-   "apps/canopy-prototype/models/summit_lm.json": "d264765dc6a902b1f742",
-   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "020aa476a4411833c5c9",
-   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "0b58d35e796310c11b3a",
-   "apps/canopy-prototype/models/summit_lm_night_1k.png": "cd33126c8516ad1d2172",
-   "apps/canopy-prototype/models/summit_lm_night_2k.png": "b064bcf4de60a3f60660",
-   "props/summit/summit_layout.json": "ffadddedc0682f96048e",
-   "props/summit/summit_static.glb": "8322cb330fec4450bf55"
+   "apps/canopy-prototype/models/summit_ground_night.png": "78c63d419bc544a5f1c8",
+   "apps/canopy-prototype/models/summit_lm.json": "f930aeb9b3f1bee68fa9",
+   "apps/canopy-prototype/models/summit_lm_ao_1k.png": "29fba639091a44b725de",
+   "apps/canopy-prototype/models/summit_lm_ao_2k.png": "e1506ae681f0f8fd8b62",
+   "apps/canopy-prototype/models/summit_lm_night_1k.png": "d73ec9f2ddd7748ba827",
+   "apps/canopy-prototype/models/summit_lm_night_2k.png": "475e011e982c391b413d",
+   "props/summit/summit_layout.json": "fbc272f345d5bc788ec5",
+   "props/summit/summit_static.glb": "6c3dd4b32c0c87a455ff"
   }
  }
 }
