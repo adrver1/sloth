@@ -72,7 +72,7 @@ const OPT = {
   campsloths: qs.get("campsloths") !== "0",
   slothmat: qs.get("slothmat") === "old" ? "old" : "lambert",
   lab: qs.has("lab"),
-  dev: qs.has("dev") || (qs.has("debug") && qs.get("debug") !== "0"),   // ?dev and ?debug are one option, in both levels (Adriaen 2026-11-15; summit/land.js)
+  dev: qs.has("dev") || (qs.has("debug") && qs.get("debug") !== "0") || /claude/.test(location.hostname),   // ?dev and ?debug are one option, in both levels (Adriaen 2026-11-15; summit/land.js); on in a preview artifact (Adriaen 2026-11-16: "bring back the fps counter for the preview build")
   touch: qs.has("touch"),
   sound: qs.get("sound") !== "0",
   station: qs.get("station"),
