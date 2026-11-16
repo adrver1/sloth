@@ -8,6 +8,7 @@ import { buildTerrain, cullTerrain, levels, uCardR, uTreeCol, uTreeK, updateLeve
 import { CARDS, SPECIES, TREES, buildForest, cards, cullWedges, logGeo, logs, near, nearN, placeThings, placedAt, rocks, saplings } from './forest.js';
 import { MADE_FROM, buildHorizon, horizonStep } from './horizon.js';
 import { buildCabin, cabinStep } from './cabin.js';
+import { lookoutStep } from './lookout.js';
 import { buildScoutCamp, campStep } from './scoutCamp.js';
 import { buildCover } from './cover.js';
 import { buildRoad, roadStep } from './road.js';
@@ -81,6 +82,7 @@ function frame() {
   clockStep(dt, LIGHT.night);   // the camp's clocks (camp/clock.js): the porch clock and the jeep's dash clock, hands and glow
   sky.position.copy(camera.position); horizonStep();
   cabinStep(LIGHT.night);
+  lookoutStep(LIGHT.night);   // lookout.js: its room near, its glowing panes far
   fxStep(dt, now, LIGHT.storm, LIGHT.bright);   // sets the wind before the flag reads it
   campStep(now, LIGHT.night, wind);
   groundLightStep(LIGHT.night, fireLight.intensity, porchLight.intensity);   // after the fire and the porch lamp are set: the baked ground light follows them

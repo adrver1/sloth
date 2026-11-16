@@ -12,12 +12,12 @@ import { ANCHORS, SEATS, fromModel } from '../camp/layout.js';
 import { dressFire } from '../camp/fire.js';
 import { createLanterns } from '../camp/lanterns.js';
 import { glowTex } from '../camp/util.js';
+import { flagsStep, pennant, poleMat, scoutPennant } from './flag.js';
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
 // (models/*.txt, base64), in the camp's own arrangement round the fire, lit live here (their vertex colours carry the baked
 // shading). Added round them: a string of jar lanterns from the cabin to the tent, a flag, firelight and fire smoke.
-export let flag;
 // the cozy camp's colours, only a touch cooler in the snow light (they were greyed 40% here, which left the props flat and
 // lifeless next to the jungle's: Adriaen 2026-11-16 "bland and boring compared to the jungle")
 export const mute = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, 0.92) * vec3(0.97, 0.98, 1.0);'); };
@@ -60,7 +60,7 @@ export function tris0(g) { return (g.index ? g.index.count : g.attributes.positi
 // a string of jar lanterns from the cabin's back corner to a pole by the tent, sagging between
 const lanterns = new THREE.Group();
 let lanternSet = null;   // camp/lanterns.js createLanterns, stepped in campStep
-const ropeMat = hazed(new THREE.MeshLambertMaterial({ color: '#4a3a2c' }));
+const ropeMat = poleMat;   // the lantern pole and the flag's: flag.js
 
 export function buildScoutCamp() {
   campGroup.position.set(CAMP.x, TOP, CAMP.z);
@@ -104,12 +104,9 @@ export function buildScoutCamp() {
     lanternSet = createLanterns({ scene, layout: { strings: [pts], hang, flags }, glowTex: glowTex() });
     lanternLights.push(...lanternSet.lights);
     TRIS.push(['Lantern pole (the string, jars and bunting: camp/lanterns.js)', tris0(pole.geometry)]); bakeStatic(lanterns); }
-  // a scout flag on a pole: a green pennant that sways in the wind
-  flag = (() => { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, TOP, CAMP.z + 2.5); scene.add(g);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 5, 6), ropeMat); pole.position.y = 2.5; pole.castShadow = true; g.add(pole);
-    const tex = canvasTex(128, 64, (c, w, h) => { c.fillStyle = '#2f6a3c'; c.beginPath(); c.moveTo(0, 0); c.lineTo(w, h / 2); c.lineTo(0, h); c.fill(); c.fillStyle = '#f2d27a'; c.beginPath(); c.moveTo(18, 14); c.lineTo(34, 32); c.lineTo(18, 50); c.lineTo(26, 32); c.fill(); });
-    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.55, 6, 1).translate(0.55, 0, 0), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide })));
-    cloth.position.y = 4.65; g.add(cloth); TRIS.push(['Flag and pole', tris0(pole.geometry) + tris0(cloth.geometry)]); return cloth; })();
+  // a scout flag on a pole: a green pennant that sways in the wind (flag.js, shared with the lookout's)
+  { const g = new THREE.Group(); g.position.set(CAMP.x + 5.5, TOP, CAMP.z + 2.5); scene.add(g);
+    TRIS.push(['Flag and pole', pennant({ parent: g, at: new THREE.Vector3(), pole: 5, size: 1.1, tex: scoutPennant(), poleMat: ropeMat })]); }
   // a snowman east of the cabin (land.js SNOWMAN): three lumpy snowballs, coal eyes and buttons, a carrot nose, stick arms, a scout scarf and a bobble hat
   { const g = new THREE.Group(), sx = SNOWMAN.x, sz = SNOWMAN.z; g.position.set(sx, TOP - 0.05, sz); g.rotation.y = Math.atan2(SNOWMAN.face[0] - sx, SNOWMAN.face[1] - sz); scene.add(g);
     const snowM = hazed(new THREE.MeshLambertMaterial({ color: '#fbf7f0', vertexColors: true })), coalM = hazed(new THREE.MeshLambertMaterial({ color: '#22201f' })), carrotM = hazed(new THREE.MeshLambertMaterial({ color: '#e8742a' }));
@@ -134,5 +131,5 @@ export function campStep(now, night, wind) {
   const fl = 0.8 + 0.2 * Math.sin(now * 13) * Math.sin(now * 7.3 + 1);
   fireLight.intensity = (5 + 6 * night) * fl;   // the flames flicker in their own shader (camp/fire.js)
   lanternSet?.update(now, night);   // the candles light at dusk, as in the camp
-  flag.rotation.y = -Math.atan2(wind.z, wind.x) + Math.sin(now * 3.1) * 0.25; flag.scale.y = 1 - 0.1 * Math.abs(Math.sin(now * 5));
+  flagsStep(now, wind);   // flag.js: the camp's flag and the lookout's
 }

@@ -9,6 +9,7 @@ import { m4, q, sc, up, v3 } from './forest.js';
 import { buildLightmap, lightmapStep } from './lightmap.js';
 import { snowC, snowTex } from './terrain.js';
 import { groundPaint } from './groundLight.js';
+import { buildLookout, lookoutInside } from './lookout.js';
 
 // ---------------------------------------------------------------- the cabin: a big log cabin with a porch toward the south (-z)
 const cabin = new THREE.Group();
@@ -165,22 +166,11 @@ export function buildCabin() {
   tower.position.set(TOWER.x, TOWER.y - 0.5, TOWER.z);
   tower.rotation.y = 0.5;
   scene.add(tower);
-  { // a fire lookout: four legs, painted X braces, a glazed cab and a pyramid roof under snow
-    const TH = 12, LS = 2.2;
-    const legs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.28, TH, 0.28), M.wood, 4); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b], i) => legs.setMatrixAt(i, m4.makeTranslation(a * LS, TH / 2, b * LS))); legs.castShadow = true; tower.add(legs);
-    const braceTex = canvasTex(128, 256, (g, w, h) => { g.strokeStyle = '#5a3c26'; g.lineWidth = 9; for (let k = 0; k < 3; k++) { const y0 = (k * h) / 3, y1 = ((k + 1) * h) / 3; g.beginPath(); g.moveTo(4, y0); g.lineTo(w - 4, y1); g.moveTo(w - 4, y0); g.lineTo(4, y1); g.moveTo(0, y0 + 4); g.lineTo(w, y0 + 4); g.stroke(); } });
-    const braceMat = lam({ map: braceTex, alphaTest: 0.5, side: THREE.DoubleSide });
-    for (const [x, z, ry] of [[0, -LS, 0], [0, LS, 0], [-LS, 0, Math.PI / 2], [LS, 0, Math.PI / 2]]) { const b = part(new THREE.PlaneGeometry(LS * 2, TH - 0.5), braceMat, x, (TH - 0.5) / 2, z, tower); b.rotation.y = ry; }
-    part(new THREE.BoxGeometry(6.2, 0.3, 6.2), M.wood, 0, TH, 0, tower);   // the deck
-    const cab = part(new THREE.BoxGeometry(4.6, 2.4, 4.6), M.log, 0, TH + 1.35, 0, tower);
-    const glass = new THREE.InstancedMesh(new THREE.PlaneGeometry(3.8, 1.1), winMat, 4);
-    for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2; glass.setMatrixAt(i, m4.compose(v3.set(Math.sin(a) * 2.32, TH + 1.6, Math.cos(a) * 2.32), q.setFromAxisAngle(up, a), sc.set(1, 1, 1))); }
-    tower.add(glass);
-    const roof = part(new THREE.ConeGeometry(4.1, 1.8, 4, 1, true), M.snow, 0, TH + 3.45, 0, tower); roof.rotation.y = Math.PI / 4;
-  }
+  buildLookout(tower, { M, lam, part, winMat });   // lookout.js: the tower, its stairs, deck, cab and room, and its flag
   // (the fishing hut on the lake was removed 2026-11-15: you can't walk there or see it from the level)
-  TRIS.push(['Fire lookout', placeTris(tower)]);
-  bakeStatic(tower);
+  { const room = lookoutInside(); let n = 0; room.traverse((o) => { if (o.isMesh) n += tris(o.geometry); });
+    TRIS.push(['Fire lookout (tower, stairs, deck, cab, flag)', placeTris(tower) - n], ['Fire lookout room (near only)', n]);
+    bakeStatic(tower, (o) => o.userData.keep || o.parent === room); bakeStatic(room); }
   buildLightmap([cabin, tower]);   // lightmap.js: sky occlusion and the night light, baked (loads; left off until baked)
 }
 // for the light-map bake (props/summit/export_summit.cjs): the night lights in the world, as the bake makes them. Windows and
