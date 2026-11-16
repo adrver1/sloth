@@ -117,7 +117,7 @@ export const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6);
 // footing on the east, north and west walls (the porch covers the south one, the entrance's stoop the middle of the north one):
 // from 0.3 to 0.5 m up the wall, rounded, out to 1 m. Its own mesh, outside the cabin's group, so the cabin's baked light map
 // still fits; it takes the ground's bake (groundLight.js: dark at the wall's foot, the fire's and windows' light at night) and
-// the terrain's snow texture. About 160 triangles, one draw.
+// the terrain's snow texture. 276 triangles, one draw.
 function snowBank() {
   const X = (W + 0.3) / 2, Z = (D + 0.3) / 2, OUT = [[0, 1], [0.38, 0.62], [0.75, 0.22], [1.0, -0.06]];   // the profile: (out, share of the height)
   const pts = [];   // [x, z, outward normal x, z, height]
