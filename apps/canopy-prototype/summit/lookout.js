@@ -29,7 +29,7 @@ const TH = 12, LEG = 2.6, DECK = 3.5, CAB = 2.3, G = 0.5, MID = 6.1, FLOOR = TH 
 const SC = { x0: LEG + 0.15, xm: LEG + 1.2, x1: LEG + 2.25, s0: -LEG, zA: -1.5, zB: 1.5, n1: LEG };   // the inner edge just off the legs' faces, the ends on their line
 const NF = 5, RISE = (FLOOR - G) / NF;
 const flightY = (k, lz) => { const t = (lz - SC.zA) / (SC.zB - SC.zA); return G + RISE * (k + (k % 2 ? 1 - t : t)); };
-const DOOR = { z0: 0.75, z1: 1.85 };                      // the cab's door, in its east wall (+x), facing the stairs' top
+const DOOR = { z0: 0.75, z1: 1.85 }, JAMB = 0.08;                      // the cab's door, in its east wall (+x), facing the stairs' top
 const INNER_R = 32;   // the interior shows within this many metres of the camera
 const inCol = (x, z, p = 0) => x >= SC.x0 + p && x <= SC.x1 - p && z >= SC.s0 + p && z <= SC.n1 - p;
 const inRun = (x, z) => inCol(x, z) && z >= SC.zA && z <= SC.zB;   // over a flight, not a landing
@@ -130,6 +130,9 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
     for (const o of [-CAB, -CAB / 3, CAB / 3, CAB]) { if (door && o > DOOR.z0 - 0.1 && o < DOOR.z1 + 0.1) continue; const [x, z] = at(o); box(0.1, HEAD - SILL, 0.1, M.wood, x, Y0 + (SILL + HEAD) / 2, z); }
   }
   // the door, hung on the north jamb: shut in the wall, it swings in against the north wall from its menu, like the jeep's (camp/hingedDoor.js)
+  // its frame: a jamb each side, through the wall, and a head over it (the logs above the head close the wall)
+  for (const z of [DOOR.z0 - JAMB / 2, DOOR.z1 + JAMB / 2]) box(0.2, 2.0 + JAMB, JAMB, M.wood, CAB, Y0 + (2.0 + JAMB) / 2, z);
+  box(0.2, JAMB, DOOR.z1 - DOOR.z0 + 2 * JAMB, M.wood, CAB, Y0 + 2.0 + JAMB / 2, (DOOR.z0 + DOOR.z1) / 2);
   { const w = DOOR.z1 - DOOR.z0 - 0.04, hinge = new THREE.Group(); hinge.position.set(CAB, Y0, DOOR.z1 - 0.02); tower.add(hinge);
     const leaf = box(0.06, 2.0, w, M.wood, 0, 1.0, -w / 2, 0, 0, hinge); leaf.userData.keep = true; leaf.name = 'LookoutDoor'; hinge.userData.keep = true;
     lookDoor = door = addDoor({ o: hinge, open: Math.PI / 2 * 0.95, name: 'door', reach: 2.6, ready: () => camera.position.y > BASE + TH - 1 }); }
@@ -139,10 +142,16 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
   const snowCap = part(new THREE.ConeGeometry(3.9, 1.75, 4, 1, true), M.snow, 0, Y0 + TOPW + 1.06, 0, tower); snowCap.rotation.y = Math.PI / 4;
   part(new THREE.CylinderGeometry(0.09, 0.09, 1.45, 6), M.stone, -1.65, Y0 + TOPW + 0.72, -1.6, tower);   // the stove pipe: just clear of the roof, well below the flag
   // the panes: glowing, as the cabin's, seen from afar; clear glass and the room behind it near
-  panes = new THREE.InstancedMesh(new THREE.PlaneGeometry(CAB * 2 - 0.1, HEAD - SILL), winMat, 4);
-  for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2; panes.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(Math.sin(a) * (CAB + 0.07), Y0 + (SILL + HEAD) / 2, Math.cos(a) * (CAB + 0.07)), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), a), new THREE.Vector3(1, 1, 1))); }
+  // the panes and the glass run round the window band, but for the doorway in the east wall (i 1), whose frame they meet
+  const spans = [];   // [turn, offset along the wall, width]
+  for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2;
+    if (i === 1) for (const [z0, z1] of [[-CAB + 0.05, DOOR.z0 - JAMB], [DOOR.z1 + JAMB, CAB - 0.05]]) spans.push([a, -(z0 + z1) / 2, z1 - z0]);
+    else spans.push([a, 0, CAB * 2 - 0.1]); }
+  const band = (r, a, u) => new THREE.Vector3(Math.sin(a) * r + u * Math.cos(a), Y0 + (SILL + HEAD) / 2, Math.cos(a) * r - u * Math.sin(a));
+  panes = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, HEAD - SILL), winMat, spans.length);
+  spans.forEach(([a, u, w], i) => panes.setMatrixAt(i, new THREE.Matrix4().compose(band(CAB + 0.07, a, u), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), a), new THREE.Vector3(w, 1, 1))));
   tower.add(panes);
-  glass = new THREE.Mesh(mergeGeometries([0, 1, 2, 3].map((i) => { const a = (i * Math.PI) / 2; return new THREE.PlaneGeometry(CAB * 2 - 0.1, HEAD - SILL).rotateY(a).translate(Math.sin(a) * (CAB + 0.02), Y0 + (SILL + HEAD) / 2, Math.cos(a) * (CAB + 0.02)); })),
+  glass = new THREE.Mesh(mergeGeometries(spans.map(([a, u, w]) => { const p = band(CAB + 0.02, a, u); return new THREE.PlaneGeometry(w, HEAD - SILL).rotateY(a).translate(p.x, p.y, p.z); })),
     lam({ color: '#cfe0ee', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
   glass.userData.keep = true; glass.renderOrder = 2; tower.add(glass);
   // the room, near only
