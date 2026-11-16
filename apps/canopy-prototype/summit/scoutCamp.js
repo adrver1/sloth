@@ -13,7 +13,7 @@ import { dressFire } from '../camp/fire.js';
 import { createLanterns } from '../camp/lanterns.js';
 import { glowTex } from '../camp/util.js';
 import { flagsStep, pennant, poleMat, scoutPennant } from './flag.js';
-import { furnishFromTent } from './lookout.js';
+import { furnishFromTent, lookoutLamps } from './lookout.js';
 
 // ---------------------------------------------------------------- the scout camp behind the cabin, made of the cozy camp's own props
 // The camp's fire ring with tripod and pot, its log seats, wall tent, table, wood stack and kit come straight from its GLBs
@@ -102,6 +102,7 @@ export function buildScoutCamp() {
     // between them for colour by day), seven along this one string, two flags in each gap
     const curve = new THREE.CatmullRomCurve3(pts), on = (t) => curve.getPoint(t), hang = [], flags = [];
     for (let i = 1; i < 8; i++) hang.push(on(i / 8));
+    hang.push(...lookoutLamps());   // and the fire lookout's (lookout.js), hung with these so they cost no draws of their own
     for (let k = 0; k < 8; k++) for (const f of [0.33, 0.67]) { const t = (k + f) / 8; flags.push([on(t - 0.006), on(t + 0.006)]); }
     lanternSet = createLanterns({ scene, layout: { strings: [pts], hang, flags }, glowTex: glowTex() });
     lanternLights.push(...lanternSet.lights);

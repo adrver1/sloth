@@ -11,7 +11,7 @@
 // by side in one plane) and each lone triangle becomes a rectangle, laid flat, sized by its metres and shelf-packed into the
 // atlas (2K, about 4 cm a texel; phones load the 1K copy). If the meshes no longer match the bake (a different triangle count or signature), the maps are left off and the
 // console says to bake again, so a stale bake never smears light across the wrong faces.
-// Exports receivers(groups), packLightmap(meshes, size), buildLightmap(groups) (cabin.js, after the merges: loads the maps
+// Exports receivers(groups), seeThrough(material) (glass the bake skips; export_summit.cjs too), packLightmap(meshes, size), buildLightmap(groups) (cabin.js, after the merges: loads the maps
 // and applies them) and lightmapStep(night) (cabin.js cabinStep: the night map's strength).
 import * as THREE from 'three';
 import { OPT, isPhone } from './land.js';
@@ -21,10 +21,12 @@ const NIGHT_GAIN = 1.6;   // the night map's strength at full dark (the map is n
 let night = null;
 
 // the meshes that take a light map: still, not instanced, lit (Lambert) and not glowing; named Cabin_3, Lookout_0, ...
+// see-through glass (the lookout's) is neither lit by the bake nor in its way, so its room takes the sky and its lamp shines out
+export const seeThrough = (m) => m.transparent && m.opacity < 0.5;
 export function receivers(groups) {
   const out = [];
   for (const g of groups) { let i = 0; g.traverse((o) => { if (!o.isMesh || o.isInstancedMesh) return; o.name ||= `${g.name}_${i}`; i++;
-    const m = o.material; if (!Array.isArray(m) && m.isMeshLambertMaterial && !m.emissive?.getHex()) out.push(o); }); }
+    const m = o.material; if (!Array.isArray(m) && m.isMeshLambertMaterial && !m.emissive?.getHex() && !seeThrough(m)) out.push(o); }); }
   return out;
 }
 // a signature of the receivers' shapes: their names, triangle counts and the sum of their positions, rounded

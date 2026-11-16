@@ -9,7 +9,7 @@ import { m4, q, sc, up, v3 } from './forest.js';
 import { buildLightmap, lightmapStep } from './lightmap.js';
 import { snowC, snowTex } from './terrain.js';
 import { groundPaint } from './groundLight.js';
-import { buildLookout, lookoutInside } from './lookout.js';
+import { buildLookout, lookoutInside, lookoutRoomLamp } from './lookout.js';
 
 // ---------------------------------------------------------------- the cabin: a big log cabin with a porch toward the south (-z)
 const cabin = new THREE.Group();
@@ -175,7 +175,8 @@ export function buildCabin() {
 }
 // for the light-map bake (props/summit/export_summit.cjs): the night lights in the world, as the bake makes them. Windows and
 // the door are glowing rectangles (centre, the way they face, width, height); the porch lamp, the light inside and the scout
-// camp's fire are points. Kinds: window, door, point (with the page's colour and range).
+// camp's fire are points, and the lookout room's lamp, which is baked only (no live light). Kinds: window, door, point (with the
+// page's colour and range).
 export function bakeSources() {
   const out = [], mw = new THREE.Matrix4(), p = new THREE.Vector3(), qq = new THREE.Quaternion(), s = new THREE.Vector3(), n = new THREE.Vector3();
   scene.updateMatrixWorld(true);
@@ -184,6 +185,7 @@ export function bakeSources() {
       for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, mw); mw.premultiply(o.matrixWorld).decompose(p, qq, s); n.set(0, 0, 1).applyQuaternion(qq);
         out.push({ kind: 'window', at: p.toArray(), normal: n.toArray(), w: w * s.x, h: h * s.y }); } }
     if (o.isMesh && o.material === doorMat) { o.matrixWorld.decompose(p, qq, s); n.set(0, 0, 1).applyQuaternion(qq); out.push({ kind: 'door', at: p.toArray(), normal: n.toArray(), w: 1.2, h: 2.3 }); } });
+  out.push({ kind: 'point', at: lookoutRoomLamp().toArray(), color: '#ffc477', distance: 0, name: 'lookout' });   // the lookout room's lamp, brighter than a lantern (lookout.js), bake only
   scene.traverse((l) => { if (l.isPointLight) out.push({ kind: 'point', at: l.getWorldPosition(p).toArray(), color: '#' + l.color.getHexString(), distance: l.distance, name: l === porchLight ? 'porch' : l === inside ? 'inside' : 'fire' }); });
   return out;
 }

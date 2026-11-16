@@ -23,7 +23,7 @@ const SIZE = +(process.argv[2] || 2048), OUT = __dirname;
     const r = await page.evaluate(async (SIZE) => {
       const THREE = await import('three');
       const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
-      const { receivers, signature, packLightmap } = await import('./summit/lightmap.js');
+      const { receivers, signature, packLightmap, seeThrough } = await import('./summit/lightmap.js');
       const { bakeSources } = await import('./summit/cabin.js');
       const { height, TOP } = await import('./summit/land.js');
       const { lanternLights, campReady } = await import('./summit/scoutCamp.js'), { JEEP } = await import('./summit/land.js');
@@ -31,7 +31,7 @@ const SIZE = +(process.argv[2] || 2048), OUT = __dirname;
       const S = window.__scene.scene, groups = ['Cabin', 'Lookout'].map((n) => S.getObjectByName(n));
       S.updateMatrixWorld(true);
       const rec = receivers(groups), sig = signature(rec), meshes = Object.fromEntries(rec.map((o) => [o.name, (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3]));
-      const pack = packLightmap(rec, SIZE), GROUP = { porch: 'cabin', inside: 'cabin', fire: 'fire' };
+      const pack = packLightmap(rec, SIZE), GROUP = { porch: 'cabin', inside: 'cabin', fire: 'fire', lookout: 'lantern' };
       const lights = bakeSources().map((L) => ({ ...L, group: L.kind === 'point' ? GROUP[L.name] : 'cabin' }));
       for (const p of lanternLights) lights.push({ kind: 'point', name: 'lantern', group: 'lantern', at: p.toArray(), color: '#ffc477', distance: 0 });
       const out = new THREE.Scene(), plain = new THREE.MeshBasicMaterial();
@@ -41,7 +41,7 @@ const SIZE = +(process.argv[2] || 2048), OUT = __dirname;
         for (let i = 0; i < u1.count; i++) { uv[i * 2] = u1.getX(i); uv[i * 2 + 1] = 1 - u1.getY(i); }   // glTF counts v from the top
         g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); add('R_' + o.name, g, o.matrixWorld); }
       const isRec = new Set(rec), emit = (m) => m.emissive?.getHex() || m.isMeshBasicMaterial; let k = 0;
-      for (const grp of groups) grp.traverse((o) => { if (!o.isMesh || isRec.has(o) || (!Array.isArray(o.material) && emit(o.material))) return;
+      for (const grp of groups) grp.traverse((o) => { if (!o.isMesh || isRec.has(o) || (!Array.isArray(o.material) && (emit(o.material) || seeThrough(o.material)))) return;   // glowing and see-through things are no occluders
         if (o.isInstancedMesh) { const m = new THREE.Matrix4(); for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, m); add(`O_${k++}`, o.geometry, m.premultiply(o.matrixWorld)); } }
         else add(`O_${k++}`, o.geometry, o.matrixWorld); });
       // the scout camp's ground (G_ground), the same square as road.js's painted snow, in 1 m squares; its UVs are the square

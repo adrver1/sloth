@@ -35,7 +35,7 @@ from lib.bake import pick_device  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLES = {"ao": 128, "night": 512}          # at --samples 512; AO is smooth, the night light has several small lights
 ENERGY = {"window": 45.0, "door": 30.0}     # watts a square metre of glowing glass or door
-POINT = {"porch": 70.0, "inside": 120.0, "fire": 500.0, "lantern": 20.0}   # watts
+POINT = {"porch": 70.0, "inside": 120.0, "fire": 500.0, "lantern": 20.0, "lookout": 60.0}   # watts (lookout: the fire lookout room's lamp)
 FIRE_DROP = 0.35   # metres: the flames' middle, below the pot that hangs where the page's light is
 GROUND_SAMPLES = {"ao": 128, "night": 256}   # the camp's ground, at --samples 512 (each night channel is one pass)
 WARM = (1.0, 0.72, 0.42)

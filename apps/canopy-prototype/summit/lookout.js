@@ -118,6 +118,7 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
     box(W + 0.1, 0.12, z1 - z0 + 0.1, M.wood, XC, y - 0.06, (z0 + z1) / 2);
     rail(k < NF ? SC.x0 : E, ze, SC.x1, ze, y, y, false); rail(SC.x1, z0, SC.x1, z1, y, y, false); }   // the top one's starts at the deck's railing, not over the deck   // the inner side is the tower's braced face
   for (const z of [SC.s0, SC.n1]) box(0.22, FLOOR + 1.08 + 1.5, 0.22, M.wood, SC.x1, (FLOOR + 1.08 - 1.5) / 2, z);   // the two outer posts; the inner ones are the tower's legs
+  for (const [x, y, z] of STAIR_LAMPS) box(BRACKET + 0.1, 0.04, 0.04, M.wood, x + (BRACKET + 0.1) / 2 - 0.02, y + 0.02, z);   // the lamps' brackets (lookoutLamps)
   for (let k = 1; k <= NF; k++) for (const z of [SC.s0, SC.n1]) box(SC.x1 - LEG, 0.16, 0.12, M.wood, (SC.x1 + LEG) / 2, G + RISE * k - 0.2, z);   // ties from the legs to the posts under each landing level
   // the cab: log walls below and above a band of windows, corner posts and mullions, the door in the east wall, a ceiling
   const Y0 = FLOOR, SILL = 1.0, HEAD = 2.15, TOPW = 2.45, T = 0.12;
@@ -160,8 +161,8 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
   const mapTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#e8dcc0'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(120,96,64,.5)'; for (let i = 0; i < 14; i++) { g.beginPath(); g.ellipse(w / 2 + (r() - 0.5) * 60, h / 2 + (r() - 0.5) * 60, 20 + i * 8, 14 + i * 7, r(), 0, 7); g.stroke(); }
     g.strokeStyle = '#7a3a2a'; g.lineWidth = 3; g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(w / 2, 8); g.lineTo(w / 2, h - 8); g.moveTo(8, h / 2); g.lineTo(w - 8, h / 2); g.stroke(); g.fillStyle = '#3a6a8a'; g.fillRect(40, 150, 60, 30); });
   const shelfTex = canvasTex(128, 64, (g, w, h) => { g.fillStyle = '#4a3424'; g.fillRect(0, 0, w, h); for (let x = 4; x < w - 6;) { const bw = 5 + r() * 7; g.fillStyle = ['#8a3a2a', '#2f5a6a', '#c8a050', '#4a6a3a', '#6a4a7a'][(r() * 5) | 0]; g.fillRect(x, 8 + r() * 8, bw, 24); x += bw + 1; } g.fillStyle = '#2a1c12'; g.fillRect(0, 32, w, 4); for (let x = 6; x < w - 10; x += 16) { g.fillStyle = '#d8c8a8'; g.fillRect(x, 42, 10, 14); } });
-    const warm = (o) => { const m = lam(o); m.emissive.set('#5a3418'); m.emissiveIntensity = 0; return m; };   // lit a little by the lamp after dark (lookoutStep)
-  const IW = warm({ color: '#8a6a4a' }), IM = warm({ map: mapTex }), IS = warm({ map: shelfTex }), IK = warm({ color: '#2a2624' });
+    const warm = (o) => { const m = lam(o); m.emissive.set('#5a3418'); m.emissiveIntensity = 0; return m; };   // the tent's bed and stove: lit a little after dark (lookoutStep); not in the bake, which they come after
+  const IW = lam({ color: '#8a6a4a' }), IM = lam({ map: mapTex }), IS = lam({ map: shelfTex }), IK = lam({ color: '#2a2624' });   // the room's own things take the light maps (lightmap.js), its lamp's light baked in
   const ib = (w, h, d, mat, x, y, z, ry = 0) => box(w, h, d, mat, x, Y0 + y, z, ry, 0, inner);
   ib(0.18, 0.9, 0.18, IW, 0, 0.45, 0); ib(0.9, 0.05, 0.9, IW, 0, 0.92, 0);   // the fire finder's stand
   part(new THREE.CylinderGeometry(0.4, 0.4, 0.04, 14), IM, 0, Y0 + 0.97, 0, inner);   // its map, the sighting ring round it
@@ -177,6 +178,18 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
   return pennant({ parent: tower, at: new THREE.Vector3(0, Y0 + TOPW + 1.85, 0), pole: 2.4, size: 1.0, tex: scoutPennant(), poleMat });
 }
 export const lookoutInside = () => inner;
+
+// the lookout's lamps (Adriaen 2026-11-16: "can we add lights... something to brighten it up during the night"): jar lanterns
+// like the camp's (camp/lanterns.js), hung from a bracket on the stairs' outer posts at the foot and each landing, under the
+// eave by the door and from the cab's ceiling. scoutCamp.js hangs them with the camp's string, so they cost no draws of their
+// own, and the bake lights from each (export_summit.cjs, as every lantern). LAMP_ROOM is the cab's: the bake puts a brighter
+// light there too (cabin.js bakeSources), so the room is lit after dark. In the tower's frame: [x, y (from BASE), z].
+const BRACKET = 0.3;
+const STAIR_LAMPS = [0, 1, 2, 3, 4].map((k) => [SC.x1 - BRACKET, G + RISE * k + 2.15, k % 2 ? SC.n1 : SC.s0]);
+const LAMP_ROOM = [0.8, FLOOR + 2.45, 0.9], LAMP_DOOR = [CAB + 0.5, FLOOR + 2.45, DOOR.z0 - 0.35];
+const toWorld = ([x, y, z]) => new THREE.Vector3(TOWER.x + x * c + z * s, BASE + y, TOWER.z - x * s + z * c);
+export const lookoutLamps = () => [...STAIR_LAMPS, LAMP_DOOR, LAMP_ROOM].map(toWorld);   // where each lantern hangs, in the world
+export const lookoutRoomLamp = () => toWorld(LAMP_ROOM).add(new THREE.Vector3(0, -0.125, 0));   // the room light's centre, at its jar
 
 // the scout tent's bed and stove (build_camp.py wall_tent: soft_bed, the stove and its kettle), cut out of the camp set's Tent
 // mesh by their boxes in its frame (glTF: x across, y up, z = -Blender y; TENT's bed and stove are Blender [x, y]) and stood in
@@ -210,5 +223,5 @@ export function lookoutStep(night, dt) {
   doorsStep(dt);
   const near = camera.position.distanceTo(wp.set(TOWER.x, BASE + FLOOR, TOWER.z)) < INNER_R;
   inner.visible = glass.visible = near; panes.visible = !near;
-  if (near) { lampMat.color.setScalar(0.55 + 0.45 * night).multiply(new THREE.Color('#ffd28a')); inner.traverse((o) => { if (o.material?.emissive) o.material.emissiveIntensity = 1.4 * night; }); }
+  if (near) { lampMat.color.setScalar(0.55 + 0.45 * night).multiply(new THREE.Color('#ffd28a')); inner.traverse((o) => { if (o.material?.emissive) o.material.emissiveIntensity = 0.7 * night; }); }
 }
