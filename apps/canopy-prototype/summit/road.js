@@ -187,22 +187,7 @@ export function buildRoad() {
   { // mud: wheel ruts from the road to the jeep, and the paths worn between jeep, porch, camp, woodpile and the trail head
     const S = 44, PX = isPhone ? 1024 : 2048, k = PX / S, tex = canvasTex(PX, PX, (g) => { const r = mulberry(23), at = ([x, z]) => [(x + S / 2) * k, (z + S / 2) * k];
       paintCampSnow(g, at, k, mulberry(31));   // the lived-in snow round the camp first, the paths over it
-      const path = (pts, wid, col, a) => { g.lineCap = g.lineJoin = 'round'; for (let pass = 0; pass < 3; pass++) { g.strokeStyle = col; g.globalAlpha = a * (pass === 0 ? 0.35 : pass === 1 ? 0.55 : 0.9); g.lineWidth = wid * k * (pass === 0 ? 1.8 : pass === 1 ? 1.3 : 0.8);
-        g.beginPath(); pts.forEach((p, i) => { const [x, y] = at(p); const j = pass && wid > 0.6 ? (r() - 0.5) * 4 : 0; i ? g.lineTo(x + j, y + j) : g.moveTo(x, y); }); g.stroke(); } g.globalAlpha = 1; };
-      const ruts = (pts) => { for (const o of [-0.8, 0.8]) path(pts.map(([x, z], i) => { const n = pts[Math.min(i + 1, pts.length - 1)], m = pts[Math.max(i - 1, 0)], dx = n[0] - m[0], dz = n[1] - m[1], l = Math.hypot(dx, dz) || 1; return [x - (dz / l) * o, z + (dx / l) * o]; }), 0.32, '#5e4d40', 0.55); };
-      path([[-17.4, 2.45], [-13, 1.6], [-9, 1.4]], 2.8, '#8a7a6a', 0.55); ruts([[-17.4, 2.45], [-14.5, 1.6], [-13, 1.3]]);   // from where the road's ribbon ends (x -17), not over it: drawn twice it read as a doubled road (Adriaen 2026-11-15)
-      const foot = (pts) => { path(pts, 1.3, '#a99b8c', 0.45); path(pts, 0.6, '#7a6a5c', 0.5); };
-      // one network, every path starting or ending on another (Adriaen 2026-11-16: "the dirt paths are disconnected", "there is no
-      // path to the front door, which would be the most frequented one"): the front door's step (DOOR) is the hub, with the
-      // jeep's mud (ROADEND), the fire, both porch steps round the cabin's ends, and the trail head off it. Shared points are
-      // the same array, so the strokes' round ends overlap. They keep 2.3 m off the cabin's footing, round its snow banks (cabin.js snowBank).
-      const DOOR = [0, 6.3], ROADEND = [-9, 1.4], FIREW = [0.4, 9.6], EAST = [-7.1, -5.6], WEST = [7.1, -5.6], WSIDE = [8.4, -1.6], NW = [4.6, 7.5];
-      path([DOOR, [-0.3, 7.6], FIREW], 1.9, '#a99b8c', 0.35);   // the busiest stretch, door to fire: wider worn ground under the foot path
-      foot([ROADEND, [-8.0, 6.4], [-4.0, 7.3], DOOR]);   // jeep to the front door, round the corner's drift
-      foot([DOOR, [-0.3, 7.6], FIREW]);   // the front door to the fire
-      foot([ROADEND, [-9.3, -1.2], [-8.7, -4.3], EAST]);   // round the cabin's east end to the porch steps
-      foot([DOOR, NW, [8.4, 5.2], [8.7, 0.4], WSIDE, WEST]);   // round the west end to the other porch steps
-      foot([NW, [7.5, 10.4], [11, 11.5], [15, 14.5], [BW[0][0] - 0.3, BW[0][1]]]); });   // the trail head, off the west path. No loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
+      paintTrails(g, at, k, r); });
     const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }), groundLight, 'mud'));   // lit as the snow under it (groundLight.js)
     setRelief(tex);   // its paint is pressed into the snow round it too (groundLight.js RELIEF)
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
@@ -221,11 +206,51 @@ export function roadStep() {
 //   boot prints: pairs along the ways people walk and scattered round the fire, sloth prints (three toes) round the seats
 //   the fire's melt ring: wet dark earth and ash under the stones, slush round it
 //   sawdust and chips round the chopping stump, needles and twigs here and there
-function paintCampSnow(g, at, k, r) {
+// the painting helpers both share (world metres in, canvas pixels out): soft blobs, steps along a polyline, boot prints
+function snowPainter(g, at, k, r) {
   const blob = (x, z, rad, col, a) => { const [px, py] = at([x, z]), R = rad * k, gr = g.createRadialGradient(px, py, 0, px, py, R);
     gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(0.6, `rgba(${col},${a * 0.6})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(px - R, py - R, 2 * R, 2 * R); };
-  const along = (pts, step, fn) => { for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0);
-    for (let d = 0; d < L; d += step) { const t = d / L; fn(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, (x1 - x0) / L, (z1 - z0) / L); } } };
+  const along = (pts, step, fn) => { let d = 0; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0);
+    for (let e = 0; e < L; e += step) { const t = e / L; fn(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, (x1 - x0) / L, (z1 - z0) / L, d + e); } d += L; } };
+  // boot prints: a left and a right, 0.3 m apart along the way, toes pointing on
+  const boot = (x, z, dx, dz, side) => { const [px, py] = at([x - dz * side * 0.09, z + dx * side * 0.09]); g.save(); g.translate(px, py); g.rotate(Math.atan2(dz, dx));
+    g.fillStyle = 'rgba(128,146,178,0.42)'; g.beginPath(); g.ellipse(0.04 * k, 0, 0.085 * k, 0.045 * k, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(-0.1 * k, 0, 0.045 * k, 0.04 * k, 0, 0, 7); g.fill(); g.restore(); };
+  const walk = (pts, lane = 0) => { let side = 1; along(pts, 0.36, (x, z, dx, dz) => { if (r() < 0.85) boot(x - dz * lane + (r() - 0.5) * 0.05, z + dx * lane + (r() - 0.5) * 0.05, dx, dz, side); side = -side; }); };
+  return { blob, along, boot, walk };
+}
+
+// The worn ways round the camp (Adriaen 2026-11-16: "improve the dirt track"; before, three soft strokes each, which read as
+// a brown smear): packed snow laid as many small soft blobs, so the edge wanders and the width swells and narrows; earth and
+// grit showing through in patches down the middle, where most feet go; boot prints both ways in two lanes. The jeep's track
+// is the same, wider and muddier, with its two wheel ruts. All of it is pressed into the snow by groundLight.js RELIEF.
+function paintTrails(g, at, k, r) {
+  const { blob, along, walk } = snowPainter(g, at, k, r);
+  const trail = (pts, wid, { snow = '128,138,160', earth = '104,88,72', muddy = 0.5 } = {}) => { const f = r() * 6;
+    along(pts, 0.12, (x, z, dx, dz, d) => { const w = wid * (0.85 + 0.2 * Math.sin(d * 0.9 + f) + 0.1 * Math.sin(d * 2.3 + 2 * f)), side = (o) => [x - dz * o, z + dx * o];
+      { const [px, pz] = side((r() - 0.5) * w * 0.35); blob(px, pz, w * 0.55 * (0.9 + 0.2 * r()), snow, 0.12 + 0.06 * r()); }   // the packed snow
+      if (0.5 + 0.5 * Math.sin(d * 0.6 + 3 * f) > 1 - muddy && r() < 0.7) { const [px, pz] = side((r() - 0.5) * w * 0.45); blob(px, pz, 0.15 + 0.2 * r(), earth, 0.14 + 0.16 * r()); }   // earth showing through
+      for (let n = 0; n < 2; n++) if (r() < 0.6) { const [px, py] = at(side((r() - 0.5) * w * 0.8)); g.fillStyle = `rgba(${60 + r() * 25 | 0},${50 + r() * 20 | 0},${42 + r() * 15 | 0},${0.4 + 0.3 * r()})`; g.fillRect(px, py, 1 + (r() < 0.3), 1 + (r() < 0.3)); } });   // grit and needles
+  };
+  const foot = (pts, wid = 1.1) => { trail(pts, wid); walk(pts, 0.16); walk([...pts].reverse(), 0.16); };
+  // the jeep's track, from where the road's ribbon ends (x -17), not over it: drawn twice it read as a doubled road (Adriaen 2026-11-15)
+  const JEEP_T = [[-17.4, 2.45], [-14.5, 1.7], [-12, 1.45], [-9, 1.4]];
+  trail(JEEP_T, 2.6, { snow: '132,138,150', earth: '96,80,66', muddy: 0.7 });
+  for (const o of [-0.8, 0.8]) along(JEEP_T.slice(0, 3), 0.08, (x, z, dx, dz) => blob(x - dz * o + (r() - 0.5) * 0.06, z + dx * o + (r() - 0.5) * 0.06, 0.16 + 0.05 * r(), '78,64,52', 0.12 + 0.08 * r()));   // the wheel ruts
+  // one network, every path starting or ending on another (Adriaen 2026-11-16: "the dirt paths are disconnected", "there is no
+  // path to the front door, which would be the most frequented one"): the front door's step (DOOR) is the hub, with the
+  // jeep's track (ROADEND), the fire, both porch steps round the cabin's ends, and the boardwalk's first step off it. Shared
+  // points are the same array, so the paths run into each other. They keep 2.3 m off the cabin's footing, round its snow
+  // banks (cabin.js snowBank).
+  const DOOR = [0, 6.3], ROADEND = [-9, 1.4], FIREW = [0.4, 9.6], EAST = [-7.1, -5.6], WEST = [7.1, -5.6], WSIDE = [8.4, -1.6], NW = [4.6, 7.5];
+  foot([DOOR, [-0.3, 7.6], FIREW], 1.6);   // the busiest stretch, door to fire
+  foot([ROADEND, [-8.0, 6.4], [-4.0, 7.3], DOOR]);   // jeep to the front door, round the corner's drift
+  foot([ROADEND, [-9.3, -1.2], [-8.7, -4.3], EAST]);   // round the cabin's east end to the porch steps
+  foot([DOOR, NW, [8.4, 5.2], [8.7, 0.4], WSIDE, WEST]);   // round the west end to the other porch steps
+  foot([NW, [7.5, 10.4], [11, 11.5], [15, 14.5], [BW[0][0] - 0.3, BW[0][1]]], 0.95);   // to the boardwalk's first step. No loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
+}
+
+function paintCampSnow(g, at, k, r) {
+  const { blob, along, boot, walk } = snowPainter(g, at, k, r);
   const FIRE = [0.5, 11.5], SEATS = [[1.2, 13.5], [-1, 12.9], [-1.4, 10.7]], TABLE = [3.9, 12.8], TENT = [-0.9, 16.1], CRATE = [5, 13.2], DOOR = [0, 4.6], SNOWMAN = [SM.x, SM.z], CHOP = [-6.75, 2.9];
   // trodden: overlapping soft blotches, densest at the fire
   for (let i = 0; i < 70; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 3.6; blob(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, 0.6 + r() * 0.9, '150,168,196', 0.10 + r() * 0.08); }
@@ -236,13 +261,8 @@ function paintCampSnow(g, at, k, r) {
   // the fire's melt ring under and round the stones
   blob(FIRE[0], FIRE[1], 2.1, '205,214,228', 0.35); blob(FIRE[0], FIRE[1], 1.55, '120,118,120', 0.45); blob(FIRE[0], FIRE[1], 1.1, '74,60,48', 0.85); blob(FIRE[0], FIRE[1], 0.7, '52,46,44', 0.9);
   for (let i = 0; i < 40; i++) { const a = r() * 6.28, d = 0.9 + r() * 0.5; blob(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, 0.08 + r() * 0.12, '96,92,90', 0.4); }   // ash flecks
-  // boot prints: a left and a right, 0.3 m apart along the way, toes pointing on
-  const boot = (x, z, dx, dz, side) => { const [px, py] = at([x - dz * side * 0.09, z + dx * side * 0.09]); g.save(); g.translate(px, py); g.rotate(Math.atan2(dz, dx));
-    g.fillStyle = 'rgba(128,146,178,0.42)'; g.beginPath(); g.ellipse(0.04 * k, 0, 0.085 * k, 0.045 * k, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(-0.1 * k, 0, 0.045 * k, 0.04 * k, 0, 0, 7); g.fill(); g.restore(); };
-  const walk = (pts) => { let side = 1; along(pts, 0.36, (x, z, dx, dz) => { if (r() < 0.85) boot(x + (r() - 0.5) * 0.05, z + (r() - 0.5) * 0.05, dx, dz, side); side = -side; }); };
   walk([[8.4, -1.6], SNOWMAN]);
   for (const to of [TABLE, TENT, CRATE]) walk([[FIRE[0] + (to[0] - FIRE[0]) * 0.35, FIRE[1] + (to[1] - FIRE[1]) * 0.35], to]);
-  walk([[-1.5, 9.6], [-0.6, 7.2], DOOR]); walk([DOOR, [-3.5, 4.2], [-6.2, 3.2]]); walk([[3.2, 9.2], [7.4, 5.6], [7.6, 0]]);
   for (let i = 0; i < 26; i++) { const a = r() * 6.28, d = 1.6 + r() * 1.9; boot(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, Math.cos(a + 1.6 + r()), Math.sin(a + 1.6 + r()), r() < 0.5 ? 1 : -1); }
   // sloth prints: three long toe marks, small, round the seats and the crate
   for (let i = 0; i < 34; i++) { const c = [...SEATS, CRATE, TENT][i % 5], a = r() * 6.28, d = 0.5 + r() * 1.1, [px, py] = at([c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d]);
