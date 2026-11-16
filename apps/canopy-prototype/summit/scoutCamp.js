@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { fetchBytes, loadLightMap } from '../bakedlight.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { D, TOP, TRIS, W, YT, isPhone, mulberry, sstep, vnoise } from './land.js';
+import { D, SNOWMAN, TOP, TRIS, W, YT, isPhone, mulberry, sstep, vnoise } from './land.js';
 import { canvasTex, hazed, scene } from './core.js';
 import { tmpC } from './terrain.js';
 import { WHITE, v3 } from './forest.js';
@@ -110,8 +110,8 @@ export function buildScoutCamp() {
     const tex = canvasTex(128, 64, (c, w, h) => { c.fillStyle = '#2f6a3c'; c.beginPath(); c.moveTo(0, 0); c.lineTo(w, h / 2); c.lineTo(0, h); c.fill(); c.fillStyle = '#f2d27a'; c.beginPath(); c.moveTo(18, 14); c.lineTo(34, 32); c.lineTo(18, 50); c.lineTo(26, 32); c.fill(); });
     const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.55, 6, 1).translate(0.55, 0, 0), hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide })));
     cloth.position.y = 4.65; g.add(cloth); TRIS.push(['Flag and pole', tris0(pole.geometry) + tris0(cloth.geometry)]); return cloth; })();
-  // a snowman by the fire: three lumpy snowballs, coal eyes and buttons, a carrot nose, stick arms, a scout scarf and a bobble hat
-  { const g = new THREE.Group(), sx = CAMP.x - 3.3, sz = CAMP.z - 0.6; g.position.set(sx, TOP - 0.05, sz); g.rotation.y = Math.atan2(CAMP.x + 1.2 - sx, CAMP.z - 5.2 - sz); scene.add(g);
+  // a snowman east of the cabin (land.js SNOWMAN): three lumpy snowballs, coal eyes and buttons, a carrot nose, stick arms, a scout scarf and a bobble hat
+  { const g = new THREE.Group(), sx = SNOWMAN.x, sz = SNOWMAN.z; g.position.set(sx, TOP - 0.05, sz); g.rotation.y = Math.atan2(SNOWMAN.face[0] - sx, SNOWMAN.face[1] - sz); scene.add(g);
     const snowM = hazed(new THREE.MeshLambertMaterial({ color: '#fbf7f0', vertexColors: true })), coalM = hazed(new THREE.MeshLambertMaterial({ color: '#22201f' })), carrotM = hazed(new THREE.MeshLambertMaterial({ color: '#e8742a' }));
     const stickM = hazed(new THREE.MeshLambertMaterial({ color: '#5a3c26' })), scarfM = hazed(new THREE.MeshLambertMaterial({ color: '#2f6a3c' })), hatM = hazed(new THREE.MeshLambertMaterial({ color: '#c8452f' }));
     let n = 0; const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = o.receiveShadow = true; g.add(o); n += tris0(geo); return o; };

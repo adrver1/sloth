@@ -73,6 +73,7 @@ const pitch = Math.atan2(RH, D / 2), rlen = Math.hypot(RH, D / 2) + 0.75;
 roofSide(0, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4);
 roofSide(Math.PI, rlen, pitch, new THREE.Vector3(0, RIDGE + 0.05, 0), W + 1.4);
 roofSide(Math.PI, 3.5, 0.14, new THREE.Vector3(0, YT - 0.15, -D / 2), W + 0.6, 0.18);   // the porch roof
+roofSide(0, 1.7, 0.42, new THREE.Vector3(0, YB + 2.78, D / 2 - 0.05), 2.6, 0.12);   // the entrance's little roof (ENTRY, below)
 part(new THREE.BoxGeometry(1.0, 4.4, 1.0), M.stone, 3.4, YT + 1.9, 1.7);
 part(new THREE.BoxGeometry(1.15, 0.22, 1.15), M.snow, 3.4, YT + 4.2, 1.7);
 part(new THREE.BoxGeometry(W, 0.3, 3.0), M.wood, 0, YB - 0.15, -(D / 2 + 1.5));   // porch deck
@@ -88,6 +89,24 @@ export const doorMat = lam({ map: doorTex, emissive: '#ffffff', emissiveMap: doo
 const door = part(new THREE.PlaneGeometry(1.2, 2.3), doorMat, 0, YB + 1.15, -D / 2 - 0.02);
 const lampMat = new THREE.MeshBasicMaterial({ color: '#ffd28a' });
 part(new THREE.BoxGeometry(0.18, 0.28, 0.18), lampMat, 1.05, YB + 2.45, -D / 2 - 0.14);
+// the main entrance, on the camp side (Adriaen 2026-11-16: "it needs a main entrance on the camp side. Keep the veranda with the
+// view, but improve the opposite side"): a door in a plank frame under a little tin roof on two brackets, a stoop with a step
+// down to the snow, a lamp by the door, a mat, and a pair of snowshoes leaning on the wall. The trodden path from the fire
+// already ends here (road.js paintCampSnow DOOR). It stays bakeStatic's own mesh (userData.door), so bakeSources finds it.
+const ENTRY = { x: 0, w: 2.6, deep: 1.5 };
+const backDoor = part(new THREE.PlaneGeometry(1.2, 2.3), doorMat, ENTRY.x, YB + 1.15, D / 2 + 0.02); backDoor.userData.door = true; door.userData.door = true;
+for (const sx of [-1, 1]) part(new THREE.BoxGeometry(0.14, 2.45, 0.1), M.wood, ENTRY.x + sx * 0.67, YB + 1.22, D / 2 + 0.05);   // the frame's jambs
+part(new THREE.BoxGeometry(1.6, 0.16, 0.12), M.wood, ENTRY.x, YB + 2.4, D / 2 + 0.06);   // and its head
+part(new THREE.BoxGeometry(ENTRY.w, 0.3, ENTRY.deep), M.wood, ENTRY.x, YB - 0.15, D / 2 + ENTRY.deep / 2);   // the stoop
+part(new THREE.BoxGeometry(1.7, 0.28, 0.45), M.wood, ENTRY.x, 0.14, D / 2 + ENTRY.deep + 0.22);   // its step
+part(new THREE.BoxGeometry(1.0, 0.02, 0.6), lam({ color: '#7a4632' }), ENTRY.x, YB + 0.01, D / 2 + 0.5);   // the mat
+for (const sx of [-1, 1]) { const b = part(new THREE.BoxGeometry(0.1, 0.1, 1.0), M.wood, ENTRY.x + sx * 1.1, YB + 2.3, D / 2 + 0.38); b.rotation.x = -0.75; }   // the roof's brackets
+part(new THREE.BoxGeometry(0.16, 0.26, 0.16), lampMat, ENTRY.x + 1.0, YB + 2.05, D / 2 + 0.12);   // the lamp
+{ const shoeTex = canvasTex(64, 160, (g, w, h) => { g.strokeStyle = '#6b4a2e'; g.lineWidth = 7; g.beginPath(); g.ellipse(w / 2, h * 0.42, w / 2 - 5, h * 0.4 - 4, 0, 0, 7); g.stroke();
+    g.beginPath(); g.moveTo(w / 2 - 6, h * 0.8); g.lineTo(w / 2, h - 4); g.lineTo(w / 2 + 6, h * 0.8); g.stroke();   // the frame and its tail
+    g.strokeStyle = 'rgba(210,190,150,.9)'; g.lineWidth = 2; for (let y = 18; y < h * 0.78; y += 9) { g.beginPath(); g.moveTo(8, y); g.lineTo(w - 8, y + 5); g.moveTo(w - 8, y); g.lineTo(8, y + 5); g.stroke(); } });   // the lacing
+  const shoeM = lam({ map: shoeTex, alphaTest: 0.5, side: THREE.DoubleSide });
+  for (const [x, ry] of [[-1.3, 0.12], [-1.62, -0.08]]) { const s = part(new THREE.PlaneGeometry(0.34, 0.85), shoeM, ENTRY.x + x, YB + 0.44, D / 2 + 0.16); s.rotation.set(-0.22, ry, 0); s.castShadow = true; } }
 export const porchLight = new THREE.PointLight('#ffb760', 0, 22, 1.6);
 export const inside = new THREE.PointLight('#ffad55', 0, 16, 1.6);
 
@@ -107,7 +126,7 @@ export function buildCabin() {
   inside.position.set(0, YB + 1.8, D / 2 + 1.4);
   cabin.add(inside);   // the glow from the back windows on the snow
   { let n = 0; cabin.traverse((o) => { if (o.isMesh) n += tris(o.geometry, o.isInstancedMesh ? o.count : 1); }); TRIS.push(['Cabin, porch, woodpile', n]); }
-  bakeStatic(cabin);
+  bakeStatic(cabin, (o) => o.userData.door);   // each door its own mesh, for bakeSources
   tower.position.set(TOWER.x, TOWER.y - 0.5, TOWER.z);
   tower.rotation.y = 0.5;
   scene.add(tower);

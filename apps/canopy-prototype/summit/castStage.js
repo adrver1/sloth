@@ -18,7 +18,7 @@
 // and the summit's places in the camp's frame (PLACES: the cabin's woodpile, the porch bench, the snowman, the way round the cabin).
 // Imported by life.js, which imports the cast only after it (see life.js).
 import * as THREE from 'three';
-import { D, TOP, W, YB, height } from './land.js';
+import { D, SNOWMAN, TOP, W, YB, height } from './land.js';
 import { camera, me } from './core.js';
 import { CAMP, CHOP, campGroup, lanternLights } from './scoutCamp.js';
 import { A0, CRATE, HAMMOCK, LAUNDRY, RC, SEATS, SEAT_GAPS, SEAT_R, SEAT_SLOT, SOUP_POT, TABLE, TENT, WOOD_PILE, wearBlockers } from '../camp/layout.js';
@@ -43,8 +43,8 @@ export const PLACES = {
   // the porch bench by the door (cabin.js: 1.8 x 0.45 x 0.5 at x -2.7, against the wall), its top 0.45 m over the deck; he sits
   // facing out over the valley (-z), his end the one away from the door
   bench: { at: st(-3.2, 0.45, -(D / 2 + 0.47)), yaw: yawTo(V(0, 0, -1)), key: 'porch:bench' },
-  // the snowman (scoutCamp.js), turned toward the cabin's back corner; he stands 0.95 m in front of it
-  snowman: (() => { const c = st(CAMP.x - 3.3, 0, CAMP.z - 0.6), f = st(CAMP.x + 1.2, 0, CAMP.z - 5.2).sub(c).setY(0).normalize(); return { at: c, front: c.clone().addScaledVector(f, 0.95) }; })(),
+  // the snowman (land.js SNOWMAN, east of the cabin), turned toward the porch; he stands 0.95 m in front of it
+  snowman: (() => { const c = st(SNOWMAN.x, 0, SNOWMAN.z), f = st(SNOWMAN.face[0], 0, SNOWMAN.face[1]).sub(c).setY(0).normalize(); return { at: c, front: c.clone().addScaledVector(f, 0.95) }; })(),
   // the way round the cabin's west end to the porch: off its back corner, beside the porch's west end, then up onto the deck
   round: [st(-(W / 2 + 1.6), 0, D / 2 + 0.9), st(-(W / 2 + 1.6), 0, -(D / 2 + 1.4)), st(-W / 2 + 0.5, 0, -(D / 2 + 1.6))],
   deck: YB,   // the porch deck's top over the ground
@@ -62,6 +62,7 @@ block(PLACES.snowman.at, 0.55);
 block(st(CAMP.x - 5.2, 0, CAMP.z + 3.4), 0.15);                                          // the lantern string's pole
 block(st(CAMP.x + 5.5, 0, CAMP.z + 2.5), 0.15);                                          // the flag's pole
 for (let x = -W / 2 + 0.4; x <= W / 2 - 0.4; x += 1) { block(st(x, 0, D / 2 - 0.45), 0.6); block(st(x, 0, -D / 2 + 0.45), 0.6); }   // the cabin's long walls
+for (const x of [-0.8, 0, 0.8]) block(st(x, 0, D / 2 + 0.9), 0.55);   // the entrance's stoop (cabin.js ENTRY): they walk round it
 for (let z = -D / 2 + 1.4; z <= D / 2 - 1.4; z += 1) { block(st(-W / 2 + 0.45, 0, z), 0.6); block(st(W / 2 - 0.45, 0, z), 0.6); }   // its ends
 block(PLACES.woodpile.at.clone().setZ(PLACES.woodpile.at.z - 1.1), 0.6); block(PLACES.woodpile.at, 0.6); block(PLACES.woodpile.at.clone().setZ(PLACES.woodpile.at.z + 1.1), 0.6);
 for (const x of [-5.6, -1.9, 1.9, 5.6]) block(st(x, 0, -(D / 2 + 2.8)), 0.2);             // the porch posts

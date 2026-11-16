@@ -5,7 +5,7 @@
 // Placed once, on the summit's top only, kept off the paths, the trodden snow round the fire, the cabin, the road and the jeep.
 // Exports buildCover() (main.js, after the forest).
 import * as THREE from 'three';
-import { JEEP, LOOK_TRAIL, TRIS, edgeR, height, isPhone, mulberry, polyNear, roadNear } from './land.js';
+import { JEEP, LOOK_TRAIL, SNOWMAN, TRIS, edgeR, height, isPhone, mulberry, polyNear, roadNear } from './land.js';
 import { canvasTex, hazed, scene } from './core.js';
 
 const N = isPhone ? 260 : 420;
@@ -23,7 +23,7 @@ export function buildCover() {
   const mat = hazed(new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide }));
   const tufts = new THREE.InstancedMesh(geo, mat, N), r = mulberry(17), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), at = new THREE.Vector3(), sc = new THREE.Vector3();
   const ok = (x, z) => { const a = Math.atan2(z, x); return Math.hypot(x, z) < edgeR(a) - 0.6 && Math.hypot(x - 0.5, z - 11.5) > 4.6 && !(Math.abs(x) < 7.4 && z > -7.6 && z < 5) && (roadNear(x, z)?.d ?? 99) > 3.6
-    && polyNear(LOOK_TRAIL, x, z).d > 1.4 && Math.hypot(x - JEEP.x, z - JEEP.z) > 3.6 && Math.hypot(x + 0.9, z - 16.1) > 2.6 && Math.hypot(x - 3.9, z - 12.8) > 1.4 && Math.hypot(x + 2.8, z - 10.9) > 1.2; };
+    && polyNear(LOOK_TRAIL, x, z).d > 1.4 && Math.hypot(x - JEEP.x, z - JEEP.z) > 3.6 && Math.hypot(x + 0.9, z - 16.1) > 2.6 && Math.hypot(x - 3.9, z - 12.8) > 1.4 && Math.hypot(x - SNOWMAN.x, z - SNOWMAN.z) > 1.2; };
   let n = 0;
   for (let c = 0; c < 2000 && n < N; c++) { const cx = (r() - 0.5) * 60, cz = (r() - 0.5) * 60 + 4; if (!ok(cx, cz)) continue;   // a clump: three to nine tufts within a metre and a half
     for (let k = 0, m = 3 + (r() * 7 | 0); k < m && n < N; k++) { const x = cx + (r() - 0.5) * 1.6, z = cz + (r() - 0.5) * 1.6; if (!ok(x, z)) continue; const s = 0.25 + 0.3 * r();

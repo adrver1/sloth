@@ -110,6 +110,11 @@ const bigE = (x, z) => Math.hypot((x - BIG.x) / BIG.rx, (z - BIG.z) / BIG.rz);
 export const HT = (() => { let best = [0, 0, -1e9]; for (let i = -6; i <= 6; i++) for (let j = -6; j <= 6; j++) { const x = HILL_P.x + i * 4, z = HILL_P.z + j * 4, h = hBase(x, z); if (h > best[2]) best = [x, z, h]; } return { x: best[0], z: best[1], y: best[2] }; })();
 export const ROAD_Y = (s) => (s < ROAD.b0 ? TOP - 0.07 * s : ROAD.y);
 export const roadNear = (x, z) => (x > -8 || x < ROAD.portal.x - 20 || z > 22 || z < -30 ? null : polyNear(ROAD.pts, x, z));
+// the cliff's lip south of the cabin (Adriaen 2026-11-16: "the cabin needs to come back from the cliff a little bit"): it was
+// at z -8.5 + 3 sin(x / 9), which put the porch's east corner over the edge; now 2.5 m further out and straighter
+export const lip = (x) => -11 + 2.2 * Math.sin(x / 9);
+// the snowman stands east of the cabin, in the open snow by the cliff rail (Adriaen 2026-11-16, from his phone still), facing
+// back toward the porch and the path round the cabin
 // the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks down over the valleys
 export let BW_CUT = null, BW_CORNERS = [];   // set once the boardwalk is laid: the ground is dug down along it, so the stairs sit in a cutting where the hill is steeper than they are
 export function height(x, z) {
@@ -118,7 +123,7 @@ export function height(x, z) {
   const dl = Math.hypot(x - LAKE_P.x, z - LAKE_P.z); if (dl < LAKE_P.r + 500) h = Math.min(h, LAKE_H + Math.max(0, dl - LAKE_P.r) * 0.3 + Math.max(0, dl - LAKE_P.r - 250) ** 2 * 0.012);   // the bowl steepens outward, so it meets the hills without a step
   if (dl > LAKE_P.r + 4) h += ((fbm(x / 38, z / 38, 3) - 0.5) * 3.2 + (vnoise(x / 7, z / 7) - 0.5) * 0.7) * sstep(LAKE + 1, LAKE + 4, h);   // snow drifts and hummocks underfoot
   if (r < 60) h = r < 18 ? TOP : TOP + (h - TOP) * sstep(18, 55, r);
-  const d = -z - 8.5 + 3 * Math.sin(x / 9); if (d > 0 && r < 400) h -= 140 * (1 - Math.exp(-d / 22)) * (1 - sstep(70, 190, Math.abs(x))) * (1 - sstep(220, 400, r));   // a cliff bowl only below the cabin
+  const d = lip(x) - z; if (d > 0 && r < 400) h -= 140 * (1 - Math.exp(-d / 22)) * (1 - sstep(70, 190, Math.abs(x))) * (1 - sstep(220, 400, r));   // a cliff bowl only below the cabin
   const rd = roadNear(x, z);
   if (rd && rd.d < 14 && rd.s < ROAD.b0) h += (ROAD_Y(rd.s) - 0.05 - h) * (1 - sstep(3.5, 13, rd.d)) * (r < 18 ? 0 : 1);   // the road bed
   if (rd && x < ROAD.portal.x + 14 && x > ROAD.portal.x - 3) h = Math.min(h, h + (ROAD.y - 2 - h) * (1 - sstep(7, 10.5, Math.abs(z - ROAD.portal.z))));   // the tunnel's cutting
@@ -170,7 +175,8 @@ export function trailDist(x, z) { let best = 1e9; for (const t of TRAILS) for (l
 export const LOOK_TRAIL = BW, JEEP = { x: -12, z: 1.2, turn: Math.PI / 2 };   // the jeep that brought us, parked at the head of the road (road.js adds node, its group, and lod)
 // where you may walk: the summit inside its rail and rocks, the road to the tunnel, the lookout trail (wider as it leaves the
 // summit) and the lookout's hilltop. Everything else is fenced off by what you see: the cliff rail, rocks, the mountain walls.
-export const lip = (x) => -8.5 + 3 * Math.sin(x / 9), PLAT_R = 22;
+export const PLAT_R = 22;
+export const SNOWMAN = { x: 12, z: -4.4, face: [6.5, -3] };
 export function edgeR(a) { const cx = Math.cos(a), cz = Math.sin(a); if (PLAT_R * cz >= lip(PLAT_R * cx) + 0.9) return PLAT_R; let lo = 0, hi = PLAT_R;
   for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (m * cz < lip(m * cx) + 0.9) hi = m; else lo = m; } return lo; }
 export const trailHalf = (s) => Math.min(20, 2.5 + s * 0.35);
@@ -180,7 +186,7 @@ export function walkable(x, z) {
   const rd = roadNear(x, z); if (rd && rd.d < 2.4 && x > ROAD.portal.x + 1.2) return true;
   if (polyNear(BW, x, z).d < 0.85) return true;   // on the boardwalk, between its rails
   if (Math.hypot(x - CL.x, z - CL.z) < 15) return true;   // step off into the clearing
-  return Math.hypot(x - HT.x, z - HT.z) < 10.5;   // the hilltop, inside its rail
+  return Math.hypot(x - HT.x, z - HT.z) < 9.1;   // the hilltop, inside its rail (road.js: a ring through the boardwalk's end posts, about 9.55 m round the top)
 }
 // Trees only grow where the ground is gentle enough (Adriaen 2026-11-15: trees on very steep ground look wrong): full forest up
 // to 30°, thinning out to none at 40°. s is 1 - cos(slope angle). Boulders follow the same rule (they would roll off steeper
@@ -195,5 +201,7 @@ export function forestAt(x, z, h, s) {
 // the cabin's size (its floor YB above the summit, walls WH, roof RH) and where you stand on the summit
 export const W = 12, D = 8, WH = 3.4, RH = 3.0, YB = 0.6, YT = YB + WH, RIDGE = YT + RH;
 // standing on the cabin's floor and porch; walls and the lookout's legs push you out
-export function groundAt(x, z) { if (BARE) return height(x, z); if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
+export function groundAt(x, z) { if (BARE) return height(x, z); if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB;
+  if (Math.abs(x) < 1.3 && z >= D / 2 && z < D / 2 + 1.95) return TOP + (z < D / 2 + 1.5 ? YB : 0.28);   // the entrance's stoop and step (cabin.js ENTRY)
+  const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
   if (BW_CUT && x > BW_CUT[0] && x < BW_CUT[1] && z > BW_CUT[2] && z < BW_CUT[3]) { const b = polyNear(BW, x, z); if (b.d < 1.3) return Math.max(g, bwY(b) + 0.06); } return g; }   // on the bridge or the boardwalk you walk on its boards   // on the bridge you walk on its deck
