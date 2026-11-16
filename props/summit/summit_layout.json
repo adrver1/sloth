@@ -1,11 +1,12 @@
 {
  "size": 2048,
- "sig": "Cabin_0:10,Cabin_3:24,Cabin_4:36,Cabin_5:72,Lookout_0:12,Lookout_1:8,Lookout_2:16|3207.0",
+ "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,Lookout_0:12,Lookout_1:8,Lookout_2:16|7613.9",
  "meshes": {
   "Cabin_0": 10,
-  "Cabin_3": 24,
-  "Cabin_4": 36,
-  "Cabin_5": 72,
+  "Cabin_4": 24,
+  "Cabin_5": 48,
+  "Cabin_6": 180,
+  "Cabin_8": 4,
   "Lookout_0": 12,
   "Lookout_1": 8,
   "Lookout_2": 16
@@ -22,6 +23,22 @@
     1.2246467991473532e-16,
     0,
     -1
+   ],
+   "w": 1.2,
+   "h": 2.3,
+   "group": "cabin"
+  },
+  {
+   "kind": "door",
+   "at": [
+    0,
+    636.2089661936378,
+    4.02
+   ],
+   "normal": [
+    0,
+    0,
+    1
    ],
    "w": 1.2,
    "h": 2.3,
@@ -314,6 +331,6 @@
   "size": 44,
   "px": 1024
  },
- "texelsPerMetre": 41.06,
- "rects": 92
+ "texelsPerMetre": 40.57,
+ "rects": 154
 }
