@@ -206,7 +206,7 @@ def inputs(step):
     if step == "ground":
         return {**hashes([os.path.join(ROOT, "props/ground/bake_ground.py"), LAYOUT_JSON]), "cmd": ["--props", "picked"]}
     if step == "summit":   # the summit page's code that makes the cabin, the lookout and their UVs (the page checks the bake's sig too)
-        files = [os.path.join(ROOT, "apps/canopy-prototype/summit", f) for f in ("cabin.js", "lightmap.js", "land.js", "core.js", "forest.js", "scoutCamp.js", "road.js", "groundLight.js")]
+        files = [os.path.join(ROOT, "apps/canopy-prototype/summit", f) for f in ("cabin.js", "lightmap.js", "land.js", "core.js", "forest.js", "scoutCamp.js", "road.js", "groundLight.js", "lookout.js", "flag.js")]
         files += [os.path.join(SUMMIT_DIR, f) for f in ("export_summit.cjs", "bake_summit_lightmap.py")] + tree("props/lib", exts=(".py",))
         gpu = file_hash(GPU_RUN) if GPU_RUN and os.path.isfile(GPU_RUN) else None
         return {**hashes(files), "cmd": SUMMIT_CMD, "blender": tool_version(BLENDER), "gpu_run": gpu}
