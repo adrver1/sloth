@@ -1,20 +1,21 @@
 {
  "size": 2048,
- "scale": 4.6402,
- "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,Lookout_0:4,Lookout_1:24,Lookout_2:8,Lookout_9:12,Lookout_10:2044,Lookout_11:8,Lookout_12:120,Lookout_13:24|131555.1",
+ "scale": 4.7313,
+ "sig": "Cabin_0:10,Cabin_4:24,Cabin_5:48,Cabin_6:180,Cabin_8:4,LookoutDoor:12,Lookout_1:4,Lookout_2:24,Lookout_3:8,Lookout_10:12,Lookout_11:2032,Lookout_12:8,Lookout_13:120,Lookout_14:24|130544.2",
  "meshes": {
   "Cabin_0": 10,
   "Cabin_4": 24,
   "Cabin_5": 48,
   "Cabin_6": 180,
   "Cabin_8": 4,
-  "Lookout_0": 4,
-  "Lookout_1": 24,
-  "Lookout_2": 8,
-  "Lookout_9": 12,
-  "Lookout_10": 2044,
-  "Lookout_11": 8,
-  "Lookout_12": 120,
-  "Lookout_13": 24
+  "LookoutDoor": 12,
+  "Lookout_1": 4,
+  "Lookout_2": 24,
+  "Lookout_3": 8,
+  "Lookout_10": 12,
+  "Lookout_11": 2032,
+  "Lookout_12": 8,
+  "Lookout_13": 120,
+  "Lookout_14": 24
  }
 }
