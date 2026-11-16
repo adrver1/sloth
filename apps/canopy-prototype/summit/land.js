@@ -206,5 +206,6 @@ export const W = 12, D = 8, WH = 3.4, RH = 3.0, YB = 0.6, YT = YB + WH, RIDGE = 
 // standing on the cabin's floor and porch; walls and the lookout's legs push you out
 export function groundAt(x, z) { if (BARE) return height(x, z); if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB;
   if (Math.abs(x) < 1.3 && z >= D / 2 && z < D / 2 + 1.95) return TOP + (z < D / 2 + 1.5 ? YB : 0.28);   // the entrance's stoop and step (cabin.js ENTRY)
+  if (Math.abs(x) < W / 2 + 0.85 && z > -(D / 2 + 2.2) && z < -(D / 2 + 1.0)) return Math.max(height(x, z), TOP + YB * (W / 2 + 0.85 - Math.abs(x)) / 0.65);   // the porch steps at both ends (castStage.js STEPS)
   const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
   if (BW_CUT && x > BW_CUT[0] && x < BW_CUT[1] && z > BW_CUT[2] && z < BW_CUT[3]) { const b = polyNear(BW, x, z); if (b.d < 1.3) return Math.max(g, bwY(b) + 0.06); } return g; }   // on the bridge or the boardwalk you walk on its boards   // on the bridge you walk on its deck

@@ -34,9 +34,10 @@ const st = (x, y, z) => V(x - CAST_O.x, y, z - CAST_O.z);   // a world x, z (and
 // ---------------------------------------------------------------- the summit's places, in the camp's frame
 const PORCH = { x0: -W / 2, x1: W / 2, z0: -(D / 2 + 3), z1: -D / 2 };   // the porch deck, world x and z (cabin.js: W wide, 3 m deep)
 const onPorch = (x, z) => x > PORCH.x0 && x < PORCH.x1 && z > PORCH.z0 && z < PORCH.z1;
-// the porch steps at the deck's west end (cabin.js STEPS: three steps up to the deck, z -5.0 to -6.2), a ramp for the walkers
-export const STEPS = { x0: -W / 2 - 0.85, x1: -W / 2, z0: -(D / 2 + 2.2), z1: -(D / 2 + 1.0) };
-const onSteps = (x, z) => x > STEPS.x0 && x <= STEPS.x1 && z > STEPS.z0 && z < STEPS.z1;
+// the porch steps at both ends of the deck (slothHomes.js porchSteps: three steps up to the deck, z -5.0 to -6.2, reaching `run`
+// out past the deck's end; Adriaen 2026-11-16: no way down on the west end), a ramp for the walkers
+export const STEPS = { run: 0.85, z0: -(D / 2 + 2.2), z1: -(D / 2 + 1.0) };
+const onSteps = (x, z) => Math.abs(x) >= W / 2 && Math.abs(x) < W / 2 + STEPS.run && z > STEPS.z0 && z < STEPS.z1;
 export const PLACES = {
   // the cabin's woodpile against its west wall (cabin.js: 0.9 x 3.4 m at x -(W/2 + 0.55)); he stands off its outer face
   woodpile: { stand: st(-(W / 2 + 1.55), 0, 0.4), at: st(-(W / 2 + 0.55), 0, 0.4), yaw: yawTo(V(1, 0, 0)) },
@@ -93,7 +94,7 @@ let seatWas = null;
 // after it: a nudge he gave you (operator/step.js) moves you
 export function syncBack() { if (castMe.pos.x !== was.x || castMe.pos.z !== was.z) { me.x += castMe.pos.x - was.x; me.z += castMe.pos.z - was.z; } }
 
-function groundAt(x, z) { const wx = x + CAST_O.x, wz = z + CAST_O.z; return onPorch(wx, wz) ? YB : onSteps(wx, wz) ? YB * (wx - STEPS.x0) / (STEPS.x1 - STEPS.x0) : height(wx, wz) - TOP; }
+function groundAt(x, z) { const wx = x + CAST_O.x, wz = z + CAST_O.z; return onPorch(wx, wz) ? YB : onSteps(wx, wz) ? YB * (W / 2 + STEPS.run - Math.abs(wx)) / STEPS.run : height(wx, wz) - TOP; }
 
 const NO_CHORES = { cook: { stage: 'none', can: () => false }, food: () => null };
 setStage({ day: daytimeApi.day, scene: campGroup, camera: castCam, origin: CAST_O, OPT: { op: true, campsloths: true, slothsave: false, slothmat: 'lambert' }, LIVED: true,

@@ -9,9 +9,12 @@ import { placedAt } from './forest.js';
 export const hemi = new THREE.HemisphereLight('#b8d4f4', '#a0a8b8', 1);
 export const sun = new THREE.DirectionalLight('#ffffff', 2.5);
 sun.shadow.mapSize.set(isPhone ? 1024 : 2048, isPhone ? 1024 : 2048);
-Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 10, far: 500 });
-sun.shadow.bias = -0.0004;
-sun.shadow.normalBias = 0.04;
+// the sun sits 250 m out along its direction (daylightStep), so its depth range is kept to 170..330 m, 80 m either side of the
+// camp: the depth bias is a fraction of that range, and over 10..500 m it was 0.2 m, which lifted the shadows off the feet of the
+// fence posts and trees (Adriaen 2026-11-16: "the shadows don't go all the way to the pole")
+Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 170, far: 330 });
+sun.shadow.bias = -0.0002;
+sun.shadow.normalBias = 0.02;
 export const moonDir = new THREE.Vector3(0.45, 0.42, 0.78).normalize();
 
 // colours by the sun's height in degrees (night, blue hour, sunset, golden, winter day)

@@ -202,7 +202,6 @@ export function roadStep() {
 //   trodden snow: packed, a little blue, round the fire and the seats, to the table, the tent, the crate and the cabin's door
 //   boot prints: pairs along the ways people walk and scattered round the fire, sloth prints (three toes) round the seats
 //   the fire's melt ring: wet dark earth and ash under the stones, slush round it
-//   the snowman's roll track: where its balls were rolled up, a winding strip of bare ground and dry grass
 //   sawdust and chips round the chopping stump, needles and twigs here and there
 function paintCampSnow(g, at, k, r) {
   const blob = (x, z, rad, col, a) => { const [px, py] = at([x, z]), R = rad * k, gr = g.createRadialGradient(px, py, 0, px, py, R);
@@ -216,11 +215,6 @@ function paintCampSnow(g, at, k, r) {
   // trodden round the snowman, and the way to him from the path round the cabin
   for (let i = 0; i < 18; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 1.6; blob(SM.x + Math.cos(a) * d, SM.z + Math.sin(a) * d, 0.5 + r() * 0.6, '150,168,196', 0.09 + r() * 0.07); }
   along([[7.6, -2], SNOWMAN], 0.45, (x, z) => blob(x + (r() - 0.5) * 0.5, z + (r() - 0.5) * 0.5, 0.45 + r() * 0.35, '150,168,196', 0.08 + r() * 0.05));
-  // the snowman's roll track: from the open snow toward him, wider as the ball grew, bare earth and dry grass showing
-  const roll = [[17.5, 2.6], [16.6, 0.4], [15.1, -0.5], [13.9, -2.4], [12.8, -3.6]];
-  along(roll, 0.08, (x, z, dx, dz) => { const t = Math.min(1, Math.hypot(x - roll[0][0], z - roll[0][1]) / 9), w = (0.12 + 0.3 * t) * k, [px, py] = at([x, z]);
-    g.save(); g.translate(px, py); g.rotate(Math.atan2(dz, dx)); g.fillStyle = `rgba(118,104,78,${0.5 + 0.2 * r()})`; g.fillRect(-0.06 * k, -w / 2 + (r() - 0.5) * 0.05 * k, 0.12 * k, w * (0.85 + 0.15 * r())); g.restore();
-    for (let j = 0; j < 3; j++) { const [qx, qy] = at([x + (r() - 0.5) * 0.4 * (0.4 + t), z + (r() - 0.5) * 0.4 * (0.4 + t)]); g.strokeStyle = `rgba(${170 + r() * 40 | 0},${140 + r() * 30 | 0},80,0.7)`; g.lineWidth = 1; g.beginPath(); g.moveTo(qx, qy); g.lineTo(qx + (r() - 0.5) * 4, qy - 2 - r() * 4); g.stroke(); } });   // dry grass blades
   // the fire's melt ring under and round the stones
   blob(FIRE[0], FIRE[1], 2.1, '205,214,228', 0.35); blob(FIRE[0], FIRE[1], 1.55, '120,118,120', 0.45); blob(FIRE[0], FIRE[1], 1.1, '74,60,48', 0.85); blob(FIRE[0], FIRE[1], 0.7, '52,46,44', 0.9);
   for (let i = 0; i < 40; i++) { const a = r() * 6.28, d = 0.9 + r() * 0.5; blob(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, 0.08 + r() * 0.12, '96,92,90', 0.4); }   // ash flecks
