@@ -184,8 +184,17 @@ export function buildRoad() {
       const ruts = (pts) => { for (const o of [-0.8, 0.8]) path(pts.map(([x, z], i) => { const n = pts[Math.min(i + 1, pts.length - 1)], m = pts[Math.max(i - 1, 0)], dx = n[0] - m[0], dz = n[1] - m[1], l = Math.hypot(dx, dz) || 1; return [x - (dz / l) * o, z + (dx / l) * o]; }), 0.32, '#5e4d40', 0.55); };
       path([[-17.4, 2.45], [-13, 1.6], [-9, 1.4]], 2.8, '#8a7a6a', 0.55); ruts([[-17.4, 2.45], [-14.5, 1.6], [-13, 1.3]]);   // from where the road's ribbon ends (x -17), not over it: drawn twice it read as a doubled road (Adriaen 2026-11-15)
       const foot = (pts) => { path(pts, 1.3, '#a99b8c', 0.45); path(pts, 0.6, '#7a6a5c', 0.5); };
-      foot([[-9.5, -0.5], [-8.2, -4.5], [-5, -7], [-1.5, -7.4]]); foot([[3, -7.3], [7.4, -5.6], [7.6, 0], [6.8, 5.5], [3.5, 7.4]]);
-      foot([[2.5, 8.2], [7.5, 11], [11, 11.5], [15.5, 15.5], [19, 19.5]]); foot([[-8, 2.6], [-6, 6.5], [-2.2, 8.4]]); foot([[-9.5, 2.8], [-8.6, 2.2]]); });   // no loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
+      // one network, every path starting or ending on another (Adriaen 2026-11-16: "the dirt paths are disconnected", "there is no
+      // path to the front door, which would be the most frequented one"): the front door's step (DOOR) is the hub, with the
+      // jeep's mud (ROADEND), the fire, both porch steps round the cabin's ends, and the trail head off it. Shared points are
+      // the same array, so the strokes' round ends overlap.
+      const DOOR = [0, 6.3], ROADEND = [-9, 1.4], FIREW = [0.4, 9.6], EAST = [-7.1, -5.6], WEST = [7.1, -5.6], WSIDE = [7.4, -1.6], NW = [4.2, 6.9];
+      path([DOOR, [-0.3, 7.6], FIREW], 1.9, '#a99b8c', 0.35);   // the busiest stretch, door to fire: wider worn ground under the foot path
+      foot([ROADEND, [-6.2, 3.3], [-3, 5.9], DOOR]);   // jeep to the front door, past the chopping stump
+      foot([DOOR, [-0.3, 7.6], FIREW]);   // the front door to the fire
+      foot([ROADEND, [-9.3, -1.2], [-8.7, -4.3], EAST]);   // round the cabin's east end to the porch steps
+      foot([DOOR, NW, [6.9, 4.4], [7.6, 0.4], WSIDE, WEST]);   // round the west end to the other porch steps
+      foot([NW, [7.5, 10.4], [11, 11.5], [15.5, 15.5], [19, 19.5]]); });   // the trail head, off the west path. No loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
     const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }), groundLight, 'mud'));   // lit as the snow under it (groundLight.js)
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
   }
@@ -214,7 +223,7 @@ function paintCampSnow(g, at, k, r) {
   for (const to of [TABLE, TENT, CRATE, DOOR, ...SEATS]) along([FIRE, to], 0.45, (x, z) => blob(x + (r() - 0.5) * 0.6, z + (r() - 0.5) * 0.6, 0.5 + r() * 0.4, '150,168,196', 0.09 + r() * 0.06));
   // trodden round the snowman, and the way to him from the path round the cabin
   for (let i = 0; i < 18; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 1.6; blob(SM.x + Math.cos(a) * d, SM.z + Math.sin(a) * d, 0.5 + r() * 0.6, '150,168,196', 0.09 + r() * 0.07); }
-  along([[7.6, -2], SNOWMAN], 0.45, (x, z) => blob(x + (r() - 0.5) * 0.5, z + (r() - 0.5) * 0.5, 0.45 + r() * 0.35, '150,168,196', 0.08 + r() * 0.05));
+  along([[7.4, -1.6], SNOWMAN], 0.45, (x, z) => blob(x + (r() - 0.5) * 0.5, z + (r() - 0.5) * 0.5, 0.45 + r() * 0.35, '150,168,196', 0.08 + r() * 0.05));
   // the fire's melt ring under and round the stones
   blob(FIRE[0], FIRE[1], 2.1, '205,214,228', 0.35); blob(FIRE[0], FIRE[1], 1.55, '120,118,120', 0.45); blob(FIRE[0], FIRE[1], 1.1, '74,60,48', 0.85); blob(FIRE[0], FIRE[1], 0.7, '52,46,44', 0.9);
   for (let i = 0; i < 40; i++) { const a = r() * 6.28, d = 0.9 + r() * 0.5; blob(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, 0.08 + r() * 0.12, '96,92,90', 0.4); }   // ash flecks
@@ -222,7 +231,7 @@ function paintCampSnow(g, at, k, r) {
   const boot = (x, z, dx, dz, side) => { const [px, py] = at([x - dz * side * 0.09, z + dx * side * 0.09]); g.save(); g.translate(px, py); g.rotate(Math.atan2(dz, dx));
     g.fillStyle = 'rgba(128,146,178,0.42)'; g.beginPath(); g.ellipse(0.04 * k, 0, 0.085 * k, 0.045 * k, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(-0.1 * k, 0, 0.045 * k, 0.04 * k, 0, 0, 7); g.fill(); g.restore(); };
   const walk = (pts) => { let side = 1; along(pts, 0.36, (x, z, dx, dz) => { if (r() < 0.85) boot(x + (r() - 0.5) * 0.05, z + (r() - 0.5) * 0.05, dx, dz, side); side = -side; }); };
-  walk([[7.6, -1.5], SNOWMAN]);
+  walk([[7.4, -1.6], SNOWMAN]);
   for (const to of [TABLE, TENT, CRATE]) walk([[FIRE[0] + (to[0] - FIRE[0]) * 0.35, FIRE[1] + (to[1] - FIRE[1]) * 0.35], to]);
   walk([[-1.5, 9.6], [-0.6, 7.2], DOOR]); walk([DOOR, [-3.5, 4.2], [-6.2, 3.2]]); walk([[3.2, 9.2], [7.4, 5.6], [7.6, 0]]);
   for (let i = 0; i < 26; i++) { const a = r() * 6.28, d = 1.6 + r() * 1.9; boot(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, Math.cos(a + 1.6 + r()), Math.sin(a + 1.6 + r()), r() < 0.5 ? 1 : -1); }
