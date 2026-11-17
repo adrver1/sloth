@@ -57,6 +57,17 @@ Each model in active work keeps a short log in `docs/models/<name>.md`, so a lat
 
 Adriaen's lasting picks also go where the code can see them: a comment in the builder citing Adriaen and the date.
 
+## 7. Complex assets (a platform, a cabin, a whole camp corner)
+
+Work whole to detail in passes, never one finished part at a time.
+
+1. **Blockout of the whole asset.** Plain boxes and cylinders at real scale, seen from the cameras that matter (the approach, where the player walks). Settle silhouette, proportions and scale with Adriaen before any detail.
+2. **Fix the joints and budgets in the blockout.** Each part gets a bounding box, its connection points (where stairs land, where pipes enter) and its own triangle budget, with a hero, mid or filler tier. Later passes must fit them.
+3. **A small kit on a grid.** Parts have sizes in steps of 0.25, 0.5, 1 or 2 m, and their origin sits on the connection point, not the centre, so a straight pipe and a bend swap cleanly. Railings, stairs, grating, beams and pipe runs are made once and reused, mostly as textured cards. A combination that works in many places (stair, landing and railing) is saved as one piece, which also saves draws.
+4. **Textures: a few tiling materials and one trim sheet** (a strip texture of edges, rails and small details) for the big structure. Only unique props get their own texture.
+5. **Passes over the whole asset.** A mid pass brings the main parts to about half done together, judged in place, then a final pass. Inside each pass the loop in section 3 still holds: one change per round, the rest protected. Test the kit in the real scene early, not only on its own.
+6. **One script per part plus an assembly script** that places them from the blockout's connection points, so a part can be reworked, or handed to another thread, without touching the rest.
+
 ## Sources
 
 - What this project learned: `docs/threads/`, and the triangle rules in `CLAUDE.md`.
@@ -64,3 +75,6 @@ Adriaen's lasting picks also go where the code can see them: a comment in the bu
 - [Making better 3D modelling with Blender MCP, Zenn](https://zenn.dev/test_myname/articles/gpt-5-6-blender-mcp-modeling?locale=en): maker and reviewer apart, one change with a protected area, better/same/worse gate, three strikes, structured log.
 - [VoxelCodeBench, arXiv 2604.02580](https://www.emergentmind.com/papers/2604.02580): executable code is far easier than spatially correct output.
 - [AI 3D model generators for game development, Wavect](https://wavect.io/blog/ai-3d-model-generators-game-development-2026/): generated is not game-ready, where generators work, the retopologise-and-bake workflow, cost per accepted asset.
+- [The Level Design Book: environment art](https://book.leveldesignbook.com/process/env-art): start big, bring several parts to about 50% before finishing any, modular kits, trim sheets.
+- [RMCAD: environment artist playbook](https://www.rmcad.edu/blog/environment-artist-playbook-from-blockout-to-final-pass/): blockout, prioritised asset list (hero, mid, filler), detail passes, performance QA.
+- [Frozenbyte wiki: blocksets](https://wiki.frozenbyte.com/index.php/3D_Asset_Workflow:_Blocksets): grid sizes, origins at connection points, saved combinations, tiling materials plus a trim sheet.
