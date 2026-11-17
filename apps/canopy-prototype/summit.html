@@ -39,6 +39,7 @@ body.debug .bar { top: calc(84px + env(safe-area-inset-top, 0px)); }   /* ?debug
 <div class="hud"><div id="perf" hidden>…</div></div>   <!-- ?debug=1: the fps, draws and triangles (main.js) -->
 <div id="q">Stick to walk · drag to look<br>Tap a sloth, or anything that lights up, to see what you can do</div>
 <div class="stick" id="stick" hidden><i></i></div>
+<div id="load" style="--load-bg: #7d8fae"><div class="card"><b>🦥</b><span>Getting the summit ready…</span><div class="bar2"><i id="loadbar"></i></div></div></div>   <!-- the camp's loading card (camp/loading.js) -->
 <div class="bar">
   <button id="menu" aria-label="Settings" aria-expanded="false">⚙️</button>
   <div class="menu" id="opts" hidden>

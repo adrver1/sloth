@@ -11,7 +11,7 @@
 // Exports buildSlothLife(gltf) (life.js, once the sloth model is in, before he starts), slothStep(dt, now) (life.js, each
 // frame once the stand-ins are synced) and hands { eat(s, mesh, from) } (life.js lifeHooks, for
 // camp/input.js). Imported by life.js only after castStage.js (it pulls in the cast).
-// Triangles: a sloth 826 + fur shells (3) + its trait + winter gear 96; the basket 24, the sheepskin 2, the porch steps 36.
+// Triangles: a sloth 826 + fur shells (3) + its trait + winter gear 96; the basket 24, the sheepskin 2, the porch steps 72.
 import * as THREE from 'three';
 import { buildCast } from '../camp/sloth/build.js';
 import { camp } from '../camp/sloth/state.js';

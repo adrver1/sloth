@@ -11,7 +11,7 @@
 // The food: the camp's table and kitchen crate (the scout camp has both) and a basket of fruit on the porch, by the steps.
 // Exports HOMES and FOOD (life.js hands them to the stage before the sloths are built) and the sheepskin's and the basket's
 // meshes once made. Imported by life.js only after castStage.js (it pulls in the cast). Triangles: the basket 24, the
-// sheepskin 2, the porch steps 36, a fruit 20 to 35 (camp/food.js).
+// sheepskin 2, the porch steps 72, a fruit 20 to 35 (camp/food.js).
 import * as THREE from 'three';
 import { SEAT_GAPS, SEAT_SLOT } from '../camp/layout.js';
 import { seatKey } from '../camp/places.js';
@@ -20,7 +20,7 @@ import { GRAB, fruit, restOn } from '../camp/sloth/table.js';
 import { isFree } from '../camp/sloth/walk.js';
 import { scene } from '../camp/stage.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { TOP } from './land.js';
+import { TOP, W } from './land.js';
 import { canvasTex, scene as world } from './core.js';
 import { M } from './cabin.js';
 import { BASKET, PLACES, STEPS } from './castStage.js';
@@ -42,13 +42,13 @@ function sheepskin() {   // a soft cream oval painted on one quad (2 triangles)
 }
 // a spot on the ground or on the porch, in the stage's frame: it walks to door, then settles in
 const ground = (name, who, at, yaw, clip, scale, door, more) => ({ name, for: who, parent: scene, at, yaw, clip, scale, door, doze: ['curl', 1], sitUp: true, ...more });
-// the porch steps at the deck's west end (castStage.js STEPS, where the walkers' ground ramps up): three wooden steps, one draw
-// in the cabin's wood (36 triangles). Their own mesh, not the cabin's, so the cabin's baked light map still fits it.
+// the porch steps at both ends of the deck (castStage.js STEPS, where the walkers' ground ramps up): three wooden steps a side,
+// one draw in the cabin's wood (72 triangles). Their own mesh, not the cabin's, so the cabin's baked light map still fits it.
 let steps = null;
 function porchSteps() {
-  const n = 3, run = (STEPS.x1 - STEPS.x0) / n, deep = STEPS.z1 - STEPS.z0;
-  steps = new THREE.Mesh(mergeGeometries(Array.from({ length: n }, (_, i) => { const top = PLACES.deck * (i + 1) / (n + 1);
-    return new THREE.BoxGeometry(run, top, deep).translate(STEPS.x0 + run * (i + 0.5), TOP + top / 2, (STEPS.z0 + STEPS.z1) / 2); })), M.wood);
+  const n = 3, run = STEPS.run / n, deep = STEPS.z1 - STEPS.z0;
+  steps = new THREE.Mesh(mergeGeometries([-1, 1].flatMap((s) => Array.from({ length: n }, (_, i) => { const top = PLACES.deck * (i + 1) / (n + 1);
+    return new THREE.BoxGeometry(run, top, deep).translate(s * (W / 2 + STEPS.run - run * (i + 0.5)), TOP + top / 2, (STEPS.z0 + STEPS.z1) / 2); }))), M.wood);
   steps.castShadow = steps.receiveShadow = true; world.add(steps);
 }
 function spots() {

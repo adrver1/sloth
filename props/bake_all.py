@@ -40,7 +40,10 @@ in several different places", and bake the whole scene as one). Run it whenever 
   summit  the Summit Cabin's light maps (Adriaen 2026-11-15): props/summit/export_summit.cjs boots summit.html and writes the
           cabin's and lookout's meshes with their light-map UVs (summit/lightmap.js packLightmap) and night lights to
           props/summit/summit_static.glb and summit_layout.json, then props/summit/bake_summit_lightmap.py bakes sky occlusion
-          and the night light -> models/summit_lm_ao_<2k|1k>.png, summit_lm_night_<2k|1k>.png and summit_lm.json
+          and the night light -> models/summit_lm_ao_<2k|1k>.png, summit_lm_night_<2k|1k>.png and summit_lm.json; and the
+          scout camp's ground (Adriaen 2026-11-16: "precompute shadows ... as in the summer camp"), a 44 m square round the
+          cabin and the fire, under every prop that stands there -> models/summit_ground_ao.png (sky occlusion),
+          summit_ground_night.png (fire, cabin and lantern light, one channel each) and summit_ground.json
 
 Stamps (review R2-140): after each step, props/bake.lock.json records the hash of every input the step read (its scripts,
 props/lib, the layout JSON, the jeep GLB, its command line, the Blender or toktx version) and of every output it wrote.
@@ -171,7 +174,8 @@ SUMMIT_DIR = os.path.join(ROOT, "props/summit")
 
 def summit_outputs():
     return [os.path.join(SUMMIT_DIR, f) for f in ("summit_static.glb", "summit_layout.json")] + \
-        [os.path.join(MODELS, f"summit_lm_{k}_{s}k.png") for k in ("ao", "night") for s in (2, 1)] + [os.path.join(MODELS, "summit_lm.json")]
+        [os.path.join(MODELS, f"summit_lm_{k}_{s}k.png") for k in ("ao", "night") for s in (2, 1)] + [os.path.join(MODELS, "summit_lm.json")] + \
+        [os.path.join(MODELS, f) for f in ("summit_ground_ao.png", "summit_ground_night.png", "summit_ground.json")]
 
 
 def jeep_outputs():
@@ -202,7 +206,7 @@ def inputs(step):
     if step == "ground":
         return {**hashes([os.path.join(ROOT, "props/ground/bake_ground.py"), LAYOUT_JSON]), "cmd": ["--props", "picked"]}
     if step == "summit":   # the summit page's code that makes the cabin, the lookout and their UVs (the page checks the bake's sig too)
-        files = [os.path.join(ROOT, "apps/canopy-prototype/summit", f) for f in ("cabin.js", "lightmap.js", "land.js", "core.js", "forest.js")]
+        files = [os.path.join(ROOT, "apps/canopy-prototype/summit", f) for f in ("cabin.js", "lightmap.js", "land.js", "core.js", "forest.js", "scoutCamp.js", "road.js", "groundLight.js", "lookout.js", "flag.js")]
         files += [os.path.join(SUMMIT_DIR, f) for f in ("export_summit.cjs", "bake_summit_lightmap.py")] + tree("props/lib", exts=(".py",))
         gpu = file_hash(GPU_RUN) if GPU_RUN and os.path.isfile(GPU_RUN) else None
         return {**hashes(files), "cmd": SUMMIT_CMD, "blender": tool_version(BLENDER), "gpu_run": gpu}

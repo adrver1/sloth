@@ -11,20 +11,27 @@
 // by side in one plane) and each lone triangle becomes a rectangle, laid flat, sized by its metres and shelf-packed into the
 // atlas (2K, about 4 cm a texel; phones load the 1K copy). If the meshes no longer match the bake (a different triangle count or signature), the maps are left off and the
 // console says to bake again, so a stale bake never smears light across the wrong faces.
-// Exports receivers(groups), packLightmap(meshes, size), buildLightmap(groups) (cabin.js, after the merges: loads the maps
+// Exports receivers(groups), seeThrough(material) (glass the bake skips; export_summit.cjs too), packLightmap(meshes, size), buildLightmap(groups) (cabin.js, after the merges: loads the maps
 // and applies them) and lightmapStep(night) (cabin.js cabinStep: the night map's strength).
 import * as THREE from 'three';
 import { OPT, isPhone } from './land.js';
 
 const SIZE = 2048, PAD = 3, EDGE = 16;   // the atlas, the gap round each rectangle in texels, and a clear border
-const NIGHT_GAIN = 1.6;   // the night map's strength at full dark (the map is normalised by the bake): the knob to tune by eye
+const NIGHT_GAIN = 1.6;
+// the bake normalises the lookout's receivers (Lookout_<n>, LookoutDoor) on their own, by its lamps (bake_summit_lightmap.py), and
+// they take far more of it: its lamps are what you climb by at night (Adriaen 2026-11-16: "impossible to see anything"; 10 set by eye)
+const GROUP_GAIN = { Lookout: 10, LookoutDoor: 10 };   // the night map's strength at full dark (the map is normalised by the bake): the knob to tune by eye
 let night = null;
 
 // the meshes that take a light map: still, not instanced, lit (Lambert) and not glowing; named Cabin_3, Lookout_0, ...
+// see-through glass (the lookout's) is neither lit by the bake nor in its way, so its room takes the sky and its lamp shines out
+export const seeThrough = (m) => m.transparent && m.opacity < 0.5;
 export function receivers(groups) {
   const out = [];
-  for (const g of groups) { let i = 0; g.traverse((o) => { if (!o.isMesh || o.isInstancedMesh) return; o.name ||= `${g.name}_${i}`; i++;
-    const m = o.material; if (!Array.isArray(m) && m.isMeshLambertMaterial && !m.emissive?.getHex()) out.push(o); }); }
+  // an unnamed mesh is named by its place among the group's unnamed ones, so a named thing added later (the tent's bed and
+  // stove in the lookout, after the camp loads) never shifts the names the bake was made with
+  for (const g of groups) { let i = 0; g.traverse((o) => { if (!o.isMesh || o.isInstancedMesh) return; if (!o.name) o.name = `${g.name}_${i++}`;
+    const m = o.material; if (!Array.isArray(m) && m.isMeshLambertMaterial && !m.emissive?.getHex() && !seeThrough(m)) out.push(o); }); }
   return out;
 }
 // a signature of the receivers' shapes: their names, triangle counts and the sum of their positions, rounded
@@ -76,10 +83,11 @@ export function packLightmap(meshes, size = SIZE) {
   return { texelsPerMetre: s, rects: rects.length, area: total };
 }
 
+export let lmReady = Promise.resolve();   // resolves once the maps are on (or left off): the loading card waits for it (summit/main.js)
 export function buildLightmap(groups) {
   if (!OPT.lm) return;
   const meshes = receivers(groups);
-  fetch('models/summit_lm.json').then((r) => (r.ok ? r.json() : null)).then((J) => {
+  lmReady = fetch('models/summit_lm.json').then((r) => (r.ok ? r.json() : null)).then((J) => {
     if (!J) return;   // not baked yet
     const sig = signature(meshes);
     if (J.sig !== sig) { console.warn('summit light maps: the cabin or lookout changed since the bake; run props/bake_all.py --only summit'); return; }
@@ -88,14 +96,15 @@ export function buildLightmap(groups) {
     const load = (f, srgb) => new THREE.TextureLoader().loadAsync(f).then((t) => { t.channel = 1; t.flipY = true; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; });
     return Promise.all([load(`models/summit_lm_ao_${k}k.png`), load(`models/summit_lm_night_${k}k.png`, true)]).then(([ao, nightTex]) => {
       const mats = new Map();
-      for (const o of meshes) {   // each look gets its own copy with the maps (a mesh without uv1 must never share one)
-        if (!mats.has(o.material)) { const m0 = o.material, m = m0.clone(); m.onBeforeCompile = m0.onBeforeCompile; m.customProgramCacheKey = m0.customProgramCacheKey;
-          m.aoMap = ao; m.aoMapIntensity = 0.8; m.lightMap = nightTex; m.lightMapIntensity = 0; mats.set(m0, m); }
-        o.material = mats.get(o.material);
+      for (const o of meshes) {   // each look gets its own copy with the maps (a mesh without uv1 must never share one), and one per group gain
+        const gain = NIGHT_GAIN * (GROUP_GAIN[o.name.split('_')[0]] ?? GROUP_GAIN[o.name] ?? 1), key = `${o.material.uuid}|${gain}`;
+        if (!mats.has(key)) { const m0 = o.material, m = m0.clone(); m.onBeforeCompile = m0.onBeforeCompile; m.customProgramCacheKey = m0.customProgramCacheKey;
+          m.aoMap = ao; m.aoMapIntensity = 0.8; m.lightMap = nightTex; m.lightMapIntensity = 0; m.userData.nightGain = gain; mats.set(key, m); }
+        o.material = mats.get(key);
       }
       night = [...mats.values()];
     });
   }).catch((e) => console.warn('summit light maps', e));
 }
 // the night map's strength: off by day, up to the baked brightness after dark (night 0..1, daylight.js LIGHT)
-export function lightmapStep(k) { if (night) for (const m of night) m.lightMapIntensity = NIGHT_GAIN * k; }
+export function lightmapStep(k) { if (night) for (const m of night) m.lightMapIntensity = m.userData.nightGain * k; }

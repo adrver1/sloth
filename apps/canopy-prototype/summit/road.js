@@ -1,9 +1,10 @@
 // Summit Cabin road: the level's edges (fences), the road in with its bridge and tunnel, the jeep (models/jeep_expedition.txt,
 // a box LOD beyond 110 m, the map and compass go on its hood), and the mud tracks round the camp. Builds on import.
 import * as THREE from 'three';
+import { groundLight, setRelief } from './groundLight.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { BW, BW_CORNERS, HT, JEEP, PLAT_R, ROAD, ROAD_Y, TOP, TOWER, TRIS, bwY, edgeR, groundAt, height, mulberry, polyNear, trailHalf } from './land.js';
+import { BW, BW_CORNERS, HT, JEEP, PLAT_R, ROAD, ROAD_Y, SNOWMAN as SM, TOP, TOWER, TRIS, bwY, edgeR, groundAt, height, isPhone, mulberry, polyNear, roadNear, trailHalf } from './land.js';
 import { camera, canvasTex, hazed, renderer, scene, tris } from './core.js';
 import { rigJeep } from '../camp/jeepRig.js';
 import { tmpC } from './terrain.js';
@@ -22,22 +23,63 @@ const woodC = (top) => tmpC.set(top ? '#f1f0ee' : '#6b625a').clone();
 const snowTopBox = (w, h, d, wood = '#6b625a') => { const g = new THREE.BoxGeometry(w, h, d), n = g.attributes.normal, C = [];
   for (let i = 0; i < n.count; i++) { tmpC.set(n.getY(i) > 0.5 ? '#f1f0ee' : wood); if (n.getY(i) < -0.5) tmpC.multiplyScalar(0.6); C.push(tmpC.r, tmpC.g, tmpC.b); } g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return g; };
 const fenceMat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true }));
-function railLine(ps, label) {
-
-  const postG = snowTopBox(0.16, 1.25, 0.16).translate(0, 0.62, 0), railG = snowTopBox(1, 0.1, 0.09);
-  const posts = new THREE.InstancedMesh(postG, fenceMat, ps.length), rails = new THREE.InstancedMesh(railG, fenceMat, (ps.length - 1) * 2);
-  ps.forEach(([x, z], i) => { posts.setMatrixAt(i, m4.makeTranslation(x, groundAt(x, z) - 0.05, z));
-    if (i) { const [px, pz] = ps[i - 1], L = Math.hypot(x - px, z - pz), yaw = -Math.atan2(z - pz, x - px), y0 = (groundAt(x, z) + groundAt(px, pz)) / 2;
-      for (const [k, hh] of [[0, 0.5], [1, 1.02]]) rails.setMatrixAt((i - 1) * 2 + k, m4.compose(v3.set((x + px) / 2, y0 + hh + (k ? 0 : 0.04 * Math.sin(i * 2.1)), (z + pz) / 2), q.setFromAxisAngle(up, yaw), sc.set(L + 0.1, 1, 1))); } });
-  posts.castShadow = rails.castShadow = true; scene.add(posts, rails);
-  TRIS.push([`${label} (${ps.length} posts × 12, ${(ps.length - 1) * 2} rails × 12)`, tris(postG, ps.length) + tris(railG, (ps.length - 1) * 2)]);
+// a post's drift: the snow heaped round its foot (Adriaen 2026-11-16: the ground's snow should look as deep as the roof's), a
+// eight-sided open cone in snow white, its foot 4 cm under the ground, its tip inside the post; 8 triangles, in the post's draw.
+// r: its reach (m), h: its height, g: where the ground is in the post's frame
+function driftCollar(r, h, g) { const c = new THREE.ConeGeometry(r, h, 8, 1, true).translate(0, g - 0.04 + h / 2, 0), C = [];
+  for (let i = 0; i < c.attributes.position.count; i++) { tmpC.set('#f1f0ee'); C.push(tmpC.r, tmpC.g, tmpC.b); }
+  c.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); return c; }
+// Fences (Adriaen 2026-11-16: "the fence / rail needs to be better aligned ... no unnatural gaps or weird angles"): a post at
+// every corner of the line and evenly between (about every `step` m), two rails from post to post that climb and fall with the
+// ground, so they meet the posts at the same height on both sides. Fences end on the boardwalk's own end posts (shared, so
+// no gap and no double post) and at the road's shoulder.
+// fencePosts(line, step): the posts along a polyline [[x, z], ...], corners (a turn of more than 12°) kept as posts
+function fencePosts(line, step) {
+  const out = [line[0]], cut = [0];
+  for (let i = 1; i < line.length - 1; i++) { const [ax, az] = line[i - 1], [bx, bz] = line[i], [cx, cz] = line[i + 1], t = Math.abs(Math.atan2((bx - ax) * (cz - bz) - (bz - az) * (cx - bx), (bx - ax) * (cx - bx) + (bz - az) * (cz - bz))); if (t > 0.21) cut.push(i); }
+  cut.push(line.length - 1);
+  for (let c = 0; c < cut.length - 1; c++) { const seg = line.slice(cut[c], cut[c + 1] + 1), acc = [0];
+    for (let i = 1; i < seg.length; i++) acc.push(acc[i - 1] + Math.hypot(seg[i][0] - seg[i - 1][0], seg[i][1] - seg[i - 1][1]));
+    const L = acc[acc.length - 1], n = Math.max(1, Math.round(L / step));
+    for (let k = 1; k <= n; k++) { const d = (L * k) / n; let i = 1; while (i < seg.length - 1 && acc[i] < d) i++; const t = (d - acc[i - 1]) / (acc[i] - acc[i - 1] || 1);
+      out.push([seg[i - 1][0] + (seg[i][0] - seg[i - 1][0]) * t, seg[i - 1][1] + (seg[i][1] - seg[i - 1][1]) * t]); } }
+  return out;
 }
-{ // the rail: posts every 2.4 m round the edge from the trail head, clockwise along the cliff, to the road; and round the hilltop
-  const ps = []; for (let a = 0.66; a > -3.06; ) { const r = edgeR(a); ps.push([Math.cos(a) * r, Math.sin(a) * r]); a -= 2.4 / Math.max(r, 4); }
-  railLine(ps, 'Cliff rail');
-  const end = BW[BW.length - 1], a0 = Math.atan2(end[1] - HT.z, end[0] - HT.x), hp = [];
-  for (let a = a0 + 0.24; a < a0 + 6.283 - 0.24; a += 2.4 / 11) hp.push([HT.x + Math.cos(a) * 11, HT.z + Math.sin(a) * 11]);   // well inside the flat top, so coarse far terrain still holds it
-  railLine(hp, 'Hilltop rail');
+// railLine(ps, label, { skip }): posts at ps (but not at the indices in skip: they are another fence's), rails between them
+function railLine(ps, label, { skip = [] } = {}) {
+  const postG = mergeGeometries([snowTopBox(0.16, 2.25, 0.16).translate(0, 0.12, 0), driftCollar(0.38, 0.16, 0.05)]), railG = snowTopBox(1, 0.1, 0.09), np = ps.length - skip.length;
+  const posts = new THREE.InstancedMesh(postG, fenceMat, np), rails = new THREE.InstancedMesh(railG, fenceMat, (ps.length - 1) * 2), e = new THREE.Euler();
+  let n = 0; ps.forEach(([x, z], i) => { const g = groundAt(x, z); if (!skip.includes(i)) posts.setMatrixAt(n++, m4.makeTranslation(x, g - 0.05, z));   // 1 m of each post is in the ground: coarser terrain rings further off sit lower than height() across a slope
+    if (i) { const [px, pz] = ps[i - 1], pg = groundAt(px, pz), L = Math.hypot(x - px, z - pz), rise = g - pg, yaw = -Math.atan2(z - pz, x - px);
+      for (const [k, hh] of [[0, 0.5], [1, 1.02]]) { const sag = k ? 0 : 0.03 * Math.sin(i * 2.1);   // the lower rail a little uneven, as split rails are
+        rails.setMatrixAt((i - 1) * 2 + k, m4.compose(v3.set((x + px) / 2, (g + pg) / 2 + hh + sag, (z + pz) / 2), q.setFromEuler(e.set(0, yaw, Math.atan2(rise, L), 'YZX')), sc.set(Math.hypot(L, rise) + 0.12, 1, 1))); } } });
+  posts.castShadow = rails.castShadow = true; scene.add(posts, rails);
+  TRIS.push([`${label} (${np} posts × 20 with their drift, ${(ps.length - 1) * 2} rails × 12)`, tris(postG, np) + tris(railG, (ps.length - 1) * 2)]);
+}
+// the boardwalk's joints: where its pieces meet (a bend, a stair's foot or head, or every 3 m), with the mitred side offset
+// there, so its rails meet at the corners; its posts and the fences that end on it stand on these
+const BW_SIDE = 1.0;
+export const BW_JOINTS = (() => {
+  const dir = (i) => { const P = BW[Math.max(i - 1, 0)], Q = BW[Math.min(i, BW.length - 1)]; return Math.atan2(Q[1] - P[1], Q[0] - P[0]); };
+  const at = [0]; let st = 0; for (let i = 1; i <= BW.length; i++) if (i === BW.length || Math.abs(dir(i) - dir(st + 1)) > 0.02 || BW[i][2] - BW[st][2] > 3) { const e = Math.min(i, BW.length - 1); if (e !== at[at.length - 1]) at.push(e); st = i; }
+  const J = at.map((i) => ({ i, x: BW[i][0], z: BW[i][1], y: BW[i][3], stair: BW[i][4] }));
+  J.forEach((j, k) => { const nrm = (a, b) => { const dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1; return [-dz / l, dx / l]; };
+    const n0 = k ? nrm(J[k - 1], j) : nrm(j, J[k + 1]), n1 = k < J.length - 1 ? nrm(j, J[k + 1]) : n0; let nx = n0[0] + n1[0], nz = n0[1] + n1[1]; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+    const m = BW_SIDE / Math.max(0.5, nx * n0[0] + nz * n0[1]); j.side = (sd) => [j.x + nx * m * sd, j.z + nz * m * sd]; });
+  return J;
+})();
+{ // the cliff rail: from the boardwalk's south rail where it leaves the summit, round the edge (land.js edgeR), clockwise along
+  // the cliff, to the road's shoulder; and the hilltop's ring, from one of the boardwalk's end posts round to the other
+  // It meets the boardwalk square: the boardwalk starts out past the summit's edge (land.js BW), and the rail runs straight
+  // from its side to the edge, then along the edge (Adriaen 2026-11-16: a fence that meets the boardwalk "at almost 90 degrees")
+  const s0 = BW_JOINTS[0].side(-1), line = [s0]; let a = Math.atan2(s0[1], s0[0]);
+  for (; a > -3.3; a -= 0.004) { const r = edgeR(a), x = Math.cos(a) * r, z = Math.sin(a) * r; if (line.length === 1 && x < s0[0]) continue;   // the edge from where it is straight out from the boardwalk's corner
+    const rd = x < -12 ? roadNear(x, z) : null; if (rd && rd.d < 3.1) { line.push([x, z]); break; } line.push([x, z]); }
+  railLine(fencePosts(line, 2.4), 'Cliff rail', { skip: [0] });
+  const end = BW_JOINTS[BW_JOINTS.length - 1], A = end.side(1), B = end.side(-1), R = (Math.hypot(A[0] - HT.x, A[1] - HT.z) + Math.hypot(B[0] - HT.x, B[1] - HT.z)) / 2;
+  let a0 = Math.atan2(A[1] - HT.z, A[0] - HT.x), a1 = Math.atan2(B[1] - HT.z, B[0] - HT.x); const g = ((a1 - a0) % 6.283 + 6.283) % 6.283;   // the long way round: from A over to B the far side of the hilltop
+  const sweep = g > Math.PI ? g : g - 6.283, ring = [A]; for (let k = 1; k < 120; k++) { const t = a0 + (sweep * k) / 120; ring.push([HT.x + Math.cos(t) * R, HT.z + Math.sin(t) * R]); } ring.push(B);
+  const hp = fencePosts(ring, 2.4); railLine(hp, 'Hilltop rail', { skip: [0, hp.length - 1] });
 }
 const roadTex = canvasTex(128, 256, (g, w, h) => { const r = mulberry(31);   // packed snow and mud, two dark wheel ruts, slush thrown to the sides
   g.fillStyle = '#b9b3ab'; g.fillRect(0, 0, w, h);
@@ -58,10 +100,14 @@ export function buildRoad() {
       if (!stair) put((A[0] + B[0]) / 2, (A[3] + B[3]) / 2 - 0.06, (A[1] + B[1]) / 2, Math.hypot(L, rise) + 0.04, 0.12, 1.9, yaw, Math.atan2(rise, L));   // deck, gently sloping
       else { const n = Math.max(1, Math.round(Math.abs(rise) / 0.22)); for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; put(A[0] + dx * t, A[3] + rise * ((k + (rise > 0 ? 1 : 0)) / n) - 0.06, A[1] + dz * t, L / n + 0.05, 0.1, 1.9, yaw); }   // treads
         for (const sd of [-1, 1]) put((A[0] + B[0]) / 2 + nx * 0.98 * sd, (A[3] + B[3]) / 2 - 0.15, (A[1] + B[1]) / 2 + nz * 0.98 * sd, Math.hypot(L, rise), 0.28, 0.08, yaw, Math.atan2(rise, L)); }   // stringers
-      for (const sd of [-1, 1]) put((A[0] + B[0]) / 2 + nx * 1.0 * sd, (A[3] + B[3]) / 2 + 1.0, (A[1] + B[1]) / 2 + nz * 1.0 * sd, Math.hypot(L, rise) + 0.05, 0.09, 0.09, yaw, Math.atan2(rise, L)); }   // hand rails
+    }
     for (const [cx, cz] of BW_CORNERS) { const b = polyNear(BW, cx, cz), P = BW[Math.max(b.i - 4, 0)], Q = BW[Math.min(b.i + 4, BW.length - 1)]; put(cx, bwY(b) - 0.06, cz, 2.3, 0.12, 2.3, -Math.atan2((P[1] + Q[1]) / 2 - cz, (P[0] + Q[0]) / 2 - cx)); }   // a square landing at each turn
-    for (let i = 0; i < BW.length; i += 6) { const [x, z, , y] = BW[i], P2 = BW[Math.min(i + 1, BW.length - 1)], P1 = BW[Math.max(i - 1, 0)], dx = P2[0] - P1[0], dz = P2[1] - P1[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
-      for (const sd of [-1, 1]) { const px = x + nx * 1.0 * sd, pz = z + nz * 1.0 * sd, g = height(px, pz); put(px, (y + 1.05 + g) / 2, pz, 0.12, y + 1.05 - g + 0.3, 0.12); } }   // posts from the ground up through the rail
+    // hand rails from joint to joint on the mitred sides, so they meet at the bends; a post at every joint, from 0.8 m in the ground (so it
+    // never floats over the coarser terrain further off) up
+    // through the rail (BW_JOINTS: the cliff rail and the hilltop's ring end on the first and last of these)
+    for (let k = 0; k < BW_JOINTS.length; k++) { const j = BW_JOINTS[k];
+      for (const sd of [-1, 1]) { const [px, pz] = j.side(sd), g = height(px, pz); put(px, (j.y + 1.2 + g - 0.8) / 2, pz, 0.12, j.y + 1.2 - g + 0.8, 0.12);
+        if (k) { const [qx, qz] = BW_JOINTS[k - 1].side(sd), L = Math.hypot(px - qx, pz - qz), rise = j.y - BW_JOINTS[k - 1].y; put((px + qx) / 2, (j.y + BW_JOINTS[k - 1].y) / 2 + 1.0, (pz + qz) / 2, Math.hypot(L, rise) + 0.1, 0.09, 0.09, -Math.atan2(pz - qz, px - qx), Math.atan2(rise, L)); } } }
     const geo = snowTopBox(1, 1, 1), wMat = hazed(new THREE.MeshLambertMaterial({ vertexColors: true }), (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n gl_Position = projectionMatrix * vec4(mvPosition.xyz * 0.975, 1.0);'); }, 'boardwalk');
     const cells = new Map(); for (const m of M4) { const k = Math.floor(m.elements[12] / 40) + ',' + Math.floor(m.elements[14] / 40); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(m); }
     for (const list of cells.values()) { const walk = new THREE.InstancedMesh(geo, wMat, list.length); list.forEach((m, i) => walk.setMatrixAt(i, m)); walk.computeBoundingSphere(); walk.castShadow = walk.receiveShadow = true; scene.add(walk); }   // 40 m pieces, so the parts out of view (and out of the shadow map) are skipped   // drawn 2.5 % nearer the eye (same spot on screen): far terrain is coarser than the cutting
@@ -139,15 +185,11 @@ export function buildRoad() {
   }
 
   { // mud: wheel ruts from the road to the jeep, and the paths worn between jeep, porch, camp, woodpile and the trail head
-    const S = 44, PX = 1024, k = PX / S, tex = canvasTex(PX, PX, (g) => { const r = mulberry(23), at = ([x, z]) => [(x + S / 2) * k, (z + S / 2) * k];
-      const path = (pts, wid, col, a) => { g.lineCap = g.lineJoin = 'round'; for (let pass = 0; pass < 3; pass++) { g.strokeStyle = col; g.globalAlpha = a * (pass === 0 ? 0.35 : pass === 1 ? 0.55 : 0.9); g.lineWidth = wid * k * (pass === 0 ? 1.8 : pass === 1 ? 1.3 : 0.8);
-        g.beginPath(); pts.forEach((p, i) => { const [x, y] = at(p); const j = pass && wid > 0.6 ? (r() - 0.5) * 4 : 0; i ? g.lineTo(x + j, y + j) : g.moveTo(x, y); }); g.stroke(); } g.globalAlpha = 1; };
-      const ruts = (pts) => { for (const o of [-0.8, 0.8]) path(pts.map(([x, z], i) => { const n = pts[Math.min(i + 1, pts.length - 1)], m = pts[Math.max(i - 1, 0)], dx = n[0] - m[0], dz = n[1] - m[1], l = Math.hypot(dx, dz) || 1; return [x - (dz / l) * o, z + (dx / l) * o]; }), 0.32, '#5e4d40', 0.55); };
-      path([[-17.4, 2.45], [-13, 1.6], [-9, 1.4]], 2.8, '#8a7a6a', 0.55); ruts([[-17.4, 2.45], [-14.5, 1.6], [-13, 1.3]]);   // from where the road's ribbon ends (x -17), not over it: drawn twice it read as a doubled road (Adriaen 2026-11-15)
-      const foot = (pts) => { path(pts, 1.3, '#a99b8c', 0.45); path(pts, 0.6, '#7a6a5c', 0.5); };
-      foot([[-9.5, -0.5], [-8.2, -4.5], [-5, -7], [-1.5, -7.4]]); foot([[3, -7.3], [7.4, -5.6], [7.6, 0], [6.8, 5.5], [3.5, 7.4]]);
-      foot([[2.5, 8.2], [7.5, 11], [11, 11.5], [15.5, 15.5], [19, 19.5]]); foot([[-8, 2.6], [-6, 6.5], [-2.2, 8.4]]); foot([[-9.5, 2.8], [-8.6, 2.2]]); });   // no loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
-    const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })));
+    const S = 44, PX = isPhone ? 1024 : 2048, k = PX / S, tex = canvasTex(PX, PX, (g) => { const r = mulberry(23), at = ([x, z]) => [(x + S / 2) * k, (z + S / 2) * k];
+      paintCampSnow(g, at, k, mulberry(31));   // the lived-in snow round the camp first, the paths over it
+      paintTrails(g, at, k, r); });
+    const mud = new THREE.Mesh(new THREE.PlaneGeometry(S, S).rotateX(-Math.PI / 2), hazed(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }), groundLight, 'mud'));   // lit as the snow under it (groundLight.js)
+    setRelief(tex);   // its paint is pressed into the snow round it too (groundLight.js RELIEF)
     mud.position.set(0, TOP + 0.02, 0); mud.receiveShadow = true; mud.renderOrder = 1; scene.add(mud); TRIS.push(['Mud tracks (painted)', 2]);
   }
 }
@@ -155,4 +197,78 @@ export function buildRoad() {
 export function roadStep() {
   if (!JEEP.lod) return;
   const p = JEEP.node.position, far = Math.hypot(camera.position.x - p.x, camera.position.z - p.z) > 110; JEEP.lod[0].visible = !far; JEEP.lod[1].visible = far;
+}
+
+// The snow round the camp, lived in as the jungle camp's ground is (Adriaen 2026-11-16: "bland and boring compared to the
+// jungle"), painted under the paths on the same canvas (world metres; at() takes [x, z] to pixels, k pixels a metre). All of it
+// in the snow's own blue-white and earth tones, soft-edged: plain grey spots read as dirt splotches here (Adriaen 2026-11-15).
+//   trodden snow: packed, a little blue, round the fire and the seats, to the table, the tent, the crate and the cabin's door
+//   boot prints: pairs along the ways people walk and scattered round the fire, sloth prints (three toes) round the seats
+//   the fire's melt ring: wet dark earth and ash under the stones, slush round it
+//   sawdust and chips round the chopping stump, needles and twigs here and there
+// the painting helpers both share (world metres in, canvas pixels out): soft blobs, steps along a polyline, boot prints
+function snowPainter(g, at, k, r) {
+  const blob = (x, z, rad, col, a) => { const [px, py] = at([x, z]), R = rad * k, gr = g.createRadialGradient(px, py, 0, px, py, R);
+    gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(0.6, `rgba(${col},${a * 0.6})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(px - R, py - R, 2 * R, 2 * R); };
+  const along = (pts, step, fn) => { let d = 0; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0);
+    for (let e = 0; e < L; e += step) { const t = e / L; fn(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, (x1 - x0) / L, (z1 - z0) / L, d + e); } d += L; } };
+  // boot prints: a left and a right, 0.3 m apart along the way, toes pointing on
+  const boot = (x, z, dx, dz, side) => { const [px, py] = at([x - dz * side * 0.09, z + dx * side * 0.09]); g.save(); g.translate(px, py); g.rotate(Math.atan2(dz, dx));
+    g.fillStyle = 'rgba(128,146,178,0.42)'; g.beginPath(); g.ellipse(0.04 * k, 0, 0.085 * k, 0.045 * k, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(-0.1 * k, 0, 0.045 * k, 0.04 * k, 0, 0, 7); g.fill(); g.restore(); };
+  const walk = (pts, lane = 0) => { let side = 1; along(pts, 0.36, (x, z, dx, dz) => { if (r() < 0.85) boot(x - dz * lane + (r() - 0.5) * 0.05, z + dx * lane + (r() - 0.5) * 0.05, dx, dz, side); side = -side; }); };
+  return { blob, along, boot, walk };
+}
+
+// The worn ways round the camp (Adriaen 2026-11-16: "improve the dirt track"; before, three soft strokes each, which read as
+// a brown smear): packed snow laid as many small soft blobs, so the edge wanders and the width swells and narrows; earth and
+// grit showing through in patches down the middle, where most feet go; boot prints both ways in two lanes. The jeep's track
+// is the same, wider and muddier, with its two wheel ruts. All of it is pressed into the snow by groundLight.js RELIEF.
+function paintTrails(g, at, k, r) {
+  const { blob, along, walk } = snowPainter(g, at, k, r);
+  const trail = (pts, wid, { snow = '128,138,160', earth = '104,88,72', muddy = 0.5 } = {}) => { const f = r() * 6;
+    along(pts, 0.12, (x, z, dx, dz, d) => { const w = wid * (0.85 + 0.2 * Math.sin(d * 0.9 + f) + 0.1 * Math.sin(d * 2.3 + 2 * f)), side = (o) => [x - dz * o, z + dx * o];
+      { const [px, pz] = side((r() - 0.5) * w * 0.35); blob(px, pz, w * 0.55 * (0.9 + 0.2 * r()), snow, 0.12 + 0.06 * r()); }   // the packed snow
+      if (0.5 + 0.5 * Math.sin(d * 0.6 + 3 * f) > 1 - muddy && r() < 0.7) { const [px, pz] = side((r() - 0.5) * w * 0.45); blob(px, pz, 0.15 + 0.2 * r(), earth, 0.14 + 0.16 * r()); }   // earth showing through
+      for (let n = 0; n < 2; n++) if (r() < 0.6) { const [px, py] = at(side((r() - 0.5) * w * 0.8)); g.fillStyle = `rgba(${60 + r() * 25 | 0},${50 + r() * 20 | 0},${42 + r() * 15 | 0},${0.4 + 0.3 * r()})`; g.fillRect(px, py, 1 + (r() < 0.3), 1 + (r() < 0.3)); } });   // grit and needles
+  };
+  const foot = (pts, wid = 1.1) => { trail(pts, wid); walk(pts, 0.16); walk([...pts].reverse(), 0.16); };
+  // the jeep's track, from where the road's ribbon ends (x -17), not over it: drawn twice it read as a doubled road (Adriaen 2026-11-15)
+  const JEEP_T = [[-17.4, 2.45], [-14.5, 1.7], [-12, 1.45], [-9, 1.4]];
+  trail(JEEP_T, 2.6, { snow: '132,138,150', earth: '96,80,66', muddy: 0.7 });
+  for (const o of [-0.8, 0.8]) along(JEEP_T.slice(0, 3), 0.08, (x, z, dx, dz) => blob(x - dz * o + (r() - 0.5) * 0.06, z + dx * o + (r() - 0.5) * 0.06, 0.16 + 0.05 * r(), '78,64,52', 0.12 + 0.08 * r()));   // the wheel ruts
+  // one network, every path starting or ending on another (Adriaen 2026-11-16: "the dirt paths are disconnected", "there is no
+  // path to the front door, which would be the most frequented one"): the front door's step (DOOR) is the hub, with the
+  // jeep's track (ROADEND), the fire, both porch steps round the cabin's ends, and the boardwalk's first step off it. Shared
+  // points are the same array, so the paths run into each other. They keep 2.3 m off the cabin's footing, round its snow
+  // banks (cabin.js snowBank).
+  const DOOR = [0, 6.3], ROADEND = [-9, 1.4], FIREW = [0.4, 9.6], EAST = [-7.1, -5.6], WEST = [7.1, -5.6], WSIDE = [8.4, -1.6], NW = [4.6, 7.5];
+  foot([DOOR, [-0.3, 7.6], FIREW], 1.6);   // the busiest stretch, door to fire
+  foot([ROADEND, [-8.0, 6.4], [-4.0, 7.3], DOOR]);   // jeep to the front door, round the corner's drift
+  foot([ROADEND, [-9.3, -1.2], [-8.7, -4.3], EAST]);   // round the cabin's east end to the porch steps
+  foot([DOOR, NW, [8.4, 5.2], [8.7, 0.4], WSIDE, WEST]);   // round the west end to the other porch steps
+  foot([NW, [7.5, 10.4], [11, 11.5], [15, 14.5], [BW[0][0] - 0.3, BW[0][1]]], 0.95);   // to the boardwalk's first step. No loose mud spots round the camp: on the snow they read as gray splotches (Adriaen 2026-11-15)
+}
+
+function paintCampSnow(g, at, k, r) {
+  const { blob, along, boot, walk } = snowPainter(g, at, k, r);
+  const FIRE = [0.5, 11.5], SEATS = [[1.2, 13.5], [-1, 12.9], [-1.4, 10.7]], TABLE = [3.9, 12.8], TENT = [-0.9, 16.1], CRATE = [5, 13.2], DOOR = [0, 4.6], SNOWMAN = [SM.x, SM.z], CHOP = [-6.75, 2.9];
+  // trodden: overlapping soft blotches, densest at the fire
+  for (let i = 0; i < 70; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 3.6; blob(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, 0.6 + r() * 0.9, '150,168,196', 0.10 + r() * 0.08); }
+  for (const to of [TABLE, TENT, CRATE, DOOR, ...SEATS]) along([FIRE, to], 0.45, (x, z) => blob(x + (r() - 0.5) * 0.6, z + (r() - 0.5) * 0.6, 0.5 + r() * 0.4, '150,168,196', 0.09 + r() * 0.06));
+  // trodden round the snowman, and the way to him from the path round the cabin
+  for (let i = 0; i < 18; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 1.6; blob(SM.x + Math.cos(a) * d, SM.z + Math.sin(a) * d, 0.5 + r() * 0.6, '150,168,196', 0.09 + r() * 0.07); }
+  along([[8.4, -1.6], SNOWMAN], 0.45, (x, z) => blob(x + (r() - 0.5) * 0.5, z + (r() - 0.5) * 0.5, 0.45 + r() * 0.35, '150,168,196', 0.08 + r() * 0.05));
+  // the fire's melt ring under and round the stones
+  blob(FIRE[0], FIRE[1], 2.1, '205,214,228', 0.35); blob(FIRE[0], FIRE[1], 1.55, '120,118,120', 0.45); blob(FIRE[0], FIRE[1], 1.1, '74,60,48', 0.85); blob(FIRE[0], FIRE[1], 0.7, '52,46,44', 0.9);
+  for (let i = 0; i < 40; i++) { const a = r() * 6.28, d = 0.9 + r() * 0.5; blob(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, 0.08 + r() * 0.12, '96,92,90', 0.4); }   // ash flecks
+  walk([[8.4, -1.6], SNOWMAN]);
+  for (const to of [TABLE, TENT, CRATE]) walk([[FIRE[0] + (to[0] - FIRE[0]) * 0.35, FIRE[1] + (to[1] - FIRE[1]) * 0.35], to]);
+  for (let i = 0; i < 26; i++) { const a = r() * 6.28, d = 1.6 + r() * 1.9; boot(FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d, Math.cos(a + 1.6 + r()), Math.sin(a + 1.6 + r()), r() < 0.5 ? 1 : -1); }
+  // sloth prints: three long toe marks, small, round the seats and the crate
+  for (let i = 0; i < 34; i++) { const c = [...SEATS, CRATE, TENT][i % 5], a = r() * 6.28, d = 0.5 + r() * 1.1, [px, py] = at([c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d]);
+    g.save(); g.translate(px, py); g.rotate(r() * 6.28); g.fillStyle = 'rgba(120,138,170,0.4)'; for (const o of [-1, 0, 1]) { g.beginPath(); g.ellipse(0.05 * k, o * 0.025 * k, 0.045 * k, 0.01 * k, o * 0.25, 0, 7); g.fill(); } g.restore(); }
+  // sawdust and chips round the chopping stump, needles and twigs under the camp
+  for (let i = 0; i < 160; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 1.3, [px, py] = at([CHOP[0] + Math.cos(a) * d, CHOP[1] + Math.sin(a) * d]); g.fillStyle = `rgba(${190 + r() * 30 | 0},${145 + r() * 30 | 0},${90 + r() * 25 | 0},${0.5 + r() * 0.4})`; g.fillRect(px, py, 1 + r() * 0.06 * k, 1 + r() * 0.03 * k); }
+  for (let i = 0; i < 140; i++) { const a = r() * 6.28, d = 2.4 + r() * 6, [px, py] = at([FIRE[0] + Math.cos(a) * d, FIRE[1] + Math.sin(a) * d]), L = (0.04 + r() * 0.12) * k, b = r() * 6.28;
+    g.strokeStyle = `rgba(${70 + r() * 30 | 0},${52 + r() * 20 | 0},${36 + r() * 12 | 0},${0.35 + r() * 0.35})`; g.lineWidth = r() < 0.2 ? 2 : 1; g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(b) * L, py + Math.sin(b) * L); g.stroke(); }
 }

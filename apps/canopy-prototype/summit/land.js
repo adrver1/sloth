@@ -31,7 +31,7 @@ export const KEYS = { time: 'canopy-time', cycle: 'canopy-cycle', audio: 'canopy
 export const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 { const v = Q.get('time') || store.get(KEYS.time), h = v ? Number(v) : 15.5;   // ?time= and ?cycle= as in the camp, for that visit
   OPT.time = h >= 0 && h < 24 ? h : 15.5; OPT.cycle = Q.has('cycle') ? Q.get('cycle') !== '0' : store.get(KEYS.cycle) === 'on'; }
-OPT.sound = Q.get('sound') !== '0'; OPT.station = Q.get('station'); OPT.debug = Q.has('dev') || (Q.has('debug') && Q.get('debug') !== '0'); OPT.lm = Q.get('lm') !== '0';
+OPT.sound = Q.get('sound') !== '0'; OPT.station = Q.get('station'); OPT.debug = Q.has('dev') || (Q.has('debug') && Q.get('debug') !== '0') || /claude/.test(location.hostname); OPT.lm = Q.get('lm') !== '0';   // debug: also on in a preview artifact (camp/core.js)
 const ERO = await (async () => { if (!OPT.ero) return null;
   const load = async (f) => { const r = await fetch(`models/${f}.json`); if (!r.ok) throw new Error(`${f} ${r.status}`); const m = await r.json(); m.d = new Int16Array(b64bytes(m.d).buffer); return m; };   // d: the height change, int16 times scale, base64
   try { return await Promise.all([load('summit-erosion-world'), load('summit-erosion-near')]); } catch (e) { console.warn('no erosion', e); return null; } })();
@@ -110,6 +110,11 @@ const bigE = (x, z) => Math.hypot((x - BIG.x) / BIG.rx, (z - BIG.z) / BIG.rz);
 export const HT = (() => { let best = [0, 0, -1e9]; for (let i = -6; i <= 6; i++) for (let j = -6; j <= 6; j++) { const x = HILL_P.x + i * 4, z = HILL_P.z + j * 4, h = hBase(x, z); if (h > best[2]) best = [x, z, h]; } return { x: best[0], z: best[1], y: best[2] }; })();
 export const ROAD_Y = (s) => (s < ROAD.b0 ? TOP - 0.07 * s : ROAD.y);
 export const roadNear = (x, z) => (x > -8 || x < ROAD.portal.x - 20 || z > 22 || z < -30 ? null : polyNear(ROAD.pts, x, z));
+// the cliff's lip south of the cabin (Adriaen 2026-11-16: "the cabin needs to come back from the cliff a little bit"): it was
+// at z -8.5 + 3 sin(x / 9), which put the porch's east corner over the edge; now 3.3 m further out and straighter
+export const lip = (x) => -11.8 + 2.2 * Math.sin(x / 9);
+// the snowman stands east of the cabin, in the open snow by the cliff rail (Adriaen 2026-11-16, from his phone still), facing
+// back toward the porch and the path round the cabin
 // the cabin sits on a flat top; just south of the porch the summit breaks off in a cliff, so the porch looks down over the valleys
 export let BW_CUT = null, BW_CORNERS = [];   // set once the boardwalk is laid: the ground is dug down along it, so the stairs sit in a cutting where the hill is steeper than they are
 export function height(x, z) {
@@ -118,7 +123,7 @@ export function height(x, z) {
   const dl = Math.hypot(x - LAKE_P.x, z - LAKE_P.z); if (dl < LAKE_P.r + 500) h = Math.min(h, LAKE_H + Math.max(0, dl - LAKE_P.r) * 0.3 + Math.max(0, dl - LAKE_P.r - 250) ** 2 * 0.012);   // the bowl steepens outward, so it meets the hills without a step
   if (dl > LAKE_P.r + 4) h += ((fbm(x / 38, z / 38, 3) - 0.5) * 3.2 + (vnoise(x / 7, z / 7) - 0.5) * 0.7) * sstep(LAKE + 1, LAKE + 4, h);   // snow drifts and hummocks underfoot
   if (r < 60) h = r < 18 ? TOP : TOP + (h - TOP) * sstep(18, 55, r);
-  const d = -z - 8.5 + 3 * Math.sin(x / 9); if (d > 0 && r < 400) h -= 140 * (1 - Math.exp(-d / 22)) * (1 - sstep(70, 190, Math.abs(x))) * (1 - sstep(220, 400, r));   // a cliff bowl only below the cabin
+  const d = lip(x) - z; if (d > 0 && r < 400) h -= 140 * (1 - Math.exp(-d / 22)) * (1 - sstep(70, 190, Math.abs(x))) * (1 - sstep(220, 400, r));   // a cliff bowl only below the cabin
   const rd = roadNear(x, z);
   if (rd && rd.d < 14 && rd.s < ROAD.b0) h += (ROAD_Y(rd.s) - 0.05 - h) * (1 - sstep(3.5, 13, rd.d)) * (r < 18 ? 0 : 1);   // the road bed
   if (rd && x < ROAD.portal.x + 14 && x > ROAD.portal.x - 3) h = Math.min(h, h + (ROAD.y - 2 - h) * (1 - sstep(7, 10.5, Math.abs(z - ROAD.portal.z))));   // the tunnel's cutting
@@ -137,11 +142,13 @@ export const HUT = { x: SHORE.x + (LAKE_P.x - SHORE.x) * 0.3, z: SHORE.z + (LAKE
 // two marked trails from the cabin: one down to the lake, one over to the lookout
 // the way up to the watch hill: a timber boardwalk from the summit's trail head, landings where the ground is level and stair
 // flights where it climbs (or dips), always just above the snow, railed both sides, ending on the hilltop by the tower
+// it starts 3 m past the summit's edge, out where the cliff rail can meet its side square on (road.js), with a step up
+export const BW_X0 = 18.5;
 export const BW = (() => {
   // the route: down off the summit by short flights into the valley, along the clearing's north edge, then switchbacks up the
   // watch hill. Each leg turns off the fall line just far enough to climb at stair pitch (about 0.4), so every leg climbs and
   // the legs zigzag; each turn gets a flat landing.
-  const ctrl = [[15.5, 15.5], [30, 16], [46, 17], [60, 20], [74, 23], [88, 24]], corners = new Set();
+  const ctrl = [[BW_X0, 15.6], [30, 16], [46, 17], [60, 20], [74, 23], [88, 24]], corners = new Set();
   const gH = (x, z) => [(hBase(x + 6, z) - hBase(x - 6, z)) / 12, (hBase(x, z + 6) - hBase(x, z - 6)) / 12];
   { let [px, pz] = ctrl[ctrl.length - 1], side = -1;
     for (let k = 0; k < 14 && Math.hypot(HT.x - px, HT.z - pz) > 30; k++) {
@@ -156,7 +163,7 @@ export const BW = (() => {
     for (let k = i ? 1 : 0; k <= n; k++) { if (pts.length) s += L / n; const x = ax + ((bx - ax) * k) / n, z = az + ((bz - az) * k) / n; pts.push([x, z, s, height(x, z) + 0.3, 0]); } }
   // follow the ground, smoothed over ±3 m, never steeper than stairs (0.7), starting on the summit and arriving on the hilltop
   const sm = pts.map((p, i) => { let a = 0, n = 0; for (let j = Math.max(0, i - 6); j <= Math.min(pts.length - 1, i + 6); j++) { a += pts[j][3]; n++; } return a / n; });
-  sm[0] = TOP + 0.02; sm[sm.length - 1] = HT.y + 0.05;
+  sm[0] = height(BW_X0, 15.6) + 0.05; sm[sm.length - 1] = HT.y + 0.05;
   pts.forEach((p) => { if (BW_CORNERS.some(([cx, cz]) => Math.hypot(p[0] - cx, p[1] - cz) < 1.3)) p[4] = 1; });   // landings at the turns
   for (let i = 0; i < pts.length; i++) if (pts[i][4]) { let j = i; while (j + 1 < pts.length && pts[j + 1][4]) j++; const y = (sm[i] + sm[j]) / 2; for (let k = i; k <= j; k++) sm[k] = y; i = j; }
   for (let i = 1; i < sm.length; i++) { const ds = pts[i][2] - pts[i - 1][2]; sm[i] = Math.min(Math.max(sm[i], sm[i - 1] - 0.7 * ds), sm[i - 1] + 0.7 * ds); }
@@ -170,17 +177,22 @@ export function trailDist(x, z) { let best = 1e9; for (const t of TRAILS) for (l
 export const LOOK_TRAIL = BW, JEEP = { x: -12, z: 1.2, turn: Math.PI / 2 };   // the jeep that brought us, parked at the head of the road (road.js adds node, its group, and lod)
 // where you may walk: the summit inside its rail and rocks, the road to the tunnel, the lookout trail (wider as it leaves the
 // summit) and the lookout's hilltop. Everything else is fenced off by what you see: the cliff rail, rocks, the mountain walls.
-export const lip = (x) => -8.5 + 3 * Math.sin(x / 9), PLAT_R = 22;
-export function edgeR(a) { const cx = Math.cos(a), cz = Math.sin(a); if (PLAT_R * cz >= lip(PLAT_R * cx) + 0.9) return PLAT_R; let lo = 0, hi = PLAT_R;
-  for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (m * cz < lip(m * cx) + 0.9) hi = m; else lo = m; } return lo; }
+export const PLAT_R = 22;
+// the rail stands this far in from the lip: a whole terrain cell (2 m near you) on the flat, so the drawn ground under its
+// posts is the summit's and not a slope cut across the lip (Adriaen 2026-11-16: floating fence posts by the porch)
+const EDGE_IN = 1.8;
+export const SNOWMAN = { x: 12, z: -4.4, face: [6.5, -3] };
+export function edgeR(a) { const cx = Math.cos(a), cz = Math.sin(a); if (PLAT_R * cz >= lip(PLAT_R * cx) + EDGE_IN) return PLAT_R; let lo = 0, hi = PLAT_R;
+  for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (m * cz < lip(m * cx) + EDGE_IN) hi = m; else lo = m; } return lo; }
 export const trailHalf = (s) => Math.min(20, 2.5 + s * 0.35);
 export function walkable(x, z) {
   if (BARE) return true;
   if (Math.hypot(x, z) < edgeR(Math.atan2(z, x)) - 0.4) return true;
   const rd = roadNear(x, z); if (rd && rd.d < 2.4 && x > ROAD.portal.x + 1.2) return true;
   if (polyNear(BW, x, z).d < 0.85) return true;   // on the boardwalk, between its rails
+  if (x > 10 && x < BW_X0 - 0.4 && z > 0 && z < BW[0][1] + 0.85) return true;   // the ground out to its first step, inside the cliff rail's straight end
   if (Math.hypot(x - CL.x, z - CL.z) < 15) return true;   // step off into the clearing
-  return Math.hypot(x - HT.x, z - HT.z) < 10.5;   // the hilltop, inside its rail
+  return Math.hypot(x - HT.x, z - HT.z) < 9.1;   // the hilltop, inside its rail (road.js: a ring through the boardwalk's end posts, about 9.55 m round the top)
 }
 // Trees only grow where the ground is gentle enough (Adriaen 2026-11-15: trees on very steep ground look wrong): full forest up
 // to 30°, thinning out to none at 40°. s is 1 - cos(slope angle). Boulders follow the same rule (they would roll off steeper
@@ -195,5 +207,8 @@ export function forestAt(x, z, h, s) {
 // the cabin's size (its floor YB above the summit, walls WH, roof RH) and where you stand on the summit
 export const W = 12, D = 8, WH = 3.4, RH = 3.0, YB = 0.6, YT = YB + WH, RIDGE = YT + RH;
 // standing on the cabin's floor and porch; walls and the lookout's legs push you out
-export function groundAt(x, z) { if (BARE) return height(x, z); if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB; const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
+export function groundAt(x, z) { if (BARE) return height(x, z); if (Math.abs(x) < W / 2 + 0.2 && z > -D / 2 - 3 && z < D / 2 + 0.2) return TOP + YB;
+  if (Math.abs(x) < 1.3 && z >= D / 2 && z < D / 2 + 1.95) return TOP + (z < D / 2 + 1.5 ? YB : 0.28);   // the entrance's stoop and step (cabin.js ENTRY)
+  if (Math.abs(x) < W / 2 + 0.85 && z > -(D / 2 + 2.2) && z < -(D / 2 + 1.0)) return Math.max(height(x, z), TOP + YB * (W / 2 + 0.85 - Math.abs(x)) / 0.65);   // the porch steps at both ends (castStage.js STEPS)
+  const g = height(x, z), rd = roadNear(x, z); if (rd && rd.s >= ROAD.b0 && rd.d < 3.2) return Math.max(g, ROAD.y);
   if (BW_CUT && x > BW_CUT[0] && x < BW_CUT[1] && z > BW_CUT[2] && z < BW_CUT[3]) { const b = polyNear(BW, x, z); if (b.d < 1.3) return Math.max(g, bwY(b) + 0.06); } return g; }   // on the bridge or the boardwalk you walk on its boards   // on the bridge you walk on its deck
