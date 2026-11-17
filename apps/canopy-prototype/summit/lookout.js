@@ -161,7 +161,7 @@ export function buildLookout(tower, { M, lam, part, winMat }) {
   const mapTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#e8dcc0'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(120,96,64,.5)'; for (let i = 0; i < 14; i++) { g.beginPath(); g.ellipse(w / 2 + (r() - 0.5) * 60, h / 2 + (r() - 0.5) * 60, 20 + i * 8, 14 + i * 7, r(), 0, 7); g.stroke(); }
     g.strokeStyle = '#7a3a2a'; g.lineWidth = 3; g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(w / 2, 8); g.lineTo(w / 2, h - 8); g.moveTo(8, h / 2); g.lineTo(w - 8, h / 2); g.stroke(); g.fillStyle = '#3a6a8a'; g.fillRect(40, 150, 60, 30); });
   const shelfTex = canvasTex(128, 64, (g, w, h) => { g.fillStyle = '#4a3424'; g.fillRect(0, 0, w, h); for (let x = 4; x < w - 6;) { const bw = 5 + r() * 7; g.fillStyle = ['#8a3a2a', '#2f5a6a', '#c8a050', '#4a6a3a', '#6a4a7a'][(r() * 5) | 0]; g.fillRect(x, 8 + r() * 8, bw, 24); x += bw + 1; } g.fillStyle = '#2a1c12'; g.fillRect(0, 32, w, 4); for (let x = 6; x < w - 10; x += 16) { g.fillStyle = '#d8c8a8'; g.fillRect(x, 42, 10, 14); } });
-    const warm = (o) => { const m = lam(o); m.emissive.set('#5a3418'); m.emissiveIntensity = 0; return m; };   // the tent's bed and stove: lit a little after dark (lookoutStep); not in the bake, which they come after
+    const warm = (o) => { const m = lam(o); m.emissive.set('#fff0e0'); m.emissiveMap = o.map ?? null; m.emissiveIntensity = 0; return m; };   // the tent's bed and stove: not in the bake (they come after it), so after dark they show their own colours a little brighter (lookoutStep), not a flat orange (Adriaen 2026-11-17)
   const IW = lam({ color: '#8a6a4a' }), IM = lam({ map: mapTex }), IS = lam({ map: shelfTex }), IK = lam({ color: '#2a2624' });   // the room's own things take the light maps (lightmap.js), its lamp's light baked in
   const ib = (w, h, d, mat, x, y, z, ry = 0) => box(w, h, d, mat, x, Y0 + y, z, ry, 0, inner);
   ib(0.18, 0.9, 0.18, IW, 0, 0.45, 0); ib(0.9, 0.05, 0.9, IW, 0, 0.92, 0);   // the fire finder's stand
@@ -223,5 +223,5 @@ export function lookoutStep(night, dt) {
   doorsStep(dt);
   const near = camera.position.distanceTo(wp.set(TOWER.x, BASE + FLOOR, TOWER.z)) < INNER_R;
   inner.visible = glass.visible = near; panes.visible = !near;
-  if (near) { lampMat.color.setScalar(0.55 + 0.45 * night).multiply(new THREE.Color('#ffd28a')); inner.traverse((o) => { if (o.material?.emissive) o.material.emissiveIntensity = 0.7 * night; }); }
+  if (near) { lampMat.color.setScalar(0.55 + 0.45 * night).multiply(new THREE.Color('#ffd28a')); inner.traverse((o) => { if (o.material?.emissiveMap) o.material.emissiveIntensity = 0.35 * night; }); }
 }

@@ -185,8 +185,8 @@ export function bakeSources() {
       for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, mw); mw.premultiply(o.matrixWorld).decompose(p, qq, s); n.set(0, 0, 1).applyQuaternion(qq);
         out.push({ kind: 'window', at: p.toArray(), normal: n.toArray(), w: w * s.x, h: h * s.y }); } }
     if (o.isMesh && o.material === doorMat) { o.matrixWorld.decompose(p, qq, s); n.set(0, 0, 1).applyQuaternion(qq); out.push({ kind: 'door', at: p.toArray(), normal: n.toArray(), w: 1.2, h: 2.3 }); } });
-  out.push({ kind: 'point', at: lookoutRoomLamp().toArray(), color: '#ffc477', distance: 0, name: 'lookout' });   // the lookout room's lamp, brighter than a lantern (lookout.js), bake only
-  for (const p of lookoutLamps().slice(0, -1)) out.push({ kind: 'point', at: p.add(new THREE.Vector3(0, -0.125, 0)).toArray(), color: '#ffc477', distance: 0, name: 'lookout_lamp' });   // its stair and door lanterns, at their jars
+  out.push({ kind: 'point', at: lookoutRoomLamp().toArray(), color: '#ffe6c8', distance: 0, name: 'lookout' });   // the lookout room's lamp, brighter than a lantern and whiter (lookout.js; Adriaen 2026-11-17: too orange at 10x), bake only
+  for (const p of lookoutLamps().slice(0, -1)) out.push({ kind: 'point', at: p.add(new THREE.Vector3(0, -0.125, 0)).toArray(), color: '#ffe6c8', distance: 0, name: 'lookout_lamp' });   // its stair and door lanterns, at their jars
   scene.traverse((l) => { if (l.isPointLight) out.push({ kind: 'point', at: l.getWorldPosition(p).toArray(), color: '#' + l.color.getHexString(), distance: l.distance, name: l === porchLight ? 'porch' : l === inside ? 'inside' : 'fire' }); });
   return out;
 }
