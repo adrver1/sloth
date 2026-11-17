@@ -235,7 +235,7 @@
     686.8719284502971,
     88.40628387481797
    ],
-   "color": "#ffc477",
+   "color": "#ffe6c8",
    "distance": 0,
    "name": "lookout",
    "group": "lantern"
@@ -247,7 +247,7 @@
     674.9219284502971,
     83.5368991384359
    ],
-   "color": "#ffc477",
+   "color": "#ffe6c8",
    "distance": 0,
    "name": "lookout_lamp",
    "group": "lantern"
@@ -259,7 +259,7 @@
     677.2519284502971,
     88.10032846026584
    ],
-   "color": "#ffc477",
+   "color": "#ffe6c8",
    "distance": 0,
    "name": "lookout_lamp",
    "group": "lantern"
@@ -271,7 +271,7 @@
     679.581928450297,
     83.5368991384359
    ],
-   "color": "#ffc477",
+   "color": "#ffe6c8",
    "distance": 0,
    "name": "lookout_lamp",
    "group": "lantern"
@@ -283,7 +283,7 @@
     681.9119284502971,
     88.10032846026584
    ],
-   "color": "#ffc477",
+   "color": "#ffe6c8",
    "distance": 0,
    "name": "lookout_lamp",
    "group": "lantern"
@@ -295,7 +295,7 @@
     684.2419284502971,
     83.5368991384359
    ],
-   "color": "#ffc477",
+   "color": "#ffe6c8",
    "distance": 0,
    "name": "lookout_lamp",
    "group": "lantern"
@@ -307,7 +307,7 @@
     686.8719284502971,
     87.00864151666438
    ],
-   "color": "#ffc477",
+   "color": "#ffe6c8",
    "distance": 0,
    "name": "lookout_lamp",
    "group": "lantern"
