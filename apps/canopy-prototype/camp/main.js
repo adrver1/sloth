@@ -34,6 +34,7 @@ import { dayStep, wireTimeMenu } from "./daytime.js";
 import { buildClocks, clockStep } from "./clock.js";
 import { audio, audioStep, cue, initAudio } from "./audio.js";
 import { buildRadio, radioStep } from "./radio.js";
+import { compileAll, lift } from "./loading.js";
 import { buildJeepSeats, jeepSeatStep } from "./jeepSeat.js";
 import { buildCar, carStep } from "./car.js";
 import { buildTrip, tripStep } from "./trip.js";
@@ -134,20 +135,11 @@ function perfStep(raw) {
   if (OPT.dev) $("perf").innerHTML = `${Math.round(fps)} fps · ${+net.pr.toFixed(2)}×<br>${i.calls} draws · ${(i.triangles / 1000).toFixed(0)}k tris`;
   frames = 0; acc = 0; net.pause = false;
 }
-// compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card.
-// three compiles only what is visible, so everything hidden now (the night dome and the moon, the mist, the rain, the pools,
-// the jeep's far model, the highlight's hulls, things the sloths hold) is shown for the call and hidden again after. Lights
-// are left as they are: the shaders are built for the lights that are on (review R2-102)
+// compile every shader before the first frame (camp review P2), so the first look round doesn't stutter; then lift the card
+// (camp/loading.js, shared with the summit)
 warmHighlight();                                           // input.js: the highlight's hulls, hidden, so they compile too
-{
-  // compileAsync builds the programs before it returns (its promise only waits for the driver), so they are hidden again
-  // before any other code can run
-  const hidden = []; scene.traverse((o) => { if (!o.visible && !o.isLight) { hidden.push(o); o.visible = true; } });
-  const compiled = renderer.compileAsync(scene, camera);
-  for (const o of hidden) o.visible = false;
-  await compiled.catch(() => {});
-}
-$("loadbar").style.width = "100%"; $("load").classList.add("done"); setTimeout(() => $("load").remove(), 700);
+await compileAll(renderer, scene, camera);
+lift();
 let last = 0;   // the time stamp of the last frame, in ms, from the one the loop is handed (THREE.Clock is deprecated: R2-126)
 renderer.setAnimationLoop((now) => {
   const raw = last ? (now - last) / 1000 : 0, dt = Math.min(raw, 0.05); last = now; uTime.value += dt;

@@ -2,7 +2,7 @@
 // further out and colour beyond. placeThings(x, z) refills the instanced buckets after you walk 12 m; cullWedges hides those out of view.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { $, CL, HUT, JEEP, LAKE, LOOK_TRAIL, R, TOP, TOWER, TREE_S, fbm, forestAt, hash, height, isPhone, mulberry, onIce, polyNear, roadNear, sstep, trailDist } from './land.js';
+import { $, CL, HUT, JEEP, LAKE, LOOK_TRAIL, R, TOP, TOWER, TREE_S, edgeR, fbm, forestAt, hash, height, isPhone, mulberry, onIce, polyNear, roadNear, sstep, trailDist } from './land.js';
 import { camera, hazed, me, renderer, scene, sunDir } from './core.js';
 import { CARD_R, NEAR, tmpC, uTreeCol, uTreeK } from './terrain.js';
 
@@ -235,6 +235,16 @@ export function tile(ti, tj) {   // trees [x, y, z, size, turn, thin, style], sa
 // spruces round the summit clearing, framing the porch's view
 export const SUMMIT_TREES = [];
 for (let i = 0; i < 34; i++) { const a = R(0, 6.283); if (Math.abs(((a + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.42) continue; const r = R(19, 40), x = Math.cos(a) * r, z = Math.sin(a) * r; if ((roadNear(x, z)?.d ?? 99) < 7 || polyNear(LOOK_TRAIL, x, z).d < 5 || Math.hypot(x - JEEP.x, z - JEEP.z) < 5) continue; SUMMIT_TREES.push(x, height(x, z) - 0.3, z, R(5, 11), R(0, 6.283), 0, i % 2 ? 4 : 0); }
+// young spruces and snowy rocks round the camp and the cabin, so the summit is not an empty field (Adriaen 2026-11-16: "bland
+// and boring compared to the jungle"; the jungle frames its camp with plants at every depth): on the summit's top only, kept
+// off the porch's view south, the paths, the road, the jeep, the camp round the fire and the cabin
+export const SUMMIT_SAPLINGS = [], SUMMIT_ROCKS = [];
+{ const r = mulberry(91), ok = (x, z, near) => { const a = Math.atan2(z, x);
+    return Math.hypot(x, z) < edgeR(a) - 1.2 && Math.abs(((a + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 0.45 && Math.hypot(x - 0.5, z - 11.5) > near && !(Math.abs(x) < 8.5 && z > -8 && z < 5.5)
+      && (roadNear(x, z)?.d ?? 99) > 4.5 && polyNear(LOOK_TRAIL, x, z).d > 2.5 && Math.hypot(x - JEEP.x, z - JEEP.z) > 4.5 && Math.hypot(x + 0.9, z - 16.1) > 3.2 && Math.hypot(x - 5, z - 13.2) > 2; };
+  for (let i = 0; i < 400 && SUMMIT_SAPLINGS.length < 26 * 5; i++) { const cx = (r() - 0.5) * 50, cz = (r() - 0.5) * 50 + 4; if (!ok(cx, cz, 9)) continue;   // in clumps of one to three
+    for (let k = 0, n = 1 + (r() * 3 | 0); k < n; k++) { const x = cx + (r() - 0.5) * 3, z = cz + (r() - 0.5) * 3; if (ok(x, z, 8.5)) SUMMIT_SAPLINGS.push(x, height(x, z) - 0.2, z, 1.1 + 2.4 * r() ** 1.4, r() * 6.283); } }
+  for (let i = 0; i < 300 && SUMMIT_ROCKS.length < 40 * 5; i++) { const x = (r() - 0.5) * 56, z = (r() - 0.5) * 56 + 4; if (!ok(x, z, 6)) continue; const s = 0.25 + 0.75 * r() ** 2; SUMMIT_ROCKS.push(x, height(x, z) - 0.45 * s, z, s, r() * 6.283); } }
 // round snowy bushes along the edge of the summit clearing: not placed since v22 (Adriaen 2026-11-15: they read as buried treetops)
 const CAMP_BUSHES = [];
 { const r = mulberry(77); for (let i = 0; i < 40 && CAMP_BUSHES.length < 22 * 3; i++) { const a = r() * 6.283, d = 13 + 9 * r(), x = Math.cos(a) * d, z = Math.sin(a) * d;
@@ -248,6 +258,8 @@ export function placeThings(px, pz) {
     if (d2 < NEAR * NEAR && nearBuf[sp].length < NEAR_MAX[sp]) nearBuf[sp].push([d2, x, y, z, s, turn, w]);
     if (d2 > (NEAR - 12) ** 2 && d2 < CARD_R * CARD_R && nc < CARD_MAX) { const k = wedgeOf(x - px, z - pz); m4.compose(v3.set(x, y - 0.2, z), q.identity(), sc.set(s * w, s, s)); cards[k].setMatrixAt(cn[k], m4); cards[k].userData.sp.array[cn[k]++] = sp; nc++; } };
   for (let i = 0; i < SUMMIT_TREES.length; i += 7) tree(...SUMMIT_TREES.slice(i, i + 7));
+  for (let i = 0; i < SUMMIT_SAPLINGS.length; i += 5) put(saplings, ns++, ...SUMMIT_SAPLINGS.slice(i, i + 5));
+  for (let i = 0; i < SUMMIT_ROCKS.length; i += 5) put(rocks, nr++, ...SUMMIT_ROCKS.slice(i, i + 5), true);   // flat: slabs half in the snow
   const t0 = Math.floor((px - CARD_R) / TILE), t1 = Math.floor((px + CARD_R) / TILE), u0 = Math.floor((pz - CARD_R) / TILE), u1 = Math.floor((pz + CARD_R) / TILE);
   const order = [];
   for (let tj = u0; tj <= u1; tj++) for (let ti = t0; ti <= t1; ti++) {

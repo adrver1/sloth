@@ -16,10 +16,11 @@
 // (NEAR), when a door or the hood moves, and while the jeep moves (the drives roll its tyres). The dash (car.js, api.inside)
 // is hidden with the parts: through the windows from 6 m it is a few pixels.
 import * as THREE from "three";
-import { V, canvasTex, ease } from "./util.js";
+import { V, canvasTex } from "./util.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { addHeadlights } from "./headlights.js";
 import { uNight } from "./stage.js";
+import { swingStep } from "./hingedDoor.js";
 
 export function rigJeep(jeep, { camera, renderer, far = null, spot = true }) {
   jeep.updateMatrixWorld(true);
@@ -95,12 +96,8 @@ export function rigJeep(jeep, { camera, renderer, far = null, spot = true }) {
   const step = (dt) => {
     let moved = false, shut = true;
     for (const d of doorList) {
-      if (d.cur !== d.want) {
-        const s = dt * 1.8; d.cur += Math.max(-s, Math.min(s, d.want - d.cur));
-        d.o.rotation[d.axis] = d.open * ease(d.cur / d.open);                // ease in and out
-        if (d.axis === "y") moved = true;                                    // a cabin door (the hood turns about x)
-        // on purpose, the hood's swing does not redraw the cabin spot's shadow map, so the hood's shadow from it lags until a cabin door moves
-      }
+      if (swingStep(d, dt) && d.axis === "y") moved = true;              // a cabin door (the hood turns about x; hingedDoor.js swings them all)
+      // on purpose, the hood's swing does not redraw the cabin spot's shadow map, so the hood's shadow from it lags until a cabin door moves
       if (d.cur !== 0) shut = false;
     }
     lightStep(dt, moved);

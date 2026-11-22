@@ -9,18 +9,25 @@ import { placedAt } from './forest.js';
 export const hemi = new THREE.HemisphereLight('#b8d4f4', '#a0a8b8', 1);
 export const sun = new THREE.DirectionalLight('#ffffff', 2.5);
 sun.shadow.mapSize.set(isPhone ? 1024 : 2048, isPhone ? 1024 : 2048);
-Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 10, far: 500 });
-sun.shadow.bias = -0.0004;
-sun.shadow.normalBias = 0.04;
+// the sun sits 250 m out along its direction (daylightStep), so its depth range is kept to 170..330 m, 80 m either side of the
+// camp: the depth bias is a fraction of that range, and over 10..500 m it was 0.2 m, which lifted the shadows off the feet of the
+// fence posts and trees (Adriaen 2026-11-16: "the shadows don't go all the way to the pole")
+Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 170, far: 330 });
+sun.shadow.bias = -0.0002;
+sun.shadow.normalBias = 0.02;
 export const moonDir = new THREE.Vector3(0.45, 0.42, 0.78).normalize();
 
 // colours by the sun's height in degrees (night, blue hour, sunset, golden, winter day)
+// The Long Dark's look (Adriaen 2026-11-16, references in the project files, summit-level/look/reference/): the sky's colour
+// floods the scene, with an orange sunset, a pink dusk and a teal-green night; the sky light (hs) and its bounce off the snow (hg)
+// carry that colour into the shade, and the haze (core.js) paints the far land in it. The hemisphere stays low against the
+// sun, so the shade reads as colour and the lit faces stand out.
 const KEYS = [
-  { e: -14, zen: '#050a17', hor: '#101b30', sun: '#000000', hs: '#2b3d63', hg: '#18203a', hemi: 0.5, light: 0 },
-  { e: -5, zen: '#101f45', hor: '#3d4e7c', sun: '#ff7a5a', hs: '#5466a0', hg: '#2a3050', hemi: 0.55, light: 0 },
-  { e: 0, zen: '#26498a', hor: '#efa48a', sun: '#ff9256', hs: '#8a9cd0', hg: '#7a6c80', hemi: 0.8, light: 0.7 },
-  { e: 6, zen: '#3f74c2', hor: '#f6d6b0', sun: '#ffc78e', hs: '#bcc8e8', hg: '#cdb294', hemi: 0.9, light: 1.7 },
-  { e: 16, zen: '#3c78cc', hor: '#eadfcf', sun: '#ffe6c2', hs: '#c6d4ee', hg: '#d6c3a8', hemi: 0.95, light: 1.9 },
+  { e: -14, zen: '#06120f', hor: '#16362d', sun: '#000000', hs: '#2f6455', hg: '#183a30', hemi: 0.55, light: 0 },
+  { e: -5, zen: '#3b3866', hor: '#e597a8', sun: '#ff8090', hs: '#8a8cc4', hg: '#6a5272', hemi: 0.6, light: 0 },
+  { e: 0, zen: '#b4583e', hor: '#ff8a3c', sun: '#ff7428', hs: '#9a8cb4', hg: '#b06a4c', hemi: 0.6, light: 1.3 },
+  { e: 6, zen: '#8e8cb0', hor: '#ffad6a', sun: '#ffaa64', hs: '#93a6d6', hg: '#d29a74', hemi: 0.6, light: 2.4 },
+  { e: 16, zen: '#5c8ccc', hor: '#f2d6c4', sun: '#ffe0b4', hs: '#a2bce6', hg: '#d8c0a0', hemi: 0.66, light: 2.6 },
 ].map((k) => ({ ...k, zen: new THREE.Color(k.zen), hor: new THREE.Color(k.hor), sun: new THREE.Color(k.sun), hs: new THREE.Color(k.hs), hg: new THREE.Color(k.hg) }));
 export const P = { zen: new THREE.Color(), hor: new THREE.Color(), sun: new THREE.Color(), hs: new THREE.Color(), hg: new THREE.Color(), hemi: 1, light: 1 };
 export function palette(e) {
@@ -32,7 +39,7 @@ export function palette(e) {
 
 // weather: three presets the scene eases between
 export const WEATHER = {
-  clear: { haze: 1.2e-4, mist: 0.0006, fog: 0, storm: 0 },
+  clear: { haze: 2.6e-4, mist: 0.0006, fog: 0, storm: 0 },
   valley: { haze: 3.5e-4, mist: 0.0022, fog: 0, storm: 0 },
   storm: { haze: 5e-4, mist: 0, fog: 0.016, storm: 1 },
 };
@@ -68,7 +75,7 @@ export function daylightStep(dt) {
   U.uHaze.value = SKY.haze ? W_NOW.haze : 0; U.uMist.value = W_NOW.mist;
   U.uMistCol.value.copy(P.hor).lerp(white, 0.45).multiplyScalar(0.25 + 0.75 * day);
   U.uFogDen.value = W_NOW.fog; U.uFogCol.value.copy(P.hor).lerp(fogGrey, 0.55).multiplyScalar(0.3 + 0.6 * bright);
-  const su = sky.material.uniforms; su.uZen.value.copy(P.zen); su.uNight.value = 1 - sstep(-10, -3, el); su.uMoonDir.value.copy(moonDir); su.uFog.value = 0.92 * storm;
+  const su = sky.material.uniforms; su.uT.value += dt; su.uZen.value.copy(P.zen); su.uNight.value = 1 - sstep(-10, -3, el); su.uMoonDir.value.copy(moonDir); su.uFog.value = 0.92 * storm;
   hemi.color.copy(P.hs); hemi.groundColor.copy(P.hg); hemi.intensity = P.hemi * (1 - 0.3 * storm);
   // the sun's shadow map is redrawn only when its 4 m grid spot or the light changes, or after new trees are placed:
   // standing still or turning round costs no shadow pass at all (the flag's cloth casts none, since it flaps)

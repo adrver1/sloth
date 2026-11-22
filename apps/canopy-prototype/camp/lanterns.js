@@ -115,6 +115,7 @@ export function createLanterns({ scene, layout, glowTex }) {
       #include <fog_pars_vertex>
       void main() { vUv = uv; vCol = iSC.yzw;
         vec4 mvPosition = modelViewMatrix * vec4(iAt, 1.0); mvPosition.xy += position.xy * iSC.x / projectionMatrix[1][1]; gl_Position = projectionMatrix * mvPosition;
+        vec3 transformed = iAt;   // the summit's fog chunk (summit/core.js) reads the point it fogs from here
         #include <fog_vertex>
       }`,
     fragmentShader: `uniform sampler2D map; uniform float uOpacity; varying vec2 vUv; varying vec3 vCol;

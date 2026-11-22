@@ -18,6 +18,7 @@ import { levels, terrainMats } from './terrain.js';
 import { SPECIES, SUMMIT_TREES, TCELL, TILE, TREES, bushGeo, bushes, cards, logGeo, logs, nearN, rocks, saplings, tile } from './forest.js';
 import { CAMP } from './scoutCamp.js';
 import { SKY, WEATHER } from './daylight.js';
+import { lookoutBlocks, lookoutFloor } from './lookout.js';
 
 // ---------------------------------------------------------------- walking
 const faceTo = (x, z, t) => Math.atan2(-(t.x - x), -(t.z - z));   // the yaw that looks from (x, z) at t
@@ -43,8 +44,14 @@ function bounds(p) {
   [x, z] = treePush(x, z);
   if (!BARE) [x, z] = pushOut(x, z, JEEP.x, JEEP.z, 2.0, 1.0, 0);   // the jeep lies along x
   if (!walkable(x, z)) { if (walkable(x, me.z)) z = me.z; else if (walkable(me.x, z)) x = me.x; else { x = me.x; z = me.z; } }
+  // a step may climb a stair's step but not a wall, and may step down but not off an edge (the lookout's stairs and deck,
+  // lookout.js, where what is under you depends on how high you are); and the lookout's legs, railing, cab walls and room
+  if (!BARE) { const f0 = me.pos.y - (me.hover || 0), ok = (qx, qz) => { const d = floorAt(qx, qz) - f0; return d < 0.6 && d > -1.2 && !lookoutBlocks(me.x, me.z, qx, qz, f0); };
+    if (!ok(x, z)) { if (ok(x, me.z)) z = me.z; else if (ok(me.x, z)) x = me.x; else { x = me.x; z = me.z; } } }
   p.x = x; p.z = z;
 }
+// the floor under (x, z) for your feet: the lookout's stairs or deck where you are on them, the land's ground elsewhere
+const floorAt = (x, z) => lookoutFloor(x, z, me.pos.y - (me.hover || 0)) ?? groundAt(x, z);
 // the cast's blockers are in the camp's frame (castStage.js); the player walks in the world's
 const walkBlockers = BARE ? [] : castBlockers.map((b) => ({ ...b, at: b.at.clone().add(new THREE.Vector3(CAST_O.x, 0, CAST_O.z)) }));
 export function walk(dt) { step(dt); aimStep(dt); }
@@ -72,7 +79,7 @@ export function buildPlayer() {
     document.querySelectorAll('#jump button').forEach((b) => { b.textContent = { porch: 'Summit', tower: 'Ridge', camp: 'Lake shore' }[b.dataset.p]; });
     me.x = S1[0]; me.z = S1[1]; me.y = S1[2] + 1.65; me.yaw = faceTo(S1[0], S1[1], { x: BIG.x, z: BIG.z });
   }
-  setPlayer({ camera, groundAt: (x, z) => groundAt(x, z) + (me.hover || 0), bounds, blockers: walkBlockers });   // hover: a debug lift for overview shots
+  setPlayer({ camera, groundAt: (x, z) => floorAt(x, z) + (me.hover || 0), bounds, blockers: walkBlockers });   // hover: a debug lift for overview shots
   // the camp's input: what you carry is a fruit from the porch basket (slothLife.js), eaten by the camp's own eating
   initInput({ renderer, scene, camera, canvas: renderer.domElement, stick: $('stick'), help: $('q'), touch: OPT.touch,
     carry: { food: () => lifeHooks.held?.() ?? null, give: () => lifeHooks.give?.() ?? null }, eat: (s, mesh, from) => !!lifeHooks.eat && (lifeHooks.eat(s, mesh, from), true),
